@@ -5,6 +5,6 @@
     path = cuML/external/cutlass
     url = https://github.com/teju85/cutlass.git
     branch = v0.1-customizations
-[submodule "external/ml-prims"]
-    path = external/ml-prims
+[submodule "cuML/external/ml-prims"]
+    path = cuML/external/ml-prims
     url = ssh://git@gitlab-master.nvidia.com:12051/RAPIDS/ml-prims.git
