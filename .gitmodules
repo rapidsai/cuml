@@ -1,7 +1,7 @@
-[submodule "cuML/external/googletest"]
-    path = external/googletest
+[submodule "external/googletest"]
+    path = cuML/external/googletest
     url = https://github.com/google/googletest
-[submodule "cuML/external/cutlass"]
-    path = external/cutlass
+[submodule "external/cutlass"]
+    path = cuML/external/cutlass
     url = https://github.com/teju85/cutlass.git
     branch = v0.1-customizations
