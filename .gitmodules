@@ -8,3 +8,9 @@
 [submodule "cuML/external/ml-prims"]
     path = cuML/external/ml-prims
     url = ssh://git@gitlab-master.nvidia.com:12051/RAPIDS/ml-prims.git
+[submodule "ml-prims/external/cutlass"]
+    path = ml-prims/external/cutlass
+    url = https://github.com/NVIDIA/cutlass
+[submodule "ml-prims/external/cub"]
+    path = ml-prims/external/cub
+    url = https://github.com/NVlabs/cub
