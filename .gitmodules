@@ -14,3 +14,6 @@
 [submodule "ml-prims/external/cub"]
     path = ml-prims/external/cub
     url = https://github.com/NVlabs/cub
+[submodule "ml-prims/external/googletest"]
+    path = ml-prims/external/googletest
+    url = https://github.com/google/googletest
