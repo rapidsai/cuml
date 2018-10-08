@@ -1,0 +1,658 @@
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.99678 seconds
+fit_ sklearn done in 1.08578 seconds
+transform_ sklearn done in 0.21612 seconds
+run_pca sklearn done in 1.30644 seconds
+fit_ cuml done in 1.80075 seconds
+transform_ cuml done in 0.14337 seconds
+run_pca cuml done in 1.94828 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.48904 seconds
+fit_ sklearn done in 1.01135 seconds
+transform_ sklearn done in 0.19976 seconds
+run_pca sklearn done in 1.21528 seconds
+fit_ cuml done in 1.67869 seconds
+transform_ cuml done in 0.13437 seconds
+run_pca cuml done in 1.81695 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.66563 seconds
+fit_ sklearn done in 1.09043 seconds
+transform_ sklearn done in 0.20226 seconds
+run_pca sklearn done in 1.29846 seconds
+fit_ cuml done in 1.71418 seconds
+transform_ cuml done in 0.14044 seconds
+run_pca cuml done in 1.85914 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.22292 seconds
+fit_ sklearn done in 2.13966 seconds
+transform_ sklearn done in 0.53018 seconds
+run_pca sklearn done in 2.67693 seconds
+fit_ cuml done in 2.64808 seconds
+transform_ cuml done in 0.19078 seconds
+run_pca cuml done in 2.84388 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.87461 seconds
+fit_ sklearn done in 2.06222 seconds
+transform_ sklearn done in 0.35967 seconds
+run_pca sklearn done in 2.42748 seconds
+fit_ cuml done in 2.42728 seconds
+transform_ cuml done in 0.17839 seconds
+run_pca cuml done in 2.61086 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.44527 seconds
+fit_ sklearn done in 2.11344 seconds
+transform_ sklearn done in 0.36642 seconds
+run_pca sklearn done in 2.48496 seconds
+fit_ cuml done in 2.53724 seconds
+transform_ cuml done in 0.17510 seconds
+run_pca cuml done in 2.71633 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.29451 seconds
+fit_ sklearn done in 9.27273 seconds
+transform_ sklearn done in 0.90651 seconds
+run_pca sklearn done in 10.18414 seconds
+fit_ cuml done in 4.15159 seconds
+transform_ cuml done in 0.23277 seconds
+run_pca cuml done in 4.38886 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.88762 seconds
+fit_ sklearn done in 9.65011 seconds
+transform_ sklearn done in 0.80024 seconds
+run_pca sklearn done in 10.45589 seconds
+fit_ cuml done in 3.98464 seconds
+transform_ cuml done in 0.22643 seconds
+run_pca cuml done in 4.21631 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.68504 seconds
+fit_ sklearn done in 9.08401 seconds
+transform_ sklearn done in 0.80909 seconds
+run_pca sklearn done in 9.89888 seconds
+fit_ cuml done in 4.06853 seconds
+transform_ cuml done in 0.23852 seconds
+run_pca cuml done in 4.31330 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.45755 seconds
+fit_ sklearn done in 2.65082 seconds
+transform_ sklearn done in 0.41976 seconds
+run_pca sklearn done in 3.07541 seconds
+fit_ cuml done in 1.76836 seconds
+transform_ cuml done in 0.17319 seconds
+run_pca cuml done in 1.94622 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 26.68348 seconds
+fit_ sklearn done in 2.37042 seconds
+transform_ sklearn done in 0.38151 seconds
+run_pca sklearn done in 2.75723 seconds
+fit_ cuml done in 1.73919 seconds
+transform_ cuml done in 0.17875 seconds
+run_pca cuml done in 1.92247 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.86625 seconds
+fit_ sklearn done in 2.69047 seconds
+transform_ sklearn done in 0.47927 seconds
+run_pca sklearn done in 3.17381 seconds
+fit_ cuml done in 1.77953 seconds
+transform_ cuml done in 0.16733 seconds
+run_pca cuml done in 1.95090 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.46083 seconds
+fit_ sklearn done in 4.56868 seconds
+transform_ sklearn done in 0.75262 seconds
+run_pca sklearn done in 5.32587 seconds
+fit_ cuml done in 2.51925 seconds
+transform_ cuml done in 0.21525 seconds
+run_pca cuml done in 2.73922 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.32491 seconds
+fit_ sklearn done in 4.60649 seconds
+transform_ sklearn done in 0.82979 seconds
+run_pca sklearn done in 5.44134 seconds
+fit_ cuml done in 2.57637 seconds
+transform_ cuml done in 0.21955 seconds
+run_pca cuml done in 2.80191 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.98893 seconds
+fit_ sklearn done in 4.66744 seconds
+transform_ sklearn done in 0.83798 seconds
+run_pca sklearn done in 5.51094 seconds
+fit_ cuml done in 2.52110 seconds
+transform_ cuml done in 0.22250 seconds
+run_pca cuml done in 2.74837 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.61801 seconds
+fit_ sklearn done in 21.10771 seconds
+transform_ sklearn done in 1.57978 seconds
+run_pca sklearn done in 22.69304 seconds
+fit_ cuml done in 4.09200 seconds
+transform_ cuml done in 0.26716 seconds
+run_pca cuml done in 4.36396 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.84657 seconds
+fit_ sklearn done in 21.27765 seconds
+transform_ sklearn done in 1.60926 seconds
+run_pca sklearn done in 22.89224 seconds
+fit_ cuml done in 4.09738 seconds
+transform_ cuml done in 0.26326 seconds
+run_pca cuml done in 4.36517 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.18355 seconds
+fit_ sklearn done in 21.49113 seconds
+transform_ sklearn done in 1.67404 seconds
+run_pca sklearn done in 23.17062 seconds
+fit_ cuml done in 3.98407 seconds
+transform_ cuml done in 0.26010 seconds
+run_pca cuml done in 4.24850 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.31405 seconds
+fit_ sklearn done in 5.20402 seconds
+transform_ sklearn done in 0.89086 seconds
+run_pca sklearn done in 6.11645 seconds
+fit_ cuml done in 1.75248 seconds
+transform_ cuml done in 0.15705 seconds
+run_pca cuml done in 1.91526 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.23295 seconds
+fit_ sklearn done in 5.21628 seconds
+transform_ sklearn done in 0.81592 seconds
+run_pca sklearn done in 6.03845 seconds
+fit_ cuml done in 1.78776 seconds
+transform_ cuml done in 0.15305 seconds
+run_pca cuml done in 1.94636 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.83325 seconds
+fit_ sklearn done in 5.45007 seconds
+transform_ sklearn done in 0.94755 seconds
+run_pca sklearn done in 6.40279 seconds
+fit_ cuml done in 1.75168 seconds
+transform_ cuml done in 0.16849 seconds
+run_pca cuml done in 1.92515 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.10036 seconds
+fit_ sklearn done in 9.46769 seconds
+transform_ sklearn done in 1.56198 seconds
+run_pca sklearn done in 11.03606 seconds
+fit_ cuml done in 2.59048 seconds
+transform_ cuml done in 0.20938 seconds
+run_pca cuml done in 2.80448 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.92483 seconds
+fit_ sklearn done in 11.11083 seconds
+transform_ sklearn done in 1.70699 seconds
+run_pca sklearn done in 12.82402 seconds
+fit_ cuml done in 2.72024 seconds
+transform_ cuml done in 0.20684 seconds
+run_pca cuml done in 2.93166 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.52303 seconds
+fit_ sklearn done in 10.09022 seconds
+transform_ sklearn done in 1.56429 seconds
+run_pca sklearn done in 11.66085 seconds
+fit_ cuml done in 2.60759 seconds
+transform_ cuml done in 0.20337 seconds
+run_pca cuml done in 2.81584 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.74517 seconds
+fit_ sklearn done in 45.85603 seconds
+transform_ sklearn done in 3.05424 seconds
+run_pca sklearn done in 48.91784 seconds
+fit_ cuml done in 4.16034 seconds
+transform_ cuml done in 0.31226 seconds
+run_pca cuml done in 4.47812 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.88688 seconds
+fit_ sklearn done in 49.27925 seconds
+transform_ sklearn done in 3.33431 seconds
+run_pca sklearn done in 52.61978 seconds
+fit_ cuml done in 4.23572 seconds
+transform_ cuml done in 0.34922 seconds
+run_pca cuml done in 4.58994 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.00454 seconds
+fit_ sklearn done in 45.42521 seconds
+transform_ sklearn done in 3.33629 seconds
+run_pca sklearn done in 48.76878 seconds
+fit_ cuml done in 4.48286 seconds
+transform_ cuml done in 0.32194 seconds
+run_pca cuml done in 4.80997 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.99390 seconds
+fit_ sklearn done in 10.71542 seconds
+transform_ sklearn done in 1.45293 seconds
+run_pca sklearn done in 12.17264 seconds
+fit_ cuml done in 1.73653 seconds
+transform_ cuml done in 0.17033 seconds
+run_pca cuml done in 1.91148 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.95585 seconds
+fit_ sklearn done in 11.42979 seconds
+transform_ sklearn done in 1.78493 seconds
+run_pca sklearn done in 13.21990 seconds
+fit_ cuml done in 1.86407 seconds
+transform_ cuml done in 0.18496 seconds
+run_pca cuml done in 2.05380 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.63059 seconds
+fit_ sklearn done in 11.11318 seconds
+transform_ sklearn done in 2.22767 seconds
+run_pca sklearn done in 13.34705 seconds
+fit_ cuml done in 1.85647 seconds
+transform_ cuml done in 0.19689 seconds
+run_pca cuml done in 2.05932 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.58450 seconds
+fit_ sklearn done in 21.46743 seconds
+transform_ sklearn done in 3.35026 seconds
+run_pca sklearn done in 24.82357 seconds
+fit_ cuml done in 2.68546 seconds
+transform_ cuml done in 0.23924 seconds
+run_pca cuml done in 2.93003 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.61698 seconds
+fit_ sklearn done in 21.60644 seconds
+transform_ sklearn done in 3.42317 seconds
+run_pca sklearn done in 25.03560 seconds
+fit_ cuml done in 20.93842 seconds
+transform_ cuml done in 0.24087 seconds
+run_pca cuml done in 21.18434 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.69018 seconds
+fit_ sklearn done in 21.52280 seconds
+transform_ sklearn done in 3.34641 seconds
+run_pca sklearn done in 24.87458 seconds
+fit_ cuml done in 2.75120 seconds
+transform_ cuml done in 0.25016 seconds
+run_pca cuml done in 3.00573 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.71979 seconds
+fit_ sklearn done in 97.43249 seconds
+transform_ sklearn done in 6.79210 seconds
+run_pca sklearn done in 104.23004 seconds
+fit_ cuml done in 4.30847 seconds
+transform_ cuml done in 0.35945 seconds
+run_pca cuml done in 4.67170 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.75861 seconds
+fit_ sklearn done in 103.24361 seconds
+transform_ sklearn done in 6.34151 seconds
+run_pca sklearn done in 109.59052 seconds
+fit_ cuml done in 4.30290 seconds
+transform_ cuml done in 0.37410 seconds
+run_pca cuml done in 4.68217 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.94628 seconds
+fit_ sklearn done in 99.95401 seconds
+transform_ sklearn done in 8.84417 seconds
+run_pca sklearn done in 110.54873 seconds
+fit_ cuml done in 4.63357 seconds
+transform_ cuml done in 0.39581 seconds
+run_pca cuml done in 5.03489 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.29356 seconds
+fit_ sklearn done in 24.68316 seconds
+transform_ sklearn done in 3.18978 seconds
+run_pca sklearn done in 27.87815 seconds
+fit_ cuml done in 1.89806 seconds
+transform_ cuml done in 0.21956 seconds
+run_pca cuml done in 2.12285 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.51338 seconds
+fit_ sklearn done in 23.66214 seconds
+transform_ sklearn done in 3.49472 seconds
+run_pca sklearn done in 27.16237 seconds
+fit_ cuml done in 1.95876 seconds
+transform_ cuml done in 0.23908 seconds
+run_pca cuml done in 5.81248 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.28985 seconds
+fit_ sklearn done in 23.00165 seconds
+transform_ sklearn done in 3.50455 seconds
+run_pca sklearn done in 26.51156 seconds
+fit_ cuml done in 1.86588 seconds
+transform_ cuml done in 0.21208 seconds
+run_pca cuml done in 2.08268 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.28420 seconds
+fit_ sklearn done in 41.50539 seconds
+transform_ sklearn done in 6.50003 seconds
+run_pca sklearn done in 48.01238 seconds
+fit_ cuml done in 2.79746 seconds
+transform_ cuml done in 0.29673 seconds
+run_pca cuml done in 3.09873 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.54900 seconds
+fit_ sklearn done in 43.77899 seconds
+transform_ sklearn done in 6.76520 seconds
+run_pca sklearn done in 50.55054 seconds
+fit_ cuml done in 2.73722 seconds
+transform_ cuml done in 0.31091 seconds
+run_pca cuml done in 3.05358 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.37835 seconds
+fit_ sklearn done in 42.70646 seconds
+transform_ sklearn done in 6.78554 seconds
+run_pca sklearn done in 49.49871 seconds
+fit_ cuml done in 2.82226 seconds
+transform_ cuml done in 0.31971 seconds
+run_pca cuml done in 3.14740 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.35404 seconds
+fit_ sklearn done in 203.13472 seconds
+transform_ sklearn done in 18.44060 seconds
+run_pca sklearn done in 221.58208 seconds
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 27.63166 seconds
+fit_ sklearn done in 216.17910 seconds
+transform_ sklearn done in 13.66269 seconds
+run_pca sklearn done in 229.84993 seconds
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 26.29415 seconds
+fit_ sklearn done in 198.19406 seconds
+transform_ sklearn done in 13.72354 seconds
+run_pca sklearn done in 211.92347 seconds
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.83433 seconds
+fit_ sklearn done in 50.14629 seconds
+transform_ sklearn done in 8.00641 seconds
+run_pca sklearn done in 58.15821 seconds
+fit_ cuml done in 2.19972 seconds
+transform_ cuml done in 0.27906 seconds
+run_pca cuml done in 2.48290 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.62851 seconds
+fit_ sklearn done in 47.79905 seconds
+transform_ sklearn done in 6.95017 seconds
+run_pca sklearn done in 54.75555 seconds
+fit_ cuml done in 2.11510 seconds
+transform_ cuml done in 0.26679 seconds
+run_pca cuml done in 2.38650 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.53393 seconds
+fit_ sklearn done in 48.45176 seconds
+transform_ sklearn done in 7.13317 seconds
+run_pca sklearn done in 55.59210 seconds
+fit_ cuml done in 2.02992 seconds
+transform_ cuml done in 0.26904 seconds
+run_pca cuml done in 2.30387 seconds
+compare pca: cuml vs sklearn singular_values_ NOT equal
+compare pca: cuml vs sklearn components_ NOT equal
+compare pca: cuml vs sklearn explained_variance_ equal
+compare pca: cuml vs sklearn explained_variance_ratio_ equal
+compare pca: cuml vs sklearn noise_variance_ NOT equal
+compare pca: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.18611 seconds
+fit_ sklearn done in 92.38851 seconds
+transform_ sklearn done in 13.20018 seconds
+run_pca sklearn done in 109.84474 seconds
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.72312 seconds
+fit_ sklearn done in 91.66215 seconds
+transform_ sklearn done in 13.45526 seconds
+run_pca sklearn done in 105.12478 seconds
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.39052 seconds
+fit_ sklearn done in 88.79534 seconds

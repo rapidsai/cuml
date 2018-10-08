@@ -1,0 +1,630 @@
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.55005 seconds
+fit_ sklearn done in 0.40303 seconds
+transform_ sklearn done in 0.02568 seconds
+run_tsvd sklearn done in 0.43238 seconds
+fit_ cuml done in 1.87155 seconds
+transform_ cuml done in 0.15691 seconds
+run_tsvd cuml done in 2.03277 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.72210 seconds
+fit_ sklearn done in 0.65930 seconds
+transform_ sklearn done in 0.02376 seconds
+run_tsvd sklearn done in 0.68730 seconds
+fit_ cuml done in 1.83400 seconds
+transform_ cuml done in 0.15222 seconds
+run_tsvd cuml done in 1.99051 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.18018 seconds
+fit_ sklearn done in 0.91388 seconds
+transform_ sklearn done in 0.02952 seconds
+run_tsvd sklearn done in 0.94932 seconds
+fit_ cuml done in 1.91519 seconds
+transform_ cuml done in 0.16490 seconds
+run_tsvd cuml done in 2.08524 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 27.13058 seconds
+fit_ sklearn done in 1.33425 seconds
+transform_ sklearn done in 0.04892 seconds
+run_tsvd sklearn done in 1.38900 seconds
+fit_ cuml done in 2.69618 seconds
+transform_ cuml done in 0.18905 seconds
+run_tsvd cuml done in 2.89002 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.02979 seconds
+fit_ sklearn done in 1.58077 seconds
+transform_ sklearn done in 0.04965 seconds
+run_tsvd sklearn done in 1.63606 seconds
+fit_ cuml done in 2.60499 seconds
+transform_ cuml done in 0.18830 seconds
+run_tsvd cuml done in 2.79817 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.11743 seconds
+fit_ sklearn done in 1.89121 seconds
+transform_ sklearn done in 0.04806 seconds
+run_tsvd sklearn done in 1.94520 seconds
+fit_ cuml done in 2.62869 seconds
+transform_ cuml done in 0.18561 seconds
+run_tsvd cuml done in 2.82018 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.11812 seconds
+fit_ sklearn done in 2.64744 seconds
+transform_ sklearn done in 0.10043 seconds
+run_tsvd sklearn done in 2.75299 seconds
+fit_ cuml done in 4.18445 seconds
+transform_ cuml done in 0.24103 seconds
+run_tsvd cuml done in 4.42994 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.82749 seconds
+fit_ sklearn done in 3.31912 seconds
+transform_ sklearn done in 0.08148 seconds
+run_tsvd sklearn done in 3.40513 seconds
+fit_ cuml done in 4.14152 seconds
+transform_ cuml done in 0.23929 seconds
+run_tsvd cuml done in 4.38611 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=262144, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.67268 seconds
+fit_ sklearn done in 2.59185 seconds
+transform_ sklearn done in 0.08956 seconds
+run_tsvd sklearn done in 2.68672 seconds
+fit_ cuml done in 4.19680 seconds
+transform_ cuml done in 0.24636 seconds
+run_tsvd cuml done in 4.44891 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.33362 seconds
+fit_ sklearn done in 1.09315 seconds
+transform_ sklearn done in 0.04802 seconds
+run_tsvd sklearn done in 1.14638 seconds
+fit_ cuml done in 1.77718 seconds
+transform_ cuml done in 0.17966 seconds
+run_tsvd cuml done in 1.96147 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.92292 seconds
+fit_ sklearn done in 1.15666 seconds
+transform_ sklearn done in 0.07013 seconds
+run_tsvd sklearn done in 4.79608 seconds
+fit_ cuml done in 11.05323 seconds
+transform_ cuml done in 0.18340 seconds
+run_tsvd cuml done in 11.24216 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.71635 seconds
+fit_ sklearn done in 1.07307 seconds
+transform_ sklearn done in 0.05428 seconds
+run_tsvd sklearn done in 1.13259 seconds
+fit_ cuml done in 1.74381 seconds
+transform_ cuml done in 0.17948 seconds
+run_tsvd cuml done in 1.92760 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.67657 seconds
+fit_ sklearn done in 3.51541 seconds
+transform_ sklearn done in 0.10160 seconds
+run_tsvd sklearn done in 3.62172 seconds
+fit_ cuml done in 2.76466 seconds
+transform_ cuml done in 0.20930 seconds
+run_tsvd cuml done in 2.97821 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.86241 seconds
+fit_ sklearn done in 3.52800 seconds
+transform_ sklearn done in 0.09429 seconds
+run_tsvd sklearn done in 3.62787 seconds
+fit_ cuml done in 2.53034 seconds
+transform_ cuml done in 0.20777 seconds
+run_tsvd cuml done in 2.74322 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.65927 seconds
+fit_ sklearn done in 3.54139 seconds
+transform_ sklearn done in 0.10071 seconds
+run_tsvd sklearn done in 3.64874 seconds
+fit_ cuml done in 2.73603 seconds
+transform_ cuml done in 0.21488 seconds
+run_tsvd cuml done in 2.95620 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 26.18659 seconds
+fit_ sklearn done in 6.45834 seconds
+transform_ sklearn done in 0.15231 seconds
+run_tsvd sklearn done in 6.61650 seconds
+fit_ cuml done in 4.31314 seconds
+transform_ cuml done in 0.27018 seconds
+run_tsvd cuml done in 4.58811 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 25.28994 seconds
+fit_ sklearn done in 5.99353 seconds
+transform_ sklearn done in 0.28143 seconds
+run_tsvd sklearn done in 6.28072 seconds
+fit_ cuml done in 4.32215 seconds
+transform_ cuml done in 0.28943 seconds
+run_tsvd cuml done in 4.61748 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=524288, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 25.28452 seconds
+fit_ sklearn done in 5.14635 seconds
+transform_ sklearn done in 0.15735 seconds
+run_tsvd sklearn done in 5.30850 seconds
+fit_ cuml done in 4.34246 seconds
+transform_ cuml done in 0.27660 seconds
+run_tsvd cuml done in 4.62334 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.13297 seconds
+fit_ sklearn done in 2.15920 seconds
+transform_ sklearn done in 0.11191 seconds
+run_tsvd sklearn done in 2.27592 seconds
+fit_ cuml done in 1.81384 seconds
+transform_ cuml done in 0.16793 seconds
+run_tsvd cuml done in 1.98657 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.64206 seconds
+fit_ sklearn done in 2.50929 seconds
+transform_ sklearn done in 0.10805 seconds
+run_tsvd sklearn done in 5.77241 seconds
+fit_ cuml done in 1.89565 seconds
+transform_ cuml done in 0.16720 seconds
+run_tsvd cuml done in 2.06797 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.54274 seconds
+fit_ sklearn done in 1.97878 seconds
+transform_ sklearn done in 0.09273 seconds
+run_tsvd sklearn done in 2.07734 seconds
+fit_ cuml done in 1.79011 seconds
+transform_ cuml done in 0.17155 seconds
+run_tsvd cuml done in 1.96698 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 20.94062 seconds
+fit_ sklearn done in 5.86032 seconds
+transform_ sklearn done in 0.17393 seconds
+run_tsvd sklearn done in 6.03966 seconds
+fit_ cuml done in 2.78463 seconds
+transform_ cuml done in 0.22410 seconds
+run_tsvd cuml done in 3.01367 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.62735 seconds
+fit_ sklearn done in 6.65248 seconds
+transform_ sklearn done in 0.21042 seconds
+run_tsvd sklearn done in 6.86833 seconds
+fit_ cuml done in 2.63035 seconds
+transform_ cuml done in 0.20632 seconds
+run_tsvd cuml done in 2.84204 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.40457 seconds
+fit_ sklearn done in 7.37002 seconds
+transform_ sklearn done in 0.19350 seconds
+run_tsvd sklearn done in 7.56861 seconds
+fit_ cuml done in 2.76066 seconds
+transform_ cuml done in 0.27002 seconds
+run_tsvd cuml done in 3.03490 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.71616 seconds
+fit_ sklearn done in 10.85280 seconds
+transform_ sklearn done in 0.39829 seconds
+run_tsvd sklearn done in 11.25706 seconds
+fit_ cuml done in 4.44440 seconds
+transform_ cuml done in 0.34380 seconds
+run_tsvd cuml done in 4.79378 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.36835 seconds
+fit_ sklearn done in 11.04954 seconds
+transform_ sklearn done in 0.67364 seconds
+run_tsvd sklearn done in 11.73035 seconds
+fit_ cuml done in 4.31492 seconds
+transform_ cuml done in 0.34103 seconds
+run_tsvd cuml done in 4.66121 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=1048576, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.48033 seconds
+fit_ sklearn done in 11.43558 seconds
+transform_ sklearn done in 0.33796 seconds
+run_tsvd sklearn done in 11.78008 seconds
+fit_ cuml done in 4.39691 seconds
+transform_ cuml done in 0.33589 seconds
+run_tsvd cuml done in 4.73759 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.00728 seconds
+fit_ sklearn done in 4.46405 seconds
+transform_ sklearn done in 0.33537 seconds
+run_tsvd sklearn done in 4.80472 seconds
+fit_ cuml done in 1.82028 seconds
+transform_ cuml done in 0.18989 seconds
+run_tsvd cuml done in 2.01558 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.90095 seconds
+fit_ sklearn done in 4.20999 seconds
+transform_ sklearn done in 0.18121 seconds
+run_tsvd sklearn done in 4.39555 seconds
+fit_ cuml done in 1.92924 seconds
+transform_ cuml done in 0.17889 seconds
+run_tsvd cuml done in 2.11255 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.81565 seconds
+fit_ sklearn done in 4.89965 seconds
+transform_ sklearn done in 0.26137 seconds
+run_tsvd sklearn done in 9.52918 seconds
+fit_ cuml done in 1.87530 seconds
+transform_ cuml done in 0.20076 seconds
+run_tsvd cuml done in 2.08054 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.61469 seconds
+fit_ sklearn done in 12.57614 seconds
+transform_ sklearn done in 0.52059 seconds
+run_tsvd sklearn done in 13.10302 seconds
+fit_ cuml done in 2.84733 seconds
+transform_ cuml done in 0.22858 seconds
+run_tsvd cuml done in 3.08106 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.62886 seconds
+fit_ sklearn done in 13.34044 seconds
+transform_ sklearn done in 0.49794 seconds
+run_tsvd sklearn done in 13.84438 seconds
+fit_ cuml done in 2.81230 seconds
+transform_ cuml done in 0.23499 seconds
+run_tsvd cuml done in 3.05317 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.92906 seconds
+fit_ sklearn done in 12.77630 seconds
+transform_ sklearn done in 0.47499 seconds
+run_tsvd sklearn done in 15.51163 seconds
+fit_ cuml done in 2.74032 seconds
+transform_ cuml done in 0.23058 seconds
+run_tsvd cuml done in 2.97619 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.35436 seconds
+fit_ sklearn done in 24.55343 seconds
+transform_ sklearn done in 0.87324 seconds
+run_tsvd sklearn done in 29.76015 seconds
+fit_ cuml done in 4.46640 seconds
+transform_ cuml done in 0.36021 seconds
+run_tsvd cuml done in 4.83147 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.78876 seconds
+fit_ sklearn done in 23.86557 seconds
+transform_ sklearn done in 0.83480 seconds
+run_tsvd sklearn done in 24.70593 seconds
+fit_ cuml done in 4.65521 seconds
+transform_ cuml done in 0.37479 seconds
+run_tsvd cuml done in 5.03424 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=2097152, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.24347 seconds
+fit_ sklearn done in 21.27376 seconds
+transform_ sklearn done in 0.84160 seconds
+run_tsvd sklearn done in 22.12122 seconds
+fit_ cuml done in 4.52885 seconds
+transform_ cuml done in 0.33370 seconds
+run_tsvd cuml done in 4.86679 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.49000 seconds
+fit_ sklearn done in 8.85736 seconds
+transform_ sklearn done in 0.52042 seconds
+run_tsvd sklearn done in 9.38329 seconds
+fit_ cuml done in 1.95332 seconds
+transform_ cuml done in 0.22183 seconds
+run_tsvd cuml done in 2.17993 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.14831 seconds
+fit_ sklearn done in 9.37370 seconds
+transform_ sklearn done in 0.66406 seconds
+run_tsvd sklearn done in 10.04277 seconds
+fit_ cuml done in 2.05283 seconds
+transform_ cuml done in 0.19964 seconds
+run_tsvd cuml done in 2.25806 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.54803 seconds
+fit_ sklearn done in 8.50345 seconds
+transform_ sklearn done in 1.01319 seconds
+run_tsvd sklearn done in 12.66682 seconds
+fit_ cuml done in 2.04666 seconds
+transform_ cuml done in 0.23219 seconds
+run_tsvd cuml done in 2.28419 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.15002 seconds
+fit_ sklearn done in 27.18676 seconds
+transform_ sklearn done in 1.05580 seconds
+run_tsvd sklearn done in 28.24868 seconds
+fit_ cuml done in 3.01594 seconds
+transform_ cuml done in 0.28555 seconds
+run_tsvd cuml done in 3.30701 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 24.29973 seconds
+fit_ sklearn done in 28.66314 seconds
+transform_ sklearn done in 0.87433 seconds
+run_tsvd sklearn done in 29.54278 seconds
+fit_ cuml done in 3.07100 seconds
+transform_ cuml done in 0.31273 seconds
+run_tsvd cuml done in 3.38830 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.04109 seconds
+fit_ sklearn done in 25.78241 seconds
+transform_ sklearn done in 0.91856 seconds
+run_tsvd sklearn done in 26.70760 seconds
+fit_ cuml done in 2.90317 seconds
+transform_ cuml done in 0.34085 seconds
+run_tsvd cuml done in 3.24929 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.91639 seconds
+fit_ sklearn done in 51.46553 seconds
+transform_ sklearn done in 4.46101 seconds
+run_tsvd sklearn done in 55.93342 seconds
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 23.24303 seconds
+fit_ sklearn done in 46.62416 seconds
+transform_ sklearn done in 1.86961 seconds
+run_tsvd sklearn done in 48.49904 seconds
+Namespace(data='mortgage', ncols=512, nrows=4194304, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 26.52639 seconds
+fit_ sklearn done in 53.82986 seconds
+transform_ sklearn done in 4.67902 seconds
+run_tsvd sklearn done in 58.51549 seconds
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 25.51521 seconds
+fit_ sklearn done in 18.38479 seconds
+transform_ sklearn done in 1.91283 seconds
+run_tsvd sklearn done in 20.30518 seconds
+fit_ cuml done in 2.10775 seconds
+transform_ cuml done in 0.25134 seconds
+run_tsvd cuml done in 2.36421 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 30.01381 seconds
+fit_ sklearn done in 19.67601 seconds
+transform_ sklearn done in 1.08838 seconds
+run_tsvd sklearn done in 20.77110 seconds
+fit_ cuml done in 2.19272 seconds
+transform_ cuml done in 0.26063 seconds
+run_tsvd cuml done in 2.45800 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=128, nrows=8388608, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.44099 seconds
+fit_ sklearn done in 22.77061 seconds
+transform_ sklearn done in 1.71283 seconds
+run_tsvd sklearn done in 24.48877 seconds
+fit_ cuml done in 2.14110 seconds
+transform_ cuml done in 0.26677 seconds
+run_tsvd cuml done in 2.41289 seconds
+compare tsvd: cuml vs sklearn singular_values_ NOT equal
+compare tsvd: cuml vs sklearn components_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ NOT equal
+compare tsvd: cuml vs sklearn explained_variance_ratio_ NOT equal
+compare tsvd: cuml vs sklearn transformed_result NOT equal
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.69345 seconds
+fit_ sklearn done in 56.32050 seconds
+transform_ sklearn done in 3.04759 seconds
+run_tsvd sklearn done in 59.37479 seconds
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.39285 seconds
+fit_ sklearn done in 58.20473 seconds
+transform_ sklearn done in 1.83322 seconds
+run_tsvd sklearn done in 60.04433 seconds
+Namespace(data='mortgage', ncols=256, nrows=8388608, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.69369 seconds
+fit_ sklearn done in 59.26015 seconds
+transform_ sklearn done in 1.81056 seconds
+run_tsvd sklearn done in 65.64520 seconds
+Namespace(data='mortgage', ncols=512, nrows=8388608, quarters=16, random_state=16, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.96403 seconds
+fit_ sklearn done in 104.91677 seconds
+transform_ sklearn done in 9.13272 seconds
+run_tsvd sklearn done in 114.05595 seconds
+Namespace(data='mortgage', ncols=512, nrows=8388608, quarters=16, random_state=42, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 22.12935 seconds
+fit_ sklearn done in 109.13730 seconds
+transform_ sklearn done in 7.93190 seconds
+run_tsvd sklearn done in 117.07665 seconds
+Namespace(data='mortgage', ncols=512, nrows=8388608, quarters=16, random_state=100, rows_per_quarter=100000, test_model='cuml', threshold=0.001, use_assert=0)
+load_mortgage  done in 21.48032 seconds
+fit_ sklearn done in 110.32901 seconds
+transform_ sklearn done in 9.79031 seconds
+run_tsvd sklearn done in 120.12523 seconds

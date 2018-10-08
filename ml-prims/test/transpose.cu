@@ -1,0 +1,98 @@
+#include <gtest/gtest.h>
+#include "linalg/transpose.h"
+#include "random/rng.h"
+#include "test_utils.h"
+#include "cuda_utils.h"
+
+
+namespace MLCommon {
+namespace LinAlg {
+
+template <typename T>
+struct TranposeInputs {
+    T tolerance;
+    int len;
+    int n_row;
+    int n_col;
+    unsigned long long int seed;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const TranposeInputs<T>& dims) {
+    return os;
+}
+
+template <typename T>
+class TransposeTest: public ::testing::TestWithParam<TranposeInputs<T> > {
+protected:
+    void SetUp() override {
+    	CUBLAS_CHECK(cublasCreate(&handle));
+        params = ::testing::TestWithParam<TranposeInputs<T>>::GetParam();
+
+        int len = params.len;
+
+        allocate(data, len);
+        T data_h[params.len] = { 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0 };
+        updateDevice(data, data_h, len);
+
+        allocate(data_trans_ref, len);
+        T data_ref_h[params.len] = { 1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0};
+        updateDevice(data_trans_ref, data_ref_h, len);
+
+        allocate(data_trans, len);
+
+        transpose(data, data_trans, params.n_row, params.n_col, handle);
+        transpose(data, params.n_row);
+    }
+
+    void TearDown() override {
+        CUDA_CHECK(cudaFree(data));
+        CUDA_CHECK(cudaFree(data_trans));
+        CUDA_CHECK(cudaFree(data_trans_ref));
+        CUBLAS_CHECK(cublasDestroy(handle));
+    }
+
+protected:
+    TranposeInputs<T> params;
+    T *data, *data_trans, *data_trans_ref;
+    cublasHandle_t handle;
+};
+
+const std::vector<TranposeInputs<float> > inputsf2 = {
+    {0.1f, 3*3, 3, 3, 1234ULL}
+};
+
+const std::vector<TranposeInputs<double> > inputsd2 = {
+    {0.1, 3*3, 3, 3, 1234ULL}
+};
+
+typedef TransposeTest<float> TransposeTestValF;
+TEST_P(TransposeTestValF, Result) {
+	ASSERT_TRUE(devArrMatch(data_trans_ref, data_trans, params.len,
+			                CompareApproxAbs<float>(params.tolerance)));
+
+	ASSERT_TRUE(devArrMatch(data_trans_ref, data, params.len,
+				                CompareApproxAbs<float>(params.tolerance)));
+
+}
+
+typedef TransposeTest<double> TransposeTestValD;
+TEST_P(TransposeTestValD, Result){
+	ASSERT_TRUE(devArrMatch(data_trans_ref, data_trans, params.len,
+				            CompareApproxAbs<double>(params.tolerance)));
+
+	ASSERT_TRUE(devArrMatch(data_trans_ref, data, params.len,
+					            CompareApproxAbs<double>(params.tolerance)));
+}
+
+
+INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValF,
+                        ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValD,
+                        ::testing::ValuesIn(inputsd2));
+
+
+
+} // end namespace LinAlg
+} // end namespace MLCommon
