@@ -1,30 +1,51 @@
-# cuSKL
+# cuSKL (v0.1 Beta)
 
-**PRIVATE REPO ONLY FOR TEST**
-This version of cuSKL repository is only meant as an experimental version to test repository building and other git issues.
+Machine learning is one of the fundamental components of RAPIDS. This cuSKL repository is a suite of libraries that implements a collection of machine learning algorithms within the RAPIDS data science ecosystem. The goal of this repository is to help data scientists, researchers, and software engineers to run these high performance computing (HPC) traditional ML tasks on  GPUs environments without going into the details of CUDA programming.
 
-Machine learning algorithms for use with cuDF:
+The cuSKL repository contains:
 
-1. python: Python gdf machine learning package
-2. cuML: C++/CUDA machine learning algorithms
-3. ml-prims: Low level machine learning primitives used in CuML.
+1. ***python***: Python GPU Dataframe (GDF) machine learning package [cuDF](https://github.com/gpuopenanalytics/pygdf) as input. cuSKL connects the data to C++/CUDA based cuML and ml-prims libraries.
+
+2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
+   a. Single GPU Truncated Singular Value Decomposition (tSVD).
+   b. Single GPU Principal Component Analysis (PCA).
+   c. Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN).
+   d. Single GPU Kalman Filtering
+   e. Multi-GPU K-Means Clustering
+
+3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
+   a. Linear Algebra
+   b. Statistics
+   c. Basic Matrix Operations
+   d. Distance Functions
+   e. Random Number Generation
+
+#### Available Algorithms for version 0.1beta:
+
+- Truncated Singular Value Decomposition (tSVD)
+
+- Principal Component Analysis (PCA)
+
+- Density-based spatial clustering of applications with noise (DBSCAN)
+
+Upcoming algorithms for version 0.1:
+
+- kmeans
+
+- Kalman Filter
+
+More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks in the python folder to test the functionality and performance of ML algorithms in this v0.1 Beta version.
+
+The goal for future versions is to add more algorithms and develop multi-gpu ML algorithms and primitives.
+
+The installation option currently building from source. Upcoming versions will add `pip` and `conda` based installation, along docker containers. They should be available in couple of weeks.
+
+
+
 
 ## Setup
 
-To use CuSKL, it must be cloned and built in an environment that already where the dependencies, including PyGDF, libgdf and their own dependencies, are already installed.
-
-To clone:
-
-```
-git clone --recurse-submodules git@github.com:rapidsai/cuskl_beta.git
-```
-
-To build the python package, in the repository root folder:
-
-```
-cd python
-python setup.py install
-```
+To use CuSKL, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/gpuopenanalytics/pygdf) and its own dependencies:
 
 ### Dependencies
 
@@ -34,4 +55,73 @@ python setup.py install
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. nvcc
-7. PyGDF
+7. [cuDF](https://github.com/gpuopenanalytics/pygdf)
+
+### Setup steps
+
+To clone:
+
+```
+git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL2.git
+```
+
+To build the python package, in the repository root folder:
+
+```
+cd python
+python setup.py install
+```
+
+### Building CuML:
+
+To install CuML from source without the cuSKL python wrapper, clone the repository and its submodules:
+
+## Repo
+```bash
+$ git clone --recursive https://gitlab-master.nvidia.com/RAPIDS/cuML
+```
+
+To install CuML to be used from Python, in the root directory of the repository:
+
+```
+python setup.py install
+```
+
+### Running tests
+
+To test the C++ algorithms using googletests:
+
+```bash
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make -j
+$ ./ml_test
+```
+
+### Python Tests
+
+Additional python tests can be found in the pythontests folder, along some useful scripts. Py.test based unit testing are being added for the final version 0.1.
+
+## External
+
+The external folders contains submodules that this project in-turn depends on. Appropriate location flags
+will be automatically populated in the main CMakeLists.txt file for these.
+
+Current external subbmodules are:
+
+- (CUTLASS)[https://github.com/NVIDIA/cutlass]
+- (Google Test)[https://github.com/google/googletest]
+- (CUB)[https://github.com/NVlabs/cub]
+
+
+
+
+## Contributing
+
+Section in progress
+
+
+## Contact:
+
+
