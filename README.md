@@ -1,6 +1,9 @@
 # cuSKL
 
-Machine learning algorithms for use with \*gdf:
+**PRIVATE REPO ONLY FOR TEST**
+This version of cuSKL repository is only meant as an experimental version to test repository building and other git issues.
+
+Machine learning algorithms for use with cuDF:
 
 1. python: Python gdf machine learning package
 2. cuML: C++/CUDA machine learning algorithms
@@ -13,7 +16,7 @@ To use CuSKL, it must be cloned and built in an environment that already where t
 To clone:
 
 ```
-git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL2.git
+git clone --recurse-submodules git@github.com:rapidsai/cuskl_beta.git
 ```
 
 To build the python package, in the repository root folder:
@@ -32,49 +35,3 @@ python setup.py install
 5. gcc (>=5.4.0)
 6. nvcc
 7. PyGDF
-
-### Building CuML:
-
-To install CuML from source, clone the repository and its submodules:
-
-## Repo
-```bash
-$ git clone --recursive https://gitlab-master.nvidia.com/RAPIDS/cuML
-```
-
-To install CuML to be used from Python, in the root directory of the repository:
-
-```
-python setup.py install
-```
-
-### Running tests
-
-To test the algorithms:
-
-```bash
-$ mkdir build
-$ cd build
-$ cmake ..
-$ make -j
-$ ./ml_test
-```
-
-### Python Tests
-
-Additional python tests can be found in the pythontests folder, and contains some useful scripts. <!-- Refer to [scripts](scripts/README.md). -->
-
-## External
-
-The external folder contains submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main CMakeLists.txt file for these.
-
-Current external submodules are:
-
-- (CUTLASS)[https://github.com/NVIDIA/cutlass]
-- (Google Test)[https://github.com/google/googletest]
-- ml-prims
-
-## Contributing
-
-In progress.
