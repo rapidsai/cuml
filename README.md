@@ -8,12 +8,12 @@ Machine learning algorithms for use with \*gdf:
 
 ## Setup
 
-To use CuML, it must be cloned and built in an environment that already where the dependencies, including PyGDF, libgdf and their own dependencies, are already installed.
+To use CuSKL, it must be cloned and built in an environment that already where the dependencies, including PyGDF, libgdf and their own dependencies, are already installed.
 
 To clone:
 
 ```
-git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL.git
+git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL2.git
 ```
 
 To build the python package, in the repository root folder:
@@ -22,10 +22,6 @@ To build the python package, in the repository root folder:
 cd python
 python setup.py install
 ```
-
-## Setup
-
-To use CuML, it must be cloned and built in an environment that already where the dependencies, including PyGDF, libgdf and their own dependencies, are already installed.
 
 ### Dependencies
 
