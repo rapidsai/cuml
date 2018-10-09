@@ -1,10 +1,29 @@
 # cuSKL
 
-Base cuSKL repository of 
+# cuSKL
 
-1. cuSKL: Python gdf machine learning package
+Machine learning algorithms for use with \*gdf:
+
+1. python: Python gdf machine learning package
 2. cuML: C++/CUDA machine learning algorithms
 3. ml-prims: Low level machine learning primitives used in CuML.
+
+## Setup
+
+To use CuML, it must be cloned and built in an environment that already where the dependencies, including PyGDF, libgdf and their own dependencies, are already installed.
+
+To clone:
+
+```
+git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL.git
+```
+
+To build the python package, in the repository root folder:
+
+```
+cd python
+python setup.py install
+```
 
 ## Setup
 
