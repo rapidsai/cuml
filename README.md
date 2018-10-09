@@ -1,4 +1,4 @@
-# cuSKL (v0.1 Beta)
+# cuSKL (v0.1 Alpha)
 
 Machine learning is one of the fundamental components of RAPIDS. This cuSKL repository is a suite of libraries that implements a collection of machine learning algorithms within the RAPIDS data science ecosystem. The goal of this repository is to help data scientists, researchers, and software engineers to run these high performance computing (HPC) traditional ML tasks on  GPUs environments without going into the details of CUDA programming.
 
@@ -20,7 +20,7 @@ The cuSKL repository contains:
    d. Distance Functions
    e. Random Number Generation
 
-#### Available Algorithms for version 0.1beta:
+#### Available Algorithms for version 0.1alpha:
 
 - Truncated Singular Value Decomposition (tSVD)
 
