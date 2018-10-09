@@ -1,7 +1,5 @@
 # cuSKL
 
-# cuSKL
-
 Machine learning algorithms for use with \*gdf:
 
 1. python: Python gdf machine learning package
