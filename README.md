@@ -1,10 +1,10 @@
-# cuSKL (v0.1 Alpha)
+# cuML (v0.1 Alpha)
 
-Machine learning is a fundamental capability of RAPIDS. cuSKL is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuSKL enables data scientists, researchers, and software engineers to run traditional ML tasks on  GPUs without going into the details of CUDA programming.
+Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on  GPUs without going into the details of CUDA programming.
 
-The cuSKL repository contains:
+The cuML repository contains:
 
-1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuSKL connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
+1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
    a. Single GPU Truncated Singular Value Decomposition (tSVD).
@@ -43,7 +43,7 @@ The installation option provided currently consists on building from source. Upc
 
 ### Dependencies
 
-To use CuSKL, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
+To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
 
 List of dependencies:
 
