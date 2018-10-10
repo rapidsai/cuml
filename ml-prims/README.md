@@ -15,10 +15,10 @@ This repo contains most of the ML primitives.
 
 ml-prims is implemented as header only C++/CUDA libraries for the developers who would like to call these APIs from their projects. You can build and run the Google tests if you are interested in helping us to improve these libraries.
 
-First, clone the cuSKL if you haven't cloned it yet.
+First, clone the cuML if you haven't cloned it yet.
 
 ```bash
-$ git clone --recursive https://gitlab-master.nvidia.com/RAPIDS/cuSKL
+$ git clone --recursive git@github.com:rapidsai/cuml-alpha.git
 ```
 
 To build ml-prims, in the main folder;

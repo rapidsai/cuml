@@ -118,8 +118,8 @@ except AttributeError:
     numpy_include = numpy.get_numpy_include()
 
 
-ext = Extension('cuSKL',
-                sources=['../cuML/src/pca/pca.cu', '../cuML/src/tsvd/tsvd.cu', '../cuML/src/dbscan/dbscan.cu', 'cuSKL/cuml.pyx'],
+ext = Extension('cuML',
+                sources=['../cuML/src/pca/pca.cu', '../cuML/src/tsvd/tsvd.cu', '../cuML/src/dbscan/dbscan.cu', 'cuML/cuml.pyx'],
                 depends=['../cuML/src/tsvd/tsvd.cu'],
                 library_dirs=[CUDA['lib64']],
                 libraries=['cudart','cublas','cusolver'],
@@ -133,7 +133,7 @@ ext = Extension('cuSKL',
 
 
 
-setup(name='cuSKL',
+setup(name='cuML',
       author='NVIDIA',
       version='0.1',
       ext_modules = [ext],

@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 try:
     import pygdf
-    from cuSKL import PCA as cumlPCA
+    from cuML import PCA as cumlPCA
 except:
     print("pygdf or cuml is not installed")
 import argparse

@@ -1,6 +1,6 @@
-# cuSKL Python Package (v0.1 Alpha)
+# cuML Python Package (v0.1 Alpha)
 
-To use CuSKL, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
+To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
 
 List of dependencies:
 
@@ -17,7 +17,7 @@ List of dependencies:
 To clone:
 
 ```
-git clone --recurse-submodules git@github.com:rapidsai/cuskl-alpha.git
+git clone --recurse-submodules git@github.com:rapidsai/cuML-alpha.git
 ```
 
 To build the python package, in the repository root folder:

@@ -71,7 +71,7 @@ def run_pca(X,n_components,svd_solver,whiten,random_state,model):
         pca = h2oPCA(n_components=n_components,
             whiten=whiten)#, random_state=random_state)
     elif model == 'cuml':
-        from cuSKL import PCA as cumlPCA
+        from cuML import PCA as cumlPCA
         pca = cumlPCA(n_components=n_components,
             svd_solver=svd_solver, whiten=whiten, random_state=random_state)
     else:

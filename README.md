@@ -60,7 +60,7 @@ List of dependencies:
 To clone:
 
 ```
-git clone --recurse-submodules git@github.com:rapidsai/cuskl-alpha.git
+git clone --recurse-submodules git@github.com:rapidsai/cuML-alpha.git
 ```
 
 To build the python package, in the repository root folder:

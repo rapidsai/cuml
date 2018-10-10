@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from cuSKL import TruncatedSVD as cuTSVD
+from cuML import TruncatedSVD as cuTSVD
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from test_utils import array_equal
 import pygdf

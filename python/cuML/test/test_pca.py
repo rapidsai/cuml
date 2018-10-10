@@ -14,7 +14,7 @@
 #
 
 import pytest
-from cuSKL import PCA as cuPCA
+from cuML import PCA as cuPCA
 from sklearn.decomposition import PCA as skPCA
 from test_utils import array_equal
 import pygdf

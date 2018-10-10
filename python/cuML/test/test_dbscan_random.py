@@ -63,7 +63,7 @@ def run_dbscan(X,eps,min_samples,model):
     if model == 'sklearn':
         clustering = skDBSCAN(eps = eps, min_samples = min_samples)
     elif model == 'cuml':
-        from cuSKL import DBSCAN as cumlDBSCAN
+        from cuML import DBSCAN as cumlDBSCAN
         clustering = cumlDBSCAN(eps = eps, min_samples = min_samples)
     else:
         raise NotImplementedError

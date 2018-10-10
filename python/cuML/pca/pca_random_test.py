@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-from cuSKL import PCA
+from cuML import PCA
 from sklearn.decomposition import PCA as PCA_SKL
 import pygdf
 import numpy as np

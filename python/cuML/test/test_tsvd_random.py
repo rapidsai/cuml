@@ -72,7 +72,7 @@ def run_tsvd(X,n_components,algorithm,random_state,model):
         tsvd = h2oTSVD(n_components=n_components,
             algorithm=algorithm,  random_state=random_state)
     elif model == 'cuml':
-        from cuSKL import TruncatedSVD as cumlTSVD
+        from cuML import TruncatedSVD as cumlTSVD
         tsvd = cumlTSVD(n_components=n_components,
               random_state=random_state)
     else:
