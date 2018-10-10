@@ -1,6 +1,6 @@
 # cuSKL (v0.1 Alpha)
 
-Machine learning is one of the fundamental components of RAPIDS. This cuSKL repository is a suite of libraries that implements a collection of machine learning algorithms within the RAPIDS data science ecosystem. The goal of this repository is to help data scientists, researchers, and software engineers to run these high performance computing (HPC) traditional ML tasks on  GPUs environments without going into the details of CUDA programming.
+Machine learning is a fundamental capability of RAPIDS. cuSKL is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuSKL enables data scientists, researchers, and software engineers to run traditional ML tasks on  GPUs without going into the details of CUDA programming.
 
 The cuSKL repository contains:
 
@@ -34,20 +34,18 @@ Upcoming algorithms for version 0.1:
 
 - Kalman Filter
 
-More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks in the python folder to test the functionality and performance of ML algorithms in this v0.1 Beta version.
+More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance of this v0.1 alpha version. Goals for future versions include more algorithms and  multi-gpu versions of the algorithms and primitives.
 
-The goal for future versions is to add more algorithms and develop multi-gpu ML algorithms and primitives.
-
-The installation option currently building from source. Upcoming versions will add `pip` and `conda` based installation, along docker containers. They should be available in couple of weeks.
-
-
+The installation option provided currently consists on building from source. Upcoming versions will add `pip` and `conda` options, along docker containers. They will be available in the coming weeks.
 
 
 ## Setup
 
-To use CuSKL, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/gpuopenanalytics/pygdf) and its own dependencies:
-
 ### Dependencies
+
+To use CuSKL, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
+
+List of dependencies:
 
 1. zlib
 2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
@@ -62,7 +60,7 @@ To use CuSKL, it must be cloned and built in an environment that already has the
 To clone:
 
 ```
-git clone --recurse-submodules ssh://git@gitlab-master.nvidia.com:12051/danteg/beta_cuSKL2.git
+git clone --recurse-submodules git@github.com:rapidsai/cuskl-alpha.git
 ```
 
 To build the python package, in the repository root folder:
@@ -74,22 +72,9 @@ python setup.py install
 
 ### Building CuML:
 
-To install CuML from source without the cuSKL python wrapper, clone the repository and its submodules:
-
-## Repo
-```bash
-$ git clone --recursive https://gitlab-master.nvidia.com/RAPIDS/cuML
-```
-
-To install CuML to be used from Python, in the root directory of the repository:
-
-```
-python setup.py install
-```
-
 ### Running tests
 
-To test the C++ algorithms using googletests:
+To test the C++ algorithms using googletests, without compiling the
 
 ```bash
 $ mkdir build
@@ -113,8 +98,6 @@ Current external subbmodules are:
 - (CUTLASS)[https://github.com/NVIDIA/cutlass]
 - (Google Test)[https://github.com/google/googletest]
 - (CUB)[https://github.com/NVlabs/cub]
-
-
 
 
 ## Contributing
