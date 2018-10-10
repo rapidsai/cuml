@@ -4,7 +4,7 @@ Machine learning is a fundamental capability of RAPIDS. cuSKL is a suite of libr
 
 The cuSKL repository contains:
 
-1. ***python***: Python GPU Dataframe (GDF) machine learning package [cuDF](https://github.com/rapidsai/cudf-alpha) as input. cuSKL connects the data to C++/CUDA based cuML and ml-prims libraries.
+1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuSKL connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
    a. Single GPU Truncated Singular Value Decomposition (tSVD).
