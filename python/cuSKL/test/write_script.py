@@ -1,23 +1,23 @@
- # Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import numpy as np
 
 def write_mortgage_script(output='test_mortgage.sh'):
     params = {
-        'python':['test_pca.py','test_tsvd.py'],
+        'python':['test_pca_random.py','test_tsvd_random.py'],
         'data':['mortgage'],
         'nrows':np.power(2,np.arange(18,24)),
         'ncols':np.power(2,np.arange(7,10)),
@@ -38,7 +38,7 @@ def write_mortgage_script(output='test_mortgage.sh'):
 def write_script(output,params,cols):
     with open(output,'w') as f:
         pass
-    permutation([],0,cols,params,output)    
+    permutation([],0,cols,params,output)
 
 def permutation(pre,step,cols,params,output):
     if step == len(cols):
@@ -57,4 +57,4 @@ def permutation(pre,step,cols,params,output):
         permutation(pre,step+1,cols,params,output)
 
 if __name__ == '__main__':
-    write_mortgage_script(output='test_mortgage.sh') 
+    write_mortgage_script(output='test_mortgage.sh')

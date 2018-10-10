@@ -1,17 +1,17 @@
- # Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 import time
 import glob
@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 try:
     import pygdf
-    from cuML import PCA as cumlPCA
+    from cuSKL import PCA as cumlPCA
 except:
     print("pygdf or cuml is not installed")
 import argparse
@@ -33,14 +33,14 @@ LOG_PATH = './log'
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--nrows', default=1000, type=int, help='number of rows of the input matrix. default:1000')
-    parser.add_argument('--ncols', default=512, type=int, help='number of cols of the input matrix. default:512')
+    parser.add_argument('--ncols', default=500, type=int, help='number of cols of the input matrix. default:512')
     parser.add_argument('--data', default='mortgage', type=str, help='input data: random or mortgage. default:mortgage')
     parser.add_argument('--quarters', default=8, type=int, help='number of quarters of the mortgage data. default:8')
     parser.add_argument('--rows_per_quarter', default=100000, type=int, help='number of rows per quarter of the mortgage data. default:100000')
     parser.add_argument('--use_assert', default=1, type=int, help='assert for equality. default:1')
     parser.add_argument('--test_model', default='cuml', type=str, help='model to be tested. default:cuml')
     parser.add_argument('--random_state', default=42, type=int, help='random state. default:42')
-    parser.add_argument('--threshold', default=1e-3, type=float, help='margin for comparison. default:1e-3') 
+    parser.add_argument('--threshold', default=1e-3, type=float, help='margin for comparison. default:1e-3')
     args = parser.parse_args()
     return args
 
@@ -82,11 +82,11 @@ def clean_encode_normalize(df):
     return df.fillna(0.5)
 
 def load_one_quarter(input_):
-    path,nrows = input_   
+    path,nrows = input_
     df = pd.read_csv(path,sep='|',header=None,nrows=nrows)
     group = path.split('/')[-2]
     df.columns = get_cols(group)
-    date_ID_cols = [col for col in df.columns if col.endswith('_id') or col.endswith('_date')] 
+    date_ID_cols = [col for col in df.columns if col.endswith('_id') or col.endswith('_date')]
     df.drop(date_ID_cols,axis=1,inplace=True)
     return df
 
@@ -106,7 +106,7 @@ def parallel_run(func,data,silent=False):
     p.join()
     if silent==0:
         print()
-    return list(results) 
+    return list(results)
 
 def get_cols(group):
     if group == 'acquisition':
@@ -160,7 +160,7 @@ def np2pygdf(df):
     return pdf
 
 def test_pygdf(nrows=1000,ncols=1000):
-    x = np.random.rand(nrows,ncols).astype(np.float32) 
+    x = np.random.rand(nrows,ncols).astype(np.float32)
     df = pd.DataFrame({'fea%d'%i:x[:,i] for i in range(x.shape[1])})
     pdf = pd2pygdf(df)
     #pdf = pygdf.DataFrame().from_pandas(df) # doesn't work
@@ -189,7 +189,3 @@ def to_nparray(x):
     elif isinstance(x,pygdf.Series):
         return x.to_pandas().values
     return x
-
-if __name__ == '__main__':
-    df = load_mortgage(quarters = 16, rows_per_quarter = 100000)
-    #df,res,pca = test_pygdf() 
