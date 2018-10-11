@@ -73,6 +73,15 @@ class DBSCAN:
         return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
     def fit(self, input_gdf):
+        """
+            Perform DBSCAN clustering from features or distance matrix.
+
+            Parameters
+            ----------
+            Input GDF : GPU DataFrame of (floats or doubles) sparse (CSR) matrix of shape (n_samples, n_features)
+
+        """
+
         x = []
         for col in input_gdf.columns:
             x.append(input_gdf[col]._column.dtype)
@@ -103,5 +112,17 @@ class DBSCAN:
 
     
     def fit_predict(self, input_gdf):
+        """
+            Performs clustering on input_gdf and returns cluster labels.
+
+            Parameters
+            ----------
+            Input GDF : GPU DataFrame of (floats or doubles) sparse (CSR) matrix of shape (n_samples, n_features), 
+
+            Returns
+            -------
+            cluster labels
+
+        """
         self.fit(input_gdf)
         return self.labels_
