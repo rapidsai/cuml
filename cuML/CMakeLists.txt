@@ -28,7 +28,7 @@ set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE 
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
-set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}../ml-prims CACHE STRING
+set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims CACHE STRING
   "Path to the ml-prims repo")
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
