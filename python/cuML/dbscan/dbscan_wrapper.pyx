@@ -25,6 +25,35 @@ from c_dbscan cimport *
 
 
 class DBSCAN:
+    """
+    Create a DataFrame, fill it with data, and compute DBSCAN:
+
+    .. code-block:: python
+
+            import pygdf
+            from cuML import DBSCAN
+            import numpy as np
+
+            gdf_float = pygdf.DataFrame()
+            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
+            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+
+            dbscan_float = DBSCAN(eps=1.0, min_samples=1)
+            dbscan_float.fit(gdf_float)
+            print(dbscan_float.labels_)
+
+    Output:
+
+    .. code-block:: python
+
+            0    0
+            1    1
+            2    2
+
+    For an additional example, see `the DBSCAN notebook <https://gitlab-master.nvidia.com/danteg/beta_cuSKL2/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
+
+    """
 
     def __init__(self, eps=1.0, min_samples=1):
         self.eps = eps
