@@ -51,7 +51,7 @@ class DBSCAN:
             1    1
             2    2
 
-    For an additional example, see `the DBSCAN notebook <https://gitlab-master.nvidia.com/danteg/beta_cuSKL2/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
+    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
 
     """
 

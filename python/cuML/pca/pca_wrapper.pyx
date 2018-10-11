@@ -117,7 +117,7 @@ class PCA:
                     2 4.9999995 1.0000006       1.0
 
 
-    For an additional example see `the PCA notebook <https://gitlab-master.nvidia.com/danteg/beta_cuSKL2/blob/master/python/notebooks/pca_demo.ipynb>`_. For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
+    For an additional example see `the PCA notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/pca_demo.ipynb>`_. For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
 
     """
 
