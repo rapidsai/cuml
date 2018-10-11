@@ -189,6 +189,19 @@ class PCA:
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, input_gdf, _transform=True):
+        """
+        Fit the model with input_gdf.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame
+          sparse (CSR) matrix (floats or doubles) of shape (n_samples, n_features)
+
+        Returns
+        -------
+        cluster labels
+
+        """
         # c params
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
@@ -275,6 +288,18 @@ class PCA:
         self.noise_variance_ptr = noise_vars_ptr
 
     def fit_transform(self, input_gdf):
+        """
+        Fit the model with input_gdf and apply the dimensionality reduction on input_gdf.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+          training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+        """
         self.fit(input_gdf, _transform=True)
         trans_input_gdf = pygdf.DataFrame()
         num_rows = self.params.n_rows
@@ -285,6 +310,21 @@ class PCA:
         return trans_input_gdf
 
     def inverse_transform(self, trans_input_gdf):
+        """
+        Transform data back to its original space.
+
+        In other words, return an input X_original whose transform would be X.
+
+        Parameters
+        ----------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+            New data (floats or doubles), where n_samples is the number of samples and n_components is the number of components.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+
+        """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(trans_input_gdf)
@@ -330,6 +370,21 @@ class PCA:
         return input_gdf
 
     def transform(self, input_gdf):
+        """
+        Apply dimensionality reduction to input_gdf.
+
+        input_gdf is projected on the first principal components previously extracted from a training set.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+            New data (floats or doubles), where n_samples is the number of samples and n_features is the number of features.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+
+        """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(input_gdf)

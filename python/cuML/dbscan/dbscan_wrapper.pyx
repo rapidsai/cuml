@@ -78,8 +78,8 @@ class DBSCAN:
 
             Parameters
             ----------
-            Input GDF : GPU DataFrame of (floats or doubles) sparse (CSR) matrix of shape (n_samples, n_features)
-
+            input_gdf : PyGDF DataFrame
+               sparse (CSR) matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
         x = []
@@ -117,12 +117,12 @@ class DBSCAN:
 
             Parameters
             ----------
-            Input GDF : GPU DataFrame of (floats or doubles) sparse (CSR) matrix of shape (n_samples, n_features), 
+            input_gdf : PyGDF DataFrame
+              sparse (CSR) matrix (floats or doubles) of shape (n_samples, n_features), 
 
             Returns
             -------
             cluster labels
-
         """
         self.fit(input_gdf)
         return self.labels_
