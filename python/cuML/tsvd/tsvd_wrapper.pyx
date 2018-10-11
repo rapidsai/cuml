@@ -90,7 +90,7 @@ class TruncatedSVD:
             1 2.0000005 2.0000005 2.0000007
             2  5.000001 0.9999999 1.0000004
 
-    For additional examples, see `the Truncated SVD  notebook <https://gitlab-master.nvidia.com/danteg/beta_cuSKL2/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
 
     """
 
