@@ -49,18 +49,18 @@ List of dependencies:
 
 1. zlib
 2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
-3. CUDA SDK (>= 8.0)
+3. CUDA SDK (>= 9.0)
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. nvcc
-7. [cuDF](https://github.com/gpuopenanalytics/pygdf)
+7. [cuDF](https://github.com/rapidsai/cudf-alpha)
 
 ### Setup steps
 
 To clone:
 
 ```
-git clone --recurse-submodules git@github.com:rapidsai/cuML-alpha.git
+git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 ```
 
 To build the python package, in the repository root folder:
@@ -95,16 +95,14 @@ will be automatically populated in the main CMakeLists.txt file for these.
 
 Current external subbmodules are:
 
-- (CUTLASS)[https://github.com/NVIDIA/cutlass]
-- (Google Test)[https://github.com/google/googletest]
-- (CUB)[https://github.com/NVlabs/cub]
-
+- [CUTLASS](https://github.com/NVIDIA/cutlass)
+- [Google Test](https://github.com/google/googletest)
+- [CUB](https://github.com/NVlabs/cub)
 
 ## Contributing
 
-Section in progress
+Plese use issues and pull requests to report bugs and add functionality.
 
+## Contact
 
-## Contact:
-
-
+Find out more details on the [RAPIDS site](https://rapids.ai/community.html)
