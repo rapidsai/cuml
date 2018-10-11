@@ -69,7 +69,6 @@ add_executable(mlcommon_test
   test/binary_op.cu
   test/cuda_utils.cu
   test/cov.cu
-  test/distance.cu
   test/eig.cu
   test/eltwise.cu
   test/eltwise2d.cu
