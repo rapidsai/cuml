@@ -155,6 +155,16 @@ class TruncatedSVD:
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, input_gdf, _transform=True):
+        """
+            Fit LSI model on training PyGDF DataFrame input_gdf.
+
+            Parameters
+            ----------
+            input_gdf : PyGDF DataFrame, sparse (CSR) matrix, shape (n_samples, n_features)
+                Training data (floats or doubles)
+
+        """
+
         # c params
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components
@@ -228,6 +238,20 @@ class TruncatedSVD:
         self.singular_values_ptr = singular_vals_ptr
 
     def fit_transform(self, input_gdf):
+        """
+            Fit LSI model to input_gdf and perform dimensionality reduction on input_gdf.
+
+            Parameters
+            ----------
+            Input GDF : PyGDF DataFrame,sparse (CSR) matrix, shape (n_samples, n_features)
+                Training data (floats or doubles)
+
+            Returns
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                Reduced version of input_gdf. This will always be a dense DataFrame
+
+        """
         self.fit(input_gdf, _transform=True)
         trans_input_gdf = pygdf.DataFrame()
         num_rows = self.params.n_rows
@@ -238,6 +262,22 @@ class TruncatedSVD:
         return trans_input_gdf
 
     def inverse_transform(self, trans_input_gdf):
+        """
+            Transform trans_input_gdf back to its original space.
+
+            Returns a PyGDF DataFrame input_gdf whose transform would be trans_input_gdf.
+
+            Parameters
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                New data.
+
+            Returns
+            ----------
+            input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+                Note that this is always a dense DataFrame.
+
+        """
 
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components
@@ -275,6 +315,20 @@ class TruncatedSVD:
 
 
     def transform(self, input_gdf):
+        """
+            Perform dimensionality reduction on input_gdf.
+
+            Parameters
+            ----------
+            input_gdf: PyGDF DataFrame, sparse (CSR) matrix, shape (n_samples, n_features)
+                New data.
+
+            Returns
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                Reduced version of input_gdf. This will always be a dense DataFrame.
+
+        """
 
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components

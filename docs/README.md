@@ -3,17 +3,22 @@
 A basic python environment with packages listed in `./requirement.txt` is
 enough to build the docs.
 
-## Get additional dependency
-
-```bash
-pip install -r requirement.txt
+## Start cuML container:
+```
+docker run -p 8000:8000 -it cuml bash
 ```
 
-## Run makefile:
-
-```bash
-make html
+## Setup container's conda env for building docs:
+```
+sudo sh setup.sh ${cuML-container-id}
 ```
 
-Outputs to `build/html/index.html`
+## Build & host docs from container:
+```
+sudo sh build.sh ${cuML-container-id}
+```
 
+## Copy docs from container to host:
+```
+docker cp ${cuML-container-id}:/docs/build/html .
+```
