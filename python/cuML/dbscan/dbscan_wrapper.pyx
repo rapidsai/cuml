@@ -122,7 +122,7 @@ class DBSCAN:
 
             Returns
             -------
-            cluster labels
+            PyGDF Series of cluster labels
         """
         self.fit(input_gdf)
         return self.labels_
