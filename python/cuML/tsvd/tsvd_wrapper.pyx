@@ -160,7 +160,7 @@ class TruncatedSVD:
 
             Parameters
             ----------
-            input_gdf : PyGDF DataFrame, sparse (CSR) matrix, shape (n_samples, n_features)
+            input_gdf : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
                 Training data (floats or doubles)
 
         """
@@ -243,7 +243,7 @@ class TruncatedSVD:
 
             Parameters
             ----------
-            Input GDF : PyGDF DataFrame,sparse (CSR) matrix, shape (n_samples, n_features)
+            Input GDF : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
                 Training data (floats or doubles)
 
             Returns
@@ -320,7 +320,7 @@ class TruncatedSVD:
 
             Parameters
             ----------
-            input_gdf: PyGDF DataFrame, sparse (CSR) matrix, shape (n_samples, n_features)
+            input_gdf: PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
                 New data.
 
             Returns

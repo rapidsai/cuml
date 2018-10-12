@@ -79,7 +79,7 @@ class DBSCAN:
             Parameters
             ----------
             input_gdf : PyGDF DataFrame
-               sparse (CSR) matrix (floats or doubles) of shape (n_samples, n_features)
+               Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
         x = []
@@ -118,7 +118,7 @@ class DBSCAN:
             Parameters
             ----------
             input_gdf : PyGDF DataFrame
-              sparse (CSR) matrix (floats or doubles) of shape (n_samples, n_features), 
+              Dense matrix (floats or doubles) of shape (n_samples, n_features), 
 
             Returns
             -------
