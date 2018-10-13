@@ -49,11 +49,10 @@ List of dependencies:
 
 1. zlib
 2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
-3. CUDA SDK (>= 9.0)
+3. CUDA Toolkit (>= 9.0)
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
-6. nvcc
-7. [cuDF](https://github.com/rapidsai/cudf-alpha)
+6. [cuDF](https://github.com/rapidsai/cudf-alpha)
 
 ### Setup steps
 
