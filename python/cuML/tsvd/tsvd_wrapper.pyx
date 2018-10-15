@@ -34,6 +34,65 @@ class TSVDparams:
         self.n_rows = None
 
 class TruncatedSVD:
+    """
+    Create a DataFrame, fill it with data, and compute Truncated Singular Value Decomposition:
+
+    .. code-block:: python
+
+            from cuML import TruncatedSVD
+            import pygdf
+            import numpy as np
+
+            gdf_float = pygdf.DataFrame()
+            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
+            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+
+            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi", n_iter=20, tol=1e-9)
+            tsvd_float.fit(gdf_float)
+
+            print(f'components: {tsvd_float.components_}')
+            print(f'explained variance: {tsvd_float.explained_variance_}')
+            print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
+            print(f'singular values: {tsvd_float.singular_values_}')
+
+            trans_gdf_float = tsvd_float.transform(gdf_float)
+            print(f'Transformed matrix: {trans_gdf_float}')
+
+            input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
+            print(f'Input matrix: {input_gdf_float}')
+
+    Output:
+
+    .. code-block:: python
+
+            components:            0           1          2
+            0 0.58725953  0.57233137  0.5723314                                                                                                          
+            1 0.80939883 -0.41525528 -0.4152552                                                                                                          
+            explained variance:            
+            0  55.33908
+            1 16.660923
+
+            explained variance ratio:             
+            0  0.7685983
+            1 0.23140171
+            
+            singular values:            
+            0  7.439024
+            1 4.0817795
+
+            Transformed matrix:           0            1
+            0 5.1659107    -2.512643
+            1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
+
+            Input matrix:           0         1         2
+            0       1.0  4.000001  4.000001
+            1 2.0000005 2.0000005 2.0000007
+            2  5.000001 0.9999999 1.0000004
+
+    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+
+    """
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
                  algorithm='full'):
@@ -96,6 +155,16 @@ class TruncatedSVD:
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, input_gdf, _transform=True):
+        """
+            Fit LSI model on training PyGDF DataFrame input_gdf.
+
+            Parameters
+            ----------
+            input_gdf : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+                Training data (floats or doubles)
+
+        """
+
         # c params
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components
@@ -169,6 +238,20 @@ class TruncatedSVD:
         self.singular_values_ptr = singular_vals_ptr
 
     def fit_transform(self, input_gdf):
+        """
+            Fit LSI model to input_gdf and perform dimensionality reduction on input_gdf.
+
+            Parameters
+            ----------
+            Input GDF : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+                Training data (floats or doubles)
+
+            Returns
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                Reduced version of input_gdf. This will always be a dense DataFrame
+
+        """
         self.fit(input_gdf, _transform=True)
         trans_input_gdf = pygdf.DataFrame()
         num_rows = self.params.n_rows
@@ -179,6 +262,22 @@ class TruncatedSVD:
         return trans_input_gdf
 
     def inverse_transform(self, trans_input_gdf):
+        """
+            Transform trans_input_gdf back to its original space.
+
+            Returns a PyGDF DataFrame input_gdf whose transform would be trans_input_gdf.
+
+            Parameters
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                New data.
+
+            Returns
+            ----------
+            input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+                Note that this is always a dense DataFrame.
+
+        """
 
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components
@@ -216,6 +315,20 @@ class TruncatedSVD:
 
 
     def transform(self, input_gdf):
+        """
+            Perform dimensionality reduction on input_gdf.
+
+            Parameters
+            ----------
+            input_gdf: PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+                New data.
+
+            Returns
+            ----------
+            trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+                Reduced version of input_gdf. This will always be a dense DataFrame.
+
+        """
 
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components

@@ -39,6 +39,87 @@ class PCAparams:
 
 
 class PCA:
+    """
+    Create a DataFrame, fill it with data, and compute PCA:
+
+    .. code-block:: python
+
+        import pygdf
+        from cuML import PCA
+        import numpy as np
+
+        gdf_float = pygdf.DataFrame()
+        gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
+        gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+        gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+
+        pca_float = PCA(n_components = 2)
+        pca_float.fit(gdf_float)
+
+        print(f'components: {pca_float.components_}')
+        print(f'explained variance: {pca_float.explained_variance_}')
+        print(f'explained variance ratio: {pca_float.explained_variance_ratio_}')
+
+        print(f'singular values: {pca_float.singular_values_}')
+        print(f'mean: {pca_float.mean_}')
+        print(f'noise variance: {pca_float.noise_variance_}')
+
+        trans_gdf_float = pca_float.transform(gdf_float)
+        print(f'Inverse: {trans_gdf_float}')
+
+        input_gdf_float = pca_float.inverse_transform(trans_gdf_float)
+        print(f'Input: {input_gdf_float}')
+
+    Output:
+
+    .. code-block:: python
+
+          components:
+                      0           1           2
+                      0  0.69225764  -0.5102837 -0.51028395
+                      1 -0.72165036 -0.48949987  -0.4895003
+
+          explained variance:
+                      
+                      0   8.510402
+                      1 0.48959687
+
+          explained variance ratio:
+                       
+                       0   0.9456003
+                       1 0.054399658
+
+          singular values:
+                     
+                     0 4.1256275
+                     1 0.9895422
+
+          mean:
+          
+                    0 2.6666667
+                    1 2.3333333
+                    2 2.3333333
+
+          noise variance:
+                
+                0  0.0
+
+          transformed matrix:
+                       0           1
+                       0   -2.8547091 -0.42891636
+                       1 -0.121316016  0.80743366
+                       2    2.9760244 -0.37851727
+
+          Input Matrix:
+                    0         1         2
+                    0 1.0000001 3.9999993       4.0
+                    1       2.0 2.0000002 1.9999999
+                    2 4.9999995 1.0000006       1.0
+
+
+    For an additional example see `the PCA notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/pca_demo.ipynb>`_. For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
+
+    """
 
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
                  iterated_power=15, random_state=None, svd_solver='auto'):
@@ -108,6 +189,19 @@ class PCA:
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, input_gdf, _transform=True):
+        """
+        Fit the model with input_gdf.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame
+          Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+        Returns
+        -------
+        cluster labels
+
+        """
         # c params
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
@@ -194,6 +288,18 @@ class PCA:
         self.noise_variance_ptr = noise_vars_ptr
 
     def fit_transform(self, input_gdf):
+        """
+        Fit the model with input_gdf and apply the dimensionality reduction on input_gdf.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+          training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+        """
         self.fit(input_gdf, _transform=True)
         trans_input_gdf = pygdf.DataFrame()
         num_rows = self.params.n_rows
@@ -204,6 +310,21 @@ class PCA:
         return trans_input_gdf
 
     def inverse_transform(self, trans_input_gdf):
+        """
+        Transform data back to its original space.
+
+        In other words, return an input X_original whose transform would be X.
+
+        Parameters
+        ----------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+            New data (floats or doubles), where n_samples is the number of samples and n_components is the number of components.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+
+        """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(trans_input_gdf)
@@ -249,6 +370,21 @@ class PCA:
         return input_gdf
 
     def transform(self, input_gdf):
+        """
+        Apply dimensionality reduction to input_gdf.
+
+        input_gdf is projected on the first principal components previously extracted from a training set.
+
+        Parameters
+        ----------
+        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+            New data (floats or doubles), where n_samples is the number of samples and n_features is the number of features.
+
+        Returns
+        -------
+        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+
+        """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(input_gdf)
