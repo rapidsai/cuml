@@ -65,7 +65,6 @@ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 To build the python package, in the repository root folder:
 
 ```
-cd python
 python setup.py install
 ```
 
@@ -73,7 +72,7 @@ python setup.py install
 
 ### Running tests
 
-To test the C++ algorithms using googletests, 
+To test the C++ algorithms using googletests, in the repository root folder:
 
 ```bash
 $ cd cuML
@@ -84,9 +83,9 @@ $ make -j
 $ ./ml_test
 ```
 
-### Python Tests
+### Python Notebooks
 
-Additional python tests can be found in the pythontests folder, along some useful scripts. Py.test based unit testing are being added for the final version 0.1.
+Demo notebooks can be found in python/notebooks folder.
 
 ## External
 
