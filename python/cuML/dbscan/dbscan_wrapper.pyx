@@ -72,26 +72,26 @@ class DBSCAN:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
-    def fit(self, input_gdf):
+    def fit(self, X):
         """
             Perform DBSCAN clustering from features or distance matrix.
 
             Parameters
             ----------
-            input_gdf : PyGDF DataFrame
+            X : PyGDF DataFrame
                Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
         x = []
-        for col in input_gdf.columns:
-            x.append(input_gdf[col]._column.dtype)
+        for col in X.columns:
+            x.append(X[col]._column.dtype)
             break
 
         self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
+        self.n_rows = len(X)
+        self.n_cols = len(X._cols)
         
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(input_gdf)
+        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
         self.labels_ = pygdf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
 
@@ -111,18 +111,19 @@ class DBSCAN:
 		               <int*> labels_ptr)
 
     
-    def fit_predict(self, input_gdf):
+    def fit_predict(self, X):
         """
             Performs clustering on input_gdf and returns cluster labels.
 
             Parameters
             ----------
-            input_gdf : PyGDF DataFrame
+            X : PyGDF DataFrame
               Dense matrix (floats or doubles) of shape (n_samples, n_features), 
 
             Returns
             -------
-            PyGDF Series of cluster labels
+            y : PyGDF Series, shape (n_samples)
+              cluster labels
         """
-        self.fit(input_gdf)
+        self.fit(X)
         return self.labels_
