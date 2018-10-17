@@ -24,31 +24,27 @@ namespace ML {
 
 using namespace MLCommon;
 
-void tsvdFit(float *input, float *components, float *explained_var,
-		float *explained_var_ratio, float *singular_vals, paramsTSVD prms) {
+void tsvdFit(float *input, float *components, float *singular_vals, paramsTSVD prms) {
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-	tsvdFit(input, components, explained_var, explained_var_ratio,
-			singular_vals, prms, cublas_handle, cusolver_handle);
+	tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 }
 
-void tsvdFit(double *input, double *components, double *explained_var,
-		double *explained_var_ratio, double *singular_vals, paramsTSVD prms) {
+void tsvdFit(double *input, double *components, double *singular_vals, paramsTSVD prms) {
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-	tsvdFit(input, components, explained_var, explained_var_ratio,
-			singular_vals, prms, cublas_handle, cusolver_handle);
+	tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));

@@ -188,13 +188,13 @@ class PCA:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-    def fit(self, input_gdf, _transform=True):
+    def fit(self, X, _transform=True):
         """
-        Fit the model with input_gdf.
+        Fit the model with X.
 
         Parameters
         ----------
-        input_gdf : PyGDF DataFrame
+        X : PyGDF DataFrame
           Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         Returns
@@ -205,21 +205,21 @@ class PCA:
         # c params
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
-        params.n_rows = len(input_gdf)
-        params.n_cols = len(input_gdf._cols)
+        params.n_rows = len(X)
+        params.n_cols = len(X._cols)
         params.whiten = self.params.whiten
         params.n_iterations = self.params.iterated_power
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
 
         # python params
-        self.params.n_rows = len(input_gdf)
-        self.params.n_cols = len(input_gdf._cols)
+        self.params.n_rows = len(X)
+        self.params.n_cols = len(X._cols)
 
-        self._initialize_arrays(input_gdf, self.params.n_components,
+        self._initialize_arrays(X, self.params.n_components,
                                 self.params.n_rows, self.params.n_cols)
 
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(input_gdf)
+        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
 
         cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
 
@@ -287,29 +287,29 @@ class PCA:
         self.mean_ptr = mean_ptr
         self.noise_variance_ptr = noise_vars_ptr
 
-    def fit_transform(self, input_gdf):
+    def fit_transform(self, X):
         """
-        Fit the model with input_gdf and apply the dimensionality reduction on input_gdf.
+        Fit the model with X and apply the dimensionality reduction on X.
 
         Parameters
         ----------
-        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+        X : PyGDF DataFrame, shape (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
 
         Returns
         -------
-        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+        X_new : PyGDF DataFrame, shape (n_samples, n_components)
         """
-        self.fit(input_gdf, _transform=True)
-        trans_input_gdf = pygdf.DataFrame()
+        self.fit(X, _transform=True)
+        X_new = pygdf.DataFrame()
         num_rows = self.params.n_rows
 
         for i in range(0, self.params.n_components):
-            trans_input_gdf[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
+            X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
-        return trans_input_gdf
+        return X_new 
 
-    def inverse_transform(self, trans_input_gdf):
+    def inverse_transform(self, X):
         """
         Transform data back to its original space.
 
@@ -317,23 +317,23 @@ class PCA:
 
         Parameters
         ----------
-        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+        X : PyGDF DataFrame, shape (n_samples, n_components)
             New data (floats or doubles), where n_samples is the number of samples and n_components is the number of components.
 
         Returns
         -------
-        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+        X_original : PyGDF DataFrame, shape (n_samples, n_features)
 
         """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
-        params.n_rows = len(trans_input_gdf)
+        params.n_rows = len(X)
         params.n_cols = self.params.n_cols
         params.whiten = self.params.whiten
 
         x = []
-        for col in trans_input_gdf.columns:
-            x.append(trans_input_gdf[col]._column.dtype)
+        for col in X.columns:
+            x.append(X[col]._column.dtype)
             break
         gdf_datatype = np.dtype(x[0])
 
@@ -342,7 +342,7 @@ class PCA:
         #cdef bool transpose_comp = False
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
-        cdef uintptr_t trans_input_ptr = trans_input_gdf.as_gpu_matrix().device_ctypes_pointer.value
+        cdef uintptr_t trans_input_ptr = X.as_gpu_matrix().device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
@@ -362,38 +362,38 @@ class PCA:
                                       <double*> input_ptr,
                                       params)
 
-        input_gdf = pygdf.DataFrame()
+        X_original = pygdf.DataFrame()
         for i in range(0, params.n_cols):
-            input_gdf[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
+            X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
 
-        return input_gdf
+        return X_original 
 
-    def transform(self, input_gdf):
+    def transform(self, X):
         """
-        Apply dimensionality reduction to input_gdf.
+        Apply dimensionality reduction to X.
 
-        input_gdf is projected on the first principal components previously extracted from a training set.
+        X is projected on the first principal components previously extracted from a training set.
 
         Parameters
         ----------
-        input_gdf : PyGDF DataFrame, shape (n_samples, n_features)
+        X : PyGDF DataFrame, shape (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of samples and n_features is the number of features.
 
         Returns
         -------
-        trans_input_gdf : PyGDF DataFrame, shape (n_samples, n_components)
+        X_new : PyGDF DataFrame, shape (n_samples, n_components)
 
         """
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
-        params.n_rows = len(input_gdf)
-        params.n_cols = len(input_gdf._cols)
+        params.n_rows = len(X)
+        params.n_cols = len(X._cols)
         params.whiten = self.params.whiten
 
         x = []
-        for col in input_gdf.columns:
-            x.append(input_gdf[col]._column.dtype)
+        for col in X.columns:
+            x.append(X[col]._column.dtype)
             break
         gdf_datatype = np.dtype(x[0])
 
@@ -402,7 +402,7 @@ class PCA:
                                        dtype=gdf_datatype.type))
 
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(input_gdf)
+        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
@@ -422,9 +422,9 @@ class PCA:
                                <double*> mean_ptr,
                                params)
 
-        trans_input_gdf = pygdf.DataFrame()
+        X_new = pygdf.DataFrame()
         for i in range(0, params.n_components):
-            trans_input_gdf[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
+            X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
-        return trans_input_gdf
+        return X_new
 
