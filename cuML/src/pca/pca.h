@@ -33,8 +33,39 @@ namespace ML {
 
 using namespace MLCommon;
 
-// TODO: Implement for the case prms.trans_input = false
-// TODO: Check sign flip algorithm
+template<typename math_t>
+void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
+		math_t *explained_var_ratio, paramsTSVD prms,
+		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle) {
+
+	math_t *components_all;
+	math_t *explained_var_all;
+	math_t *explained_var_ratio_all;
+
+	int len = prms.n_cols * prms.n_cols;
+	allocate(components_all, len);
+	allocate(explained_var_all, prms.n_cols);
+	allocate(explained_var_ratio_all, prms.n_cols);
+
+	calEig(in, components_all, explained_var_all, prms, cusolver_handle,
+			cublas_handle);
+
+	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
+			prms.n_components, prms.n_cols);
+
+	Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols);
+
+	Matrix::truncZeroOrigin(explained_var_all, prms.n_cols, explained_var,
+			prms.n_components, 1);
+
+	Matrix::truncZeroOrigin(explained_var_ratio_all, prms.n_cols,
+			explained_var_ratio, prms.n_components, 1);
+
+	CUDA_CHECK(cudaFree(components_all));
+	CUDA_CHECK(cudaFree(explained_var_all));
+	CUDA_CHECK(cudaFree(explained_var_ratio_all));
+}
+
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
@@ -66,27 +97,19 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 
 	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
 
-	if (prms.algorithm == solver::RANDOMIZED) {
-		Stats::meanCenter(input, mu, prms.n_cols, prms.n_rows, false);
-		calCompExpVarsSvd(input, components, singular_vals, explained_var,
-				explained_var_ratio, prms, cusolver_handle, cublas_handle);
-	} else {
-		math_t *cov;
-		int len = prms.n_cols * prms.n_cols;
-		allocate(cov, len);
+	math_t *cov;
+	int len = prms.n_cols * prms.n_cols;
+	allocate(cov, len);
 
-		Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
-				cublas_handle);
-		calCompExpVarsEig(cov, components, explained_var, explained_var_ratio,
-				prms, cusolver_handle, cublas_handle);
+	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
+			cublas_handle);
+	truncCompExpVars(cov, components, explained_var, explained_var_ratio, prms,
+			cusolver_handle, cublas_handle);
 
-		math_t scalar = (prms.n_rows - 1);
-		Matrix::seqRoot(explained_var, singular_vals, scalar,
-				prms.n_components);
+	math_t scalar = (prms.n_rows - 1);
+	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components);
 
-		if (cov)
-			CUDA_CHECK(cudaFree(cov));
-	}
+	CUDA_CHECK(cudaFree(cov));
 
 	Stats::meanAdd(input, mu, prms.n_cols, prms.n_rows, false);
 }
@@ -117,7 +140,8 @@ void pcaFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
 			cublas_handle);
 
-	signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols);
+	signFlip(trans_input, prms.n_rows, prms.n_components, components,
+			prms.n_cols);
 }
 
 // TODO: implement pcaGetCovariance function

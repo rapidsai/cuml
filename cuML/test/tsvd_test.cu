@@ -64,19 +64,13 @@ protected:
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
-		allocate(explained_vars, params.n_col);
-		allocate(explained_var_ratio, params.n_col);
 		allocate(singular_vals, params.n_col);
 
 		T components_ref_h[len_comp] = { -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215,
 		                                 -0.3757 };
-		T explained_vars_ref_h[params.n_col] = { 153.5909, 9.4278, 0.9813 };
 
 		allocate(components_ref, len_comp);
-		allocate(explained_vars_ref, params.n_col);
-
 		updateDevice(components_ref, components_ref_h, len_comp);
-		updateDevice(explained_vars_ref, explained_vars_ref_h, params.n_col);
 
 		paramsTSVD prms;
 		prms.n_cols = params.n_col;
@@ -87,8 +81,7 @@ protected:
 		else
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
-		tsvdFit(data, components, explained_vars, explained_var_ratio,
-				singular_vals, prms, cublas_handle, cusolver_handle);
+		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -147,8 +140,6 @@ protected:
 	void TearDown() override {
 		CUDA_CHECK(cudaFree(data));
 		CUDA_CHECK(cudaFree(components));
-		CUDA_CHECK(cudaFree(explained_vars));
-		CUDA_CHECK(cudaFree(explained_var_ratio));
 		CUDA_CHECK(cudaFree(singular_vals));
 		CUDA_CHECK(cudaFree(components_ref));
 		CUDA_CHECK(cudaFree(explained_vars_ref));
@@ -163,7 +154,7 @@ protected:
 
 protected:
 	TsvdInputs<T> params;
-	T *data, *components, *explained_vars, *explained_var_ratio, *singular_vals,
+	T *data, *components, *singular_vals,
 			 *components_ref, *explained_vars_ref;
 
 	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
@@ -183,21 +174,6 @@ const std::vector<TsvdInputs<double> > inputsd2 = {
 		{ 0.05, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2 },
 		{ 0.05, 4 * 3, 4, 3, 512 * 64, 512, 64, 1234ULL, 2 }};
 
-
-typedef TsvdTest<float> TsvdTestValF;
-TEST_P(TsvdTestValF, Result) {
-	ASSERT_TRUE(
-			devArrMatch(explained_vars, explained_vars_ref, params.n_col,
-					CompareApproxAbs<float>(params.tolerance)));
-
-}
-
-typedef TsvdTest<double> TsvdTestValD;
-TEST_P(TsvdTestValD, Result) {
-	ASSERT_TRUE(
-			devArrMatch(explained_vars, explained_vars_ref, params.n_col,
-					CompareApproxAbs<double>(params.tolerance)));
-}
 
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result) {
@@ -233,10 +209,6 @@ TEST_P(TsvdTestDataVecD, Result) {
 					CompareApproxAbs<double>(params.tolerance)));
 }
 
-
-INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestValF, ::testing::ValuesIn(inputsf2));
-
-INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestValD, ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF, ::testing::ValuesIn(inputsf2));
 
