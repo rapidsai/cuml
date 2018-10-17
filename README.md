@@ -7,18 +7,18 @@ The cuML repository contains:
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
-   a. Single GPU Truncated Singular Value Decomposition (tSVD).
-   b. Single GPU Principal Component Analysis (PCA).
-   c. Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN).
-   d. Single GPU Kalman Filtering
-   e. Multi-GPU K-Means Clustering
+   a. Single GPU Truncated Singular Value Decomposition (tSVD),
+   b. Single GPU Principal Component Analysis (PCA),
+   c. Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
+   d. Single GPU Kalman Filtering,
+   e. Multi-GPU K-Means Clustering.
 
 3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
-   a. Linear Algebra
-   b. Statistics
-   c. Basic Matrix Operations
-   d. Distance Functions
-   e. Random Number Generation
+   a. Linear Algebra,
+   b. Statistics,
+   c. Basic Matrix Operations,
+   d. Distance Functions,
+   e. Random Number Generation.
 
 #### Available Algorithms for version 0.1alpha:
 
@@ -30,7 +30,7 @@ The cuML repository contains:
 
 Upcoming algorithms for version 0.1:
 
-- kmeans
+- K-Means Clustering
 
 - Kalman Filter
 
@@ -49,7 +49,7 @@ List of dependencies:
 
 1. zlib
 2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
-3. CUDA Toolkit (>= 9.0)
+3. CUDA (>= 9.0)
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. [cuDF](https://github.com/rapidsai/cudf-alpha)
@@ -65,7 +65,6 @@ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 To build the python package, in the repository root folder:
 
 ```
-cd python
 python setup.py install
 ```
 
@@ -73,9 +72,10 @@ python setup.py install
 
 ### Running tests
 
-To test the C++ algorithms using googletests, without compiling the
+To test the C++ algorithms using googletests, in the repository root folder:
 
 ```bash
+$ cd cuML
 $ mkdir build
 $ cd build
 $ cmake ..
@@ -83,9 +83,9 @@ $ make -j
 $ ./ml_test
 ```
 
-### Python Tests
+### Python Notebooks
 
-Additional python tests can be found in the pythontests folder, along some useful scripts. Py.test based unit testing are being added for the final version 0.1.
+Demo notebooks can be found in python/notebooks folder.
 
 ## External
 

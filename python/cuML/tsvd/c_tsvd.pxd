@@ -16,7 +16,7 @@ cdef extern from "ml_utils.h" namespace "ML":
     cdef cppclass paramsSolver(params):
         int n_rows
         int n_cols
-        double tol
+        float tol
         int n_iterations
         int random_state
         int verbose
@@ -34,16 +34,12 @@ cdef extern from "ml_utils.h" namespace "ML":
 cdef extern from "tsvd/tsvd_c.h" namespace "ML":
 
     cdef void tsvdFit(float *input,
-                      float *components,
-                      float *explained_var,
-                      float *explained_var_ratio,
+                      float *components,                 
                       float *singular_vals,
                       paramsTSVD prms)
 
     cdef void tsvdFit(double *input,
-                      double *components,
-                      double *explained_var,
-                      double *explained_var_ratio,
+                      double *components,                    
                       double *singular_vals,
                       paramsTSVD prms)
 
