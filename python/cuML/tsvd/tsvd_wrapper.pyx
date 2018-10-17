@@ -34,69 +34,10 @@ class TSVDparams:
         self.n_rows = None
 
 class TruncatedSVD:
-    """
-    Create a DataFrame, fill it with data, and compute Truncated Singular Value Decomposition:
-
-    .. code-block:: python
-
-            from cuML import TruncatedSVD
-            import pygdf
-            import numpy as np
-
-            gdf_float = pygdf.DataFrame()
-            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
-            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-
-            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi", n_iter=20, tol=1e-9)
-            tsvd_float.fit(gdf_float)
-
-            print(f'components: {tsvd_float.components_}')
-            print(f'explained variance: {tsvd_float.explained_variance_}')
-            print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
-            print(f'singular values: {tsvd_float.singular_values_}')
-
-            trans_gdf_float = tsvd_float.transform(gdf_float)
-            print(f'Transformed matrix: {trans_gdf_float}')
-
-            input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
-            print(f'Input matrix: {input_gdf_float}')
-
-    Output:
-
-    .. code-block:: python
-
-            components:            0           1          2
-            0 0.58725953  0.57233137  0.5723314                                                                                                          
-            1 0.80939883 -0.41525528 -0.4152552                                                                                                          
-            explained variance:            
-            0  55.33908
-            1 16.660923
-
-            explained variance ratio:             
-            0  0.7685983
-            1 0.23140171
-            
-            singular values:            
-            0  7.439024
-            1 4.0817795
-
-            Transformed matrix:           0            1
-            0 5.1659107    -2.512643
-            1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
-
-            Input matrix:           0         1         2
-            0       1.0  4.000001  4.000001
-            1 2.0000005 2.0000005 2.0000007
-            2  5.000001 0.9999999 1.0000004
-
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
-
-    """
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
                  algorithm='full'):
-        if algorithm in ['full', 'auto', 'randomized', 'jacobi']:
+        if algorithm in ['full', 'auto', 'jacobi']:
             c_algorithm = self._get_algorithm_c_name(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -116,8 +57,6 @@ class TruncatedSVD:
         return {
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
-            # 'arpack': NOT_SUPPORTED,
-            'randomized': RANDOMIZED,
             'jacobi': COV_EIG_JACOBI
         }[algorithm]
 
@@ -154,6 +93,7 @@ class TruncatedSVD:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
+
     def fit(self, X, _transform=True):
         """
             Fit LSI model on training PyGDF DataFrame X.
@@ -164,7 +104,7 @@ class TruncatedSVD:
                 Training data (floats or doubles)
 
         """
-
+        
         # c params
         cpdef c_tsvd.paramsTSVD params
         params.n_components = self.params.n_components
@@ -196,16 +136,12 @@ class TruncatedSVD:
         if not _transform:
             if self.gdf_datatype.type == np.float32:
                 c_tsvd.tsvdFit(<float*> input_ptr,
-                               <float*> components_ptr,
-                               <float*> explained_var_ptr,
-                               <float*> explained_var_ratio_ptr,
+                               <float*> components_ptr,                           
                                <float*> singular_vals_ptr,
                                params)
             else:
                 c_tsvd.tsvdFit(<double*> input_ptr,
-                               <double*> components_ptr,
-                               <double*> explained_var_ptr,
-                               <double*> explained_var_ratio_ptr,
+                               <double*> components_ptr,                           
                                <double*> singular_vals_ptr,
                                params)
         else:
@@ -237,6 +173,7 @@ class TruncatedSVD:
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
 
+
     def fit_transform(self, X):
         """
             Fit LSI model to X and perform dimensionality reduction on X.
@@ -260,6 +197,7 @@ class TruncatedSVD:
             X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
         return X_new
+
 
     def inverse_transform(self, X):
         """
@@ -312,6 +250,7 @@ class TruncatedSVD:
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         return X_original 
+
 
 
     def transform(self, X):

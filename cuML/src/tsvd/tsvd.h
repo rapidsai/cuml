@@ -17,6 +17,7 @@
 #pragma once
 
 #include <linalg/binary_op.h>
+#include <linalg/eltwise.h>
 #include <linalg/eig.h>
 #include <linalg/rsvd.h>
 #include <linalg/cublas_wrappers.h>
@@ -25,6 +26,9 @@
 #include <cuda_utils.h>
 #include <matrix/matrix.h>
 #include <matrix/math.h>
+#include <stats/stddev.h>
+#include <stats/mean.h>
+#include <stats/sum.h>
 #include "ml_utils.h"
 
 namespace ML {
@@ -53,68 +57,39 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 	allocate(components_temp, prms.n_cols, prms.n_components);
 	math_t *left_eigvec;
 	LinAlg::rsvdFixedRank(in, prms.n_rows, prms.n_cols, singular_vals,
-			left_eigvec, components_temp, prms.n_components, p, true, false, true,
-			false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
+			left_eigvec, components_temp, prms.n_components, p, true, false,
+			true, false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
 			cublas_handle);
 
-	LinAlg::transpose(components_temp, components, prms.n_cols, prms.n_components, cublas_handle);
+	LinAlg::transpose(components_temp, components, prms.n_cols,
+			prms.n_components, cublas_handle);
 	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components);
 	Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components);
 
 	if (components_temp)
-	    CUDA_CHECK(cudaFree(components_temp));
+		CUDA_CHECK(cudaFree(components_temp));
 
 }
 
 template<typename math_t>
-void calCompExpVarsEig(math_t *in, math_t *components, math_t *explained_var,
-		math_t *explained_var_ratio, paramsTSVD prms,
-		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle) {
+void calEig(math_t *in, math_t *components, math_t *explained_var,
+		paramsTSVD prms, cusolverDnHandle_t cusolver_handle,
+		cublasHandle_t cublas_handle) {
 
-	math_t *components_all;
-	math_t *explained_var_all;
-	math_t *explained_var_ratio_all;
-
-	int len = prms.n_cols * prms.n_cols;
-	allocate(components_all, len);
-	allocate(explained_var_all, prms.n_cols);
-	allocate(explained_var_ratio_all, prms.n_cols);
-
-	if (prms.algorithm == solver::COV_EIG_DQ) {
-		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components_all,
-				explained_var_all, cusolver_handle);
-	} else if (prms.algorithm == solver::COV_EIG_JACOBI) {
-		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components_all,
-				explained_var_all, (math_t) prms.tol, prms.n_iterations,
+	if (prms.algorithm == solver::COV_EIG_JACOBI) {
+		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
+				explained_var, (math_t) prms.tol, prms.n_iterations,
 				cusolver_handle);
 	} else {
-		ASSERT(false,
-				"This function only supports eigen decomposition based algorithms");
+		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
+						cusolver_handle);
 	}
 
-	Matrix::colReverse(components_all, prms.n_cols, prms.n_cols);
-	LinAlg::transpose(components_all, prms.n_cols);
+	Matrix::colReverse(components, prms.n_cols, prms.n_cols);
+	LinAlg::transpose(components, prms.n_cols);
 
-	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
-			prms.n_components, prms.n_cols);
-	// Matrix::signFlip(components, prms.n_cols, prms.n_components);
+	Matrix::rowReverse(explained_var, prms.n_cols, 1);
 
-	Matrix::rowReverse(explained_var_all, prms.n_cols, 1);
-	Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols);
-
-	Matrix::truncZeroOrigin(explained_var_all, prms.n_cols, explained_var,
-			prms.n_components, 1);
-	Matrix::truncZeroOrigin(explained_var_ratio_all, prms.n_cols,
-			explained_var_ratio, prms.n_components, 1);
-
-	if (components_all)
-		CUDA_CHECK(cudaFree(components_all));
-
-	if (explained_var_all)
-		CUDA_CHECK(cudaFree(explained_var_all));
-
-	if (explained_var_ratio_all)
-		CUDA_CHECK(cudaFree(explained_var_ratio_all));
 }
 
 /**
@@ -127,60 +102,54 @@ void calCompExpVarsEig(math_t *in, math_t *components, math_t *explained_var,
  * @{
  */
 template<typename math_t>
-void signFlip(math_t *input, int n_rows, int n_cols, math_t *components, int n_cols_comp) {
+void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
+		int n_cols_comp) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto m = n_rows;
 
-	thrust::for_each(counting, counting + n_cols, [=]__device__(int idx) {
-		int d_i = idx * m;
-		int end = d_i + m;
+    thrust::for_each(counting, counting + n_cols, [=]__device__(int idx) {
+			int d_i = idx * m;
+			int end = d_i + m;
 
-		math_t max = 0.0;
-	    int max_index = 0;
-		for (int i = d_i; i < end; i++) {
-			math_t val = input[i];
-			if (val < 0.0) {
-				val = -val;
-			}
-			if (val > max) {
-				max = val;
-				max_index = i;
-			}
-		}
-
-		if (input[max_index] < 0.0) {
+			math_t max = 0.0;
+			int max_index = 0;
 			for (int i = d_i; i < end; i++) {
-				input[i] = -input[i];
+				math_t val = input[i];
+				if (val < 0.0) {
+					val = -val;
+				}
+				if (val > max) {
+					max = val;
+					max_index = i;
+				}
 			}
 
-			int len = n_cols * n_cols_comp;
-			for (int i = idx; i < len; i = i + n_cols) {
-				components[i] = -components[i];
+			if (input[max_index] < 0.0) {
+				for (int i = d_i; i < end; i++) {
+					input[i] = -input[i];
+				}
+
+				int len = n_cols * n_cols_comp;
+				for (int i = idx; i < len; i = i + n_cols) {
+					components[i] = -components[i];
+				}
 			}
-		}
 	});
 
 }
-
-
-// TODO: Implement for the case prms.trans_input = false
-// TODO: Check sign flip algorithm
 
 /**
  * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals, etc.
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
- * @output param explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
- * @output param explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
  * @output param singular_vals: singular values of the data. Size n_components * 1
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
  * @input param cublas_handle: cublas handle
  * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void tsvdFit(math_t *input, math_t *components, math_t *explained_var,
-		math_t *explained_var_ratio, math_t *singular_vals, paramsTSVD prms,
+void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSVD prms,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
 
 	ASSERT(prms.n_cols > 1,
@@ -193,32 +162,34 @@ void tsvdFit(math_t *input, math_t *components, math_t *explained_var,
 	if (prms.n_components > prms.n_cols)
 		prms.n_components = prms.n_cols;
 
-	if (prms.algorithm == solver::RANDOMIZED) {
-		calCompExpVarsSvd(input, components, singular_vals, explained_var,
-				explained_var_ratio, prms, cusolver_handle, cublas_handle);
-	} else {
-		math_t *input_cross_mult;
-		int len = prms.n_cols * prms.n_cols;
-		allocate(input_cross_mult, len);
+	math_t *input_cross_mult;
+	int len = prms.n_cols * prms.n_cols;
+	allocate(input_cross_mult, len);
 
-		math_t alpha = math_t(1);
-		math_t beta = math_t(0);
-		LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
-				prms.n_cols, prms.n_cols, true, false, alpha, beta,
-				cublas_handle);
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+	LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
+			prms.n_cols, prms.n_cols, true, false, alpha, beta, cublas_handle);
 
-		calCompExpVarsEig(input_cross_mult, components, explained_var,
-				explained_var_ratio, prms, cusolver_handle, cublas_handle);
+	math_t *components_all;
+	math_t *explained_var_all;
 
-		if (input_cross_mult)
-			CUDA_CHECK(cudaFree(input_cross_mult));
-	}
+	allocate(components_all, len);
+	allocate(explained_var_all, prms.n_cols);
+
+	calEig(input_cross_mult, components_all, explained_var_all, prms,
+			cusolver_handle, cublas_handle);
+
+	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
+			prms.n_components, prms.n_cols);
 
 	math_t scalar = math_t(1);
-	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components);
+	Matrix::seqRoot(explained_var_all, singular_vals, scalar, prms.n_components);
+
+	CUDA_CHECK(cudaFree(components_all));
+	CUDA_CHECK(cudaFree(explained_var_all));
+	CUDA_CHECK(cudaFree(input_cross_mult));
 }
-
-
 
 /**
  * @brief performs fit and transform operations for the tsvd. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
@@ -238,14 +209,44 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *singular_vals, paramsTSVD prms, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
 
-	tsvdFit(input, components, explained_var, explained_var_ratio,
-			singular_vals, prms, cublas_handle, cusolver_handle);
-
+	tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
 	tsvdTransform(input, components, trans_input, prms, cublas_handle);
 
-	signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols);
-}
+	signFlip(trans_input, prms.n_rows, prms.n_components, components,
+			prms.n_cols);
 
+	math_t *mu_trans;
+	allocate(mu_trans, prms.n_components);
+
+	Stats::mean(mu_trans, trans_input, prms.n_components, prms.n_rows, true,
+			false);
+	Stats::vars(explained_var, trans_input, mu_trans, prms.n_components,
+			prms.n_rows, true, false);
+
+	math_t *mu;
+	allocate(mu, prms.n_cols);
+	math_t *vars;
+	allocate(vars, prms.n_cols);
+
+	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
+	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false);
+
+	math_t *total_vars;
+	allocate(total_vars, 1);
+	Stats::sum(total_vars, vars, 1, prms.n_cols, false);
+
+	math_t total_vars_h;
+	updateHost(&total_vars_h, total_vars, 1);
+	math_t scalar = math_t(1) / total_vars_h;
+
+	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+			prms.n_components);
+
+	CUDA_CHECK(cudaFree(mu_trans));
+	CUDA_CHECK(cudaFree(mu));
+	CUDA_CHECK(cudaFree(vars));
+	CUDA_CHECK(cudaFree(total_vars));
+}
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
@@ -298,8 +299,6 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 			prms.n_rows, prms.n_cols, false, false, alpha, beta, cublas_handle);
 
 }
-
-
 
 /** @} */
 
