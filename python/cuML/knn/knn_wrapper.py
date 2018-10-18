@@ -1,3 +1,18 @@
+ # Copyright (c) 2018, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ #
+
 import faiss
 import numpy as np
 import pandas as pd
@@ -8,7 +23,51 @@ class KNNparams:
         self.n_gpus = n_gpus
 
 class KNN:
+    """
+    Create a DataFrame, fill it with data, and compute KNN:
+    .. code-block:: python
+        import pygdf
+        from cuML import KNN
+        import numpy as np
+        np_float = np.array([
+                [1.,2.,3.], # 1st point 
+                [1.,2.,4.], # 2nd point
+                [2.,2.,4.]  # 3rd point
+            ]).astype('float32')
+        gdf_float = pygdf.DataFrame()
+        gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
+        gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
+        gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
+        print('n_samples = 3, n_dims = 3')
+        print(gdf_float)
+        knn_float = KNN(n_gpus=1)
+        knn_float.fit(gdf_float)
+        Distance,Index = knn_float.query(gdf_float,k=3) #get 3 nearest neighbors
+        print("Index:")
+        print(Index)
+        print("Distance:")
+        print(Distance)
 
+    Output:
+        .. code-block:: python
+
+        n_samples = 3, n_dims = 3
+           dim_0 dim_1 dim_2
+        0   1.0   2.0   3.0
+        1   1.0   2.0   4.0
+        2   2.0   2.0   4.0
+        Index:
+                 index_neighbor_0 index_neighbor_1 index_neighbor_2
+        0                0                1                2
+        1                1                0                2
+        2                2                1                0
+        Distance:
+                 distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
+        0                 0.0                 1.0                 2.0
+        1                 0.0                 1.0                 1.0
+        2                 0.0                 1.0                 2.0
+    For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
+    """
     def __init__(self, n_gpus=-1): # -1 means using all gpus
         self.params = KNNparams(n_gpus)
 
@@ -34,10 +93,8 @@ class KNN:
         return D,I
 
     def to_nparray(self,x):
-        if isinstance(x,pd.DataFrame):
-            x = x.values
-        elif isinstance(x,pygdf.DataFrame):
-            x = x.to_pandas().values
+        if isinstance(x,pygdf.DataFrame):
+            x = x.to_pandas()
         return np.ascontiguousarray(x)
 
     def to_pygdf(self,df,col=''):
