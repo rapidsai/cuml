@@ -44,7 +44,5 @@ class KNN:
         # convert pandas dataframe to pygdf dataframe
         if isinstance(df,np.ndarray):
             df = pd.DataFrame({'%s_neighbor_%d'%(col,i):df[:,i] for i in range(df.shape[1])})
-        pdf = pygdf.DataFrame()
-        for c,column in enumerate(df):
-            pdf[c] = df[column]
+        pdf = pygdf.DataFrame.from_pandas(df)
         return pdf
