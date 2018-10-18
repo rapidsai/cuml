@@ -100,7 +100,7 @@ Current external submodules are:
 
 ## Contributing
 
-Plese use issues and pull requests to report bugs and add functionality.
+Please use issues and pull requests to report bugs and add functionality.
 
 ## Contact
 
