@@ -7,12 +7,13 @@ The cuML repository contains:
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms;
-   a. Single GPU Truncated Singular Value Decomposition (tSVD),
-   b. Single GPU Principal Component Analysis (PCA),
-   c. Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
-   d. Single GPU Kalman Filtering,
-   e. Multi-GPU K-Means Clustering,
-   f. Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss)).
+
+a) Single GPU Truncated Singular Value Decomposition (tSVD),
+b) Single GPU Principal Component Analysis (PCA),
+c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
+d) Single GPU Kalman Filtering,
+e) Multi-GPU K-Means Clustering,
+f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss)).
 
 3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
    a. Linear Algebra,
