@@ -119,7 +119,7 @@ except AttributeError:
 
 
 ext = Extension('cuML',
-                sources=['cuML/src/pca/pca.cu', 'cuML/src/tsvd/tsvd.cu', 'cuML/src/dbscan/dbscan.cu', 'python/cuML/cuml.pyx'],
+                sources=['cuML/src/pca/pca.cu', 'cuML/src/tsvd/tsvd.cu', 'cuML/src/dbscan/dbscan.cu', 'cuML/src//kmeans/kmeans.cu', 'python/cuML/cuml.pyx'],
                 depends=['cuML/src/tsvd/tsvd.cu'],
                 library_dirs=[CUDA['lib64']],
                 libraries=['cudart','cublas','cusolver'],
