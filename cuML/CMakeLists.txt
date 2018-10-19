@@ -94,6 +94,7 @@ add_executable(ml_test
   test/pca_test.cu
   test/tsvd_test.cu
   test/dbscan_test.cu
+  test/kmeans_test.cu
   )
 
 target_link_libraries(ml_test
