@@ -1322,6 +1322,8 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 			init_from_data, threshold, h_srcdata, h_centroids,
 			&h_pred_centroids, &h_pred_labels);
 
+	cudaSetDevice(gpu_id);
+
 	if (dopredict == 0) {
 		cudaMemcpy(pred_centroids, h_pred_centroids, k * n * sizeof(float),
 				cudaMemcpyHostToDevice);
@@ -1362,6 +1364,11 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 			max_iterations, init_from_data, threshold, h_srcdata, h_centroids,
 			&h_pred_centroids, &h_pred_labels);
 
+	cudaSetDevice(gpu_id);
+	// int dev = -1;
+	// cudaGetDevice(&dev);
+	// printf("device: %d\n", dev);
+
 	if (dopredict == 0) {
 		cudaMemcpy(pred_centroids, h_pred_centroids, k * n * sizeof(double),
 				cudaMemcpyHostToDevice);
@@ -1395,6 +1402,8 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	h2o4gpukmeans::kmeans_transform<float>(verbose, gpu_id, actual_n_gpu, m, n,
 			ord, k, h_srcdata, h_centroids, &h_preds);
 
+	cudaSetDevice(gpu_id);
+
 	cudaMemcpy(preds, h_preds, m * k * sizeof(float), cudaMemcpyHostToDevice);
 
 	//free(h_srcdata);
@@ -1417,6 +1426,8 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	int actual_n_gpu = h2o4gpukmeans::get_n_gpus(n_gpu);
 	h2o4gpukmeans::kmeans_transform<double>(verbose, gpu_id, actual_n_gpu, m, n,
 			ord, k, h_srcdata, h_centroids, &h_preds);
+
+	cudaSetDevice(gpu_id);
 
 	cudaMemcpy(preds, h_preds, m * k * sizeof(double), cudaMemcpyHostToDevice);
 

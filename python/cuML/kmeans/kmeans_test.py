@@ -26,7 +26,7 @@ print("input:")
 print(b)
 
 print("\nCalling fit")
-kmeans_float = KMeans(n_clusters=2, n_gpu=1)
+kmeans_float = KMeans(n_clusters=2, n_gpu=-1)
 kmeans_float.fit(b)
 print("labels:")
 print(kmeans_float.labels_)

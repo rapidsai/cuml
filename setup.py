@@ -126,10 +126,10 @@ ext = Extension('cuML',
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 # this syntax is specific to this build system
-                extra_compile_args={'gcc': ['-std=c++11'],
+                extra_compile_args={'gcc': ['-std=c++11','-fopenmp'],
                                     'nvcc': ['-arch=sm_60', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'",'-std=c++11','--expt-extended-lambda']},
                 include_dirs = [numpy_include, CUDA['include'], 'cuML/src', 'cuML/external/ml-prims/src','cuML/external/ml-prims/external/cutlass', 'cuML/external/cutlass','cuML/external/ml-prims/external/cub'],
-                extra_link_args=["-std=c++11"])
+                extra_link_args=["-std=c++11",'-fopenmp'])
 
 
 
