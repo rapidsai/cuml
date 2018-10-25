@@ -7,5 +7,5 @@ ADD python /cuML/python
 ADD setup.py /cuML/setup.py
 
 WORKDIR /cuML
-RUN source activate gdf && conda install cython
+RUN source activate gdf && conda install -c pytorch cython faiss-gpu
 RUN source activate gdf && python setup.py install
