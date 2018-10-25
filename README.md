@@ -53,6 +53,7 @@ List of dependencies:
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. [cuDF](https://github.com/rapidsai/cudf-alpha)
+7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu```
 
 ### Setup steps
 
