@@ -9,6 +9,12 @@ DBSCAN
 
 .. autoclass:: cuML.DBSCAN
     :members:
+
+K-Nearest Neighbors
+-------------------
+
+.. autoclass:: cuML.KNN
+    :members:
     
 PCA
 ---------
