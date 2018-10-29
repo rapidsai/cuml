@@ -17,14 +17,14 @@ import pytest
 from cuML import DBSCAN as cuDBSCAN
 from sklearn.cluster import DBSCAN as skDBSCAN
 from test_utils import array_equal
-import pygdf
+import cudf
 import numpy as np
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 
 def test_dbscan_predict(datatype):
-    gdf = pygdf.DataFrame()
+    gdf = cudf.DataFrame()
     gdf['0']=np.asarray([1,2,2,8,8,25],dtype=datatype)
     gdf['1']=np.asarray([2,2,3,7,8,80],dtype=datatype)
 
