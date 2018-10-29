@@ -16,7 +16,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import TruncatedSVD as skTSVD
-from test_utils import timer,load_mortgage,pd2pygdf,array_equal,parse_args,write_log
+from test_utils import timer,load_mortgage,pd2cudf,array_equal,parse_args,write_log
 import pytest
 
 @pytest.mark.xfail
@@ -42,7 +42,7 @@ def test_tsvd_helper(X,n_components,algorithm,random_state,threshold,use_assert,
         n_components,algorithm,random_state,model='sklearn')
     print()
     if test_model == 'cuml':
-        X = pd2pygdf(X)
+        X = pd2cudf(X)
     elif test_model == 'h2o4gpu':
         X = np.array(X).astype(np.float32)
     tsvd_imp2 = run_tsvd(X,

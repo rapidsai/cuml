@@ -1,5 +1,5 @@
-# From: https://github.com/rapidsai/pygdf/blob/master/Dockerfile
-FROM pygdf
+# From: https://github.com/rapidsai/cudf/blob/master/Dockerfile
+FROM cudf
 
 ADD ml-prims /cuML/ml-prims
 ADD cuML /cuML/cuML
