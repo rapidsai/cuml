@@ -4,7 +4,7 @@ Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libra
 
 The cuML repository contains:
 
-1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf-alpha) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
+1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
    a. Single GPU Truncated Singular Value Decomposition (tSVD),
@@ -47,12 +47,12 @@ To use cuML, it must be cloned and built in an environment that already has the 
 
 List of dependencies:
 
-1. zlib
-2. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
-3. CUDA (>= 9.0)
-4. Cython (>= 0.28)
-5. gcc (>=5.4.0)
-6. [cuDF](https://github.com/rapidsai/cudf-alpha)
+1. [cuDF](https://github.com/rapidsai/cudf-alpha) (>=0.2.0)
+2. zlib
+3. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
+4. CUDA (>= 9.0)
+5. Cython (>= 0.28)
+6. gcc (>=5.4.0)
 7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu```
 
 ### Setup steps

@@ -16,13 +16,13 @@ import pytest
 from cuML import TruncatedSVD as cuTSVD
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from test_utils import array_equal
-import pygdf
+import cudf
 import numpy as np
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 
 def test_tsvd_fit(datatype):
-    gdf = pygdf.DataFrame()
+    gdf = cudf.DataFrame()
     gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
     gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
 
@@ -42,7 +42,7 @@ def test_tsvd_fit(datatype):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 
 def test_pca_fit_transform(datatype):
-    gdf = pygdf.DataFrame()
+    gdf = cudf.DataFrame()
     gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
     gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
 
@@ -60,7 +60,7 @@ def test_pca_fit_transform(datatype):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 
 def test_pca_inverse_transform(datatype):
-    gdf = pygdf.DataFrame()
+    gdf = cudf.DataFrame()
     gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
     gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
 

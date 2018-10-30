@@ -17,7 +17,7 @@ cimport c_pca
 import numpy as np
 cimport numpy as np
 from numba import cuda
-import pygdf
+import cudf
 from libcpp cimport bool
 import ctypes
 from libc.stdint cimport uintptr_t
@@ -44,11 +44,11 @@ class PCA:
 
     .. code-block:: python
 
-        import pygdf
+        import cudf
         from cuML import PCA
         import numpy as np
 
-        gdf_float = pygdf.DataFrame()
+        gdf_float = cudf.DataFrame()
         gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
         gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
         gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
@@ -80,28 +80,28 @@ class PCA:
                       1 -0.72165036 -0.48949987  -0.4895003
 
           explained variance:
-                      
+
                       0   8.510402
                       1 0.48959687
 
           explained variance ratio:
-                       
+
                        0   0.9456003
                        1 0.054399658
 
           singular values:
-                     
+
                      0 4.1256275
                      1 0.9895422
 
           mean:
-          
+
                     0 2.6666667
                     1 2.3333333
                     2 2.3333333
 
           noise variance:
-                
+
                 0  0.0
 
           transformed matrix:
@@ -164,16 +164,16 @@ class PCA:
                                                     dtype=self.gdf_datatype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
                                                    dtype=self.gdf_datatype))
-        self.explained_variance_ = pygdf.Series(
+        self.explained_variance_ = cudf.Series(
                                       np.zeros(n_components,
                                                dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = pygdf.Series(
+        self.explained_variance_ratio_ = cudf.Series(
                                             np.zeros(n_components,
                                                      dtype=self.gdf_datatype))
-        self.mean_ = pygdf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
-        self.singular_values_ = pygdf.Series(np.zeros(n_components,
+        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
+        self.singular_values_ = cudf.Series(np.zeros(n_components,
                                                       dtype=self.gdf_datatype))
-        self.noise_variance_ = pygdf.Series(np.zeros(1,
+        self.noise_variance_ = cudf.Series(np.zeros(1,
                                                      dtype=self.gdf_datatype))
 
     def _get_ctype_ptr(self, obj):
@@ -194,7 +194,7 @@ class PCA:
 
         Parameters
         ----------
-        X : PyGDF DataFrame
+        X : cuDF DataFrame
           Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         Returns
@@ -275,7 +275,7 @@ class PCA:
                                       <double*> noise_vars_ptr,
                                       params)
 
-        components_gdf = pygdf.DataFrame()
+        components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
             components_gdf[str(i)] = self.components_[i*params.n_components:(i+1)*params.n_components]
 
@@ -293,21 +293,21 @@ class PCA:
 
         Parameters
         ----------
-        X : PyGDF DataFrame, shape (n_samples, n_features)
+        X : cuDF DataFrame, shape (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
 
         Returns
         -------
-        X_new : PyGDF DataFrame, shape (n_samples, n_components)
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
         """
         self.fit(X, _transform=True)
-        X_new = pygdf.DataFrame()
+        X_new = cudf.DataFrame()
         num_rows = self.params.n_rows
 
         for i in range(0, self.params.n_components):
             X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
-        return X_new 
+        return X_new
 
     def inverse_transform(self, X):
         """
@@ -317,12 +317,12 @@ class PCA:
 
         Parameters
         ----------
-        X : PyGDF DataFrame, shape (n_samples, n_components)
+        X : cuDF DataFrame, shape (n_samples, n_components)
             New data (floats or doubles), where n_samples is the number of samples and n_components is the number of components.
 
         Returns
         -------
-        X_original : PyGDF DataFrame, shape (n_samples, n_features)
+        X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
         cpdef c_pca.paramsPCA params
@@ -362,12 +362,12 @@ class PCA:
                                       <double*> input_ptr,
                                       params)
 
-        X_original = pygdf.DataFrame()
+        X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
 
-        return X_original 
+        return X_original
 
     def transform(self, X):
         """
@@ -377,12 +377,12 @@ class PCA:
 
         Parameters
         ----------
-        X : PyGDF DataFrame, shape (n_samples, n_features)
+        X : cuDF DataFrame, shape (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of samples and n_features is the number of features.
 
         Returns
         -------
-        X_new : PyGDF DataFrame, shape (n_samples, n_components)
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
 
         """
         cpdef c_pca.paramsPCA params
@@ -422,7 +422,7 @@ class PCA:
                                <double*> mean_ptr,
                                params)
 
-        X_new = pygdf.DataFrame()
+        X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
             X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
 

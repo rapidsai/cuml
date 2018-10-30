@@ -16,7 +16,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN as skDBSCAN
-from test_utils import timer,load_mortgage,pd2pygdf,array_equal,parse_args,write_log
+from test_utils import timer,load_mortgage,pd2cudf,array_equal,parse_args,write_log
 import pytest
 
 def test_dbscan(nrows=1000,ncols=100, eps = 3, min_samples = 2,
@@ -42,7 +42,7 @@ def test_dbscan_helper(X, eps, min_samples, threshold, use_assert, test_model):
         eps, min_samples, model='sklearn')
     print()
     if test_model == 'cuml':
-        X = pd2pygdf(X)
+        X = pd2cudf(X)
 
     dbscan_imp2 = run_dbscan(X,
         eps, min_samples, model=test_model)
