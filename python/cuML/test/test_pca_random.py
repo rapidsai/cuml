@@ -16,7 +16,7 @@
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA as skPCA
-from test_utils import timer,load_mortgage,pd2pygdf,array_equal,parse_args,write_log
+from test_utils import timer,load_mortgage,pd2cudf,array_equal,parse_args,write_log
 import pytest
 
 
@@ -42,7 +42,7 @@ def test_pca_helper(X,n_components,svd_solver,whiten,random_state,threshold,use_
         n_components,svd_solver,whiten,random_state,model='sklearn')
     print()
     if test_model == 'cuml':
-        X = pd2pygdf(X)
+        X = pd2cudf(X)
     elif test_model == 'h2o4gpu':
         X = np.array(X).astype(np.float32)
 
