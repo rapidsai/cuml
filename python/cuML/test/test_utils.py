@@ -21,10 +21,10 @@ import multiprocessing
 import pandas as pd
 import numpy as np
 try:
-    import pygdf
+    import cudf
     from cuML import PCA as cumlPCA
 except:
-    print("pygdf or cuml is not installed")
+    print("cudf or cuml is not installed")
 import argparse
 import warnings
 warnings.filterwarnings("ignore")
@@ -145,25 +145,25 @@ def parallel_run1(func,data):
         print(d)
         func(d)
 
-def pd2pygdf(df):
+def pd2cudf(df):
     if isinstance(df,np.ndarray):
-        return np2pygdf(df)
-    pdf = pygdf.DataFrame()
+        return np2cudf(df)
+    pdf = cudf.DataFrame()
     for c,column in enumerate(df):
         pdf[c] = df[column]
     return pdf
 
-def np2pygdf(df):
-    pdf = pygdf.DataFrame()
+def np2cudf(df):
+    pdf = cudf.DataFrame()
     for c in range(df.shape[1]):
         pdf[c] = df[:,c]
     return pdf
 
-def test_pygdf(nrows=1000,ncols=1000):
+def test_cudf(nrows=1000,ncols=1000):
     x = np.random.rand(nrows,ncols).astype(np.float32)
     df = pd.DataFrame({'fea%d'%i:x[:,i] for i in range(x.shape[1])})
-    pdf = pd2pygdf(df)
-    #pdf = pygdf.DataFrame().from_pandas(df) # doesn't work
+    pdf = pd2cudf(df)
+    #pdf = cudf.DataFrame().from_pandas(df) # doesn't work
     pca = cumlPCA(n_components=2)
     pca.fit(pdf)
     res = pca.transform(pdf)
@@ -184,8 +184,8 @@ def to_nparray(x):
         return np.array([x])
     elif isinstance(x,pd.DataFrame):
         return x.values
-    elif isinstance(x,pygdf.DataFrame):
+    elif isinstance(x,cudf.DataFrame):
         return x.to_pandas().values
-    elif isinstance(x,pygdf.Series):
+    elif isinstance(x,cudf.Series):
         return x.to_pandas().values
     return x

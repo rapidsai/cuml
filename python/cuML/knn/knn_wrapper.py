@@ -16,7 +16,7 @@
 import faiss
 import numpy as np
 import pandas as pd
-import pygdf
+import cudf
 
 class KNNparams:
     def __init__(self,n_gpus):
@@ -26,15 +26,15 @@ class KNN:
     """
     Create a DataFrame, fill it with data, and compute KNN:
     .. code-block:: python
-        import pygdf
+        import cudf
         from cuML import KNN
         import numpy as np
         np_float = np.array([
-                [1.,2.,3.], # 1st point 
+                [1.,2.,3.], # 1st point
                 [1.,2.,4.], # 2nd point
                 [2.,2.,4.]  # 3rd point
             ]).astype('float32')
-        gdf_float = pygdf.DataFrame()
+        gdf_float = cudf.DataFrame()
         gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
         gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
         gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
@@ -88,18 +88,18 @@ class KNN:
     def query(self,X,k):
         X = self.to_nparray(X)
         D,I = self.gpu_index.search(X, k)
-        D = self.to_pygdf(D,col='distance')
-        I = self.to_pygdf(I,col='index')
+        D = self.to_cudf(D,col='distance')
+        I = self.to_cudf(I,col='index')
         return D,I
 
     def to_nparray(self,x):
-        if isinstance(x,pygdf.DataFrame):
+        if isinstance(x,cudf.DataFrame):
             x = x.to_pandas()
         return np.ascontiguousarray(x)
 
-    def to_pygdf(self,df,col=''):
-        # convert pandas dataframe to pygdf dataframe
+    def to_cudf(self,df,col=''):
+        # convert pandas dataframe to cudf dataframe
         if isinstance(df,np.ndarray):
             df = pd.DataFrame({'%s_neighbor_%d'%(col,i):df[:,i] for i in range(df.shape[1])})
-        pdf = pygdf.DataFrame.from_pandas(df)
+        pdf = cudf.DataFrame.from_pandas(df)
         return pdf
