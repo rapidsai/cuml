@@ -16,7 +16,7 @@
 cimport c_tsvd
 import numpy as np
 from numba import cuda
-import pygdf
+import cudf
 from libcpp cimport bool
 import ctypes
 from libc.stdint cimport uintptr_t
@@ -40,10 +40,10 @@ class TruncatedSVD:
     .. code-block:: python
 
             from cuML import TruncatedSVD
-            import pygdf
+            import cudf
             import numpy as np
 
-            gdf_float = pygdf.DataFrame()
+            gdf_float = cudf.DataFrame()
             gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
             gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
             gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
@@ -131,13 +131,13 @@ class TruncatedSVD:
                                                     dtype=self.gdf_datatype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
                                                    dtype=self.gdf_datatype))
-        self.explained_variance_ = pygdf.Series(
+        self.explained_variance_ = cudf.Series(
                                       np.zeros(n_components,
                                                dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = pygdf.Series(
+        self.explained_variance_ratio_ = cudf.Series(
                                             np.zeros(n_components,
                                                      dtype=self.gdf_datatype))
-        self.singular_values_ = pygdf.Series(np.zeros(n_components,
+        self.singular_values_ = cudf.Series(np.zeros(n_components,
                                                       dtype=self.gdf_datatype))
 
     def _get_ctype_ptr(self, obj):
@@ -155,11 +155,11 @@ class TruncatedSVD:
 
     def fit(self, X, _transform=True):
         """
-            Fit LSI model on training PyGDF DataFrame X.
+            Fit LSI model on training cudf DataFrame X.
 
             Parameters
             ----------
-            X : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
                 Training data (floats or doubles)
 
         """
@@ -222,7 +222,7 @@ class TruncatedSVD:
                                         params)
 
 
-        components_gdf = pygdf.DataFrame()
+        components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
             components_gdf[str(i)] = self.components_[i*params.n_components:(i+1)*params.n_components]
 
@@ -239,17 +239,17 @@ class TruncatedSVD:
 
             Parameters
             ----------
-            X GDF : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+            X GDF : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
                 Training data (floats or doubles)
 
             Returns
             ----------
-            X_new : PyGDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense PyGDF DataFrame
+            X_new : cuDF DataFrame, shape (n_samples, n_components)
+                Reduced version of X. This will always be a dense cuDF DataFrame
 
         """
         self.fit(X, _transform=True)
-        X_new = pygdf.DataFrame()
+        X_new = cudf.DataFrame()
         num_rows = self.params.n_rows
 
         for i in range(0, self.params.n_components):
@@ -262,17 +262,17 @@ class TruncatedSVD:
         """
             Transform X back to its original space.
 
-            Returns a PyGDF DataFrame X_original whose transform would be X.
+            Returns a cuDF DataFrame X_original whose transform would be X.
 
             Parameters
             ----------
-            X : PyGDF DataFrame, shape (n_samples, n_components)
+            X : cuDF DataFrame, shape (n_samples, n_components)
                 New data.
 
             Returns
             ----------
-            X_original : PyGDF DataFrame, shape (n_samples, n_features)
-                Note that this is always a dense PyGDF DataFrame.
+            X_original : cuDF DataFrame, shape (n_samples, n_features)
+                Note that this is always a dense cuDF DataFrame.
 
         """
 
@@ -304,7 +304,7 @@ class TruncatedSVD:
                                         <double*> input_ptr,
                                         params)
 
-        X_original = pygdf.DataFrame()
+        X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
@@ -318,12 +318,12 @@ class TruncatedSVD:
 
             Parameters
             ----------
-            X : PyGDF DataFrame, dense matrix, shape (n_samples, n_features)
+            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
                 New data.
 
             Returns
             ----------
-            X_new : PyGDF DataFrame, shape (n_samples, n_components)
+            X_new : cuDF DataFrame, shape (n_samples, n_components)
                 Reduced version of X. This will always be a dense DataFrame.
 
         """
@@ -358,7 +358,7 @@ class TruncatedSVD:
                                  <double*> trans_input_ptr,
                                  params)
 
-        X_new = pygdf.DataFrame()
+        X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
             X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
 

@@ -10,7 +10,7 @@ List of dependencies:
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. nvcc
-7. [cuDF](https://github.com/gpuopenanalytics/pygdf)
+7. [cuDF](https://github.com/gpuopenanalytics/cudf)
 
 ### Setup steps
 

@@ -15,7 +15,7 @@
 
 from cuML import PCA
 from sklearn.decomposition import PCA as PCA_SKL
-import pygdf
+import cudf
 import numpy as np
 import pandas as pd
 import time
@@ -31,7 +31,7 @@ index = [i for i in range(1, len(data)+1)]
 df = pd.DataFrame(data)#, index = index)
 df = df.astype('float32')
 
-gdf = pygdf.DataFrame.from_pandas(df)
+gdf = cudf.DataFrame.from_pandas(df)
 
 print("\ninput:")
 

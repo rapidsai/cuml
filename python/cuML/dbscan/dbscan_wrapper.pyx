@@ -17,7 +17,7 @@
 cimport c_dbscan
 import numpy as np
 from numba import cuda
-import pygdf
+import cudf
 from libcpp cimport bool
 import ctypes
 from libc.stdint cimport uintptr_t
@@ -30,11 +30,11 @@ class DBSCAN:
 
     .. code-block:: python
 
-            import pygdf
+            import cudf
             from cuML import DBSCAN
             import numpy as np
 
-            gdf_float = pygdf.DataFrame()
+            gdf_float = cudf.DataFrame()
             gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
             gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
             gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
@@ -59,7 +59,7 @@ class DBSCAN:
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
-        
+
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
         # encapsulating access in the following 3 methods. They might also be
@@ -78,7 +78,7 @@ class DBSCAN:
 
             Parameters
             ----------
-            X : PyGDF DataFrame
+            X : cuDF DataFrame
                Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
@@ -90,39 +90,39 @@ class DBSCAN:
         self.gdf_datatype = np.dtype(x[0])
         self.n_rows = len(X)
         self.n_cols = len(X._cols)
-        
+
         cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
-        self.labels_ = pygdf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
-            c_dbscan.dbscanFit(<float*>input_ptr, 
-                               <int> self.n_rows, 
-                               <int> self.n_cols, 
-                               <float> self.eps, 
+            c_dbscan.dbscanFit(<float*>input_ptr,
+                               <int> self.n_rows,
+                               <int> self.n_cols,
+                               <float> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
         else:
-            c_dbscan.dbscanFit(<double*>input_ptr, 
-                               <int> self.n_rows, 
-                               <int> self.n_cols, 
-                               <double> self.eps, 
+            c_dbscan.dbscanFit(<double*>input_ptr,
+                               <int> self.n_rows,
+                               <int> self.n_cols,
+                               <double> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
 
-    
+
     def fit_predict(self, X):
         """
             Performs clustering on input_gdf and returns cluster labels.
 
             Parameters
             ----------
-            X : PyGDF DataFrame
-              Dense matrix (floats or doubles) of shape (n_samples, n_features), 
+            X : cuDF DataFrame
+              Dense matrix (floats or doubles) of shape (n_samples, n_features),
 
             Returns
             -------
-            y : PyGDF Series, shape (n_samples)
+            y : cuDF Series, shape (n_samples)
               cluster labels
         """
         self.fit(X)
