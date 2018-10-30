@@ -898,7 +898,7 @@ int kmeans_fit(int verbose, int seed, int gpu_idtry, int n_gputry, size_t rows,
 					break;
 				}
 			}
-			// Escape from an infinite loop if we come across 
+			// Escape from an infinite loop if we come across
 			if (tmp_left == tmp_right) {
 				residual = tmp_residual;
 				right = tmp_left;
@@ -1388,14 +1388,9 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 		const char ord, int k, const float *src_data, const float *centroids,
 		float *preds) {
-	//float *h_srcdata = (float*) malloc(m * n * sizeof(float));
-	//cudaMemcpy((void*)h_srcdata, (void*)src_data, m*n * sizeof(float), cudaMemcpyDeviceToHost);
 
 	const float *h_srcdata = src_data;
-
-	float *h_centroids = (float*) malloc(k * n * sizeof(float));
-	cudaMemcpy((void*) h_centroids, (void*) centroids, k * n * sizeof(float),
-			cudaMemcpyDeviceToHost);
+	const float *h_centroids = centroids;
 
 	float *h_preds = nullptr;
 	int actual_n_gpu = h2o4gpukmeans::get_n_gpus(n_gpu);
@@ -1405,22 +1400,14 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	cudaSetDevice(gpu_id);
 
 	cudaMemcpy(preds, h_preds, m * k * sizeof(float), cudaMemcpyHostToDevice);
-
-	//free(h_srcdata);
-	free(h_centroids);
 }
 
 void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 		const char ord, int k, const double *src_data, const double *centroids,
 		double *preds) {
-	//double *h_srcdata = (double*) malloc(m * n * sizeof(double));
-	//cudaMemcpy((void*)h_srcdata, (void*)src_data, m*n * sizeof(double), cudaMemcpyDeviceToHost);
 
 	const double *h_srcdata = src_data;
-
-	double *h_centroids = (double*) malloc(k * n * sizeof(double));
-	cudaMemcpy((void*) h_centroids, (void*) centroids, k * n * sizeof(double),
-			cudaMemcpyDeviceToHost);
+	const double *h_centroids = centroids;
 
 	double *h_preds = nullptr;
 	int actual_n_gpu = h2o4gpukmeans::get_n_gpus(n_gpu);
@@ -1430,9 +1417,6 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	cudaSetDevice(gpu_id);
 
 	cudaMemcpy(preds, h_preds, m * k * sizeof(double), cudaMemcpyHostToDevice);
-
-	//free(h_srcdata);
-	free(h_centroids);
 }
 
 } // end namespace ML
