@@ -52,7 +52,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = 'cuML'
+project = 'cuml'
 copyright = '2019, nvidia'
 author = 'nvidia'
 
@@ -146,7 +146,7 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'cuML.tex', 'cuML Documentation',
+    (master_doc, 'cuml.tex', 'cuml Documentation',
      'nvidia', 'manual'),
 ]
 
@@ -156,7 +156,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'cuML', 'cuML Documentation',
+    (master_doc, 'cuml', 'cuml Documentation',
      [author], 1)
 ]
 
@@ -167,8 +167,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'cuML', 'cuML Documentation',
-     author, 'cuML', 'One line description of project.',
+    (master_doc, 'cuml', 'cuml Documentation',
+     author, 'cuml', 'One line description of project.',
      'Miscellaneous'),
 ]
 
