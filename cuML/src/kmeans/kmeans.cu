@@ -1302,10 +1302,8 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 		int max_iterations, int init_from_data, float threshold,
 		const float *srcdata, const float *centroids, float *pred_centroids,
 		int *pred_labels) {
-	//float *h_srcdata = (float*) malloc(mTrain * n * sizeof(float));
-	//cudaMemcpy((void*)h_srcdata, (void*)srcdata, mTrain*n * sizeof(float), cudaMemcpyDeviceToHost);
-
-	const float *h_srcdata = srcdata;
+	float *h_srcdata = (float*) malloc(mTrain * n * sizeof(float));
+	cudaMemcpy((void*)h_srcdata, (void*)srcdata, mTrain*n * sizeof(float), cudaMemcpyDeviceToHost);
 
 	float *h_centroids = nullptr;
 	if (dopredict) {
@@ -1332,7 +1330,7 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 	cudaMemcpy(pred_labels, h_pred_labels, mTrain * sizeof(int),
 			cudaMemcpyHostToDevice);
 
-	//free(h_srcdata);
+	free(h_srcdata);
 	if (dopredict) {
 		free(h_centroids);
 	}
@@ -1344,10 +1342,8 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 		const double *srcdata, const double *centroids, double *pred_centroids,
 		int *pred_labels) {
 
-	//double *h_srcdata = (double*) malloc(mTrain * n * sizeof(double));
-	//cudaMemcpy((void*)h_srcdata, (void*)srcdata, mTrain*n * sizeof(double), cudaMemcpyDeviceToHost);
-
-	const double *h_srcdata = srcdata;
+	double *h_srcdata = (double*) malloc(mTrain * n * sizeof(double));
+	cudaMemcpy((void*)h_srcdata, (void*)srcdata, mTrain*n * sizeof(double), cudaMemcpyDeviceToHost);
 
 	double *h_centroids = nullptr;
 	if (dopredict) {
@@ -1377,7 +1373,7 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 	cudaMemcpy(pred_labels, h_pred_labels, mTrain * sizeof(int),
 			cudaMemcpyHostToDevice);
 
-	//free(h_srcdata);
+	free(h_srcdata);
 	if (dopredict) {
 		free(h_centroids);
 	}
@@ -1388,9 +1384,15 @@ void make_ptr_kmeans(int dopredict, int verbose, int seed, int gpu_id,
 void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 		const char ord, int k, const float *src_data, const float *centroids,
 		float *preds) {
+	float *h_srcdata = (float*) malloc(m * n * sizeof(float));
+ 	cudaMemcpy((void*)h_srcdata, (void*)src_data, m*n * sizeof(float), cudaMemcpyDeviceToHost);
 
-	const float *h_srcdata = src_data;
-	const float *h_centroids = centroids;
+	float *h_centroids = (float*) malloc(k * n * sizeof(float));
+ 	cudaMemcpy((void*) h_centroids, (void*) centroids, k * n * sizeof(float),
+ 			cudaMemcpyDeviceToHost);
+
+	// const float *h_srcdata = src_data;
+	// const float *h_centroids = centroids;
 
 	float *h_preds = nullptr;
 	int actual_n_gpu = h2o4gpukmeans::get_n_gpus(n_gpu);
@@ -1400,14 +1402,24 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	cudaSetDevice(gpu_id);
 
 	cudaMemcpy(preds, h_preds, m * k * sizeof(float), cudaMemcpyHostToDevice);
+
+	free(h_srcdata);
+ 	free(h_centroids);
 }
 
 void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 		const char ord, int k, const double *src_data, const double *centroids,
 		double *preds) {
 
-	const double *h_srcdata = src_data;
-	const double *h_centroids = centroids;
+	double *h_srcdata = (double*) malloc(m * n * sizeof(double));
+ 	cudaMemcpy((void*)h_srcdata, (void*)src_data, m*n * sizeof(double), cudaMemcpyDeviceToHost);
+
+	double *h_centroids = (double*) malloc(k * n * sizeof(double));
+ 	cudaMemcpy((void*) h_centroids, (void*) centroids, k * n * sizeof(double),
+ 			cudaMemcpyDeviceToHost);
+
+	// const double *h_srcdata = src_data;
+	// const double *h_centroids = centroids;
 
 	double *h_preds = nullptr;
 	int actual_n_gpu = h2o4gpukmeans::get_n_gpus(n_gpu);
@@ -1417,6 +1429,9 @@ void kmeans_transform(int verbose, int gpu_id, int n_gpu, size_t m, size_t n,
 	cudaSetDevice(gpu_id);
 
 	cudaMemcpy(preds, h_preds, m * k * sizeof(double), cudaMemcpyHostToDevice);
+
+	free(h_srcdata);
+ 	free(h_centroids);
 }
 
 } // end namespace ML

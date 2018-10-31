@@ -102,65 +102,72 @@ class KMeans:
         return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
 
-    def fit(self, input_gdf):
+    def fit(self, X):
         """
-        Compute k-means clustering with input_gdf.
+        Compute k-means clustering with X.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
+        X : cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
 
-        # TODO: Replace this wrapper functions for fused types if kmeans code
-        # isn't changed to a pure GPU memory solution.
+        self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+        self.n_rows = len(X)
+        self.n_cols = len(X._cols)
 
-        self.gdf_datatype = np.dtype(input_gdf[input_gdf.columns[0]]._column.dtype)
+        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
+
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+
+        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+
+        self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
+        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
+
         if self.gdf_datatype.type == np.float32:
-            return self._fit_f32(input_gdf)
-        elif self.gdf_datatype.type == np.float64:
-            return self._fit_f64(input_gdf)
-
-
-    def _fit_f32(self, input_gdf):
-        # x = []
-        # for col in input_gdf.columns:
-        #     x.append(input_gdf[col]._column.dtype)
-        #     break
-
-        # self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
-
-        cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
-
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
-
-        c_kmeans.make_ptr_kmeans(
-            <int> 0,                    # dopredict
-            <int> self.verbose,         # verbose
-            <int> self.random_state,    # seed
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <int> self.n_clusters,       # k_max
-            <int> self.max_iter,         # max_iterations
-            <int> 1,                     # init_from_data TODO: can use kmeans++
-            <float> self.tol,            # threshold
-            <float*> host_ary.data,    # srcdata
-            #<float*> ptr2,   # srcdata
-            <float*> 0,           # centroids
-            <float*> cluster_centers_ptr, # pred_centroids
-            #<float*> 0, # pred_centroids
-            <int*> labels_ptr)          # pred_labels
+            c_kmeans.make_ptr_kmeans(
+                <int> 0,                    # dopredict
+                <int> self.verbose,         # verbose
+                <int> self.random_state,    # seed
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <int> self.n_clusters,       # k_max
+                <int> self.max_iter,         # max_iterations
+                <int> 1,                     # init_from_data TODO: can use kmeans++
+                <float> self.tol,            # threshold
+                <float*> input_ptr,    # srcdata
+                #<float*> ptr2,   # srcdata
+                <float*> 0,           # centroids
+                <float*> cluster_centers_ptr, # pred_centroids
+                #<float*> 0, # pred_centroids
+                <int*> labels_ptr)          # pred_labels
+        else:
+            c_kmeans.make_ptr_kmeans(
+                <int> 0,                    # dopredict
+                <int> self.verbose,         # verbose
+                <int> self.random_state,    # seed
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <int> self.n_clusters,       # k_max
+                <int> self.max_iter,         # max_iterations
+                <int> 1,                     # init_from_data TODO: can use kmeans++
+                <double> self.tol,            # threshold
+                <double*> input_ptr,    # srcdata
+                <double*> 0,           # centroids
+                <double*> cluster_centers_ptr, # pred_centroids
+                <int*> labels_ptr)          # pred_labels
 
 
         cluster_centers_gdf = cudf.DataFrame()
@@ -168,202 +175,120 @@ class KMeans:
             cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
         self.cluster_centers_ = cluster_centers_gdf
 
-        return self
-
-    def _fit_f64(self, input_gdf):
-        x = []
-        for col in input_gdf.columns:
-            x.append(input_gdf[col]._column.dtype)
-            break
-
-        self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
-
-        cdef np.ndarray[np.float64_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
-
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
-
-
-        c_kmeans.make_ptr_kmeans(
-            <int> 0,                    # dopredict
-            <int> self.verbose,         # verbose
-            <int> self.random_state,    # seed
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <int> self.n_clusters,       # k_max
-            <int> self.max_iter,         # max_iterations
-            <int> 1,                     # init_from_data TODO: can use kmeans++
-            <double> self.tol,            # threshold
-            <double*> host_ary.data,    # srcdata
-            <double*> 0,           # centroids
-            <double*> cluster_centers_ptr, # pred_centroids
-            <int*> labels_ptr)          # pred_labels
-
-        cluster_centers_gdf = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
-        self.cluster_centers_ = cluster_centers_gdf
+        del(X_m)
 
         return self
 
 
-    def fit_predict(self, input_gdf):
+    def fit_predict(self, X):
         """
         Compute cluster centers and predict cluster index for each sample.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
+        X : cuDF DataFrame
                     Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
-        return self.fit(input_gdf).labels_
+        return self.fit(X).labels_
 
 
 
-    def predict(self, input_gdf):
+    def predict(self, X):
         """
-        Predict the closest cluster each sample in input_gdf belongs to.
+        Predict the closest cluster each sample in X belongs to.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
+        X : cuDF DataFrame
                     Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
-        self.gdf_datatype = np.dtype(input_gdf[input_gdf.columns[0]]._column.dtype)
+        self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+        self.n_rows = len(X)
+        self.n_cols = len(X._cols)
+
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+
+        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
+
+        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+
         if self.gdf_datatype.type == np.float32:
-            return self._predict_f32(input_gdf)
-        elif self.gdf_datatype.type == np.float64:
-            return self._predict_f64(input_gdf)
+            c_kmeans.make_ptr_kmeans(
+                <int> 1,                    # dopredict
+                <int> self.verbose,                    # verbose
+                <int> self.random_state,                    # seed
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <int> self.n_clusters,       # k_max
+                <int> self.max_iter,         # max_iterations
+                <int> 0,                     # init_from_data TODO: can use kmeans++
+                <float> self.tol,            # threshold
+                #<float*> input_ptr,   # srcdata
+                <float*> input_ptr,    # srcdata
+                #<float*> ptr2,   # srcdata
+                <float*> cluster_centers_ptr,    # centroids
+                <float*> 0, # pred_centroids
+                <int*> labels_ptr)          # pred_labels
+        else:
+            c_kmeans.make_ptr_kmeans(
+                <int> 1,                    # dopredict
+                <int> self.verbose,                    # verbose
+                <int> self.random_state,                    # seed
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <int> self.n_clusters,       # k_max
+                <int> self.max_iter,         # max_iterations
+                <int> 0,                     # init_from_data TODO: can use kmeans++
+                <double> self.tol,            # threshold
+                <double*> input_ptr,    # srcdata
+                <double*> cluster_centers_ptr, # centroids
+                <double*> 0, # pred_centroids
+                <int*> labels_ptr)          # pred_labels
 
-
-    def _predict_f32(self, input_gdf):
-        # x = []
-        # for col in input_gdf.columns:
-        #     x.append(input_gdf[col]._column.dtype)
-        #     break
-
-        # self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
-
-        #cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(input_gdf)
-        cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        #pred_centers = cudf.Series(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t cluster_centers_ptr = self._get_gdf_as_matrix_ptr(self.cluster_centers_)
-
-        c_kmeans.make_ptr_kmeans(
-            <int> 1,                    # dopredict
-            <int> self.verbose,                    # verbose
-            <int> self.random_state,                    # seed
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <int> self.n_clusters,       # k_max
-            <int> self.max_iter,         # max_iterations
-            <int> 0,                     # init_from_data TODO: can use kmeans++
-            <float> self.tol,            # threshold
-            #<float*> input_ptr,   # srcdata
-            <float*> host_ary.data,    # srcdata
-            #<float*> ptr2,   # srcdata
-            <float*> cluster_centers_ptr,    # centroids
-            <float*> 0, # pred_centroids
-            <int*> labels_ptr)          # pred_labels
-
-        return self.labels_
-
-
-    def _predict_f64(self, input_gdf):
-        # x = []
-        # for col in input_gdf.columns:
-        #     x.append(input_gdf[col]._column.dtype)
-        #     break
-
-        # self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
-
-        #cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(input_gdf)
-        cdef np.ndarray[np.float64_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        #pred_centers = cudf.Series(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t cluster_centers_ptr = self._get_gdf_as_matrix_ptr(self.cluster_centers_)
-
-        c_kmeans.make_ptr_kmeans(
-            <int> 1,                    # dopredict
-            <int> self.verbose,                    # verbose
-            <int> self.random_state,                    # seed
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <int> self.n_clusters,       # k_max
-            <int> self.max_iter,         # max_iterations
-            <int> 0,                     # init_from_data TODO: can use kmeans++
-            <double> self.tol,            # threshold
-            <double*> host_ary.data,    # srcdata
-            <double*> cluster_centers_ptr, # centroids
-            <double*> 0, # pred_centroids
-            <int*> labels_ptr)          # pred_labels
-
+        del(X_m)
+        del(clust_mat)
         return self.labels_
 
 
 
-    def transform(self, input_gdf):
+    def transform(self, X):
         """
-        Transform input_gdf to a cluster-distance space.
+        Transform X to a cluster-distance space.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
+        X : cuDF DataFrame
                     Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
 
-
-        self.gdf_datatype = np.dtype(input_gdf[input_gdf.columns[0]]._column.dtype)
-        if self.gdf_datatype.type == np.float32:
-            return self._transform_f32(input_gdf)
-        elif self.gdf_datatype.type == np.float64:
-            return self._transform_f64(input_gdf)
+        self.n_rows = len(X)
+        self.n_cols = len(X._cols)
 
 
-    def _transform_f32(self, input_gdf):
-        # x = []
-        # for col in input_gdf.columns:
-        #     x.append(input_gdf[col]._column.dtype)
-        #     break
+        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
 
-        # self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
+        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] cluster_centers_ptr = self.cluster_centers_.as_gpu_matrix(order='C').copy_to_host()
 
 
-        cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
-        cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] cluster_centers_ptr = self.cluster_centers_.as_gpu_matrix(order='C').copy_to_host()
-
+        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
                                        dtype=self.gdf_datatype.type))
@@ -375,70 +300,39 @@ class KMeans:
         dary=cuda.to_device(ary)
         cdef uintptr_t ptr2 = dary.device_ctypes_pointer.value
 
-        c_kmeans.kmeans_transform(
-            <int> self.verbose,                    # verbose
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <float*> host_ary.data,    # srcdata
-            <float*> cluster_centers_ptr.data,    # centroids
-            <float*> preds_ptr)          # preds
+        if self.gdf_datatype.type == np.float32:
+            c_kmeans.kmeans_transform(
+                <int> self.verbose,                    # verbose
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <float*> input_ptr,    # srcdata
+                <float*> cluster_centers_ptr,    # centroids
+                <float*> preds_ptr)          # preds
+        else:
+            c_kmeans.kmeans_transform(
+                <int> self.verbose,                    # verbose
+                <int> self.gpu_id,                    # gpu_id
+                <int> self.n_gpu,                    # n_gpu
+                <size_t> self.n_rows,       # mTrain (rows)
+                <size_t> self.n_cols,       # n (cols)
+                <char> 'r',            # ord
+                <int> self.n_clusters,       # k
+                <double*> input_ptr,    # srcdata
+                <double*> cluster_centers_ptr,    # centroids
+                <double*> preds_ptr)          # preds
 
 
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
             preds_gdf[str(i)] = preds_data[i*self.n_rows:(i+1)*self.n_rows]
 
+        del(X_m)
+        del(clust_mat)
         return preds_gdf
-
-
-    def _transform_f64(self, input_gdf):
-        # x = []
-        # for col in input_gdf.columns:
-        #     x.append(input_gdf[col]._column.dtype)
-        #     break
-
-        # self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(input_gdf)
-        self.n_cols = len(input_gdf._cols)
-
-
-        cdef np.ndarray[np.float64_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
-
-        cdef np.ndarray[np.float64_t, ndim=2, mode = 'c', cast=True] cluster_centers_ptr = self.cluster_centers_.as_gpu_matrix(order='C').copy_to_host()
-
-
-        preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
-                                       dtype=self.gdf_datatype.type))
-
-        cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
-
-
-        ary=np.array([1.0,1.5,3.5,2.5],dtype=np.float32)
-        dary=cuda.to_device(ary)
-        cdef uintptr_t ptr2 = dary.device_ctypes_pointer.value
-
-        c_kmeans.kmeans_transform(
-            <int> self.verbose,                    # verbose
-            <int> self.gpu_id,                    # gpu_id
-            <int> self.n_gpu,                    # n_gpu
-            <size_t> self.n_rows,       # mTrain (rows)
-            <size_t> self.n_cols,       # n (cols)
-            <char> 'r',            # ord
-            <int> self.n_clusters,       # k
-            <double*> host_ary.data,    # srcdata
-            <double*> cluster_centers_ptr.data,    # centroids
-            <double*> preds_ptr)          # preds
-
-        preds_gdf = cudf.DataFrame()
-        for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i*self.n_rows:(i+1)*self.n_rows]
-
-        return preds_gdf
-
 
 
     def fit_transform(self, input_gdf):
