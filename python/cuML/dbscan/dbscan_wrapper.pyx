@@ -69,9 +69,6 @@ class DBSCAN:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
-
     def fit(self, X):
         """
             Perform DBSCAN clustering from features or distance matrix.
@@ -91,7 +88,9 @@ class DBSCAN:
         self.n_rows = len(X)
         self.n_cols = len(X._cols)
 
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
 
@@ -109,7 +108,7 @@ class DBSCAN:
                                <double> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
-
+        del(X_m)
 
     def fit_predict(self, X):
         """
