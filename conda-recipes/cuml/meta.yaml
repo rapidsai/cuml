@@ -1,16 +1,15 @@
 # Copyright (c) 2018, NVIDIA CORPORATION.
 
 # Usage:
-  #   conda build -c defaults -c conda-forge -c rapidsai .
-  {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
-  {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
-  {% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
+#   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
+{% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
+{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
+{% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
 package:
   name: cuml
   version: {{ version }}
 
 source:
-  # git_url: ../..
   path: ../..
 
 build:
@@ -21,10 +20,6 @@ build:
     - CXX
 
 requirements:
-#  use channel:
-#    - defaults
-#    - conda-forge
-#    - rapidsai
   build:
     - python
     - setuptools
@@ -36,11 +31,6 @@ requirements:
     - python
     - setuptools
     - cudf 0.2.0.*
-
-  #test:
-  #  commands:
-  #    - test -f $PREFIX/include/gdf/gdf.h    # [unix or osx]
-  #    - test -f $PREFIX/lib/libgdf.dylib     # [osx]
 
 about:
   home: http://rapids.ai/
