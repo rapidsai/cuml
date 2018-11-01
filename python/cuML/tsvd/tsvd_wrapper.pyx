@@ -180,7 +180,8 @@ class TruncatedSVD:
         self._initialize_arrays(X, self.params.n_components,
                                 self.params.n_rows, self.params.n_cols)
 
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
         cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
 
@@ -231,6 +232,8 @@ class TruncatedSVD:
         self.explained_variance_ptr = explained_var_ptr
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
+
+        del(X_m)
 
 
     def fit_transform(self, X):
@@ -343,8 +346,10 @@ class TruncatedSVD:
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
 
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
         cdef uintptr_t components_ptr = self.components_ptr
 
         if gdf_datatype.type == np.float32:
@@ -362,5 +367,6 @@ class TruncatedSVD:
         for i in range(0, params.n_components):
             X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
+        del(X_m)
         return X_new
 
