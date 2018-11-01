@@ -1,40 +1,43 @@
 # cuML (v0.1 Alpha)
 
-Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on  GPUs without going into the details of CUDA programming.
+Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
 The cuML repository contains:
 
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
-2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following five algorithms;
-   a. Single GPU Truncated Singular Value Decomposition (tSVD),
-   b. Single GPU Principal Component Analysis (PCA),
-   c. Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
-   d. Single GPU Kalman Filtering,
-   e. Multi-GPU K-Means Clustering.
+2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms;
+   a) Single GPU Truncated Singular Value Decomposition (tSVD),
+   b) Single GPU Principal Component Analysis (PCA),
+   c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
+   d) Single GPU Kalman Filtering,
+   e) Multi-GPU K-Means Clustering,
+   f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss)).
 
 3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
-   a. Linear Algebra,
-   b. Statistics,
-   c. Basic Matrix Operations,
-   d. Distance Functions,
-   e. Random Number Generation.
+   a) Linear Algebra,
+   b) Statistics,
+   c) Basic Matrix Operations,
+   d) Distance Functions,
+   e) Random Number Generation.
 
 #### Available Algorithms for version 0.1alpha:
 
-- Truncated Singular Value Decomposition (tSVD)
+- Truncated Singular Value Decomposition (tSVD).
 
-- Principal Component Analysis (PCA)
+- Principal Component Analysis (PCA).
 
-- Density-based spatial clustering of applications with noise (DBSCAN)
+- Density-based spatial clustering of applications with noise (DBSCAN).
+
+- K-Means Clustering.
+
+- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use).
 
 Upcoming algorithms for version 0.1:
 
-- K-Means Clustering
+- Kalman Filter.
 
-- Kalman Filter
-
-More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance of this v0.1 alpha version. Goals for future versions include more algorithms and  multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance of this v0.1 alpha version. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
 The installation option provided currently consists on building from source. Upcoming versions will add `pip` and `conda` options, along docker containers. They will be available in the coming weeks.
 
