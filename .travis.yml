@@ -37,6 +37,7 @@ script:
   - source activate root
   # check conda versions
   - conda list
+  - env
   # build cuML
   - source ./travisci/build_cuml.sh
   - flake8
