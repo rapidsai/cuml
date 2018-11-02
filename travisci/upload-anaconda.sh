@@ -8,6 +8,18 @@ if [ "$BUILD_CUML" == "1" ]; then
   export UPLOADFILE=`conda build conda-recipes/cuml -c defaults -c conda-forge -c numba -c rapidsai -c pytorch --python=${PYTHON} --output`
   SOURCE_BRANCH=master
 
+  CUDA_REL=${CUDA:0:3}
+  if [ "${CUDA:0:2}" == '10' ]; then
+    # CUDA 10 release
+    CUDA_REL=${CUDA:0:4}
+  fi
+
+  LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
+  if [ "${LABEL_MAIN}" == '1' ]; then
+    LABEL_OPTION="--label main --label cuda${CUDA_REL}"
+  fi
+  echo "LABEL_OPTION=${LABEL_OPTION}"
+
   test -e ${UPLOADFILE}
 
   # Pull requests or commits to other branches shouldn't upload
@@ -23,5 +35,5 @@ if [ "$BUILD_CUML" == "1" ]; then
 
   echo "Upload"
   echo ${UPLOADFILE}
-  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai -l main --force ${UPLOADFILE}
+  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE}
 fi
