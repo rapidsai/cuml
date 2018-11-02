@@ -22,14 +22,14 @@ build:
 
 requirements:
   build:
-    - python
+    - python x.x
     - setuptools
     - cython
     - cmake 3.11
-    - cudf 0.2.0
+    - cudf 0.2.0.*
   run:
     - faiss-gpu
-    - python
+    - python x.x
     - setuptools
     - cudf 0.2.0.*
 
