@@ -1,6 +1,6 @@
 # cuML Python Package (v0.1 Alpha)
 
-To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
+To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf) and its dependencies.
 
 List of dependencies:
 
@@ -10,14 +10,14 @@ List of dependencies:
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. nvcc
-7. [cuDF](https://github.com/gpuopenanalytics/cudf)
+7. [cuDF](https://github.com/rapidsai/cudf)
 
 ### Setup steps
 
 To clone:
 
 ```
-git clone --recurse-submodules git@github.com:rapidsai/cuML-alpha.git
+git clone --recurse-submodules git@github.com:rapidsai/cuML.git
 ```
 
 To build the python package, in the repository root folder:
