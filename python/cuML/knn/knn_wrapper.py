@@ -24,49 +24,63 @@ class KNNparams:
 
 class KNN:
     """
+
     Create a DataFrame, fill it with data, and compute KNN:
+
     .. code-block:: python
-        import cudf
-        from cuML import KNN
-        import numpy as np
-        np_float = np.array([
-                [1.,2.,3.], # 1st point
-                [1.,2.,4.], # 2nd point
-                [2.,2.,4.]  # 3rd point
-            ]).astype('float32')
-        gdf_float = cudf.DataFrame()
-        gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
-        gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
-        gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
-        print('n_samples = 3, n_dims = 3')
-        print(gdf_float)
-        knn_float = KNN(n_gpus=1)
-        knn_float.fit(gdf_float)
-        Distance,Index = knn_float.query(gdf_float,k=3) #get 3 nearest neighbors
-        print("Index:")
-        print(Index)
-        print("Distance:")
-        print(Distance)
+
+      import cudf
+      from cuML import KNN
+      import numpy as np
+
+      np_float = np.array([
+        [1,2,3], # Point 1
+        [1,2,4], # Point 2
+        [2,2,4]  # Point 3
+      ]).astype('float32')
+
+      gdf_float = cudf.DataFrame()
+      gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
+      gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
+      gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
+
+      print('n_samples = 3, n_dims = 3')
+      print(gdf_float)
+
+      knn_float = KNN(n_gpus=1)
+      knn_float.fit(gdf_float)
+      Distance,Index = knn_float.query(gdf_float,k=3) #get 3 nearest neighbors
+
+      print(Index)
+      print(Distance)
 
     Output:
-        .. code-block:: python
 
-        n_samples = 3, n_dims = 3
-           dim_0 dim_1 dim_2
-        0   1.0   2.0   3.0
-        1   1.0   2.0   4.0
-        2   2.0   2.0   4.0
-        Index:
-                 index_neighbor_0 index_neighbor_1 index_neighbor_2
-        0                0                1                2
-        1                1                0                2
-        2                2                1                0
-        Distance:
-                 distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
-        0                 0.0                 1.0                 2.0
-        1                 0.0                 1.0                 1.0
-        2                 0.0                 1.0                 2.0
+    .. code-block:: python
+
+      n_samples = 3, n_dims = 3
+
+      dim_0 dim_1 dim_2
+         
+      0   1.0   2.0   3.0
+      1   1.0   2.0   4.0
+      2   2.0   2.0   4.0
+      
+      # Index:
+
+               index_neighbor_0 index_neighbor_1 index_neighbor_2
+      0                0                1                2
+      1                1                0                2
+      2                2                1                0
+      # Distance:
+
+               distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
+      0                 0.0                 1.0                 2.0
+      1                 0.0                 1.0                 1.0
+      2                 0.0                 1.0                 2.0
+
     For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
+
     """
     def __init__(self, n_gpus=-1): # -1 means using all gpus
         self.params = KNNparams(n_gpus)
