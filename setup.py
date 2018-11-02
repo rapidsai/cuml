@@ -130,7 +130,7 @@ ext = Extension('cuml',
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 # this syntax is specific to this build system
-                extra_compile_args={'gcc': ['-std=c++11','-fopenmp'],
+                extra_compile_args={'gcc': ['-std=c++11', '-fopenmp'],
                                     'nvcc': ['-arch=sm_60',
                                              '--ptxas-options=-v',
                                              '-c',
@@ -143,7 +143,7 @@ ext = Extension('cuml',
                               'cuML/external/ml-prims/external/cutlass',
                               'cuML/external/cutlass',
                               'cuML/external/ml-prims/external/cub'],
-                extra_link_args=["-std=c++11",'-fopenmp'])
+                extra_link_args=["-std=c++11", '-fopenmp'])
 
 setup(name='cuml',
       author='NVIDIA',
