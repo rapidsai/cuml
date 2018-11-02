@@ -34,9 +34,10 @@ class KMeans:
         print("input:")
         print(b)
 
-        print("\nCalling fit")
+        print("Calling fit")
         kmeans_float = KMeans(n_clusters=2, n_gpu=-1)
         kmeans_float.fit(b)
+
         print("labels:")
         print(kmeans_float.labels_)
         print("cluster_centers:")
@@ -48,6 +49,7 @@ class KMeans:
     .. code-block:: python
 
           input:
+
                0    1
            0  1.0  1.0
            1  1.0  2.0
@@ -55,19 +57,22 @@ class KMeans:
            3  4.0  3.0
 
           Calling fit
+
           labels:
+
              0    1
              1    1
              2    0
              3    0
 
           cluster_centers:
+
              0    1
           0  3.5  2.5
           1  1.0  1.5
 
 
-    For an additional example see `the PCA notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/kmeans_demo.ipynb>`_. For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
+    For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
 
     """
 
