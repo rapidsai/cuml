@@ -50,8 +50,9 @@ def locate_cuda():
         # otherwise, search the PATH for NVCC
         nvcc = find_in_path('nvcc', os.environ['PATH'])
         if nvcc is None:
-            raise EnvironmentError('The nvcc binary could not be '
-                'located in your $PATH. Either add it to your path, or set $CUDA_HOME')
+            raise EnvironmentError(
+                'The nvcc binary could not be located in your $PATH. Either '
+                'add it to your path, or set $CUDA_HOME')
         home = os.path.dirname(os.path.dirname(nvcc))
 
     cudaconfig = {'home': home, 'nvcc': nvcc,
