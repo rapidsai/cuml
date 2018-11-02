@@ -3,6 +3,17 @@ cuML API Reference
 
 .. currentmodule:: cuML.DBSCAN
 
+K-Nearest Neighbors
+-------------------
+
+.. autoclass:: cuML.KNN
+    :members:
+
+K-Means
+-------------------
+
+.. autoclass:: cuML.KMeans
+    :members:
 
 DBSCAN
 ---------
