@@ -1,17 +1,17 @@
- # Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 cimport c_pca
 import numpy as np
@@ -185,9 +185,6 @@ class PCA:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
     def fit(self, X, _transform=True):
         """
         Fit the model with X.
@@ -219,7 +216,8 @@ class PCA:
         self._initialize_arrays(X, self.params.n_components,
                                 self.params.n_rows, self.params.n_cols)
 
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
         cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
 
@@ -254,6 +252,7 @@ class PCA:
                              <double*> noise_vars_ptr,
                              params)
         else:
+
             if self.gdf_datatype.type == np.float32:
                 c_pca.pcaFitTransform(<float*> input_ptr,
                                       <float*> trans_input_ptr,
@@ -286,6 +285,8 @@ class PCA:
         self.singular_values_ptr = singular_vals_ptr
         self.mean_ptr = mean_ptr
         self.noise_variance_ptr = noise_vars_ptr
+
+        del(X_m)
 
     def fit_transform(self, X):
         """
@@ -401,8 +402,10 @@ class PCA:
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
 
+        X_m = X.as_gpu_matrix()
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
-        cdef uintptr_t input_ptr = self._get_gdf_as_matrix_ptr(X)
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
@@ -426,5 +429,6 @@ class PCA:
         for i in range(0, params.n_components):
             X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
+        del(X_m)
         return X_new
 
