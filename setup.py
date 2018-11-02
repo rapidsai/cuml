@@ -147,7 +147,7 @@ ext = Extension('cuml',
 
 setup(name='cuml',
       author='NVIDIA',
-      version='0.1',
+      version='0.2.0',
       ext_modules=[ext],
       cmdclass={'build_ext': custom_build_ext},
       zip_safe=False)

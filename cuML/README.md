@@ -6,7 +6,7 @@ This repo contains some of the ML algorithms.
 
 1. zlib
 2. cmake (>= 3.8 and <= 3.11.4, version 3.11.4 is recommended and there are some issues with version 3.12)
-3. CUDA SDK (>= 8.0)
+3. CUDA SDK (>= 9.2)
 4. Cython (>= 0.28)
 5. gcc (>=5.4.0)
 6. nvcc (this comes with CUDA SDK)

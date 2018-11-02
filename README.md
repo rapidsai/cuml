@@ -1,4 +1,4 @@
-# cuML (v0.1 Alpha)
+# cuML
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
@@ -21,7 +21,7 @@ The cuML repository contains:
    d) Distance Functions,
    e) Random Number Generation.
 
-#### Available Algorithms for version 0.1alpha:
+#### Available Algorithms:
 
 - Truncated Singular Value Decomposition (tSVD).
 
@@ -33,11 +33,11 @@ The cuML repository contains:
 
 - K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use).
 
-Upcoming algorithms for version 0.1:
+Upcoming algorithms:
 
 - Kalman Filter.
 
-More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance of this v0.1 alpha version. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
 The installation option provided currently consists on building from source. Upcoming versions will add `pip` and `conda` options, along docker containers. They will be available in the coming weeks.
 
