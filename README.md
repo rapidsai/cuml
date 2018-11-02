@@ -46,7 +46,7 @@ The installation option provided currently consists on building from source. Upc
 
 ### Dependencies
 
-To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf-alpha) and its dependencies.
+To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf) and its dependencies.
 
 List of dependencies:
 
