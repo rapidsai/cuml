@@ -53,10 +53,10 @@ List of dependencies:
 1. [cuDF](https://github.com/rapidsai/cudf-alpha) (>=0.2.0)
 2. zlib
 3. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
-4. CUDA (>= 9.0)
+4. CUDA (>= 9.2)
 5. Cython (>= 0.28)
 6. gcc (>=5.4.0)
-7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu```
+7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu cuda92```
 
 ### Setup steps
 
