@@ -15,18 +15,18 @@
 #
 
 
-import  os
+import os
 from os.path import join as pjoin
 from setuptools import setup
 from distutils.extension import Extension
 from Cython.Distutils import build_ext
-import subprocess
 import numpy
 
 
+# adapted fom:
+# http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
 def find_in_path(name, path):
     "Find a file in a search path"
-    #adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
     for dir in path.split(os.pathsep):
         binpath = pjoin(dir, name)
         if os.path.exists(binpath):
@@ -50,16 +50,18 @@ def locate_cuda():
         # otherwise, search the PATH for NVCC
         nvcc = find_in_path('nvcc', os.environ['PATH'])
         if nvcc is None:
-            raise EnvironmentError('The nvcc binary could not be '
-                'located in your $PATH. Either add it to your path, or set $CUDA_HOME')
+            raise EnvironmentError(
+                'The nvcc binary could not be located in your $PATH. Either '
+                'add it to your path, or set $CUDA_HOME')
         home = os.path.dirname(os.path.dirname(nvcc))
 
-    cudaconfig = {'home':home, 'nvcc':nvcc,
+    cudaconfig = {'home': home, 'nvcc': nvcc,
                   'include': pjoin(home, 'include'),
                   'lib64': pjoin(home, 'lib64')}
     for k, v in iter(cudaconfig.items()):
         if not os.path.exists(v):
-            raise EnvironmentError('The CUDA %s path could not be located in %s' % (k, v))
+            raise EnvironmentError(
+                'The CUDA %s path could not be located in %s' % (k, v))
 
     return cudaconfig
 
@@ -108,7 +110,6 @@ class custom_build_ext(build_ext):
         build_ext.build_extensions(self)
 
 
-
 CUDA = locate_cuda()
 
 # Obtain the numpy include directory.  This logic works across numpy versions.
@@ -117,25 +118,36 @@ try:
 except AttributeError:
     numpy_include = numpy.get_numpy_include()
 
-
-ext = Extension('cuML',
-                sources=['cuML/src/pca/pca.cu', 'cuML/src/tsvd/tsvd.cu', 'cuML/src/dbscan/dbscan.cu', 'cuML/src//kmeans/kmeans.cu', 'python/cuML/cuml.pyx'],
+ext = Extension('cuml',
+                sources=['cuML/src/pca/pca.cu',
+                         'cuML/src/tsvd/tsvd.cu',
+                         'cuML/src/dbscan/dbscan.cu',
+                         'cuML/src//kmeans/kmeans.cu',
+                         'python/cuML/cuml.pyx'],
                 depends=['cuML/src/tsvd/tsvd.cu'],
                 library_dirs=[CUDA['lib64']],
-                libraries=['cudart','cublas','cusolver'],
+                libraries=['cudart', 'cublas', 'cusolver'],
                 language='c++',
                 runtime_library_dirs=[CUDA['lib64']],
                 # this syntax is specific to this build system
-                extra_compile_args={'gcc': ['-std=c++11','-fopenmp'],
-                                    'nvcc': ['-arch=sm_60', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'",'-std=c++11','--expt-extended-lambda']},
-                include_dirs = [numpy_include, CUDA['include'], 'cuML/src', 'cuML/external/ml-prims/src','cuML/external/ml-prims/external/cutlass', 'cuML/external/cutlass','cuML/external/ml-prims/external/cub'],
-                extra_link_args=["-std=c++11",'-fopenmp'])
+                extra_compile_args={'gcc': ['-std=c++11', '-fopenmp'],
+                                    'nvcc': ['-arch=sm_60',
+                                             '--ptxas-options=-v',
+                                             '-c',
+                                             '--compiler-options',
+                                             "'-fPIC'",
+                                             '-std=c++11',
+                                             '--expt-extended-lambda']},
+                include_dirs=[numpy_include, CUDA['include'], 'cuML/src',
+                              'cuML/external/ml-prims/src',
+                              'cuML/external/ml-prims/external/cutlass',
+                              'cuML/external/cutlass',
+                              'cuML/external/ml-prims/external/cub'],
+                extra_link_args=["-std=c++11", '-fopenmp'])
 
-
-
-setup(name='cuML',
+setup(name='cuml',
       author='NVIDIA',
       version='0.1',
-      ext_modules = [ext],
+      ext_modules=[ext],
       cmdclass={'build_ext': custom_build_ext},
       zip_safe=False)
