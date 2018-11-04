@@ -15,7 +15,7 @@ class KMeans:
 
     .. code-block:: python
 
-        from cuML import KMeans
+        from cuml import KMeans
         import cudf
         import numpy as np
         import pandas as pd
