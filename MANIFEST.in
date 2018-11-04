@@ -1,0 +1,2 @@
+include versioneer.py
+include python/cuML/_version.py

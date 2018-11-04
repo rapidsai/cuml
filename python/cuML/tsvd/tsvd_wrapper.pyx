@@ -39,7 +39,7 @@ class TruncatedSVD:
 
     .. code-block:: python
 
-            from cuML import TruncatedSVD
+            from cuml import TruncatedSVD
             import cudf
             import numpy as np
 

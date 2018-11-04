@@ -31,7 +31,7 @@ class DBSCAN:
     .. code-block:: python
 
             import cudf
-            from cuML import DBSCAN
+            from cuml import DBSCAN
             import numpy as np
 
             gdf_float = cudf.DataFrame()
