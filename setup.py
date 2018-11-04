@@ -25,8 +25,11 @@ import versioneer
 
 # adapted fom:
 # http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
+
+
 def find_in_path(name, path):
-    "Find a file in a search path"
+    """Find a file in a search path"""
+
     for dir in path.split(os.pathsep):
         binpath = pjoin(dir, name)
         if os.path.exists(binpath):
@@ -145,7 +148,7 @@ ext = Extension('cuml',
                               'cuML/external/ml-prims/external/cub'],
                 extra_link_args=["-std=c++11", '-fopenmp'])
 
-cmdclass=versioneer.get_cmdclass()
+cmdclass = versioneer.get_cmdclass()
 cmdclass['build_ext'] = custom_build_ext
 
 setup(name='cuml',
@@ -153,9 +156,4 @@ setup(name='cuml',
       version=versioneer.get_version(),
       ext_modules=[ext],
       cmdclass=cmdclass,
-      #cmdclass=versioneer.get_cmdclass(custom_build_ext),
-      #cmdclass={
-      #  'build_ext': custom_build_ext,
-      #  'versioneer': versioneer.get_cmdclass()
-      #},
       zip_safe=False)
