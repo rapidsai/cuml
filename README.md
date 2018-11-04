@@ -46,6 +46,8 @@ The installation option provided currently consists on building from source. Upc
 
 cuML is available from the rapidsai conda channel:
 ```
+# Install dependencies first
+conda install -c pytorch faiss-gpu cuda92
 conda install -c rapidsai cuml
 ```
 
