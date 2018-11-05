@@ -3,5 +3,3 @@ python:
 
 conda:
     file: conda_environments/builddocs_py35.yml
-
-

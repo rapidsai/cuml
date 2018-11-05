@@ -45,7 +45,7 @@ class PCA:
     .. code-block:: python
 
         import cudf
-        from cuML import PCA
+        from cuml import PCA
         import numpy as np
 
         gdf_float = cudf.DataFrame()

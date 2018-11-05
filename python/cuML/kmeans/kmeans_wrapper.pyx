@@ -15,7 +15,7 @@ class KMeans:
 
     .. code-block:: python
 
-        from cuML import KMeans
+        from cuml import KMeans
         import cudf
         import numpy as np
         import pandas as pd
@@ -25,7 +25,7 @@ class KMeans:
             df = pd.DataFrame({'fea%d'%i:df[:,i] for i in range(df.shape[1])})
             pdf = cudf.DataFrame()
             for c,column in enumerate(df):
-            pdf[str(c)] = df[column]
+              pdf[str(c)] = df[column]
             return pdf
 
 
