@@ -30,7 +30,7 @@ class KNN:
     .. code-block:: python
 
       import cudf
-      from cuML import KNN
+      from cuml import KNN
       import numpy as np
 
       np_float = np.array([

@@ -44,9 +44,16 @@ The installation option provided currently consists on building from source. Upc
 
 ## Setup
 
-### Dependencies
+cuML is available from the rapidsai conda channel:
+```
+# Install dependencies first
+conda install -c pytorch faiss-gpu cuda92
+conda install -c rapidsai cuml
+```
 
-To use cuML, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf) and its dependencies.
+### Dependencies for Installing/Building from Source:
+
+To use cuML from source, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf) and its dependencies.
 
 List of dependencies:
 
