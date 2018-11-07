@@ -1,34 +1,34 @@
 cuML API Reference
 ====================
 
-.. currentmodule:: cuML.DBSCAN
+.. currentmodule:: cuml.DBSCAN
 
 K-Nearest Neighbors
 -------------------
 
-.. autoclass:: cuML.KNN
+.. autoclass:: cuml.KNN
     :members:
 
 K-Means
 -------------------
 
-.. autoclass:: cuML.KMeans
+.. autoclass:: cuml.KMeans
     :members:
 
 DBSCAN
 ---------
 
-.. autoclass:: cuML.DBSCAN
+.. autoclass:: cuml.DBSCAN
     :members:
     
 PCA
 ---------
 
-.. autoclass:: cuML.PCA
+.. autoclass:: cuml.PCA
     :members:
 
 Truncated SVD
 -------------
 
-.. autoclass:: cuML.TruncatedSVD
+.. autoclass:: cuml.TruncatedSVD
     :members:

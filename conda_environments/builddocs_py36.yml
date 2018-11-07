@@ -1,16 +1,17 @@
-name: builddocs_py35
+name: builddocs_py36
 channels:
-- gpuopenanalytics/label/dev
+- mikewendt
+- rapidsai
+- pytorch
 - conda-forge
 - numba
 - defaults
 dependencies:
-- python=3.5.*
-- pytest
+- python=3.6.*
+- cuml=0.2.0.*
 - cudatoolkit=9.2
+- nvdriver=396.44
 - cudf=0.2.0
-- numba>=0.40.0dev
-- pandas=0.20.*
 - pyarrow=0.10.*
 - cython=0.28.5
 - pip:
