@@ -14,7 +14,7 @@
 #
 
 import pytest
-from cuML import DBSCAN as cuDBSCAN
+from cuml import DBSCAN as cuDBSCAN
 from sklearn.cluster import DBSCAN as skDBSCAN
 from test_utils import array_equal
 import cudf
