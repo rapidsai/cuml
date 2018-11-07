@@ -22,7 +22,7 @@ import pandas as pd
 import numpy as np
 try:
     import cudf
-    from cuML import PCA as cumlPCA
+    from cuml import PCA as cumlPCA
 except:
     print("cudf or cuml is not installed")
 import argparse
