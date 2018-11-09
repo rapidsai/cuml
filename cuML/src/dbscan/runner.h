@@ -65,49 +65,53 @@ template<typename Type, typename Type_f>
  * @return in case the temp buffer is null, this returns the size needed.
  */
 size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
-		int algoVd, int algoAdj, int algoCcl, void* temp, int nBatches,
+		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches,
 		cudaStream_t stream) {
-	if (temp == NULL) {
-		size_t size;
-		int batchSize = ceildiv(N, nBatches);
-		size = alignSize(N * batchSize * sizeof(bool), 256)
-				+ alignSize(N * sizeof(Type), 256)
-				+ alignSize(batchSize * sizeof(Type), 256)
-				+ 3 * alignSize(N * sizeof(bool), 256)
-				+ alignSize(sizeof(bool), 256)
-				+ alignSize(batchSize * sizeof(bool), 256)
-				+ alignSize((batchSize + 1) * sizeof(Type), 256)
-				+ alignSize(N * sizeof(Type_f), 256);
-		return size;
-	}
-	// partition the temporary workspace needed for different stages of dbscan
-	Type adjlen = 0;
-	Type curradjlen = 0;
-	int batchSize = ceildiv(N, nBatches);
-	size_t offset = 0;
-	bool* adj = (bool*) (temp);
-	offset += alignSize(N * batchSize * sizeof(bool), 256);
-	bool* core_pts = (bool*) (temp) + offset;
-	offset += alignSize(batchSize * sizeof(bool), 256);
-	bool* visited = (bool*) (temp) + offset;
-	offset += alignSize(N * sizeof(bool), 256);
-	bool* xa = (bool*) (temp) + offset;
-	offset += alignSize(N * sizeof(bool), 256);
-	bool* fa = (bool*) (temp) + offset;
-	offset += alignSize(N * sizeof(bool), 256);
-	bool* m = (bool*) (temp) + offset;
-	offset += alignSize(sizeof(bool), 256);
-	Type* vd = (Type*) (temp) + offset / sizeof(Type);
-	offset += alignSize((batchSize + 1) * sizeof(Type), 256);
-	Type* ex_scan = (Type*) (temp) + offset / sizeof(Type);
-	offset += alignSize(batchSize * sizeof(Type), 256);
-	Type* map_id = (Type*) (temp) + offset / sizeof(Type);
-	offset += alignSize(N * sizeof(Type), 256);
-	Type_f* dots = (Type_f*) (temp) + offset / sizeof(Type_f);
+    const size_t align = 256;
+    int batchSize = ceildiv(N, nBatches);
+    size_t adjSize = alignSize<size_t>(sizeof(bool) * N * batchSize, align);
+    size_t corePtsSize = alignSize<size_t>(sizeof(bool) * N, align);
+    size_t visitedSize = alignSize<size_t>(sizeof(bool) * N, align);
+    size_t xaSize = alignSize<size_t>(sizeof(bool) * N, align);
+    size_t mSize = alignSize<size_t>(sizeof(bool), align);
+    size_t vdSize = alignSize<size_t>(sizeof(Type) * (batchSize + 1), align);
+    size_t exScanSize = alignSize<size_t>(sizeof(Type) * batchSize, align);
+    size_t mapIdSize = alignSize<size_t>(sizeof(Type) * N, align);
+    size_t dotsSize = alignSize<size_t>(sizeof(Type_f) * N, align);
+    if(workspace == NULL) {
+        auto size = adjSize
+            + corePtsSize
+            + visitedSize
+            + 2 * xaSize
+            + mSize
+            + vdSize
+            + exScanSize
+            + mapIdSize
+            + dotsSize;
+        return size;
+    }
+    // partition the temporary workspace needed for different stages of dbscan
+    Type adjlen = 0;
+    Type curradjlen = 0;
+    char* temp = (char*)workspace;
+    bool* adj = (bool*)temp;       temp += adjSize;
+    bool* core_pts = (bool*)temp;  temp += corePtsSize;
+    bool* visited = (bool*)temp;   temp += visitedSize;
+    bool* xa = (bool*)temp;        temp += xaSize;
+    bool* fa = (bool*)temp;        temp += xaSize;
+    bool* m = (bool*)temp;         temp += mSize;
+    Type* vd = (Type*)temp;        temp += vdSize;
+    Type* ex_scan = (Type*)temp;   temp += exScanSize;
+    Type* map_id = (Type*)temp;    temp += mapIdSize;
+    Type_f* dots = (Type_f*)temp;
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
+            fflush(stdout);
 		Type *adj_graph = NULL;
 		int startVertexId = i * batchSize;
+                int nPoints = min(N-startVertexId, batchSize);
+                if(nPoints <= 0)
+                    continue;
 		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
 				startVertexId, batchSize);
 		MLCommon::updateHost(&curradjlen, vd + batchSize, 1);
@@ -118,11 +122,11 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 			CUDA_CHECK(cudaMalloc((void** )&adj_graph, sizeof(Type) * adjlen));
 		}
 		AdjGraph::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, stream,
-				algoAdj, batchSize);
+				algoAdj, nPoints);
 		// Running Labelling
 		Label::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, stream, algoCcl, startVertexId,
-				batchSize);
+				nPoints);
 		if (adj_graph != NULL)
 			CUDA_CHECK(cudaFree(adj_graph));
 	}
