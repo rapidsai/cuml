@@ -106,7 +106,6 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     Type_f* dots = (Type_f*)temp;
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
-            fflush(stdout);
 		Type *adj_graph = NULL;
 		int startVertexId = i * batchSize;
                 int nPoints = min(N-startVertexId, batchSize);
