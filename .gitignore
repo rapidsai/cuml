@@ -1,1 +1,6 @@
 *.swp
+__pycache__/
+build/
+cuml.egg-info/
+dist/
+python/cuML/cuml.cpp
