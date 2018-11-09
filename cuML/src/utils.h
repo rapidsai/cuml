@@ -40,10 +40,13 @@ namespace Dbscan {
     } while(0)
 
 
-inline int ceildiv(int a, int b) {
+template <typename IntType>
+IntType ceildiv(IntType a, IntType b) {
     return ((a + b - 1) / b);
 }
-inline int alignSize(int a, int b) {
+
+template <typename IntType>
+IntType alignSize(IntType a, IntType b) {
     return ceildiv(a,b)*b;
 }
 

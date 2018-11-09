@@ -37,9 +37,9 @@ void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
     // case 400:
     //     Algo4::launcher<Type, tiling_strategy::Small>(data, stream, startVertexId, batchSize);
     //     break;
-    case 401:
-        Algo4::launcher<Type, tiling_strategy::Medium>(data, stream, startVertexId, batchSize);
-        break;
+    // case 401:
+    //     Algo4::launcher<Type, tiling_strategy::Medium>(data, stream, startVertexId, batchSize);
+    //     break;
     // case 402:
     //     Algo4::launcher<Type, tiling_strategy::Large>(data, stream, startVertexId, batchSize);
     //     break;
@@ -58,9 +58,9 @@ void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
     // case 501:
     //     Algo5::launcher<Type, tiling_strategy::Medium>(data, stream, startVertexId, batchSize);
     //     break;
-    // case 502:
-    //     Algo5::launcher<Type, tiling_strategy::Large>(data, stream, startVertexId, batchSize);
-    //     break;
+    case 502:
+        Algo5::launcher<Type, tiling_strategy::Large>(data, stream, startVertexId, batchSize);
+        break;
     // case 503:
     //     Algo5::launcher<Type, tiling_strategy::Tall>(data, stream, startVertexId, batchSize);
     //     break;

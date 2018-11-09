@@ -120,6 +120,7 @@ void computeDots(Pack<Type>& data) {
     } else {
         computeDotsImpl<Type, 256>(data);
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 template <typename value_t, cutlass::gemm::tiling_strategy::kind_t TilingStrategy>
@@ -131,9 +132,13 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     epsneigh_dispatch<TilingStrategy, value_t, bool,
                       cutlass::math_operation_scalar, epilogue_op_t,
                       cutlass::gemm::dp_accummulate<value_t, value_t> > edis;
-    auto res = edis(data.N, batchSize, data.D, data.x, data.x + startVertexId*data.D,
-                    data.adj, epilogue, stream, false, false);
+    int m = data.N;
+    int n = min(data.N - startVertexId, batchSize);
+    int k = data.D;
+    auto res = edis(m, n, k, data.x, data.x + startVertexId*data.D, data.adj,
+                    epilogue, stream, false, false);
     CUDA_CHECK(res.result);
+    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 } // namespace Algo5
