@@ -1,6 +1,20 @@
+## common
+__pycache__
+*.pyc
+*.o
+*.so
+*.dylib
+.cache
+.coverage
+.vscode
 *.swp
-__pycache__/
+*.pytest_cache
+htmlcov
 build/
 cuml.egg-info/
 dist/
 python/cuML/cuml.cpp
+log
+
+## eclipse
+.project

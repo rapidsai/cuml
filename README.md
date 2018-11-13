@@ -94,6 +94,12 @@ $ make -j
 $ ./ml_test
 ```
 
+To test the python package:
+
+```
+$ py.test python/cuML/test
+```
+
 ### Python Notebooks
 
 Demo notebooks can be found in python/notebooks folder.
