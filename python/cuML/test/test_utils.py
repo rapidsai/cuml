@@ -20,6 +20,7 @@ import sys
 import multiprocessing
 import pandas as pd
 import numpy as np
+import pytest
 try:
     import cudf
     from cuml import PCA as cumlPCA
@@ -158,6 +159,8 @@ def np2cudf(df):
     for c in range(df.shape[1]):
         pdf[c] = df[:,c]
     return pdf
+
+@pytest.mark.skip(reason="helper function, don't test")
 
 def test_cudf(nrows=1000,ncols=1000):
     x = np.random.rand(nrows,ncols).astype(np.float32)

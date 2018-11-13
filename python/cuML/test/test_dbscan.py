@@ -16,19 +16,18 @@
 import pytest
 from cuml import DBSCAN as cuDBSCAN
 from sklearn.cluster import DBSCAN as skDBSCAN
-from test_utils import array_equal
 import cudf
 import numpy as np
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-
 def test_dbscan_predict(datatype):
     gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([1,2,2,8,8,25],dtype=datatype)
-    gdf['1']=np.asarray([2,2,3,7,8,80],dtype=datatype)
+    gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
+    gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
 
-    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]], dtype = datatype)
+    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
+                 dtype=datatype)
 
     print("Calling fit_predict")
     cudbscan = cuDBSCAN(eps = 3, min_samples = 2)
