@@ -21,7 +21,30 @@ import numpy as np
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_dbscan_predict(datatype):
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_dbscan_predict(datatype, input_type):
+
+    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
+                 dtype=datatype)
+    skdbscan = skDBSCAN(eps=3, min_samples=2)
+    sk_labels = skdbscan.fit_predict(X)
+
+    cudbscan = cuDBSCAN(eps=3, min_samples=2)
+
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
+        gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
+        cu_labels = cudbscan.fit_predict(gdf)
+    else:
+        cu_labels = cudbscan.fit_predict(X)
+
+    for i in range(X.shape[0]):
+        assert cu_labels[i] == sk_labels[i]
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+def test_dbscan_predict_numpy(datatype):
     gdf = cudf.DataFrame()
     gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
     gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
@@ -37,5 +60,3 @@ def test_dbscan_predict(datatype):
     print(X.shape[0])
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-
-

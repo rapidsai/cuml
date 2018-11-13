@@ -173,7 +173,7 @@ class TruncatedSVD:
 
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.transpose(X))
+            X_m = cuda.to_device(np.array(X, order='F'))
             self.params.n_rows = X.shape[0]
             self.params.n_cols = X.shape[1]
 
@@ -293,7 +293,7 @@ class TruncatedSVD:
             X_m = X.as_gpu_matrix()
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
+            X_m = cuda.to_device(np.array(X, order='F'))
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
@@ -361,7 +361,7 @@ class TruncatedSVD:
 
         elif (isinstance(X, np.ndarray)):
             gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
+            X_m = cuda.to_device(np.array(X, order='F'))
             n_rows = X.shape[0]
             n_cols = X.shape[1]
 

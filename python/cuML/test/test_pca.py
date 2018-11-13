@@ -20,25 +20,31 @@ from test_utils import array_equal
 import cudf
 import numpy as np
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_pca_fit(datatype, input_type):
 
-def test_pca_fit(datatype):
-    gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
-
-    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]], dtype = datatype)
-
-    print("Calling fit")
-    cupca = cuPCA(n_components = 2)
-    cupca.fit(gdf)
-    skpca = skPCA(n_components = 2)
+    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                 dtype=datatype)
+    skpca = skPCA(n_components=2)
     skpca.fit(X)
 
-    for attr in ['singular_values_','components_','explained_variance_','explained_variance_ratio_','noise_variance_']:
+    cupca = cuPCA(n_components=2)
+
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+        gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+        cupca.fit(gdf)
+
+    else:
+        cupca.fit(X)
+
+    for attr in ['singular_values_', 'components_', 'explained_variance_',
+                 'explained_variance_ratio_', 'noise_variance_']:
         with_sign = False if attr in ['components_'] else True
-        # assert array_equal(getattr(cupca,attr),getattr(skpca,attr),
-        #     1e-3,with_sign=with_sign)
+        print(attr)
         print(getattr(cupca, attr))
         print(getattr(skpca, attr))
         cuml_res = (getattr(cupca, attr))
@@ -51,39 +57,44 @@ def test_pca_fit(datatype):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_pca_fit_transform(datatype):
-    gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
-
-    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]], dtype = datatype)
-
-    print("Calling fit_transform")
-    cupca = cuPCA(n_components = 2)
-    Xcupca = cupca.fit_transform(gdf)
-    skpca = skPCA(n_components = 2)
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_pca_fit_transform(datatype, input_type):
+    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                 dtype=datatype)
+    skpca = skPCA(n_components=2)
     Xskpca = skpca.fit_transform(X)
 
-    assert array_equal(Xcupca, Xskpca,
-            1e-3,with_sign=False)
+    cupca = cuPCA(n_components=2)
+
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+        gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+        Xcupca = cupca.fit_transform(gdf)
+
+    else:
+        Xcupca = cupca.fit_transform(X)
+
+    assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-
-def test_pca_inverse_transform(datatype):
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_pca_inverse_transform(datatype, input_type):
     gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
+    gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+    gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+    cupca = cuPCA(n_components=2)
 
-    cupca = cuPCA(n_components = 2)
-    Xcupca = cupca.fit_transform(gdf)
+    if input_type == 'dataframe':
+        Xcupca = cupca.fit_transform(gdf)
 
-    print("Calling inverse_transform")
+    else:
+        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                     dtype=datatype)
+        Xcupca = cupca.fit_transform(X)
+
     input_gdf = cupca.inverse_transform(Xcupca)
 
-    print(gdf)
-    print(Xcupca)
-    print(input_gdf)
-
-
     assert array_equal(input_gdf, gdf,
-            1e-3,with_sign=True)
+                       1e-3, with_sign=True)
