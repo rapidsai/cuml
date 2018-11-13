@@ -1,3 +1,19 @@
+#
+# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 cimport c_kmeans
 import numpy as np
 from numba import cuda
@@ -106,7 +122,6 @@ class KMeans:
         c = gdf.as_gpu_matrix(order='C').shape
         return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
-
     def fit(self, X):
         """
         Compute k-means clustering with X.
@@ -122,10 +137,24 @@ class KMeans:
         self.n_rows = len(X)
         self.n_cols = len(X._cols)
 
-        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='C')
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
 
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(X)
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
@@ -174,7 +203,6 @@ class KMeans:
                 <double*> cluster_centers_ptr, # pred_centroids
                 <int*> labels_ptr)          # pred_labels
 
-
         cluster_centers_gdf = cudf.DataFrame()
         for i in range(0, self.n_cols):
             cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
@@ -183,7 +211,6 @@ class KMeans:
         del(X_m)
 
         return self
-
 
     def fit_predict(self, X):
         """
@@ -196,8 +223,6 @@ class KMeans:
 
         """
         return self.fit(X).labels_
-
-
 
     def predict(self, X):
         """
@@ -213,8 +238,24 @@ class KMeans:
         self.n_rows = len(X)
         self.n_cols = len(X._cols)
 
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='C')
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(X)
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        input_ptr = self._get_ctype_ptr(X_m)
 
         clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
@@ -267,8 +308,6 @@ class KMeans:
         del(clust_mat)
         return self.labels_
 
-
-
     def transform(self, X):
         """
         Transform X to a cluster-distance space.
@@ -283,26 +322,35 @@ class KMeans:
         self.n_rows = len(X)
         self.n_cols = len(X._cols)
 
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='C')
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
 
-        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] host_ary = input_gdf.as_gpu_matrix(order='C').copy_to_host()
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(X)
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
 
-        # cdef np.ndarray[np.float32_t, ndim=2, mode = 'c', cast=True] cluster_centers_ptr = self.cluster_centers_.as_gpu_matrix(order='C').copy_to_host()
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
 
-
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_ctype_ptr(X_m)
 
         clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
-                                       dtype=self.gdf_datatype.type))
+                                    dtype=self.gdf_datatype.type))
 
         cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
 
-
-        ary=np.array([1.0,1.5,3.5,2.5],dtype=np.float32)
-        dary=cuda.to_device(ary)
+        ary = np.array([1.0, 1.5, 3.5, 2.5], dtype=np.float32)
+        dary = cuda.to_device(ary)
         cdef uintptr_t ptr2 = dary.device_ctypes_pointer.value
 
         if self.gdf_datatype.type == np.float32:
@@ -330,7 +378,6 @@ class KMeans:
                 <double*> cluster_centers_ptr,    # centroids
                 <double*> preds_ptr)          # preds
 
-
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
             preds_gdf[str(i)] = preds_data[i*self.n_rows:(i+1)*self.n_rows]
@@ -338,7 +385,6 @@ class KMeans:
         del(X_m)
         del(clust_mat)
         return preds_gdf
-
 
     def fit_transform(self, input_gdf):
         """
