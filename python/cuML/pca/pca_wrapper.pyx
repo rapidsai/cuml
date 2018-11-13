@@ -297,6 +297,8 @@ class PCA:
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
 
+        return self
+
     def fit_transform(self, X):
         """
         Fit the model with X and apply the dimensionality reduction on X.
