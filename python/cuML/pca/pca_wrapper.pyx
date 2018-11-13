@@ -152,13 +152,7 @@ class PCA:
             'jacobi': COV_EIG_JACOBI
         }[algorithm]
 
-    def _initialize_arrays(self, input_gdf, n_components, n_rows, n_cols):
-
-        x = []
-        for col in input_gdf.columns:
-            x.append(input_gdf[col]._column.dtype)
-            break
-        self.gdf_datatype = np.dtype(x[0])
+    def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
                                                     dtype=self.gdf_datatype))
@@ -172,9 +166,9 @@ class PCA:
                                                      dtype=self.gdf_datatype))
         self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                      dtype=self.gdf_datatype))
-        self.noise_variance_ = cudf.Series(np.zeros(1,
                                                      dtype=self.gdf_datatype))
+        self.noise_variance_ = cudf.Series(np.zeros(1,
+                                                    dtype=self.gdf_datatype))
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -185,7 +179,7 @@ class PCA:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
-    def fit(self, X, _transform=True):
+    def fit(self, X, _transform=False):
         """
         Fit the model with X.
 
@@ -200,24 +194,38 @@ class PCA:
 
         """
         # c params
+
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            # PCA expects transpose of the input
+            X_m = X.as_gpu_matrix()
+            self.params.n_rows = len(X)
+            self.params.n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(np.array(X, order='F'))
+            self.params.n_rows = X.shape[0]
+            self.params.n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        input_ptr = self._get_ctype_ptr(X_m)
+
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
-        params.n_rows = len(X)
-        params.n_cols = len(X._cols)
+        params.n_rows = self.params.n_rows
+        params.n_cols = self.params.n_cols
         params.whiten = self.params.whiten
         params.n_iterations = self.params.iterated_power
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
 
-        # python params
-        self.params.n_rows = len(X)
-        self.params.n_cols = len(X._cols)
-
-        self._initialize_arrays(X, self.params.n_components,
-                                self.params.n_rows, self.params.n_cols)
-
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+        self._initialize_arrays(params.n_components,
+                                params.n_rows, params.n_cols)
 
         cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
 
@@ -286,7 +294,10 @@ class PCA:
         self.mean_ptr = mean_ptr
         self.noise_variance_ptr = noise_vars_ptr
 
-        del(X_m)
+        if (isinstance(X, cudf.DataFrame)):
+            del(X_m)
+
+        return self
 
     def fit_transform(self, X):
         """
@@ -326,6 +337,18 @@ class PCA:
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
+        cdef uintptr_t trans_input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            X_m = X.as_gpu_matrix()
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(np.array(X, order='F'))
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        trans_input_ptr = self._get_ctype_ptr(X_m)
+
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(X)
@@ -340,10 +363,9 @@ class PCA:
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
                                              dtype=gdf_datatype.type))
-        #cdef bool transpose_comp = False
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
-        cdef uintptr_t trans_input_ptr = X.as_gpu_matrix().device_ctypes_pointer.value
+
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
@@ -367,6 +389,7 @@ class PCA:
         for i in range(0, params.n_cols):
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
+        del(X_m)
 
         return X_original
 
@@ -386,24 +409,36 @@ class PCA:
         X_new : cuDF DataFrame, shape (n_samples, n_components)
 
         """
+
+
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix()
+            n_rows = len(X)
+            n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            gdf_datatype = X.dtype
+            X_m = cuda.to_device(np.array(X, order='F'))
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        input_ptr = self._get_ctype_ptr(X_m)
+
         cpdef c_pca.paramsPCA params
         params.n_components = self.params.n_components
-        params.n_rows = len(X)
-        params.n_cols = len(X._cols)
+        params.n_rows = n_rows
+        params.n_cols = n_cols
         params.whiten = self.params.whiten
-
-        x = []
-        for col in X.columns:
-            x.append(X[col]._column.dtype)
-            break
-        gdf_datatype = np.dtype(x[0])
 
         trans_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
-
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
@@ -431,4 +466,3 @@ class PCA:
 
         del(X_m)
         return X_new
-

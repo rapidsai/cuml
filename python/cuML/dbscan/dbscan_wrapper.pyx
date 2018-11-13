@@ -1,18 +1,18 @@
 #
- # Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 cimport c_dbscan
 import numpy as np
@@ -79,17 +79,24 @@ class DBSCAN:
                Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
-        x = []
-        for col in X.columns:
-            x.append(X[col]._column.dtype)
-            break
+        cdef uintptr_t input_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='C')
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
 
-        self.gdf_datatype = np.dtype(x[0])
-        self.n_rows = len(X)
-        self.n_cols = len(X._cols)
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(X)
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
 
-        X_m = X.as_gpu_matrix()
-        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
@@ -100,15 +107,16 @@ class DBSCAN:
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
-		               <int*> labels_ptr)
+		                       <int*> labels_ptr)
         else:
             c_dbscan.dbscanFit(<double*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <double> self.eps,
                                <int> self.min_samples,
-		               <int*> labels_ptr)
+		                       <int*> labels_ptr)
         del(X_m)
+        return self
 
     def fit_predict(self, X):
         """

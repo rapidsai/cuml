@@ -19,56 +19,70 @@ from test_utils import array_equal
 import cudf
 import numpy as np
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-
-def test_tsvd_fit(datatype):
-    gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
-
-    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]], dtype = datatype)
-
-    print("Calling fit")
-    cutsvd = cuTSVD(n_components = 1)
-    cutsvd.fit(gdf)
-    sktsvd = skTSVD(n_components = 1)
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_tsvd_fit(datatype, input_type):
+    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                 dtype=datatype)
+    sktsvd = skTSVD(n_components=1)
     sktsvd.fit(X)
 
-    for attr in ['singular_values_','components_','explained_variance_ratio_']:
+    cutsvd = cuTSVD(n_components=1)
+
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+        gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+        cutsvd.fit(gdf)
+
+    else:
+        cutsvd.fit(X)
+
+    for attr in ['singular_values_', 'components_',
+                 'explained_variance_ratio_']:
         with_sign = False if attr in ['components_'] else True
-        assert array_equal(getattr(cutsvd,attr),getattr(sktsvd,attr),
-            0.4,with_sign=with_sign)
+        assert array_equal(getattr(cutsvd, attr), getattr(sktsvd, attr),
+                           0.4, with_sign=with_sign)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_tsvd_fit_transform(datatype, input_type):
+    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                 dtype=datatype)
+    skpca = skTSVD(n_components=1)
+    Xsktsvd = skpca.fit_transform(X)
 
-def test_pca_fit_transform(datatype):
-    gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
+    cutsvd = cuTSVD(n_components=1)
 
-    X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]], dtype = datatype)
+    if input_type == 'dataframe':
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+        gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+        Xcutsvd = cutsvd.fit_transform(gdf)
 
-    print("Calling fit_transform")
-    cutsvd = cuTSVD(n_components = 1)
-    Xcutsvd = cutsvd.fit_transform(gdf)
-    sktsvd = skTSVD(n_components = 1)
-    Xsktsvd = sktsvd.fit_transform(X)
+    else:
+        Xcutsvd = cutsvd.fit_transform(X)
 
-    assert array_equal(Xcutsvd, Xsktsvd,
-            1e-3,with_sign=False)
+    assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-
-def test_pca_inverse_transform(datatype):
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_tsvd_inverse_transform(datatype, input_type):
     gdf = cudf.DataFrame()
-    gdf['0']=np.asarray([-1,-2,-3,1,2,3],dtype=datatype)
-    gdf['1']=np.asarray([-1,-1,-2,1,1,2],dtype=datatype)
+    gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
+    gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+    cutsvd = cuTSVD(n_components=1)
 
-    cutsvd = cuTSVD(n_components = 1)
-    Xcutsvd = cutsvd.fit_transform(gdf)
+    if input_type == 'dataframe':
+        Xcutsvd = cutsvd.fit_transform(gdf)
 
-    print("Calling inverse_transform")
+    else:
+        X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+                     dtype=datatype)
+        Xcutsvd = cutsvd.fit_transform(X)
+
     input_gdf = cutsvd.inverse_transform(Xcutsvd)
-    print(input_gdf)
-    assert array_equal(input_gdf, gdf,
-            0.4,with_sign=True)
+    assert array_equal(input_gdf, gdf, 0.4, with_sign=True)
