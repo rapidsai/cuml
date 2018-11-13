@@ -244,6 +244,7 @@ class TruncatedSVD:
         self.singular_values_ptr = singular_vals_ptr
 
         del(X_m)
+        return self
 
     def fit_transform(self, X):
         """

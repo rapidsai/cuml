@@ -116,6 +116,7 @@ class DBSCAN:
                                <int> self.min_samples,
 		                       <int*> labels_ptr)
         del(X_m)
+        return self
 
     def fit_predict(self, X):
         """

@@ -134,8 +134,6 @@ class KMeans:
         """
 
         self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-        self.n_rows = len(X)
-        self.n_cols = len(X._cols)
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
@@ -235,8 +233,6 @@ class KMeans:
 
         """
         self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-        self.n_rows = len(X)
-        self.n_cols = len(X._cols)
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
@@ -319,9 +315,6 @@ class KMeans:
 
         """
 
-        self.n_rows = len(X)
-        self.n_cols = len(X._cols)
-
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -348,10 +341,6 @@ class KMeans:
                                     dtype=self.gdf_datatype.type))
 
         cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
-
-        ary = np.array([1.0, 1.5, 3.5, 2.5], dtype=np.float32)
-        dary = cuda.to_device(ary)
-        cdef uintptr_t ptr2 = dary.device_ctypes_pointer.value
 
         if self.gdf_datatype.type == np.float32:
             c_kmeans.kmeans_transform(
