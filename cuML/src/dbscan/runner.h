@@ -23,7 +23,7 @@
 
 namespace Dbscan {
 
-using namespace MLCommon
+using namespace MLCommon;
 
 template<typename Type, typename Type_f>
 void run(Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
