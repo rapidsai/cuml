@@ -54,7 +54,7 @@ public:
         output_t res = output_t(accumulator <= eps2);
         atomicAdd(vdeg+x_idx, res);
         atomicAdd(vdeg+dim_m, res);
-	return res;
+        return res;
     }
 
     /**
