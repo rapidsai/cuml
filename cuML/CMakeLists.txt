@@ -96,13 +96,13 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(src
-                    ${GTEST_DIR}/googletest/include
-                    ${MLPRIMS_DIR}/src
-                    ${MLPRIMS_DIR}/src/dbscan
-                    ${MLPRIMS_DIR}/test
-                    ${CUTLASS_DIR}
-                    ${CUTLASS_DIR_2}
-                    ${CUB_DIR})
+  ${GTEST_DIR}/googletest/include
+  ${MLPRIMS_DIR}/src
+  ${MLPRIMS_DIR}/src/dbscan
+  ${MLPRIMS_DIR}/test
+  ${CUTLASS_DIR_2}
+  ${CUTLASS_DIR}
+  ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 

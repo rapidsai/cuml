@@ -1,3 +1,18 @@
+# Copyright (c) 2018, NVIDIA CORPORATION.
+ #
+ # Licensed under the Apache License, Version 2.0 (the "License");
+ # you may not use this file except in compliance with the License.
+ # You may obtain a copy of the License at
+ #
+ #     http://www.apache.org/licenses/LICENSE-2.0
+ #
+ # Unless required by applicable law or agreed to in writing, software
+ # distributed under the License is distributed on an "AS IS" BASIS,
+ # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ #
+
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(mlcommon LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 11)
@@ -77,5 +92,21 @@ target_link_libraries(mlcommon_test
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}
+  pthread
+  z)
+
+# benchmark exe (Released code below to test the bench mark for kselection code)
+ add_executable(mlcommon_bench
+ bench/add.cu
+ bench/kselection.cu
+ bench/dist_mat.cu
+ bench/harness.cu
+ bench/main.cu
+ bench/matrix_math.cu)
+target_link_libraries(mlcommon_bench
+  cublas
+  curand
+  cusolver
+  nvidia-ml
   pthread
   z)
