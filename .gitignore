@@ -17,6 +17,8 @@ python/cuML/cuml.cpp
 log
 .ipynb_checkpoints
 .DS_Store
+.ipynb_checkpoints
+
 ## eclipse
 .project
 .cproject
