@@ -1,4 +1,4 @@
-# Introduction
+	# Introduction
 This repo contains some of the common infrastructural components as well as
 computational primitives, that will be useful while building a ML algo repo from
 scratch.
@@ -18,6 +18,13 @@ tests if you are interested in helping us to improve these libraries.
 ## Repo
 ```bash
 $ git clone --recursive git@github.com:rapidsai/cuml.git
+=======
+4. CUDA SDK (>= 8.0)
+
+## Repo
+```bash
+$ git clone --recursive git@gitlab.com:nvdevtech/ml-common.git
+>>>>>>> Refactor DBSCAN to use ml-prims.
 $ git submodule init
 $ git submodule update
 ```
