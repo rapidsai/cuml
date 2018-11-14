@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "../cuda_utils.h"
+#include <cuda_utils.h>
 #include "pack.h"
 #include "../common.h"
 

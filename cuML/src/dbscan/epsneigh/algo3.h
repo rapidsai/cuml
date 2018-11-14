@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "../cuda_utils.h"
+#include <cuda_utils.h>
 #include "../types.h"
 #include "pack.h"
 
