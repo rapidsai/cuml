@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "utils.h"
+#include <cuda_utils.h>
 #include "vertexdeg/runner.h"
 #include "adjgraph/runner.h"
 #include "labelling/runner.h"
@@ -69,15 +69,15 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 		cudaStream_t stream) {
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
-    size_t adjSize = alignSize<size_t>(sizeof(bool) * N * batchSize, align);
-    size_t corePtsSize = alignSize<size_t>(sizeof(bool) * N, align);
-    size_t visitedSize = alignSize<size_t>(sizeof(bool) * N, align);
-    size_t xaSize = alignSize<size_t>(sizeof(bool) * N, align);
-    size_t mSize = alignSize<size_t>(sizeof(bool), align);
-    size_t vdSize = alignSize<size_t>(sizeof(Type) * (batchSize + 1), align);
-    size_t exScanSize = alignSize<size_t>(sizeof(Type) * batchSize, align);
-    size_t mapIdSize = alignSize<size_t>(sizeof(Type) * N, align);
-    size_t dotsSize = alignSize<size_t>(sizeof(Type_f) * N, align);
+    size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
+    size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
+    size_t visitedSize = alignTo<size_t>(sizeof(bool) * N, align);
+    size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
+    size_t mSize = alignTo<size_t>(sizeof(bool), align);
+    size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
+    size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
+    size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
+    size_t dotsSize = alignTo<size_t>(sizeof(Type_f) * N, align);
     if(workspace == NULL) {
         auto size = adjSize
             + corePtsSize
