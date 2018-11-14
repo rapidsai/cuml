@@ -22,6 +22,9 @@
 #include "labelling/runner.h"
 
 namespace Dbscan {
+
+using namespace MLCommon
+
 template<typename Type, typename Type_f>
 void run(Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
 		Type* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
