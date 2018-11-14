@@ -25,6 +25,8 @@ namespace Dbscan {
 namespace VertexDeg {
 namespace Algo5 {
 
+using namespace MLCommon;
+
 template <typename accum_t, typename output_t, typename scalar_t>
 class vertexdeg_epilogue {
 private:
