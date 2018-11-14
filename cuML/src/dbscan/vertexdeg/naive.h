@@ -23,6 +23,8 @@ namespace Dbscan {
 namespace VertexDeg {
 namespace Naive {
 
+using namespace MLCommon;
+
 /** number of threads in a CTA along X dim */
 static const int TPB_X = 32;
 /** number of threads in a CTA along Y dim */
