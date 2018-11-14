@@ -28,6 +28,8 @@ namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
 
+using namespace MLCommon;
+
 template <typename Type, int TPB_X>
 __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
     int row = blockIdx.x*TPB_X + threadIdx.x;
