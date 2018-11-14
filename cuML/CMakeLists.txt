@@ -84,8 +84,8 @@ include_directories(src
   ${MLPRIMS_DIR}/src
   ${MLPRIMS_DIR}/src/dbscan
   ${MLPRIMS_DIR}/test
-  ${CUTLASS_DIR}
   ${CUTLASS_DIR_2}
+  ${CUTLASS_DIR}
   ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)

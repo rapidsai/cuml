@@ -19,6 +19,7 @@
 #include "algo4.h"
 #include "pack.h"
 #include "algo5.h"
+#include "algo6.h"
 
 
 namespace Dbscan {
@@ -30,6 +31,7 @@ template <typename Type>
 void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
          cudaStream_t stream, int algo, int startVertexId, int batchSize) {
     Pack<Type> data = {vd, adj, x, eps, N, D, dots};
+
     switch(algo) {
     case 0:
         Naive::launcher<Type>(data, stream, startVertexId, batchSize);
@@ -70,6 +72,9 @@ void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
      case 505:
          Algo5::launcher<Type, tiling_strategy::Huge>(data, stream, startVertexId, batchSize);
          break;
+    case 600:
+    	 Algo6::launcher<Type>(data, stream, startVertexId, batchSize);
+    	 break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
     }

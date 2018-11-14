@@ -143,8 +143,8 @@ ext = Extension('cuml',
                                              '--expt-extended-lambda']},
                 include_dirs=[numpy_include, CUDA['include'], 'cuML/src',
                               'cuML/external/ml-prims/src',
-                              'cuML/external/ml-prims/external/cutlass',
                               'cuML/external/cutlass',
+                              'cuML/external/ml-prims/external/cutlass',
                               'cuML/external/ml-prims/external/cub'],
                 extra_link_args=["-std=c++11", '-fopenmp'])
 
