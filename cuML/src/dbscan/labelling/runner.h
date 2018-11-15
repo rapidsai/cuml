@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "utils.h"
+#include <cuda_utils.h>
 #include <iostream>
 #include <limits>
 #include "naive.h"
