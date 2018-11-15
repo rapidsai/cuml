@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuda_utils.h>
-#include "utils.h"
 #include "pack.h"
 #include "../common.h"
 #include <cub/cub.cuh>
@@ -25,6 +24,8 @@
 namespace Dbscan {
 namespace VertexDeg {
 namespace Algo5 {
+
+using namespace MLCommon;
 
 template <typename accum_t, typename output_t, typename scalar_t>
 class vertexdeg_epilogue {

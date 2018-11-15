@@ -28,6 +28,7 @@ namespace Label {
 namespace Algo1 {
 
 using namespace thrust;
+using namespace MLCommon;
 
 template <typename Type, int TPB_X>
 __global__ void bfs_device(Pack<Type> data, int startVertexId, int batchSize) {
