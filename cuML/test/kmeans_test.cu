@@ -25,16 +25,18 @@ protected:
         int n = params.n_col;
         int k = params.n_clusters;
 
-        // make testdata on host
-		T h_srcdata[n * m] = 
-            {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
-
         // make space for outputs : pred_centroids, pred_labels
         // and reference output : labels_ref
+        allocate(d_srcdata, n * m);
    		allocate(labels_fit, m);
    		allocate(labels_ref_fit, m);
         allocate(pred_centroids, k * n);
         allocate(centroids_ref, k * n);
+
+        // make testdata on host
+        T h_srcdata[n * m] =
+            {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
+        updateDevice(d_srcdata, h_srcdata, m*n);
 
         // make and assign reference output
         int h_labels_ref_fit[m] = {1, 1, 0, 0};
@@ -47,7 +49,7 @@ protected:
         // fit
         make_ptr_kmeans(0, verbose, seed, gpu_id, n_gpu, m, n,
             ord, k, k, max_iterations,
-            init_from_data, params.tol, h_srcdata, nullptr, pred_centroids, labels_fit);
+            init_from_data, params.tol, d_srcdata, nullptr, pred_centroids, labels_fit);
     }
 
  	void SetUp() override {
@@ -55,6 +57,7 @@ protected:
 	}
 
 	void TearDown() override {
+        CUDA_CHECK(cudaFree(d_srcdata));
 		CUDA_CHECK(cudaFree(labels_fit));
 		CUDA_CHECK(cudaFree(pred_centroids));
 		CUDA_CHECK(cudaFree(labels_ref_fit));
