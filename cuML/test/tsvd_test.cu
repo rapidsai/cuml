@@ -142,7 +142,6 @@ protected:
 		CUDA_CHECK(cudaFree(components));
 		CUDA_CHECK(cudaFree(singular_vals));
 		CUDA_CHECK(cudaFree(components_ref));
-		CUDA_CHECK(cudaFree(explained_vars_ref));
 		CUDA_CHECK(cudaFree(data2));
 		CUDA_CHECK(cudaFree(data2_trans));
 		CUDA_CHECK(cudaFree(data2_back));
