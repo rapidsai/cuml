@@ -90,17 +90,16 @@ include_directories(src
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
-add_executable(ml_test
-  test/pca_test.cu
-  test/tsvd_test.cu
-  test/dbscan_test.cu
-  test/kmeans_test.cu
-  )
+# Append source file in recursive manner, append header files to target for work with them in IDE
+file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
+file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 
+add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 target_link_libraries(ml_test
   ${GTEST_LIBNAME}
-  cublas
-  curand
-  cusolver
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
   pthread
   z)
