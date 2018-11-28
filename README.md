@@ -57,7 +57,7 @@ To use cuML from source, it must be cloned and built in an environment that alre
 
 List of dependencies:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.2.0)
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.3.0)
 2. zlib
 3. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
 4. CUDA (>= 9.2)

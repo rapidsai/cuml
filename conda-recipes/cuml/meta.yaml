@@ -26,12 +26,12 @@ requirements:
     - setuptools
     - cython
     - cmake 3.11
-    - cudf 0.2.0.*
+    - cudf 0.3.0.*
   run:
     - faiss-gpu
     - python x.x
     - setuptools
-    - cudf 0.2.0.*
+    - cudf 0.3.0.*
 
 about:
   home: http://rapids.ai/
