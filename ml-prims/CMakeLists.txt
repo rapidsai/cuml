@@ -60,41 +60,22 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 include_directories(src
   ${GTEST_DIR}/googletest/include
   ${CUTLASS_DIR}
-  ${CUB_DIR})
+  ${CUB_DIR}
+  ${CUDA_TOOLKIT_INCLUDE} # This include directory inplicitly available for course compiled with nvcc, but not for pure host compiler
+)
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
-add_executable(mlcommon_test
-  test/add.cu
-  test/binary_op.cu
-  test/cuda_utils.cu
-  test/cov.cu
-  test/eig.cu
-  test/eltwise.cu
-  test/eltwise2d.cu
-  test/gemm.cu
-  test/kselection.cu
-  test/math.cu
-  test/matrix.cu
-  test/matrix_vector_op.cu
-  test/mean.cu
-  test/mean_center.cu
-  test/mnist.cu
-  test/mvg.cu
-  test/norm.cu
-  test/rng.cu
-  test/rsvd.cu
-  test/stddev.cu
-  test/subtract.cu
-  test/svd.cu
-  test/transpose.cu
-  test/unary_op.cu
-  test/vector_broadcast.cu)
+# Alternative for find sources and headers
+file(GLOB_RECURSE cpp_and_cuda_sources "test/*.cpp" "test/*.c" "test/*.cu")
+
+add_executable(mlcommon_test ${cpp_and_cuda_sources})
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}
-  cublas
-  curand
-  cusolver
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
   pthread
   z)
