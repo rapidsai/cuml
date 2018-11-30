@@ -1,4 +1,4 @@
-# cuML
+# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - RAPIDS Machine Learning Algorithms</div>
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
@@ -53,9 +53,7 @@ conda install -c rapidsai cuml
 
 ### Dependencies for Installing/Building from Source:
 
-To use cuML from source, it must be cloned and built in an environment that already has the dependencies, including [cuDF](https://github.com/rapidsai/cudf) and its dependencies.
-
-List of dependencies:
+To install cuML from source, ensure the dependencies are met:
 
 1. [cuDF](https://github.com/rapidsai/cudf) (>=0.3.0)
 2. zlib
@@ -65,42 +63,59 @@ List of dependencies:
 6. gcc (>=5.4.0)
 7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu cuda92```
 
-### Setup steps
+### Installing from Source:
 
-To clone:
+Once dependencies are present, follow the steps below:
 
-```
-git clone --recurse-submodules https://github.com/rapidsai/cuml.git
-```
-
-To build the python package, in the repository root folder:
-
-```
-python setup.py install
+1. Clone the repository.
+```bash
+$ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 ```
 
-### Building CuML:
-
-### Running tests
-
-To test the C++ algorithms using googletests, in the repository root folder:
-
+2. Build and install `libcuml` (the C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
 ```bash
 $ cd cuML
 $ mkdir build
 $ cd build
 $ cmake ..
-$ make -j 
-$ # Instead of previous step if you like you can use cmake directly
-$ cmake --build . --config Release -- -j
+```
+
+Note: if using a conda environment (recommended currently), then cmake cen be configured appropiately via:
+
+```bash
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
+```
+
+Build `libcuml`:
+
+```bash
+$ make -j
+$ make install
+```
+
+To run tests (optional):
+
+```bash
 $ ./ml_test
 ```
 
-To list available test:
+3. Build the `cuml` python package:
+
 ```bash
-$./ml_test --gtest_list_tests
+$ cd ../../python
+$ python setup.py build_ext --inplace
 ```
-$ py.test python/cuML/test
+
+To run Python tests (optional):
+
+```bash
+$ py.test cuML/test -v
+```
+
+4. Finally, install the Python package to your Python path:
+
+```bash
+$ python setup.py install
 ```
 
 ### Python Notebooks
@@ -125,3 +140,10 @@ Please use issues and pull requests to report bugs and add functionality.
 ## Contact
 
 Find out more details on the [RAPIDS site](https://rapids.ai/community.html)
+
+
+## <div align="left"><img src="img/rapids_logo.png" width="265px"/></div> Open GPU Data Science
+
+The RAPIDS suite of open source software libraries aim to enable execution of end-to-end data science and analytics pipelines entirely on GPUs. It relies on NVIDIA® CUDA® primitives for low-level compute optimization, but exposing that GPU parallelism and high-bandwidth memory speed through user-friendly Python interfaces.
+
+<p align="center"><img src="img/rapids_arrow.png" width="80%"/></p>
