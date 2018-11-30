@@ -15,6 +15,7 @@ cuml.egg-info/
 dist/
 python/cuML/cuml.cpp
 log
+.DS_Store
 
 ## eclipse
 .project
