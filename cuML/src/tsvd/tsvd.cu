@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#pragma once
+
 
 #include "tsvd.h"
 #include "tsvd_c.h"
