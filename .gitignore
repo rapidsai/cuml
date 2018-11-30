@@ -16,7 +16,7 @@ dist/
 python/cuML/cuml.cpp
 log
 .ipynb_checkpoints
-
+.DS_Store
 ## eclipse
 .project
 .cproject
