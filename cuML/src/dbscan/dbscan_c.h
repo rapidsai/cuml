@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 namespace ML{
 
 void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
