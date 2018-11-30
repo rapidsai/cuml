@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 
 #include "pca.h"
 #include "pca_c.h"
