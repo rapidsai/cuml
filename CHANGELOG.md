@@ -50,7 +50,7 @@
 
 ## Bug Fixes
 
-- PR # 4: Fixed explained variance bug in TSVD.
+- PR #4: Fixed explained variance bug in TSVD.
 - PR #5: Notebook bug fixes and updated results.
 
 
