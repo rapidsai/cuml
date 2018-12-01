@@ -20,15 +20,19 @@ CURRENT_PATCH=`echo $CURRENT_TAG | awk '{split($0, a, "."); print a[3]}'`
 NEXT_MAJOR=$((CURRENT_MAJOR + 1))
 NEXT_MINOR=$((CURRENT_MINOR + 1))
 NEXT_PATCH=$((CURRENT_PATCH + 1))
-NEXT_TAG=""
+NEXT_FULL_TAG=""
+NEXT_SHORT_TAG=""
 
 # Determine release type
 if [ "$RELEASE_TYPE" == "major" ]; then
-  NEXT_TAG="${NEXT_MAJOR}.0.0"
+  NEXT_FULL_TAG="${NEXT_MAJOR}.0.0"
+  NEXT_SHORT_TAG="${NEXT_MAJOR}.0"
 elif [ "$RELEASE_TYPE" == "minor" ]; then
-  NEXT_TAG="${CURRENT_MAJOR}.${NEXT_MINOR}.0"
+  NEXT_FULL_TAG="${CURRENT_MAJOR}.${NEXT_MINOR}.0"
+  NEXT_SHORT_TAG="${CURRENT_MAJOR}.${NEXT_MINOR}"
 elif [ "$RELEASE_TYPE" == "patch" ]; then
-  NEXT_TAG="${CURRENT_MAJOR}.${CURRENT_MINOR}.${NEXT_PATCH}"
+  NEXT_FULL_TAG="${CURRENT_MAJOR}.${CURRENT_MINOR}.${NEXT_PATCH}"
+  NEXT_SHORT_TAG="${CURRENT_MAJOR}.${NEXT_MINOR}"
 else
   echo "Incorrect release type; use 'major', 'minor', or 'patch' as an argument"
   exit 1
@@ -36,7 +40,7 @@ fi
 
 # Move to root of repo
 cd ../..
-echo "Preparing '$RELEASE_TYPE' release [$CURRENT_TAG -> $NEXT_TAG]"
+echo "Preparing '$RELEASE_TYPE' release [$CURRENT_TAG -> $NEXT_FULL_TAG]"
 
 # Inplace sed replace; workaround for Linux and Mac
 function sed_runner() {
@@ -44,8 +48,8 @@ function sed_runner() {
 }
 
 # Conda environment updates
-sed_runner 's/cuml=.*/cuml='"${NEXT_TAG}.*"'/g' conda_environments/builddocs_py36.yml
+sed_runner 's/cuml=.*/cuml='"${NEXT_FULL_TAG}.*"'/g' conda_environments/builddocs_py36.yml
 
 # RTD update
-sed_runner 's/version = .*/version = '"'${NEXT_TAG}'"'/g' docs/source/conf.py
-sed_runner 's/release = .*/release = '"'${NEXT_TAG}'"'/g' docs/source/conf.py
+sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
+sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
