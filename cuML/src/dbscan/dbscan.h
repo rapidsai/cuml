@@ -40,7 +40,7 @@ int computeBatchCount(int n_rows) {
 
 template<typename T>
 void dbscanFitImpl(T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels) {
-    int algoVd = 600;
+    int algoVd = 401;
     int algoAdj = 1;
     int algoCcl = 2;
     int n_batches = computeBatchCount(n_rows);
