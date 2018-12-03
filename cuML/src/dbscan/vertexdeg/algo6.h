@@ -17,10 +17,6 @@
 #pragma once
 #include "cuda_runtime.h"
 #include "distance/distance.h"
-#include <cub/cub.cuh>
-#include <cub/block/block_load.cuh>
-#include <cub/block/block_store.cuh>
-#include <cub/block/block_reduce.cuh>
 #include <math.h>
 #include "cuda_utils.h"
 
@@ -31,12 +27,6 @@ namespace Dbscan {
 namespace VertexDeg {
 namespace Algo6 {
 
-using namespace cub;
-
-/** number of threads in a CTA along X dim */
-static const int TPB_X = 32;
-/** number of threads in a CTA along Y dim */
-static const int TPB_Y = 8;
 
 template <typename T>
 struct OutStruct {
