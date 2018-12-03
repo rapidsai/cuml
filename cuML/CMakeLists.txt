@@ -16,7 +16,7 @@
 
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(cuML VERSION 0.3.0 LANGUAGES CXX CUDA)
+project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 
 set(CMAKE_CXX_STANDARD 11)
@@ -78,6 +78,8 @@ if(NOT "${GPU_ARCHS}")
   # NOTE: NOTE: Add more 'if's for every new arch release!
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
+  else((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
+    set(GPU_ARCHS "${GPU_ARCHS};75")
   endif()
 endif()
 foreach(arch ${GPU_ARCHS})
