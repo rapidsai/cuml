@@ -107,6 +107,7 @@ $ ./ml_test --gtest_list_tests
 3. Build the `cuml` python package:
 
 ```bash
+
 $ cd ../../python
 $ python setup.py build_ext --inplace
 ```
@@ -130,12 +131,12 @@ $ python setup.py install
 
 ### Python Notebooks
 
-Demo notebooks can be found in python/notebooks folder.
+Demo notebooks can be found in `python/notebooks` folder.
 
 ## External
 
 The external folders contains submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main CMakeLists.txt file for these.
+will be automatically populated in the main `CMakeLists.txt` file for these.
 
 Current external submodules are:
 
