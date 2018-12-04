@@ -80,7 +80,7 @@ $ cd build
 $ cmake ..
 ```
 
-Note: if using a conda environment (recommended currently), then cmake cen be configured appropiately via:
+Note: if using a conda environment (recommended currently), then cmake can be configured appropriately via:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
