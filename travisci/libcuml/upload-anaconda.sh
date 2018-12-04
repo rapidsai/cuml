@@ -4,30 +4,37 @@
 
 set -e
 
-SOURCE_BRANCH=master
-CUDA_REL=${CUDA:0:3}
-if [ "${CUDA:0:2}" == '10' ]; then
-  # CUDA 10 release
-  CUDA_REL=${CUDA:0:4}
-fi
+if [ "$BUILD_LIBCUML" == "1" ]; then
+  export UPLOADFILE=`conda build conda-recipes/libcuml -c nvidia -c rapidsai -c numba -c pytorch -c conda-forge -c defaults --output`
+  SOURCE_BRANCH=master
 
-LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
-if [ "${LABEL_MAIN}" == '1' ]; then
-  LABEL_OPTION="--label main --label cuda${CUDA_REL}"
-fi
-echo "LABEL_OPTION=${LABEL_OPTION}"
+  CUDA_REL=${CUDA:0:3}
+  if [ "${CUDA:0:2}" == '10' ]; then
+    # CUDA 10 release
+    CUDA_REL=${CUDA:0:4}
+  fi
 
-# Pull requests or commits to other branches shouldn't upload
-if [ ${TRAVIS_PULL_REQUEST} != false -o ${TRAVIS_BRANCH} != ${SOURCE_BRANCH} ]; then
-  echo "Skipping upload"
-  return 0
-fi
+  LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
+  if [ "${LABEL_MAIN}" == '1' ]; then
+    LABEL_OPTION="--label main --label cuda${CUDA_REL}"
+  fi
+  LABEL_OPTION="--label test --label cuda${CUDA_REL}"
+  echo "LABEL_OPTION=${LABEL_OPTION}"
 
-if [ -z "$MY_UPLOAD_KEY" ]; then
+  test -e ${UPLOADFILE}
+
+  # Pull requests or commits to other branches shouldn't upload
+  if [ ${TRAVIS_PULL_REQUEST} != false -o ${TRAVIS_BRANCH} != ${SOURCE_BRANCH} ]; then
+    echo "Skipping upload"
+    return 0
+  fi
+
+  if [ -z "$MY_UPLOAD_KEY" ]; then
     echo "No upload key"
     return 0
-fi
+  fi
 
-echo "Upload"
-echo ${UPLOADFILE}
-travis_retry anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE}
+  echo "Upload"
+  echo ${UPLOADFILE}
+  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE}
+fi
