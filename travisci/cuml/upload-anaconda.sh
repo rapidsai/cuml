@@ -6,7 +6,7 @@ set -e
 
 if [ "$BUILD_CUML" == "1" ]; then
   export UPLOADFILE=`conda build conda-recipes/cuml -c defaults -c conda-forge -c numba -c rapidsai -c nvidia -c pytorch --python=${PYTHON} --output`
-  SOURCE_BRANCH=master
+  SOURCE_BRANCH=pr42
 
   CUDA_REL=${CUDA:0:3}
   if [ "${CUDA:0:2}" == '10' ]; then

@@ -7,6 +7,7 @@ language: python
 branches:
     only:
         - master
+        - pr42
 env:
   global:
     - secure: 3BtcRmTAzNyuO/7n8LQbxz//+M+gv3OrKXJ7yOF/UugWpTjjuSvCOR5RYQl3/uLC5nAvpO3iutJuA9YFTmeGarYKcc/H3jBPhI51INHqr7EAZq9WnW+jYa0MqnlCDYvUUb1F3eeGbT7jl1rq7jAKoZa+3gLvM93MMk0IgVDmyFYqdp2jw/WcgDE7EwcqtJoH7bCMVmqUNtSGDfWa5j2ySCvsUisYHcOP0cTLQB9Em9N1axFkFSby0+HgXdq46oESjZv9sD1f5hSnafz6FLyI9JHdawtR+1HG6hh/8nClVgr0inSC5w5ie9OhaBHdCqmYXYlcwe5dTlDxU7VZ45UIjPc1ytdGXikSFgzlx3sTp6EHmRpbkfR6kqhTd6WyFM+W4BBM3pGp1ds5Gl9w1Q7ibClBzP+eAZ1y0JovQi2AjFWqPrUB/EovP38V1w332GAxvXU0EqwclBTE63q+8xpOkkN2P6NtlZtH3GnLx+Y3VN7PsMfoC8LG8T+3pOR7Y6iv45xoAAJEufR3iu6YmPGcayZDuekX4Q2luTCdqejevcZVeOFcgznkQRcIPatn9mcS+ahsNVu26ZvFKzTijyjK8JYN/Jo659BQ3CMN7RL5Ty5eRNU/2lBFs5kertEGWA5GX+gdChkpvoNEU7P2BTEf9S9GwfW9WEUPUirqLHu5kBA=
