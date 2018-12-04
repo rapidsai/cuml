@@ -99,6 +99,11 @@ To run tests (optional):
 $ ./ml_test
 ```
 
+If you want a list of the available tests:
+```bash
+$ ./ml_test --gtest_list_tests
+```
+
 3. Build the `cuml` python package:
 
 ```bash
@@ -110,6 +115,11 @@ To run Python tests (optional):
 
 ```bash
 $ py.test cuML/test -v
+```
+
+If you want a list of the available tests:
+```bash
+$ py.test cuML/test --collect-only
 ```
 
 4. Finally, install the Python package to your Python path:
