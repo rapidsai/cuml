@@ -25,7 +25,7 @@ requirements:
     - python x.x
     - setuptools
     - cython
-    - cmake 3.11
+    - cmake 3.12
     - cudf 0.3.0.*
   run:
     - faiss-gpu
