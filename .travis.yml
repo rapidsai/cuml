@@ -13,10 +13,10 @@ env:
 
 matrix:
   include:
-    - env: CUDA=9.2.148_396.37 PYTHON=3.5 LABEL_MAIN=1 BUILD_CUML=1
-    - env: CUDA=9.2.148_396.37 PYTHON=3.6 LABEL_MAIN=1 BUILD_CUML=1
-    - env: CUDA=10.0.130_410.48 PYTHON=3.5 BUILD_CUML=1
-    - env: CUDA=10.0.130_410.48 PYTHON=3.6 BUILD_CUML=1
+    - env: CUDA=9.2.148_396.37 PYTHON=3.5 LABEL_MAIN=1 BUILD_CUML=1 BUILD_LIBCUML=1
+    - env: CUDA=9.2.148_396.37 PYTHON=3.6 LABEL_MAIN=1 BUILD_CUML=1 BUILD_LIBCUML=1
+    - env: CUDA=10.0.130_410.48 PYTHON=3.5 BUILD_CUML=1 BUILD_LIBCUML=1
+    - env: CUDA=10.0.130_410.48 PYTHON=3.6 BUILD_CUML=1 BUILD_LIBCUML=1
 
 before_install:
   # install build environment for libgdf
@@ -31,7 +31,7 @@ install:
   # check
   - conda --version
   # install conda build
-  - travis_retry conda install conda-build anaconda-client flake8 conda-verify cmake=3.11.* --yes
+  - travis_retry conda install conda-build anaconda-client flake8 conda-verify cmake=3.12.* --yes
 
 script:
   # Activate root environment for cmake
@@ -39,9 +39,11 @@ script:
   # check conda versions
   - conda list
   # build cuML
-  - source ./travisci/build_cuml.sh
+  - source ./travisci/libcuml/build_libcuml.sh
+  - source ./travisci/cuml/build_cuml.sh
   - flake8
 
 after_success:
   # upload cuML
-  - source ./travisci/upload-anaconda.sh
+  - source ./travisci/libcuml/upload-anaconda.sh
+  - source ./travisci/cuml/upload-anaconda.sh
