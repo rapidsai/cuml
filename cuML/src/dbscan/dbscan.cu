@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
 
 #include "runner.h"
 #include "dbscan_c.h"

@@ -9,7 +9,7 @@ RUN source activate cudf && conda install -c anaconda cython
 ADD ml-prims /cuML/ml-prims
 ADD cuML /cuML/cuML
 ADD python /cuML/python
-ADD setup.cfg /cuML/setup.cfg
+ADD python/setup.cfg /cuML/setup.cfg
 ADD setup.py /cuML/setup.py
 ADD versioneer.py /cuML/versioneer.py
 WORKDIR /cuML
