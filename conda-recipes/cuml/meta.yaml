@@ -27,6 +27,7 @@ requirements:
     - cython
     - cmake 3.12
     - cudf 0.3.0.*
+    - libcuml 0.3.0.*
   run:
     - faiss-gpu
     - python x.x
