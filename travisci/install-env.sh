@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ "$BUILD_LIBCUML" == "1" ]; then
+if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     sudo apt-get update -q
     sudo apt-get install -y libboost-all-dev
     # install libcuda
