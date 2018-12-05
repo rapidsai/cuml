@@ -62,7 +62,6 @@ void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, Type
     dim3 threads(TPB_X, 1, 1);
     while(countFa > 0) {
         bfs_device<Type,TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
-        cudaThreadSynchronize();
         cudaDeviceSynchronize();
         countFa = count(device, data.fa, data.fa + N, true);
     }
