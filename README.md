@@ -54,7 +54,7 @@ conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 To install cuML from source, ensure the dependencies are met:
 
 1. [cuDF](https://github.com/rapidsai/cudf) (>=0.3.0)
-2. zlib
+2. zlib - Provided by zlib1g-dev in Ubuntu 16.04
 3. cmake (>= 3.8, version 3.11.4 or 3.12.4 is recommended)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.28)
