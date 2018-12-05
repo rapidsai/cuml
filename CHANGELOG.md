@@ -4,7 +4,7 @@
 
 ## Improvements
 
-- PR #42: New build system.
+- PR #42: New build system: separation of libcuml.so and cuml python package.
 - PR #43: Added changelog.md
 
 ## Bug Fixes
