@@ -28,8 +28,6 @@ requirements:
     - cudf 0.3.0.*
   run:
     - faiss-gpu
-    - python x.x
-    - setuptools
     - cudf 0.3.0.*
 
 about:
