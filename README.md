@@ -46,9 +46,7 @@ The installation option provided currently consists on building from source. Upc
 
 cuML is available from the rapidsai conda channel:
 ```
-# Install dependencies first
-conda install -c pytorch faiss-gpu cuda92
-conda install -c rapidsai cuml
+conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
 
 ### Dependencies for Installing/Building from Source:
@@ -57,11 +55,11 @@ To install cuML from source, ensure the dependencies are met:
 
 1. [cuDF](https://github.com/rapidsai/cudf) (>=0.3.0)
 2. zlib
-3. cmake (>= 3.8, version 3.11.4 is recommended and there are issues with version 3.12)
+3. cmake (>= 3.8, version 3.11.4 or 3.12.4 is recommended)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.28)
 6. gcc (>=5.4.0)
-7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu cuda92```
+7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu```
 
 ### Installing from Source:
 
@@ -86,7 +84,7 @@ Note: if using a conda environment (recommended currently), then cmake can be co
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-Build `libcuml`:
+3. Build `libcuml`:
 
 ```bash
 $ make -j
@@ -104,7 +102,7 @@ If you want a list of the available tests:
 $ ./ml_test --gtest_list_tests
 ```
 
-3. Build the `cuml` python package:
+4. Build the `cuml` python package:
 
 ```bash
 $ cd ../../python
@@ -122,7 +120,7 @@ If you want a list of the available tests:
 $ py.test cuML/test --collect-only
 ```
 
-4. Finally, install the Python package to your Python path:
+5. Finally, install the Python package to your Python path:
 
 ```bash
 $ python setup.py install
