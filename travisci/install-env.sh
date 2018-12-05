@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ "$BUILD_CUML" == "1" ]; then
+if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     sudo apt-get update -q
     sudo apt-get install -y libboost-all-dev
     # install libcuda
@@ -17,6 +17,10 @@ if [ "$BUILD_CUML" == "1" ]; then
     # set gcc/g++ paths
     export CC=/usr/bin/gcc-5
     export CXX=/usr/bin/g++-5
+    export CUDAHOSTCXX=/usr/bin/g++-5
+    if [ "$TRAVIS" = "true" ]; then
+        export CMAKE_BUILD_PARALLEL_LEVEL=2
+    fi
     # install cuda
     source ./travisci/install-cuda-trusty.sh
     # check versions
