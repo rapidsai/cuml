@@ -43,7 +43,7 @@ script:
   - source ./travisci/libcuml/build_libcuml.sh
   - source ./travisci/libcuml/upload-anaconda.sh
   - source ./travisci/cuml/build_cuml.sh
-  - flake8
+  - flake8 --exclude=cuML,ml-prims,__init__.py,versioneer.py
 
 after_success:
   # upload cuML
