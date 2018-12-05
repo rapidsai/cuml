@@ -32,6 +32,7 @@ requirements:
     - python x.x
     - setuptools
     - cudf 0.3.0.*
+    - libcuml 0.3.0.*
 
 about:
   home: http://rapids.ai/
