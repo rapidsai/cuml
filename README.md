@@ -59,7 +59,11 @@ To install cuML from source, ensure the dependencies are met:
 4. CUDA (>= 9.2)
 5. Cython (>= 0.28)
 6. gcc (>=5.4.0)
-7. faiss-gpu (>=1.4.0) - To install with conda: ```conda install -c pytorch faiss-gpu```
+7. faiss-gpu (>=1.4.0) - faiss-gpu is required to run the KNN algorithm. For using KNN with CUDA 9.2, faiss-gpu can be installed using conda:
+
+```conda install -c pytorch faiss-gpu cuda92```
+
+To use KNN on CUDA 10, faiss-gpu needs to be installed from source, with other installation options coming soon.
 
 ### Installing from Source:
 
