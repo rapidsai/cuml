@@ -1,3 +1,13 @@
+# cuML 0.5.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+## Bug Fixes
+
+- PR #48: CUDA 10 compilation warnings fix.=.
+
 # cuML 0.4.0 (05 Dec 2018)
 
 ## New Features
