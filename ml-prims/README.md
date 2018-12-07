@@ -14,6 +14,7 @@ tests if you are interested in helping us to improve these libraries.
 3. cmake (>= 3.8)
 4. CUDA SDK (>= 9.2)
 
+<<<<<<< HEAD
 
 ## Repo
 ```bash
@@ -25,6 +26,12 @@ $ git clone --recursive git@github.com:rapidsai/cuml.git
 ```bash
 $ git clone --recursive git@gitlab.com:nvdevtech/ml-common.git
 >>>>>>> Refactor DBSCAN to use ml-prims.
+=======
+
+## Repo
+```bash
+$ git clone --recursive git@github.com:rapidsai/cuml.git
+>>>>>>> Updating ml-prims README
 $ git submodule init
 $ git submodule update
 ```
