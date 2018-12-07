@@ -95,18 +95,3 @@ target_link_libraries(mlcommon_test
   pthread
   z)
 
-# benchmark exe (Released code below to test the bench mark for kselection code)
- add_executable(mlcommon_bench
- bench/add.cu
- bench/kselection.cu
- bench/dist_mat.cu
- bench/harness.cu
- bench/main.cu
- bench/matrix_math.cu)
-target_link_libraries(mlcommon_bench
-  cublas
-  curand
-  cusolver
-  nvidia-ml
-  pthread
-  z)
