@@ -118,7 +118,6 @@ void label(Pack<Type> data, int startVertexId, int batchSize) {
     do {
         cudaMemset(data.m, false, sizeof(bool));
         label_device<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
-        cudaThreadSynchronize();
         cudaDeviceSynchronize();
         //** swapping F1 and F2
         MLCommon::updateHost(host_fa, data.fa, N);
