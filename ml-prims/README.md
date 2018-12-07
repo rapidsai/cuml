@@ -46,5 +46,10 @@ $ ./mlcommon_test
 Contains some useful scripts. Refer to [scripts](scripts/README.md).
 
 ## external
-Contains submodules that this project in-turn depends on. Appropriate location flags
+Contains submodules that this project, in-turn, depends on. Appropriate location flags
 will be automatically populated in the main CMakeLists.txt file, for these.
+
+Description of these submodules:
+1. Nvidia Cutlass - Abstractions for high-performance matrix multipliciation on GPUs
+2. Nvidia Cub - Primitives for high-performance, maintainable CUDA kernel code
+3. Google Test - C++ test framework
