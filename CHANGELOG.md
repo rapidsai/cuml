@@ -6,7 +6,7 @@
 
 ## Bug Fixes
 
-- PR #48: CUDA 10 compilation warnings fix.=.
+- PR #48: CUDA 10 compilation warnings fix.
 
 # cuML 0.4.0 (05 Dec 2018)
 
