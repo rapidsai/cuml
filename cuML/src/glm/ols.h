@@ -49,7 +49,6 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
-		allocate(norm2_input, n_cols);
 		allocate(mu_labels, 1);
 
 		Stats::mean(mu_input, input, n_cols, n_rows, false, false);
@@ -59,6 +58,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		Stats::meanCenter(labels, mu_labels, 1, n_rows, false);
 
 		if (normalize) {
+			allocate(norm2_input, n_cols);
 			LinAlg::norm2(norm2_input, input, n_cols, n_rows, false);
 			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true);
 		}
@@ -85,7 +85,9 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		allocate(d_intercept, 1);
 
 		if (normalize) {
-			Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, n_rows, n_cols, false, true);
+			Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true);
+			if (norm2_input != NULL)
+				cudaFree(norm2_input);
 		}
 
 		math_t alpha = math_t(1);
@@ -102,8 +104,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 			cudaFree(mu_input);
 		if (mu_labels != NULL)
 			cudaFree(mu_labels);
-		if (norm2_input != NULL)
-			cudaFree(norm2_input);
+
 
 	} else {
 		*intercept = math_t(0);

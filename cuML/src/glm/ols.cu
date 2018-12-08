@@ -24,10 +24,9 @@ namespace GLM {
 
 using namespace MLCommon;
 
-void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef, float *intercept,
-		    bool fit_intercept, bool normalize, int algo) {
+void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef,
+		float *intercept, bool fit_intercept, bool normalize, int algo) {
 
-	printf("***************\n");
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
@@ -35,51 +34,51 @@ void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef, fl
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
 	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-		normalize, cublas_handle, cusolver_handle, algo);
+			normalize, cublas_handle, cusolver_handle, algo);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 
 }
 
-void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef, double *intercept,
-		bool fit_intercept, bool normalize, int algo) {
-	printf("***************\n");
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
+		double *intercept, bool fit_intercept, bool normalize, int algo) {
 
-        cusolverDnHandle_t cusolver_handle = NULL;
-        CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-        olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-                normalize, cublas_handle, cusolver_handle, algo);
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-        CUBLAS_CHECK(cublasDestroy(cublas_handle));
-        CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+			normalize, cublas_handle, cusolver_handle, algo);
 
-}
-
-void olsPredict(const float *input, int n_rows, int n_cols, const float *coef, float intercept, float *preds)
-{
-
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-        olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
-
-        CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 
 }
 
-void olsPredict(const double *input, int n_rows, int n_cols, const double *coef, double intercept, double *preds)
-{
+void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds) {
 
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-        olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
 
-        CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+}
+
+void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
+		double intercept, double *preds) {
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 
 }
 
