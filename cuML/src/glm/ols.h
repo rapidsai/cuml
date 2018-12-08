@@ -120,7 +120,11 @@ void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
-	LinAlg::gemv(input, n_rows, n_cols, coef, preds, false, cublas_handle);
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1,
+				      false, false, alpha, beta, cublas_handle);
+
 	LinAlg::addScalar(preds, preds, intercept, n_rows * n_cols);
 
 }
