@@ -165,10 +165,10 @@ TEST_P(OlsTestF, Fit) {
 			devArrMatch(coef2_ref, coef2, params.n_col,
 				    CompareApproxAbs<float>(params.tol)));
 
-	/*
+
 	ASSERT_TRUE(
 			devArrMatch(coef3_ref, coef3, params.n_col,
-					CompareApproxAbs<float>(params.tol)));*/
+					CompareApproxAbs<float>(params.tol)));
 
 	ASSERT_TRUE(
 			devArrMatch(pred_ref, pred, params.n_row_2,
@@ -178,10 +178,10 @@ TEST_P(OlsTestF, Fit) {
 			devArrMatch(pred2_ref, pred2, params.n_row_2,
 					CompareApproxAbs<float>(params.tol)));
 
-	/*
+
 	ASSERT_TRUE(
 			devArrMatch(pred3_ref, pred3, params.n_row_2,
-					CompareApproxAbs<float>(params.tol)));*/
+					CompareApproxAbs<float>(params.tol)));
 }
 
 typedef OlsTest<double> OlsTestD;
@@ -195,10 +195,10 @@ TEST_P(OlsTestD, Fit) {
 				devArrMatch(coef2_ref, coef2, params.n_col,
 					CompareApproxAbs<double>(params.tol)));
 
-	/*
+
 	ASSERT_TRUE(
 				devArrMatch(coef3_ref, coef3, params.n_col,
-					CompareApproxAbs<double>(params.tol)));*/
+					CompareApproxAbs<double>(params.tol)));
 
 	ASSERT_TRUE(
 			devArrMatch(pred_ref, pred, params.n_row_2,
@@ -208,10 +208,10 @@ TEST_P(OlsTestD, Fit) {
 			devArrMatch(pred2_ref, pred2, params.n_row_2,
 					CompareApproxAbs<double>(params.tol)));
 
-	/*
+
 	ASSERT_TRUE(
 			devArrMatch(pred3_ref, pred3, params.n_row_2,
-					CompareApproxAbs<double>(params.tol)));*/
+					CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(OlsTests, OlsTestF, ::testing::ValuesIn(inputsf2));
