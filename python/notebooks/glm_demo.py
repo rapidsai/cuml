@@ -114,6 +114,7 @@ algorithm = "eig"
 
 reg_sk = sklOLS.LinearRegression(fit_intercept=fit_intercept, normalize=normalize)
 result_sk = reg_sk.fit(X, y)
+y_sk = reg_sk.predict(X)
 
 
 # In[8]:
@@ -129,13 +130,13 @@ y = cudf.Series(y)
 reg_cuml = cumlOLS.LinearRegression(fit_intercept=fit_intercept, normalize=normalize, algorithm=algorithm)
 result_cuml = reg_cuml.fit(X, y)
 
-
 # In[10]:
 
 print(reg_cuml.coef_)
 print(reg_sk.coef_)
 
-
+y_cuml = reg_cuml.predict(X)
+print(y_cuml)
 
 
 
