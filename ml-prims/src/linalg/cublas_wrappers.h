@@ -264,6 +264,33 @@ inline cublasStatus_t  cublasnrm2( cublasHandle_t handle,
 {
     return cublasDnrm2(handle, n, x, incx, result);
 }
+
+template <typename T> cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const T *alpha,
+                                                const T *A, int lda, T *B, int ldb);
+
+template <>
+inline cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const float *alpha,
+                                                const float *A, int lda, float *B, int ldb) {
+
+	return cublasStrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
+}
+
+template <>
+inline cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const double *alpha,
+                                                const double *A, int lda, double *B, int ldb) {
+
+	return cublasDtrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
+}
+
 /** @} */
 
 }; // namespace LinAlg

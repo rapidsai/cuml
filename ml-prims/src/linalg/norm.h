@@ -79,5 +79,43 @@ void norm(Type* dots, const Type* data, int D, int N, NormType type) {
     }
 }
 
+template <typename Type, int TPB>
+__global__ void norm2KernelColMajor(Type* norm2, const Type* data, int D, int N) {
+    typedef cub::BlockReduce<Type, TPB> BlockReduce;
+    __shared__ typename BlockReduce::TempStorage temp_storage;
+    Type thread_data = Type(0);
+    int colStart = blockIdx.x * N;
+    for(int i=threadIdx.x;i<N;i+=TPB) {
+        int idx = colStart + i;
+        thread_data += data[idx] * data[idx];
+    }
+    Type acc = BlockReduce(temp_storage).Sum(thread_data);
+    if(threadIdx.x == 0) {
+    	norm2[blockIdx.x] = MLCommon::mySqrt(acc);
+    }
+}
+
+
+/**
+ * @brief Compute norm2 of the input matrix
+ *
+ * Column-wise norm is useful to normalize the data for many ML algorithms.
+ *
+ * @tparam Type the data type
+ * @param nrm2 the output vector of row-wise dot products
+ * @param data the input matrix (currently assumed to be row-major)
+ * @param D number of columns of data
+ * @param N number of rows of data
+ */
+template <typename Type>
+void norm2(Type* out, const Type* data, int D, int N, bool rowMajor=false) {
+	if (rowMajor)
+		ASSERT(true, "norm.h: row major norm is not implemented. This parameter is for future use only.");
+
+	static const int TPB = 256;
+	norm2KernelColMajor<Type,TPB><<<D,TPB>>>(out, data, D, N);
+	CUDA_CHECK(cudaPeekAtLastError());
+}
+
 }; // end namespace LinAlg
 }; // end namespace MLCommon
