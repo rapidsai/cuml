@@ -103,7 +103,7 @@ void seqRoot(math_t* inout, math_t scalar, int len) {
  * @{
  */
 template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len) {
+void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto d_src = in;
@@ -111,7 +111,16 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len) {
 
     thrust::for_each(counting, counting + len, [=]__device__(int idx)
 	{
-    	d_dest[idx] = sqrt(d_src[idx] * scalar);
+    	if (set_neg_zero) {
+    		if (d_src[idx] < math_t(0)) {
+    			d_dest[idx] = math_t(0);
+    		} else {
+    			d_dest[idx] = sqrt(d_src[idx] * scalar);
+    		}
+    	} else {
+    		d_dest[idx] = sqrt(d_src[idx] * scalar);
+    	}
+
 	});
 }
 
@@ -303,14 +312,25 @@ void matrixVectorBinaryDiv(Type* data, const Type* vec, int n_row, int n_col, bo
 }
 
 template <typename Type, int TPB=256>
-void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col, bool rowMajor) {
-	matrixVectorOp(data, vec, n_col, n_row, rowMajor,
+void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col, bool rowMajor, bool return_zero = false) {
+
+	if (return_zero) {
+		matrixVectorOp(data, vec, n_col, n_row, rowMajor,
+				        		[] __device__ (Type a, Type b) {
+				                       if (b < Type(1e-10))
+				                      	   return Type(0);
+				                       else
+				        		           return a / b;
+				        		    });
+	} else {
+	    matrixVectorOp(data, vec, n_col, n_row, rowMajor,
 		        		       [] __device__ (Type a, Type b) {
-		                               if (b == Type(0))
+		                               if (b < Type(1e-10))
 		                            	   return a;
 		                               else
 		        		                   return a / b;
 		        		            });
+	}
 }
 
 template <typename Type, int TPB=256>

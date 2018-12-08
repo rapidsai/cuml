@@ -16,39 +16,44 @@ namespace LinAlg {
  * @param eig_vals: eigen values
  * @{
  */
-template <typename math_t>
-void eigDC(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, math_t* eig_vals, cusolverDnHandle_t cusolverH) {
+template<typename math_t>
+void eigDC(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors,
+		math_t* eig_vals, cusolverDnHandle_t cusolverH) {
 
 	int lwork;
 	CUSOLVER_CHECK(
-			cusolverDnsyevd_bufferSize(cusolverH,
-					CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
-					n_rows, in, n_cols,
-					eig_vals, &lwork));
+			cusolverDnsyevd_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+					CUBLAS_FILL_MODE_UPPER, n_rows, in, n_cols, eig_vals,
+					&lwork));
 
 	math_t *d_work;
 	CUDA_CHECK(cudaMalloc(&d_work, sizeof(math_t) * lwork));
 
 	int *dev_info = NULL;
-	CUDA_CHECK(cudaMalloc((void** )&dev_info, sizeof(int)));
+	allocate(dev_info, 1);
 
 	MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols);
 
 	CUSOLVER_CHECK(
 			cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-					CUBLAS_FILL_MODE_UPPER, n_rows,
-					eig_vectors, n_cols, eig_vals,
-					d_work, lwork, dev_info));
+					CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors, n_cols,
+					eig_vals, d_work, lwork, dev_info));
 
-	if (d_work)
-        CUDA_CHECK(cudaFree(d_work));
+	CUDA_CHECK(cudaFree(d_work));
 
-	if (dev_info)
-	    CUDA_CHECK(cudaFree(dev_info));
+	int d_dev_info;
+	updateHost(&d_dev_info, dev_info, 1);
+
+	CUDA_CHECK(cudaFree(dev_info));
 
 	CUDA_CHECK(cudaGetLastError());
-}
 
+	ASSERT(d_dev_info == 0,
+			"eig.h: eigensolver couldn't converge to a solution. "
+					"This usually occurs when some of the features do not vary enough. "
+					"Please try with more data that has variability");
+
+}
 
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the column-major symmetric matrices (in parameter)
@@ -58,11 +63,13 @@ void eigDC(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, math_t
  * @param eig_vals: eigen values
  * @{
  */
-template <typename math_t>
-void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, math_t* eig_vals, cusolverDnHandle_t cusolverH) {
+template<typename math_t>
+void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors,
+		math_t* eig_vals, cusolverDnHandle_t cusolverH) {
 	math_t tol = 1.e-7;
 	int sweeps = 15;
-	eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH);
+	eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols,
+			cusolverH);
 }
 
 /**
@@ -75,8 +82,10 @@ void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, ma
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better accuracy.
  * @{
  */
-template <typename math_t>
-void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, math_t* eig_vals, math_t tol, int sweeps, cusolverDnHandle_t cusolverH) {
+template<typename math_t>
+void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors,
+		math_t* eig_vals, math_t tol, int sweeps,
+		cusolverDnHandle_t cusolverH) {
 
 	syevjInfo_t syevj_params = NULL;
 	CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
@@ -85,11 +94,9 @@ void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, ma
 
 	int lwork;
 	CUSOLVER_CHECK(
-			cusolverDnsyevj_bufferSize(cusolverH,
-					CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER,
-					n_rows, eig_vectors,
-					n_cols, eig_vals, &lwork,
-					syevj_params));
+			cusolverDnsyevj_bufferSize(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+					CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors, n_cols,
+					eig_vals, &lwork, syevj_params));
 
 	math_t *d_work;
 	CUDA_CHECK(cudaMalloc(&d_work, sizeof(math_t) * lwork));
@@ -101,9 +108,8 @@ void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, ma
 
 	CUSOLVER_CHECK(
 			cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-					CUBLAS_FILL_MODE_UPPER, n_rows,
-					eig_vectors, n_cols, eig_vals,
-					d_work, lwork, dev_info, syevj_params));
+					CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors, n_cols,
+					eig_vals, d_work, lwork, dev_info, syevj_params));
 
 	int executed_sweeps;
 	CUSOLVER_CHECK(
@@ -111,14 +117,18 @@ void eigJacobi(const math_t* in, int n_rows, int n_cols, math_t* eig_vectors, ma
 					&executed_sweeps));
 
 	if (d_work)
-	    CUDA_CHECK(cudaFree(d_work));
+		CUDA_CHECK(cudaFree(d_work));
 
 	if (dev_info)
-	    CUDA_CHECK(cudaFree(dev_info));
+		CUDA_CHECK(cudaFree(dev_info));
 
 	CUDA_CHECK(cudaGetLastError());
 	CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+}
+;
+// end namespace LinAlg
+}
+;
+// end namespace MLCommon
