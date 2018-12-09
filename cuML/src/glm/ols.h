@@ -85,6 +85,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		allocate(d_intercept, 1);
 
 		if (normalize) {
+			Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false);
 			Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true);
 			if (norm2_input != NULL)
 				cudaFree(norm2_input);
@@ -97,6 +98,9 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 
 		LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1);
 		updateHost(intercept, d_intercept, 1);
+
+		Stats::meanAdd(input, mu_input, n_cols, n_rows, false);
+		Stats::meanAdd(labels, mu_labels, 1, n_rows, false);
 
 		if (d_intercept != NULL)
 			cudaFree(d_intercept);
