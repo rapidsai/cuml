@@ -18,6 +18,9 @@ import numpy as np
 import pandas as pd
 import cudf
 
+from librmm_cffi import librmm as rmm
+from numba import cuda
+
 
 class KNNparams:
     def __init__(self, n_gpus):
@@ -93,16 +96,18 @@ class KNN:
             X = self.to_nparray(X)
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        cpu_index = faiss.IndexFlatL2(n_dims)
-        # build a flat (CPU) index
         if self.params.n_gpus == 1:
             res = faiss.StandardGpuResources()
             # use a single GPU
             # make it a flat GPU index
-            gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
+            gpu_index = faiss.GpuIndexFlatL2(res, n_dims)
+            
         else:
+            cpu_index = faiss.IndexFlatL2(n_dims)
             gpu_index = faiss.index_cpu_to_all_gpus(cpu_index,
                                                     ngpu=self.params.n_gpus)
+                                                    
+        X = np.array(row_matrix(X._cols.values(), X.shape[0], n_dims, np.float32))
         gpu_index.add(X)
         self.gpu_index = gpu_index
 
@@ -124,3 +129,20 @@ class KNN:
             df = pd.DataFrame({'%s_neighbor_%d'%(col, i): df[:, i] for i in range(df.shape[1])})
         pdf = cudf.DataFrame.from_pandas(df)
         return pdf
+        
+
+# The following is taken from CuDF's internal cudautils.
+@cuda.jit
+def gpu_row_matrix(rowmatrix, col, nrow, ncol):
+    i = cuda.grid(1)
+    if i < rowmatrix.size:
+        rowmatrix[i] = col[i]
+
+
+def row_matrix(cols, nrow, ncol, dtype):
+    matrix = rmm.device_array(shape=(nrow, ncol), dtype=dtype, order='C')
+    for colidx, col in enumerate(cols):
+        gpu_row_matrix.forall(matrix[:, colidx].size)(matrix[:, colidx],
+                                                      col.to_gpu_array(),
+                                                      nrow, ncol)
+	return matrix
