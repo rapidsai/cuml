@@ -17,7 +17,7 @@
 #pragma once
 
 #include "ols.h"
-#include "ols_c.h"
+#include "glm_c.h"
 
 namespace ML {
 namespace GLM {
