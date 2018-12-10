@@ -1,7 +1,7 @@
 
 from libcpp cimport bool
 
-cdef extern from "glm/ols_c.h" namespace "ML::GLM":
+cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
     cdef void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef, float *intercept, bool fit_intercept,
                 bool normalize, int algo)
