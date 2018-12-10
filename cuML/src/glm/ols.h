@@ -28,6 +28,7 @@
 #include <stats/sum.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
+#include "preprocess.h"
 
 namespace ML {
 namespace GLM {
@@ -50,18 +51,12 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
 		allocate(mu_labels, 1);
-
-		Stats::mean(mu_input, input, n_cols, n_rows, false, false);
-		Stats::meanCenter(input, mu_input, n_cols, n_rows, false);
-
-		Stats::mean(mu_labels, labels, 1, n_rows, false, false);
-		Stats::meanCenter(labels, mu_labels, 1, n_rows, false);
-
 		if (normalize) {
 			allocate(norm2_input, n_cols);
-			LinAlg::norm2(norm2_input, input, n_cols, n_rows, false);
-			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true);
 		}
+		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
+				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
+				cusolver_handle);
 	}
 
 	if (algo == 0) {
@@ -79,37 +74,20 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		ASSERT(false, "olsFit: no algorithm with this id has been implemented");
 	}
 
-
 	if (fit_intercept) {
-		math_t *d_intercept;
-		allocate(d_intercept, 1);
+		postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input,
+				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
+				cusolver_handle);
 
 		if (normalize) {
-			Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false);
-			Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true);
 			if (norm2_input != NULL)
 				cudaFree(norm2_input);
 		}
 
-		math_t alpha = math_t(1);
-		math_t beta = math_t(0);
-		LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
-			      false, false, alpha, beta, cublas_handle);
-
-		LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1);
-		updateHost(intercept, d_intercept, 1);
-
-		Stats::meanAdd(input, mu_input, n_cols, n_rows, false);
-		Stats::meanAdd(labels, mu_labels, 1, n_rows, false);
-
-		if (d_intercept != NULL)
-			cudaFree(d_intercept);
 		if (mu_input != NULL)
 			cudaFree(mu_input);
 		if (mu_labels != NULL)
 			cudaFree(mu_labels);
-
-
 	} else {
 		*intercept = math_t(0);
 	}
@@ -127,8 +105,8 @@ void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
-	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1,
-				      false, false, alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, false, false,
+			alpha, beta, cublas_handle);
 
 	LinAlg::addScalar(preds, preds, intercept, n_rows * n_cols);
 
