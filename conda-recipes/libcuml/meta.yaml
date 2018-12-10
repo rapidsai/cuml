@@ -25,10 +25,10 @@ build:
 requirements:
   build:
     - cmake 3.12.4
-    - cudf 0.3.0.*
+    - cudf 0.4.0.*
   run:
     - faiss-gpu
-    - cudf 0.3.0.*
+    - cudf 0.4.0.*
 
 about:
   home: http://rapids.ai/
