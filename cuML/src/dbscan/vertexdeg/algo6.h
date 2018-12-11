@@ -30,8 +30,8 @@ namespace Algo6 {
 
 template <typename T>
 struct OutStruct {
-	bool* adj;
-	int* vd;
+    bool* adj;
+    int* vd;
     T* dist;
 };
 
@@ -68,11 +68,10 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
                          const InStruct<value_t>& in_params,	// input parameters
                          OutStruct<value_t>& out_params) {		// output parameters
 
-        out_params.adj[global_c_idx] = val <= in_params.eps2;	// update output adjacency matrix
-
-        double c_idx = (double)global_c_idx;
-        int vd_offset = (int)(c_idx / in_params.N);
         int acc = val <= in_params.eps2;
+        out_params.adj[global_c_idx] = acc;	// update output adjacency matrix
+
+        int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
         atomicAdd(out_params.vd+vd_offset, acc);
         atomicAdd(out_params.vd+in_params.N, acc);
 
