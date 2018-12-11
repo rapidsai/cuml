@@ -93,7 +93,9 @@ class KNN:
 
     def fit(self, X):
         if (isinstance(X, cudf.DataFrame)):
-            X = np.array(X.as_gpu_matrix(order = "C"), np.float32, copy = False)
+            gpu_mat = X.as_gpu_matrix(order = "C")
+            X = np.array(gpu_mat, gpu_mat.dtype, copy = False)
+
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
         if self.params.n_gpus == 1:
@@ -111,7 +113,8 @@ class KNN:
 
     def query(self, X, k):
         if (isinstance(X, cudf.DataFrame)):
-            X = np.array(X.as_gpu_matrix(order = "C"), np.float32, copy = False)
+            gpu_mat = X.as_gpu_matrix(order = "C")
+            X = np.array(gpu_mat, gpu_mat.dtype, copy = False)
         D, I = self._gpu_index.search(X, k)
         D = self.to_cudf(D, col='distance')
         I = self.to_cudf(I, col='index')
