@@ -48,17 +48,18 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	allocate(r, n_cols, true);
 	copy(r, S, n_cols);
 	Matrix::power(r, n_cols);
+
 	LinAlg::addScalar(r, r, alpha[0], n_cols);
 
-	Matrix::matrixVectorBinaryDivSkipZero(r, r, 1, n_cols, false, true);
-	Matrix::matrixVectorBinaryMult(V, r, n_rows, n_cols, false);
-	Matrix::matrixVectorBinaryMult(V, S, n_rows, n_cols, false);
+	Matrix::reciprocal(r, n_cols);
+	Matrix::matrixVectorBinaryMult(V, r, n_cols, n_cols, false);
+	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false);
 
-	LinAlg::gemm(V, n_cols, n_cols, U, U, n_cols, n_rows, false, true,
-			alp, beta, cublasH);
+	LinAlg::gemm(V, n_cols, n_cols, U, U, n_cols, n_rows, false, true, alp,
+			beta, cublasH);
 
-	LinAlg::gemm(U, n_cols, n_rows, b, w, n_cols, 1, false, false,
-				alp, beta, cublasH);
+	LinAlg::gemm(U, n_cols, n_rows, b, w, n_cols, 1, false, false, alp, beta,
+			cublasH);
 
 	CUDA_CHECK(cudaFree(r));
 }
