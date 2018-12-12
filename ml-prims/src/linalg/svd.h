@@ -4,6 +4,7 @@
 #include "cusolver_wrappers.h"
 #include "cuda_utils.h"
 #include "gemm.h"
+#include "eig.h"
 #include "transpose.h"
 #include "matrix/matrix.h"
 #include "matrix/math.h"

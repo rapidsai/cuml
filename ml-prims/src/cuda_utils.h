@@ -107,6 +107,12 @@ void updateHost(Type* hPtr, const Type* dPtr, size_t len) {
                           cudaMemcpyDeviceToHost));
 }
 
+template <typename Type>
+void copy(Type* dPtr1, const Type* dPtr2, size_t len) {
+    CUDA_CHECK(cudaMemcpy(dPtr1, dPtr2, len*sizeof(Type),
+                          cudaMemcpyDeviceToDevice));
+}
+
 /** Device function to apply the input lambda across threads in the grid */
 template <int ItemsPerThread, typename L>
 DI void forEach(int num, L lambda) {
