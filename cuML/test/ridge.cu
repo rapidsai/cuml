@@ -86,6 +86,7 @@ protected:
 		ridgePredict(pred_data, params.n_row_2, params.n_col, coef, intercept, pred,
 				cublas_handle);
 
+
 		updateDevice(data, data_h, len);
 		updateDevice(labels, labels_h, params.n_row);
 
@@ -108,6 +109,8 @@ protected:
 
 		ridgePredict(pred_data, params.n_row_2, params.n_col, coef3, intercept3, pred3,
 				   cublas_handle);
+
+
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -146,14 +149,12 @@ protected:
 };
 
 const std::vector<RidgeInputs<float> > inputsf2 = {
-		{ 0.001f, 3, 2, 2, 0, 0.5f },
 		{ 0.001f, 3, 2, 2, 1, 0.5f },
-		{ 0.001f, 3, 2, 2, 2, 0.5f } };
+		{ 0.001f, 3, 2, 2, 1, 0.5f } };
 
 const std::vector<RidgeInputs<double> > inputsd2 = {
-		{ 0.001, 3, 2, 2, 0, 0.5 },
 		{ 0.001, 3, 2, 2, 1, 0.5 },
-		{ 0.001, 3, 2, 2, 2, 0.5 } };
+		{ 0.001, 3, 2, 2, 1, 0.5 } };
 
 typedef RidgeTest<float> RidgeTestF;
 TEST_P(RidgeTestF, Fit) {
