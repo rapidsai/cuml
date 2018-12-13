@@ -13,11 +13,15 @@
 # limitations under the License.
 #
 
+import c_knn
 import faiss
 import numpy as np
 import pandas as pd
 import cudf
 
+from librmm_cffi import librmm as rmm
+from numba import cuda
+from c_knn import *
 
 class KNNparams:
     def __init__(self, n_gpus):
