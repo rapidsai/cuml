@@ -16,14 +16,28 @@
 
 #include "knn_c.h"
 #include <faiss/IndexFlat.h>
+#include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/GpuIndexIVFFlat.h>
+#include <faiss/gpu/StandardGpuResources.h>
 
 namespace ML {
-	
-	kNN::kNN(int D): index_flat(&res, D) {}
+
+using namespace MLCommon;
+
+class kNN {
+
+    faiss::gpu::GpuIndexFlatL2 index_flat;
+    
+    public:
+
+	kNN::kNN() {}
 	kNN::~kNN() {}
 
-        void kNN::fit(float *input, int N) {
-	    this->index_flat.add(N, input);
+        void kNN::fit(float *input, int N, int D) {
+            
+	    faiss::gpu::StandardGpuResources res;
+            this->index_flat(&res, D);
+	    index_flat.add(N, input);
         }
 
 
