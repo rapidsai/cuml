@@ -118,6 +118,7 @@ add_library(cuml SHARED
             src/tsvd/tsvd.cu
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
+	    src/knn/knn.cu
             )
 
 target_link_libraries(cuml
