@@ -17,6 +17,7 @@
 #pragma once
 
 #include "ols.h"
+#include "ridge.h"
 #include "glm_c.h"
 
 namespace ML {
@@ -77,6 +78,66 @@ void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+}
+
+void ridgeFit(float *input, int n_rows, int n_cols, float *labels, float *alpha,
+		int n_alpha, float *coef, float *intercept, bool fit_intercept,
+		bool normalize, int algo) {
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
+			fit_intercept, normalize, cublas_handle, cusolver_handle, algo);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+
+}
+
+void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
+		double *alpha, int n_alpha, double *coef, double *intercept,
+		bool fit_intercept, bool normalize, int algo) {
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
+			fit_intercept, normalize, cublas_handle, cusolver_handle, algo);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+
+}
+
+void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds) {
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+}
+
+void ridgePredict(const double *input, int n_rows, int n_cols, const double *coef,
+		double intercept, double *preds) {
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 
