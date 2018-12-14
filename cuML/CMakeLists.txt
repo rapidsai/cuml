@@ -33,7 +33,8 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
 set(FAISS_INCLUDE_DIR /home/nfs/cnolet/workspace/ include CACHE STRING "FAISS Include Dir")
-set(FAISS_LIB_DIR /usr/local/lib/ CACHE STRING "FAISS Library Install Dir")
+set(FAISS_LIB_DIR /usr/local/lib/libgpufaiss.a CACHE STRING "FAISS Library Install Dir")
+set(CUDA_INCLUDE_DIR /usr/local/cuda/include CACHE STRING "CUDA Include dir")
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -99,6 +100,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(src
+ 		    ${CUDA_INCLUDE_DIR}
                     ${GTEST_DIR}/googletest/include
 	            ${FAISS_INCLUDE_DIR}
                     ${MLPRIMS_DIR}/src
@@ -127,13 +129,12 @@ add_library(cuml SHARED
 
 target_link_libraries(cuml
                       OpenMP::OpenMP_CXX
-		      ${FAISS_LIB_DIR}/libfaiss.so
+		      ${FAISS_LIB_DIR}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
                       pthread
-		      faiss
                       z)
 
 ###################################################################################################

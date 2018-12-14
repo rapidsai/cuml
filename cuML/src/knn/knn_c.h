@@ -1,17 +1,23 @@
 
-#include <faiss/gpu/GpuIndexFlatL2.h>
+#include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/gpu/GpuIndexFlat.h>
 
+#ifndef _KNN_H
+#define _KNN_H
 namespace ML {
 
-    using namespace MLCommon;
-
     class kNN {
-        
-        faiss:gpu::GpuIndexFlatL2 index_flat;
-        kNN();
+       
+        faiss::gpu::StandardGpuResources res;  
+        faiss::gpu::GpuIndexFlatL2 index_flat;
+
+        public:
+        kNN(int D);
         ~kNN();
         void search(float *search_items, int search_items_size, long *res_I, float *res_D, int k);
-	void fit(float *input, int N, int D);
+	void fit(float *input, int N);
 
     };
 }
+
+#endif

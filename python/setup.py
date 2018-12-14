@@ -43,9 +43,10 @@ extensions = [
                             '../cuML/external/ml-prims/src',
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
-                            '../cuML/external/ml-prims/external/cub'],
+                            '../cuML/external/ml-prims/external/cub',
+			    '/usr/local/cuda/include'],
               library_dirs=[get_python_lib()],
-              libraries=['cuml'],
+              libraries=['cuda','faiss', 'gpufaiss', 'cuml'],
               language='c++',
               extra_compile_args=['-std=c++11'])
 ]

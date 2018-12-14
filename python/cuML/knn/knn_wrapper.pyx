@@ -13,22 +13,23 @@
 # limitations under the License.
 #
 
-import c_knn
+cimport c_knn
 import faiss
 import numpy as np
 import pandas as pd
 import cudf
+import ctypes
 
 from librmm_cffi import librmm as rmm
 from numba import cuda
-from c_knn import *
+from c_knn cimport *
 
 class KNNparams:
     def __init__(self, n_gpus):
         self.n_gpus = n_gpus
 
 
-class KNN:
+cdef class KNN:
     """
 
     Create a DataFrame, fill it with data, and compute KNN:
@@ -88,39 +89,56 @@ class KNN:
     For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
 
     """
-    def __init__(self, n_gpus=-1):
-        # -1 means using all gpus
-        self.params = KNNparams(n_gpus)
+    cdef kNN *k
+
+    cdef int num_gpus
+
+    def __cinit__(self, num_gpus = 1):
+        self.num_gpus = num_gpus
+
+    def _get_ctype_ptr(self, obj):
+        # The manner to access the pointers in the gdf's might change, so
+        # encapsulating access in the following 3 methods. They might also be
+        # part of future gdf versions.
+        return obj.device_ctypes_pointer.value
+
+    def _get_column_ptr(self, obj):
+        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+
+    def _get_gdf_as_matrix_ptr(self, gdf):
+        return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, X):
-        if (isinstance(X, cudf.DataFrame)):
-            X = self.to_nparray(X)
+        #if (isinstance(X, cudf.DataFrame)):
+        cdef uintptr_t X_ctype = self._get_gdf_as_matrix_ptr(X)
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        cpu_index = faiss.IndexFlatL2(n_dims)
-        # build a flat (CPU) index
-        if self.params.n_gpus == 1:
-            res = faiss.StandardGpuResources()
-            # use a single GPU
-            # make it a flat GPU index
-            gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
-        else:
-            gpu_index = faiss.index_cpu_to_all_gpus(cpu_index,
-                                                    ngpu=self.params.n_gpus)
-        gpu_index.add(X)
-        self.gpu_index = gpu_index
+
+        print(str(len(X)))
+        print(str(X.shape[0]))
+
+        print(str(n_dims))
+
+        self.k = new kNN(n_dims)
+        self.k.fit(<float*>X_ctype, <int> X.shape[0])
 
     def query(self, X, k):
-        X = self.to_nparray(X)
-        D, I = self.gpu_index.search(X, k)
-        D = self.to_cudf(D, col='distance')
-        I = self.to_cudf(I, col='index')
-        return D, I
+        
+        cdef uintptr_t X_ctype = self._get_gdf_as_matrix_ptr(X)
+        N = len(X)
 
-    def to_nparray(self, x):
-        if isinstance(x, cudf.DataFrame):
-            x = x.to_pandas()
-        return np.ascontiguousarray(x)
+        print(str(N))
+
+        # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
+        I = cudf.Series(np.zeros(N*k, dtype=np.int64))
+        D = cudf.Series(np.zeros(N*k, dtype=np.float32))
+
+        cdef uintptr_t I_ptr = self._get_column_ptr(I)
+        cdef uintptr_t D_ptr = self._get_column_ptr(D)
+
+        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+
+        return I, D
 
     def to_cudf(self, df, col=''):
         # convert pandas dataframe to cudf dataframe
