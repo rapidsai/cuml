@@ -45,6 +45,8 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	math_t alp = math_t(1);
 	math_t beta = math_t(0);
 
+	Matrix::setSmallValuesZero(S, n_cols, math_t(1e-5));
+
 	allocate(r, n_cols, true);
 	copy(r, S, n_cols);
 	Matrix::power(r, n_cols);
