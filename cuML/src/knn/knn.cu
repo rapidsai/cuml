@@ -15,15 +15,25 @@
  */
 
 #include "knn_c.h"
+#include <cuda_runtime.h>
+#include <iostream>
 
 namespace ML {
 
+	
 
 	kNN::kNN(int D): index_flat(&res, D) {}
 	kNN::~kNN() {}
 
         void kNN::fit(float *input, int N) {
-            
+
+	    cudaPointerAttributes att;
+	    cudaError_t err = cudaPointerGetAttributes(&att, input);
+  	    
+	    std::cout << "ERR: " << err << std::endl
+	     << "MEMORY TYPE: " << att.memoryType << std::endl
+             << "SIZE: " << N << std::endl;
+    
             this->res.setDefaultNullStreamAllDevices();
 	    this->index_flat.add(N, input);
         }
