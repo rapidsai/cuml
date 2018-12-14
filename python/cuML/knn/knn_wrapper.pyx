@@ -113,6 +113,7 @@ cdef class KNN:
         cdef uintptr_t X_ctype = self._get_gdf_as_matrix_ptr(X)
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
+        print(str(X_ctype))
 
         print(str(len(X)))
         print(str(X.shape[0]))
