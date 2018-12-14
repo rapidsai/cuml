@@ -34,8 +34,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUTLASS_DIR_2 "${PROJECT_SOURCE_DIR}/external/cutlass" CACHE STRING
-  "Path to the root of cutlass project directory that Thejaswi updated")
 
 
 # options exposed to users
@@ -84,7 +82,6 @@ include_directories(src
   ${MLPRIMS_DIR}/src
   ${MLPRIMS_DIR}/src/dbscan
   ${MLPRIMS_DIR}/test
-  ${CUTLASS_DIR_2}
   ${CUTLASS_DIR}
   ${CUB_DIR})
 
