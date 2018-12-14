@@ -41,29 +41,26 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
 
 	// Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
-	math_t *r;
+	math_t *S_nnz;
 	math_t alp = math_t(1);
 	math_t beta = math_t(0);
+	math_t thres = math_t(1e-10);
 
-	Matrix::setSmallValuesZero(S, n_cols, math_t(1e-5));
+	Matrix::setSmallValuesZero(S, n_cols, thres);
+	allocate(S_nnz, n_cols, true);
+	copy(S_nnz, S, n_cols);
+	Matrix::power(S_nnz, n_cols);
+	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols);
+	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true);
 
-	allocate(r, n_cols, true);
-	copy(r, S, n_cols);
-	Matrix::power(r, n_cols);
-
-	LinAlg::addScalar(r, r, alpha[0], n_cols);
-
-	Matrix::reciprocal(r, n_cols);
-	Matrix::matrixVectorBinaryMult(V, r, n_cols, n_cols, false);
 	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false);
-
-	LinAlg::gemm(V, n_cols, n_cols, U, U, n_cols, n_rows, false, true, alp,
-			beta, cublasH);
-
-	LinAlg::gemm(U, n_cols, n_rows, b, w, n_cols, 1, false, false, alp, beta,
+	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, true, false, alp, beta,
 			cublasH);
 
-	CUDA_CHECK(cudaFree(r));
+	LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, false, false, alp,
+			beta, cublasH);
+
+	CUDA_CHECK(cudaFree(S_nnz));
 }
 
 template<typename math_t>
