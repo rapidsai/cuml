@@ -19,3 +19,6 @@ log
 
 ## eclipse
 .project
+.cproject
+.settings
+.ptp-sync-folder
