@@ -1,3 +1,16 @@
+# cuML 0.5.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+- PR #56: Make OpenMP optional for building. 
+
+## Bug Fixes
+
+- PR #48: CUDA 10 compilation warnings fix.
+- PR #51: Fixes to Dockerfile and docs for new build system.
+
 # cuML 0.4.0 (05 Dec 2018)
 
 ## New Features

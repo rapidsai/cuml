@@ -26,7 +26,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # - Requirements ----------------------------------------------------------------------------------
 
 find_package(CUDA 9.0 REQUIRED)
-find_package(OpenMP REQUIRED)
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+    find_package(OpenMP)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
@@ -54,8 +56,10 @@ option(DEBUG "Get a debug build" OFF)
 ###################################################################################################
 # - NVCC Options  ---------------------------------------------------------------------------------
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+if(OPENMP_FOUND)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif(OPENMP_FOUND)
 if(CMAKE_CXX_STANDARD STREQUAL "11")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
@@ -94,12 +98,12 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(src
-  ${GTEST_DIR}/googletest/include
-  ${MLPRIMS_DIR}/src
-  ${MLPRIMS_DIR}/src/dbscan
-  ${MLPRIMS_DIR}/test
-  ${CUTLASS_DIR}
-  ${CUB_DIR})
+                    ${GTEST_DIR}/googletest/include
+                    ${MLPRIMS_DIR}/src
+                    ${MLPRIMS_DIR}/src/dbscan
+                    ${MLPRIMS_DIR}/test
+                    ${CUTLASS_DIR}
+                    ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
@@ -117,14 +121,12 @@ add_library(cuml SHARED
             src/kmeans/kmeans.cu
             )
 
-target_link_libraries(cuml
-                      OpenMP::OpenMP_CXX
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      pthread
-                      z)
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} z)
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------

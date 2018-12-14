@@ -624,7 +624,8 @@ __global__ void matmul(const float_t *A, const float_t *B, float_t *C,
 		const float_t alpha, const float_t beta, int n, int d, int k,
 		int max_block_rows) {
 
-	extern __shared__ __align__(sizeof(float_t)) unsigned char my_smem[];
+	constexpr int smem_alignment = sizeof(float_t) > 8 ? sizeof(float_t) : 8;
+	extern __shared__ __align__(smem_alignment) unsigned char my_smem[];
 	float_t *shared = reinterpret_cast<float_t *>(my_smem);
 
 	float_t *s_A = shared;
