@@ -200,6 +200,19 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
 	});
 }
 
+template <typename Type, int TPB=256>
+void setSmallValuesZero(Type* inout, const Type* vec, int n_row, int n_col, Type thres) {
+
+	matrixVectorOp(inout, vec, n_col, n_row, false,
+			        		[] __device__ (Type a, Type b) {
+			                       if (b < Type(1e-10))
+			                      	   return Type(0);
+			                       else
+			        		           return a;
+			        		    });
+
+}
+
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every element in the input matrix
  * @param in: input matrix and also the result is stored

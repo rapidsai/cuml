@@ -16,12 +16,25 @@
 import numpy as np
 from sklearn import linear_model
 from sklearn.linear_model import LinearRegression
+from scipy import linalg
 
 # Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
 
 def ridge(X, y, alpha=.5):
     coef = 0;
     U, S, V = np.linalg.svd(X, full_matrices=True)
+
+
+    idx = S >= 0  # same default value as scipy.linalg.pinv
+    s_nnz = S[idx][:, np.newaxis]
+    d = np.zeros((2, 1), dtype=X.dtype)
+    d[idx] = s_nnz
+
+    print("S")
+    print(S)
+    print("s_nnz")
+    print(s_nnz)
+
     K = np.zeros(2)
     V2 = np.zeros((2,2))
     U2 = np.zeros((3,2))
@@ -69,11 +82,41 @@ def ridge(X, y, alpha=.5):
     
     return coef
 
+def _solve_svd(X, y, alpha):
+    U, s, Vt = linalg.svd(X, full_matrices=False)
+    idx = s > 1e-15  # same default value as scipy.linalg.pinv
+    s_nnz = s[idx][:, np.newaxis]
+
+    print("s_nnz")
+    print(s_nnz)
+
+    UTy = np.dot(U.T, y)
+
+    print("UTy")
+    print(UTy)
+
+    d = np.zeros((s.size, alpha.size), dtype=X.dtype)
+    d[idx] = s_nnz / (s_nnz ** 2 + alpha)
+    print("d")
+    print(d)
+
+    d_UT_y = d * UTy
+    print("d_UT_y")
+    print(d_UT_y)
+   
+    rslt = np.dot(Vt.T, d_UT_y).T
+
+    print("rslt")
+    print(rslt)
+
+    return rslt
+
 X = np.array([[0.0, 0.0], [0.0, 0.0], [1.0, 1.0]]).astype(np.float32)
 y = np.array([0.0, 0.1, 1.0]).astype(np.float32)
 alpha=.5
 
-reg_imp = ridge(X, y, alpha)
+# reg_imp = ridge(X, y, alpha)
+reg_imp = _solve_svd(X, y, np.array(alpha))
 print(reg_imp)
 
 pred_data = np.array([[0.5, 0.2], [2.0, 1.0]]).astype(np.float32)
@@ -106,19 +149,4 @@ print(pred_data)
 print("")
 print("Pred")
 print(pred)
-
-s = np.array([1.0, 0.8, 0.3, 0.0, 1e-16])
-print("")
-print(s)
-print("")
-idx = s > 1e-15  # same default value as scipy.linalg.pinv
-s_nnz = s[idx][:, np.newaxis]
-
-print("")
-print(idx)
-print("")
-
-print("")
-print(s_nnz)
-print("")
 
