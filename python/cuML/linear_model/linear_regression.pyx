@@ -209,7 +209,7 @@ class LinearRegression:
         """
 
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.Series)):
+        if (isinstance(X, cudf.DataFrame)):
             pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix(order='F')
             n_rows = len(X)

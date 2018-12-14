@@ -107,5 +107,18 @@ print("")
 print("Pred")
 print(pred)
 
+s = np.array([1.0, 0.8, 0.3, 0.0, 1e-16])
+print("")
+print(s)
+print("")
+idx = s > 1e-15  # same default value as scipy.linalg.pinv
+s_nnz = s[idx][:, np.newaxis]
 
+print("")
+print(idx)
+print("")
+
+print("")
+print(s_nnz)
+print("")
 
