@@ -82,13 +82,13 @@ class DBSCAN:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            self.X_m = X.as_gpu_matrix(order = "C")
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
+            self.X_m = cuda.to_device(X)
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
@@ -96,7 +96,7 @@ class DBSCAN:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_ctype_ptr(self.X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
@@ -107,15 +107,15 @@ class DBSCAN:
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
-		                       <int*> labels_ptr)
+		               <int*> labels_ptr)
         else:
             c_dbscan.dbscanFit(<double*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <double> self.eps,
                                <int> self.min_samples,
-		                       <int*> labels_ptr)
-        del(X_m)
+		               <int*> labels_ptr)
+        del(self.X_m)
         return self
 
     def fit_predict(self, X):
