@@ -40,11 +40,18 @@ namespace ML {
 
 
         void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
+
+	    std::cout << "search_items" << std::endl;
+	    PRINT_MEM_INFO(search_items);
+
+	    std::cout << "res_I" << std::endl;
+	    PRINT_MEM_INFO(res_I);
+
+	    std::cout << "res_D" << std::endl;
+	    PRINT_MEM_INFO(res_D);
 	    
             this->index_flat.search(search_items_size, search_items, k, res_D, res_I);
         }
-
-
 
 /** @} */
 
