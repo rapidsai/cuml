@@ -19,6 +19,7 @@
 #include "distance/distance.h"
 #include <math.h>
 #include "cuda_utils.h"
+#include <stdio.h>
 
 
 #include "pack.h"
@@ -72,6 +73,7 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
         out_params.adj[global_c_idx] = acc;	// update output adjacency matrix
 
         int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
+	printf("vd_offset=%d, global_c_idx=%d, in_params.N=%d\n", vd_offset, global_c_idx, in_params.N);
         atomicAdd(out_params.vd+vd_offset, acc);
         atomicAdd(out_params.vd+in_params.N, acc);
 
