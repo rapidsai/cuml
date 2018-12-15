@@ -93,6 +93,11 @@ cdef class KNN:
 
     cdef int num_gpus
 
+    cdef uintptr_t X_ctype
+
+    cdef uintptr_t I_ptr
+    cdef uintptr_t D_ptr
+
     def __cinit__(self, num_gpus = 1):
         self.num_gpus = num_gpus
 
@@ -110,10 +115,11 @@ cdef class KNN:
 
     def fit(self, X):
         #if (isinstance(X, cudf.DataFrame)):
-        cdef uintptr_t X_ctype = self._get_gdf_as_matrix_ptr(X)
+        X_m = X.as_gpu_matrix()
+        self.X_ctype = self._get_ctype_ptr(X_m)
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        print(str(X_ctype))
+        print(str(self.X_ctype))
 
         print(str(len(X)))
         print(str(X.shape[0]))
@@ -121,11 +127,12 @@ cdef class KNN:
         print(str(n_dims))
 
         self.k = new kNN(n_dims)
-        self.k.fit(<float*>X_ctype, <int> X.shape[0])
+        self.k.fit(<float*>self.X_ctype, <int> X.shape[0])
 
     def query(self, X, k):
         
-        cdef uintptr_t X_ctype = self._get_gdf_as_matrix_ptr(X)
+        X_m = X.as_gpu_matrix()
+        self.X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
         print(str(N))
@@ -134,11 +141,12 @@ cdef class KNN:
         I = cudf.Series(np.zeros(N*k, dtype=np.int64))
         D = cudf.Series(np.zeros(N*k, dtype=np.float32))
 
-        cdef uintptr_t I_ptr = self._get_column_ptr(I)
-        cdef uintptr_t D_ptr = self._get_column_ptr(D)
+        self.I_ptr = self._get_column_ptr(I)
+        self.D_ptr = self._get_column_ptr(D)
 
-        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+        self.k.search(<float*>self.X_ctype, <int> N, <long*>self.I_ptr, <float*>self.D_ptr, <int> k)
 
+        print("Complete")
         return I, D
 
     def to_cudf(self, df, col=''):

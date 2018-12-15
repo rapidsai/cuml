@@ -1,6 +1,7 @@
 
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
+#include <iostream>
 
 #ifndef _KNN_H
 #define _KNN_H
@@ -19,5 +20,14 @@ namespace ML {
 
     };
 }
+
+        template <typename T>
+        void PRINT_MEM_INFO(T* input) {
+            cudaPointerAttributes att;
+            cudaError_t err = cudaPointerGetAttributes(&att, input);
+
+            std::cout << "ERR: " << err << std::endl
+             << "MEMORY TYPE: " << att.memoryType << std::endl;
+        }
 
 #endif
