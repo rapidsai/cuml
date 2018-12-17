@@ -45,7 +45,7 @@ struct Pack {
      * @param stream cuda stream where to perform this operation
      */
     void resetArray(cudaStream_t stream, int vdlen) {
-        CUDA_CHECK(cudaMemsetAsync(vd, Type(0), sizeof(Type)*vdlen, stream));
+        CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int)*vdlen, stream));
     }
 };
 

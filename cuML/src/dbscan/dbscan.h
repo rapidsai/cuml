@@ -17,6 +17,7 @@
 #pragma once
 
 #include "runner.h"
+#include <iostream>
 
 namespace ML {
 
@@ -30,11 +31,15 @@ int computeBatchCount(int n_rows) {
     // paving way to cudaMemGetInfo based workspace allocation
     static const size_t MaxElems = (size_t)1024 * 1024 * 1024 * 2;  // 2e9
     while(true) {
+
+	// @todo: Shouldn't this be dependent on the columns and not just the rows?
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
         if(batchSize * n_rows < MaxElems)
             break;
         ++n_batches;
     }
+
+    std::cout << "n_batches=" << n_batches << std::endl;
     return n_batches;
 }
 
