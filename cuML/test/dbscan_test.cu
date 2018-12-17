@@ -94,8 +94,6 @@ const std::vector<DbscanInputs<double> > inputsd2 = {
 
 typedef DbscanTest<float> DbscanTestF;
 TEST_P(DbscanTestF, Result) {
-
-
 	ASSERT_TRUE(
 			devArrMatch(labels, labels_ref, params.n_row,
 					CompareApproxAbs<float>(params.tolerance)));

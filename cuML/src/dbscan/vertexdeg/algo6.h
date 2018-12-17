@@ -70,18 +70,20 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
                          OutStruct<value_t>& out_params) {		// output parameters
 
         int acc = val <= in_params.eps2;
-        out_params.adj[global_c_idx] = acc;	// update output adjacency matrix
-
-        int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
-	printf("vd_offset=%d, global_c_idx=%d, in_params.N=%d\n", vd_offset, global_c_idx, in_params.N);
+        // This is bool, 1 byte. Need to divide global_c_index by the number of bytes in value_t
+        
+	int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
+	//printf("vd_offset=%d, global_c_idx=%d, in_params.N=%d\n", vd_offset, global_c_idx, in_params.N);
         atomicAdd(out_params.vd+vd_offset, acc);
         atomicAdd(out_params.vd+in_params.N, acc);
+
+        out_params.adj[global_c_idx] = (bool)acc;
 
         return val;
     };
 
     MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
-    		(data.x, data.x, 			// x & y inputs
+    		(data.x, data.x+startVertexId*k, 			// x & y inputs
     		 m, n, k, 											// Cutlass block params
     		 in, out, 											// input / output params
     		 MLCommon::Distance::DistanceType::EucExpandedL2, // distance metric type
@@ -96,7 +98,7 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     }
 
     MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
-    		(data.x, data.x, 			// x & y inputs
+    		(data.x, data.x+startVertexId*k, 			// x & y inputs
     		 m, n, k, 											// Cutlass block params
     		 in, out, 											// input / output params
     		 MLCommon::Distance::DistanceType::EucExpandedL2, // distance metric type
