@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <cusolverDn.h>
@@ -425,12 +441,12 @@ inline cusolverStatus_t cusolverDngeqrf(   cusolverDnHandle_t handle,
 }
 
 template <typename T> cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                                  int m, int n, 
+                                                                  int m, int n,
                                                                   T *A, int lda,
                                                                   int *Lwork);
 template<>
 inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                        int m, int n, 
+                                                        int m, int n,
                                                         float *A, int lda,
                                                         int *Lwork)
 {
@@ -438,7 +454,7 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
 }
 template<>
 inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                        int m, int n, 
+                                                        int m, int n,
                                                         double *A, int lda,
                                                         int *Lwork)
 {

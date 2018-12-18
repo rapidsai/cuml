@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include "cusolver_wrappers.h"
@@ -92,12 +108,12 @@ void rsvdFixedRank(	math_t *M, int n_rows, int n_cols,
 
 	// either QR of B^T method, or eigendecompose BB^T method
 	if(!use_bbt){
-		
+
 		// form Bt = Mt*Q : nxm * mxl = nxl
 		allocate<math_t>(Bt, n * l, true);
 		gemm(M, m, n, Q, Bt, n, l, true, false, alpha, beta, cublasH);
 
-		// compute QR factorization of Bt	
+		// compute QR factorization of Bt
 		//M is mxn ; Q is mxn ; R is min(m,n) x min(m,n) */
 		allocate<math_t>(Qhat, n * l, true);
 		allocate<math_t>(Rhat, l * l, true);
@@ -130,7 +146,7 @@ void rsvdFixedRank(	math_t *M, int n_rows, int n_cols,
 		CUDA_CHECK(cudaFree(Bt));
 
 	} else {
-		// build the matrix B B^T = Q^T M M^T Q column by column 
+		// build the matrix B B^T = Q^T M M^T Q column by column
 		// Bt = M^T Q ; nxm * mxk = nxk
 		math_t *B;
 		allocate<math_t>(B, n * l, true);
@@ -152,7 +168,7 @@ void rsvdFixedRank(	math_t *M, int n_rows, int n_cols,
 		Matrix::seqRoot(S_vec_tmp, l);
 		Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1, l); // Last k elements of S_vec
 		Matrix::colReverse(S_vec, 1, k);
-		
+
 		// Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
 		if (gen_left_vec) {
 			gemm(Q, m, l, Uhat+p*l, U, m, k, false, false, alpha, beta, cublasH);
