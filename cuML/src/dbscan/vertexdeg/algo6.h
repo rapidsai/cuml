@@ -19,7 +19,6 @@
 #include "distance/distance.h"
 #include <math.h>
 #include "cuda_utils.h"
-#include <stdio.h>
 
 
 #include "pack.h"
@@ -73,7 +72,6 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
         // This is bool, 1 byte. Need to divide global_c_index by the number of bytes in value_t
         
 	int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
-	//printf("vd_offset=%d, global_c_idx=%d, in_params.N=%d\n", vd_offset, global_c_idx, in_params.N);
         atomicAdd(out_params.vd+vd_offset, acc);
         atomicAdd(out_params.vd+in_params.N, acc);
 

@@ -17,7 +17,6 @@
 #pragma once
 
 #include "runner.h"
-#include <iostream>
 
 namespace ML {
 
@@ -39,7 +38,6 @@ int computeBatchCount(int n_rows) {
         ++n_batches;
     }
 
-    std::cout << "n_batches=" << n_batches << std::endl;
     return n_batches;
 }
 
