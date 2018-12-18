@@ -183,7 +183,8 @@ void ridgePredict(const math_t *input, int n_rows, int n_cols,
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, false, false,
 			alpha, beta, cublas_handle);
 
-	LinAlg::addScalar(preds, preds, intercept, n_rows * n_cols);
+	LinAlg::addScalar(preds, preds, intercept, n_rows);
+
 
 }
 
