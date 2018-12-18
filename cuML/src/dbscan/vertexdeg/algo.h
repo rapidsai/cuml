@@ -25,7 +25,7 @@
 
 namespace Dbscan {
 namespace VertexDeg {
-namespace Algo6 {
+namespace Algo {
 
 
 template <typename T>
@@ -41,6 +41,7 @@ struct InStruct {
     int batchSize;
     int N;
 };
+
 
 template <typename value_t>
 void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int batchSize) {
@@ -69,9 +70,7 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
                          OutStruct<value_t>& out_params) {		// output parameters
 
         int acc = val <= in_params.eps2;
-        // This is bool, 1 byte. Need to divide global_c_index by the number of bytes in value_t
-        
-	int vd_offset = global_c_idx / in_params.N;   // calculate the bucket offset for the vertex degrees
+        int vd_offset = global_c_idx / in_params.N;   // bucket offset for the vertex degrees
         atomicAdd(out_params.vd+vd_offset, acc);
         atomicAdd(out_params.vd+in_params.N, acc);
 
@@ -81,11 +80,11 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     };
 
     MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
-    		(data.x, data.x+startVertexId*k, 			// x & y inputs
+    		(data.x, data.x+startVertexId*k, 					// x & y inputs
     		 m, n, k, 											// Cutlass block params
     		 in, out, 											// input / output params
-    		 MLCommon::Distance::DistanceType::EucExpandedL2, // distance metric type
-    		 nullptr, workspaceSize, 					// workspace params
+    		 MLCommon::Distance::DistanceType::EucExpandedL2, 	// distance metric type
+    		 (void*)workspace, workspaceSize, 							// workspace params
     		 dbscan_op, 										// epilogue operator
     		 stream												// cuda stream
 	 );
@@ -96,10 +95,10 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     }
 
     MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
-    		(data.x, data.x+startVertexId*k, 			// x & y inputs
+    		(data.x, data.x+startVertexId*k, 					// x & y inputs
     		 m, n, k, 											// Cutlass block params
     		 in, out, 											// input / output params
-    		 MLCommon::Distance::DistanceType::EucExpandedL2, // distance metric type
+    		 MLCommon::Distance::DistanceType::EucExpandedL2, 	// distance metric type
     		 (void*)workspace, workspaceSize, 					// workspace params
     		 dbscan_op, 										// epilogue operator
     		 stream												// cuda stream
