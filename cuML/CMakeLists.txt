@@ -15,7 +15,7 @@
 #
 
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 
