@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include "linalg/unary_op.h"
@@ -103,7 +119,7 @@ void seqRoot(math_t* inout, math_t scalar, int len) {
  * @{
  */
 template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len) {
+void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto d_src = in;
@@ -111,7 +127,16 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len) {
 
     thrust::for_each(counting, counting + len, [=]__device__(int idx)
 	{
-    	d_dest[idx] = sqrt(d_src[idx] * scalar);
+    	if (set_neg_zero) {
+    		if (d_src[idx] < math_t(0)) {
+    			d_dest[idx] = math_t(0);
+    		} else {
+    			d_dest[idx] = sqrt(d_src[idx] * scalar);
+    		}
+    	} else {
+    		d_dest[idx] = sqrt(d_src[idx] * scalar);
+    	}
+
 	});
 }
 
@@ -303,14 +328,25 @@ void matrixVectorBinaryDiv(Type* data, const Type* vec, int n_row, int n_col, bo
 }
 
 template <typename Type, int TPB=256>
-void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col, bool rowMajor) {
-	matrixVectorOp(data, vec, n_col, n_row, rowMajor,
+void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col, bool rowMajor, bool return_zero = false) {
+
+	if (return_zero) {
+		matrixVectorOp(data, vec, n_col, n_row, rowMajor,
+				        		[] __device__ (Type a, Type b) {
+				                       if (b < Type(1e-10))
+				                      	   return Type(0);
+				                       else
+				        		           return a / b;
+				        		    });
+	} else {
+	    matrixVectorOp(data, vec, n_col, n_row, rowMajor,
 		        		       [] __device__ (Type a, Type b) {
-		                               if (b == Type(0))
+		                               if (b < Type(1e-10))
 		                            	   return a;
 		                               else
 		        		                   return a / b;
 		        		            });
+	}
 }
 
 template <typename Type, int TPB=256>

@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <cusolverDn.h>
@@ -425,12 +441,12 @@ inline cusolverStatus_t cusolverDngeqrf(   cusolverDnHandle_t handle,
 }
 
 template <typename T> cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                                  int m, int n, 
+                                                                  int m, int n,
                                                                   T *A, int lda,
                                                                   int *Lwork);
 template<>
 inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                        int m, int n, 
+                                                        int m, int n,
                                                         float *A, int lda,
                                                         int *Lwork)
 {
@@ -438,7 +454,7 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
 }
 template<>
 inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
-                                                        int m, int n, 
+                                                        int m, int n,
                                                         double *A, int lda,
                                                         int *Lwork)
 {
@@ -494,6 +510,7 @@ inline cusolverStatus_t cusolverDnorgqr_bufferSize(cusolverDnHandle_t handle,
 {
     return cusolverDnSorgqr_bufferSize(handle, m, n, k, A, lda, TAU, lwork);
 }
+
 template<>
 inline cusolverStatus_t cusolverDnorgqr_bufferSize(cusolverDnHandle_t handle,
                                                         int m, int n, int k,
@@ -502,6 +519,70 @@ inline cusolverStatus_t cusolverDnorgqr_bufferSize(cusolverDnHandle_t handle,
                                                         int *lwork)
 {
     return cusolverDnDorgqr_bufferSize(handle, m, n, k, A, lda, TAU, lwork);
+}
+
+
+
+
+
+template <typename T> cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
+		                                                cublasSideMode_t side,
+                                                        cublasOperation_t trans,
+                                                        int m, int n, int k, const T *A,
+                                                        int lda, const T *tau, T *C, int ldc,
+                                                        T *work, int lwork, int *devInfo);
+
+template <>
+inline cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
+		                                                cublasSideMode_t side,
+                                                        cublasOperation_t trans,
+                                                        int m, int n, int k, const float *A,
+                                                        int lda, const float *tau, float *C, int ldc,
+                                                        float *work, int lwork, int *devInfo) {
+
+	return cusolverDnSormqr(handle, side, trans, m, n, k, A, lda, tau, C, ldc,
+                            work, lwork, devInfo);
+}
+
+template <>
+inline cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
+		                                                cublasSideMode_t side,
+                                                        cublasOperation_t trans,
+                                                        int m, int n, int k, const double *A,
+                                                        int lda, const double *tau, double *C, int ldc,
+                                                        double *work, int lwork, int *devInfo) {
+
+	return cusolverDnDormqr(handle, side, trans, m, n, k, A, lda, tau, C, ldc,
+                            work, lwork, devInfo);
+}
+
+template <typename T> cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,
+                                                                  cublasSideMode_t side,
+                                                                  cublasOperation_t trans,
+                                                                  int m, int n, int k, const T *A,
+                                                                  int lda, const T *tau, const T *C,
+                                                                  int ldc, int *lwork);
+
+template <>
+inline cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,
+        cublasSideMode_t side,
+        cublasOperation_t trans,
+        int m, int n, int k, const float *A,
+        int lda, const float *tau, const float *C,
+        int ldc, int *lwork) {
+
+	return cusolverDnSormqr_bufferSize(handle, side, trans, m, n, k, A, lda, tau, C, ldc, lwork);
+}
+
+template <>
+inline cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,
+        cublasSideMode_t side,
+        cublasOperation_t trans,
+        int m, int n, int k, const double *A,
+        int lda, const double *tau, const double *C,
+        int ldc, int *lwork) {
+
+	return cusolverDnDormqr_bufferSize(handle, side, trans, m, n, k, A, lda, tau, C, ldc, lwork);
 }
 /** @} */
 

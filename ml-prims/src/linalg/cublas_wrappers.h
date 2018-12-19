@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <cublas_v2.h>
@@ -71,7 +87,7 @@ template <typename T>
 cublasStatus_t cublasgemv(cublasHandle_t handle, cublasOperation_t transA, int m, int n,
                           const T *alfa, const T *A, int lda, const T* x, int incx,
                           const T *beta, T *y, int incy);
-    
+
 template <>
 inline cublasStatus_t cublasgemv(cublasHandle_t handle, cublasOperation_t transA,
                                  int m, int n, const float *alfa, const float *A, int lda,
@@ -142,7 +158,7 @@ inline cublasStatus_t cublasgemm(cublasHandle_t handle, cublasOperation_t transA
 template <>
 inline cublasStatus_t cublasgemm(cublasHandle_t handle, cublasOperation_t transA,
                                  cublasOperation_t transB, int m, int n, int k,
-                                 const double *alfa, const double *A, int lda, 
+                                 const double *alfa, const double *A, int lda,
                                  const double* B, int ldb, const double *beta,
                                  double *C, int ldc) {
     return cublasDgemm(handle, transA, transB, m, n, k, alfa, A, lda,  B, ldb, beta, C, ldc);
@@ -241,14 +257,14 @@ inline cublasStatus_t cublassyrk(cublasHandle_t handle, cublasFillMode_t uplo,
  * @defgroup nrm2 cublas nrm2 calls
  * @{
  */
-template <typename T> cublasStatus_t  
-cublasnrm2( cublasHandle_t handle, 
+template <typename T> cublasStatus_t
+cublasnrm2( cublasHandle_t handle,
             int n,
             const T *x, int incx,
             T *result);
 
-template <> 
-inline cublasStatus_t  cublasnrm2( cublasHandle_t handle, 
+template <>
+inline cublasStatus_t  cublasnrm2( cublasHandle_t handle,
                                         int n,
                                         const float *x, int incx,
                                         float *result)
@@ -256,14 +272,41 @@ inline cublasStatus_t  cublasnrm2( cublasHandle_t handle,
     return cublasSnrm2(handle, n, x, incx, result);
 }
 
-template <> 
-inline cublasStatus_t  cublasnrm2( cublasHandle_t handle, 
+template <>
+inline cublasStatus_t  cublasnrm2( cublasHandle_t handle,
                                         int n,
                                         const double *x, int incx,
                                         double *result)
 {
     return cublasDnrm2(handle, n, x, incx, result);
 }
+
+template <typename T> cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const T *alpha,
+                                                const T *A, int lda, T *B, int ldb);
+
+template <>
+inline cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const float *alpha,
+                                                const float *A, int lda, float *B, int ldb) {
+
+	return cublasStrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
+}
+
+template <>
+inline cublasStatus_t cublastrsm(cublasHandle_t handle,
+                                                cublasSideMode_t side, cublasFillMode_t uplo,
+                                                cublasOperation_t trans, cublasDiagType_t diag,
+                                                int m, int n, const double *alpha,
+                                                const double *A, int lda, double *B, int ldb) {
+
+	return cublasDtrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
+}
+
 /** @} */
 
 }; // namespace LinAlg
