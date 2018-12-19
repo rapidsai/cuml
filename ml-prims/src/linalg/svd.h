@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include "cublas_wrappers.h"
@@ -5,7 +21,8 @@
 #include "cuda_utils.h"
 #include "gemm.h"
 #include "transpose.h"
-#include "../matrix/matrix.h"
+#include "matrix/matrix.h"
+#include "matrix/math.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -62,14 +79,10 @@ void svdQR(T* in, int n_rows, int n_cols, T* sing_vals,
 					right_sing_vecs_trans, n,
 					d_work, lwork, d_rwork, devInfo));
 
-	if (devInfo)
-		CUDA_CHECK(cudaFree(devInfo));
-	if (d_work)
-		CUDA_CHECK(cudaFree(d_work));
-	if (d_rwork)
-		CUDA_CHECK(cudaFree(d_rwork));
-	if (d_W)
-		CUDA_CHECK(cudaFree(d_W));
+
+	CUDA_CHECK(cudaFree(d_work));
+    CUDA_CHECK(cudaFree(d_rwork));
+	CUDA_CHECK(cudaFree(d_W));
 
 	// Transpose the right singular vector back
 	cublasHandle_t cublasH;
@@ -78,71 +91,46 @@ void svdQR(T* in, int n_rows, int n_cols, T* sing_vals,
 	CUBLAS_CHECK(cublasDestroy(cublasH));
 
 	CUDA_CHECK(cudaGetLastError());
+
+	int d_dev_info;
+	updateHost(&d_dev_info, devInfo, 1);
+
+	CUDA_CHECK(cudaFree(devInfo));
+	CUDA_CHECK(cudaGetLastError());
+
+	ASSERT(d_dev_info == 0,
+			"svd.h: svd couldn't converge to a solution. "
+					"This usually occurs when some of the features do not vary enough. "
+					"Please try with more data that has variability");
 }
 
-// /**
-//  * @defgroup singular value decomposition (SVD) on the column major double type input matrix using QR method
-//  * @param in: input matrix
-//  * @param n_rows: number rows of input matrix
-//  * @param n_cols: number columns of input matrix
-//  * @param sing_vals: singular values of input matrix
-//  * @param left_sing_vecs: left singular values of input matrix
-//  * @param right_sing_vecs_trans: right singular values of input matrix
-//  * @param gen_left_vec: generate left eig vector. Not activated.
-//  * @param gen_right_vec: generate right eig vector. Not activated.
-//  * @{
-//  */
+template <typename T>
+void svdEig(T* in, int n_rows, int n_cols, T* S,
+		   T* U, T* V, bool gen_left_vec,
+		   cublasHandle_t cublasH, cusolverDnHandle_t cusolverH) {
 
-// // TODO: activate gen_left_vec and gen_right_vec options
-// // TODO: couldn't template this function due to cusolverDnSgesvd and cusolverSnSgesvd. Check if there is any other way.
+	T *in_cross_mult;
+	int len = n_cols * n_cols;
+	allocate(in_cross_mult, len);
 
-// void svdQR(double* in, int n_rows, int n_cols, double* sing_vals,
-// 		   double* left_sing_vecs, double* right_sing_vecs_trans,
-// 		   bool gen_left_vec, bool gen_right_vec) {
+	T alpha = T(1);
+	T beta = T(0);
+	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, true, false, alpha, beta, cublasH);
 
-// 	cusolverDnHandle_t cusolverH = NULL;
-// 	CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
+	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH);
 
-// 	const int m = n_rows;
-// 	const int lda = m;
+	Matrix::colReverse(V, n_cols, n_cols);
+	Matrix::rowReverse(S, n_cols, 1);
 
-// 	int *devInfo = NULL;
-// 	double *d_work = NULL;
-// 	double *d_rwork = NULL;
-// 	double *d_W = NULL;
+	Matrix::seqRoot(S, S, alpha, n_cols, true);
 
-// 	int lwork = 0;
-// 	CUDA_CHECK(cudaMalloc((void** ) &devInfo, sizeof(int)));
+    if (gen_left_vec) {
+    	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, false, false, alpha, beta, cublasH);
+    	Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true);
+    }
 
-// 	CUSOLVER_CHECK(
-// 			cusolverDnDgesvd_bufferSize(cusolverH, n_rows,
-// 					n_cols, &lwork));
-
-// 	CUDA_CHECK(cudaMalloc((void** ) &d_work, sizeof(double) * lwork));
-
-// 	signed char jobu = 'A';
-// 	signed char jobvt = 'A';
-
-// 	CUSOLVER_CHECK(
-// 			cusolverDnDgesvd(cusolverH, jobu, jobvt, n_rows,
-// 					n_cols, in, lda, sing_vals,
-// 					left_sing_vecs, lda,
-// 					right_sing_vecs_trans, lda,
-// 					d_work, lwork, d_rwork, devInfo));
-
-// 	CUDA_CHECK(cudaDeviceSynchronize());
-
-// 	if (devInfo)
-// 		CUDA_CHECK(cudaFree(devInfo));
-// 	if (d_work)
-// 		CUDA_CHECK(cudaFree(d_work));
-// 	if (d_rwork)
-// 		CUDA_CHECK(cudaFree(d_rwork));
-// 	if (d_W)
-// 		CUDA_CHECK(cudaFree(d_W));
-// }
-
-
+	CUDA_CHECK(cudaFree(in_cross_mult));
+}
 
 /**
  * @defgroup singular value decomposition (SVD) on the column major input matrix using Jacobi method
@@ -274,10 +262,10 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V, int n
 	const math_t alpha = 1.0, beta = -1.0;
 	math_t *A_minus_P;
 	allocate<math_t>(A_minus_P, m * n * sizeof(math_t), true);
-	
+
 	cublasHandle_t cublasH;
 	CUBLAS_CHECK(cublasCreate(&cublasH));
-	CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, 
+	CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N,
 							m, n,
 							&alpha, A_d, m,
 							&beta, P_d, m,
