@@ -113,7 +113,7 @@ def _solve_svd(X, y, alpha):
 
 X = np.array([[0.0, 0.0], [0.0, 0.0], [1.0, 1.0]]).astype(np.float32)
 y = np.array([0.0, 0.1, 1.0]).astype(np.float32)
-alpha=.5
+alpha=[.5, 1.0]
 
 # reg_imp = ridge(X, y, alpha)
 reg_imp = _solve_svd(X, y, np.array(alpha))
@@ -123,7 +123,7 @@ pred_data = np.array([[0.5, 0.2], [2.0, 1.0]]).astype(np.float32)
 
 reg = linear_model.Ridge(alpha=alpha, fit_intercept=False, normalize=False, solver='svd')
 reg.fit(X,y)
-pred = reg.predict(pred_data)
+#pred = reg.predict(pred_data)
 
 print("")
 print("Data")
@@ -142,11 +142,11 @@ print("Intercept")
 print(reg.intercept_)
 
 
-print("")
-print("Pred Data")
-print(pred_data)
+#print("")
+#print("Pred Data")
+#print(pred_data)
 
-print("")
-print("Pred")
-print(pred)
+#print("")
+#print("Pred")
+#print(pred)
 
