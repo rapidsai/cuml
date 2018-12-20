@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 #include "mean_c.h"
 #include <stats/mean.h>
 #include <iostream>

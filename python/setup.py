@@ -68,4 +68,4 @@ setup(name='cuml',
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
       zip_safe=False
-      )
+)

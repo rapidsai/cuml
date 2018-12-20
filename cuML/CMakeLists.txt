@@ -119,7 +119,7 @@ file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 
 add_library(cuml SHARED
             src/pca/pca.cu
-	    src/mean/mean.cu
+		    src/mean/mean.cu
             src/tsvd/tsvd.cu
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu

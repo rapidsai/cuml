@@ -20,6 +20,7 @@ cimport numpy as np
 from numba import cuda
 import cudf as pygdf
 from libcpp cimport bool
+from libc.stdint cimport uintptr_t
 import ctypes
 from c_mean cimport *
 
@@ -83,7 +84,7 @@ class Mean:
                 < bool > True,
                 < bool > False)
 
-            return self.mean_
+        return self.mean_
 
         # def __init__(self, input_gdf):
         # return calculate(input_gdf);
