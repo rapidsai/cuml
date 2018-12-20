@@ -19,3 +19,9 @@ log
 
 ## eclipse
 .project
+
+## pycharm
+.ptp-sync*
+.cproject
+.idea
+.settings
