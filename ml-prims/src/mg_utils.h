@@ -16,11 +16,24 @@
 
 #pragma once
 
+#include <stdexcept>
+#include <string>
+#include <cstdio>
+#include <stdint.h>
 
-namespace ML{
 
-void mean(float* mu, float* data, int D, int N, bool sample, bool rowMajor);
-void mean(double* mu, double* data, int D, int N, bool sample, bool rowMajor);
+namespace MLCommon {
 
-}
+template <typename Type>
+class TypeMG {
+public:
+	Type *d_data;
+	// Type *h_data;
+	int n_rows;
+	int n_cols;
+	int gpu_id;
+    cudaStream_t stream;
 
+};
+
+} // namespace MLCommon

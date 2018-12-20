@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
 
 #include "mean_c.h"
 #include <stats/mean.h>
