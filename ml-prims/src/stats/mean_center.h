@@ -23,6 +23,8 @@
 namespace MLCommon {
 namespace Stats {
 
+using namespace MLCommon;
+
 /**
  * @brief Center the input matrix wrt its mean
  *
@@ -44,6 +46,16 @@ void meanCenter(Type* data, const Type* mu, int D, int N, bool rowMajor) {
 		        		            });
 }
 
+template <typename Type, int TPB=256>
+void meanCenterMG(TypeMG<Type>* data, TypeMG<Type>* mu, int D, int N, int n_gpus, bool rowMajor,
+		bool row_split = false, bool sync = false) {
+
+	LinAlg::matrixVectorOpMG(data, mu, D, N, n_gpus, rowMajor,
+		        		       [] __device__ (Type a, Type b) {
+		        		                 return a - b;
+		        		            }, row_split, sync);
+}
+
 /**
  * @brief Add the input matrix wrt its mean
  *
@@ -63,6 +75,16 @@ void meanAdd(Type* data, const Type* mu, int D, int N, bool rowMajor) {
 		        		       [] __device__ (Type a, Type b) {
 		        		                 return a + b;
 		        		            });
+}
+
+template <typename Type, int TPB=256>
+void meanAddMG(TypeMG<Type>* data, TypeMG<Type>* mu, int D, int N, int n_gpus, bool rowMajor,
+		bool row_split = false, bool sync = false) {
+
+	LinAlg::matrixVectorOpMG(data, mu, D, N, n_gpus, rowMajor,
+		        		       [] __device__ (Type a, Type b) {
+		        		                 return a + b;
+		        		            }, row_split, sync);
 }
 
 }; // end namespace Stats

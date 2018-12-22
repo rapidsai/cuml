@@ -15,7 +15,7 @@
 #
 
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 
@@ -43,8 +43,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUTLASS_DIR_2 "${PROJECT_SOURCE_DIR}/external/cutlass" CACHE STRING
-  "Path to the root of cutlass project directory that Thejaswi updated")
 
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -105,7 +103,6 @@ include_directories(src
                     ${MLPRIMS_DIR}/src/dbscan
                     ${MLPRIMS_DIR}/test
                     ${CUTLASS_DIR}
-                    ${CUTLASS_DIR_2}
                     ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)

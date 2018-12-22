@@ -21,10 +21,12 @@
 #include "ml_utils.h"
 #include "dbscan/dbscan.h"
 #include <linalg/cublas_wrappers.h>
+#include <iostream>
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace std;
 
 template<typename T>
 struct DbscanInputs {
@@ -51,9 +53,8 @@ protected:
 
 		allocate(data, len);
 
-		T data_h[len] = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
+		T data_h[len] = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
 		updateDevice(data, data_h, len);
-
 
 		allocate(labels, params.n_row);
 		allocate(labels_ref, params.n_row);
@@ -63,7 +64,7 @@ protected:
 		T eps = 3.0;
 		int min_pts = 2;
 
-		dbscanFit(data, params.n_row, params.n_col, eps, min_pts, labels);
+		dbscanFitImpl(data, params.n_row, params.n_col, eps, min_pts, labels);
 
 	}
 
@@ -74,7 +75,6 @@ protected:
 	void TearDown() override {
 		CUDA_CHECK(cudaFree(data));
 		CUDA_CHECK(cudaFree(labels));
-
 		CUDA_CHECK(cudaFree(labels_ref));
 	}
 

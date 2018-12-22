@@ -15,7 +15,11 @@ cuml.egg-info/
 dist/
 python/cuML/cuml.cpp
 log
+.ipynb_checkpoints
 .DS_Store
 
 ## eclipse
 .project
+.cproject
+.settings
+.ptp-sync-folder
