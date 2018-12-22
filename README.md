@@ -110,7 +110,6 @@ $ ./ml_test --gtest_list_tests
 4. Build the `cuml` python package:
 
 ```bash
-
 $ cd ../../python
 $ python setup.py build_ext --inplace
 ```

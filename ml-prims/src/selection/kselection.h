@@ -18,6 +18,7 @@
 
 #include "cuda_utils.h"
 #include <limits>
+#include<stdlib.h>
 
 
 namespace MLCommon {
@@ -54,17 +55,17 @@ struct KVPair {
      * @brief Compare and swap the current with the other pair
      * @tparam Greater when to perform a swap operation
      * @param other the other pair
-     * @param small whether the comparison is being done by warp with smaller laneid
+     * @param reverse whether the comparison needs to be reversed or not
      */
     template <bool Greater>
-    DI void cas(Pair& other, bool small) {
-        bool swap_ = compare<Greater>(other, small);
+    DI void cas(Pair& other, bool reverse) {
+        bool swap_ = compare<Greater>(other, reverse);
         if(swap_)
             swap(other);
     }
 
     /** assign the contents of other pair to the current */
-    DI void operator=(Pair& other) {
+    HDI void operator=(const Pair& other) {
         val = other.val;
         key = other.key;
     }
@@ -124,10 +125,10 @@ struct KVPair {
 
 private:
     template <bool Greater>
-    DI bool compare(const Pair& other, bool small) {
-        return small?
-            Compare<Greater,TypeV>::op(val, other.val) :
-            Compare<!Greater,TypeV>::op(val, other.val);
+    DI bool compare(const Pair& other, bool reverse) {
+        return reverse?
+            Compare<!Greater,TypeV>::op(val, other.val) :
+            Compare<Greater,TypeV>::op(val, other.val);
     }
 
     DI void swap(Pair& other) {
@@ -136,6 +137,47 @@ private:
         other = tmp;
     }
 };
+
+
+/**
+ * @brief perform a warp-wide parallel one-pass bitonic sort stage
+ * @tparam TypeV value type
+ * @tparam TypeK key type
+ * @tparam Greater when to perform swap operation
+ * @tparam Log2Stride Starting log2(stride) value
+ * @param current current thread's value
+ */
+template <typename TypeV, typename TypeK, bool Greater, int Log2Stride>
+DI void bitonicSortStage(KVPair<TypeV,TypeK>& current) {
+    constexpr int Stride2 = 1 << (Log2Stride + 1);
+    int lid = laneId();
+    const bool lidMask = lid & Stride2;
+    #pragma unroll
+    for(int stage=Log2Stride;stage>=0;--stage) {
+        int stride = 1 << stage;
+        bool group = lidMask;
+        bool phase = lid & stride;
+        bool reverse = phase ^ group;
+        auto other = current.shfl_xor(stride);
+        current.cas<Greater>(other, reverse);
+    }
+}
+
+/**
+ * @brief perform a warp-wide parallel bitonic sort
+ * @tparam TypeV value type
+ * @tparam TypeK key type
+ * @tparam Greater when to perform swap operation
+ * @param current the pair that needs to be sorted across this warp
+ */
+template <typename TypeV, typename TypeK, bool Greater>
+DI void bitonicSort(KVPair<TypeV,TypeK>& current) {
+    bitonicSortStage<TypeV,TypeK,Greater,0>(current);
+    bitonicSortStage<TypeV,TypeK,Greater,1>(current);
+    bitonicSortStage<TypeV,TypeK,Greater,2>(current);
+    bitonicSortStage<TypeV,TypeK,Greater,3>(current);
+    bitonicSortStage<TypeV,TypeK,Greater,4>(current);
+}
 
 
 /**
@@ -191,12 +233,13 @@ struct KVArray {
         for(int i=0;i<N;++i) {
             // perform the sort in the reverse order as to minimize the
             // amount of shfl's needed during the merge phase
-            warpSort<TypeV,TypeK,!Greater>(other);
-            arr[i].cas<Greater>(other, true);
-            warpSort<TypeV,TypeK,Greater>(arr[i]);
+            bitonicSort<TypeV,TypeK,!Greater>(other);
+            arr[i].cas<Greater>(other, false);
+            bitonicSort<TypeV,TypeK,Greater>(arr[i]);
         }
     }
 
+    ///@todo: we might just have rewrite this whole thing from scratch!!!
     ///@todo: this fails for N=8 onwards!!
     ///@todo: it also generates "stack frame" for N>=8
     /** sort the elements in this array */
@@ -216,6 +259,7 @@ struct KVArray {
             warpWideSort();
         }
     }
+
 
 private:
     DI void mergeHalves(int stride, int start) {
@@ -253,32 +297,37 @@ private:
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater, bool Sort>
 __global__ void warpTopKkernel(TypeV* outV, TypeK* outK, const TypeV* arr,
                                int k, int rows, int cols, TypeV iV, TypeK iK) {
-    static_assert(Sort==false, "warpTopK: Sort=true is not yet supported!");
-    constexpr int RowsPerBlk = TPB / WarpSize;
-    const int warpId = threadIdx.x / WarpSize;
-    const int rowId = blockIdx.x * RowsPerBlk + warpId;
-    if(rowId >= rows)
-        return;
-    const int maxCols = alignTo(cols, WarpSize);
-    KVArray<TypeV,TypeK,N,Greater> topk;
-    KVPair<TypeV,TypeK> other;
-    topk.reset(iV, iK);
-    int colId = threadIdx.x;
-    for(;colId<maxCols;colId+=WarpSize) {
-        auto idx = rowId * cols + colId;
-        other.val = colId < cols? arr[idx] : iV;
-        other.key = idx;
-        warpFence();
-        topk.topkUpdate(other);
-    }
-    int lid = laneId();
-    #pragma unroll
-    for(int i=0;i<N;++i) {
-        int col = i * WarpSize + lid;
-        if(outV != nullptr && col < k)
-            outV[rowId*k+col] = topk.arr[i].val;
-        if(outK != nullptr && col < k)
-            outK[rowId*k+col] = topk.arr[i].key;
+    //static_assert(Sort==false, "warpTopK: Sort=true is not yet supported!");
+
+    if(Sort==false){ 
+        constexpr int RowsPerBlk = TPB / WarpSize;
+        const int warpId = threadIdx.x / WarpSize;
+        const int rowId = blockIdx.x * RowsPerBlk + warpId;
+        if(rowId >= rows)
+            return;
+        const int maxCols = alignTo(cols, WarpSize);
+        KVArray<TypeV,TypeK,N,Greater> topk;
+        KVPair<TypeV,TypeK> other;
+        topk.reset(iV, iK);
+        int colId =threadIdx.x%WarpSize;
+        for(;colId<maxCols;colId+=WarpSize) {
+            auto idx = rowId * cols + colId;
+            other.val = colId < cols? arr[idx] : iV;
+            other.key= colId;
+            warpFence();
+            topk.topkUpdate(other);
+        }
+        int lid = laneId();
+        #pragma unroll
+        for(int i=0;i<N;++i) {
+            int col = i * WarpSize + lid;
+            if(outV != nullptr && col < k)
+                outV[rowId*k+col] = topk.arr[i].val;
+            if(outK != nullptr && col < k)
+                outK[rowId*k+col] = topk.arr[i].key;
+        }//end for outV and outK
+    }//end for Sort = false
+    else{
     }
 }
 
@@ -298,7 +347,8 @@ __global__ void warpTopKkernel(TypeV* outV, TypeK* outK, const TypeV* arr,
  */
 template <typename TypeV, typename TypeK, bool Greater, bool Sort>
 void warpTopK(TypeV* outV, TypeK* outK, const TypeV* arr,
-              int k, int rows, int cols) {
+              int k, int rows, TypeK cols) {
+    static_assert(std::is_same<TypeV, float>::value && (std::is_same<TypeK, int>::value), "type not support" );
     constexpr int TPB = 256;
     constexpr int RowsPerBlk = TPB / WarpSize;
     const int nblks = ceildiv(rows, RowsPerBlk);
@@ -312,8 +362,36 @@ void warpTopK(TypeV* outV, TypeK* outK, const TypeV* arr,
         CASE_K(2);
         CASE_K(3);
         CASE_K(4);
+        CASE_K(5);
+        CASE_K(6);
+        CASE_K(7);
+        CASE_K(8);
+        CASE_K(9);
+        CASE_K(10);
+        CASE_K(11);
+        CASE_K(12);
+        CASE_K(13);
+        CASE_K(14);
+        CASE_K(15);
+        CASE_K(16);
+        CASE_K(17);
+        CASE_K(18);
+        CASE_K(19);
+        CASE_K(20);
+        CASE_K(21);
+        CASE_K(22);
+        CASE_K(23);
+        CASE_K(24);
+        CASE_K(25);
+        CASE_K(26);
+        CASE_K(27);
+        CASE_K(28);
+        CASE_K(29);
+        CASE_K(30);
+        CASE_K(31);
+        CASE_K(32);
     default:
-        ASSERT(false, "TopK kernels only support k <= 128 [%d]", k);
+        ASSERT(false, "TopK kernels only support k <= 1024 [%d]", k);
     };
 }
 #undef CASE_K

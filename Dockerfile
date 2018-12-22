@@ -20,5 +20,8 @@ RUN source activate cudf && \
 ADD docs /cuML/docs
 
 ADD python /cuML/python
-WORKDIR /cuML/python
+ADD python/setup.cfg /cuML/setup.cfg
+ADD setup.py /cuML/setup.py
+ADD versioneer.py /cuML/versioneer.py
+WORKDIR /cuML
 RUN source activate cudf && python setup.py install
