@@ -21,7 +21,7 @@ A clear and concise description of what you expected to happen.
  - Linux Distro/Architecture: [Ubuntu 16.04 amd64]
  - GPU Model/Driver: [V100 and driver 396.44]
  - CUDA: [9.2]
- - Method of cuDF install: [conda, Docker, or from source]
+ - Method of cuDF & cuML install: [conda, Docker, or from source]
    - If method of install is [conda], run `conda list` and include results here
    - If method of install is [Docker], provide `docker pull` & `docker run` commands used
    - If method of install is [from source], provide versions of `cmake` & `gcc/g++` and commit hash of build
