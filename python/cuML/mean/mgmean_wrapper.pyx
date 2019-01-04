@@ -51,13 +51,9 @@ cdef class DFloat(object):
     def build_mgd(self, gpu_alloc):
 
         n_rows, n_cols = gpu_alloc["shape"]
-        gdf_datatype = np.dtype(gpu_alloc["dtype"])
-
-        mean_ = pygdf.Series(np.zeros(n_cols, dtype=gdf_datatype))
-        mean_gpu_array = mean_._column._data.to_gpu_array()
 
         cdef uintptr_t input_ptr = gpu_alloc["ptr"]
-        cdef uintptr_t mean_ptr = mean_gpu_array.device_ctypes_pointer.value
+        cdef uintptr_t mean_ptr = gpu_alloc["out_ptr"]
 
         input_mgd = new MGDescriptorFloat(
             < float * > input_ptr,
@@ -74,8 +70,6 @@ cdef class DFloat(object):
         self.input_data[self.i] = deref(input_mgd)
         self.mean_data[self.i] = deref(mean_mgd)
         self.i += 1
-
-        return mean_
 
 
 cdef class DDouble(object):
@@ -101,13 +95,9 @@ cdef class DDouble(object):
     def build_mgd(self, gpu_alloc):
 
         n_rows, n_cols = gpu_alloc["shape"]
-        gdf_datatype = np.dtype(gpu_alloc["dtype"])
-
-        mean_ = pygdf.Series(np.zeros(n_cols, dtype=gdf_datatype))
-        mean_gpu_array = mean_._column._data.to_gpu_array()
 
         cdef uintptr_t input_ptr = gpu_alloc["ptr"]
-        cdef uintptr_t mean_ptr = mean_gpu_array.device_ctypes_pointer.value
+        cdef uintptr_t mean_ptr = gpu_alloc["out_ptr"]
 
         input_mgd = new MGDescriptorDouble(
             < double * > input_ptr,
@@ -126,8 +116,6 @@ cdef class DDouble(object):
 
         self.i += 1
 
-        return mean_
-
 class MGMean:
 
     def _calc_float(self, gpu_allocs):
@@ -135,7 +123,7 @@ class MGMean:
         n = len(gpu_allocs)
         mgd = DFloat(n)
 
-        output = [mgd.build_mgd(gpu_alloc) for gpu_alloc in gpu_allocs]
+        [mgd.build_mgd(gpu_alloc) for gpu_alloc in gpu_allocs]
 
         meanMG(
             < MGDescriptorFloat *> mgd.mean_data,
@@ -145,12 +133,11 @@ class MGMean:
             < bool > False,
             < bool > False)
 
-        return output
 
     def _calc_double(self, gpu_allocs):
         n = len(gpu_allocs)
         mgd = DDouble(n)
-        output = [mgd.build_mgd(gpu_alloc) for gpu_alloc in gpu_allocs]
+        [mgd.build_mgd(gpu_alloc) for gpu_alloc in gpu_allocs]
 
         meanMG(
             <MGDescriptorDouble *> mgd.mean_data,
@@ -159,8 +146,6 @@ class MGMean:
             < bool > False,
             < bool > False,
             < bool > False)
-
-        return output
 
     def calculate(self, gpu_allocs):
 
