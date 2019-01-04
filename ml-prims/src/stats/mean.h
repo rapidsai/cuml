@@ -20,6 +20,7 @@
 #include "mg_utils.h"
 #include "linalg/eltwise.h"
 #include <cub/cub.cuh>
+#include <stdio.h>
 
 namespace MLCommon {
 namespace Stats {
@@ -59,8 +60,13 @@ __global__ void meanKernelColMajor(Type* mu, const Type* data, int D, int N) {
 		thread_data += data[idx];
 	}
 	Type acc = BlockReduce(temp_storage).Sum(thread_data);
+
+
 	if (threadIdx.x == 0) {
 		mu[blockIdx.x] = acc / N;
+
+		std::printf("%d - %1.2f - %d - %1.3f\n", blockIdx.x, acc, N, 		mu[blockIdx.x]
+);
 	}
 }
 
@@ -114,8 +120,8 @@ void mean(Type* mu, const Type* data, int D, int N, bool sample, bool rowMajor,
  * @param rowMajor whether the input data is row or col major
  */
 template<typename Type>
-void meanMG(TypeMG<Type>* mu, const TypeMG<Type>* data, int D, int N,
-		int n_gpus, bool sample, bool rowMajor, bool row_split = false) {
+void meanMG(TypeMG<Type>* mu, const TypeMG<Type>* data, int n_gpus,
+		bool sample, bool rowMajor, bool row_split = false) {
 
 	if (row_split) {
 		/*
@@ -145,18 +151,11 @@ void meanMG(TypeMG<Type>* mu, const TypeMG<Type>* data, int D, int N,
 		ASSERT(false, "meanMG: row_split not implemented");
 	} else {
 		for (int i = 0; i < n_gpus; i++) {
+
 			CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
-
-			//Type *mu;
-			//allocate(mu, data[i].n_cols);
-			//Type *mu;
-			//allocate(mu, data[i].n_cols);
-
 			mean(mu[i].d_data, data[i].d_data, data[i].n_cols, data[i].n_rows,
 					sample, rowMajor, data[i].stream);
 		}
-
-
 	}
 }
 

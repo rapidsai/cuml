@@ -14,16 +14,43 @@
  * limitations under the License.
  */
 
-#include "mg_descriptor.h"
+#pragma once
 
-namespace ML{
+#include <cstdio>
+#include <stdexcept>
+#include <string>
 
-void mean(float* mu, float* data, int D, int N, bool sample, bool rowMajor);
-void mean(double* mu, double* data, int D, int N, bool sample, bool rowMajor);
+namespace ML {
 
-void meanMG(MGDescriptorFloat* mu, MGDescriptorFloat* data, int n_gpus,
-		bool sample, bool rowMajor, bool row_split = false);
+class MGDescriptorFloat {
 
-void meanMG(MGDescriptorDouble* mu, MGDescriptorDouble* data, int n_gpus,
-		bool sample, bool rowMajor, bool row_split = false);
-}
+
+	//cudaStream_t stream;
+
+public:
+
+	MGDescriptorFloat(float *data, int n_rows, int n_cols):data(data), n_rows(n_rows), n_cols(n_cols) {}
+	~MGDescriptorFloat() {}
+	float *data;
+
+	int n_rows;
+	int n_cols;
+};
+
+class MGDescriptorDouble {
+
+	//cudaStream_t stream;
+
+public:
+
+	MGDescriptorDouble(double *data, int n_rows, int n_cols):data(data), n_rows(n_rows), n_cols(n_cols) {}
+	~MGDescriptorDouble() {}
+
+	double *data;
+
+	int n_rows;
+	int n_cols;
+
+};
+
+} // namespace ML

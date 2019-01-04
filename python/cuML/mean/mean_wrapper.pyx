@@ -70,7 +70,7 @@ class Mean:
         print("Numba memory: " + str(input_gdf.as_gpu_matrix().__cuda_memory__))
 
         if self.gdf_datatype.type == np.float32:
-                c_mean.mean( < float * > mean_ptr,
+            c_mean.mean( < float * > mean_ptr,
                 < float * > input_ptr,
                 < int > self.n_cols,
                 < int > self.n_rows,
@@ -85,6 +85,3 @@ class Mean:
                 < bool > False)
 
         return self.mean_
-
-        # def __init__(self, input_gdf):
-        # return calculate(input_gdf);
