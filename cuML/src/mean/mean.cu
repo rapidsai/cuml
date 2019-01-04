@@ -59,6 +59,9 @@ void meanMG(MGDescriptorFloat *mu, MGDescriptorFloat *data, int n_gpus, bool sam
 		cudaPointerAttributes att;
 	    cudaError_t err = cudaPointerGetAttributes(&att, mu[i].data);
 
+	    std::cout << "device: " << att.device << std::endl;
+	    std::cout << "err: " << err << std::endl;
+
 	    TypeMG<float> *new_mg = new TypeMG<float>();
 	    new_mg->d_data = mu[i].data;
 	    new_mg->gpu_id = att.device;
@@ -96,6 +99,7 @@ void meanMG(MGDescriptorDouble *mu, MGDescriptorDouble *data, int n_gpus, bool s
 
 		cudaPointerAttributes att;
 	    cudaError_t err = cudaPointerGetAttributes(&att, mu[i].data);
+
 
 	    TypeMG<double> *new_mg = new TypeMG<double>();
 	    new_mg->d_data = mu[i].data;

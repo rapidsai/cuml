@@ -122,7 +122,6 @@ class MGMean:
 
         n = len(gpu_allocs)
         mgd = DFloat(n)
-
         [mgd.build_mgd(gpu_alloc) for gpu_alloc in gpu_allocs]
 
         meanMG(
@@ -154,17 +153,13 @@ class MGMean:
         of the results using MPI in the C++ layer.
         :param gpu_allocs: A list of dicts containing the following keys: shape, dtype, ptr. Device 
                 will be extracted automatically from the pointer. 
-                
-                TODO: This will need a hostname for MNMG.
-        :return: 
+        :return:
         """
 
         gdf_datatype = np.dtype(gpu_allocs[0]["dtype"])
 
         if gdf_datatype == np.float32:
-            output = self._calc_float(gpu_allocs)
+            self._calc_float(gpu_allocs)
 
         else:
-            output = self._calc_double(gpu_allocs)
-
-        return reduce(lambda x, y: x.__add__(y), output).__truediv__(len(output))
+            self._calc_double(gpu_allocs)
