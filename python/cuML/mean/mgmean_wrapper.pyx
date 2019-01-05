@@ -53,8 +53,8 @@ cdef class DFloat(object):
         in_alloc, out_alloc = gpu_alloc
         n_rows, n_cols = in_alloc["shape"]
 
-        cdef uintptr_t input_ptr = in_alloc["data"][0].value
-        cdef uintptr_t mean_ptr = out_alloc["data"][0].value
+        cdef uintptr_t input_ptr = in_alloc["data"][0]
+        cdef uintptr_t mean_ptr = out_alloc["data"][0]
 
         input_mgd = new MGDescriptorFloat(
             < float * > input_ptr,
@@ -98,8 +98,8 @@ cdef class DDouble(object):
         in_alloc, out_alloc = gpu_alloc
         n_rows, n_cols = in_alloc["shape"]
 
-        cdef uintptr_t input_ptr = in_alloc["data"].value
-        cdef uintptr_t mean_ptr = out_alloc["data"].value
+        cdef uintptr_t input_ptr = in_alloc["data"][0]
+        cdef uintptr_t mean_ptr = out_alloc["data"][0]
 
         input_mgd = new MGDescriptorDouble(
             < double * > input_ptr,
