@@ -50,10 +50,11 @@ cdef class DFloat(object):
 
     def build_mgd(self, gpu_alloc):
 
-        n_rows, n_cols = gpu_alloc["shape"]
+        in_alloc, out_alloc = gpu_alloc
+        n_rows, n_cols = in_alloc["shape"]
 
-        cdef uintptr_t input_ptr = gpu_alloc["ptr"]
-        cdef uintptr_t mean_ptr = gpu_alloc["out_ptr"]
+        cdef uintptr_t input_ptr = in_alloc["data"].value
+        cdef uintptr_t mean_ptr = out_alloc["data"].value
 
         input_mgd = new MGDescriptorFloat(
             < float * > input_ptr,
@@ -94,10 +95,11 @@ cdef class DDouble(object):
 
     def build_mgd(self, gpu_alloc):
 
-        n_rows, n_cols = gpu_alloc["shape"]
+        in_alloc, out_alloc = gpu_alloc
+        n_rows, n_cols = in_alloc["shape"]
 
-        cdef uintptr_t input_ptr = gpu_alloc["ptr"]
-        cdef uintptr_t mean_ptr = gpu_alloc["out_ptr"]
+        cdef uintptr_t input_ptr = in_alloc["data"].value
+        cdef uintptr_t mean_ptr = out_alloc["data"].value
 
         input_mgd = new MGDescriptorDouble(
             < double * > input_ptr,
@@ -156,7 +158,10 @@ class MGMean:
         :return:
         """
 
-        gdf_datatype = np.dtype(gpu_allocs[0]["dtype"])
+        # Pull the first alloc to determine the type (all should be the same)
+        in_alloc, out_alloc = gpu_allocs[0]
+
+        gdf_datatype = np.dtype(in_alloc["typestr"])
 
         if gdf_datatype == np.float32:
             self._calc_float(gpu_allocs)
