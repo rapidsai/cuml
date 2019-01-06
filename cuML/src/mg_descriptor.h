@@ -16,41 +16,23 @@
 
 #pragma once
 
-#include <cstdio>
-#include <stdexcept>
-#include <string>
-
 namespace ML {
 
-class MGDescriptorFloat {
-
-
-	//cudaStream_t stream;
-
+template<typename T>
+class MGDescriptor {
 public:
 
-	MGDescriptorFloat(float *data, int n_rows, int n_cols):data(data), n_rows(n_rows), n_cols(n_cols) {}
-	~MGDescriptorFloat() {}
-	float *data;
-
-	int n_rows;
-	int n_cols;
-};
-
-class MGDescriptorDouble {
-
-	//cudaStream_t stream;
-
-public:
-
-	MGDescriptorDouble(double *data, int n_rows, int n_cols):data(data), n_rows(n_rows), n_cols(n_cols) {}
-	~MGDescriptorDouble() {}
-
-	double *data;
+	T *data;
 
 	int n_rows;
 	int n_cols;
 
+	MGDescriptor(T *data, int n_rows, int n_cols):data(data), n_rows(n_rows), n_cols(n_cols) {}
+	~MGDescriptor() {}
+
 };
+
+typedef MGDescriptor<float> MGDescriptorFloat;
+typedef MGDescriptor<double> MGDescriptorDouble;
 
 } // namespace ML

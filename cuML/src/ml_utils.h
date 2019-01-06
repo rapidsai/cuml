@@ -16,6 +16,11 @@
 
 #pragma once
 
+#include <iostream>
+#include <cuda_runtime.h>
+#include "mg_utils.h"
+#include "mg_descriptor.h"
+
 namespace ML {
 
 /**
@@ -87,5 +92,40 @@ public:
 	bool copy = true;
 	bool whiten = false;
 };
+
+template <typename T>
+cudaPointerAttributes check_input(T *data_input) {
+	cudaPointerAttributes att;
+    cudaError_t err = cudaPointerGetAttributes(&att, data_input);
+    if(err > 0 || att.device < 0) {
+	    std::cout << "device: " << att.device << std::endl;
+	    std::cout << "err: " << err << std::endl;
+    }
+
+    return att;
+}
+
+
+template <typename T>
+MLCommon::TypeMG<T>* convert_desc_to_typemg(MGDescriptor<T> *in, int n_gpus) {
+
+	MLCommon::TypeMG<T> *mgs = new MLCommon::TypeMG<T>[n_gpus];
+
+	for(int i = 0; i < n_gpus; i++) {
+
+		cudaPointerAttributes att = check_input(in[i].data);
+
+	    MLCommon::TypeMG<T> *new_mg = new MLCommon::TypeMG<T>();
+	    new_mg->d_data = in[i].data;
+	    new_mg->gpu_id = att.device;
+	    new_mg->n_cols = in[i].n_cols;
+	    new_mg->n_rows = in[i].n_rows;
+	    new_mg->stream = 0;
+
+	    mgs[i] = *new_mg;
+	}
+
+	return mgs;
+}
 
 }; // end namespace ML
