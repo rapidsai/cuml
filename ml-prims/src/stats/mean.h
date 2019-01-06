@@ -21,6 +21,7 @@
 #include "linalg/eltwise.h"
 #include <cub/cub.cuh>
 #include <stdio.h>
+#include <iostream.h>
 
 namespace MLCommon {
 namespace Stats {
@@ -152,12 +153,16 @@ void meanMG(TypeMG<Type>* mu, const TypeMG<Type>* data, int n_gpus,
 	} else {
 		//TODO: The cost of creating the CUDA context here seems to get quite high from
 		// time to time. Would it make sense to run the following loops in separate threads?
-		#pragma omp parallel
-		#pragma omp for
+		#pragma omp parallel for
+
+
 		for (int i = 0; i < n_gpus; i++) {
+			std::cout << "Running on device " << data[i].gpu_id << std::endl;
 			CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
 			mean(mu[i].d_data, data[i].d_data, data[i].n_cols, data[i].n_rows,
 					sample, rowMajor, data[i].stream);
+
+			std::cout << "Finished running on device " << data[i].gpu_id << std::endl;
 		}
 	}
 }
