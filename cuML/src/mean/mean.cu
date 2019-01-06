@@ -17,7 +17,6 @@
 
 #include "mean_c.h"
 #include <stats/mean.h>
-#include <cuda_runtime.h>
 #include "mg_descriptor.h"
 #include "mg_utils.h"
 #include "ml_utils.h"
@@ -42,7 +41,6 @@ void meanMG(MGDescriptorFloat *mu, MGDescriptorFloat *data, int n_gpus, bool sam
 
 	Stats::meanMG(mus, ins, n_gpus, sample, rowMajor);
 }
-
 
 void meanMG(MGDescriptorDouble *mu, MGDescriptorDouble *data, int n_gpus, bool sample, bool rowMajor, bool row_split) {
 

@@ -5,7 +5,6 @@
 #include <cstdio>
 #include <stdint.h>
 
-
 namespace MLCommon {
 
 /** macro to throw a c++ std::runtime_error */
@@ -13,7 +12,7 @@ namespace MLCommon {
     do {                                                                \
         std::string msg;                                                \
         char errMsg[2048];                                              \
-        std::sprintf(errMsg, "Exception occured! file=%s line=%d: ",    \
+        std::sprintf(errMsg, "Exception occurred! file=%s line=%d: ",    \
                      __FILE__, __LINE__);                               \
         msg += errMsg;                                                  \
         std::sprintf(errMsg, fmt, ##__VA_ARGS__);                       \
