@@ -21,7 +21,7 @@
 #include "linalg/eltwise.h"
 #include <cub/cub.cuh>
 #include <stdio.h>
-#include <iostream.h>
+#include <iostream>
 
 namespace MLCommon {
 namespace Stats {
