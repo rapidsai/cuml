@@ -151,11 +151,6 @@ void meanMG(TypeMG<Type>* mu, const TypeMG<Type>* data, int n_gpus,
 		 */
 		ASSERT(false, "meanMG: row_split not implemented");
 	} else {
-		//TODO: The cost of creating the CUDA context here seems to get quite high from
-		// time to time. Would it make sense to run the following loops in separate threads?
-		#pragma omp parallel for
-
-
 		for (int i = 0; i < n_gpus; i++) {
 			std::cout << "Running on device " << data[i].gpu_id << std::endl;
 			CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
