@@ -56,7 +56,7 @@ template <typename Type>
 void launcher(Pack<Type> data, int batchSize, cudaStream_t stream) {
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
-    device_ptr<Type> dev_vd = device_pointer_cast(data.vd); 
+    device_ptr<int> dev_vd = device_pointer_cast(data.vd); 
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
     exclusive_scan(dev_vd, dev_vd + batchSize, dev_ex_scan);
     adj_graph_kernel<Type, TPB_X><<<blocks, threads>>>(data, batchSize);

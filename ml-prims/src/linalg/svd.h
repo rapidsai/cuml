@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include "cublas_wrappers.h"
@@ -247,10 +263,10 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V, int n
 	const math_t alpha = 1.0, beta = -1.0;
 	math_t *A_minus_P;
 	allocate<math_t>(A_minus_P, m * n * sizeof(math_t), true);
-	
+
 	cublasHandle_t cublasH;
 	CUBLAS_CHECK(cublasCreate(&cublasH));
-	CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, 
+	CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N,
 							m, n,
 							&alpha, A_d, m,
 							&beta, P_d, m,
