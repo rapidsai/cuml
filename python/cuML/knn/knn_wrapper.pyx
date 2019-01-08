@@ -117,17 +117,9 @@ cdef class KNN:
 
         X_m = X.as_gpu_matrix(order = "C")
 
-        print(str(X_m.dtype))
-
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        print(str(X_ctype))
-
-        print(str(len(X)))
-        print(str(X.shape[0]))
-
-        print(str(n_dims))
 
         self.k = new kNN(n_dims)
         self.k.fit(<float*>X_ctype, <int> X.shape[0])
@@ -138,21 +130,14 @@ cdef class KNN:
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
-        print(str(N))
-
         # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
         I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
         D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
-
-        print(str(I_ndarr.dtype))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
         self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
-
-        print(str(np.asarray(I_ndarr)))
-        print(str(np.asarray(D_ndarr)))
 
         I_ndarr = I_ndarr.reshape((N, k)).transpose()
         D_ndarr = D_ndarr.reshape((N, k)).transpose()
@@ -165,7 +150,6 @@ cdef class KNN:
         for i in range(0, D_ndarr.shape[0]):
             D[str(i)] = D_ndarr[i,:]
 
-        print("Complete")
         return I, D
 
     def to_cudf(self, df, col=''):
