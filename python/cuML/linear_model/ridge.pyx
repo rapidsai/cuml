@@ -77,7 +77,7 @@ class Ridge:
 
     """
 
-    def __init__(self, alpha, solver='eig', fit_intercept=True, normalize=False, ):
+    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
 
         """
         Initializes the liner regression class.
