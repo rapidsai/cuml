@@ -84,7 +84,7 @@ class Ridge:
 
         Parameters
         ----------
-        algorithm : Type: string. 'eig' (default) and 'svd' are supported algorithms.
+        solver : Type: string. 'eig' (default) and 'svd' are supported algorithms.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
@@ -95,11 +95,11 @@ class Ridge:
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        
+
         if solver in ['svd', 'eig', 'cd']:
             self.algo = self._get_algorithm_int(solver)
         else:
-            msg = "algorithm {!r} is not supported"
+            msg = "solver {!r} is not supported"
             raise TypeError(msg.format(solver))
 
         self.intercept_value = 0.0
@@ -174,7 +174,7 @@ class Ridge:
         self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
 
-        cdef float c_intercept1 
+        cdef float c_intercept1
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
