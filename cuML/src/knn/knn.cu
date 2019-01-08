@@ -20,38 +20,17 @@
 
 namespace ML {
 
-	
-
 	kNN::kNN(int D): index_flat(&res, D) {}
 	kNN::~kNN() {}
 
-        void kNN::fit(float *input, int N) {
+	void kNN::fit(float *input, int N) {
+		this->res.setDefaultNullStreamAllDevices();
+		this->index_flat.add(N, input);
+	}
 
-	    cudaPointerAttributes att;
-	    cudaError_t err = cudaPointerGetAttributes(&att, input);
-  	    
-	    std::cout << "ERR: " << err << std::endl
-	     << "MEMORY TYPE: " << att.memoryType << std::endl
-             << "SIZE: " << N << std::endl;
-    
-            this->res.setDefaultNullStreamAllDevices();
-	    this->index_flat.add(N, input);
-        }
-
-
-        void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
-
-	    std::cout << "search_items" << std::endl;
-	    PRINT_MEM_INFO(search_items);
-
-	    std::cout << "res_I" << std::endl;
-	    PRINT_MEM_INFO(res_I);
-
-	    std::cout << "res_D" << std::endl;
-	    PRINT_MEM_INFO(res_D);
-	    
-            this->index_flat.search(search_items_size, search_items, k, res_D, res_I);
-        }
+	void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
+		this->index_flat.search(search_items_size, search_items, k, res_D, res_I);
+	}
 
 /** @} */
 
