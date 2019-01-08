@@ -16,7 +16,7 @@ namespace ML {
         kNN(int D);
         ~kNN();
         void search(float *search_items, int search_items_size, long *res_I, float *res_D, int k);
-	void fit(float *input, int N);
+        void fit(float *input, int N);
 
     };
 }

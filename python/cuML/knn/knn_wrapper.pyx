@@ -14,7 +14,6 @@
 #
 
 cimport c_knn
-import faiss
 import numpy as np
 import pandas as pd
 import cudf
@@ -115,11 +114,15 @@ cdef class KNN:
 
     def fit(self, X):
         #if (isinstance(X, cudf.DataFrame)):
-        X_m = X.as_gpu_matrix()
-        self.X_ctype = self._get_ctype_ptr(X_m)
+
+        X_m = X.as_gpu_matrix(order = "C")
+
+        print(str(X_m.dtype))
+
+        cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        print(str(self.X_ctype))
+        print(str(X_ctype))
 
         print(str(len(X)))
         print(str(X.shape[0]))
@@ -127,24 +130,40 @@ cdef class KNN:
         print(str(n_dims))
 
         self.k = new kNN(n_dims)
-        self.k.fit(<float*>self.X_ctype, <int> X.shape[0])
+        self.k.fit(<float*>X_ctype, <int> X.shape[0])
 
     def query(self, X, k):
         
-        X_m = X.as_gpu_matrix()
-        self.X_ctype = self._get_ctype_ptr(X_m)
+        X_m = X.as_gpu_matrix(order = "C")
+        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
         print(str(N))
 
         # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
-        I = cudf.Series(np.zeros(N*k, dtype=np.int64))
-        D = cudf.Series(np.zeros(N*k, dtype=np.float32))
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
 
-        self.I_ptr = self._get_column_ptr(I)
-        self.D_ptr = self._get_column_ptr(D)
+        print(str(I_ndarr.dtype))
 
-        self.k.search(<float*>self.X_ctype, <int> N, <long*>self.I_ptr, <float*>self.D_ptr, <int> k)
+        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+
+        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+
+        print(str(np.asarray(I_ndarr)))
+        print(str(np.asarray(D_ndarr)))
+
+        I_ndarr = I_ndarr.reshape((N, k)).transpose()
+        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+
+        I = cudf.DataFrame()
+        for i in range(0, I_ndarr.shape[0]):
+            I[str(i)] = I_ndarr[i,:]
+
+        D = cudf.DataFrame()
+        for i in range(0, D_ndarr.shape[0]):
+            D[str(i)] = D_ndarr[i,:]
 
         print("Complete")
         return I, D
