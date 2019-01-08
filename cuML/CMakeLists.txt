@@ -15,7 +15,7 @@
 #
 
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 
@@ -26,7 +26,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # - Requirements ----------------------------------------------------------------------------------
 
 find_package(CUDA 9.0 REQUIRED)
-find_package(OpenMP REQUIRED)
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+    find_package(OpenMP)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
@@ -41,8 +43,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUTLASS_DIR_2 "${PROJECT_SOURCE_DIR}/external/cutlass" CACHE STRING
-  "Path to the root of cutlass project directory that Thejaswi updated")
 
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -56,8 +56,10 @@ option(DEBUG "Get a debug build" OFF)
 ###################################################################################################
 # - NVCC Options  ---------------------------------------------------------------------------------
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+if(OPENMP_FOUND)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif(OPENMP_FOUND)
 if(CMAKE_CXX_STANDARD STREQUAL "11")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
@@ -101,7 +103,6 @@ include_directories(src
                     ${MLPRIMS_DIR}/src/dbscan
                     ${MLPRIMS_DIR}/test
                     ${CUTLASS_DIR}
-                    ${CUTLASS_DIR_2}
                     ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
@@ -118,16 +119,15 @@ add_library(cuml SHARED
             src/tsvd/tsvd.cu
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
+            src/glm/glm.cu
             )
 
-target_link_libraries(cuml
-                      OpenMP::OpenMP_CXX
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      pthread
-                      z)
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} z)
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------

@@ -24,6 +24,7 @@
 namespace MLCommon {
 namespace Stats {
 
+using namespace MLCommon;
 
 ///@todo: ColsPerBlk has been tested only for 32!
 template <typename Type, int TPB, int ColsPerBlk=32>
@@ -66,7 +67,7 @@ __global__ void sumKernelColMajor(Type* mu, const Type* data, int D, int N) {
 /**
  * @brief Compute sum of the input matrix
  *
- * Mean operation is assumed to be performed on a given column.
+ * Sum operation is assumed to be performed on a given column.
  *
  * @tparam Type the data type
  * @param output the output mean vector
@@ -76,7 +77,7 @@ __global__ void sumKernelColMajor(Type* mu, const Type* data, int D, int N) {
  * @param rowMajor whether the input data is row or col major
  */
 template <typename Type>
-void sum(Type* output, const Type* input, int D, int N, bool rowMajor) {
+void sum(Type* output, const Type* input, int D, int N, bool rowMajor, cudaStream_t stream = 0) {
     static const int TPB = 256;
     if(rowMajor) {
         static const int RowsPerThread = 4;
@@ -84,11 +85,46 @@ void sum(Type* output, const Type* input, int D, int N, bool rowMajor) {
         static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
         dim3 grid(ceildiv(N,RowsPerBlk), ceildiv(D,ColsPerBlk));
         CUDA_CHECK(cudaMemset(output, 0, sizeof(Type)*D));
-        sumKernelRowMajor<Type,TPB,ColsPerBlk><<<grid,TPB>>>(output, input, D, N);
+        sumKernelRowMajor<Type,TPB,ColsPerBlk><<<grid,TPB, 0, stream>>>(output, input, D, N);
     } else {
-        sumKernelColMajor<Type,TPB><<<D,TPB>>>(output, input, D, N);
+        sumKernelColMajor<Type,TPB><<<D,TPB, 0, stream>>>(output, input, D, N);
     }
     CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Compute sum of the input matrix
+ *
+ * Sum operation is assumed to be performed on a given column.
+ *
+ * @tparam Type the data type
+ * @param output the output mean vector
+ * @param input the input matrix
+ * @param D number of columns of data
+ * @param N number of rows of data
+ * @param n_gpu: number of gpus.
+ * @param rowMajor whether the input data is row or col major
+ * @param row_split: true if the data is broken by row
+ * @param sync: synch the streams if it's true
+ */
+template <typename Type>
+void sumMG(TypeMG<Type>* output, const TypeMG<Type>* input, int D, int N,
+		   int n_gpus, bool rowMajor, bool row_split = false,
+			bool sync = false) {
+
+	if (row_split) {
+		ASSERT(false, "sumMG: row split is not supported");
+	} else {
+		for (int i = 0; i < n_gpus; i++) {
+			CUDA_CHECK(cudaSetDevice(input[i].gpu_id));
+
+			sum(output[i].d_data, input[i].d_data, input[i].n_cols, input[i].n_rows,
+				rowMajor, input[i].stream);
+		}
+	}
+
+	if (sync)
+        streamSyncMG(input, n_gpus);
 }
 
 }; // end namespace Stats
