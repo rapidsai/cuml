@@ -8,21 +8,6 @@ There are two `CMakeLists.txt` in this folder:
 `kmeans_example` is build as part of cuML. If it should be build as a standalone executable use `CMakeLists_standalone.txt` and configure with:
 ```bash
 $ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml.so -DCUML_INCLUDE_DIR=/path/to/directory/with/kmeans/kmeans_c.h
--- The CXX compiler identification is GNU 5.4.0
--- The CUDA compiler identification is NVIDIA 10.0.130
--- Check for working CXX compiler: /usr/bin/c++
--- Check for working CXX compiler: /usr/bin/c++ -- works
--- Detecting CXX compiler ABI info
--- Detecting CXX compiler ABI info - done
--- Detecting CXX compile features
--- Detecting CXX compile features - done
--- Check for working CUDA compiler: /usr/local/cuda-10.0.130/bin/nvcc
--- Check for working CUDA compiler: /usr/local/cuda-10.0.130/bin/nvcc -- works
--- Detecting CUDA compiler ABI info
--- Detecting CUDA compiler ABI info - done
--- Configuring done
--- Generating done
--- Build files have been written to: .../build
 ```
 then build with `make`
 ```bash
