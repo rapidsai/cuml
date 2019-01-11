@@ -24,6 +24,7 @@ from libc.stdint cimport uintptr_t
 from c_dbscan cimport *
 
 
+
 class DBSCAN:
     """
     Create a DataFrame, fill it with data, and compute DBSCAN:
@@ -55,6 +56,8 @@ class DBSCAN:
 
     """
 
+
+
     def __init__(self, eps=1.0, min_samples=1):
         self.eps = eps
         self.min_samples = min_samples
@@ -69,7 +72,7 @@ class DBSCAN:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
-    def fit(self, X):
+    def fit(self, X, row_matrix):
         """
             Perform DBSCAN clustering from features or distance matrix.
 
@@ -82,7 +85,7 @@ class DBSCAN:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order = "C")
+            X_m = row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -119,7 +122,7 @@ class DBSCAN:
                                <double> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
-        #del(X_m)
+        del(X_m)
         return self
 
     def fit_predict(self, X):
