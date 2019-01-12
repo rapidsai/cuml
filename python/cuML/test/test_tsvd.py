@@ -15,7 +15,7 @@
 import pytest
 from cuml import TruncatedSVD as cuTSVD
 from sklearn.decomposition import TruncatedSVD as skTSVD
-from test_utils import array_equal
+from utils import array_equal
 import cudf
 import numpy as np
 
