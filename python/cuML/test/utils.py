@@ -15,32 +15,34 @@
 
 import numpy as np
 import pandas as pd
+from copy import deepcopy
+
+from numbers import Number
 
 from sklearn import datasets
 
 import cudf
 
 
-def array_equal(a,b,threshold=1e-4,with_sign=True):
+def array_equal(a, b, threshold=1e-4, with_sign=True):
     a = to_nparray(a)
     b = to_nparray(b)
-    if with_sign == False:
-        a,b = np.abs(a),np.abs(b)
-    res = np.max(np.abs(a-b))<threshold
+    if not with_sign:
+        a, b = np.abs(a), np.abs(b)
+    res = np.max(np.abs(a-b)) < threshold
     return res
 
+
 def to_nparray(x):
-    if isinstance(x,np.ndarray):
-        return x
-    elif isinstance(x,np.float64):
+    if isinstance(x, Number):
         return np.array([x])
-    elif isinstance(x,pd.DataFrame):
+    elif isinstance(x, pd.DataFrame):
         return x.values
-    elif isinstance(x,cudf.DataFrame):
+    elif isinstance(x, cudf.DataFrame):
         return x.to_pandas().values
-    elif isinstance(x,cudf.Series):
+    elif isinstance(x, cudf.Series):
         return x.to_pandas().values
-    return x
+    return np.array(x)
 
 
 def get_pattern(name):
@@ -83,7 +85,7 @@ def get_pattern(name):
     return [data, params]
 
 
-def np2cudf(X):
+def np_to_cudf(X):
     df = cudf.DataFrame()
     for i in range(X.shape[1]):
         df['fea%d' % i] = np.ascontiguousarray(X[:, i])
@@ -98,8 +100,22 @@ def fit_predict(algorithm, name, X):
         else:
             y_pred = algorithm.predict(X)
     else:
-        df = np2cudf(X)
+        df = np_to_cudf(X)
         algorithm.fit(df)
         y_pred = algorithm.labels_.to_pandas().values.astype(np.int)
     return y_pred
+
+
+def clusters_equal(a0, b0, n_clusters):
+    a = to_nparray(a0)
+    b = to_nparray(b0)
+
+    c = deepcopy(b)
+
+    for i in range(n_clusters):
+        idx, = np.where(a == i)
+        a_to_b = c[idx[0]]
+        b[c == a_to_b] = i
+
+    return array_equal(a, b)
 
