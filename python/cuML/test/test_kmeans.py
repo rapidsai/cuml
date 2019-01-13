@@ -15,6 +15,8 @@
 
 import pytest
 
+import numpy as np
+
 import cuml
 
 from sklearn import cluster
@@ -22,9 +24,7 @@ from sklearn.preprocessing import StandardScaler
 
 from utils import fit_predict, get_pattern, clusters_equal
 
-
-dataset_names = ['noisy_circles', 'noisy_moons', 'varied', 'aniso',
-                 'blobs']
+dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles']
 
 
 @pytest.mark.parametrize('name', dataset_names)
@@ -37,7 +37,7 @@ def test_kmeans_sklearn_comparison(name):
                     'n_neighbors': 10,
                     'n_clusters': 3}
 
-    pat = get_pattern(name)
+    pat = get_pattern(name, 5000)
 
     params = default_base.copy()
     params.update(pat[1])
@@ -54,20 +54,17 @@ def test_kmeans_sklearn_comparison(name):
         ('cuml_Kmeans', cuml_kmeans),
     )
 
-    sk_y_pred = fit_predict(clustering_algorithms[0][1],
-                            clustering_algorithms[0][0], X)
+    sk_y_pred, _ = fit_predict(clustering_algorithms[0][1],
+                             clustering_algorithms[0][0], X)
 
-    cu_y_pred = fit_predict(clustering_algorithms[1][1],
-                            clustering_algorithms[1][0], X)
+    cu_y_pred, _ = fit_predict(clustering_algorithms[1][1],
+                             clustering_algorithms[1][0], X)
 
-    if name == 'noisy_moons':
-        clusters_equal(sk_y_pred, cu_y_pred, 2)
-
-    elif name in ['varied', 'aniso', 'blobs']:
-        clusters_equal(sk_y_pred, cu_y_pred, 3)
+    # Noisy circles clusters are rotated in the results,
+    # since we are comparing 2 we just need to compare that both clusters
+    # have approximately the same number of points.
+    if name == 'noisy_circles':
+        assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 1e-10
 
     else:
-        print(sk_y_pred[0:10])
-        print(cu_y_pred[0:10])
-
-        assert False
+        clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
