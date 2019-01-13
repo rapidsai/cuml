@@ -24,12 +24,12 @@ from sklearn import datasets
 import cudf
 
 
-def array_equal(a, b, threshold=1e-4, with_sign=True):
+def array_equal(a, b, tol=1e-4, with_sign=True):
     a = to_nparray(a)
     b = to_nparray(b)
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = np.max(np.abs(a-b)) < threshold
+    res = np.max(np.abs(a-b)) < tol
     return res
 
 
@@ -45,11 +45,9 @@ def to_nparray(x):
     return np.array(x)
 
 
-def get_pattern(name):
+def get_pattern(name, n_samples):
     np.random.seed(0)
     random_state = 170
-
-    n_samples = 1500
 
     if name == 'noisy_circles':
         data = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
@@ -103,10 +101,12 @@ def fit_predict(algorithm, name, X):
         df = np_to_cudf(X)
         algorithm.fit(df)
         y_pred = algorithm.labels_.to_pandas().values.astype(np.int)
-    return y_pred
+
+    n_clusters = len(set(y_pred)) - (1 if -1 in y_pred else 0)
+    return y_pred, n_clusters
 
 
-def clusters_equal(a0, b0, n_clusters):
+def normalize_clusters(a0, b0, n_clusters):
     a = to_nparray(a0)
     b = to_nparray(b0)
 
@@ -117,5 +117,9 @@ def clusters_equal(a0, b0, n_clusters):
         a_to_b = c[idx[0]]
         b[c == a_to_b] = i
 
-    return array_equal(a, b)
+    return a, b
 
+
+def clusters_equal(a0, b0, n_clusters):
+    a, b = normalize_clusters(a0, b0, n_clusters)
+    return array_equal(a, b)
