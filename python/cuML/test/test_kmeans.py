@@ -20,7 +20,7 @@ import cuml
 from sklearn import cluster
 from sklearn.preprocessing import StandardScaler
 
-from utils import fit_predict, get_pattern
+from utils import fit_predict, get_pattern, clusters_equal
 
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'varied', 'aniso',
@@ -60,9 +60,14 @@ def test_kmeans_sklearn_comparison(name):
     cu_y_pred = fit_predict(clustering_algorithms[1][1],
                             clustering_algorithms[1][0], X)
 
-    # if name == 'noisy_circles':
+    if name == 'noisy_moons':
+        clusters_equal(sk_y_pred, cu_y_pred, 2)
 
-    print(sk_y_pred[0:10])
-    print(cu_y_pred[0:10])
+    elif name in ['varied', 'aniso', 'blobs']:
+        clusters_equal(sk_y_pred, cu_y_pred, 3)
 
-    assert False
+    else:
+        print(sk_y_pred[0:10])
+        print(cu_y_pred[0:10])
+
+        assert False
