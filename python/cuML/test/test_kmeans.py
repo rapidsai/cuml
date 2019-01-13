@@ -55,10 +55,10 @@ def test_kmeans_sklearn_comparison(name):
     )
 
     sk_y_pred, _ = fit_predict(clustering_algorithms[0][1],
-                             clustering_algorithms[0][0], X)
+                               clustering_algorithms[0][0], X)
 
     cu_y_pred, _ = fit_predict(clustering_algorithms[1][1],
-                             clustering_algorithms[1][0], X)
+                               clustering_algorithms[1][0], X)
 
     # Noisy circles clusters are rotated in the results,
     # since we are comparing 2 we just need to compare that both clusters
