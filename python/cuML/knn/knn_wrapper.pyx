@@ -115,10 +115,15 @@ cdef class KNN:
     def fit(self, X):
         if isinstance(X, cudf.DataFrame):
             X_m = X.as_gpu_matrix(order = "C")
+            dtype = np.dtype(X[X.columns[0]]._column.dtype)
         elif isinstance(X, np.ndarray):
             X_m = cuda.to_device(X)
+            dtype = X.dtype
         else:
             raise Exception("Received unsupported input type " % type(X))
+
+        if dtype != np.float32:
+            raise Exception("KNN currently only supports single-precision floating-point inputs")
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
