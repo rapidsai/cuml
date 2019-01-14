@@ -43,7 +43,10 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-
+set(FAISS_LIBNAME "faiss" CACHE STRING
+  "Name of the FAISS library")
+set(FAISS_GPU_LIBNAME "gpufaiss" CACHE STRING
+  "Name of the FAISS library")
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -121,11 +124,12 @@ add_library(cuml SHARED
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
             src/glm/glm.cu
-	    src/knn/knn.cu
+	    	src/knn/knn.cu
             )
 
 target_link_libraries(cuml
                       OpenMP::OpenMP_CXX
+                      ${FAISS_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
@@ -140,6 +144,8 @@ add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
                       ${GTEST_LIBNAME}
+                      ${FAISS_LIBNAME}
+                      ${FAISS_GPU_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
