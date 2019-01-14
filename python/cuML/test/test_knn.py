@@ -37,16 +37,26 @@ def test_knn_search(input_type):
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
         knn_cu.fit(X)
         D_cuml, I_cuml = knn_cu.query(X, len(X))
-        print(str(I_cuml))
+
+        assert type(D_cuml) == cudf.DataFrame
+        assert type(I_cuml) == cudf.DataFrame
+
+
+        # FAISS does not perform sqrt on L2 because it's expensive
+
+        D_cuml_arr = np.asarray(D_cuml.as_gpu_matrix(order="C"))
+        I_cuml_arr = np.asarray(I_cuml.as_gpu_matrix(order="C"))
+
     else:
         knn_cu.fit(X)
         D_cuml, I_cuml = knn_cu.query(X, len(X))
 
-        print(str(I_cuml))
+        assert type(D_cuml) == np.ndarray
+        assert type(I_cuml) == np.ndarray
 
-    # FAISS does not perform sqrt on L2 because it's expensive
-    D_cuml_arr  = np.asarray(D_cuml.as_gpu_matrix(order = "C"))
-    I_cuml_arr = np.asarray(I_cuml.as_gpu_matrix(order = "C"))
+        D_cuml_arr = D_cuml
+        I_cuml_arr = I_cuml
+
 
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)

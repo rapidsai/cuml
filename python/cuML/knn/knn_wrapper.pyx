@@ -115,8 +115,10 @@ cdef class KNN:
     def fit(self, X):
         if isinstance(X, cudf.DataFrame):
             X_m = X.as_gpu_matrix(order = "C")
-        else:
+        elif isinstance(X, np.ndarray):
             X_m = cuda.to_device(X)
+        else:
+            raise Exception("Received unsupported input type " % type(X))
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -127,11 +129,16 @@ cdef class KNN:
 
     def query(self, X, k):
 
+
+        # If input is cudf, return cudf, otherwise return numpy
         if isinstance(X, cudf.DataFrame):
             X_m = X.as_gpu_matrix(order = "C")
-        else:
+        elif isinstance(X, np.ndarray):
             X_m = cuda.to_device(X)
-        
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
@@ -154,6 +161,10 @@ cdef class KNN:
         D = cudf.DataFrame()
         for i in range(0, D_ndarr.shape[0]):
             D[str(i)] = D_ndarr[i,:]
+
+        if isinstance(X, np.ndarray):
+            I = np.asarray(I.as_gpu_matrix())
+            D = np.asarray(D.as_gpu_matrix())
 
         return D, I
 
