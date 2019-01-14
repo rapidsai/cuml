@@ -146,7 +146,9 @@ target_link_libraries(ml_test
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-add_subdirectory(examples)
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
