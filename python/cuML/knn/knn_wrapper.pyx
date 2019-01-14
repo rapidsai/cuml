@@ -113,9 +113,10 @@ cdef class KNN:
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
     def fit(self, X):
-        #if (isinstance(X, cudf.DataFrame)):
-
-        X_m = X.as_gpu_matrix(order = "C")
+        if isinstance(X, cudf.DataFrame):
+            X_m = X.as_gpu_matrix(order = "C")
+        else:
+            X_m = cuda.to_device(X)
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -125,8 +126,12 @@ cdef class KNN:
         self.k.fit(<float*>X_ctype, <int> X.shape[0])
 
     def query(self, X, k):
+
+        if isinstance(X, cudf.DataFrame):
+            X_m = X.as_gpu_matrix(order = "C")
+        else:
+            X_m = cuda.to_device(X)
         
-        X_m = X.as_gpu_matrix(order = "C")
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
@@ -150,7 +155,7 @@ cdef class KNN:
         for i in range(0, D_ndarr.shape[0]):
             D[str(i)] = D_ndarr[i,:]
 
-        return I, D
+        return D, I
 
     def to_cudf(self, df, col=''):
         # convert pandas dataframe to cudf dataframe
