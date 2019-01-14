@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
 #include <test_utils.h>
-#include <iostream>
 
 namespace ML {
 
@@ -38,7 +37,6 @@ protected:
 
 
 
-        std::cout << "Building inputs" << std::endl;
         // make testdata on host
         std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
         h_train_inputs.resize(n);
@@ -52,31 +50,12 @@ protected:
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
 
-        std::cout << "Fitting" << std::endl;
         knn->fit(d_train_inputs, n);
-        std::cout << "Searching" << std::endl;
-
         knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
-
-        std::vector<float> h_output_D;
-        h_output_D.resize(n*n);
-        updateHost<float>(h_output_D.data(), d_pred_D, n*n);
-
-        for(int i = 0; i < n*n; i++) {
-        	std::cout << std::to_string(h_output_D[i]) << std::endl;
-        }
-
-        std::cout << "Done Searching" << std::endl;
-
     }
 
  	void SetUp() override {
-
- 		std::cout << " Setting up!" << std::endl;
-
 		basicTest();
-
-		std::cout << "Done." << std::endl;
 	}
 
 	void TearDown() override {
