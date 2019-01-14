@@ -72,6 +72,8 @@ protected:
 	}
 
 	void SetUp() override {
+
+		std::cout << "Running DBSCAN" << std::endl;
 		basicTest();
 	}
 
