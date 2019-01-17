@@ -144,9 +144,9 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 				visited, labels, xa, fa, m, map_id, stream);
 	}
 
-        static const int TPB = 256;
-        int nblks = ceildiv(N, TPB);
-        relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
+	static const int TPB = 256;
+	int nblks = ceildiv(N, TPB);
+	relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
 
 	return (size_t) 0;
 }
