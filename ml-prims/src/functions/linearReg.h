@@ -39,8 +39,14 @@ void linearRegH(const math_t *input, int n_rows, int n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
 		 cublasHandle_t cublas_handle) {
 
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, false,
-				false, 1, 0, cublas_handle);
+				false, alpha, beta, cublas_handle);
+
+	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
+		    false, false, alpha, beta, cublas_handle);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);
