@@ -71,6 +71,19 @@ void matrixVectorOpImpl(Type* matrix, const Type* vec, int D, int N,
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
+
+
+template <typename Type, int veclen_, typename Lambda, int TPB>
+void matrixVectorOpImpl(Type* matrix, const Type* vec1,  const Type* vec2, int D, int N, bool rowMajor, Lambda op) {
+    if(rowMajor) {
+    	matrixVectorOpKernelRowMajor<Type,veclen_,Lambda,TPB><<<N,TPB>>>(matrix, vec1, vec2, D, N, op);
+    } else {
+    	matrixVectorOpKernelColMajor<Type,veclen_,Lambda,TPB><<<D,TPB>>>(matrix, vec1, vec2, D, N, op);
+    }
+    CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
 /**
  * @brief Operations for all the columns or rows with a given vector.
  *
