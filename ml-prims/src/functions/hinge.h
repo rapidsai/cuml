@@ -63,8 +63,11 @@ void hingeH(const math_t *input, int n_rows, int n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
 		 cublasHandle_t cublas_handle) {
 
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, false,
-				false, cublas_handle);
+				false, alpha, beta, cublas_handle);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);
@@ -83,8 +86,11 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 	math_t *input_t = NULL;
 	allocate(input_t, n_rows * n_cols);
 
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, false,
-			false, cublas_handle);
+			false, alpha, beta, cublas_handle);
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows);
 
@@ -129,8 +135,11 @@ void hingeLoss(math_t *input, int n_rows, int n_cols,
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
 
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, false,
-				false, cublas_handle);
+				false, alpha, beta, cublas_handle);
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows);
 
