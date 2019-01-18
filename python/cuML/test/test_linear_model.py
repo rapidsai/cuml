@@ -16,7 +16,7 @@
 import pytest
 from cuml import LinearRegression as cuLinearRegression
 from sklearn.linear_model import LinearRegression as skLinearRegression
-from test_utils import array_equal
+from utils import array_equal
 import cudf
 import numpy as np
 

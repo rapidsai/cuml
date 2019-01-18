@@ -16,7 +16,7 @@
 import pytest
 from cuml import PCA as cuPCA
 from sklearn.decomposition import PCA as skPCA
-from test_utils import array_equal
+from utils import array_equal
 import cudf
 import numpy as np
 
