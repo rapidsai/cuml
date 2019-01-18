@@ -96,11 +96,4 @@ def test_ridge(datatype, X_type, y_type, algorithm):
     sk_predict = skridge.predict(pred_data)
     cu_predict = curidge.predict(pred_data).to_array()
 
-    print(sk_predict)
-    print(cu_predict)
-
-    # print(skols.coef_)
-    # print(skridge.gdf_datatype)
-    # print(y.dtype)
-    assert False
     assert array_equal(sk_predict, cu_predict, 1e-3, with_sign=True)
