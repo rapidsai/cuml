@@ -1,19 +1,3 @@
-/*
- * Copyright (c) 2018, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #pragma once
 
 #include "../linalg/cublas_wrappers.h"
@@ -29,6 +13,7 @@ namespace Matrix {
 
 using namespace std;
 
+
 /**
  * @defgroup copy matrix operation for column major matrices.
  * @param in: input matrix
@@ -38,9 +23,11 @@ using namespace std;
  * @{
  */
 template<typename m_t>
-void copy(const m_t* in, m_t* out, int n_rows, int n_cols) {
+void copyRowsOld(const m_t* in, int n_rows, int n_cols, m_t* out,
+		int *indices, int n_rows_indices, bool rowMajor = false) {
 	auto m = n_rows;
-	auto size = n_rows * n_rows;
+	auto n = n_cols;
+	auto size = n_rows * n_cols;
 	auto d_q_in = in;
 	auto d_q_out = out;
 	auto counting = thrust::make_counting_iterator<int>(0);
@@ -48,9 +35,49 @@ void copy(const m_t* in, m_t* out, int n_rows, int n_cols) {
 	thrust::for_each(counting, counting+size, [=]__device__(int idx) {
 		int row = idx % m;
 		int col = idx / m;
-		d_q_out[col * m + row] = d_q_in[col * m + row];
+
+		for (int i = 0; i < n_rows_indices; i++) {
+			if (row == indices[i]) {
+				if (rowMajor)
+					d_q_out[i * n + col] = d_q_in[row * n + col];
+				else
+				    d_q_out[col * n_rows_indices + i] = d_q_in[col * m + row];
+
+			    break;
+			}
+		}
+
 	});
 }
+
+/**
+ * @defgroup copy matrix operation for column major matrices.
+ * @param in: input matrix
+ * @param out: output matrix
+ * @param n_rows: number of rows of output matrix
+ * @param n_cols: number of columns of output matrix
+ * @{
+ */
+template<typename m_t>
+void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
+		int *indices, int n_rows_indices, bool rowMajor = false) {
+
+	if (rowMajor) {
+		ASSERT(false,
+				"matrix.h: row major is not supported yet!");
+	}
+
+	auto size = n_rows_indices * n_cols;
+	auto counting = thrust::make_counting_iterator<int>(0);
+
+	thrust::for_each(counting, counting+size, [=]__device__(int idx) {
+		int row = idx % n_rows_indices;
+		int col = idx / n_rows_indices;
+
+	    out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
+	});
+}
+
 /** @} */
 
 /**
@@ -136,25 +163,24 @@ void rowReverse(m_t* inout, int n_rows, int n_cols) {
 }
 /** @} */
 
-/**
- * @defgroup Prints the data stored in GPU memory
- * @param in: input matrix
- * @param n_rows: number of rows of input matrix
- * @param n_cols: number of columns of input matrix
- * @{
- */
-template<typename m_t>
-void print(m_t* in, int n_rows, int n_cols) {
-	thrust::host_vector<m_t> h_matrix(thrust::device_ptr<m_t>(in),
-				thrust::device_ptr<m_t>(in + n_cols * n_rows));
+template<typename math_t>
+void print(const math_t* in, int n_rows, int n_cols) {
 
-	for (auto i = 0; i < n_rows; i++) {
-		for (auto j = 0; j < n_cols; j++) {
+	int len = n_rows * n_cols;
+	math_t *h_matrix = (math_t*) malloc(len * sizeof(math_t));;
+    updateHost(h_matrix, in, len);
+
+	for (int i = 0; i < n_rows; i++) {
+		for (int j = 0; j < n_cols; j++) {
 			printf("%1.4f ", h_matrix[j * n_rows + i]);
 		}
 		printf("\n");
 	}
+
+	free(h_matrix);
+
 }
+
 /** @} */
 
 /**
@@ -173,6 +199,7 @@ void printHost(m_t* in, int n_rows, int n_cols) {
 		printf("\n");
 	}
 }
+
 /** @} */
 
 /**
@@ -336,6 +363,8 @@ m_t getL2Norm(m_t *in, int size){
     return normval;
 }
 /** @} */
+
+
 
 }; // end namespace Matrix
 }; // end namespace MLCommon
