@@ -8,8 +8,9 @@
 ## Improvements
 
 - PR #56: Make OpenMP optional for building
-= PR #67: Github issue templates
+- PR #67: Github issue templates
 - PR #44: Refactored DBSCAN to use ML primitives
+- PR #75: C++ example to use kmeans
 
 ## Bug Fixes
 
