@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 #include <cmath>
 #include <stdio.h>
@@ -15,7 +31,7 @@ __global__ void Linear_KF_ID_kernel (T *w, int dim) {
     int j = threadIdx.x + blockDim.x * blockIdx.x;
     int i = threadIdx.y + blockDim.y * blockIdx.y;
     if (i < dim && j < dim)
-    {   
+    {
         if (i == j)
             w[IDX2C(i, j, dim)] = 1.0;
         else
@@ -82,7 +98,7 @@ void vctwiseAccumulate(const int nPoints, const int dim,
                        const T scalar, const T *X, T *x) {
     dim3 block(64);
     dim3 grid(ceildiv(nPoints * dim, (int)block.x));
-    vctwiseAccumulate_kernel <<< grid, block >>> (nPoints, dim, 
+    vctwiseAccumulate_kernel <<< grid, block >>> (nPoints, dim,
                                                   scalar, X, x);
     CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -107,7 +123,7 @@ void vctwiseAdd(const int col, const int row, const T scalar,
                 const T *in_m, const T *v, T *out_m) {
     dim3 block(64);
     dim3 grid(ceildiv(row * col, (int)block.x));
-    vctwiseAdd_kernel<T> <<< grid, block >>>(col, row, scalar, 
+    vctwiseAdd_kernel<T> <<< grid, block >>>(col, row, scalar,
                                              in_m, v, out_m);
     CUDA_CHECK(cudaPeekAtLastError());
 }
