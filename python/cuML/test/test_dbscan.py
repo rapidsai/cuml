@@ -61,9 +61,9 @@ def test_dbscan_predict_numpy(datatype):
                  dtype=datatype)
 
     print("Calling fit_predict")
-    cudbscan = cuDBSCAN(eps = 3, min_samples = 2)
+    cudbscan = cuDBSCAN(eps=3, min_samples=2)
     cu_labels = cudbscan.fit_predict(gdf)
-    skdbscan = skDBSCAN(eps = 3, min_samples = 2)
+    skdbscan = skDBSCAN(eps=3, min_samples=2)
     sk_labels = skdbscan.fit_predict(X)
     print(X.shape[0])
     for i in range(X.shape[0]):
@@ -116,7 +116,7 @@ def test_dbscan_sklearn_comparison(name):
                                  'noisy_circles',
                                  'varied',
                                  'aniso'])
-@pytest.mark.xfail(reason="bug shown in PR83")
+@pytest.mark.xfail(reason="discrepancies being looked into, issue #80")
 def test_fail_dbscan_sklearn_comparison(name):
 
     # Datasets shown to not coincide with sklearn
