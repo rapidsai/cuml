@@ -18,7 +18,9 @@
 - PR #48: CUDA 10 compilation warnings fix
 - PR #51: Fixes to Dockerfile and docs for new build system
 - PR #72: Fixes for GCC 7
+- PR #96: Fix for kmeans stack overflow with high number of clusters
 - PR #105: Fix for AttributeError in kmeans fit method
+
 
 # cuML 0.4.0 (05 Dec 2018)
 
