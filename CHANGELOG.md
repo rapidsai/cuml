@@ -4,6 +4,7 @@
 
 - PR #66: OLS Linear Regression
 - PR #44: Distance calculation ML primitives
+- PR #69: Ridge (L2 Regularized) Linear Regression
 - PR #103: Linear Kalman Filter
 
 ## Improvements
@@ -11,6 +12,7 @@
 - PR #56: Make OpenMP optional for building
 - PR #67: Github issue templates
 - PR #44: Refactored DBSCAN to use ML primitives
+- PR #91: Pytest cleanup and sklearn toyset datasets based pytests for kmeans and dbscan
 - PR #75: C++ example to use kmeans
 
 ## Bug Fixes
@@ -18,6 +20,9 @@
 - PR #48: CUDA 10 compilation warnings fix
 - PR #51: Fixes to Dockerfile and docs for new build system
 - PR #72: Fixes for GCC 7
+- PR #96: Fix for kmeans stack overflow with high number of clusters
+- PR #105: Fix for AttributeError in kmeans fit method
+
 
 # cuML 0.4.0 (05 Dec 2018)
 

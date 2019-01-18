@@ -133,8 +133,6 @@ class KMeans:
 
         """
 
-        self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
