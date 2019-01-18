@@ -86,11 +86,11 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 	math_t *input_t = NULL;
 	allocate(input_t, n_rows * n_cols);
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
+	math_t alpha_gemm = math_t(1);
+	math_t beta_gemm = math_t(0);
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, false,
-			false, alpha, beta, cublas_handle);
+			false, alpha_gemm, beta_gemm, cublas_handle);
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows);
 
