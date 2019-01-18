@@ -173,15 +173,60 @@ void seqRoot(math_t* in, math_t* out, int len) {
  * @{
  */
 template <typename math_t>
-void reciprocal(math_t* inout, math_t scalar, int len) {
+void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false, math_t thres = 1e-15) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto d_A = inout;
 
     thrust::for_each(counting, counting + len, [=]__device__(int idx)
 	{
-    	d_A[idx] = scalar / d_A[idx];
+    	if (setzero) {
+            if (d_A[idx] <= thres) {
+            	d_A[idx] = math_t(0);
+            } else {
+            	d_A[idx] = scalar / d_A[idx];
+            }
+    	} else {
+    		d_A[idx] = scalar / d_A[idx];
+    	}
+
 	});
+}
+
+/**
+ * @defgroup sets the small values to zero based on a defined threshold
+ * @param inout: input matrix and also the result is stored
+ * @param len: number elements of input matrix
+ * @param thres: threshold
+ * @{
+ */
+template <typename math_t>
+void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
+
+	auto counting = thrust::make_counting_iterator(0);
+	auto d_A = inout;
+
+    thrust::for_each(counting, counting + len, [=]__device__(int idx)
+	{
+    	if (d_A[idx] <= thres) {
+            d_A[idx] = math_t(0);
+        } else {
+            d_A[idx] = d_A[idx];
+        }
+	});
+}
+
+template <typename Type, int TPB=256>
+void setSmallValuesZero(Type* inout, const Type* vec, int n_row, int n_col, Type thres) {
+
+	matrixVectorOp(inout, vec, n_col, n_row, false,
+			        		[] __device__ (Type a, Type b) {
+			                       if (b < Type(1e-10))
+			                      	   return Type(0);
+			                       else
+			        		           return a;
+			        		    });
+
 }
 
 /**
@@ -212,7 +257,7 @@ void reciprocal(math_t* in, math_t* out, math_t scalar, int len) {
  * @{
  */
 template <typename math_t>
-void reciprocal(math_t* inout, int len) {
+void reciprocal(math_t* inout, int len, bool setzero = false, math_t thres = 1e-15) {
 	math_t scalar = 1.0;
 	reciprocal(inout, scalar, len);
 }
