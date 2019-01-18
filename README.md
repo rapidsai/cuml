@@ -115,7 +115,7 @@ $ python setup.py build_ext --inplace
 To run Python tests (optional):
 
 ```bash
-$ py.test cuML/test -v
+$ py.test -v
 ```
 
 If you want a list of the available tests:
