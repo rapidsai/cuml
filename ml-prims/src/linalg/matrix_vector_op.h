@@ -151,6 +151,40 @@ void matrixVectorOpMG(TypeMG<Type>* matrix, const TypeMG<Type>* vec, int D,
 
 }
 ;
+
+/**
+ * @brief Center the input matrix wrt its mean
+ *
+ * Mean operation is assumed to be performed on a given column.
+ *
+ * @tparam Type the matrix type
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param matrix matrix which needs to be centered (currently assumed to be row-major)
+ * @param vec1 the first input vector
+ * @param vec2 the first input vector
+ * @param D number of columns of matrix
+ * @param N number of rows of matrix
+ * @param rowMajor whether input is row or col major
+ */
+template <typename Type, typename Lambda, int TPB=256>
+void matrixVectorOp(Type* matrix, const Type* vec1, const Type* vec2, int D, int N, bool rowMajor, Lambda op) {
+    int stride = rowMajor? D : N;
+    size_t bytes = stride * sizeof(Type);
+    if(16/sizeof(Type) && bytes % 16 == 0) {
+    	matrixVectorOpImpl<Type,16/sizeof(Type),Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    } else if(8/sizeof(Type) && bytes % 8 == 0) {
+    	matrixVectorOpImpl<Type,8/sizeof(Type),Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    } else if(4/sizeof(Type) && bytes % 4 == 0) {
+    	matrixVectorOpImpl<Type,4/sizeof(Type),Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    } else if(2/sizeof(Type) && bytes % 2 == 0) {
+    	matrixVectorOpImpl<Type,2/sizeof(Type),Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    } else if(1/sizeof(Type)) {
+    	matrixVectorOpImpl<Type,1/sizeof(Type),Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    } else {
+    	matrixVectorOpImpl<Type,1,Lambda,TPB>(matrix, vec1, vec2, D, N, rowMajor, op);
+    }
+}
+
 // end namespace Stats
 }
 ;
