@@ -108,11 +108,11 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
+	math_t alpha_gemm = math_t(1);
+	math_t beta_gemm = math_t(0);
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, false,
-			false, alpha, beta, cublas_handle);
+			false, alpha_gemm, beta_gemm, cublas_handle);
 
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
 
