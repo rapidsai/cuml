@@ -45,7 +45,9 @@ Upcoming algorithms:
 
 - Elastic-Net,
 
-- Logistic Regression.
+- Logistic Regression,
+
+- UMAP
 
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
