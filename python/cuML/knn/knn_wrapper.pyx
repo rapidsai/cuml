@@ -112,7 +112,7 @@ cdef class KNN:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-    def fit(self, X):
+    def fit(self, X, n_gpus = 1):
         if isinstance(X, cudf.DataFrame):
             X_m = X.as_gpu_matrix(order = "C")
             dtype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -130,7 +130,7 @@ cdef class KNN:
         n_dims = X.shape[1]
 
         self.k = new kNN(n_dims)
-        self.k.fit(<float*>X_ctype, <int> X.shape[0])
+        self.k.fit(<float*>X_ctype, <int> X.shape[0], n_gpus)
 
     def query(self, X, k):
 

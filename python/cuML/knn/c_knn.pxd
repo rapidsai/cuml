@@ -9,5 +9,11 @@ cdef extern from "knn/knn.cu" namespace "ML":
 cdef extern from "knn/knn_c.h" namespace "ML":
     cdef cppclass kNN:
         kNN(int D) except +
-        void search(float *search_items, int search_items_size, long *res_I, float *res_D, int k)
-        void fit(float *input, int N)
+        void search(float *search_items,
+                    int search_items_size,
+                    long *res_I,
+                    float *res_D,
+                    int k)
+        void fit(float *input,
+                 int N,
+                 int n_gpus)
