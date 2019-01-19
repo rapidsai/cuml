@@ -17,19 +17,48 @@
 #include "knn_c.h"
 #include <cuda_runtime.h>
 #include <iostream>
+#include <faiss/gpu/StandardGpuResources.h>
+#include <faiss/gpu/GpuIndexFlat.h>
+#include <vector>
+
+
 
 namespace ML {
 
-	kNN::kNN(int D): index_flat(&res, D) {}
+	kNN::kNN(int D): D(D){}
 	kNN::~kNN() {}
 
-	void kNN::fit(float *input, int N) {
-		this->res.setDefaultNullStreamAllDevices();
-		this->index_flat.add(N, input);
+	void kNN::fit(float *input, int N, int n_gpus = 1) {
+
+	   std::vector<faiss::gpu::StandardGpuResources* > res;
+	   std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+
+	   for(int dev_no = 0; dev_no < n_gpus; dev_no++) {
+
+			res.emplace_back(new faiss::gpu::StandardGpuResources());
+
+			faiss::gpu::GpuIndexFlatConfig config;
+			config.device = dev_no;
+			config.useFloat16 = false;
+			config.storeTransposed = false;
+
+			faiss::gpu::StandardGpuResources *gres = res.back();
+
+			sub_indices.emplace_back(
+					new faiss::gpu::GpuIndexFlatL2(gres, D, config)
+			);
+	   }
+
+	   for(int dev_no =0; dev_no < n_gpus; dev_no++) {
+			indexProxy.addIndex(sub_indices[dev_no]);
+	   }
+
+	   indexProxy.add(N, input);
 	}
 
 	void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
-		this->index_flat.search(search_items_size, search_items, k, res_D, res_I);
+		indexProxy.search(search_items_size, search_items, k, res_D, res_I);
+
 	}
 
 /** @} */

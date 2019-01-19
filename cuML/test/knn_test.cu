@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
 #include <test_utils.h>
+#include <iostream>
 
 namespace ML {
 
@@ -22,8 +23,6 @@ class KNNTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
-		std::cout << "Allocating" << std::endl;
-
 		// Allocate input
         allocate(d_train_inputs, n * d);
 
@@ -34,8 +33,6 @@ protected:
         // Allocate predicted arrays
         allocate<long>(d_pred_I, n*n);
         allocate(d_pred_D, n*n);
-
-
 
         // make testdata on host
         std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
@@ -50,7 +47,7 @@ protected:
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
 
-        knn->fit(d_train_inputs, n);
+        knn->fit(d_train_inputs, n, 1);
         knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
     }
 
