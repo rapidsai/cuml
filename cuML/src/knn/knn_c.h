@@ -11,6 +11,11 @@ namespace ML {
 
     class kNN {
 
+
+ 	   std::vector<faiss::gpu::StandardGpuResources* > res;
+ 	   std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+
+
     	faiss::gpu::IndexProxy indexProxy;
      	int D;
 
