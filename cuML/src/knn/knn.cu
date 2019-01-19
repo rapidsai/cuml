@@ -28,11 +28,11 @@ namespace ML {
 	kNN::kNN(int D): D(D){}
 	kNN::~kNN() {
 		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
-			idx->~GpuIndexFlatL2();
+			delete idx;
 		}
 
 		for(faiss::gpu::StandardGpuResources *r : res) {
-			r->~StandardGpuResources();
+			delete r;
 		}
 	}
 
@@ -59,7 +59,6 @@ namespace ML {
 
 	void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
 		indexProxy.search(search_items_size, search_items, k, res_D, res_I);
-
 	}
 
 /** @} */
