@@ -26,30 +26,31 @@
 namespace ML {
 
 	kNN::kNN(int D): D(D){}
-	kNN::~kNN() {}
+	kNN::~kNN() {
+		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
+			idx->~GpuIndexFlatL2();
+		}
+
+		for(faiss::gpu::StandardGpuResources *r : res) {
+			r->~StandardGpuResources();
+		}
+	}
 
 	void kNN::fit(float *input, int N, int n_gpus = 1) {
 
-	   std::vector<faiss::gpu::StandardGpuResources* > res;
-	   std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
-
 	   for(int dev_no = 0; dev_no < n_gpus; dev_no++) {
-
-			res.emplace_back(new faiss::gpu::StandardGpuResources());
 
 			faiss::gpu::GpuIndexFlatConfig config;
 			config.device = dev_no;
 			config.useFloat16 = false;
 			config.storeTransposed = false;
 
-			faiss::gpu::StandardGpuResources *gres = res.back();
+			res.emplace_back(new faiss::gpu::StandardGpuResources());
 
 			sub_indices.emplace_back(
-					new faiss::gpu::GpuIndexFlatL2(gres, D, config)
+					new faiss::gpu::GpuIndexFlatL2(res[dev_no], D, config)
 			);
-	   }
 
-	   for(int dev_no =0; dev_no < n_gpus; dev_no++) {
 			indexProxy.addIndex(sub_indices[dev_no]);
 	   }
 
