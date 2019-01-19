@@ -18,7 +18,6 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -43,10 +42,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(FAISS_LIBNAME "faiss" CACHE STRING
-  "Name of the FAISS library")
-set(FAISS_GPU_LIBNAME "gpufaiss" CACHE STRING
-  "Name of the FAISS library")
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -100,8 +95,31 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
 
+include (ExternalProject)
+ExternalProject_Add(project_faiss
+  
+  SOURCE_DIR /home/cjnolet/workspace/faiss
+  CONFIGURE_COMMAND /home/cjnolet/workspace/faiss/configure --libdir=${CMAKE_CURRENT_BINARY_DIR}/faiss/lib --includedir=${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
+  BUILD_COMMAND make
+  INSTALL_COMMAND make install
+  BUILD_IN_SOURCE 1
+  PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
+)
+
+ExternalProject_Get_Property(project_faiss install_dir)
+
+add_library(faiss SHARED IMPORTED)
+
+add_dependencies(faiss project_faiss)
+
+set_property(TARGET faiss PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/faiss/lib)
+
+
 include_directories(src
- 		    ${CUDA_INCLUDE_DIR}
+					/home/cjnolet/workspace/faiss
+					/home/cjnolet/workspace/faiss/gpu
+		 		    ${CUDA_INCLUDE_DIR}
                     ${GTEST_DIR}/googletest/include
                     ${MLPRIMS_DIR}/src
                     ${MLPRIMS_DIR}/src/dbscan
@@ -118,6 +136,7 @@ file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
 
+
 add_library(cuml SHARED
             src/pca/pca.cu
             src/tsvd/tsvd.cu
@@ -129,7 +148,7 @@ add_library(cuml SHARED
 
 target_link_libraries(cuml
                       OpenMP::OpenMP_CXX
-                      ${FAISS_LIBNAME}
+                      faiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
@@ -144,8 +163,7 @@ add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
                       ${GTEST_LIBNAME}
-                      ${FAISS_LIBNAME}
-                      ${FAISS_GPU_LIBNAME}
+                      faiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
