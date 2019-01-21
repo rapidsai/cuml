@@ -15,7 +15,6 @@
 
 import pytest
 from cuml import KalmanFilter
-from test_utils import array_equal
 import cudf
 import numpy as np
 from numba import cuda
