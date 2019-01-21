@@ -120,7 +120,7 @@ class KalmanFilter:
     Now just perform the standard predict/update loop:
     while some_condition_is_true:
     .. code::
-        z = get_sensor_reading()
+        z = numba.cuda.to_device(np.array([i])
         f.predict()
         f.update(z)
 
@@ -134,23 +134,23 @@ class KalmanFilter:
 
     Attributes
     ----------
-    x : numba device array(dim_x, 1)
+    x : numba device array, numpy array or cuDF series (dim_x, 1),
         Current state estimate. Any call to update() or predict() updates
         this variable.
-    P : numba device array(dim_x, dim_x)
+    P : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Current state covariance matrix. Any call to update() or predict()
         updates this variable.
-    x_prior : numba device array(dim_x, 1)
+    x_prior : numba device array, numpy array or cuDF series(dim_x, 1)
         Prior (predicted) state estimate. The *_prior and *_post attributes
         are for convienence; they store the  prior and posterior of the
         current epoch. Read Only.
-    P_prior : numba device array(dim_x, dim_x)
+    P_prior : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Prior (predicted) state covariance matrix. Read Only.
-    x_post : numba device array(dim_x, 1)
+    x_post : numba device array, numpy array or cuDF series(dim_x, 1)
         Posterior (updated) state estimate. Read Only.
-    P_post : numba device array(dim_x, dim_x)
+    P_post : numba device array, numpy array or cuDF dataframe(dim_x, dim_x)
         Posterior (updated) state covariance matrix. Read Only.
-    z : numba device array
+    z : numba device array or cuDF series (dim_x, 1)
         Last measurement used in update(). Read only.
     R : numba device array(dim_z, dim_z)
         Measurement noise matrix
@@ -164,11 +164,16 @@ class KalmanFilter:
         Residual of the update step. Read only.
     K : numba device array(dim_x, dim_z)
         Kalman gain of the update step. Read only.
+    precision: 'single' or 'double'
+        Whether the Kalman Filter uses single or double precision
 
     """
 
     def _get_ctype_ptr(self, obj):
         return obj.device_ctypes_pointer.value
+
+    def _get_column_ptr(self, obj):
+        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def _get_dtype(self, precision):
         return {
@@ -306,8 +311,6 @@ class KalmanFilter:
         cdef Option algo
         algo = self._algorithm
 
-
-
         if self.precision == 'single':
 
             with nogil:
@@ -422,7 +425,22 @@ class KalmanFilter:
         dim_z = self.dim_z
 
         cdef uintptr_t _ws_ptr = self.workspace.device_ctypes_pointer.value
-        cdef uintptr_t z_ptr = z.device_ctypes_pointer.value
+
+        cdef uintptr_t z_ptr
+
+        if isinstance(z, cudf.Series):
+            z_ptr = self._get_column_ptr(z)
+
+        elif isinstance(z, np.ndarray):
+            z_dev = cuda.to_device(z)
+            z_ptr = z.device_ctypes_pointer.value
+
+        elif cuda.devicearray.is_cuda_ndarray(z):
+            z_ptr = z.device_ctypes_pointer.value
+
+        else:
+            msg = "z format supported"
+            raise TypeError(msg)
 
         if self.precision == 'single':
 
