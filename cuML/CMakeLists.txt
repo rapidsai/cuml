@@ -30,6 +30,14 @@ if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
     find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+    message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
+
+
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
 
@@ -103,7 +111,8 @@ include_directories(src
                     ${MLPRIMS_DIR}/src/dbscan
                     ${MLPRIMS_DIR}/test
                     ${CUTLASS_DIR}
-                    ${CUB_DIR})
+                    ${CUB_DIR}
+                    ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
@@ -122,7 +131,7 @@ add_library(cuml SHARED
             src/glm/glm.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} z)
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -141,7 +150,7 @@ target_link_libraries(ml_test
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
                       pthread
-                      z)
+                      ${ZLIB_LIBRARIES})
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
