@@ -32,7 +32,6 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(CUDA_INCLUDE_DIR /usr/local/cuda/include CACHE STRING "CUDA Include dir")
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -97,11 +96,15 @@ list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 ## end nvcc options
 
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(src
- 		    ${CUDA_INCLUDE_DIR}
+ 		    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
                     ${GTEST_DIR}/googletest/include
                     ${MLPRIMS_DIR}/src
                     ${MLPRIMS_DIR}/src/dbscan
