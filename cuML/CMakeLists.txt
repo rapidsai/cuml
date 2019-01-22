@@ -102,24 +102,28 @@ ExternalProject_Add(project_faiss
   CONFIGURE_COMMAND /home/cjnolet/workspace/faiss/configure --libdir=${CMAKE_CURRENT_BINARY_DIR}/faiss/lib --includedir=${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND make
-  INSTALL_COMMAND make install
+  INSTALL_COMMAND make install && cd gpu && make install
   BUILD_IN_SOURCE 1
   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
 )
 
+
 ExternalProject_Get_Property(project_faiss install_dir)
 
 add_library(faiss SHARED IMPORTED)
+add_library(gpufaiss SHARED IMPORTED)
 
 add_dependencies(faiss project_faiss)
+add_dependencies(gpufaiss project_faiss)
 
-set_property(TARGET faiss PROPERTY IMPORTED_LOCATION ${CMAKE_CURRENT_BINARY_DIR}/faiss/lib)
+set_property(TARGET faiss PROPERTY IMPORTED_LOCATION /share/workspace/faiss/libfaiss.so)
+set_property(TARGET gpufaiss PROPERTY IMPORTED_LOCATION /share/workspace/faiss/gpu/libgpufaiss.so)
 
 
 include_directories(src
-					/home/cjnolet/workspace/faiss
-					/home/cjnolet/workspace/faiss/gpu
-		 		    ${CUDA_INCLUDE_DIR}
+		    /home/cjnolet/workspace/faiss
+		    /home/cjnolet/workspace/faiss/gpu
+		    ${CUDA_INCLUDE_DIR}
                     ${GTEST_DIR}/googletest/include
                     ${MLPRIMS_DIR}/src
                     ${MLPRIMS_DIR}/src/dbscan
@@ -149,6 +153,7 @@ add_library(cuml SHARED
 target_link_libraries(cuml
                       OpenMP::OpenMP_CXX
                       faiss
+		      gpufaiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
@@ -164,6 +169,7 @@ add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 target_link_libraries(ml_test
                       ${GTEST_LIBNAME}
                       faiss
+		      gpufaiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
