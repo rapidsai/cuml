@@ -6,6 +6,7 @@
 - PR #44: Distance calculation ML primitives
 - PR #69: Ridge (L2 Regularized) Linear Regression
 - PR #103: Linear Kalman Filter
+- PR #117: Pip install support
 
 ## Improvements
 
@@ -14,6 +15,8 @@
 - PR #44: Refactored DBSCAN to use ML primitives
 - PR #91: Pytest cleanup and sklearn toyset datasets based pytests for kmeans and dbscan
 - PR #75: C++ example to use kmeans
+- PR #117: Use cmake extension to find any zlib installed in system
+- PR #94: Add cmake flag to set ABI compatibility
 
 ## Bug Fixes
 
@@ -24,6 +27,7 @@
 - PR #105: Fix for AttributeError in kmeans fit method
 - PR #113: Removed old  glm python/cython files
 - PR #118: Fix for AttributeError in kmeans predict method
+- PR #125: Remove randomized solver option from PCA python bindings
 
 
 # cuML 0.4.0 (05 Dec 2018)
