@@ -23,6 +23,7 @@
 - PR #96: Fix for kmeans stack overflow with high number of clusters
 - PR #105: Fix for AttributeError in kmeans fit method
 - PR #113: Removed old  glm python/cython files
+- PR #118: Fix for AttributeError in kmeans predict method
 
 
 # cuML 0.4.0 (05 Dec 2018)
