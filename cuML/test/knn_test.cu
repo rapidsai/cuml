@@ -51,7 +51,10 @@ protected:
 
         std::cout << "Allocations done. Fitting..." << std::endl;
 
-        knn->fit(d_train_inputs, n);
+        kNNParams params[1];
+        params[0] = { d_train_inputs, n };
+
+        knn->fit(params, 1);
 
         std::cout << "Done fitting. Searching..." << std::endl;
 
