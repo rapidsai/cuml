@@ -29,7 +29,7 @@ name = 'cuml-cuda{}'.format(cuda_version)
 version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
 install_requires = [
     'numpy',
-    'cython>=0.28<0.29',
+    'cython>=0.29<0.30',
     'cudf-cuda{}=={}'.format(cuda_version, version)
 ]
 
@@ -69,14 +69,14 @@ setup(name=name,
       classifiers=[
           "Intended Audience :: Developers",
           "Programming Language :: Python",
-          "Programming Language :: Python :: 3.5",
-          "Programming Language :: Python :: 3.6"
+          "Programming Language :: Python :: 3.6",
+          "Programming Language :: Python :: 3.7"
       ],
       packages=find_packages(where='python'),
       author="NVIDIA Corporation",
       license='Apache 2.0',
       install_requires=install_requires,
-      python_requires='>=3.5,<3.7',
+      python_requires='>=3.6,<3.8',
       ext_modules=cythonize(extensions),
       cmdclass={
           'build_ext': CMakeBuildExt,
