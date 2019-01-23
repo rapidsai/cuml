@@ -27,6 +27,7 @@
 - PR #105: Fix for AttributeError in kmeans fit method
 - PR #113: Removed old  glm python/cython files
 - PR #118: Fix for AttributeError in kmeans predict method
+- PR #125: Remove randomized solver option from PCA python bindings
 
 
 # cuML 0.4.0 (05 Dec 2018)
