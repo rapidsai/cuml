@@ -30,7 +30,6 @@ version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
 install_requires = [
     'numpy',
     'cython>=0.28<0.29',
-    'faiss-prebuilt',
     'cudf-cuda{}=={}'.format(cuda_version, version)
 ]
 
