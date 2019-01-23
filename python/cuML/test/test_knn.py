@@ -29,9 +29,6 @@ def test_knn_search(input_type):
     knn_sk = skKNN(X, metric = "l2")
     D_sk, I_sk = knn_sk.query(X, len(X))
 
-    print(str(I_sk))
-
-
     knn_cu = cuKNN()
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
@@ -40,7 +37,6 @@ def test_knn_search(input_type):
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame
-
 
         # FAISS does not perform sqrt on L2 because it's expensive
 
@@ -60,3 +56,28 @@ def test_knn_search(input_type):
 
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
+
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_knn_downcast_fails(input_type):
+
+    X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
+
+    # Test fit() fails with double precision when should_downcast set to False
+    knn_cu = cuKNN()
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        knn_cu.fit(X, should_downcast = False)
+
+    # Test fit() fails when downcast corrupted data
+    X = np.array([[np.findo(np.float32).max]], dtype=np.float64)
+
+    knn_cu = cuKNN()
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        knn_cu.fit(X, should_downcast = True)
+
+

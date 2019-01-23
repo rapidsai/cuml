@@ -112,7 +112,26 @@ cdef class KNN:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-    def fit(self, X, n_gpus = 1, convert_double_to_single = False):
+    """
+    Fit a KNN index for performing nearest neighbor queries.
+
+    Parameters
+    ----------
+    X : cuDF DataFrame or numpy ndarray
+        Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+    n_gpus: Integer
+       The number of gpus to replicate the index for parallel query. This achieves near linear 
+       speedup in the number of GPUs. 
+    
+    should_downcast: Bool
+        Currently only single precision is supported in the underlying undex. Setting this to 
+        true will allow single-precision input arrays to be automatically downcasted to single 
+        precision. Default = False. 
+
+    """
+
+    def fit(self, X, n_gpus = 1, should_downcast = False):
         if isinstance(X, cudf.DataFrame):
             X_m = X.as_gpu_matrix(order = "C")
             dtype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -123,7 +142,14 @@ cdef class KNN:
             raise Exception("Received unsupported input type " % type(X))
 
         if dtype != np.float32:
-            raise Exception("KNN currently only supports single-precision floating-point inputs")
+            if should_downcast == True:
+                X_m = X_m.astype(np.float32)
+
+                if len(X_m[X_m] > 0):
+                    raise Exception("Downcast to single-precision resulted in data loss.")
+            else:
+                raise Exception("KNN currently only supports single-precision floating-point inputs.")
+
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -132,6 +158,25 @@ cdef class KNN:
         self.k = new kNN(n_dims)
         self.k.fit(<float*>X_ctype, <int> X.shape[0], n_gpus)
 
+    """
+    Query the KNN index for the k nearest neighbors of column vectors in X.
+
+    Parameters
+    ----------
+    X : cuDF DataFrame or numpy ndarray
+        Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+    k: Integer
+       The number of neighbors
+       
+    Returns
+    ----------
+    distances: cuDF DataFrame or numpy ndarray
+        The distances of the k-nearest neighbors for each column vector in X
+        
+    indices: cuDF DataFrame of numpy ndarray
+        The indices of the k-nearest neighbors for each column vector in X
+    """
     def query(self, X, k):
 
 
