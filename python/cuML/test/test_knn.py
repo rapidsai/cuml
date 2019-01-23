@@ -71,7 +71,7 @@ def test_knn_downcast_fails(input_type):
         knn_cu.fit(X, should_downcast = False)
 
     # Test fit() fails when downcast corrupted data
-    X = np.array([[np.findo(np.float32).max]], dtype=np.float64)
+    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
 
     knn_cu = cuKNN()
     if input_type == 'dataframe':
