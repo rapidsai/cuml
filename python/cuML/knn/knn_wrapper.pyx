@@ -97,8 +97,11 @@ cdef class KNN:
     cdef uintptr_t I_ptr
     cdef uintptr_t D_ptr
 
-    def __cinit__(self, num_gpus = 1):
+    cdef bool _should_downcast
+
+    def __cinit__(self, num_gpus = 1, should_downcast = False):
         self.num_gpus = num_gpus
+        self._should_downcast = should_downcast
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -111,6 +114,49 @@ cdef class KNN:
 
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
+
+
+
+    def _downcast(self, X):
+
+        if isinstance(X, cudf.DataFrame):
+            dtype = np.dtype(X[X.columns[0]]._column.dtype)
+
+            if dtype != np.float32:
+                if self._should_downcast:
+
+                    new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+
+                    if overflowed > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                    X = cudf.DataFrame(new_cols)
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+            X = X.as_gpu_matrix(order="C")
+        elif isinstance(X, np.ndarray):
+            dtype = X.dtype
+
+            if dtype != np.float32:
+                if self._should_downcast:
+                    X = X.astype(np.float32)
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+
+            X = cuda.to_device(X)
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+        return X
 
     """
     Fit a KNN index for performing nearest neighbor queries.
@@ -131,25 +177,9 @@ cdef class KNN:
 
     """
 
-    def fit(self, X, n_gpus = 1, should_downcast = False):
-        if isinstance(X, cudf.DataFrame):
-            X_m = X.as_gpu_matrix(order = "C")
-            dtype = np.dtype(X[X.columns[0]]._column.dtype)
-        elif isinstance(X, np.ndarray):
-            X_m = cuda.to_device(X)
-            dtype = X.dtype
-        else:
-            raise Exception("Received unsupported input type " % type(X))
+    def fit(self, X, n_gpus = 1):
 
-        if dtype != np.float32:
-            if should_downcast == True:
-                X_m = X_m.astype(np.float32)
-
-                if len(X_m[X_m] > 0):
-                    raise Exception("Downcast to single-precision resulted in data loss.")
-            else:
-                raise Exception("KNN currently only supports single-precision floating-point inputs.")
-
+        X_m = self._downcast(X)
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -180,14 +210,7 @@ cdef class KNN:
     def query(self, X, k):
 
 
-        # If input is cudf, return cudf, otherwise return numpy
-        if isinstance(X, cudf.DataFrame):
-            X_m = X.as_gpu_matrix(order = "C")
-        elif isinstance(X, np.ndarray):
-            X_m = cuda.to_device(X)
-        else:
-            raise Exception("Received unsupported input type " % type(X))
-
+        X_m = self._downcast(X)
 
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
