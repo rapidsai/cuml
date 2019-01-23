@@ -61,6 +61,8 @@ You also need to ensure `libomp` and `libopenblas` are installed:
 apt install libopenblas-base libomp-dev
 ```
 
+*Note:* There is no faiss-gpu package installable by pip, so the KNN algorithm will not work unless you install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
+
 ### Dependencies for Installing/Building from Source:
 
 To install cuML from source, ensure the dependencies are met:
