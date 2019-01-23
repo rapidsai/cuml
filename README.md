@@ -23,17 +23,34 @@ The cuML repository contains:
 
 #### Available Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD).
+- Truncated Singular Value Decomposition (tSVD),
 
-- Principal Component Analysis (PCA).
+- Principal Component Analysis (PCA),
 
-- Density-based spatial clustering of applications with noise (DBSCAN).
+- Density-based spatial clustering of applications with noise (DBSCAN),
 
-- K-Means Clustering.
+- K-Means Clustering,
 
-- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use).
+- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use),
+
+- Linear Regression (Ordinary Least Squares),
+
+- Ridge Regression.
 
 - Kalman Filter.
+
+Upcoming algorithms:
+
+- More Kalman Filter versions, 
+
+- Lasso,
+
+- Elastic-Net,
+
+- Logistic Regression,
+
+- UMAP
+
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
