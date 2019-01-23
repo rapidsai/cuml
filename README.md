@@ -37,9 +37,11 @@ The cuML repository contains:
 
 - Ridge Regression.
 
+- Kalman Filter.
+
 Upcoming algorithms:
 
-- Kalman Filter,
+- More Kalman Filter versions, 
 
 - Lasso,
 

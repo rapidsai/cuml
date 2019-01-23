@@ -5,6 +5,7 @@
 - PR #66: OLS Linear Regression
 - PR #44: Distance calculation ML primitives
 - PR #69: Ridge (L2 Regularized) Linear Regression
+- PR #103: Linear Kalman Filter
 
 ## Improvements
 
