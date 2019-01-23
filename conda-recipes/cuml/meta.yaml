@@ -29,7 +29,6 @@ requirements:
     - cudf 0.4.0.*
     - libcuml 0.4.0.*
   run:
-    - faiss-gpu
     - python x.x
     - setuptools
     - cudf 0.4.0.*
