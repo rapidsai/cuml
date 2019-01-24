@@ -104,17 +104,18 @@ cdef class KNN:
     cdef kNNParams *input
 
 
-    """
-    Construct the kNN object for training and querying.
 
-    Parameters
-    ----------
-    should_downcast: Bool
-        Currently only single precision is supported in the underlying undex. Setting this to 
-        true will allow single-precision input arrays to be automatically downcasted to single 
-        precision. Default = False. 
-    """
     def __cinit__(self, should_downcast = False):
+        """
+        Construct the kNN object for training and querying.
+
+        Parameters
+        ----------
+        should_downcast: Bool
+            Currently only single precision is supported in the underlying undex. Setting this to
+            true will allow single-precision input arrays to be automatically downcasted to single
+            precision. Default = False.
+        """
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
@@ -173,16 +174,16 @@ cdef class KNN:
 
         return X
 
-    """
-    Fit a KNN index for performing nearest neighbor queries.
-
-    Parameters
-    ----------
-    X : cuDF DataFrame or numpy ndarray
-        Dense matrix (floats or doubles) of shape (n_samples, n_features)
-    """
 
     def fit(self, X):
+        """
+        Fit a KNN index for performing nearest neighbor queries.
+
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        """
 
         X_m = self._downcast(X)
 
@@ -201,27 +202,27 @@ cdef class KNN:
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
-    """
-    Query the KNN index for the k nearest neighbors of column vectors in X.
 
-    Parameters
-    ----------
-    X : cuDF DataFrame or numpy ndarray
-        Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
-    k: Integer
-       The number of neighbors
-       
-    Returns
-    ----------
-    distances: cuDF DataFrame or numpy ndarray
-        The distances of the k-nearest neighbors for each column vector in X
-        
-    indices: cuDF DataFrame of numpy ndarray
-        The indices of the k-nearest neighbors for each column vector in X
-    """
     def query(self, X, k):
+        """
+        Query the KNN index for the k nearest neighbors of column vectors in X.
 
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+        k: Integer
+           The number of neighbors
+
+        Returns
+        ----------
+        distances: cuDF DataFrame or numpy ndarray
+            The distances of the k-nearest neighbors for each column vector in X
+
+        indices: cuDF DataFrame of numpy ndarray
+            The indices of the k-nearest neighbors for each column vector in X
+        """
 
         X_m = self._downcast(X)
 
@@ -257,10 +258,3 @@ cdef class KNN:
             D = np.asarray(D.as_gpu_matrix())
 
         return D, I
-
-    def to_cudf(self, df, col=''):
-        # convert pandas dataframe to cudf dataframe
-        if isinstance(df,np.ndarray):
-            df = pd.DataFrame({'%s_neighbor_%d'%(col, i): df[:, i] for i in range(df.shape[1])})
-        pdf = cudf.DataFrame.from_pandas(df)
-        return pdf
