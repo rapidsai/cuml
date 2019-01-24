@@ -104,10 +104,21 @@ cdef class KNN:
     cdef kNNParams *input
 
 
-    def __cinit__(self, num_gpus = 1, should_downcast = False):
+    """
+    Construct the kNN object for training and querying.
+
+    Parameters
+    ----------
+    should_downcast: Bool
+        Currently only single precision is supported in the underlying undex. Setting this to 
+        true will allow single-precision input arrays to be automatically downcasted to single 
+        precision. Default = False. 
+    """
+    def __cinit__(self, should_downcast = False):
         self.num_gpus = num_gpus
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
+
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -120,7 +131,6 @@ cdef class KNN:
 
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
 
 
     def _downcast(self, X):
@@ -171,16 +181,6 @@ cdef class KNN:
     ----------
     X : cuDF DataFrame or numpy ndarray
         Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
-    n_gpus: Integer
-       The number of gpus to replicate the index for parallel query. This achieves near linear 
-       speedup in the number of GPUs. 
-    
-    should_downcast: Bool
-        Currently only single precision is supported in the underlying undex. Setting this to 
-        true will allow single-precision input arrays to be automatically downcasted to single 
-        precision. Default = False. 
-
     """
 
     def fit(self, X):
