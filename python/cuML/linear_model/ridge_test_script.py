@@ -1,8 +1,8 @@
 import numpy as np
 import cudf
-from cuml import LinearRegression as cuLR
+from cuml import Ridge as cuRidge
 
-lr = cuLR(fit_intercept=True, normalize = False, algorithm = 'eig')
+lr = cuRidge(alpha=1.0, fit_intercept=True, normalize = False, solver = 'eig')
 
 X = cudf.DataFrame()
 X['col1']=np.array([1,1,2,2],dtype=np.float32)
@@ -29,7 +29,7 @@ X_new['col2']=np.array([5,5],dtype=np.float32)
 
 print("Input Dataframe:")
 print(X_new)
-preds = lr.predict(X_new)
+#preds = lr.predict(X_new)
 
-print("Preds:")
-print(preds)
+#print("Preds:")
+#print(preds)
