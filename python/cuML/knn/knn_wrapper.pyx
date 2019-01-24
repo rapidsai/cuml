@@ -177,7 +177,7 @@ cdef class KNN:
 
     """
 
-    def fit(self, X, n_gpus = 1):
+    def fit(self, X):
 
         X_m = self._downcast(X)
 
@@ -186,7 +186,14 @@ cdef class KNN:
         n_dims = X.shape[1]
 
         self.k = new kNN(n_dims)
-        self.k.fit(<float*>X_ctype, <int> X.shape[0], n_gpus)
+
+        cdef kNNParams params[1];
+        params[0].N = len(X)
+        params[1].ptr = X_ctype
+
+
+        self.k.fit(<kNNParams*>params,
+                   <int> 1)
 
     """
     Query the KNN index for the k nearest neighbors of column vectors in X.

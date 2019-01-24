@@ -39,6 +39,13 @@ namespace ML {
 
     };
 
+
+    template<typename Type>
+    void updateDevice(Type* dPtr, const Type* hPtr, size_t len,
+    		cudaStream_t stream = 0) {
+    			cudaMemcpy(dPtr, hPtr, len * sizeof(Type), cudaMemcpyHostToDevice);
+    }
+
     /** @} */
 
     	/** merge result tables from several shards.
