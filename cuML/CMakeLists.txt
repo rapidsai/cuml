@@ -117,6 +117,7 @@ add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
+file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -146,6 +147,23 @@ target_link_libraries(cuml
 add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
+                      ${GTEST_LIBNAME}
+                      ${FAISS_LIBNAME}
+                      ${FAISS_GPU_LIBNAME}
+                      ${CUDA_cublas_LIBRARY}
+                      ${CUDA_curand_LIBRARY}
+                      ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_CUDART_LIBRARY}
+                      pthread
+                      z)
+                      
+                      
+###################################################################################################
+# - build test executable -------------------------------------------------------------------------
+
+add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
+
+target_link_libraries(ml_mg_test
                       ${GTEST_LIBNAME}
                       ${FAISS_LIBNAME}
                       ${FAISS_GPU_LIBNAME}

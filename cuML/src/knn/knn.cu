@@ -29,13 +29,12 @@
 #include <cuda_utils.h>
 
 
-
 namespace ML {
 
 	using namespace faiss;
 	using namespace faiss::gpu;
 
-	kNN::kNN(int D): D(D), total_n(0), indices(0), indexShards(D, true, false){}
+	kNN::kNN(int D): D(D), total_n(0), indices(0), indexShards(D, true, true){}
 	kNN::~kNN() {
 
 		std::cout << "Destructor called" << std::endl;
@@ -48,24 +47,25 @@ namespace ML {
 		}
 	}
 
-	/**
-	 *
-	 */
 	void kNN::fit(kNNParams *input, int N) {
 
 		// Loop through different inputs
+		id_ranges.push_back(0);
 
 		for(int i = 0; i < N; i++) {
 
 			kNNParams params = input[i];
 
-			this->total_n += params.N;
-			this->indices += 1;
-
 			cudaPointerAttributes att;
 			cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
 
 			if(err == 0 && att.device > -1) {
+
+				if(i < N)
+					id_ranges.push_back(total_n);
+
+				this->total_n += params.N;
+				this->indices += 1;
 
 				res.emplace_back(new faiss::gpu::StandardGpuResources());
 
@@ -75,15 +75,9 @@ namespace ML {
 				config.storeTransposed = false;
 
 				auto idx = new faiss::gpu::GpuIndexFlatL2(res[i], D, config);
-				idx->verbose = true;
-
-				// initialize ids
-				long *ids = new long[params.N];
-				for(int j = 0; j < params.N; j++)
-					ids[j] = j*(i+1);
+				idx->add(params.N, params.ptr);
 
 				sub_indices.emplace_back(idx);
-				idx->add(params.N, params.ptr);
 				indexShards.add_shard(sub_indices[i]);
 			} else {
 				// Throw error- we don't have device memory
@@ -99,21 +93,15 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-	    std::vector<long> translations (indices, 0);
-        translations[0] = 0;
-
         for(int i = 0; i < indices; i++) {
 			this->sub_indices[i]->search(n, search_items, k, all_D+(i*k*n), all_I+(i*k*n));
 
-			std::cout << all_D+(i*k*n) << std::endl;
-
-			if(i+1 < indices) {
-				translations [i + 1] = translations [i] +
-					sub_indices [i]->ntotal;
-			}
+			// Relabel the indices so they are contiguous across shards
+			for(int j = 0; j < n; j++)
+				all_I[i*k*n+j] += id_ranges[i];
 		}
 
-		merge_tables<CMin<float, int>>(n, k, indices, result_D, result_I, all_D, all_I, translations.data());
+		merge_tables<CMin<float, int>>(n, k, indices, result_D, result_I, all_D, all_I, id_ranges.data());
 
 		MLCommon::updateDevice(res_D, result_D, k*n, 0);
 		MLCommon::updateDevice(res_I, result_I, k*n, 0);

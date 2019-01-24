@@ -4,16 +4,19 @@ from libcpp cimport bool
 np.import_array
 
 cdef extern from "knn/knn.cu" namespace "ML":
-    pass 
+    pass
+
+cdef extern from "knn/knn_c.h" namespace "ML":
+    struct kNNParams:
+        pass
 
 cdef extern from "knn/knn_c.h" namespace "ML":
     cdef cppclass kNN:
         kNN(int D) except +
-        void search(float *search_items,
-                    int search_items_size,
-                    long *res_I,
-                    float *res_D,
+        void search(float *search_items,    # ctypes pointer to search items array on device
+                    int search_items_size,  # number of rows in search items array
+                    long *res_I,            # ctypes pointer to output indices array on device
+                    float *res_D,           # ctypes pointer to output distance array on device
                     int k)
-        void fit(float *input,
-                 int N,
-                 int n_gpus)
+        void fit(kNNParams *input,          # array of knnparams to describe multi-GPU training inputs
+                 int N)                     # number of items in input array
