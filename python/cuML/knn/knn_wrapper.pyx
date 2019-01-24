@@ -115,7 +115,6 @@ cdef class KNN:
         precision. Default = False. 
     """
     def __cinit__(self, should_downcast = False):
-        self.num_gpus = num_gpus
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
