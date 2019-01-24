@@ -7,8 +7,9 @@ cdef extern from "knn/knn.cu" namespace "ML":
     pass
 
 cdef extern from "knn/knn_c.h" namespace "ML":
-    struct kNNParams:
-        pass
+    cdef cppclass kNNParams:
+        float *ptr
+        int N
 
 cdef extern from "knn/knn_c.h" namespace "ML":
     cdef cppclass kNN:

@@ -15,7 +15,8 @@ namespace ML {
 
 	using namespace faiss;
 
-	struct kNNParams {
+	class kNNParams {
+	public:
 		float *ptr;
 		int N;
 	};

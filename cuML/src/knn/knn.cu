@@ -56,6 +56,9 @@ namespace ML {
 
 			if(err == 0 && att.device > -1) {
 
+				std::cout << "Device: " << att.device << std::endl;
+				std::cout << "N: " << params->N << std::endl;
+
 				if(i < N)
 					id_ranges.push_back(total_n);
 
@@ -69,10 +72,12 @@ namespace ML {
 				config.useFloat16 = false;
 				config.storeTransposed = false;
 
-				auto idx = new faiss::gpu::GpuIndexFlatL2(res[i], D, config);
-				idx->add(params->N, params->ptr);
+				std::cout << "About to add index" << std::endl;
+				sub_indices.emplace_back(new faiss::gpu::GpuIndexFlatL2(res[i], D, config));
+				std::cout << "Created index" << std::endl;
+				sub_indices[i]->add(params->N, params->ptr);
 
-				sub_indices.emplace_back(idx);
+				std::cout << "Created infex" << std::endl;
 			} else {
 				// Throw error- we don't have device memory
 			}

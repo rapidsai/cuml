@@ -20,6 +20,8 @@ import cudf
 import ctypes
 
 from librmm_cffi import librmm as rmm
+from libc.stdlib cimport malloc, free
+from cython.operator cimport dereference as deref
 from numba import cuda
 from c_knn cimport *
 
@@ -99,9 +101,13 @@ cdef class KNN:
 
     cdef bool _should_downcast
 
+    cdef kNNParams *input
+
+
     def __cinit__(self, num_gpus = 1, should_downcast = False):
         self.num_gpus = num_gpus
         self._should_downcast = should_downcast
+        self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -187,12 +193,13 @@ cdef class KNN:
 
         self.k = new kNN(n_dims)
 
-        cdef kNNParams params[1];
-        params[0].N = len(X)
-        params[1].ptr = X_ctype
+        params = new kNNParams()
+        params.N = <int>len(X)
+        params.ptr = <float*>X_ctype
 
+        self.input[0] = deref(params)
 
-        self.k.fit(<kNNParams*>params,
+        self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
     """
@@ -229,7 +236,11 @@ cdef class KNN:
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+        self.k.search(<float*>X_ctype,
+                      <int> N,
+                      <long*>I_ptr,
+                      <float*>D_ptr,
+                      <int> k)
 
         I_ndarr = I_ndarr.reshape((N, k)).transpose()
         D_ndarr = D_ndarr.reshape((N, k)).transpose()
