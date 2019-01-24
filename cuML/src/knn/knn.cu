@@ -34,10 +34,9 @@ namespace ML {
 	using namespace faiss;
 	using namespace faiss::gpu;
 
-	kNN::kNN(int D): D(D), total_n(0), indices(0), indexShards(D, true, true){}
+	kNN::kNN(int D): D(D), total_n(0), indices(0){}
 	kNN::~kNN() {
 
-		std::cout << "Destructor called" << std::endl;
 		for(GpuIndexFlatL2* idx : sub_indices) {
 			delete idx;
 		}
@@ -49,22 +48,19 @@ namespace ML {
 
 	void kNN::fit(kNNParams *input, int N) {
 
-		// Loop through different inputs
-		id_ranges.push_back(0);
-
 		for(int i = 0; i < N; i++) {
 
-			kNNParams params = input[i];
+			kNNParams *params = &input[i];
 
 			cudaPointerAttributes att;
-			cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
+			cudaError_t err = cudaPointerGetAttributes(&att, params->ptr);
 
 			if(err == 0 && att.device > -1) {
 
 				if(i < N)
 					id_ranges.push_back(total_n);
 
-				this->total_n += params.N;
+				this->total_n += params->N;
 				this->indices += 1;
 
 				res.emplace_back(new faiss::gpu::StandardGpuResources());
@@ -75,10 +71,9 @@ namespace ML {
 				config.storeTransposed = false;
 
 				auto idx = new faiss::gpu::GpuIndexFlatL2(res[i], D, config);
-				idx->add(params.N, params.ptr);
+				idx->add(params->N, params->ptr);
 
 				sub_indices.emplace_back(idx);
-				indexShards.add_shard(sub_indices[i]);
 			} else {
 				// Throw error- we don't have device memory
 			}
@@ -93,18 +88,19 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-        for(int i = 0; i < indices; i++) {
+        for(int i = 0; i < indices; i++)
 			this->sub_indices[i]->search(n, search_items, k, all_D+(i*k*n), all_I+(i*k*n));
-
-			// Relabel the indices so they are contiguous across shards
-			for(int j = 0; j < n; j++)
-				all_I[i*k*n+j] += id_ranges[i];
-		}
 
 		merge_tables<CMin<float, int>>(n, k, indices, result_D, result_I, all_D, all_I, id_ranges.data());
 
 		MLCommon::updateDevice(res_D, result_D, k*n, 0);
 		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+
+		delete all_D;
+		delete all_I;
+
+		delete result_D;
+		delete result_I;
 	}
 }
 ;

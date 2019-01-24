@@ -29,8 +29,6 @@ namespace ML {
 
 		int total_n;
 		int indices;
-
-		faiss::IndexShards indexShards;
 		int D;
 
     public:
@@ -96,6 +94,7 @@ namespace ML {
     	                    int & p = pointer[s];
     	                    D[j] = heap_vals[0];
     	                    I[j] = I_in[stride * s + p] + translations[s];
+    	                    std::cout << "I_in=" << I[j] << " ";
 
     	                    heap_pop<C> (heap_size--, heap_vals, shard_ids);
     	                    p++;
@@ -104,6 +103,8 @@ namespace ML {
     	                                     D_in[stride * s + p], s);
     	                }
     	            }
+
+    	            std::cout << std::endl;
     	        }
     	    }
     	}

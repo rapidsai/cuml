@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include "cuda_utils.h"
-
+#include <iostream>
 
 namespace MLCommon {
 
@@ -74,10 +74,15 @@ private:
 template<typename T, typename L>
 ::testing::AssertionResult devArrMatch(const T* expected, const T* actual,
                                        size_t size, L eq_compare) {
+
+	std::cout << "GOt here" << std::endl;
     std::shared_ptr<T> exp_h(new T [size]);
     std::shared_ptr<T> act_h(new T [size]);
     updateHost<T>(exp_h.get(), expected, size);
     updateHost<T>(act_h.get(), actual, size);
+
+    std::cout << "GOT HERE!" << std::endl;
+
     for(size_t i(0);i<size;++i) {
         auto exp = exp_h.get()[i];
         auto act = act_h.get()[i];
