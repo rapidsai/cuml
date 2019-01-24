@@ -23,19 +23,34 @@ The cuML repository contains:
 
 #### Available Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD).
+- Truncated Singular Value Decomposition (tSVD),
 
-- Principal Component Analysis (PCA).
+- Principal Component Analysis (PCA),
 
-- Density-based spatial clustering of applications with noise (DBSCAN).
+- Density-based spatial clustering of applications with noise (DBSCAN),
 
-- K-Means Clustering.
+- K-Means Clustering,
 
-- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use).
+- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use),
+
+- Linear Regression (Ordinary Least Squares),
+
+- Ridge Regression.
+
+- Kalman Filter.
 
 Upcoming algorithms:
 
-- Kalman Filter.
+- More Kalman Filter versions, 
+
+- Lasso,
+
+- Elastic-Net,
+
+- Logistic Regression,
+
+- UMAP
+
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
@@ -44,10 +59,24 @@ The installation option provided currently consists on building from source. Upc
 
 ## Setup
 
-cuML is available from the rapidsai conda channel:
+### Conda
+cuML can be installed using the `rapidsai` conda channel:
 ```
 conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
+
+### Pip
+cuML can also be installed using pip. Select the package based on your version of CUDA:
+```
+pip install cuml-cuda92
+pip install cuml-cuda100
+```
+You also need to ensure `libomp` and `libopenblas` are installed:
+```
+apt install libopenblas-base libomp-dev
+```
+
+*Note:* There is no faiss-gpu package installable by pip, so the KNN algorithm will not work unless you install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
 
 ### Dependencies for Installing/Building from Source:
 
@@ -117,7 +146,7 @@ $ python setup.py build_ext --inplace
 To run Python tests (optional):
 
 ```bash
-$ py.test cuML/test -v
+$ py.test -v
 ```
 
 If you want a list of the available tests:

@@ -317,7 +317,7 @@ void checkCosine(int d, int k, int *numChosen, thrust::device_vector<T> &dists,
 
 	if (!skipcopy && (*numChosen > 1 && *numChosen < k)) {
 		int i, j;
-		int candidate_map[d * (*numChosen)];
+		int* candidate_map = new int[d * (*numChosen)];
 		j = 0;
 		for (i = 0; i < k; ++i) {
 			if (h_accept[i]) {
