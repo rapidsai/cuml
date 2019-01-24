@@ -22,7 +22,9 @@
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
+
 #include <vector>
+#include <sstream>
 
 
 namespace ML {
@@ -78,9 +80,17 @@ namespace ML {
 						new faiss::gpu::GpuIndexFlatL2(res[i], D, config)
 				);
 
+				// It's only necessary to maintain our set of shards because
+				// the GpuIndexFlat class does not support add_with_ids(),
+				// a dependency of the IndexShards composite class.
+				// As a result, we need to add the ids ourselves
+				// and have the reducer/combiner re-label the indices
+				// based on the shards they came from.
 				sub_indices[i]->add(params->N, params->ptr);
 			} else {
-				// Throw error- we don't have device memory
+				std::stringstream ss;
+				ss << "Input memory for " << &params << " failed. memoryType=" << att.memoryType;
+				throw ss.str();
 			}
 		}
 	}
