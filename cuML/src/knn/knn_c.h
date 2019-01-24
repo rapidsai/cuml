@@ -22,14 +22,13 @@ namespace ML {
 
     class kNN {
 
+		std::vector<long> id_ranges;
 
 		std::vector<faiss::gpu::GpuResources* > res;
 		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
 
 		int total_n;
 		int indices;
-
-
 
 		faiss::IndexShards indexShards;
 		int D;
