@@ -1,4 +1,6 @@
 
+#include <sstream>
+
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
@@ -13,6 +15,11 @@ namespace ML {
 	public:
 		float *ptr;
 		int N;
+		std::ostream & operator<<(std::ostream & Str, kNNParams const & v) {
+			std::stringstream ss;
+			ss << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
+			return ss.str();
+		}
 	};
 
     class kNN {
