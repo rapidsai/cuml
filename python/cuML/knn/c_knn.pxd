@@ -3,9 +3,6 @@ cimport numpy as np
 from libcpp cimport bool
 np.import_array
 
-cdef extern from "knn/knn.cu" namespace "ML":
-    pass
-
 cdef extern from "knn/knn_c.h" namespace "ML":
     cdef cppclass kNNParams:
         float *ptr
