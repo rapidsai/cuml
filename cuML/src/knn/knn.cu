@@ -26,7 +26,6 @@
 #include <faiss/MetaIndexes.h>
 #include <faiss/Heap.h>
 #include <vector>
-#include <cuda_utils.h>
 
 
 namespace ML {
@@ -93,8 +92,8 @@ namespace ML {
 
 		merge_tables<CMin<float, int>>(n, k, indices, result_D, result_I, all_D, all_I, id_ranges.data());
 
-		MLCommon::updateDevice(res_D, result_D, k*n, 0);
-		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+		updateDevice(res_D, result_D, k*n, 0);
+		updateDevice(res_I, result_I, k*n, 0);
 
 		delete all_D;
 		delete all_I;
