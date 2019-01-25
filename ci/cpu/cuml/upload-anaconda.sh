@@ -4,8 +4,8 @@
 
 set -e
 
-if [ "$BUILD_LIBCUML" == "1" ]; then
-  export UPLOADFILE=`conda build conda-recipes/libcuml -c nvidia -c rapidsai -c numba -c pytorch -c conda-forge -c defaults --output`
+if [ "$BUILD_CUML" == "1" ]; then
+  export UPLOADFILE=`conda build conda-recipes/cuml -c defaults -c conda-forge -c numba -c rapidsai -c nvidia -c pytorch --python=${PYTHON} --output`
   SOURCE_BRANCH=master
 
   CUDA_REL=${CUDA:0:3}
@@ -22,8 +22,8 @@ if [ "$BUILD_LIBCUML" == "1" ]; then
 
   test -e ${UPLOADFILE}
 
-  # Pull requests or commits to other branches shouldn't upload
-  if [ ${TRAVIS_PULL_REQUEST} != false -o ${TRAVIS_BRANCH} != ${SOURCE_BRANCH} ]; then
+  # Restrict uploads to master branch
+  if [ ${GIT_BRANCH} != ${SOURCE_BRANCH} ]; then
     echo "Skipping upload"
     return 0
   fi
