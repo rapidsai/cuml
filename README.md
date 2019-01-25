@@ -2,7 +2,7 @@
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
-_Note: You are viewing the bleeding-edge README.md, which is subject to change between released versions. You can find the readme for the latest release [here](https://github.com/rapidsai/cuml/blob/master/README.md)._
+_Note: You are potentially viewing a bleeding-edge README.md, which is subject to change between released versions. You can find the readme for the latest release [here](https://github.com/rapidsai/cuml/blob/master/README.md)._
 
 The cuML repository contains:
 
