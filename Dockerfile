@@ -24,10 +24,4 @@ RUN source activate cudf && \
     python setup.py build_ext --inplace && \
     python setup.py install
 
-#ADD python/setup.cfg /cuml/setup.cfg
-#ADD setup.py /cuML/setup.py
-#ADD versioneer.py /cuML/versioneer.py
-
 ADD docs /cuml/docs
-WORKDIR /cuml/docs
-CMD source activate cudf && make html && cd build/html && python -m http.server 8888
