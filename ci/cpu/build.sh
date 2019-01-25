@@ -75,7 +75,7 @@ logger "Build conda pkg for libcuml..."
 source ci/cpu/libcuml/build_libcuml.sh
 
 logger "Build conda pkg for cuml..."
-source ci/cpu/ccumludf/build_cuml.sh
+source ci/cpu/cuml/build_cuml.sh
 
 ################################################################################
 # UPLOAD - Conda packages
