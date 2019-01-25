@@ -2,6 +2,8 @@
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
+_Note: You are potentially viewing a bleeding-edge README.md, which is subject to change between released versions. You can find the readme for the latest release [here](https://github.com/rapidsai/cuml/blob/master/README.md)._
+
 The cuML repository contains:
 
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
@@ -37,15 +39,19 @@ The cuML repository contains:
 
 - Ridge Regression.
 
+- Kalman Filter.
+
 Upcoming algorithms:
 
-- Kalman Filter,
+- More Kalman Filter versions, 
 
 - Lasso,
 
 - Elastic-Net,
 
-- Logistic Regression.
+- Logistic Regression,
+
+- UMAP
 
 - UMAP
 
@@ -57,10 +63,24 @@ The installation option provided currently consists on building from source. Upc
 
 ## Setup
 
-cuML is available from the rapidsai conda channel:
+### Conda
+cuML can be installed using the `rapidsai` conda channel:
 ```
 conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
+
+### Pip
+cuML can also be installed using pip. Select the package based on your version of CUDA:
+```
+pip install cuml-cuda92
+pip install cuml-cuda100
+```
+You also need to ensure `libomp` and `libopenblas` are installed:
+```
+apt install libopenblas-base libomp-dev
+```
+
+*Note:* There is no faiss-gpu package installable by pip, so the KNN algorithm will not work unless you install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
 
 ### Dependencies for Installing/Building from Source:
 
@@ -146,7 +166,7 @@ $ python setup.py install
 
 ### Python Notebooks
 
-Demo notebooks can be found in `python/notebooks` folder.
+Demo notebooks for the cuML Python algorithms can be found in the [rapidsai/notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml) repository on Github.
 
 ## External
 
