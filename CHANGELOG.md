@@ -17,6 +17,7 @@
 - PR #75: C++ example to use kmeans
 - PR #117: Use cmake extension to find any zlib installed in system
 - PR #94: Add cmake flag to set ABI compatibility
+- PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
 
 ## Bug Fixes
 
