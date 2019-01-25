@@ -202,7 +202,7 @@ class Ridge:
                        <double*>&c_alpha2,
                        <int>self.n_alpha,
                        <double*>coef_ptr,
-                       <double*>&c_intercept1,
+                       <double*>&c_intercept2,
                        <bool>self.fit_intercept,
                        <bool>self.normalize,
                        <int>self.algo)
