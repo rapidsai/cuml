@@ -14,9 +14,9 @@ if [ "$BUILD_CUML" == "1" ]; then
     CUDA_REL=${CUDA:0:4}
   fi
 
-  LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
+  LABEL_OPTION="--label gpuci-dev --label gpuci-cuda${CUDA_REL}"
   if [ "${LABEL_MAIN}" == '1' ]; then
-    LABEL_OPTION="--label main --label cuda${CUDA_REL}"
+    LABEL_OPTION="--label gpuci-main --label gpuci-cuda${CUDA_REL}"
   fi
   echo "LABEL_OPTION=${LABEL_OPTION}"
 
@@ -25,7 +25,7 @@ if [ "$BUILD_CUML" == "1" ]; then
   # Restrict uploads to master branch
   if [ ${GIT_BRANCH} != ${SOURCE_BRANCH} ]; then
     echo "Skipping upload"
-    return 0
+    #return 0
   fi
 
   if [ -z "$MY_UPLOAD_KEY" ]; then
