@@ -8,7 +8,7 @@ channels:
 - defaults
 dependencies:
 - python=3.6.*
-- cuml=0.4.0.*
+- cuml=0.5.0.*
 - cudatoolkit=9.2
 - nvdriver=396.44
 - cudf=0.4.0
