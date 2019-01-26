@@ -65,8 +65,6 @@ fi
 DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
   cuda-drivers=${DRIVER_VER} libcuda1-${LIBCUDA_VER}
 
-
-
 ################################################################################
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
