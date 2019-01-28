@@ -5,7 +5,7 @@
 set -e
 
 if [ "$BUILD_LIBCUML" == "1" ]; then
-  export UPLOADFILE=`conda build conda-recipes/libcuml -c nvidia -c rapidsai -c numba -c pytorch -c conda-forge -c defaults --output`
+  export UPLOADFILE=`conda build conda/recipes/libcuml -c nvidia -c rapidsai -c numba -c pytorch -c conda-forge -c defaults --output`
   SOURCE_BRANCH=master
 
   CUDA_REL=${CUDA:0:3}
