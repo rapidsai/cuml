@@ -36,6 +36,8 @@ set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE 
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
+set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
+  "Path to FAISS source directory")
 set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims CACHE STRING
   "Path to the ml-prims repo")
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
@@ -97,39 +99,35 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 
 include (ExternalProject)
 ExternalProject_Add(project_faiss
-  
-  SOURCE_DIR /home/cjnolet/workspace/faiss
-  CONFIGURE_COMMAND /home/cjnolet/workspace/faiss/configure --libdir=${CMAKE_CURRENT_BINARY_DIR}/faiss/lib --includedir=${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+  SOURCE_DIR ${FAISS_DIR}
+  CONFIGURE_COMMAND ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND make
   INSTALL_COMMAND make install && cd gpu && make install
-  BUILD_IN_SOURCE 1
+  BUILD_IN_SOURCE 0
   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
 )
 
-
 ExternalProject_Get_Property(project_faiss install_dir)
 
-add_library(faiss SHARED IMPORTED)
-add_library(gpufaiss SHARED IMPORTED)
+add_library(faisslib SHARED IMPORTED)
+add_library(gpufaisslib SHARED IMPORTED)
 
-add_dependencies(faiss project_faiss)
-add_dependencies(gpufaiss project_faiss)
+add_dependencies(faisslib project_faiss)
+add_dependencies(gpufaisslib project_faiss)
 
-set_property(TARGET faiss PROPERTY IMPORTED_LOCATION /share/workspace/faiss/libfaiss.so)
-set_property(TARGET gpufaiss PROPERTY IMPORTED_LOCATION /share/workspace/faiss/gpu/libgpufaiss.so)
+set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.so)
+set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.so)
 
 
 include_directories(src
-		    /home/cjnolet/workspace/faiss
-		    /home/cjnolet/workspace/faiss/gpu
-		    ${CUDA_INCLUDE_DIR}
-                    ${GTEST_DIR}/googletest/include
-                    ${MLPRIMS_DIR}/src
-                    ${MLPRIMS_DIR}/src/dbscan
-                    ${MLPRIMS_DIR}/test
-                    ${CUTLASS_DIR}
-                    ${CUB_DIR})
+		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+            ${GTEST_DIR}/googletest/include
+            ${MLPRIMS_DIR}/src
+            ${MLPRIMS_DIR}/src/dbscan
+            ${MLPRIMS_DIR}/test
+            ${CUTLASS_DIR}
+            ${CUB_DIR})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
@@ -152,12 +150,12 @@ add_library(cuml SHARED
 
 target_link_libraries(cuml
                       OpenMP::OpenMP_CXX
-                      faiss
-		      gpufaiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+		      		  gpufaisslib
+                      faisslib
                       pthread
                       z)
 
@@ -168,12 +166,12 @@ add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
                       ${GTEST_LIBNAME}
-                      faiss
-		      gpufaiss
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+		              gpufaisslib
+                      faisslib
                       pthread
                       z)
 
