@@ -23,7 +23,6 @@ project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
 
