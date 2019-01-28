@@ -26,12 +26,12 @@ requirements:
     - setuptools
     - cython
     - cmake 3.12
-    - cudf 0.4*
+    - cudf 0.5*
     - libcuml 0.4*
   run:
     - python x.x
     - setuptools
-    - cudf 0.4*
+    - cudf 0.5*
     - libcuml 0.4*
 
 about:
