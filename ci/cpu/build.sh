@@ -3,7 +3,7 @@
 ######################################
 # cuML CPU conda build script for CI #
 ######################################
-set -e
+set -ex
 
 # Logger function for build status output
 function logger() {
