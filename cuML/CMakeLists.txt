@@ -51,8 +51,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
   
-find_path(CMAKE_INSTALL_PREFIX NO_CMAKE_SYSTEM_PATH)
-  
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
