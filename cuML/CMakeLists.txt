@@ -36,7 +36,6 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(CUDA_INCLUDE_DIR /usr/local/cuda/include CACHE STRING "CUDA Include dir")
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -127,6 +126,7 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
+			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
             ${GTEST_DIR}/googletest/include
             ${MLPRIMS_DIR}/src
             ${MLPRIMS_DIR}/src/dbscan
@@ -162,6 +162,12 @@ target_link_libraries(cuml
                       ${BLAS_LIBRARIES}
                       pthread
                       z)
+
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
