@@ -14,9 +14,6 @@
 [submodule "ml-prims/external/googletest"]
     path = ml-prims/external/googletest
     url = https://github.com/google/googletest
-[submodule "thirdparty/faiss"]
-	path = thirdparty/faiss
-	url = https://github.com/facebookresearch/faiss
 [submodule "cuML/external/faiss"]
 	path = cuML/external/faiss
 	url = https://github.com/facebookresearch/faiss
