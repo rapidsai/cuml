@@ -16,24 +16,24 @@
 
 
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
+set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
+
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_SKIP_RPATH TRUE)
 
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
+
+find_package( BLAS REQUIRED )
+message( STATUS BLAS found: ${BLAS_LIBRARIES} )
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
     find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-
-find_package( BLAS REQUIRED )
-message( STATUS BLAS found: ${BLAS_LIBRARIES} )
-
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
@@ -50,6 +50,8 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
+  
+find_path(CMAKE_INSTALL_PREFIX NO_CMAKE_SYSTEM_PATH)
   
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -112,7 +114,7 @@ ExternalProject_Add(project_faiss
   BUILD_COMMAND make
   INSTALL_COMMAND make install && cd gpu && make install
   BUILD_IN_SOURCE 1
-  BUILD_ALWAYS 1
+  BUILD_ALWAYS 0
   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
 )
 
@@ -124,11 +126,10 @@ add_library(gpufaisslib STATIC IMPORTED)
 add_dependencies(faisslib project_faiss)
 add_dependencies(gpufaisslib project_faiss)
 
-set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.so)
-set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.so)
+set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
+set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
-		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
             ${GTEST_DIR}/googletest/include
             ${MLPRIMS_DIR}/src
             ${MLPRIMS_DIR}/src/dbscan
@@ -144,8 +145,6 @@ file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
-
-
 add_library(cuml SHARED
             src/pca/pca.cu
             src/tsvd/tsvd.cu
@@ -163,6 +162,7 @@ target_link_libraries(cuml
                       ${CUDA_CUDART_LIBRARY}
 		      		  gpufaisslib
                       faisslib
+                      ${BLAS_LIBRARIES}
                       pthread
                       z)
 
@@ -179,6 +179,7 @@ target_link_libraries(ml_test
                       ${CUDA_CUDART_LIBRARY}
 		              gpufaisslib
                       faisslib
+                      ${BLAS_LIBRARIES}
                       pthread
                       z)
 
