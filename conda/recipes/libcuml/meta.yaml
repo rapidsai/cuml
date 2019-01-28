@@ -19,7 +19,7 @@ build:
     - CC
     - CXX
     - CUDAHOSTCXX
-    - CMAKE_BUILD_PARALLEL_LEVEL
+    - PARALLEL_LEVEL
 
 requirements:
   build:
