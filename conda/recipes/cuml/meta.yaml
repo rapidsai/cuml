@@ -27,12 +27,12 @@ requirements:
     - cython
     - cmake 3.12
     - cudf 0.5*
-    - libcuml 0.4*
+    - libcuml {{ version }}
   run:
     - python x.x
     - setuptools
     - cudf 0.5*
-    - libcuml 0.4*
+    - libcuml {{ version }}
 
 about:
   home: http://rapids.ai/
