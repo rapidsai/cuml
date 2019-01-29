@@ -16,14 +16,17 @@
 
 
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
+project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
+
+find_package(MPI REQUIRED)
+message("CLIBS ${MPI_CXX_LIBRARIES}")
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -67,6 +70,9 @@ option(DEBUG "Get a debug build" OFF)
 # - Compiler Options  -----------------------------------------------------------------------------
 
 ## nvcc options
+
+set(CMAKE_CXX_COMPILE_FLAGS ${CMAKE_CXX_COMPILE_FLAGS} ${MPI_CXX_COMPILE_FLAGS})
+set(CMAKE_CXX_LINK_FLAGS ${CMAKE_CXX_LINK_FLAGS} ${MPI_CXX_LINK_FLAGS})
 
 if(OPENMP_FOUND)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
@@ -129,7 +135,8 @@ endif(NOT CMAKE_CXX11_ABI)
 # - include paths ---------------------------------------------------------------------------------
 
 include_directories(src
- 		    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+		 		    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+                    ${MPI_CXX_INCLUDE_PATH}
                     ${GTEST_DIR}/googletest/include
                     ${MLPRIMS_DIR}/src
                     ${MLPRIMS_DIR}/src/dbscan
@@ -158,7 +165,7 @@ add_library(cuml SHARED
             src/kalman_filter/lkf_py.cu
             )
 
-set(CUML_LINK_LIBRARIES ${FAISS_LIBNAME} ${FAISS_GPU_LIBNAME} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${FAISS_LIBNAME} ${FAISS_GPU_LIBNAME} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} ${MPI_CXX_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -171,6 +178,7 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
+					  OpenMP::OpenMP_CXX
                       ${GTEST_LIBNAME}
                       ${FAISS_LIBNAME}
                       ${FAISS_GPU_LIBNAME}
@@ -178,6 +186,7 @@ target_link_libraries(ml_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      ${MPI_CXX_LIBRARIES}
                       pthread
                       z)
                       
@@ -187,7 +196,9 @@ target_link_libraries(ml_test
 
 add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
 
+
 target_link_libraries(ml_mg_test
+					  OpenMP::OpenMP_CXX
                       ${GTEST_LIBNAME}
                       ${FAISS_LIBNAME}
                       ${FAISS_GPU_LIBNAME}
@@ -195,6 +206,7 @@ target_link_libraries(ml_mg_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      ${MPI_CXX_LIBRARIES}
                       pthread
                       ${ZLIB_LIBRARIES})
 

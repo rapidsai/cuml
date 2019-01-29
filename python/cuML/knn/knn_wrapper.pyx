@@ -202,6 +202,26 @@ cdef class KNN:
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
+    def fit_mg(self, knn_params):
+        """
+        Fits a model using multiple GPUs
+
+        :param self:
+        :param knn_params:
+        :return:
+        """
+        pass
+
+    def query_mg(self, X):
+        """
+        Queries
+        :param self:
+        :param X:
+        :return:
+        """
+
+    def query_mg(self, )
+
 
     def query(self, X, k):
         """

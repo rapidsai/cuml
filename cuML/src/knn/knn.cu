@@ -15,6 +15,7 @@
  */
 
 #include "knn_c.h"
+#include "knn_multi.h"
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>
@@ -22,6 +23,8 @@
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
+
+#include <mpi.h>
 
 #include <vector>
 #include <sstream>
@@ -96,15 +99,14 @@ namespace ML {
 	}
 
 	/**
-	 * Search the kNN for the k-nearest neighbors of a set of query vectors
+	 * Multi-GPU search for the k-nearest neighbors of a set of query vectors
 	 * @param search_items set of vectors to query for neighbors
 	 * @param n 		   number of items in search_items
 	 * @param res_I 	   pointer to device memory for returning k nearest indices
 	 * @param res_D		   pointer to device memory for returning k nearest distances
 	 * @param k			   number of neighbors to query
 	 */
-	void kNN::search(float *search_items, int n,
-			long *res_I, float *res_D, int k) {
+	void kNN::search(const float *search_items, int n, long *res_I, float *res_D, int k) {
 
 		float *result_D = new float[k*n];
 		long *result_I = new long[k*n];
@@ -129,15 +131,37 @@ namespace ML {
 		delete result_I;
 	}
 
+	/**
+	 * Multi-node multi-GPU search for the k-nearest neighbors of a set of query vectors.
+	 * One rank from each physical node will perform their own knn::search() and send
+	 * their results to the reduce node.
+	 *
+	 * The reduce rank will be the first node in the "ranks" argument. It will be responsible
+	 * for receiving the knn results from all other participating ranks and reducing to the
+	 * final set of indices and distances. Only the reduce rank will return a value.
+	 */
+	void kNN::search_mn(const float *search_items, int n, long *res_I, float *res_D, int k,
+						int* ranks, int n_ranks) {
+
+		search_MGMN(this, search_items, n, res_I, res_D, k, ranks, n_ranks);
+	}
+
+	int kNN::get_index_size() { return this->total_n; }
+
 
 	/** Merge results from several shards into a single result set.
+	 * @param n
+	 * @param k
+	 * @param nshard
+	 * @param out_distances
+	 * @param out_labels
 	 * @param all_distances  size nshard * n * k
-	 * @param all_labels     idem
-	 * @param translartions  label translations to apply, size nshard
+	 * @param all_labels     size nshard * n * k
+	 * @param translations  label translations to apply, size nshard
 	 */
 	template <class C>
 	void kNN::merge_tables (long n, long k, long nshard,
-					   float *distances, long *labels,
+					   float *out_distances, long *out_labels,
 					   float *all_distances,
 					   long *all_labels,
 					   long *translations) {
@@ -168,8 +192,8 @@ namespace ML {
 									 D_in[stride * s], s);
 				}
 
-				float *D = distances + i * k;
-				long *I = labels + i * k;
+				float *D = out_distances + i * k;
+				long *I = out_labels + i * k;
 
 				for (int j = 0; j < k; j++) {
 					if (heap_size == 0) {
