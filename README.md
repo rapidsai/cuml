@@ -88,7 +88,7 @@ To install cuML from source, ensure the dependencies are met:
 2. zlib Provided by zlib1g-dev in Ubuntu 16.04
 3. cmake (>= 3.12, version 3.12.4 is recommended)
 4. CUDA (>= 9.2)
-5. Cython (>= 0.28)
+5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
 7. faiss-gpu (>=1.4.0) - faiss-gpu is required to run the KNN algorithm. 
     - For using KNN with CUDA 9.2 or CUDA 10.0, faiss-gpu can be installed using conda:
