@@ -19,6 +19,7 @@ build:
   script_env:
     - CC
     - CXX
+    - BUILD_ABI
 
 requirements:
   build:
