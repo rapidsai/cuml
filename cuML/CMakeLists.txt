@@ -127,8 +127,8 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
-		    ${FAISS_LIB}
-		    ${FAISS_LIB}/gpu
+		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
             ${GTEST_DIR}/googletest/include
             ${MLPRIMS_DIR}/src
