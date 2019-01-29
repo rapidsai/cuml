@@ -36,6 +36,8 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
+set(FAISS_SILENT YES CACHE BOOL 
+   "Suppress all FAISS Build Output")
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -103,29 +105,35 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 # - include paths ---------------------------------------------------------------------------------
 
 include (ExternalProject)
-ExternalProject_Add(project_faiss
+ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
+  CONFIGURE_COMMAND ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND make
-  INSTALL_COMMAND make install && cd gpu && make install
+  INSTALL_COMMAND make -s install > /dev/null || make && cd gpu && make -s install > /dev/null || make
   BUILD_IN_SOURCE 1
+  LOG_DOWNLOAD 0
+  LOG_PATCH 0
+  LOG_UPDATE 0
+  LOG_TEST 0
   BUILD_ALWAYS 0
   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
 )
 
-ExternalProject_Get_Property(project_faiss install_dir)
+ExternalProject_Get_Property(faiss install_dir)
 
 add_library(faisslib STATIC IMPORTED)
 add_library(gpufaisslib STATIC IMPORTED)
 
-add_dependencies(faisslib project_faiss)
-add_dependencies(gpufaisslib project_faiss)
+add_dependencies(faisslib faiss)
+add_dependencies(gpufaisslib faiss)
 
 set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
+		    ${FAISS_LIB}
+		    ${FAISS_LIB}/gpu
 			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
             ${GTEST_DIR}/googletest/include
             ${MLPRIMS_DIR}/src
