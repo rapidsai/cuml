@@ -40,6 +40,7 @@ extensions = [
               sources=cython_files,
               include_dirs=[numpy_include,
                             '../cuML/src',
+                            '../cuML/external',
                             '../cuML/external/ml-prims/src',
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
