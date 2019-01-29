@@ -35,5 +35,5 @@ if [ "$BUILD_CUML" == "1" ]; then
 
   echo "Upload"
   echo ${UPLOADFILE}
-  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE} --show-traceback
+  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE}
 fi
