@@ -10,7 +10,7 @@ package:
   version: {{ version }}
 
 source:
-  path: ../..
+  path: ../../..
 
 build:
   number: {{ git_revision_count }}
