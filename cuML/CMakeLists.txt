@@ -36,8 +36,6 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(FAISS_SILENT YES CACHE BOOL 
-   "Suppress all FAISS Build Output")
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -54,6 +52,8 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
+set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
+  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
