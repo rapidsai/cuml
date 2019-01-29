@@ -231,14 +231,47 @@ cdef class KNN:
                    <int>len(alloc_info))
 
 
-    def query_mn(self, X):
+    def query_mn(self, X, rank, all_ranks):
         """
         Queries kNN model using multiple.
         :param self:
         :param X:
         :return:
         """
-        pass
+        X_m = self._downcast(X)
+
+        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
+        N = len(X)
+
+        # Need to establish result matrices only if we are the top rank.
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
+
+        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+
+        self.k.search(<float*>X_ctype,
+                      <int> N,
+                      <long*>I_ptr,
+                      <float*>D_ptr,
+                      <int> k)
+
+        I_ndarr = I_ndarr.reshape((N, k)).transpose()
+        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+
+        I = cudf.DataFrame()
+        for i in range(0, I_ndarr.shape[0]):
+            I[str(i)] = I_ndarr[i,:]
+
+        D = cudf.DataFrame()
+        for i in range(0, D_ndarr.shape[0]):
+            D[str(i)] = D_ndarr[i,:]
+
+        if isinstance(X, np.ndarray):
+            I = np.asarray(I.as_gpu_matrix())
+            D = np.asarray(D.as_gpu_matrix())
+
+        return D, I
 
 
 
