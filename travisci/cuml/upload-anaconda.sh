@@ -5,14 +5,14 @@
 set -e
 
 if [ "$BUILD_CUML" == "1" ]; then
-  export UPLOADFILE=`conda build conda-recipes/cuml -c defaults -c conda-forge -c numba -c rapidsai -c nvidia -c pytorch --python=${PYTHON} --output`
-  SOURCE_BRANCH=master
-
   CUDA_REL=${CUDA:0:3}
   if [ "${CUDA:0:2}" == '10' ]; then
-    # CUDA 10 release
-    CUDA_REL=${CUDA:0:4}
+      # CUDA 10 release
+      CUDA_REL=${CUDA:0:4}
   fi
+ 
+  export UPLOADFILE=`conda build conda-recipes/cuml -c defaults -c conda-forge -c numba -c rapidsai/label/cuda${CUDA_REL} -c nvidia/label/cuda${CUDA_REL} -c pytorch --python=${PYTHON} --output`
+  SOURCE_BRANCH=master
 
   LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
   if [ "${LABEL_MAIN}" == '1' ]; then
