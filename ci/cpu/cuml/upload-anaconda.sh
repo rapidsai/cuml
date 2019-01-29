@@ -14,9 +14,9 @@ if [ "$BUILD_CUML" == "1" ]; then
     CUDA_REL=${CUDA:0:4}
   fi
 
-  LABEL_OPTION="--label gpuci-dev --label gpuci-cuda${CUDA_REL}"
+  LABEL_OPTION="--label gpucidev --label gpuci-cuda${CUDA_REL}"
   if [ "${LABEL_MAIN}" == '1' ]; then
-    LABEL_OPTION="--label gpuci-main --label gpuci-cuda${CUDA_REL}"
+    LABEL_OPTION="--label gpuci --label gpuci-cuda${CUDA_REL}"
   fi
   echo "LABEL_OPTION=${LABEL_OPTION}"
 
