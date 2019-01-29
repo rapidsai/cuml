@@ -86,7 +86,7 @@ To install cuML from source, ensure the dependencies are met:
 
 1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.0)
 2. zlib Provided by zlib1g-dev in Ubuntu 16.04
-3. cmake (>= 3.12, version 3.12.4 is recommended)
+3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
