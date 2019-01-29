@@ -202,25 +202,38 @@ cdef class KNN:
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
-    def fit_mg(self, knn_params):
+    def fit_mg(self, n_dims, alloc_info):
         """
-        Fits a model using multiple GPUs
+        Fits a model using multiple GPUs. This method takes in a list of dict objects
+        representing the distribution of the underlying device pointers. The device
+        information can be extracted from the pointers.
 
-        :param self:
-        :param knn_params:
+        :param n_dims
+            the number of features for each vector
+        :param alloc_info
+            a list of dicts in the following form: { "ptr": ptr, "n": length }
         :return:
         """
-        pass
 
-    def query_mg(self, X):
+        self.k = new kNN(n_dims)
+
+        self.input = <kNNParams*> malloc(len(alloc_info)*sizeof(kNNParams))
+
+        for i in range(len(alloc_info)):
+            params = new kNNParams()
+            params.N = <int>alloc_info[i]["n"]
+            params.ptr = <float*>
+
+
+
+    def query_mn(self, X):
         """
-        Queries
+        Queries kNN model using multiple.
         :param self:
         :param X:
         :return:
         """
 
-    def query_mg(self, )
 
 
     def query(self, X, k):
