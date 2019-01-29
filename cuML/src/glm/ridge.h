@@ -54,10 +54,10 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true);
 
 	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false);
-	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, true, false, alp, beta,
+	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta,
 			cublasH);
 
-	LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, false, false, alp,
+	LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, CUBLAS_OP_N, CUBLAS_OP_N, alp,
 			beta, cublasH);
 
 	CUDA_CHECK(cudaFree(S_nnz));
@@ -66,7 +66,7 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 template<typename math_t>
 void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-		cublasHandle_t cublasH) {
+              cublasHandle_t cublasH, DeviceAllocator &mgr) {
 
 	math_t *S, *V, *U;
 
@@ -77,7 +77,8 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH);
+	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH,
+                      cublasH, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH);
 
@@ -90,7 +91,7 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 template<typename math_t>
 void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-		cublasHandle_t cublasH) {
+              cublasHandle_t cublasH, DeviceAllocator &mgr) {
 
 	math_t *S, *V, *U;
 
@@ -101,7 +102,7 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH);
+	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH);
 
@@ -134,12 +135,14 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 				cusolver_handle);
 	}
 
+        auto mgr = makeDefaultAllocator();
+
 	if (algo == 0) {
 		ridgeSVD(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-				cusolver_handle, cublas_handle);
+                         cusolver_handle, cublas_handle, mgr);
 	} else if (algo == 1) {
 		ridgeEig(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-				cusolver_handle, cublas_handle);
+                         cusolver_handle, cublas_handle, mgr);
 	} else if (algo == 2) {
 		ASSERT(false,
 				"ridgeFit: no algorithm with this id has been implemented");
@@ -180,8 +183,8 @@ void ridgePredict(const math_t *input, int n_rows, int n_cols,
 
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
-	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, false, false,
-			alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
+                     CUBLAS_OP_N, alpha, beta, cublas_handle);
 
 	LinAlg::addScalar(preds, preds, intercept, n_rows);
 
