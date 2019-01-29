@@ -3,10 +3,10 @@
 # Usage:
 #   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
-{% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
-{% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
-{% set cuda_major='.'.join(environ.get('CUDA', '9').split('.')[0]) %}
-{% set cuda_minor='.'.join(environ.get('CUDA', '2').split('.')[1]) %}
+{% set git_revision_count = environ.get('GIT_DESCRIBE_NUMBER', 0) %}
+{% set cuda_version = '.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
+{% set cuda_major = environ.get('CUDA', '9.2').split('.')[0] %}
+{% set cuda_minor = environ.get('CUDA', '9.2').split('.')[1] %}
 package:
   name: libcuml
   version: {{ version }}
