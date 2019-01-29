@@ -18,3 +18,11 @@ cdef extern from "knn/knn_c.h" namespace "ML":
                     int k)
         void fit(kNNParams *input,          # array of knnparams to describe multi-GPU training inputs
                  int N)                     # number of items in input array
+
+        void search_mn(float *search_items,
+                       int n,
+                       long *res_I,
+                       float *res_D,
+                       int k,
+                       int *ranks,
+                       int n_ranks)

@@ -219,11 +219,16 @@ cdef class KNN:
 
         self.input = <kNNParams*> malloc(len(alloc_info)*sizeof(kNNParams))
 
+        cdef uintptr_t input_ptr
         for i in range(len(alloc_info)):
             params = new kNNParams()
             params.N = <int>alloc_info[i]["n"]
-            params.ptr = <float*>
+            input_ptr = alloc_info[i]["ptr"]
+            params.ptr = <float*>input_ptr
+            self.input[i] = deref(params)
 
+        self.k.fit(<kNNParams*> self.input,
+                   <int>len(alloc_info))
 
 
     def query_mn(self, X):
@@ -233,6 +238,7 @@ cdef class KNN:
         :param X:
         :return:
         """
+        pass
 
 
 
