@@ -1,19 +1,17 @@
 name: builddocs_py36
 channels:
-- mikewendt
 - rapidsai
 - pytorch
 - conda-forge
 - numba
 - defaults
 dependencies:
-- python=3.6.*
-- cuml=0.5.0.*
+- python=3.6*
+- cuml=0.5*
 - cudatoolkit=9.2
-- nvdriver=396.44
-- cudf=0.4.0
-- pyarrow=0.10.*
-- cython=0.28.5
+- cudf=0.5*
+- pyarrow=0.11.1.*
+- cython=0.29*
 - pip:
   - numpydoc
   - sphinx
