@@ -1,3 +1,18 @@
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 # Finds clang-tidy exe based on the PATH env variable
 string(REPLACE ":" ";" EnvPath $ENV{PATH})
 find_program(ClangFormat_EXE
@@ -30,7 +45,8 @@ function(add_clang_format)
     set(dummy_file clang_format_output)
     add_custom_command(OUTPUT ${dummy_file}
       COMMENT "Clang-Format ${cf_TARGET}"
-      COMMAND ${ClangFormat_PY}
+      COMMAND python
+        ${ClangFormat_PY}
         -bindir ${CMAKE_SOURCE_DIR}
         -exe ${ClangFormat_EXE}
         -srcdir ${CMAKE_SOURCE_DIR} ${cf_SRCS})
