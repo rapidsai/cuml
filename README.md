@@ -2,6 +2,8 @@
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
+**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
+
 The cuML repository contains:
 
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
@@ -48,6 +50,8 @@ Upcoming algorithms:
 - Elastic-Net,
 
 - Logistic Regression,
+
+- UMAP
 
 - UMAP
 
@@ -162,7 +166,7 @@ $ python setup.py install
 
 ### Python Notebooks
 
-Demo notebooks can be found in `python/notebooks` folder.
+Demo notebooks for the cuML Python algorithms can be found in the [rapidsai/notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml) repository on Github.
 
 ## External
 
