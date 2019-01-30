@@ -33,6 +33,14 @@ if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
     find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+    message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
+
+
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
@@ -60,7 +68,9 @@ option(KERNELINFO "Enable kernel resource usage info" OFF)
 option(DEBUG "Get a debug build" OFF)
 
 ###################################################################################################
-# - NVCC Options  ---------------------------------------------------------------------------------
+# - Compiler Options  -----------------------------------------------------------------------------
+
+## nvcc options
 
 if(OPENMP_FOUND)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
@@ -98,7 +108,26 @@ endforeach()
 # It is assumed that the last arch in the 'archs' is the latest!
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+
 ## end nvcc options
+
+## other compiler options
+
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+
+if(NOT CMAKE_CXX11_ABI)
+        message(STATUS "Disabling the GLIBCXX11 ABI")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
+elseif(CMAKE_CXX11_ABI)
+    message(STATUS "Enabling the GLIBCXX11 ABI")
+endif(NOT CMAKE_CXX11_ABI)
+
+
+## end of other compiler options
+
+
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
@@ -135,7 +164,8 @@ include_directories(src
             ${MLPRIMS_DIR}/src/dbscan
             ${MLPRIMS_DIR}/test
             ${CUTLASS_DIR}
-            ${CUB_DIR})
+            ${CUB_DIR}
+                    ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
@@ -152,20 +182,10 @@ add_library(cuml SHARED
             src/kmeans/kmeans.cu
             src/glm/glm.cu
 	    	src/knn/knn.cu
+            src/kalman_filter/lkf_py.cu
             )
 
-target_link_libraries(cuml
-                      OpenMP::OpenMP_CXX
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-		      		  gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      pthread
-                      z)
-
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} faisslib gpufaisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -187,8 +207,14 @@ target_link_libraries(ml_test
                       faisslib
                       ${BLAS_LIBRARIES}
                       pthread
-                      z)
+                      ${ZLIB_LIBRARIES})
 
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
+
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------

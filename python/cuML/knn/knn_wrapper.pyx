@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-cimport c_knn
 import numpy as np
 import pandas as pd
 import cudf
