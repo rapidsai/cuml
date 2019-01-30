@@ -38,7 +38,7 @@ if [ "$BUILD_CUML" == "1" ]; then
   # Restrict uploads to master branch
   if [ ${GIT_BRANCH} != ${SOURCE_BRANCH} ]; then
     echo "Skipping upload"
-    #return 0
+    return 0
   fi
 
   if [ -z "$MY_UPLOAD_KEY" ]; then
