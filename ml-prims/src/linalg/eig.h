@@ -50,17 +50,23 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
                                             n_cols, eig_vals, &lwork));
 
   math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
-  int *dev_info = (int *)mgr.alloc(sizeof(int));
+  int *d_dev_info = (int *)mgr.alloc(sizeof(int));
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols);
 
   CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work, lwork, dev_info));
+                                 n_cols, eig_vals, d_work, lwork, d_dev_info));
   CUDA_CHECK(cudaGetLastError());
 
+  int dev_info;
+  updateHost(&dev_info, d_dev_info, 1);
+  ASSERT(dev_info == 0,
+         "eig.h: eigensolver couldn't converge to a solution. "
+         "This usually occurs when some of the features do not vary enough.");
+
   mgr.free(d_work, stream);
-  mgr.free(dev_info, stream);
+  mgr.free(d_dev_info, stream);
 }
 
 

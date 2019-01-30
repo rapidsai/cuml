@@ -78,6 +78,12 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   transpose(right_sing_vecs_trans, right_sing_vecs, n, n, cublasH);
   CUDA_CHECK(cudaGetLastError());
 
+  int dev_info;
+  updateHost(&dev_info, devInfo, 1);
+  ASSERT(dev_info == 0,
+         "svd.h: svd couldn't converge to a solution. "
+         "This usually occurs when some of the features do not vary enough.");
+  
   ///@todo: what if stream from cusolver handle is different!?
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
@@ -85,70 +91,6 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }
-
-// /**
-//  * @defgroup singular value decomposition (SVD) on the column major double
-//  type input matrix using QR method
-//  * @param in: input matrix
-//  * @param n_rows: number rows of input matrix
-//  * @param n_cols: number columns of input matrix
-//  * @param sing_vals: singular values of input matrix
-//  * @param left_sing_vecs: left singular values of input matrix
-//  * @param right_sing_vecs_trans: right singular values of input matrix
-//  * @param gen_left_vec: generate left eig vector. Not activated.
-//  * @param gen_right_vec: generate right eig vector. Not activated.
-//  * @{
-//  */
-
-// // TODO: activate gen_left_vec and gen_right_vec options
-// // TODO: couldn't template this function due to cusolverDnSgesvd and
-// cusolverSnSgesvd. Check if there is any other way.
-
-// void svdQR(double* in, int n_rows, int n_cols, double* sing_vals,
-// 		   double* left_sing_vecs, double* right_sing_vecs_trans,
-// 		   bool gen_left_vec, bool gen_right_vec) {
-
-// 	cusolverDnHandle_t cusolverH = NULL;
-// 	CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
-
-// 	const int m = n_rows;
-// 	const int lda = m;
-
-// 	int *devInfo = NULL;
-// 	double *d_work = NULL;
-// 	double *d_rwork = NULL;
-// 	double *d_W = NULL;
-
-// 	int lwork = 0;
-// 	CUDA_CHECK(cudaMalloc((void** ) &devInfo, sizeof(int)));
-
-// 	CUSOLVER_CHECK(
-// 			cusolverDnDgesvd_bufferSize(cusolverH, n_rows,
-// 					n_cols, &lwork));
-
-// 	CUDA_CHECK(cudaMalloc((void** ) &d_work, sizeof(double) * lwork));
-
-// 	signed char jobu = 'A';
-// 	signed char jobvt = 'A';
-
-// 	CUSOLVER_CHECK(
-// 			cusolverDnDgesvd(cusolverH, jobu, jobvt, n_rows,
-// 					n_cols, in, lda, sing_vals,
-// 					left_sing_vecs, lda,
-// 					right_sing_vecs_trans, lda,
-// 					d_work, lwork, d_rwork, devInfo));
-
-// 	CUDA_CHECK(cudaDeviceSynchronize());
-
-// 	if (devInfo)
-// 		CUDA_CHECK(cudaFree(devInfo));
-// 	if (d_work)
-// 		CUDA_CHECK(cudaFree(d_work));
-// 	if (d_rwork)
-// 		CUDA_CHECK(cudaFree(d_rwork));
-// 	if (d_W)
-// 		CUDA_CHECK(cudaFree(d_W));
-// }
 
 template <typename T>
 void svdEig(T* in, int n_rows, int n_cols, T* S,
