@@ -159,15 +159,15 @@ include_directories(src
 		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-            ${GTEST_DIR}/googletest/include
+            ${GTEST_DIR}/include
             ${MLPRIMS_DIR}/src
             ${MLPRIMS_DIR}/src/dbscan
             ${MLPRIMS_DIR}/test
             ${CUTLASS_DIR}
             ${CUB_DIR}
-                    ${ZLIB_INCLUDE_DIRS$})
+            ${ZLIB_INCLUDE_DIRS$})
 
-add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
+add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
