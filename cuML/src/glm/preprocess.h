@@ -49,7 +49,7 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 
 		if (normalize) {
 			LinAlg::norm2(norm2_input, input, n_cols, n_rows, false);
-			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true);
+			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, true);
 		}
 	}
 
@@ -70,8 +70,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	allocate(d_intercept, 1);
 
 	if (normalize) {
-		Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false);
-		Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true);
+            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true);
+            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true, true);
 	}
 
 	math_t alpha = math_t(1);

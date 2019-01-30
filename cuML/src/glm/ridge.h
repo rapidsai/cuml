@@ -51,9 +51,9 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	copy(S_nnz, S, n_cols);
 	Matrix::power(S_nnz, n_cols);
 	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols);
-	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true);
+	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, true);
 
-	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false);
+	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true);
 	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta,
 			cublasH);
 
