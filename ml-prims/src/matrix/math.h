@@ -148,6 +148,12 @@ void seqRoot(math_t* in, math_t* out, int len) {
 	seqRoot(in, out, scalar, len);
 }
 
+template <typename math_t>
+void seqRoot(math_t* inout, int len) {
+	math_t scalar = 1.0;
+	seqRoot(inout, inout, scalar, len);
+}
+
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
@@ -208,23 +214,6 @@ void setSmallValuesZero(Type* inout, const Type* vec, int n_row, int n_col, Type
 			                       else
 			        		           return a;
                                                 });
-}
-
-/**
- * @defgroup inverse math operation on the input matrix. Reciprocal of every
- * element in the input matrix
- * @param inout: input matrix and also the result is stored
- * @param scalar: every element is multiplied with scalar
- * @param len: number elements of input matrix
- * @{
- */
-template <typename math_t>
-void reciprocal(math_t *inout, math_t scalar, int len) {
-  auto counting = thrust::make_counting_iterator(0);
-  auto d_A = inout;
-
-  thrust::for_each(counting, counting + len,
-                   [=] __device__(int idx) { d_A[idx] = scalar / d_A[idx]; });
 }
 
 /**
@@ -377,19 +366,19 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n
 	if (return_zero) {
             LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 				        		[] __device__ (Type a, Type b) {
-				                       if (b < Type(1e-10))
+				                       if (myAbs(b) < Type(1e-10))
 				                      	   return Type(0);
 				                       else
-				        		           return a / b;
+                                                           return a / b;
 				        		    });
 	} else {
 	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 		        		       [] __device__ (Type a, Type b) {
-		                               if (b < Type(1e-10))
-		                            	   return a;
-		                               else
-		        		                   return a / b;
-		        		            });
+				                       if (myAbs(b) < Type(1e-10))
+				                      	   return a;
+				                       else
+                                                           return a / b;
+				        		    });
 	}
 }
 

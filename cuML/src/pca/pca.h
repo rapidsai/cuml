@@ -110,7 +110,7 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
                          cusolver_handle, cublas_handle, mgr);
 
 	math_t scalar = (prms.n_rows - 1);
-	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components);
+	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, true);
 
 	CUDA_CHECK(cudaFree(cov));
 
