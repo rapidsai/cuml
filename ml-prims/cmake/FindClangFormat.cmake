@@ -1,9 +1,8 @@
-# Expects clang-format to be inside this repo itself!
-# This has been done to avoid spurious code changes due to version mismatch
-# Once we tackle this issue, we can go back to PATH-based finding of clang-format
+# Finds clang-tidy exe based on the PATH env variable
+string(REPLACE ":" ";" EnvPath $ENV{PATH})
 find_program(ClangFormat_EXE
   NAMES clang-format
-  PATHS ${MLPRIMS_DIR}/scripts
+  PATHS EnvPath
   DOC "path to clang-format exe"
   NO_DEFAULT_PATH)
 find_program(ClangFormat_PY
