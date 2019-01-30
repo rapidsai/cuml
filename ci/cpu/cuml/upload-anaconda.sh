@@ -12,9 +12,9 @@ if [ "$BUILD_CUML" == "1" ]; then
   fi
 
   if [ "$BUILD_ABI" == "1" ]; then
-    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge -c numba -c rapidsai/label/cuda${CUDA_REL} -c nvidia/label/cuda${CUDA_REL} -c pytorch -c defaults  --python=${PYTHON}`
+    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge -c numba -c rapidsai/label/cuda${CUDA_REL} -c nvidia/label/cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
   else
-    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge/label/cf201901 -c numba -c rapidsai/label/cf201901-cuda${CUDA_REL} -c nvidia/label/cf201901-cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON}`
+    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge/label/cf201901 -c numba -c rapidsai/label/cf201901-cuda${CUDA_REL} -c nvidia/label/cf201901-cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
   fi
 
   SOURCE_BRANCH=master
