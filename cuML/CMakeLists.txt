@@ -156,9 +156,9 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
-		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
-		    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
-			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
             ${GTEST_DIR}/include
             ${MLPRIMS_DIR}/src
             ${MLPRIMS_DIR}/src/dbscan
@@ -182,7 +182,7 @@ add_library(cuml SHARED
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
             src/glm/glm.cu
-	    	src/knn/knn.cu
+            src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
             )
 
@@ -204,7 +204,7 @@ target_link_libraries(ml_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
-		              gpufaisslib
+		      gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
                       pthread
@@ -218,12 +218,13 @@ add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_mg_test
                       ${GTEST_LIBNAME}
-                      ${FAISS_LIBNAME}
-                      ${FAISS_GPU_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      gpufaisslib
+                      faisslib
+                      ${BLAS_LIBRARIES}
                       pthread
                       ${ZLIB_LIBRARIES})
 
