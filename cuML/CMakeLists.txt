@@ -15,8 +15,9 @@
 #
 
 
-cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
 project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
