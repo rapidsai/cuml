@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import numpy
@@ -64,6 +64,7 @@ setup(name='cuml',
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=cythonize(extensions),
+      packages=find_packages(include=['cuML', 'cuML.*']),
       install_requires=install_requires,
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
