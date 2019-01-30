@@ -123,7 +123,7 @@ class PCA:
 
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
                  iterated_power=15, random_state=None, svd_solver='auto'):
-        if svd_solver in ['full', 'auto', 'randomized', 'jacobi']:
+        if svd_solver in ['full', 'auto', 'jacobi']:
             c_algorithm = self._get_algorithm_c_name(svd_solver)
         else:
             msg = "algorithm {!r} is not supported"
@@ -148,7 +148,7 @@ class PCA:
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
             # 'arpack': NOT_SUPPORTED,
-            'randomized': RANDOMIZED,
+            # 'randomized': NOT_SUPPORTED,
             'jacobi': COV_EIG_JACOBI
         }[algorithm]
 
