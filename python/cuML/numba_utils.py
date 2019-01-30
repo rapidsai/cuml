@@ -75,11 +75,8 @@ def row_matrix(df):
 
     # one block per tile, plus one for remainders
     blocks = int((b.shape[1]) / tile_height + 1), int((b.shape[0]) / tile_width + 1)
-    print(b.shape)
     # one thread per tile element
     threads = tile_height, tile_width
-    print(blocks)
-    print(threads)
     kernel[blocks, threads](a, b)
 
     return b
