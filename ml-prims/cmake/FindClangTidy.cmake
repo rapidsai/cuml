@@ -7,3 +7,5 @@ find_program(ClangTidy_EXE
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ClangTidy DEFAULT_MSG
   ClangTidy_EXE)
+
+# TODO: add a clang_tidy dependency on the existing targets
