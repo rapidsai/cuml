@@ -1,16 +1,15 @@
-[submodule "external/googletest"]
-    path = cuML/external/googletest
-    url = https://github.com/google/googletest
-[submodule "external/cutlass"]
-    path = cuML/external/cutlass
-    url = https://github.com/teju85/cutlass.git
-    branch = v0.1-customizations
-[submodule "ml-prims/external/cutlass"]
-    path = ml-prims/external/cutlass
-    url = https://github.com/NVIDIA/cutlass
-[submodule "ml-prims/external/cub"]
-    path = ml-prims/external/cub
-    url = https://github.com/NVlabs/cub
-[submodule "ml-prims/external/googletest"]
-    path = ml-prims/external/googletest
-    url = https://github.com/google/googletest
+[submodule "thirdparty/cuml/faiss"]
+	path = thirdparty/cuml/faiss
+	url = https://github.com/facebookresearch/faiss
+[submodule "thirdparty/cuml/googletest"]
+	path = thirdparty/cuml/googletest
+	url = https://github.com/google/googletest
+[submodule "thirdparty/ml-prims/googletest"]
+	path = thirdparty/ml-prims/googletest
+	url = https://github.com/google/googletest
+[submodule "thirdparty/ml-prims/cub"]
+	path = thirdparty/ml-prims/cub
+	url = https://github.com/NVlabs/cub
+[submodule "thirdparty/ml-prims/cutlass"]
+	path = thirdparty/ml-prims/cutlass
+	url = https://github.com/NVIDIA/cutlass

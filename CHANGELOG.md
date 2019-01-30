@@ -1,4 +1,4 @@
-# cuML 0.5.0 (Date TBD)
+# cuML 0.5.0 (28 Jan 2019)
 
 ## New Features
 
@@ -17,6 +17,8 @@
 - PR #75: C++ example to use kmeans
 - PR #117: Use cmake extension to find any zlib installed in system
 - PR #94: Add cmake flag to set ABI compatibility
+- PR #139: Move thirdparty submodules to root and add symlinks to new locations
+- PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
 
 ## Bug Fixes
 

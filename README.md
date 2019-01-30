@@ -2,6 +2,8 @@
 
 Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
 
+**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
+
 The cuML repository contains:
 
 1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
@@ -51,6 +53,8 @@ Upcoming algorithms:
 
 - UMAP
 
+- UMAP
+
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
@@ -82,18 +86,22 @@ apt install libopenblas-base libomp-dev
 
 To install cuML from source, ensure the dependencies are met:
 
-
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.4.0)
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.0)
 2. zlib Provided by zlib1g-dev in Ubuntu 16.04
-3. cmake (>= 3.8, version 3.11.4 or 3.12.4 is recommended)
+3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
-5. Cython (>= 0.28)
+5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
-7. faiss-gpu (>=1.4.0) - faiss-gpu is required to run the KNN algorithm. For using KNN with CUDA 9.2, faiss-gpu can be installed using conda:
+7. faiss-gpu (>=1.4.0) - faiss-gpu is required to run the KNN algorithm. 
+    - For using KNN with CUDA 9.2 or CUDA 10.0, faiss-gpu can be installed using conda:
 
-```conda install -c pytorch faiss-gpu cuda92```
+```bash
+# cuda 9.2
+conda install -c pytorch faiss-gpu cuda92
 
-To use KNN on CUDA 10, faiss-gpu needs to be installed from source, with other installation options coming soon.
+# cuda 10.0
+conda install -c pytorch faiss-gpu cuda100
+```
 
 ### Installing from Source:
 
@@ -162,7 +170,7 @@ $ python setup.py install
 
 ### Python Notebooks
 
-Demo notebooks can be found in `python/notebooks` folder.
+Demo notebooks for the cuML Python algorithms can be found in the [rapidsai/notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml) repository on Github.
 
 ## External
 
