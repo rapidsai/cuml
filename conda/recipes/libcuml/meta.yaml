@@ -4,38 +4,37 @@
 #   conda build . -c defaults -c conda-forge -c numba -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') %}
 {% set git_revision_count=environ.get('GIT_DESCRIBE_NUMBER', 0) %}
-{% set cuda_version='.'.join(environ.get('CUDA', 'unknown').split('.')[:2]) %}
-{% set py_version=environ.get('CONDA_PY', 35) %}
+{% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
+{% set cuda_major = environ.get('CUDA', '9.2').split('.')[0] %}
+{% set cuda_minor = environ.get('CUDA', '9.2').split('.')[1] %}
 package:
-  name: cuml
+  name: libcuml
   version: {{ version }}
 
 source:
-  path: ../..
+  path: ../../..
 
 build:
   number: {{ git_revision_count }}
-  string: cuda{{ cuda_version }}_py{{ py_version }}_{{ git_revision_count }}
+  string: cuda{{ cuda_version }}_{{ git_revision_count }}
   script_env:
     - CC
     - CXX
+    - CUDAHOSTCXX
+    - BUILD_ABI
+    - PARALLEL_LEVEL
 
 requirements:
   build:
-    - python x.x
-    - setuptools
-    - cython
-    - cmake 3.12
-    - cudf 0.4.0.*
-    - libcuml 0.4.0.*
+    - cmake 3.12.4
+    - cudf 0.5*
   run:
-    - python x.x
-    - setuptools
-    - cudf 0.4.0.*
-    - libcuml 0.4.0.*
+    - faiss-gpu
+    - cuda{{ cuda_major }}{{ cuda_minor }}
+    - cudf 0.5*
 
 about:
   home: http://rapids.ai/
   license: Apache-2.0
   # license_file: LICENSE
-  summary: cuML library
+  summary: libcuml library
