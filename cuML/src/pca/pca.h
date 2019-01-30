@@ -187,7 +187,7 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                       prms.n_rows, prms.n_components, true, true);
 	}
 
 	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle);
@@ -195,7 +195,7 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                      prms.n_rows, prms.n_components, true, true);
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
@@ -240,7 +240,7 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                      prms.n_rows, prms.n_components, true, true);
 	}
 
 	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
@@ -249,7 +249,7 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                       prms.n_rows, prms.n_components, true, true);
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);

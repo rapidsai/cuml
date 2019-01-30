@@ -346,15 +346,15 @@ void signFlip(math_t *inout, int n_rows, int n_cols) {
 
 template <typename Type, int TPB = 256>
 void matrixVectorBinaryMult(Type *data, const Type *vec, int n_row, int n_col,
-                            bool rowMajor) {
-    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+                            bool rowMajor, bool bcastAlongRows) {
+    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) { return a * b; });
 }
 
 template <typename Type, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, int n_row,
-                                    int n_col, bool rowMajor) {
-    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+                                    int n_col, bool rowMajor, bool bcastAlongRows) {
+    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) {
                    if (b == Type(0))
                      return a;
@@ -365,16 +365,17 @@ void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, int n_row,
 
 template <typename Type, int TPB = 256>
 void matrixVectorBinaryDiv(Type *data, const Type *vec, int n_row, int n_col,
-                           bool rowMajor) {
-    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+                           bool rowMajor, bool bcastAlongRows) {
+    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) { return a / b; });
 }
 
 template <typename Type, int TPB=256>
-void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col, bool rowMajor, bool return_zero = false) {
+void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n_col,
+                                   bool rowMajor, bool bcastAlongRows, bool return_zero = false) {
 
 	if (return_zero) {
-            LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+            LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 				        		[] __device__ (Type a, Type b) {
 				                       if (b < Type(1e-10))
 				                      	   return Type(0);
@@ -382,7 +383,7 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n
 				        		           return a / b;
 				        		    });
 	} else {
-	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 		        		       [] __device__ (Type a, Type b) {
 		                               if (b < Type(1e-10))
 		                            	   return a;
@@ -394,15 +395,15 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, int n_row, int n
 
 template <typename Type, int TPB = 256>
 void matrixVectorBinaryAdd(Type *data, const Type *vec, int n_row, int n_col,
-                           bool rowMajor) {
-    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+                           bool rowMajor, bool bcastAlongRows) {
+    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) { return a + b; });
 }
 
 template <typename Type, int TPB = 256>
 void matrixVectorBinarySub(Type *data, const Type *vec, int n_row, int n_col,
-                           bool rowMajor) {
-    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, true,
+                           bool rowMajor, bool bcastAlongRows) {
+    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) { return a - b; });
 }
 
