@@ -181,7 +181,7 @@ template <typename Type>
 class Rng {
 public:
   /** ctor */
-  Rng(uint64_t _s, GeneratorType _t = GenPhilox) : type(_t) {
+  Rng(uint64_t _s, GeneratorType _t = GenTaps) : type(_t) {
     srand(_s);
     offset = 0;
     // simple heuristic to make sure all SMs will be occupied properly
