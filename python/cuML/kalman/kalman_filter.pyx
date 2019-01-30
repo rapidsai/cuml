@@ -15,6 +15,8 @@
 
 import numpy as np
 from numba import cuda
+# temporary import for numba_utils
+from cuML import numba_utils
 
 
 cdef extern from "kalman_filter/kf_variables.h" namespace "kf::linear":
@@ -520,7 +522,7 @@ class KalmanFilter:
     def __setattr__(self, name, value):
         if name in ["F", "x_up", "x", "P_up", "P", "Q", "H", "R", "z"]:
             if (isinstance(value, cudf.DataFrame)):
-                val = value.as_gpu_matrix(order='C')
+                val = numba_utils.row_matrix(value)
 
             elif (isinstance(value, cudf.Series)):
                 val = value.to_gpu_array()
