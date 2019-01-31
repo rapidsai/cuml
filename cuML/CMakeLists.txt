@@ -16,7 +16,7 @@
 
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
+project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
 
 set(CMAKE_CXX_STANDARD 11)
@@ -26,7 +26,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # - Requirements ----------------------------------------------------------------------------------
 
 find_package(CUDA 9.0 REQUIRED)
-find_package(OpenMP REQUIRED)
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+    find_package(OpenMP)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+    message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
+
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
@@ -41,8 +51,6 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUTLASS_DIR_2 "${PROJECT_SOURCE_DIR}/external/cutlass" CACHE STRING
-  "Path to the root of cutlass project directory that Thejaswi updated")
 
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -54,10 +62,14 @@ option(KERNELINFO "Enable kernel resource usage info" OFF)
 option(DEBUG "Get a debug build" OFF)
 
 ###################################################################################################
-# - NVCC Options  ---------------------------------------------------------------------------------
+# - Compiler Options  -----------------------------------------------------------------------------
 
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
+## nvcc options
+
+if(OPENMP_FOUND)
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+endif(OPENMP_FOUND)
 if(CMAKE_CXX_STANDARD STREQUAL "11")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
@@ -90,7 +102,26 @@ endforeach()
 # It is assumed that the last arch in the 'archs' is the latest!
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
+
 ## end nvcc options
+
+## other compiler options
+
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+
+if(NOT CMAKE_CXX11_ABI)
+        message(STATUS "Disabling the GLIBCXX11 ABI")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
+elseif(CMAKE_CXX11_ABI)
+    message(STATUS "Enabling the GLIBCXX11 ABI")
+endif(NOT CMAKE_CXX11_ABI)
+
+
+## end of other compiler options
+
+
 
 ###################################################################################################
 # - include paths ---------------------------------------------------------------------------------
@@ -101,8 +132,8 @@ include_directories(src
                     ${MLPRIMS_DIR}/src/dbscan
                     ${MLPRIMS_DIR}/test
                     ${CUTLASS_DIR}
-                    ${CUTLASS_DIR_2}
-                    ${CUB_DIR})
+                    ${CUB_DIR}
+                    ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
 
@@ -118,16 +149,16 @@ add_library(cuml SHARED
             src/tsvd/tsvd.cu
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
+            src/glm/glm.cu
+            src/kalman_filter/lkf_py.cu
             )
 
-target_link_libraries(cuml
-                      OpenMP::OpenMP_CXX
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      pthread
-                      z)
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES})
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
@@ -141,8 +172,14 @@ target_link_libraries(ml_test
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
                       pthread
-                      z)
+                      ${ZLIB_LIBRARIES})
 
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
+
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------

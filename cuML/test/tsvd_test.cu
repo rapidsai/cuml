@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <vector>
 #include "random/rng.h"
 #include "test_utils.h"
 #include <cuda_utils.h>
@@ -59,18 +60,20 @@ protected:
 
 		allocate(data, len);
 
-		T data_h[len] = { 1.0, 2.0, 4.0, 2.0, 4.0, 5.0, 5.0, 4.0, 2.0, 1.0, 6.0, 4.0 };
-		updateDevice(data, data_h, len);
+		std::vector<T> data_h = { 1.0, 2.0, 4.0, 2.0, 4.0, 5.0, 5.0, 4.0, 2.0, 1.0, 6.0, 4.0 };
+		data_h.resize(len);
+		updateDevice(data, data_h.data(), len);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
 		allocate(singular_vals, params.n_col);
 
-		T components_ref_h[len_comp] = { -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215,
+		std::vector<T> components_ref_h = { -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215,
 		                                 -0.3757 };
+		components_ref_h.resize(len_comp);
 
 		allocate(components_ref, len_comp);
-		updateDevice(components_ref, components_ref_h, len_comp);
+		updateDevice(components_ref, components_ref_h.data(), len_comp);
 
 		paramsTSVD prms;
 		prms.n_cols = params.n_col;

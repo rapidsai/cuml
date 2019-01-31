@@ -1,16 +1,16 @@
 [submodule "external/googletest"]
-    path = cuML/external/googletest
+    path = thirdparty/cuml/googletest
     url = https://github.com/google/googletest
 [submodule "external/cutlass"]
-    path = cuML/external/cutlass
+    path = thirdparty/cuml/cutlass
     url = https://github.com/teju85/cutlass.git
     branch = v0.1-customizations
 [submodule "ml-prims/external/cutlass"]
-    path = ml-prims/external/cutlass
+    path = thirdparty/ml-prims/cutlass
     url = https://github.com/NVIDIA/cutlass
 [submodule "ml-prims/external/cub"]
-    path = ml-prims/external/cub
+    path = thirdparty/ml-prims/cub
     url = https://github.com/NVlabs/cub
 [submodule "ml-prims/external/googletest"]
-    path = ml-prims/external/googletest
+    path = thirdparty/ml-prims/googletest
     url = https://github.com/google/googletest

@@ -21,10 +21,13 @@
 #include "ml_utils.h"
 #include "dbscan/dbscan.h"
 #include <linalg/cublas_wrappers.h>
+#include <iostream>
+#include <vector>
 
 namespace ML {
 
 using namespace MLCommon;
+using namespace std;
 
 template<typename T>
 struct DbscanInputs {
@@ -51,19 +54,20 @@ protected:
 
 		allocate(data, len);
 
-		T data_h[len] = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
-		updateDevice(data, data_h, len);
-
+		std::vector<T> data_h = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
+		data_h.resize(len);
+		updateDevice(data, data_h.data(), len);
 
 		allocate(labels, params.n_row);
 		allocate(labels_ref, params.n_row);
-		int labels_ref_h[len] = { 0, 0, 0, 1, 1, -1 };
-		updateDevice(labels_ref, labels_ref_h, params.n_row);
+		std::vector<int> labels_ref_h = { 0, 0, 0, 1, 1, -1 };
+		labels_ref_h.resize(len);
+		updateDevice(labels_ref, labels_ref_h.data(), params.n_row);
 
 		T eps = 3.0;
 		int min_pts = 2;
 
-		dbscanFit(data, params.n_row, params.n_col, eps, min_pts, labels);
+		dbscanFitImpl(data, params.n_row, params.n_col, eps, min_pts, labels);
 
 	}
 
@@ -74,7 +78,6 @@ protected:
 	void TearDown() override {
 		CUDA_CHECK(cudaFree(data));
 		CUDA_CHECK(cudaFree(labels));
-
 		CUDA_CHECK(cudaFree(labels_ref));
 	}
 

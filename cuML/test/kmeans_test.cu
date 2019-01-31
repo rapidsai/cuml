@@ -1,5 +1,6 @@
 
 #include "kmeans/kmeans.cu"
+#include <vector>
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
 #include <test_utils.h>
@@ -34,16 +35,18 @@ protected:
         allocate(centroids_ref, k * n);
 
         // make testdata on host
-        T h_srcdata[n * m] =
-            {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
-        updateDevice(d_srcdata, h_srcdata, m*n);
+        std::vector<T> h_srcdata = {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
+        h_srcdata.resize(n * m);
+        updateDevice(d_srcdata, h_srcdata.data(), m*n);
 
         // make and assign reference output
-        int h_labels_ref_fit[m] = {1, 1, 0, 0};
-        updateDevice(labels_ref_fit, h_labels_ref_fit, m);
+        std::vector<int> h_labels_ref_fit = {1, 1, 0, 0};
+        h_labels_ref_fit.resize(m);
+        updateDevice(labels_ref_fit, h_labels_ref_fit.data(), m);
 
-        T h_centroids_ref[k * n] = {3.5,2.5, 1.0,1.5};
-        updateDevice(centroids_ref, h_centroids_ref, k * n);
+        std::vector<T> h_centroids_ref = {3.5,2.5, 1.0,1.5};
+        h_centroids_ref.resize(k * n);
+        updateDevice(centroids_ref, h_centroids_ref.data(), k * n);
 
         // The actual kmeans api calls
         // fit

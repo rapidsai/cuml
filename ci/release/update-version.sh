@@ -1,4 +1,5 @@
 #!/bin/bash
+# Copyright (c) 2019, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
@@ -48,8 +49,8 @@ function sed_runner() {
 }
 
 # Conda environment updates
-sed_runner 's/cuml=.*/cuml='"${NEXT_FULL_TAG}.*"'/g' conda_environments/builddocs_py36.yml
-sed_runner 's/libcuml .*/libcuml '"${NEXT_FULL_TAG}.*"'/g' conda-recipes/cuml/meta.yaml
+sed_runner 's/cuml=.*/cuml='"${NEXT_SHORT_TAG}*"'/g' conda_environments/builddocs_py36.yml
+sed_runner 's/libcuml .*/libcuml '"${NEXT_SHORT_TAG}*"'/g' conda-recipes/cuml/meta.yaml
 
 # RTD update
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py

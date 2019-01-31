@@ -1,30 +1,53 @@
-# ml-prims
-This repo contains most of the ML primitives.
+	# Introduction
+This repo contains some of the common infrastructural components as well as
+computational primitives, that will be useful while building a ML algo repo from
+scratch.
+
+ML Primitives is implemented as header only C++/CUDA libraries for the developers who 
+would like to call these APIs from their projects. You can build and run the Google 
+tests if you are interested in helping us to improve these libraries.
 
 # Setup
 ## Dependencies
+1. git
+2. zlib
+3. cmake (>= 3.8)
+4. CUDA SDK (>= 9.2)
 
-1. zlib
-2. cmake (>= 3.8 and <= 3.11.4, version 3.11.4 is recommended and there are some issues with version 3.12)
-3. CUDA SDK (>= 8.0)
-4. Cython (>= 0.28)
-5. gcc (>=5.4.0)
-6. nvcc (this comes with CUDA SDK)
+<<<<<<< HEAD
 
-### Building ml-prims:
-
-ml-prims is implemented as header only C++/CUDA libraries for the developers who would like to call these APIs from their projects. You can build and run the Google tests if you are interested in helping us to improve these libraries.
-
-First, clone the cuML if you haven't cloned it yet.
-
+## Repo
 ```bash
-$ git clone --recursive git@github.com:rapidsai/cuml-alpha.git
+$ git clone --recursive git@github.com:rapidsai/cuml.git
+=======
+4. CUDA SDK (>= 8.0)
+
+## Repo
+```bash
+$ git clone --recursive git@gitlab.com:nvdevtech/ml-common.git
+>>>>>>> Refactor DBSCAN to use ml-prims.
+=======
+
+## Repo
+```bash
+$ git clone --recursive git@github.com:rapidsai/cuml.git
+>>>>>>> Updating ml-prims README
+$ git submodule init
+$ git submodule update
 ```
 
-To build ml-prims, in the main folder;
-
+## In case you prefer working inside docker
 ```bash
-$ cd ml-prims
+$ git clone https://github.com/teju85/dockerfiles
+$ cd dockerfiles/ubuntu1604
+$ make ml-dev
+$ cd ../..
+$ ./dockerfiles/scripts/launch -runas user ml:dev /bin/bash
+container$ cd /work/ml-common
+```
+
+# Running tests
+```bash
 $ mkdir build
 $ cd build
 $ cmake ..
@@ -32,13 +55,15 @@ $ make -j
 $ ./mlcommon_test
 ```
 
-## External
+# Users
+## scripts
+Contains some useful scripts. Refer to [scripts](scripts/README.md).
 
-The external folders inside ml-prims contain submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main CMakeLists.txt file for these.
+## external
+Contains submodules that this project, in-turn, depends on. Appropriate location flags
+will be automatically populated in the main CMakeLists.txt file, for these.
 
-Current external submodules are:
-
-1. [CUTLASS](https://github.com/NVIDIA/cutlass)
-2. [CUB](https://github.com/NVlabs/cub)
-3. [Google Test](https://github.com/google/googletest)
+Description of these submodules:
+1. Nvidia Cutlass - Abstractions for high-performance matrix multipliciation on GPUs
+2. Nvidia Cub - Primitives for high-performance, maintainable CUDA kernel code
+3. Google Test - C++ test framework
