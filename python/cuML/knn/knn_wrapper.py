@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import faiss
 import numpy as np
 import pandas as pd
 import cudf
@@ -86,9 +85,25 @@ class KNN:
     """
     def __init__(self, n_gpus=-1):
         # -1 means using all gpus
+
+        # import faiss
+        try:
+            import faiss
+        except ImportError:
+            msg = "KNN not supported without faiss"
+            raise ImportError(msg)
+
+
         self.params = KNNparams(n_gpus)
 
     def fit(self, X):
+
+        try:
+            import faiss
+        except ImportError:
+            msg = "KNN not supported without faiss"
+            raise ImportError(msg)
+
         if (isinstance(X, cudf.DataFrame)):
             X = self.to_nparray(X)
         assert len(X.shape) == 2, 'data should be two dimensional'

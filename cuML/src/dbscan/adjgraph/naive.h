@@ -28,7 +28,7 @@ template <typename Type>
 void launcher(Pack<Type> data, int batchSize, cudaStream_t stream) {
     int k = 0;
     int N = data.N;
-    Type *host_vd = new Type[batchSize+1];
+    int *host_vd = new Type[batchSize+1];
     bool *host_core_pts = new bool[batchSize];
     bool *host_adj = new bool[batchSize*N];
     Type *host_ex_scan = new Type[batchSize];

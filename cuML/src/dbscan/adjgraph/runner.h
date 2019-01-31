@@ -24,7 +24,7 @@ namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Type>
-void run(bool* adj, Type* vd, Type* adj_graph, Type* ex_scan, Type N,
+void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, cudaStream_t stream, int algo, int batchSize) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts};
     switch(algo) {

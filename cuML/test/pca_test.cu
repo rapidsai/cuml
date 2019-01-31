@@ -15,6 +15,7 @@
  */
 
 #include <gtest/gtest.h>
+#include <vector>
 #include "random/rng.h"
 #include "test_utils.h"
 #include <cuda_utils.h>
@@ -65,11 +66,13 @@ protected:
 		allocate(trans_data, len);
 		allocate(trans_data_ref, len);
 
-		T data_h[len] = { 1.0, 2.0, 5.0, 4.0, 2.0, 1.0 };
-		updateDevice(data, data_h, len);
+		std::vector<T> data_h = { 1.0, 2.0, 5.0, 4.0, 2.0, 1.0 };
+		data_h.resize(len);
+		updateDevice(data, data_h.data(), len);
 
-		T trans_data_ref_h[len] = { -2.3231, -0.3517, 2.6748, -0.3979, 0.6571, -0.2592 };
-		updateDevice(trans_data_ref, trans_data_ref_h, len);
+		std::vector<T> trans_data_ref_h = { -2.3231, -0.3517, 2.6748, -0.3979, 0.6571, -0.2592 };
+		trans_data_ref_h.resize(len);
+		updateDevice(trans_data_ref, trans_data_ref_h.data(), len);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
@@ -79,14 +82,16 @@ protected:
 		allocate(mean, params.n_col);
 		allocate(noise_vars, 1);
 
-		T components_ref_h[len_comp] = { 0.8163, 0.5776, -0.5776,  0.8163 };
-		T explained_vars_ref_h[params.n_col] = { 6.338, 0.3287 };
+		std::vector<T> components_ref_h = { 0.8163, 0.5776, -0.5776,  0.8163 };
+		components_ref_h.resize(len_comp);
+		std::vector<T> explained_vars_ref_h = { 6.338, 0.3287 };
+		explained_vars_ref_h.resize(params.n_col);
 
 		allocate(components_ref, len_comp);
 		allocate(explained_vars_ref, params.n_col);
 
-		updateDevice(components_ref, components_ref_h, len_comp);
-		updateDevice(explained_vars_ref, explained_vars_ref_h, params.n_col);
+		updateDevice(components_ref, components_ref_h.data(), len_comp);
+		updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col);
 
 		paramsPCA prms;
 		prms.n_cols = params.n_col;

@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <cutlass/gemm/gemm_traits.h>
@@ -13,6 +29,10 @@
 
 namespace MLCommon {
 namespace LinAlg {
+
+struct NullInParams {};
+struct NullOutParams {};
+
 
 /**
  * this type has been mostly customized for float/double data-types
@@ -30,11 +50,11 @@ template <
     /// main loop functor
     typename MainLoopFunctor_,
     /// The number of scalars per LDG for A.
-    int kScalarsPerLdgA_,
+    int kScalarsPerLdgA_ = 1,
     /// The number of scalars per LDG for B.
-    int kScalarsPerLdgB_,
+    int kScalarsPerLdgB_ = 1,
     /// The number of scalars per LDG/STG/LDS for C or D.
-    int kScalarsPerLdgC_>
+    int kScalarsPerLdgC_ = 1>
 struct CustomGemmConfig: public cutlass::gemm::GemmConfig<
     /// The scalar type for A.
     IType,
@@ -89,8 +109,6 @@ template <
     cutlass::MatrixLayout::Kind kLayoutB_,
     /// The output tile.
     typename OutputTile_,
-    /// The functor to use in the epilogue.
-    typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
     /// The number of accumulators per thread.
     typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
     /// the functor to use in main loop
@@ -98,24 +116,23 @@ template <
         cutlass::gemm::ThreadMultiplyAdd<AccumulatorsPerThread_,
                                          cutlass::Shape<1, 4, 8>,
                                          IType, IType, AccType>,
-    /// The number of scalars loaded in one LDG for A.
-    int kScalarsPerLdgA_ = 1,
-    /// The number of scalars loaded in one LDG for B.
-    int kScalarsPerLdgB_ = 1,
-    /// The number of scalars per LDG/STG/LDS for C or D.
-    int kScalarsPerLdgC_ = 1,
     /// The index.
     typename Index_ = int,
     /// The GEMM config.
     typename GemmConfig_ =
-        CustomGemmConfig<IType, OType, OutputTile_, AccumulatorsPerThread_,
-                         MainLoopFunctor_, kScalarsPerLdgA_, kScalarsPerLdgB_,
-                         kScalarsPerLdgC_>,
+        CustomGemmConfig<IType, OType, OutputTile_,
+                         AccumulatorsPerThread_,
+                         MainLoopFunctor_>,
+    /// The functor to use in the epilogue.
+    typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
     /// The traits class for the epilogue.
     typename GemmEpilogueTraits_ =
         cutlass::gemm::SimplifiedGemmEpilogueTraits<GemmConfig_,
                                                     EpilogueFunctor_,
-                                                    Index_> >
+                                                    Index_>,
+    /// The class for the epilogue.
+    typename GemmEpilogue_ = 
+        cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_> >
 struct CustomGemmTraits: public cutlass::gemm::SimplifiedGemmTraits<
     // The layout for A.
     kLayoutA_,
@@ -124,7 +141,7 @@ struct CustomGemmTraits: public cutlass::gemm::SimplifiedGemmTraits<
     // The config.
     GemmConfig_,
     // The epilogue.
-    cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
+    GemmEpilogue_,
     // The index.
     Index_> {
 };
@@ -166,12 +183,25 @@ template <typename IType,
           cutlass::MatrixLayout::Kind kLayoutA,
           cutlass::MatrixLayout::Kind kLayoutB,
           typename OutputTile_,
-          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
           typename AccumulatorsPerThread_ = cutlass::Shape<8,8,8>,
           typename MainLoopFunctor_ =
               cutlass::gemm::ThreadMultiplyAdd<AccumulatorsPerThread_,
                                                cutlass::Shape<1,4,8>,
                                                IType, IType, AccType>,
+          typename InParams_ = NullInParams,
+          typename OutParams_ = NullOutParams,
+          typename Index_ = int,
+          typename GemmConfig_ =
+              CustomGemmConfig<IType, OType, OutputTile_,
+                               AccumulatorsPerThread_,
+                               MainLoopFunctor_>,
+          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
+          typename GemmEpilogueTraits_ =
+              cutlass::gemm::SimplifiedGemmEpilogueTraits<GemmConfig_,
+                                                          EpilogueFunctor_,
+                                                          Index_>,
+          typename GemmEpilogue_ = 
+              cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
           typename Lambda>
 void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB,
               int m, int n, int k,
@@ -181,19 +211,25 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB,
               OType beta,
               OType const* C, int ldc,
               OType* D,
-              Lambda op) {
+              Lambda op,
+              InParams_ const& in_params,
+              OutParams_& out_params) {
     typedef CustomGemmTraits<IType, AccType, OType,
                              kLayoutA, kLayoutB,
                              OutputTile_,
-                             EpilogueFunctor_,
                              AccumulatorsPerThread_,
-                             MainLoopFunctor_> GemmTraits;
+                             MainLoopFunctor_,
+                             Index_,
+                             GemmConfig_,
+                             EpilogueFunctor_,
+                             GemmEpilogueTraits_,
+                             GemmEpilogue_> GemmTraits;
     typedef typename cutlass::gemm::Gemm<GemmTraits> Gemm;
     typename Gemm::Params params;
     int err = params.initialize(m, n, k, alpha, A, lda, B, ldb, beta,
                                 C, ldc, D, ldc);
     ASSERT(err == 0, "gemmLauncher: params.initialize failed err=%d", err);
-    err = op(params.epilogue.functor);
+    err = op(params.epilogue.functor, in_params, out_params);
     ASSERT(err == 0, "gemmLauncher: op(epiloguefunctor) failed err=%d", err);
     Gemm::launch(params);
 }
@@ -202,12 +238,25 @@ template <typename IType,
           typename AccType,
           typename OType,
           typename OutputTile_,
-          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
           typename AccumulatorsPerThread_ = cutlass::Shape<8,8,8>,
           typename MainLoopFunctor_ =
               cutlass::gemm::ThreadMultiplyAdd<AccumulatorsPerThread_,
                                                cutlass::Shape<1,4,8>,
                                                IType, IType, AccType>,
+          typename InParams_ = NullInParams,
+          typename OutParams_ = NullOutParams,
+          typename Index_ = int,
+          typename GemmConfig_ =
+              CustomGemmConfig<IType, OType, OutputTile_,
+                               AccumulatorsPerThread_,
+                               MainLoopFunctor_>,
+          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
+          typename GemmEpilogueTraits_ =
+              cutlass::gemm::SimplifiedGemmEpilogueTraits<GemmConfig_,
+                                                          EpilogueFunctor_,
+                                                          Index_>,
+          typename GemmEpilogue_ = 
+              cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
           typename Lambda>
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB,
               int m, int n, int k,
@@ -217,43 +266,77 @@ void baseGemm(cublasOperation_t transA, cublasOperation_t transB,
               OType beta,
               OType const* C, int ldc,
               OType* D,
-              Lambda op) {
+              Lambda op,
+              InParams_ const& in_params,
+              OutParams_& out_params) {
     if(transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
         gemmLauncher<IType, AccType, OType,
                      cutlass::MatrixLayout::kColumnMajor,
                      cutlass::MatrixLayout::kColumnMajor,
                      OutputTile_,
-                     EpilogueFunctor_,
                      AccumulatorsPerThread_,
-                     MainLoopFunctor_>(transA, transB, m, n, k, alpha, A, lda,
-                                       B, ldb, beta, C, ldc, D, op);
+                     MainLoopFunctor_,
+                     InParams_,
+                     OutParams_,
+                     Index_,
+                     GemmConfig_,
+                     EpilogueFunctor_,
+                     GemmEpilogueTraits_,
+                     GemmEpilogue_,
+                     Lambda>(transA, transB, m, n, k, alpha, A, lda,
+                             B, ldb, beta, C, ldc, D,
+                             op, in_params, out_params);
     } else if(transA == CUBLAS_OP_N && transB == CUBLAS_OP_T) {
         gemmLauncher<IType, AccType, OType,
                      cutlass::MatrixLayout::kColumnMajor,
                      cutlass::MatrixLayout::kRowMajor,
                      OutputTile_,
-                     EpilogueFunctor_,
                      AccumulatorsPerThread_,
-                     MainLoopFunctor_>(transA, transB, m, n, k, alpha, A, lda,
-                                       B, ldb, beta, C, ldc, D, op);
+                     MainLoopFunctor_,
+                     InParams_,
+                     OutParams_,
+                     Index_,
+                     GemmConfig_,
+                     EpilogueFunctor_,
+                     GemmEpilogueTraits_,
+                     GemmEpilogue_,
+                     Lambda>(transA, transB, m, n, k, alpha, A, lda,
+                             B, ldb, beta, C, ldc, D,
+                             op, in_params, out_params);
     } else if(transA == CUBLAS_OP_T && transB == CUBLAS_OP_N) {
         gemmLauncher<IType, AccType, OType,
                      cutlass::MatrixLayout::kRowMajor,
                      cutlass::MatrixLayout::kColumnMajor,
                      OutputTile_,
-                     EpilogueFunctor_,
                      AccumulatorsPerThread_,
-                     MainLoopFunctor_>(transA, transB, m, n, k, alpha, A, lda,
-                                       B, ldb, beta, C, ldc, D, op);
+                     MainLoopFunctor_,
+                     InParams_,
+                     OutParams_,
+                     Index_,
+                     GemmConfig_,
+                     EpilogueFunctor_,
+                     GemmEpilogueTraits_,
+                     GemmEpilogue_,
+                     Lambda>(transA, transB, m, n, k, alpha, A, lda,
+                             B, ldb, beta, C, ldc, D,
+                             op, in_params, out_params);
     } else if(transA == CUBLAS_OP_T && transB == CUBLAS_OP_T) {
         gemmLauncher<IType, AccType, OType,
                      cutlass::MatrixLayout::kRowMajor,
                      cutlass::MatrixLayout::kRowMajor,
                      OutputTile_,
-                     EpilogueFunctor_,
                      AccumulatorsPerThread_,
-                     MainLoopFunctor_>(transA, transB, m, n, k, alpha, A, lda,
-                                       B, ldb, beta, C, ldc, D, op);
+                     MainLoopFunctor_,
+                     InParams_,
+                     OutParams_,
+                     Index_,
+                     GemmConfig_,
+                     EpilogueFunctor_,
+                     GemmEpilogueTraits_,
+                     GemmEpilogue_,
+                     Lambda>(transA, transB, m, n, k, alpha, A, lda,
+                             B, ldb, beta, C, ldc, D,
+                             op, in_params, out_params);
     } else {
         ASSERT(false, "runGemm: Bad cublasOperation_t a=%d b=%d\n",
                (int)transA, (int)transB);
@@ -265,12 +348,64 @@ template <typename IType,
           typename AccType,
           typename OType,
           typename OutputTile_,
-          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
           typename AccumulatorsPerThread_ = cutlass::Shape<8,8,8>,
           typename MainLoopFunctor_ =
               cutlass::gemm::ThreadMultiplyAdd<AccumulatorsPerThread_,
                                                cutlass::Shape<1,4,8>,
-                                               IType, IType, AccType> >
+                                               IType, IType, AccType>,
+          typename InParams_ = NullInParams,
+          typename OutParams_ = NullOutParams,
+          typename Index_ = int,
+          typename GemmConfig_ =
+              CustomGemmConfig<IType, OType, OutputTile_,
+                               AccumulatorsPerThread_,
+                               MainLoopFunctor_>,
+          typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>,
+          typename GemmEpilogueTraits_ =
+              cutlass::gemm::SimplifiedGemmEpilogueTraits<GemmConfig_,
+                                                          EpilogueFunctor_,
+                                                          Index_>,
+          typename GemmEpilogue_ = 
+              cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
+          typename Lambda>
+void gemm(cublasOperation_t transA, cublasOperation_t transB,
+          int m, int n, int k,
+          OType alpha,
+          IType const* A, int lda,
+          IType const* B, int ldb,
+          OType beta,
+          OType const* C, int ldc,
+          OType* D,
+          Lambda op,
+          InParams_ const& in_params,
+          OutParams_& out_params) {
+    baseGemm<IType, AccType, OType, OutputTile_,
+             AccumulatorsPerThread_, MainLoopFunctor_,
+             InParams_,
+             OutParams_,
+             Index_,
+             GemmConfig_,
+             EpilogueFunctor_,
+             GemmEpilogueTraits_,
+             GemmEpilogue_,
+             Lambda>
+        (transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
+         op,
+         in_params,
+         out_params);
+}
+
+template <typename IType,
+          typename AccType,
+          typename OType,
+          typename OutputTile_,
+          typename AccumulatorsPerThread_ = cutlass::Shape<8,8,8>,
+          typename MainLoopFunctor_ =
+              cutlass::gemm::ThreadMultiplyAdd<AccumulatorsPerThread_,
+                                               cutlass::Shape<1,4,8>,
+                                               IType, IType, AccType>,
+          typename EpilogueFunctor_ =
+              cutlass::gemm::LinearScaling<OType> >
 void gemm(cublasOperation_t transA, cublasOperation_t transB,
           int m, int n, int k,
           OType alpha,
@@ -279,12 +414,27 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB,
           OType beta,
           OType const* C, int ldc,
           OType* D) {
-    baseGemm<IType, AccType, OType, OutputTile_, EpilogueFunctor_,
-             AccumulatorsPerThread_, MainLoopFunctor_>
+    typedef CustomGemmConfig<IType, OType, OutputTile_,
+                                      AccumulatorsPerThread_,
+                                      MainLoopFunctor_> GemmConfig_;
+
+    NullInParams in_params;
+    NullOutParams out_params;
+    gemm<IType, AccType, OType, OutputTile_,
+         AccumulatorsPerThread_,
+         MainLoopFunctor_,
+         NullInParams,
+         NullOutParams,
+         int,
+         GemmConfig_,
+         EpilogueFunctor_>
         (transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
-         [] (typename EpilogueFunctor_::Params& p) {
+         [] (typename EpilogueFunctor_::Params& p,
+             NullInParams const& in_params, NullOutParams& out_params) {
              return 0;
-         });
+         },
+         in_params,
+         out_params);
 }
 
 template <typename math_t>
