@@ -11,7 +11,7 @@ package:
   version: {{ version }}
 
 source:
-  path: ../..
+  path: ../../..
 
 build:
   number: {{ git_revision_count }}
@@ -19,6 +19,7 @@ build:
   script_env:
     - CC
     - CXX
+    - BUILD_ABI
 
 requirements:
   build:
@@ -26,13 +27,13 @@ requirements:
     - setuptools
     - cython
     - cmake 3.12
-    - cudf 0.4.0.*
-    - libcuml 0.4.0.*
+    - cudf 0.5*
+    - libcuml={{ version }}
   run:
     - python x.x
     - setuptools
-    - cudf 0.4.0.*
-    - libcuml 0.4.0.*
+    - cudf 0.5*
+    - libcuml={{ version }}
 
 about:
   home: http://rapids.ai/
