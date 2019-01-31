@@ -15,7 +15,6 @@
  */
 
 #include "knn_c.h"
-#include "knn_multi.h"
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>

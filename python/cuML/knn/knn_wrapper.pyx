@@ -231,7 +231,7 @@ cdef class KNN:
                    <int>len(alloc_info))
 
 
-    def query_mn(self, X, rank, all_ranks):
+    def query_mn(self, X, k, all_ranks, n_ranks):
         """
         Queries kNN model using multiple.
         :param self:
@@ -250,11 +250,18 @@ cdef class KNN:
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-        self.k.search(<float*>X_ctype,
+
+        ranks = <int*> malloc(sizeof(int)*n_ranks)
+        for i in all_ranks:
+            ranks[i] = all_ranks[i]
+
+        self.k.search_mn(<float*>X_ctype,
                       <int> N,
                       <long*>I_ptr,
                       <float*>D_ptr,
-                      <int> k)
+                      <int> k,
+                      <int*>ranks,
+                      <int>n_ranks)
 
         I_ndarr = I_ndarr.reshape((N, k)).transpose()
         D_ndarr = D_ndarr.reshape((N, k)).transpose()
