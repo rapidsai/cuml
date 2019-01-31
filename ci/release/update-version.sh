@@ -48,10 +48,6 @@ function sed_runner() {
     sed -i.bak ''"$1"'' $2 && rm -f ${2}.bak
 }
 
-# Conda environment updates
-sed_runner 's/cuml=.*/cuml='"${NEXT_SHORT_TAG}*"'/g' conda_environments/builddocs_py36.yml
-sed_runner 's/libcuml .*/libcuml '"${NEXT_SHORT_TAG}*"'/g' conda-recipes/cuml/meta.yaml
-
 # RTD update
 sed_runner 's/version = .*/version = '"'${NEXT_SHORT_TAG}'"'/g' docs/source/conf.py
 sed_runner 's/release = .*/release = '"'${NEXT_FULL_TAG}'"'/g' docs/source/conf.py
