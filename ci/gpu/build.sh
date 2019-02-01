@@ -66,7 +66,7 @@ nvidia-smi
 
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cuML/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" make -j${PARALLEL_LEVEL} test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
 
 
 logger "Python py.test for cuML..."
