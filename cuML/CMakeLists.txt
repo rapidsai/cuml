@@ -14,15 +14,9 @@
 # limitations under the License.
 #
 
-
-
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 
-set(CMAKE_IGNORE_PATH ${CMAKE_INSTALL_PREFIX}/lib)
-set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
-
 project(cuML VERSION 0.6.0 LANGUAGES CXX CUDA)
-
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,7 +24,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
 
-find_package( BLAS REQUIRED )
+if(NOT DEFINED BLAS_LIBRARIES)
+    find_package( BLAS REQUIRED )
+else()
+	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -78,6 +76,7 @@ option(DEBUG "Get a debug build" OFF)
 if(OPENMP_FOUND)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    message(STATUS "Found OpenMP in ${OpenMP_CXX_LIBRARIES}")
 endif(OPENMP_FOUND)
 if(CMAKE_CXX_STANDARD STREQUAL "11")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
