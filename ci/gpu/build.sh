@@ -76,7 +76,6 @@ cd $WORKSPACE/cuML/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" make -j${PARALLEL_LEVEL} test
 
 logger "Python py.test for libcuml..."
-cd $WORKSPACE/cpp/build/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-libgdf.xml -v
 
 logger "Python py.test for cuML..."
