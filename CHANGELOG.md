@@ -29,6 +29,7 @@
 - PR #139: Move thirdparty submodules to root and add symlinks to new locations
 - PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
 - PR #164: Add numba kernel for faster column to row major transform
+- PR #114: Adding FAISS to cuml build
 
 ## Bug Fixes
 
