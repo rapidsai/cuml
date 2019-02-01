@@ -17,6 +17,9 @@
 
 
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+
+set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
+  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
 project(cuML VERSION 0.6.0 LANGUAGES CXX CUDA)
@@ -44,7 +47,7 @@ endif(ZLIB_FOUND)
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
@@ -60,8 +63,7 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
-set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
-  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
+
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
@@ -199,13 +201,13 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
-                      ${GTEST_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
 		              gpufaisslib
                       faisslib
+                      ${GTEST_LIBNAME}
                       ${BLAS_LIBRARIES}
                       pthread
                       ${ZLIB_LIBRARIES})
