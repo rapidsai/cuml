@@ -90,6 +90,7 @@ To install cuML from source, ensure the dependencies are met:
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
+7. BLAS - Any BLAS compatible with Cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html)
 
 ```bash
 # cuda 9.2
@@ -116,17 +117,19 @@ $ cd build
 $ cmake ..
 ```
 
-Note: if using a conda environment (recommended currently), then cmake can be configured appropriately via:
+If using a conda environment (recommended currently), then cmake can be configured appropriately via:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX`. It is an open issue that we are working to resolve:
+Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 ```
 Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:
 ```
+
+The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version. 
 
 
 3. Build `libcuml`:
