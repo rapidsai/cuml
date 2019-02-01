@@ -58,7 +58,6 @@ make -j${PARALLEL_LEVEL}
 logger "Install libcuml..."
 make -j${PARALLEL_LEVEL} install
 
-logger "Install libcuml for Python..."
 make python_cffi
 make install_python
 
