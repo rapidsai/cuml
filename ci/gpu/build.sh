@@ -45,7 +45,7 @@ conda list
 
 logger "Build libcuml..."
 mkdir -p $WORKSPACE/cuML/build
-cd $WORKSPACE/cpp/build
+cd $WORKSPACE/cuML/build
 logger "Run cmake libcuml..."
 cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ..
 
