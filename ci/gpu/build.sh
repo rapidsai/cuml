@@ -75,7 +75,6 @@ logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cuML/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" make -j${PARALLEL_LEVEL} test
 
-logger "Python py.test for libcuml..."
 
 logger "Python py.test for cuML..."
 cd $WORKSPACE/python
