@@ -1,8 +1,12 @@
-# cuML 0.6.0
+# cuML 0.6.0 (Date TBD)
+
+## New Features
 
 ## Improvements
 
 - PR #168: Add /ci/gpu/build.sh file to cuML
+
+## Bug Fixes
 
 # cuML 0.5.0 (28 Jan 2019)
 
