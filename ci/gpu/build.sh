@@ -58,7 +58,6 @@ make -j${PARALLEL_LEVEL}
 logger "Install libcuml..."
 make -j${PARALLEL_LEVEL} install
 
-make install_python
 
 logger "Build cuML..."
 cd $WORKSPACE/python
