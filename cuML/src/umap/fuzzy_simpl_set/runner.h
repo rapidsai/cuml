@@ -14,33 +14,18 @@
  * limitations under the License.
  */
 
-#include "umap.h"
+namespace UMAP {
 
-namespace ML {
+namespace FuzzySimplSet {
 
 	template<typename T>
-	void UMAP::fit(T *X) {
-		/**
-		 * First, get the indices from a kNN model.
-		 */
+	void run(const T *X, int n, int n_neighbors,
+			 const long *knn_indices, int knn_indices_n,
+			 const T *knn_dists, int knn_dists_n,
+			 float local_connectivity) {
 
-
-		/**
-		 * Construct a fuzzy simplicial set,
-		 * which consists of two main algorithms:
-		 *   - smooth_knn_dists
-		 *   - compute_membership_strengths
-		 */
-
-		/**
-		 * Simplicial set embedding
-		 */
 
 	}
 
-
-	template<typename T>
-	void UMAP::transform(T *x) {
-
-	}
 }
+};
