@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include "naive.h"
+#include "algo.h"
+
 namespace UMAP {
 
 namespace FuzzySimplSet {
@@ -22,9 +25,15 @@ namespace FuzzySimplSet {
 	void run(const T *X, int n, int n_neighbors,
 			 const long *knn_indices, int knn_indices_n,
 			 const T *knn_dists, int knn_dists_n,
-			 float local_connectivity) {
+			 float local_connectivity, int algorithm) {
 
+		switch(algorithm) {
+		case 0:
+			Naive::launcher();
 
+		case 1:
+			Algo::launcher();
+		}
 	}
 
 }

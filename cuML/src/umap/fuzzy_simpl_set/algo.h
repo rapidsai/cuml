@@ -20,6 +20,9 @@ namespace FuzzySimplSet {
 namespace Algo {
 
 
+	void launcher() {
+
+	}
 
 
 
