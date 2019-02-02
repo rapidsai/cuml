@@ -10,8 +10,6 @@
 #define _KNN_H
 namespace ML {
 
-	using namespace faiss;
-
 	class kNNParams {
 	public:
 		float *ptr;
