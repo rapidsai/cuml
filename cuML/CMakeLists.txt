@@ -137,7 +137,7 @@ endif(NOT CMAKE_CXX11_ABI)
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --quiet
+  CONFIGURE_COMMAND ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND make
   INSTALL_COMMAND make -s install > /dev/null || make && cd gpu && make -s install > /dev/null || make
