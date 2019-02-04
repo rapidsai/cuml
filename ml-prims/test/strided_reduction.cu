@@ -35,7 +35,8 @@ struct stridedReductionInputs {
 
 template <typename T>
 void stridedReductionLaunch(T *dots, const T *data, int cols, int rows) {
-  stridedReduction(dots, data, cols, rows, [] __device__(T in) { return in * in; });
+  stridedReduction(dots, data, cols, rows, (T)0, false, 0,
+                   [] __device__(T in) { return in * in; });
 }
 
 
