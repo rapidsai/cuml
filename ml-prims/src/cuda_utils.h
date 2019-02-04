@@ -275,12 +275,6 @@ void freeMG(Type *ptr, int n_gpus) {
   }
 }
 
-template <typename Type>
-void copy(Type* dPtr1, const Type* dPtr2, size_t len) {
-    CUDA_CHECK(cudaMemcpy(dPtr1, dPtr2, len*sizeof(Type),
-                          cudaMemcpyDeviceToDevice));
-}
-
 /** Device function to apply the input lambda across threads in the grid */
 template <int ItemsPerThread, typename L>
 DI void forEach(int num, L lambda) {
@@ -324,6 +318,51 @@ DI void myAtomicAdd(double *address, double val) {
 #else
 #define myAtomicAdd(a, b) atomicAdd(a, b)
 #endif // __CUDA_ARCH__
+
+template<typename T, typename ReduceLambda>
+DI void myAtomicReduce(T *address, T val, ReduceLambda op);
+
+template<typename ReduceLambda>
+DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
+  unsigned long long int *address_as_ull = (unsigned long long int *)address;
+  unsigned long long int old = *address_as_ull, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_ull, assumed,
+                    __double_as_longlong( op(val, __longlong_as_double(assumed)) ));
+  } while (assumed != old);
+}
+
+template<typename ReduceLambda>
+DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
+  unsigned int *address_as_uint = (unsigned int *)address;
+  unsigned int old = *address_as_uint, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address_as_uint, assumed,
+                    __float_as_uint( op(val, __uint_as_float(assumed)) ));
+  } while (assumed != old);
+}
+
+template<typename ReduceLambda>
+DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
+  int old = *address, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address, assumed,
+                    op(val, assumed));
+  } while (assumed != old);
+}
+
+template<typename ReduceLambda>
+DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
+  long long old = *address, assumed;
+  do {
+    assumed = old;
+    old = atomicCAS(address, assumed,
+                    op(val, assumed));
+  } while (assumed != old);
+}
 
 /**
  * @defgroup Exp Exponential function
@@ -422,6 +461,23 @@ HDI double myPow(double x, double power) {
   return pow(x, power);
 }
 /** @} */
+
+
+/**
+ * @defgroup Pow Power function
+ * @{
+ */
+template <typename Type>
+struct Nop {
+  HDI Type operator()(Type in) { return in; }
+};
+
+template <typename Type>
+struct Sum {
+  HDI Type operator()(Type a, Type b) { return a + b; }
+};
+/** @} */
+
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
 DI void warpFence() {

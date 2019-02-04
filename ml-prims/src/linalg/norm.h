@@ -48,22 +48,22 @@ void norm(Type *dots, const Type *data, int D, int N, NormType type,
           Lambda fin_op, cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      coalesedReduction(dots, data, D, N,
-                        [] __device__(Type in) { return myAbs(in); }, fin_op,
-                        false, stream);
+      coalescedReduction(dots, data, D, N, (Type)0,
+                         false, stream,
+                         [] __device__(Type in) { return myAbs(in); }, 
+                         [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     case L2Norm:
-      coalesedReduction(dots, data, D, N,
-                        [] __device__(Type in) { return in * in; }, fin_op,
-                        false, stream);
+      coalescedReduction(dots, data, D, N, (Type)0,
+                         false, stream,
+                         [] __device__(Type in) { return in * in; },
+                         [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
   };
 }
 
-
-///@todo: we need to remove this and use the above methods!!!!
 
 /**
  * @brief Compute row-wise norm of the input matrix without the fin_op lambda
@@ -79,43 +79,6 @@ template <typename Type>
 void norm(Type *dots, const Type *data, int D, int N, NormType type,
           cudaStream_t stream = 0) {
   norm(dots, data, D, N, type, [] __device__(Type in) { return in; }, stream);
-}
-template <typename Type, int TPB>
-__global__ void norm2KernelColMajor(Type* norm2, const Type* data, int D, int N) {
-    typedef cub::BlockReduce<Type, TPB> BlockReduce;
-    __shared__ typename BlockReduce::TempStorage temp_storage;
-    Type thread_data = Type(0);
-    int colStart = blockIdx.x * N;
-    for(int i=threadIdx.x;i<N;i+=TPB) {
-        int idx = colStart + i;
-        thread_data += data[idx] * data[idx];
-    }
-    Type acc = BlockReduce(temp_storage).Sum(thread_data);
-    if(threadIdx.x == 0) {
-    	norm2[blockIdx.x] = MLCommon::mySqrt(acc);
-    }
-}
-
-
-/**
- * @brief Compute norm2 of the input matrix
- *
- * Column-wise norm is useful to normalize the data for many ML algorithms.
- *
- * @tparam Type the data type
- * @param nrm2 the output vector of row-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
- * @param D number of columns of data
- * @param N number of rows of data
- */
-template <typename Type>
-void norm2(Type* out, const Type* data, int D, int N, bool rowMajor=false) {
-	if (rowMajor)
-		ASSERT(true, "norm.h: row major norm is not implemented. This parameter is for future use only.");
-
-	static const int TPB = 256;
-	norm2KernelColMajor<Type,TPB><<<D,TPB>>>(out, data, D, N);
-	CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }; // end namespace LinAlg
