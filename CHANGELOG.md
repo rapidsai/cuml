@@ -1,4 +1,15 @@
-# cuML 0.5.0 (Date TBD)
+# cuML 0.6.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+- PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+
+## Bug Fixes
+
+
+# cuML 0.5.0 (28 Jan 2019)
 
 ## New Features
 
