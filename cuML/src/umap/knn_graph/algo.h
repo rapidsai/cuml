@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2019, NVIDIA CORPORATION.
  *
@@ -14,24 +15,29 @@
  * limitations under the License.
  */
 
-#include "umap.h"
-#include "runner.h"
+#include "../knn/knn.h"
 
-namespace ML {
+namespace UMAP {
 
-	/***
-	 * Fit a UMAP model, currently completely unsupervised.
-	 */
-	template<typename T>
-	void UMAP::fit(T *X, int n, int d) {
-		run(X, n, d, get_params());
+	namespace kNNGraph {
+
+		namespace Algo {
+
+			/**
+			 * Initial implementation calls out to FAISS to do its work.
+			 * TODO: cuML kNN implementation should support FAISS' approx NN variants.
+			 */
+			void launcher(const T *X, int n, int d,
+				     	  long *knn_indices, T *knn_dists,
+				     	  UMAPParams *params) {
+
+				ML::kNN knn(d);
+
+				kNNParams p(X, n);
+				knn.fit(p, 1);
+				knn.search(X, n, knn_indices, knn_dits, k);
+			}
+		}
 	}
-
-	template<typename T>
-	void UMAP::transform(T *x) {
-
-
-	}
-
-	UMAP::UMAPParams* get_params() { return &this->params; }
 }
+

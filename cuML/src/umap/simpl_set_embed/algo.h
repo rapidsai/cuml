@@ -14,24 +14,14 @@
  * limitations under the License.
  */
 
-#include "umap.h"
-#include "runner.h"
+namespace UMAP {
 
-namespace ML {
+	namespace SimplSetEmbed {
 
-	/***
-	 * Fit a UMAP model, currently completely unsupervised.
-	 */
-	template<typename T>
-	void UMAP::fit(T *X, int n, int d) {
-		run(X, n, d, get_params());
+		void launcher() {
+
+
+
+		}
 	}
-
-	template<typename T>
-	void UMAP::transform(T *x) {
-
-
-	}
-
-	UMAP::UMAPParams* get_params() { return &this->params; }
 }

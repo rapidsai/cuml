@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "knn_c.h"
+#include "knn.h"
 #include "cuda_utils.h"
 
 #include <cuda_runtime.h>

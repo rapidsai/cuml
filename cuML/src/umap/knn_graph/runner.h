@@ -14,24 +14,27 @@
  * limitations under the License.
  */
 
-#include "umap.h"
-#include "runner.h"
+#include "algo.h"
 
-namespace ML {
+namespace UMAP {
 
-	/***
-	 * Fit a UMAP model, currently completely unsupervised.
-	 */
-	template<typename T>
-	void UMAP::fit(T *X, int n, int d) {
-		run(X, n, d, get_params());
+	namespace kNNGraph {
+
+		template<typename T>
+		void run(const T *X, int n, int d,
+			     long *knn_indices, T *knn_dists,
+			     UMAPParams *params,
+			     int algo = 0) {
+
+			switch(algo) {
+
+			/**
+			 * Initial algo uses FAISS indices
+			 */
+			case 0:
+				Algo::launcher(X, n, d, knn_indices, knn_dists, params);
+				break;
+			}
+		}
 	}
-
-	template<typename T>
-	void UMAP::transform(T *x) {
-
-
-	}
-
-	UMAP::UMAPParams* get_params() { return &this->params; }
 }

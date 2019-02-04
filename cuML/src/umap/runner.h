@@ -15,3 +15,39 @@
  */
 
 #include "umap.h"
+#include "fuzzy_simpl_set/runner.h"
+#include "knn_graph/runner.h"
+#include "simpl_set_embed/runner.h"
+
+namespace UMAP {
+
+	template<typename T>
+	size_t run(const T *X, int n, int d, UMAPParams *params) {
+
+		/**
+		 * Allocate workspace for kNN graph
+		 */
+		long *knn_indices;
+		T *knn_dists;
+
+		kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
+
+		/**
+		 * Allocate workspace for fuzzy simplicial set.
+		 */
+		T *sigmas;
+		T *rhos;
+
+		/**
+		 * Run Fuzzy simplicial set
+		 */
+		FuzzySimplSet::run(knn_indices, knn_dists, n,
+						   sigams, rhos,
+						   params, 0);
+
+		/**
+		 * Run simplicial set embedding to approximate low-dimensional representation
+		 */
+		SimplSetEmbed::run();
+	}
+}
