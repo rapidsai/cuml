@@ -28,6 +28,9 @@
 - PR #75: C++ example to use kmeans
 - PR #117: Use cmake extension to find any zlib installed in system
 - PR #94: Add cmake flag to set ABI compatibility
+- PR #139: Move thirdparty submodules to root and add symlinks to new locations
+- PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
+- PR #164: Add numba kernel for faster column to row major transform
 
 ## Bug Fixes
 

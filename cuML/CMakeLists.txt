@@ -15,8 +15,8 @@
 #
 
 
-cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
 
 set(CMAKE_CXX_STANDARD 11)
