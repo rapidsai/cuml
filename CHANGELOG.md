@@ -1,8 +1,8 @@
-# cuDF 0.5.1 (TBD)
+# cuML 0.5.1 (05 Feb 2019)
 
 ## Bug Fixes
 
-- PR #842 Avoid using numpy via cimport to prevent ABI issues in Cython compilation
+- PR #189 Avoid using numpy via cimport to prevent ABI issues in Cython compilation
 
 
 # cuML 0.5.0 (28 Jan 2019)
@@ -38,7 +38,6 @@
 - PR #113: Removed old  glm python/cython files
 - PR #118: Fix for AttributeError in kmeans predict method
 - PR #125: Remove randomized solver option from PCA python bindings
-
 
 
 # cuML 0.4.0 (05 Dec 2018)
