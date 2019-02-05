@@ -17,7 +17,6 @@
 import os
 from setuptools import setup, Extension, find_packages
 from Cython.Build import cythonize
-import numpy
 import shutil
 from distutils.sysconfig import get_python_lib
 from cmake_setuptools import CMakeBuildExt, CMakeExtension, \
