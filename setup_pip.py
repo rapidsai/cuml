@@ -23,14 +23,21 @@ from distutils.sysconfig import get_python_lib
 from cmake_setuptools import CMakeBuildExt, CMakeExtension, \
     convert_to_manylinux, InstallHeaders, distutils_dir_name
 
-cuda_version = ''.join(os.environ.get('CUDA', 'unknown').split('.')[:2])
+cuda_version = ''.join(os.environ.get('CUDA', '9.2').split('.')[:2])
 
 name = 'cuml-cuda{}'.format(cuda_version)
 version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
+
+cudf_version = os.environ.get('MIN_CUDF_VERSION', version)
+cudf_version_split = cudf_version.split('.')
+cudf_version_split[1] = str(int(cudf_version_split[1]) + 1)
+cudf_next_minor = '.'.join(cudf_version_split)
+max_cudf_version = os.environ.get('MAX_CUDF_VERSION', cudf_next_minor)
+
 install_requires = [
     'numpy',
     'cython>=0.29<0.30',
-    'cudf-cuda{}=={}'.format(cuda_version, version)
+    'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
 try:
