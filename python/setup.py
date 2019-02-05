@@ -28,18 +28,12 @@ install_requires = [
     'cython'
 ]
 
-try:
-    numpy_include = numpy.get_include()
-except AttributeError:
-    numpy_include = numpy.get_numpy_include()
-
 cython_files = ['cuML/cuml.pyx']
 
 extensions = [
     Extension("cuml",
               sources=cython_files,
-              include_dirs=[numpy_include,
-                            '../cuML/src',
+              include_dirs=['../cuML/src',
                             '../cuML/external/ml-prims/src',
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
