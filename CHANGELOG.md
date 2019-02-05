@@ -4,6 +4,7 @@
 
 ## Improvements
 
+- PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
 - PR #168: Add /ci/gpu/build.sh file to cuML
 
 ## Bug Fixes
