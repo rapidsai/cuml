@@ -8,6 +8,8 @@
 
 ## Bug Fixes
 
+- PR #188 Avoid using numpy via cimport to prevent ABI issues in Cython compilation
+
 
 # cuML 0.5.0 (28 Jan 2019)
 
