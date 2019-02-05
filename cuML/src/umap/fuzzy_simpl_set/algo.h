@@ -15,10 +15,29 @@
  */
 
 #include "knn/knn.h"
+#include "stats/mean.h"
+#include "cuda_utils.h"
+
+
+#include <cuda_runtime.h>
+#include <cusparse.h>
+
+#include <limits>
+#include <math.h>
+#include <cusparse.h>
 
 namespace UMAP {
 namespace FuzzySimplSet {
 namespace Algo {
+
+	/** number of threads in a CTA along X dim */
+	static const int TPB_X = 32;
+	/** number of threads in a CTA along Y dim */
+	static const int TPB_Y = 8;
+
+	static const float SMOOTH_K_TOLERANCE = 1.0;
+
+	static const float MIN_K_DIST_SCALE = 1.0;
 
 
 	/**
@@ -49,76 +68,101 @@ namespace Algo {
 	 *
 	 */
 	template<typename T>
-	void smooth_knn_dist(const T *knn_dists, int n,
-						 T *sigmas, T *rhos,			// Size of n, iniitalized to zeros
-						 UMAPParams *params,
-						 int n_iter = 64, float bandwidth = 1) {
+	__global__ void smooth_knn_dist(const T *knn_dists, int n,
+								    float mean_dist,
+									T *sigmas, T *rhos,			// Size of n, iniitalized to zeros
+									UMAPParams *params,
+									int n_iter = 64, float bandwidth = 1.0) {
 
-		/**
-		 *
-		 * target = log_2(k) * bandwidth
-		 *
-		 *
-		 * Loop through rows, i,  of distance matrix:
-		 * 		lo = 0.0
-		 * 		hi = MAX
-		 * 		mid = 1.0
-		 *
-		 * 		ith_distances = distances[i]   - pull all items for row i into local memory for each thread
-		 * 		non_zero_dists = ith_distances[ith_distances > 0.0] - filter >0, count, calc max
-		 * 		if len(non_zero_dists) >= local_connectivity:    -
-		 * 		    index = floor(local_connectivity)
-		 * 		    interpolation = local_connectivity - index
-		 * 		    if index > 0:
-		 * 		        rhos[i] = non_zero_dists[index-1]
-		 * 		        if interpolation > SMOOTH_K_TOLERANCE:
-		 * 		            rhos[i] += interpolation * (non_zero_dists[index] - non_zero_dists[index-1])
-		 * 		    else:
-		 * 		        rhos[i] = interpolation * non_zero_dists[0]
-		 * 		elif len(non_zero_dists) > 0:
-		 * 		    rhos[i] = max(non_zero_dists)
-		 *
-		 *
-		 * 		for n in range(n_iter):
-		 *
-		 * 		    psum = 0.0
-		 * 		    loop through columns j of dist matrix:        // this could be slow
-		 * 		        d = distances[i, j] - rhos[i]
-		 * 		        if d > 0:
-		 * 		            psum += np.exp(-(d/mid))
-		 * 		        else:
-		 * 		            psum += 1.0
-		 *
-		 *
-		 * 		   if element_wise_abs(psum-target) < SMOOTH_K_TOLERANCE:
-		 * 		   	   break;
-		 *
-		 * 		   if psum > target:
-		 * 		       hi = mid
-		 * 		       mid = (lo + hi) / 2.0
-		 * 		   else:
-		 * 		       lo = mid
-		 * 		       if hi = MAX:
-		 * 		           mid *= 2
-		 * 		       else:
-		 * 		           mid = (lo + hi) / 2.0
-		 *
-		 * 	sigmas[i] = mid
-		 *
-		 * 	if rhos[i] > 0.0:
-		 * 	    if sigmas[i] < MIN_K_DIST_SCALE * mean(ith_distances):
-		 * 	    	sigmas[i] = MIN_K_DIST_SCALE * mean(ith_distances)
-		 *
-		 * 	    else:
-		 * 	        if sigmas[i] < MIN_K_DIST_SCALE * mean(distances):
-		 * 	            sigmas[i] = MIN_K_DIST_SCALE * mean(distances)
-		 */
+		float target = log2(k) * bandwidth;
 
+		// row-based matrix is best
+		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
+		int col = (blockIdx.x * TPB_X) + threadIdx.x;
+\		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
+
+		float lo = 0.0;
+		float hi = std::numeric_limits<float>::max();
+		float mid = 1.0;
+
+		float ith_distances[n_neighbors];
+
+		std::vector<float> non_zero_dists;
+
+		int total_nonzero = 0;
+		int max_nonzero = -1;
+		float sum = 0;
+		for(int idx = 0; idx < n_neighbors; idx++) {
+			ith_distances[idx] = knn_dists[i+idx];
+
+			sum += ith_distances[idx];
+
+			if(ith_distances[idx] > 0.0) {
+				total_nonzero+= 1;
+				non_zero_dists.push_back(ith_distances[idx]);
+			}
+
+			if(ith_distances[idx] > max_nonzero)
+				max_nonzero = ith_distance[idx];
+		}
+
+		float ith_distances_mean = sum / params->n_neighbors;
+
+		non_zero_dists.resize(total_nonzero);
+		if(total_nonzero > params->local_connectivity) {
+			int index = floor(params->local_connectivity);
+			float interpolation = params->local_connectivity - index;
+
+			if(index > 0) {
+				rhos[i] = non_zero_dists[index-1];
+				if(interpolation > SMOOTH_K_TOLERANCE)
+					rhos[i] += interpolation * (non_zero_dists[index] - non_zero_dists[index-1]);
+				else
+					rhos[i] = interpolation * non_zero_dists[0];
+
+			} else if(total_nonzero > 0)
+				rhos[i] = max_nonzero;
+		}
+
+		for(int iter = 0; iter < params->n_iter; n_iter++) {
+			float psum = 0.0;
+			for(int j = 0; j < params->n_neighbors; j++) {
+				float d = knn_dists[i + j] - rhos[i];
+				if(d > 0)
+					psum += exp(-(d/mid));
+				else
+					psum += 1.0;
+			}
+
+			if((psum - target) < SMOOTH_K_TOLERANCE)
+				break;
+
+			if(psum > target) {
+				hi = mid;
+				mid = (lo + hi) / 2.0;
+			} else {
+				lo = mid;
+				if(hi == std::numeric_limits<float>::max())
+					mid *= 2;
+				else
+					mid = (lo + hi) / 2.0;
+			}
+		}
+
+		sigmas[i] = mid;
+
+		if(rhos[i] > 0.0) {
+			if(sigmas[i] < MIN_K_DIST_SCALE * ith_distances_mean)
+				sigmas[i] =MIN_K_DIST_SCALE * ith_distances_mean;
+		} else {
+			if(sigmas[i] < MIN_K_DIST_SCALE * mean_dist)
+				sigmas[i] = MIN_K_DIST_SCALE * mean_dist;
+		}
 	}
 
 
 	/**
-	 * Construct the membership stength data for the 1-skeleton of each local
+	 * Construct the membership strength data for the 1-skeleton of each local
 	 * fuzzy simplicial set -- this is formed as a sparse matrix where each row is
 	 * a local fuzzy simplicial set, with a membership strength for the 1-simplex
 	 * to each other data point.
@@ -135,33 +179,42 @@ namespace Algo {
 	 * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 	 */
 	template<typename T>
-	void compute_membership_strength(const T *knn_indices, const T *knn_dists,
+	__global__ void compute_membership_strength(const T *knn_indices, const T *knn_dists,
 									 const T *sigmas, const T *rhos,
-									 long *rows, long *cols, T *vals,
+									 long *rows, long *cols, T *vals, int *non_zeros,
 									 int n, UMAPParams *params) {
 
-		/**
-		 * Initialize rows, cols, vals
-		 */
+		int non_zero_vals = 0;
 
-		/**
-		 * Nested loop: samples (i) then neighbors (j)
-		 *
-		 * if knn_indices[i, j] == -1: continue
-		 *
-		 * if knn_indices[i, j] == i:
-		 *     val = 0.0
-		 * else if knn_dists[i, j] - rhos[i] <= 0.0:
-		 *     val = 1.0
-		 * else:
-		 *     val = np.exp(-((knn_dists[i, j] - rhos[i]) / (sigmas[i])))
-		 *
-		 * rows[i*n_neighbors + j] = i
-		 * cols[i*n_neighbors + j] = knn_indices[i, j]
-		 * vals[i*n_neighbors + j] = val
-		 *
-		 * return rows, cols, vals
-	     */
+		// row-based matrix is best
+		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
+		int col = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
+
+		for(int j = 0; j < params->n_neighbors; j++) {
+
+			rows[i*n_neighbors+j] = 0;
+			cols[i*n_neighbors+j] = 0;
+			vals[i*n_neighbors+j] = 0.0;
+
+			if(knn_indices[i, j] == -1) continue;
+
+			if(knn_indices[i, j] == i)
+				val = 0.0;
+			else if(knn_dists[i, j] - rhos[i] <= 0.0) {
+				val = 1.0;
+				non_zero_vals += 1;
+			}
+			else {
+				val = exp(-((knn_dists[i, j] - rhos[i]) / (sigmas[i])));
+				non_zero_vals += 1;
+			}
+
+			rows[i*n_neighbors + j] = i;
+			cols[i*n_neighbors + j] = knn_indices[i, j];
+			vals[i*n_neighbors + j] = val;
+		}
+		non_zeros[i] = non_zero_vals;
 	}
 
 
@@ -173,33 +226,71 @@ namespace Algo {
 	 * a fuzzy simplicial set for each such point, and then combining all the local
 	 * fuzzy simplicial sets into a global one via a fuzzy union.
 	 */
+	template<typename T>
 	void launcher(const long *knn_indices, const T *knn_dists,
 			      int n, int *rows, int *cols, T *vals,
 				  UMAPParams *params, int algorithm) {
 
+		/**
+		 * Calculate mean distance through a parallel reduction
+		 */
+		T *dist_means_dev;
+		MLCommon::allocate(dist_means, params->n_neighbors);
+		MLCommon::Stats::mean(dist_means_dev, knn_dists, params->n_neighbors, n, false, true);
+
+		T *dist_means_host = malloc(params->n_neighbors*sizeof(T));
+		MLCommon::updateHost(dist_means_host, dist_means_dev, params->n_neighbors);
+
+		// Might make sense to do this on device
+		float sum = 0.0;
+		for(int i = 0; i < params->n_neighbors; i++)
+			sum += dist_means_host[i];
+
+		float mean_dist = sum / params->n_neighbors;
+
+		/**
+		 * Immediately free up memory for subsequent algorithms
+		 */
+		delete dist_means_host;
+		CUDA_CHECK(cudaFree(dist_means_dev));
+
 		T *sigmas;
 		T *rhos;
+
+	    dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
+	    dim3 blk(TPB_X, TPB_Y, 1);
 
 		/**
 		 * Call smooth_knn_dist to get sigmas and rhos
 		 */
-		smooth_knn_dist(knn_dists, n, sigmas, rhos, params);
+		smooth_knn_dist<<<grid,blk>>>(knn_dists, n, mean_dist, sigmas, rhos, params);
+
 
 		/**
 		 * Call compute_membership_strength
 		 */
-		compute_membership_strength(knn_indices, knn_dists,
-								    sigmas, rhos,
-								    rows, cols, vals,
-								    n, params);
+
+		int *nnz_dev; // use a single
+		MLCommon::allocate(nnz_dev, n);
+
+		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
+												  sigmas, rhos,
+												  rows, cols, vals, nnz_dev,
+												  n, params);
+
+		/**
+		 * Eliminate zeros from coordinate matrix and convert to csr:
+		 * 1. Build new rows/cols/vals of size nnz (single for..loop on host for now)
+		 * 2. Use cusparse to convert to CSR
+		 */
 
 
 		/**
-		 * - result = <Eliminate zeros from coo>
-		 * - transpose = <Transpose result>
-		 * - prod_matrix = <Multiply coo matrix by its transpose> (would cuSparse help here?)
+		 * - result = csr
+		 * - transpose = <Transpose result> (for now store explicit transpose)
+		 * - prod_matrix = <Multiply coo matrix by its transpose> (cusparse_gemm)
 		 *
-		 * - result = set_op_mix_ratio * (result + transpose - prod_matrix) +
+		 * - result = set_op_mix_ratio * (result + ((transpose - prod_matrix)) +
 		 * 			   (1.0 - set_op_mix_ratio) * prod_matrix
 		 *
 		 * - result = eliminate zeros
