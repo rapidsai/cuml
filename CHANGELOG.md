@@ -1,3 +1,10 @@
+# cuML 0.5.1 (05 Feb 2019)
+
+## Bug Fixes
+
+- PR #189 Avoid using numpy via cimport to prevent ABI issues in Cython compilation
+
+
 # cuML 0.5.0 (28 Jan 2019)
 
 ## New Features

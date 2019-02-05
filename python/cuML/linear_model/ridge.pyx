@@ -15,7 +15,6 @@
 
 cimport ridge
 import numpy as np
-cimport numpy as np
 from numba import cuda
 import cudf
 from libcpp cimport bool

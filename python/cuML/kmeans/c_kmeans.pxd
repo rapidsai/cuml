@@ -1,6 +1,4 @@
 import numpy as np
-cimport numpy as np
-np.import_array
 
 cdef extern from "kmeans/kmeans_c.h" namespace "ML":
 
