@@ -25,8 +25,6 @@
 #include "linalg/row_gemm.h"
 
 #include <cutlass/gemm/gemm_epilogue_traits.h>
-#include <cutlass/gemm/gemm_epilogue_traits.h>
-#include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/gemm/thread_multiply_add.h>
 #include <cutlass/shape.h>
 
