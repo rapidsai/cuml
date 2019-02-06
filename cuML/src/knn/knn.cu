@@ -102,7 +102,7 @@ namespace ML {
 	 * @param res_D		   pointer to device memory for returning k nearest distances
 	 * @param k			   number of neighbors to query
 	 */
-	void kNN::search(float *search_items, int n,
+	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
 
 		float *result_D = new float[k*n];
