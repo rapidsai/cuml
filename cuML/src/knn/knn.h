@@ -23,22 +23,46 @@
 #define _KNN_H
 namespace ML {
 
+	using namespace faiss;
+
+	class kNNParams {
+	public:
+		float *ptr;
+		int N;
+		friend std::ostream & operator<<(std::ostream &str, kNNParams &v) {
+			str << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
+			return str;
+		}
+	};
+
 
     class kNN {
 
+		std::vector<long> id_ranges;
 
- 	   std::vector<faiss::gpu::StandardGpuResources* > res;
- 	   std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+		std::vector<faiss::gpu::GpuResources* > res;
+		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
 
+		int total_n;
+		int indices;
+		int D;
 
-    	faiss::gpu::IndexProxy indexProxy;
-     	int D;
 
     public:
-			kNN(int D);
-			~kNN();
-			void search(float *search_items, int search_items_size, long *res_I, float *res_D, int k);
-			void fit(float *input, int N, int n_gpus);
+		kNN(int D);
+		~kNN();
+		void search(const float *search_items, int search_items_size, long *res_I, float *res_D, int k);
+		void fit(kNNParams *input, int N);
+
+		int get_index_size();
+
+		template <class C>
+		void merge_tables(long n, long k, long nshard,
+							   float *distances, long *labels,
+							   float *all_distances,
+							   long *all_labels,
+							   long *translations);
+
 
     };
 }
