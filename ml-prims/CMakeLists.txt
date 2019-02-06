@@ -27,13 +27,13 @@ find_package(OpenMP REQUIRED)
 #find_package(ClangTidy REQUIRED)
 
 # Submodules
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/../thirdparty/ml-prims/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
-set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/../thirdparty/ml-prims/cutlass CACHE STRING
+set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-set(CUB_DIR ${PROJECT_SOURCE_DIR}/../thirdparty/ml-prims/cub CACHE STRING
+set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/cub CACHE STRING
   "Path to cub repo")
 
 # options exposed to users
