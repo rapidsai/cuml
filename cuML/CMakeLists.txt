@@ -131,7 +131,7 @@ endif(NOT CMAKE_CXX11_ABI)
 ###################################################################################################
 # - include paths ---------------------------------------------`------------------------------------
 
-message(STATUS "LDFLAGS: ${LDFLAGS}")
+message(STATUS "MAKEFLAGS: ${MAKEFLAGS}")
 
 include (ExternalProject)
 ExternalProject_Add(faiss
