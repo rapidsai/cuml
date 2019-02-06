@@ -1,15 +1,22 @@
 [submodule "thirdparty/cuml/faiss"]
 	path = thirdparty/cuml/faiss
 	url = https://github.com/facebookresearch/faiss
-[submodule "thirdparty/cuml/googletest"]
-	path = thirdparty/cuml/googletest
-	url = https://github.com/google/googletest
-[submodule "thirdparty/ml-prims/googletest"]
-	path = thirdparty/ml-prims/googletest
-	url = https://github.com/google/googletest
-[submodule "thirdparty/ml-prims/cub"]
-	path = thirdparty/ml-prims/cub
-	url = https://github.com/NVlabs/cub
-[submodule "thirdparty/ml-prims/cutlass"]
-	path = thirdparty/ml-prims/cutlass
-	url = https://github.com/NVIDIA/cutlass
+[submodule "external/googletest"]
+    path = thirdparty/cuml/googletest
+    url = https://github.com/google/googletest
+[submodule "external/cutlass"]
+    path = thirdparty/cuml/cutlass
+    url = https://github.com/teju85/cutlass.git
+    branch = v0.1-customizations
+[submodule "ml-prims/external/cutlass"]
+    path = thirdparty/ml-prims/cutlass
+    url = https://github.com/NVIDIA/cutlass
+[submodule "ml-prims/external/cub"]
+    path = thirdparty/ml-prims/cub
+    url = https://github.com/NVlabs/cub
+[submodule "ml-prims/external/googletest"]
+    path = thirdparty/ml-prims/googletest
+    url = https://github.com/google/googletest
+[submodule "thirdparty/h2o4gpu"]
+	path = thirdparty/h2o4gpu
+	url = git@github.com:h2oai/h2o4gpu.git
