@@ -20,7 +20,7 @@ import ctypes
 
 from librmm_cffi import librmm as rmm
 from numba import cuda
-from c_knn cimport *
+from knn cimport *
 
 class KNNparams:
     def __init__(self, n_gpus):
