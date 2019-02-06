@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-from setuptools import setup
+from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import numpy
@@ -45,7 +45,7 @@ extensions = [
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
                             '../cuML/external/ml-prims/external/cub',
-			    '/usr/local/cuda/include'],
+                            '/usr/local/cuda/include'],
               library_dirs=[get_python_lib()],
               libraries=['cuda', 'cuml'],
               language='c++',
@@ -66,6 +66,7 @@ setup(name='cuml',
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=cythonize(extensions),
+      packages=find_packages(include=['cuML', 'cuML.*']),
       install_requires=install_requires,
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),
