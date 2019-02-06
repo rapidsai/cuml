@@ -38,8 +38,6 @@ class KNNTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
-		std::cout << "Running knn test" << std::endl;
-
 		// Allocate input
         allocate(d_train_inputs, n * d);
 
@@ -64,19 +62,11 @@ protected:
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
 
-        std::cout << "Allocations done. Fitting..." << std::endl;
-
         kNNParams params[1];
         params[0] = { d_train_inputs, n };
 
         knn->fit(params, 1);
-
-        std::cout << "Done fitting. Searching..." << std::endl;
-
         knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
-
-
-        std::cout << "Done." << std::endl;
     }
 
  	void SetUp() override {
