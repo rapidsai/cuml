@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-cimport c_knn
+cimport knn
 import numpy as np
 import pandas as pd
 import cudf
@@ -90,7 +90,7 @@ cdef class KNN:
     For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
 
     """
-    cdef kNN *k
+    cpdef kNN *k
 
     cdef int num_gpus
 
@@ -101,7 +101,7 @@ cdef class KNN:
 
     cdef bool _should_downcast
 
-    cdef kNNParams *input
+    cpdef kNNParams *input
 
 
 
