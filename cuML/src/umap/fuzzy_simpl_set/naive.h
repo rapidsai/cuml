@@ -45,7 +45,6 @@ namespace Naive {
 
 	static const float MIN_K_DIST_SCALE = 1.0;
 
-
 	/**
 	 * Computes a continuous version of the distance to the kth nearest neighbor.
 	 * That is, this is similar to knn-distance but allows continuous k values
@@ -53,7 +52,6 @@ namespace Naive {
 	 * the distance such that the cardinality of fuzzy set we generate is k.
 	 *
 	 * TODO: Optimize for coalesced reads
-	 *
 	 *
 	 * @param knn_dists: Distances to nearest neighbors for each sample. Each row should
 	 * 					 be a sorted list of distances to a given sample's nearest neighbors.
@@ -174,6 +172,8 @@ namespace Naive {
 	 * fuzzy simplicial set -- this is formed as a sparse matrix where each row is
 	 * a local fuzzy simplicial set, with a membership strength for the 1-simplex
 	 * to each other data point.
+	 *
+	 * TODO: Optimize for coalesced reads.
 	 *
 	 * @param knn_indices: the knn index matrix of size (n, k)
 	 * @param knn_dists: the knn distance matrix of size (n, k)
@@ -377,11 +377,9 @@ namespace Naive {
 		CUDA_CHECK(cudaFree(trows));
 		CUDA_CHECK(cudaFree(trows));
 
-
 		/**
 		 * Compress resulting COO matrix
 		 */
-
 		int *ex_scan;
 		MLCommon::allocate(ex_scan, n+1);
 
@@ -403,8 +401,6 @@ namespace Naive {
 	    						    crows, ccols, cvals,
 	    						    rnnz, params);
 	}
-
-
 }
 }
 };
