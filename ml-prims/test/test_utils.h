@@ -24,41 +24,43 @@ namespace MLCommon {
 
 
 template <typename T>
-T abs(const T& a) {
-    return a > T(0)? a : -a;
+T abs(const T &a) {
+  return a > T(0) ? a : -a;
 }
 
 
 template <typename T>
 struct Compare {
-    bool operator()(const T& a, const T& b) const { return a == b; }
+  bool operator()(const T &a, const T &b) const { return a == b; }
 };
 
 
 template <typename T>
 struct CompareApprox {
-    CompareApprox(T eps_): eps(eps_) {}
-    bool operator()(const T& a, const T& b) const {
-        T diff = abs(a - b);
-        T m = std::max(abs(a), abs(b));
-        T ratio = m >= eps? diff / m : diff;
-        return (ratio <= eps);
-    }
+  CompareApprox(T eps_) : eps(eps_) {}
+  bool operator()(const T &a, const T &b) const {
+    T diff = abs(a - b);
+    T m = std::max(abs(a), abs(b));
+    T ratio = m >= eps ? diff / m : diff;
+    return (ratio <= eps);
+  }
+
 private:
-    T eps;
+  T eps;
 };
 
 template <typename T>
 struct CompareApproxAbs {
-    CompareApproxAbs(T eps_): eps(eps_) {}
-    bool operator()(const T& a, const T& b) const {
-        T diff = abs(abs(a) - abs(b));
-        T m = std::max(abs(a), abs(b));
-        T ratio = m >= eps? diff / m : diff;
-        return (ratio <= eps);
-    }
+  CompareApproxAbs(T eps_) : eps(eps_) {}
+  bool operator()(const T &a, const T &b) const {
+    T diff = abs(abs(a) - abs(b));
+    T m = std::max(abs(a), abs(b));
+    T ratio = m >= eps ? diff / m : diff;
+    return (ratio <= eps);
+  }
+
 private:
-    T eps;
+  T eps;
 };
 
 /*
@@ -71,82 +73,80 @@ private:
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  * @{
  */
-template<typename T, typename L>
-::testing::AssertionResult devArrMatch(const T* expected, const T* actual,
+template <typename T, typename L>
+::testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                        size_t size, L eq_compare) {
-    std::shared_ptr<T> exp_h(new T [size]);
-    std::shared_ptr<T> act_h(new T [size]);
-    updateHost<T>(exp_h.get(), expected, size);
-    updateHost<T>(act_h.get(), actual, size);
-    for(size_t i(0);i<size;++i) {
-        auto exp = exp_h.get()[i];
-        auto act = act_h.get()[i];
-        if(!eq_compare(exp, act)) {
-            return ::testing::AssertionFailure() << "actual=" << act
-                                                 << " != expected=" << exp
-                                                 << " @" << i;
-        }
+  std::shared_ptr<T> exp_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(exp_h.get(), expected, size);
+  updateHost<T>(act_h.get(), actual, size);
+  for (size_t i(0); i < size; ++i) {
+    auto exp = exp_h.get()[i];
+    auto act = act_h.get()[i];
+    if (!eq_compare(exp, act)) {
+      return ::testing::AssertionFailure()
+             << "actual=" << act << " != expected=" << exp << " @" << i;
     }
-    return ::testing::AssertionSuccess();
+  }
+  return ::testing::AssertionSuccess();
 }
 
-template<typename T, typename L>
-::testing::AssertionResult devArrMatch(T expected, const T* actual,
-                                       size_t size, L eq_compare) {
-    std::shared_ptr<T> act_h(new T [size]);
-    updateHost<T>(act_h.get(), actual, size);
-    for(size_t i(0);i<size;++i) {
-        auto act = act_h.get()[i];
-        if(!eq_compare(expected, act)) {
-            return ::testing::AssertionFailure() << "actual=" << act
-                                                 << " != expected=" << expected
-                                                 << " @" << i;
-        }
+template <typename T, typename L>
+::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
+                                       L eq_compare) {
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(act_h.get(), actual, size);
+  for (size_t i(0); i < size; ++i) {
+    auto act = act_h.get()[i];
+    if (!eq_compare(expected, act)) {
+      return ::testing::AssertionFailure()
+             << "actual=" << act << " != expected=" << expected << " @" << i;
     }
-    return ::testing::AssertionSuccess();
+  }
+  return ::testing::AssertionSuccess();
 }
 
-template<typename T, typename L>
-::testing::AssertionResult devArrMatch(const T* expected, const T* actual,
+template <typename T, typename L>
+::testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                        size_t rows, size_t cols, L eq_compare) {
-    size_t size = rows * cols;
-    std::shared_ptr<T> exp_h(new T [size]);
-    std::shared_ptr<T> act_h(new T [size]);
-    updateHost<T>(exp_h.get(), expected, size);
-    updateHost<T>(act_h.get(), actual, size);
-    for(size_t i(0);i<rows;++i) {
-        for(size_t j(0);j<cols;++j) {
-            auto idx = i*cols + j;  // row major assumption!
-            auto exp = exp_h.get()[idx];
-            auto act = act_h.get()[idx];
-            if(!eq_compare(exp, act)) {
-                return ::testing::AssertionFailure() << "actual=" << act
-                                                     << " != expected=" << exp
-                                                     << " @" << i << "," << j;
-            }
-        }
+  size_t size = rows * cols;
+  std::shared_ptr<T> exp_h(new T[size]);
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(exp_h.get(), expected, size);
+  updateHost<T>(act_h.get(), actual, size);
+  for (size_t i(0); i < rows; ++i) {
+    for (size_t j(0); j < cols; ++j) {
+      auto idx = i * cols + j; // row major assumption!
+      auto exp = exp_h.get()[idx];
+      auto act = act_h.get()[idx];
+      if (!eq_compare(exp, act)) {
+        return ::testing::AssertionFailure()
+               << "actual=" << act << " != expected=" << exp << " @" << i << ","
+               << j;
+      }
     }
-    return ::testing::AssertionSuccess();
+  }
+  return ::testing::AssertionSuccess();
 }
 
-template<typename T, typename L>
-::testing::AssertionResult devArrMatch(T expected, const T* actual,
-                                       size_t rows, size_t cols, L eq_compare) {
-    size_t size = rows * cols;
-    std::shared_ptr<T> act_h(new T [size]);
-    updateHost<T>(act_h.get(), actual, size);
-    for(size_t i(0);i<rows;++i) {
-        for(size_t j(0);j<cols;++j) {
-            auto idx = i*cols + j;  // row major assumption!
-            auto act = act_h.get()[idx];
-            if(!eq_compare(expected, act)) {
-                return ::testing::AssertionFailure() << "actual=" << act
-                                                     << " != expected=" << expected
-                                                     << " @" << i << "," << j;
-            }
-        }
+template <typename T, typename L>
+::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
+                                       size_t cols, L eq_compare) {
+  size_t size = rows * cols;
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(act_h.get(), actual, size);
+  for (size_t i(0); i < rows; ++i) {
+    for (size_t j(0); j < cols; ++j) {
+      auto idx = i * cols + j; // row major assumption!
+      auto act = act_h.get()[idx];
+      if (!eq_compare(expected, act)) {
+        return ::testing::AssertionFailure()
+               << "actual=" << act << " != expected=" << expected << " @" << i
+               << "," << j;
+      }
     }
-    return ::testing::AssertionSuccess();
+  }
+  return ::testing::AssertionSuccess();
 }
 /** @} */
 
@@ -159,54 +159,55 @@ template<typename T, typename L>
  * @param eq_compare the comparator
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  */
-template<typename T, typename L>
-::testing::AssertionResult diagonalMatch(T expected, const T* actual,
-                                         size_t rows, size_t cols, L eq_compare) {
-    size_t size = rows * cols;
-    std::shared_ptr<T> act_h(new T [size]);
-    updateHost<T>(act_h.get(), actual, size);
-    for(size_t i(0);i<rows;++i) {
-        for(size_t j(0);j<cols;++j) {
-            if(i != j)
-                continue;
-            auto idx = i*cols + j;  // row major assumption!
-            auto act = act_h.get()[idx];
-            if(!eq_compare(expected, act)) {
-                return ::testing::AssertionFailure() << "actual=" << act
-                                                     << " != expected=" << expected
-                                                     << " @" << i << "," << j;
-            }
-        }
+template <typename T, typename L>
+::testing::AssertionResult diagonalMatch(T expected, const T *actual,
+                                         size_t rows, size_t cols,
+                                         L eq_compare) {
+  size_t size = rows * cols;
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(act_h.get(), actual, size);
+  for (size_t i(0); i < rows; ++i) {
+    for (size_t j(0); j < cols; ++j) {
+      if (i != j)
+        continue;
+      auto idx = i * cols + j; // row major assumption!
+      auto act = act_h.get()[idx];
+      if (!eq_compare(expected, act)) {
+        return ::testing::AssertionFailure()
+               << "actual=" << act << " != expected=" << expected << " @" << i
+               << "," << j;
+      }
     }
-    return ::testing::AssertionSuccess();
+  }
+  return ::testing::AssertionSuccess();
 }
 
-template<typename T, typename L>
+template <typename T, typename L>
 ::testing::AssertionResult match(const T expected, T actual, L eq_compare) {
-    if(!eq_compare(expected, actual)) {
-        return ::testing::AssertionFailure() << "actual=" << actual
-                                             << " != expected=" << expected;
-    }
-    return ::testing::AssertionSuccess();
+  if (!eq_compare(expected, actual)) {
+    return ::testing::AssertionFailure() << "actual=" << actual
+                                         << " != expected=" << expected;
+  }
+  return ::testing::AssertionSuccess();
 }
 
 
 /** time the function call 'func' using cuda events */
-#define TIMEIT_LOOP(ms, count, func)                         \
-    do {                                                     \
-        cudaEvent_t start, stop;                             \
-        CUDA_CHECK(cudaEventCreate(&start));                 \
-        CUDA_CHECK(cudaEventCreate(&stop));                  \
-        CUDA_CHECK(cudaEventRecord(start));                  \
-        for(int i=0;i<count;++i) {                           \
-            func;                                            \
-        }                                                    \
-        CUDA_CHECK(cudaEventRecord(stop));                   \
-        CUDA_CHECK(cudaEventSynchronize(stop));              \
-        ms = 0.f;                                            \
-        CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));  \
-        ms /= args.runs;                                     \
-    } while(0)
+#define TIMEIT_LOOP(ms, count, func)                                           \
+  do {                                                                         \
+    cudaEvent_t start, stop;                                                   \
+    CUDA_CHECK(cudaEventCreate(&start));                                       \
+    CUDA_CHECK(cudaEventCreate(&stop));                                        \
+    CUDA_CHECK(cudaEventRecord(start));                                        \
+    for (int i = 0; i < count; ++i) {                                          \
+      func;                                                                    \
+    }                                                                          \
+    CUDA_CHECK(cudaEventRecord(stop));                                         \
+    CUDA_CHECK(cudaEventSynchronize(stop));                                    \
+    ms = 0.f;                                                                  \
+    CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));                        \
+    ms /= args.runs;                                                           \
+  } while (0)
 
 
 }; // end namespace MLCommon
