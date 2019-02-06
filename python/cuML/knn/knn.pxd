@@ -6,7 +6,7 @@ np.import_array
 cdef extern from "knn/knn.cu" namespace "ML":
     pass 
 
-cdef extern from "knn/knn_c.h" namespace "ML":
+cdef extern from "knn/knn.h" namespace "ML":
     cdef cppclass kNN:
         kNN(int D) except +
         void search(float *search_items,
