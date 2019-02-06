@@ -6,9 +6,8 @@ scratch.
 # Setup
 ## Dependencies (pre-requisites)
 1. git
-2. zlib
-3. cmake (>= 3.8)
-4. CUDA SDK (>= 8.0)
+2. cmake (>= 3.8)
+3. CUDA SDK (>= 8.0)
 
 ## Repo
 ```bash
