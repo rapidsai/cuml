@@ -89,7 +89,7 @@ namespace ML {
 				sub_indices[i]->add(params->N, params->ptr);
 			} else {
 				std::stringstream ss;
-				ss << "Input memory for " << &params << " failed. memoryType=" << att.type;
+				ss << "Input memory for " << &params << " failed. memoryType=" << att.memoryType;
 				throw ss.str();
 			}
 		}
