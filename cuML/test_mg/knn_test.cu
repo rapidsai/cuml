@@ -1,20 +1,4 @@
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-#include "knn/knn.h"
+#include "knn/knn.cu"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
@@ -34,12 +18,15 @@ using namespace MLCommon;
  * expected.
  */
 template<typename T>
-class KNNTest: public ::testing::Test {
+class KNN_MGTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
 		// Allocate input
-        allocate(d_train_inputs, n * d);
+        cudaSetDevice(0);
+        allocate(d_train_inputs_dev1, n * d);
+        cudaSetDevice(1);
+        allocate(d_train_inputs_dev2, n * d);
 
         // Allocate reference arrays
         allocate<long>(d_ref_I, n*n);
@@ -49,24 +36,26 @@ protected:
         allocate<long>(d_pred_I, n*n);
         allocate(d_pred_D, n*n);
 
-        // make testdata on host
+        // make test data on host
         std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
         h_train_inputs.resize(n);
-        updateDevice(d_train_inputs, h_train_inputs.data(), n*d);
 
-        std::vector<T> h_res_D = { 0.0, 2401.0, 2500.0, 0.0, 1.0, 2401.0, 0.0, 1.0, 2500.0 };
+        updateDevice(d_train_inputs_dev1, h_train_inputs.data(), n*d);
+        updateDevice(d_train_inputs_dev2, h_train_inputs.data(), n*d);
+
+        std::vector<T> h_res_D = { 0.0, 0.0, 2401.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0 };
         h_res_D.resize(n*n);
         updateDevice(d_ref_D, h_res_D.data(), n*n);
 
-        std::vector<long> h_res_I = { 0, 1, 2, 1, 2, 0, 2, 1, 0 };
+        std::vector<long> h_res_I = { 0, 3, 1, 1, 4, 2, 2, 5, 1 };
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
 
-        kNNParams params[1];
-        params[0] = { d_train_inputs, n };
+        params[0] = { d_train_inputs_dev1, n };
+        params[1] = { d_train_inputs_dev2, n };
 
-        knn->fit(params, 1);
-        knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
+        knn->fit(params, 2);
+        knn->search(d_train_inputs_dev1, n, d_pred_I, d_pred_D, n);
     }
 
  	void SetUp() override {
@@ -74,7 +63,8 @@ protected:
 	}
 
 	void TearDown() override {
-		CUDA_CHECK(cudaFree(d_train_inputs));
+		CUDA_CHECK(cudaFree(d_train_inputs_dev1));
+		CUDA_CHECK(cudaFree(d_train_inputs_dev2));
 		CUDA_CHECK(cudaFree(d_pred_I));
 		CUDA_CHECK(cudaFree(d_pred_D));
 		CUDA_CHECK(cudaFree(d_ref_I));
@@ -83,7 +73,10 @@ protected:
 
 protected:
 
-	T* d_train_inputs;
+	T* d_train_inputs_dev1;
+	T* d_train_inputs_dev2;
+
+    kNNParams *params = new kNNParams[2];
 
 	int n = 3;
 	int d = 1;
@@ -98,8 +91,9 @@ protected:
 };
 
 
-typedef KNNTest<float> KNNTestF;
+typedef KNN_MGTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
+
 	ASSERT_TRUE(
 			devArrMatch(d_ref_D, d_pred_D, n*n, Compare<float>()));
 	ASSERT_TRUE(

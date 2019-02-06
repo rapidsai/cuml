@@ -14,55 +14,186 @@
  * limitations under the License.
  */
 
+#include "cuda_utils.h"
 #include "knn.h"
 #include <cuda_runtime.h>
-#include <iostream>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
-#include <vector>
+#include <faiss/gpu/GpuResources.h>
+#include <faiss/Heap.h>
 
+#include <vector>
+#include <sstream>
 
 
 namespace ML {
 
-	kNN::kNN(int D): D(D){}
+
+	/**
+	 * Build a kNN object for training and querying a k-nearest neighbors model.
+	 * @param D 	number of features in each vector
+	 */
+	kNN::kNN(int D): D(D), total_n(0), indices(0){}
 	kNN::~kNN() {
+
 		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
 			delete idx;
 		}
 
-		for(faiss::gpu::StandardGpuResources *r : res) {
+		for(faiss::gpu::GpuResources *r : res) {
 			delete r;
 		}
 	}
 
-	void kNN::fit(float *input, int N, int n_gpus = 1) {
+	/**
+	 * Fit a kNN model by creating separate indices for multiple given
+	 * instances of kNNParams.
+	 * @param input  an array of pointers to data on (possibly different) devices
+	 * @param N 	 number of items in input array.
+	 */
+	void kNN::fit(kNNParams *input, int N) {
 
-	   for(int dev_no = 0; dev_no < n_gpus; dev_no++) {
+		for(int i = 0; i < N; i++) {
 
-			faiss::gpu::GpuIndexFlatConfig config;
-			config.device = dev_no;
-			config.useFloat16 = false;
-			config.storeTransposed = false;
+			kNNParams *params = &input[i];
 
-			res.emplace_back(new faiss::gpu::StandardGpuResources());
+			cudaPointerAttributes att;
+			cudaError_t err = cudaPointerGetAttributes(&att, params->ptr);
 
-			sub_indices.emplace_back(
-					new faiss::gpu::GpuIndexFlatL2(res[dev_no], D, config)
-			);
+			if(err == 0 && att.device > -1) {
 
-			indexProxy.addIndex(sub_indices[dev_no]);
-	   }
+				if(i < N)
+					id_ranges.push_back(total_n);
 
-	   indexProxy.add(N, input);
+				this->total_n += params->N;
+				this->indices += 1;
+
+				res.emplace_back(new faiss::gpu::StandardGpuResources());
+
+				faiss::gpu::GpuIndexFlatConfig config;
+				config.device = att.device;
+				config.useFloat16 = false;
+				config.storeTransposed = false;
+
+				sub_indices.emplace_back(
+						new faiss::gpu::GpuIndexFlatL2(res[i], D, config)
+				);
+
+				// It's only necessary to maintain our set of shards because
+				// the GpuIndexFlat class does not support add_with_ids(),
+				// a dependency of the IndexShards composite class.
+				// As a result, we need to add the ids ourselves
+				// and have the reducer/combiner re-label the indices
+				// based on the shards they came from.
+				sub_indices[i]->add(params->N, params->ptr);
+			} else {
+				std::stringstream ss;
+				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
+				throw ss.str();
+			}
+		}
 	}
 
-	void kNN::search(float *search_items, int search_items_size, long *res_I, float *res_D, int k) {
-		indexProxy.search(search_items_size, search_items, k, res_D, res_I);
+	/**
+	 * Search the kNN for the k-nearest neighbors of a set of query vectors
+	 * @param search_items set of vectors to query for neighbors
+	 * @param n 		   number of items in search_items
+	 * @param res_I 	   pointer to device memory for returning k nearest indices
+	 * @param res_D		   pointer to device memory for returning k nearest distances
+	 * @param k			   number of neighbors to query
+	 */
+	void kNN::search(const float *search_items, int n,
+			long *res_I, float *res_D, int k) {
+
+		float *result_D = new float[k*n];
+		long *result_I = new long[k*n];
+
+		float *all_D = new float[indices*k*n];
+		long *all_I = new long[indices*k*n];
+
+        for(int i = 0; i < indices; i++)
+			this->sub_indices[i]->search(n, search_items, k,
+					all_D+(i*k*n), all_I+(i*k*n));
+
+		merge_tables<faiss::CMin<float, int>>(n, k, indices,
+				result_D, result_I, all_D, all_I, id_ranges.data());
+
+		MLCommon::updateDevice(res_D, result_D, k*n, 0);
+		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+
+		delete all_D;
+		delete all_I;
+
+		delete result_D;
+		delete result_I;
 	}
 
-/** @} */
 
-}
-;
+	/** Merge results from several shards into a single result set.
+	 * @param all_distances  size nshard * n * k
+	 * @param all_labels     idem
+	 * @param translartions  label translations to apply, size nshard
+	 */
+	template <class C>
+	void kNN::merge_tables (long n, long k, long nshard,
+					   float *distances, long *labels,
+					   float *all_distances,
+					   long *all_labels,
+					   long *translations) {
+		if(k == 0) {
+			return;
+		}
+
+		long stride = n * k;
+		#pragma omp parallel
+		{
+			std::vector<int> buf (2 * nshard);
+			int * pointer = buf.data();
+			int * shard_ids = pointer + nshard;
+			std::vector<float> buf2 (nshard);
+			float * heap_vals = buf2.data();
+			#pragma omp for
+			for (long i = 0; i < n; i++) {
+				// the heap maps values to the shard where they are
+				// produced.
+				const float *D_in = all_distances + i * k;
+				const long *I_in = all_labels + i * k;
+				int heap_size = 0;
+
+				for (long s = 0; s < nshard; s++) {
+					pointer[s] = 0;
+					if (I_in[stride * s] >= 0)
+						heap_push<C> (++heap_size, heap_vals, shard_ids,
+									 D_in[stride * s], s);
+				}
+
+				float *D = distances + i * k;
+				long *I = labels + i * k;
+
+				for (int j = 0; j < k; j++) {
+					if (heap_size == 0) {
+						I[j] = -1;
+						D[j] = C::neutral();
+					} else {
+						// pop best element
+						int s = shard_ids[0];
+						int & p = pointer[s];
+						D[j] = heap_vals[0];
+						I[j] = I_in[stride * s + p] + translations[s];
+
+						heap_pop<C> (heap_size--, heap_vals, shard_ids);
+						p++;
+						if (p < k && I_in[stride * s + p] >= 0)
+							heap_push<C> (++heap_size, heap_vals, shard_ids,
+										 D_in[stride * s + p], s);
+					}
+				}
+			}
+		}
+
+	};
+
+};
+
+
 // end namespace ML

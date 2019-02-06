@@ -21,18 +21,18 @@ import pandas as pd
 import numpy as np
 
 
+@pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_search(input_type):
+def test_knn_search(input_type, should_downcast):
 
-    X = np.array([[1.0], [50.0], [51.0]], dtype=np.float32) # For now, FAISS only seems to support single precision
+    dtype = np.float32 if not should_downcast else np.float64
+
+    X = np.array([[1.0], [50.0], [51.0]], dtype=dtype) # For now, FAISS only seems to support single precision
 
     knn_sk = skKNN(X, metric = "l2")
     D_sk, I_sk = knn_sk.query(X, len(X))
 
-    print(str(I_sk))
-
-
-    knn_cu = cuKNN()
+    knn_cu = cuKNN(should_downcast=should_downcast)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
         knn_cu.fit(X)
@@ -40,7 +40,6 @@ def test_knn_search(input_type):
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame
-
 
         # FAISS does not perform sqrt on L2 because it's expensive
 
@@ -57,6 +56,38 @@ def test_knn_search(input_type):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
+    print(str(D_cuml_arr))
+    print(str(D_cuml_arr))
+    print(str(I_cuml_arr))
+
 
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
+
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_knn_downcast_fails(input_type):
+
+    X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
+
+    # Test fit() fails with double precision when should_downcast set to False
+    knn_cu = cuKNN()
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        knn_cu.fit(X, should_downcast = False)
+
+    # Test fit() fails when downcast corrupted data
+    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
+
+    knn_cu = cuKNN()
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        knn_cu.fit(X, should_downcast = True)
+
+
+
+
+

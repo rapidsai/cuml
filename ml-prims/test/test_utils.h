@@ -18,7 +18,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include "cuda_utils.h"
-
+#include <iostream>
 
 namespace MLCommon {
 

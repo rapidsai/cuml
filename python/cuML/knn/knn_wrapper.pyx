@@ -13,12 +13,15 @@
 # limitations under the License.
 #
 
+cimport knn
 import numpy as np
 import pandas as pd
 import cudf
 import ctypes
 
 from librmm_cffi import librmm as rmm
+from libc.stdlib cimport malloc, free
+from cython.operator cimport dereference as deref
 from numba import cuda
 from knn cimport *
 
@@ -87,7 +90,7 @@ cdef class KNN:
     For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
 
     """
-    cdef kNN *k
+    cpdef kNN *k
 
     cdef int num_gpus
 
@@ -96,8 +99,26 @@ cdef class KNN:
     cdef uintptr_t I_ptr
     cdef uintptr_t D_ptr
 
-    def __cinit__(self, num_gpus = 1):
-        self.num_gpus = num_gpus
+    cdef bool _should_downcast
+
+    cpdef kNNParams *input
+
+
+
+    def __cinit__(self, should_downcast = False):
+        """
+        Construct the kNN object for training and querying.
+
+        Parameters
+        ----------
+        should_downcast: Bool
+            Currently only single precision is supported in the underlying undex. Setting this to
+            true will allow single-precision input arrays to be automatically downcasted to single
+            precision. Default = False.
+        """
+        self._should_downcast = should_downcast
+        self.input = <kNNParams*> malloc(sizeof(kNNParams))
+
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -111,37 +132,99 @@ cdef class KNN:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-    def fit(self, X, n_gpus = 1):
+
+    def _downcast(self, X):
+
         if isinstance(X, cudf.DataFrame):
-            X_m = X.as_gpu_matrix(order = "C")
             dtype = np.dtype(X[X.columns[0]]._column.dtype)
+
+            if dtype != np.float32:
+                if self._should_downcast:
+
+                    new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+
+                    if overflowed > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                    X = cudf.DataFrame(new_cols)
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+            X = X.as_gpu_matrix(order="C")
         elif isinstance(X, np.ndarray):
-            X_m = cuda.to_device(X)
             dtype = X.dtype
+
+            if dtype != np.float32:
+                if self._should_downcast:
+                    X = X.astype(np.float32)
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+
+            X = cuda.to_device(X)
         else:
             raise Exception("Received unsupported input type " % type(X))
 
-        if dtype != np.float32:
-            raise Exception("KNN currently only supports single-precision floating-point inputs")
+        return X
+
+
+    def fit(self, X):
+        """
+        Fit a KNN index for performing nearest neighbor queries.
+
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        """
+
+        X_m = self._downcast(X)
 
         cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
 
         self.k = new kNN(n_dims)
-        self.k.fit(<float*>X_ctype, <int> X.shape[0], n_gpus)
+
+        params = new kNNParams()
+        params.N = <int>len(X)
+        params.ptr = <float*>X_ctype
+
+        self.input[0] = deref(params)
+
+        self.k.fit(<kNNParams*> self.input,
+                   <int> 1)
+
 
     def query(self, X, k):
+        """
+        Query the KNN index for the k nearest neighbors of column vectors in X.
 
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
-        # If input is cudf, return cudf, otherwise return numpy
-        if isinstance(X, cudf.DataFrame):
-            X_m = X.as_gpu_matrix(order = "C")
-        elif isinstance(X, np.ndarray):
-            X_m = cuda.to_device(X)
-        else:
-            raise Exception("Received unsupported input type " % type(X))
+        k: Integer
+           The number of neighbors
 
+        Returns
+        ----------
+        distances: cuDF DataFrame or numpy ndarray
+            The distances of the k-nearest neighbors for each column vector in X
+
+        indices: cuDF DataFrame of numpy ndarray
+            The indices of the k-nearest neighbors for each column vector in X
+        """
+
+        X_m = self._downcast(X)
 
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
@@ -153,7 +236,11 @@ cdef class KNN:
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+        self.k.search(<float*>X_ctype,
+                      <int> N,
+                      <long*>I_ptr,
+                      <float*>D_ptr,
+                      <int> k)
 
         I_ndarr = I_ndarr.reshape((N, k)).transpose()
         D_ndarr = D_ndarr.reshape((N, k)).transpose()
@@ -171,10 +258,3 @@ cdef class KNN:
             D = np.asarray(D.as_gpu_matrix())
 
         return D, I
-
-    def to_cudf(self, df, col=''):
-        # convert pandas dataframe to cudf dataframe
-        if isinstance(df,np.ndarray):
-            df = pd.DataFrame({'%s_neighbor_%d'%(col, i): df[:, i] for i in range(df.shape[1])})
-        pdf = cudf.DataFrame.from_pandas(df)
-        return pdf

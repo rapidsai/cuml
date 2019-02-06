@@ -19,6 +19,7 @@
 - PR #69: Ridge (L2 Regularized) Linear Regression
 - PR #103: Linear Kalman Filter
 - PR #117: Pip install support
+- PR #64: Device to device support from cuML device pointers into FAISS
 
 ## Improvements
 
