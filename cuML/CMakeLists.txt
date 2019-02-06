@@ -44,7 +44,7 @@ endif(ZLIB_FOUND)
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
@@ -157,15 +157,13 @@ set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libg
 
 include_directories(src
 	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
-	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-            ${GTEST_DIR}/include
-            ${MLPRIMS_DIR}/src
-            ${MLPRIMS_DIR}/src/dbscan
-            ${MLPRIMS_DIR}/test
-            ${CUTLASS_DIR}
-            ${CUB_DIR}
-            ${ZLIB_INCLUDE_DIRS$})
+        ${GTEST_DIR}/include
+        ${MLPRIMS_DIR}/src
+        ${MLPRIMS_DIR}/test
+        ${CUTLASS_DIR}
+        ${CUB_DIR}
+        ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
@@ -186,7 +184,7 @@ add_library(cuml SHARED
             src/kalman_filter/lkf_py.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} faisslib gpufaisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -204,9 +202,10 @@ target_link_libraries(ml_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
-		      gpufaisslib
+		              gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
+                      cuml
                       pthread
                       z)
                       
@@ -225,6 +224,7 @@ target_link_libraries(ml_mg_test
                       gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
+                      cuml
                       pthread
                       ${ZLIB_LIBRARIES})
 
