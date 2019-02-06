@@ -17,6 +17,7 @@
 - PR #103: Linear Kalman Filter
 - PR #117: Pip install support
 - PR #64: Device to device support from cuML device pointers into FAISS
+- PR #160: Multi-node multi-GPU support for kNN
 
 ## Improvements
 
