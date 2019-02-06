@@ -291,9 +291,10 @@ class TruncatedSVD:
 
         cdef uintptr_t trans_input_ptr
         if (isinstance(X, cudf.DataFrame)):
+            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix()
         elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
+            gdf_datatype = X.dtype
             X_m = cuda.to_device(np.array(X, order='F'))
         else:
             msg = "X matrix format  not supported"
@@ -305,12 +306,6 @@ class TruncatedSVD:
         params.n_components = self.params.n_components
         params.n_rows = len(X)
         params.n_cols = self.params.n_cols
-
-        x = []
-        for col in X.columns:
-            x.append(X[col]._column.dtype)
-            break
-        gdf_datatype = np.dtype(x[0])
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
                                              dtype=gdf_datatype.type))
@@ -376,12 +371,6 @@ class TruncatedSVD:
         params.n_components = self.params.n_components
         params.n_rows = len(X)
         params.n_cols = self.params.n_cols
-
-        x = []
-        for col in X.columns:
-            x.append(X[col]._column.dtype)
-            break
-        gdf_datatype = np.dtype(x[0])
 
         trans_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
