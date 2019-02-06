@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "algo.h"
+#include "naive.h"
 
 namespace UMAP {
 
@@ -29,7 +29,7 @@ namespace FuzzySimplSet {
 
 		switch(algorithm) {
 		case 0:
-			Algo::launcher(knn_indices, knn_dists, n,
+			Naive::launcher(knn_indices, knn_dists, n,
 					       sigmas, rhos,
 					       params);
 			break;

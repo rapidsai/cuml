@@ -18,9 +18,11 @@
 #include "stats/mean.h"
 #include "cuda_utils.h"
 
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 
 #include <cuda_runtime.h>
-#include <cusparse.h>
+#include <cusparse_v2.h>
 
 #include <limits>
 #include <math.h>
@@ -28,7 +30,7 @@
 
 namespace UMAP {
 namespace FuzzySimplSet {
-namespace Algo {
+namespace Naive {
 
 	/** number of threads in a CTA along X dim */
 	static const int TPB_X = 32;
@@ -45,6 +47,8 @@ namespace Algo {
 	 * That is, this is similar to knn-distance but allows continuous k values
 	 * rather than requiring an integral k. In essence, we are simply computing
 	 * the distance such that the cardinality of fuzzy set we generate is k.
+	 *
+	 * TODO: Optimize for coalesced reads
 	 *
 	 *
 	 * @param knn_dists: Distances to nearest neighbors for each sample. Each row should
@@ -79,7 +83,7 @@ namespace Algo {
 		// row-based matrix is best
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-\		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
+		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
 
 		float lo = 0.0;
 		float hi = std::numeric_limits<float>::max();
@@ -172,30 +176,37 @@ namespace Algo {
 	 * @param sigmas: array of size n representing distance to kth nearest neighbor
 	 * @param rhos: array of size n representing distance to the first nearest neighbor
 	 *
-	 * @return rows: long matrix of size (n, k)
-	 * 		   cols: long matrix of size (n, k)
-	 * 		   vals: T matrix of size (n, k)
+	 * @return rows: long array of size n
+	 * 		   cols: long array of size k
+	 * 		   vals: T array of size n*k
 	 *
 	 * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 	 */
 	template<typename T>
-	__global__ void compute_membership_strength(const T *knn_indices, const T *knn_dists,
-									 const T *sigmas, const T *rhos,
-									 long *rows, long *cols, T *vals, int *non_zeros,
-									 int n, UMAPParams *params) {
-
-		int non_zero_vals = 0;
+	__global__ void compute_membership_strength(const T *knn_indices, const T *knn_dists,  // nn outputs
+									 const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
+									 T *vals, int *rows, int *cols,  // result coo
+									 T *tvals, int *trows, int *tcols, // result coo transposed rows
+									 int n, UMAPParams *params) {	 // model params
 
 		// row-based matrix is best
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
 		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
 
+
 		for(int j = 0; j < params->n_neighbors; j++) {
 
-			rows[i*n_neighbors+j] = 0;
-			cols[i*n_neighbors+j] = 0;
-			vals[i*n_neighbors+j] = 0.0;
+			int idx = i*n_neighbors+j;
+			int t_idx = j*n_neighbors+i;
+
+			rows[idx] = 0;
+			cols[idx] = 0;
+			vals[idx] = 0.0;
+
+			trows[t_idx] = 0;
+			tcols[t_idx] = 0;
+			tvals[t_idx] = 0.0;
 
 			if(knn_indices[i, j] == -1) continue;
 
@@ -210,16 +221,58 @@ namespace Algo {
 				non_zero_vals += 1;
 			}
 
-			rows[i*n_neighbors + j] = i;
-			cols[i*n_neighbors + j] = knn_indices[i, j];
-			vals[i*n_neighbors + j] = val;
+
+			// TODO: Make both of these lower-triangular
+			rows[idx] = i;
+			cols[idx] = knn_indices[i, j];
+			vals[idx] = val;
+			tcols[t_idx] = i;
+			trows[t_idx] = knn_indices[i,j];
+			tvals[t_idx] = val;
 		}
-		non_zeros[i] = non_zero_vals;
 	}
 
+	template<typename T>
+	__global__ void compute_result(int *rows, int *cols, int *vals,
+								   int *trows, int *tcols, int *tvals,
+								   int *orows, int *ocols, int *ovals,
+								   int *rnnz, int n, UMAPParams *params) {
+
+		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
+		int col = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = (row+col)*params->n_neighbors; // each thread processes one row
+		// Grab the n_neighbors from our transposed matrix,
+
+		int nnz = 0;
+		for(int j = 0; j < params->n_neighbors; j++) {
+
+			orows[idx] = 0;
+			ocols[idx] = 0;
+			ovals[idx] = 0.0;
+
+			int idx = i*params->n_neighbors+j;
+
+			T result = vals[idx];
+			T transpose = tvals[idx];
+			T prod_matrix = vals[idx] * tvals[idx];
+
+			T res = params->set_op_mix_ratio * (result - transpose - prod_matrix)
+							+ (1.0 - params->set_op_mix_ratio) + prod_matrix;
+
+			orows[idx] = rows[idx];
+			ocols[idx] = cols[idx];
+			ovals[idx] = res;
+
+			if(res != 0)
+				++nnz;
+		}
+
+		nnz[i] = nnz;
+		atomicAdd(nnz+n, nnz);
+	}
 
 	/**
-	 * Given a set of X, a neighborhoos size, and a measure of distance, compute
+	 * Given a set of X, a neighborhood size, and a measure of distance, compute
 	 * the fuzzy simplicial set (here represented as a fuzzy graph in the form of
 	 * a sparse coo matrix) associated to the data. This is done by locally
 	 * approximating geodesic (manifold surface) distance at each point, creating
@@ -257,7 +310,7 @@ namespace Algo {
 		T *sigmas;
 		T *rhos;
 
-	    dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
+	    dim3 grid(ceildiv(n, TPB_X), ceildiv(n, TPB_Y), 1);
 	    dim3 blk(TPB_X, TPB_Y, 1);
 
 		/**
@@ -265,38 +318,51 @@ namespace Algo {
 		 */
 		smooth_knn_dist<<<grid,blk>>>(knn_dists, n, mean_dist, sigmas, rhos, params);
 
-
 		/**
 		 * Call compute_membership_strength
 		 */
 
-		int *nnz_dev; // use a single
-		MLCommon::allocate(nnz_dev, n);
+
+		// We will keep arrays, with space O(n*k*9) representing 3 O(n^2) matrices.
+		int *trows, *tcols;
+		T *tvals;
+		MLCommon::allocate(trows, n*k);
+		MLCommon::allocate(tcols, n*k);
+		MLCommon::allocate(tvals, n*k);
+
 
 		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
 												  sigmas, rhos,
-												  rows, cols, vals, nnz_dev,
+												  rows, cols, vals,
+												  trows, tcols, tvals,
 												  n, params);
 
-		/**
-		 * Eliminate zeros from coordinate matrix and convert to csr:
-		 * 1. Build new rows/cols/vals of size nnz (single for..loop on host for now)
-		 * 2. Use cusparse to convert to CSR
-		 */
+		int *orows, *ocols, *rnnz;
+		T *tovals;
+		MLCommon::allocate(orows, n*k);
+		MLCommon::allocate(ocols, n*k);
+		MLCommon::allocate(ovals, n*k);
+		MLCommon::allocate(rnnz, n+1);
 
 
-		/**
-		 * - result = csr
-		 * - transpose = <Transpose result> (for now store explicit transpose)
-		 * - prod_matrix = <Multiply coo matrix by its transpose> (cusparse_gemm)
-		 *
-		 * - result = set_op_mix_ratio * (result + ((transpose - prod_matrix)) +
-		 * 			   (1.0 - set_op_mix_ratio) * prod_matrix
-		 *
-		 * - result = eliminate zeros
-		 *
-		 * - return result
-		 */
+		compute_result<<<grid, blk>>>(rows, cols, vals,
+					   trows, tcols, tvals,
+					   orows, ocols, ovals,
+					   n, params);
+
+		CUDA_CHECK(cudaFree(rows));
+		CUDA_CHECK(cudaFree(cols));
+		CUDA_CHECK(cudaFree(vals));
+		CUDA_CHECK(cudaFree(trows));
+		CUDA_CHECK(cudaFree(trows));
+		CUDA_CHECK(cudaFree(trows));
+
+
+
+
+		// Run exclusive scan on rnnz
+
+
 
 
 

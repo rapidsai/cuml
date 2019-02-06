@@ -29,6 +29,7 @@
 
 namespace ML {
 
+	using namespace faiss;
 
 	/**
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
