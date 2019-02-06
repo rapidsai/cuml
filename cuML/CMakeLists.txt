@@ -129,7 +129,6 @@ endif(NOT CMAKE_CXX11_ABI)
 include_directories(src
                     ${GTEST_DIR}/googletest/include
                     ${MLPRIMS_DIR}/src
-                    ${MLPRIMS_DIR}/src/dbscan
                     ${MLPRIMS_DIR}/test
                     ${CUTLASS_DIR}
                     ${CUB_DIR}
