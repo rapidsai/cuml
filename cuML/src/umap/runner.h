@@ -21,6 +21,8 @@
 
 namespace UMAP {
 
+	using namespace ML;
+
 	template<typename T>
 	size_t run(const T *X, int n, int d, UMAPParams *params) {
 
@@ -42,7 +44,7 @@ namespace UMAP {
 		 * Run Fuzzy simplicial set
 		 */
 		FuzzySimplSet::run(knn_indices, knn_dists, n,
-						   sigams, rhos,
+						   sigmas, rhos,
 						   params, 0);
 
 		/**

@@ -33,5 +33,5 @@ namespace ML {
 
 	}
 
-	UMAP::UMAPParams* get_params() { return &this->params; }
+	UMAPParams* UMAP::get_params() { return &this->params; }
 }

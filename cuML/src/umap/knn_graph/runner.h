@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#include "umap/umap.h"
 #include "algo.h"
 
 namespace UMAP {
 
 	namespace kNNGraph {
+
+		using namespace ML;
 
 		template<typename T>
 		void run(const T *X, int n, int d,

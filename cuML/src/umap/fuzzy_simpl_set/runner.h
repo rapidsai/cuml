@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
+#include "umap/umap.h"
 #include "naive.h"
 
 namespace UMAP {
 
 namespace FuzzySimplSet {
+
+	using namespace ML;
 
 	template<typename T>
 	void run(const T *X, int n,

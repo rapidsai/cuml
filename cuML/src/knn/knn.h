@@ -12,7 +12,7 @@ namespace ML {
 
 	class kNNParams {
 	public:
-		float *ptr;
+		const float *ptr;
 		int N;
 		friend std::ostream & operator<<(std::ostream &str, kNNParams &v) {
 			str << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
@@ -42,7 +42,7 @@ namespace ML {
     public:
 		kNN(int D);
 		~kNN();
-		void search(float *search_items, int search_items_size, long *res_I, float *res_D, int k);
+		void search(const float *search_items, int search_items_size, long *res_I, float *res_D, int k);
 		void fit(kNNParams *input, int N);
 
     };

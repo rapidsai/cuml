@@ -15,22 +15,26 @@
  */
 
 #include "knn/knn.h"
-#include "stats/mean.h"
+#include "umap/umap.h"
+
 #include "cuda_utils.h"
+
+#include "stats/mean.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
 #include <cuda_runtime.h>
-#include <cusparse_v2.h>
 
 #include <limits>
 #include <math.h>
-#include <cusparse.h>
 
 namespace UMAP {
 namespace FuzzySimplSet {
 namespace Naive {
+
+
+	using namespace ML;
 
 	/** number of threads in a CTA along X dim */
 	static const int TPB_X = 32;
@@ -78,7 +82,7 @@ namespace Naive {
 									UMAPParams *params,
 									int n_iter = 64, float bandwidth = 1.0) {
 
-		float target = log2(k) * bandwidth;
+		float target = log2(params->n_neighbors) * bandwidth;
 
 		// row-based matrix is best
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
@@ -89,14 +93,14 @@ namespace Naive {
 		float hi = std::numeric_limits<float>::max();
 		float mid = 1.0;
 
-		float ith_distances[n_neighbors];
+		float ith_distances[params->n_neighbors];
 
 		std::vector<float> non_zero_dists;
 
 		int total_nonzero = 0;
 		int max_nonzero = -1;
 		float sum = 0;
-		for(int idx = 0; idx < n_neighbors; idx++) {
+		for(int idx = 0; idx < params->n_neighbors; idx++) {
 			ith_distances[idx] = knn_dists[i+idx];
 
 			sum += ith_distances[idx];
@@ -107,7 +111,7 @@ namespace Naive {
 			}
 
 			if(ith_distances[idx] > max_nonzero)
-				max_nonzero = ith_distance[idx];
+				max_nonzero = ith_distances[idx];
 		}
 
 		float ith_distances_mean = sum / params->n_neighbors;
@@ -128,7 +132,7 @@ namespace Naive {
 				rhos[i] = max_nonzero;
 		}
 
-		for(int iter = 0; iter < params->n_iter; n_iter++) {
+		for(int iter = 0; iter < n_iter; iter++) {
 			float psum = 0.0;
 			for(int j = 0; j < params->n_neighbors; j++) {
 				float d = knn_dists[i + j] - rhos[i];
@@ -183,7 +187,7 @@ namespace Naive {
 	 * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 	 */
 	template<typename T>
-	__global__ void compute_membership_strength(const T *knn_indices, const T *knn_dists,  // nn outputs
+	__global__ void compute_membership_strength(const long *knn_indices, const float *knn_dists,  // nn outputs
 									 const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
 									 T *vals, int *rows, int *cols,  // result coo
 									 T *tvals, int *trows, int *tcols, // result coo transposed rows
@@ -194,40 +198,34 @@ namespace Naive {
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
 		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
 
+		T cur_rho = rhos[i];
+		T cur_sigma = sigmas[i];
 
 		for(int j = 0; j < params->n_neighbors; j++) {
 
-			int idx = i*n_neighbors+j;
-			int t_idx = j*n_neighbors+i;
+			int idx = i*params->n_neighbors+j;
+			int t_idx = j*params->n_neighbors+i;
 
-			rows[idx] = 0;
-			cols[idx] = 0;
-			vals[idx] = 0.0;
+			long cur_knn_ind = knn_indices[idx];
+			T cur_knn_dist = knn_dists[idx];
 
-			trows[t_idx] = 0;
-			tcols[t_idx] = 0;
-			tvals[t_idx] = 0.0;
+			T val = 0.0;
+			if(cur_knn_ind == -1)
+				continue;
 
-			if(knn_indices[i, j] == -1) continue;
-
-			if(knn_indices[i, j] == i)
+			if(cur_knn_ind == i)
 				val = 0.0;
-			else if(knn_dists[i, j] - rhos[i] <= 0.0) {
+			else if(cur_knn_dist - cur_rho <= 0.0)
 				val = 1.0;
-				non_zero_vals += 1;
-			}
-			else {
-				val = exp(-((knn_dists[i, j] - rhos[i]) / (sigmas[i])));
-				non_zero_vals += 1;
-			}
-
+			else
+				val = exp(-((cur_knn_dist - cur_rho) / (cur_sigma)));
 
 			// TODO: Make both of these lower-triangular
 			rows[idx] = i;
-			cols[idx] = knn_indices[i, j];
+			cols[idx] = cur_knn_ind;
 			vals[idx] = val;
 			tcols[t_idx] = i;
-			trows[t_idx] = knn_indices[i,j];
+			trows[t_idx] = cur_knn_ind;
 			tvals[t_idx] = val;
 		}
 	}
@@ -246,10 +244,6 @@ namespace Naive {
 		int nnz = 0;
 		for(int j = 0; j < params->n_neighbors; j++) {
 
-			orows[idx] = 0;
-			ocols[idx] = 0;
-			ovals[idx] = 0.0;
-
 			int idx = i*params->n_neighbors+j;
 
 			T result = vals[idx];
@@ -267,8 +261,32 @@ namespace Naive {
 				++nnz;
 		}
 
-		nnz[i] = nnz;
-		atomicAdd(nnz+n, nnz);
+		rnnz[i] = nnz;
+		atomicAdd(rnnz+n, nnz);
+	}
+
+	template <typename T>
+	__global__ void compress_coo(int *rows, int *cols, int *vals,
+								 int *crows, int *ccols, int *cvals,
+								 int *ex_scan, UMAPParams *params) {
+
+		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
+		int col = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = (row+col)*params->n_neighbors; // each thread processes one row
+
+		int start = ex_scan[i];
+		int cur_out_idx = start;
+
+		for(int j = 0; j < params->n_neighbors; j++) {
+			int idx = i*params->n_neighbors+j;
+			if(vals[idx] != 0.0) {
+				crows[cur_out_idx] = rows[idx];
+				ccols[cur_out_idx] = cols[idx];
+				cvals[cur_out_idx] = vals[idx];
+
+				++cur_out_idx;
+			}
+		}
 	}
 
 	/**
@@ -280,7 +298,7 @@ namespace Naive {
 	 * fuzzy simplicial sets into a global one via a fuzzy union.
 	 */
 	template<typename T>
-	void launcher(const long *knn_indices, const T *knn_dists,
+	void launcher(const long *knn_indices, const float *knn_dists,
 			      int n, int *rows, int *cols, T *vals,
 				  UMAPParams *params, int algorithm) {
 
@@ -288,7 +306,7 @@ namespace Naive {
 		 * Calculate mean distance through a parallel reduction
 		 */
 		T *dist_means_dev;
-		MLCommon::allocate(dist_means, params->n_neighbors);
+		MLCommon::allocate(dist_means_dev, params->n_neighbors);
 		MLCommon::Stats::mean(dist_means_dev, knn_dists, params->n_neighbors, n, false, true);
 
 		T *dist_means_host = malloc(params->n_neighbors*sizeof(T));
@@ -310,7 +328,7 @@ namespace Naive {
 		T *sigmas;
 		T *rhos;
 
-	    dim3 grid(ceildiv(n, TPB_X), ceildiv(n, TPB_Y), 1);
+	    dim3 grid(MLCommon::ceildiv(n, TPB_X), MLCommon::ceildiv(n, TPB_Y), 1);
 	    dim3 blk(TPB_X, TPB_Y, 1);
 
 		/**
@@ -318,19 +336,18 @@ namespace Naive {
 		 */
 		smooth_knn_dist<<<grid,blk>>>(knn_dists, n, mean_dist, sigmas, rhos, params);
 
-		/**
-		 * Call compute_membership_strength
-		 */
-
+		int k = params->n_neighbors;
 
 		// We will keep arrays, with space O(n*k*9) representing 3 O(n^2) matrices.
 		int *trows, *tcols;
 		T *tvals;
-		MLCommon::allocate(trows, n*k);
-		MLCommon::allocate(tcols, n*k);
-		MLCommon::allocate(tvals, n*k);
+		MLCommon::allocate(trows, n*k, true);
+		MLCommon::allocate(tcols, n*k, true);
+		MLCommon::allocate(tvals, n*k, true);
 
-
+		/**
+		 * Call compute_membership_strength
+		 */
 		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
 												  sigmas, rhos,
 												  rows, cols, vals,
@@ -338,13 +355,16 @@ namespace Naive {
 												  n, params);
 
 		int *orows, *ocols, *rnnz;
-		T *tovals;
-		MLCommon::allocate(orows, n*k);
-		MLCommon::allocate(ocols, n*k);
-		MLCommon::allocate(ovals, n*k);
-		MLCommon::allocate(rnnz, n+1);
+		T *ovals;
+		MLCommon::allocate(orows, n*k, true);
+		MLCommon::allocate(ocols, n*k, true);
+		MLCommon::allocate(ovals, n*k, true);
+		MLCommon::allocate(rnnz, n+1, true);
 
 
+		/**
+		 * Finish computation of matrix sums, Hadamard products, weighting, etc...
+		 */
 		compute_result<<<grid, blk>>>(rows, cols, vals,
 					   trows, tcols, tvals,
 					   orows, ocols, ovals,
@@ -358,15 +378,30 @@ namespace Naive {
 		CUDA_CHECK(cudaFree(trows));
 
 
+		/**
+		 * Compress resulting COO matrix
+		 */
+
+		int *ex_scan;
+		MLCommon::allocate(ex_scan, n+1);
+
+	    thrust::device_ptr<int> dev_rnnz = thrust::device_pointer_cast(rnnz);
+	    thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
+	    thrust::exclusive_scan(dev_rnnz, dev_rnnz+n, dev_ex_scan);
+
+	    int cur_coo_len = 0;
+		MLCommon::updateHost(&cur_coo_len, rnnz+n, 1);
 
 
-		// Run exclusive scan on rnnz
+		int *crows, *ccols;
+		T *cvals;
+		MLCommon::allocate(crows, cur_coo_len, true);
+		MLCommon::allocate(ccols, cur_coo_len, true);
+		MLCommon::allocate(cvals, cur_coo_len, true);
 
-
-
-
-
-
+	    compress_coo<<<grid, blk>>>(orows, ocols, ovals,
+	    						    crows, ccols, cvals,
+	    						    rnnz, params);
 	}
 
 
