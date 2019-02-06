@@ -36,7 +36,8 @@ using namespace MLCommon;
 template<typename math_t>
 void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 		math_t *explained_var_ratio, paramsTSVD prms,
-		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle) {
+                      cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
+    DeviceAllocator &mgr) {
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -48,7 +49,7 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 	allocate(explained_var_ratio_all, prms.n_cols);
 
 	calEig(in, components_all, explained_var_all, prms, cusolver_handle,
-			cublas_handle);
+               cublas_handle, mgr);
 
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
 			prms.n_components, prms.n_cols);
@@ -84,6 +85,8 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 		math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
 		math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
+    ///@todo: make this to be passed via the interface
+    DeviceAllocator mgr = makeDefaultAllocator();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -104,14 +107,14 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
 			cublas_handle);
 	truncCompExpVars(cov, components, explained_var, explained_var_ratio, prms,
-			cusolver_handle, cublas_handle);
+                         cusolver_handle, cublas_handle, mgr);
 
 	math_t scalar = (prms.n_rows - 1);
-	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components);
+	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, true);
 
 	CUDA_CHECK(cudaFree(cov));
 
-	Stats::meanAdd(input, mu, prms.n_cols, prms.n_rows, false);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 }
 
 /**
@@ -184,15 +187,15 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                       prms.n_rows, prms.n_components, true, true);
 	}
 
 	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle);
-	Stats::meanAdd(input, mu, prms.n_cols, prms.n_rows, false);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                      prms.n_rows, prms.n_components, true, true);
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
@@ -237,16 +240,16 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                      prms.n_rows, prms.n_components, true, true);
 	}
 
-	Stats::meanCenter(input, mu, prms.n_cols, prms.n_rows, false);
+	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 	tsvdTransform(input, components, trans_input, prms, cublas_handle);
-	Stats::meanAdd(input, mu, prms.n_cols, prms.n_rows, false);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-				prms.n_rows, prms.n_components, true);
+                                                       prms.n_rows, prms.n_components, true, true);
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components);

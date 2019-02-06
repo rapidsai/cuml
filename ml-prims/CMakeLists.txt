@@ -1,25 +1,30 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(mlcommon LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}) # Path to the root of ml-prims project
+set(CMAKE_MODULE_PATH ${MLPRIMS_DIR}/cmake)
 
 find_package(CUDA 8.0 REQUIRED)
 find_package(OpenMP REQUIRED)
+# TODO: enable this when we are ready!
+#find_package(ClangFormat REQUIRED)
+#find_package(ClangTidy REQUIRED)
 
 # Submodules
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
@@ -37,6 +42,7 @@ set(GPU_ARCHS "" CACHE STRING
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
 option(DEBUG "Get a debug build" OFF)
+option(TESTS "Enable running tests" ON)
 
 ## start nvcc options
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -fopenmp")
@@ -56,11 +62,14 @@ if(DEBUG)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 # Generate optimized binary for every known arch
-if(NOT "${GPU_ARCHS}")
+if(NOT GPU_ARCHS)
   set(GPU_ARCHS "35;50;52;60;61")
   # NOTE: NOTE: Add more 'if's for every new arch release!
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
+  endif()
+  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
+    set(GPU_ARCHS "${GPU_ARCHS};75")
   endif()
 endif()
 foreach(arch ${GPU_ARCHS})
@@ -72,26 +81,23 @@ list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 ## end nvcc options
 
-include_directories(src
-  ${GTEST_DIR}/googletest/include
-  ${CUTLASS_DIR}
-  ${CUB_DIR}
-  ${CUDA_TOOLKIT_INCLUDE} # This include directory inplicitly available for course compiled with nvcc, but not for pure host compiler
-)
-
-add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
-
-# Alternative for find sources and headers
-file(GLOB_RECURSE cpp_and_cuda_sources "test/*.cpp" "test/*.c" "test/*.cu")
-
-add_executable(mlcommon_test ${cpp_and_cuda_sources})
-
-target_link_libraries(mlcommon_test
-  ${GTEST_LIBNAME}
+set(MLPRIMS_LIBS
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
   pthread
   z)
 
+include_directories(src
+  ${CUTLASS_DIR}
+  ${CUB_DIR})
+
+if(TESTS)
+  add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
+  add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
+
+  # formatting!
+  # add_clang_format(
+  #   TARGETS mlcommon_test
+  #   SRCS src test)
+endif()

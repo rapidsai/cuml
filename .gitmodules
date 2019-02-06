@@ -4,10 +4,6 @@
 [submodule "external/googletest"]
     path = thirdparty/cuml/googletest
     url = https://github.com/google/googletest
-[submodule "external/cutlass"]
-    path = thirdparty/cuml/cutlass
-    url = https://github.com/teju85/cutlass.git
-    branch = v0.1-customizations
 [submodule "ml-prims/external/cutlass"]
     path = thirdparty/ml-prims/cutlass
     url = https://github.com/NVIDIA/cutlass
@@ -19,4 +15,4 @@
     url = https://github.com/google/googletest
 [submodule "thirdparty/h2o4gpu"]
 	path = thirdparty/h2o4gpu
-	url = git@github.com:h2oai/h2o4gpu.git
+	url = https://github.com/h2oai/h2o4gpu

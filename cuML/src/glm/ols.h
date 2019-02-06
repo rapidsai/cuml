@@ -29,6 +29,7 @@
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include "preprocess.h"
+#include <device_allocator.h>
 
 namespace ML {
 namespace GLM {
@@ -59,12 +60,14 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 				cusolver_handle);
 	}
 
+        ///@todo: for perf reasons we should be using custom allocators!
+        DeviceAllocator mgr = makeDefaultAllocator();
 	if (algo == 0) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle);
+                                 cublas_handle, mgr);
 	} else if (algo == 1) {
 		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle);
+                                 cublas_handle, mgr);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
 				cublas_handle);
@@ -105,8 +108,8 @@ void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
-	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, false, false,
-			alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
+                     CUBLAS_OP_N, alpha, beta, cublas_handle);
 
 	LinAlg::addScalar(preds, preds, intercept, n_rows);
 

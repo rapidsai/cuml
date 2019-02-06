@@ -74,15 +74,15 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 template<typename math_t>
 void calEig(math_t *in, math_t *components, math_t *explained_var,
 		paramsTSVD prms, cusolverDnHandle_t cusolver_handle,
-		cublasHandle_t cublas_handle) {
+            cublasHandle_t cublas_handle, DeviceAllocator &mgr) {
 
 	if (prms.algorithm == solver::COV_EIG_JACOBI) {
 		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
 				explained_var, (math_t) prms.tol, prms.n_iterations,
-				cusolver_handle);
+                                  cusolver_handle, mgr);
 	} else {
 		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-						cusolver_handle);
+                              cusolver_handle, mgr);
 	}
 
 	Matrix::colReverse(components, prms.n_cols, prms.n_cols);
@@ -151,6 +151,8 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
 template<typename math_t>
 void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSVD prms,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
+    ///@todo: make this to be passed via the interface
+    auto mgr = makeDefaultAllocator();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -169,7 +171,8 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
-			prms.n_cols, prms.n_cols, true, false, alpha, beta, cublas_handle);
+			prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
+                     cublas_handle);
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -178,7 +181,7 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
 	allocate(explained_var_all, prms.n_cols);
 
 	calEig(input_cross_mult, components_all, explained_var_all, prms,
-			cusolver_handle, cublas_handle);
+               cusolver_handle, cublas_handle, mgr);
 
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
 			prms.n_components, prms.n_cols);
@@ -207,9 +210,11 @@ template<typename math_t>
 void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, paramsTSVD prms, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+                      cusolverDnHandle_t cusolver_handle) {
+    ///@todo: make this to be passed via the interface!
+    DeviceAllocator mgr = makeDefaultAllocator();
 
-	tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
+        tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
 	tsvdTransform(input, components, trans_input, prms, cublas_handle);
 
 	signFlip(trans_input, prms.n_rows, prms.n_components, components,
@@ -269,7 +274,7 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, components, trans_input,
-			prms.n_rows, prms.n_components, false, true, alpha, beta,
+			prms.n_rows, prms.n_components, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
 			cublas_handle);
 }
 
@@ -296,7 +301,8 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 	math_t beta = math_t(0);
 
 	LinAlg::gemm(trans_input, prms.n_rows, prms.n_components, components, input,
-			prms.n_rows, prms.n_cols, false, false, alpha, beta, cublas_handle);
+			prms.n_rows, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
+                     cublas_handle);
 
 }
 
