@@ -42,7 +42,6 @@ add_executable(mlcommon_test
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
-  mnist.cu
   mvg.cu
   multiply.cu
   norm.cu
