@@ -40,12 +40,14 @@ extensions = [
               sources=cython_files,
               include_dirs=[numpy_include,
                             '../cuML/src',
+                            '../cuML/external',
                             '../cuML/external/ml-prims/src',
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
-                            '../cuML/external/ml-prims/external/cub'],
+                            '../cuML/external/ml-prims/external/cub',
+                            '/usr/local/cuda/include'],
               library_dirs=[get_python_lib()],
-              libraries=['cuml'],
+              libraries=['cuda', 'cuml'],
               language='c++',
               extra_compile_args=['-std=c++11'])
 ]

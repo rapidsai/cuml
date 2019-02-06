@@ -16,14 +16,18 @@
 import numpy as np
 import pandas as pd
 import cudf
+import ctypes
 
+from librmm_cffi import librmm as rmm
+from numba import cuda
+from knn cimport *
 
 class KNNparams:
     def __init__(self, n_gpus):
         self.n_gpus = n_gpus
 
 
-class KNN:
+cdef class KNN:
     """
 
     Create a DataFrame, fill it with data, and compute KNN:
@@ -83,55 +87,90 @@ class KNN:
     For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
 
     """
-    def __init__(self, n_gpus=-1):
-        # -1 means using all gpus
+    cdef kNN *k
 
-        # import faiss
-        try:
-            import faiss
-        except ImportError:
-            msg = "KNN not supported without faiss"
-            raise ImportError(msg)
+    cdef int num_gpus
 
+    cdef uintptr_t X_ctype
 
-        self.params = KNNparams(n_gpus)
+    cdef uintptr_t I_ptr
+    cdef uintptr_t D_ptr
 
-    def fit(self, X):
+    def __cinit__(self, num_gpus = 1):
+        self.num_gpus = num_gpus
 
-        try:
-            import faiss
-        except ImportError:
-            msg = "KNN not supported without faiss"
-            raise ImportError(msg)
+    def _get_ctype_ptr(self, obj):
+        # The manner to access the pointers in the gdf's might change, so
+        # encapsulating access in the following 3 methods. They might also be
+        # part of future gdf versions.
+        return obj.device_ctypes_pointer.value
 
-        if (isinstance(X, cudf.DataFrame)):
-            X = self.to_nparray(X)
+    def _get_column_ptr(self, obj):
+        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+
+    def _get_gdf_as_matrix_ptr(self, gdf):
+        return self._get_ctype_ptr(gdf.as_gpu_matrix())
+
+    def fit(self, X, n_gpus = 1):
+        if isinstance(X, cudf.DataFrame):
+            X_m = X.as_gpu_matrix(order = "C")
+            dtype = np.dtype(X[X.columns[0]]._column.dtype)
+        elif isinstance(X, np.ndarray):
+            X_m = cuda.to_device(X)
+            dtype = X.dtype
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+        if dtype != np.float32:
+            raise Exception("KNN currently only supports single-precision floating-point inputs")
+
+        cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
         n_dims = X.shape[1]
-        cpu_index = faiss.IndexFlatL2(n_dims)
-        # build a flat (CPU) index
-        if self.params.n_gpus == 1:
-            res = faiss.StandardGpuResources()
-            # use a single GPU
-            # make it a flat GPU index
-            gpu_index = faiss.index_cpu_to_gpu(res, 0, cpu_index)
-        else:
-            gpu_index = faiss.index_cpu_to_all_gpus(cpu_index,
-                                                    ngpu=self.params.n_gpus)
-        gpu_index.add(X)
-        self.gpu_index = gpu_index
+
+        self.k = new kNN(n_dims)
+        self.k.fit(<float*>X_ctype, <int> X.shape[0], n_gpus)
 
     def query(self, X, k):
-        X = self.to_nparray(X)
-        D, I = self.gpu_index.search(X, k)
-        D = self.to_cudf(D, col='distance')
-        I = self.to_cudf(I, col='index')
-        return D, I
 
-    def to_nparray(self, x):
-        if isinstance(x, cudf.DataFrame):
-            x = x.to_pandas()
-        return np.ascontiguousarray(x)
+
+        # If input is cudf, return cudf, otherwise return numpy
+        if isinstance(X, cudf.DataFrame):
+            X_m = X.as_gpu_matrix(order = "C")
+        elif isinstance(X, np.ndarray):
+            X_m = cuda.to_device(X)
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+
+        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
+        N = len(X)
+
+        # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
+
+        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+
+        self.k.search(<float*>X_ctype, <int> N, <long*>I_ptr, <float*>D_ptr, <int> k)
+
+        I_ndarr = I_ndarr.reshape((N, k)).transpose()
+        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+
+        I = cudf.DataFrame()
+        for i in range(0, I_ndarr.shape[0]):
+            I[str(i)] = I_ndarr[i,:]
+
+        D = cudf.DataFrame()
+        for i in range(0, D_ndarr.shape[0]):
+            D[str(i)] = D_ndarr[i,:]
+
+        if isinstance(X, np.ndarray):
+            I = np.asarray(I.as_gpu_matrix())
+            D = np.asarray(D.as_gpu_matrix())
+
+        return D, I
 
     def to_cudf(self, df, col=''):
         # convert pandas dataframe to cudf dataframe
