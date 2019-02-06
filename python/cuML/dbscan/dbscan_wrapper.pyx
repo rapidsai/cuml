@@ -22,6 +22,8 @@ from libcpp cimport bool
 import ctypes
 from libc.stdint cimport uintptr_t
 from c_dbscan cimport *
+# temporary import for numba_utils
+from cuML import numba_utils
 
 
 class DBSCAN:
@@ -82,7 +84,7 @@ class DBSCAN:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order = "C")
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 

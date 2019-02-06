@@ -1,4 +1,15 @@
-# cuML 0.5.0 (Date TBD)
+# cuML 0.6.0 (Date TBD)
+
+## New Features
+
+## Improvements
+
+- PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+
+## Bug Fixes
+
+
+# cuML 0.5.0 (28 Jan 2019)
 
 ## New Features
 
@@ -18,6 +29,8 @@
 - PR #117: Use cmake extension to find any zlib installed in system
 - PR #94: Add cmake flag to set ABI compatibility
 - PR #139: Move thirdparty submodules to root and add symlinks to new locations
+- PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
+- PR #164: Add numba kernel for faster column to row major transform
 
 ## Bug Fixes
 
