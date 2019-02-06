@@ -28,21 +28,6 @@ namespace VertexDeg {
 namespace Algo {
 
 
-template <typename T>
-struct OutStruct {
-    bool* adj;
-    int* vd;
-    T* dist;
-};
-
-template <typename T>
-struct InStruct {
-    T eps2;
-    int batchSize;
-    int N;
-};
-
-
 template <typename value_t>
 void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int batchSize) {
     data.resetArray(stream, batchSize+1);
@@ -53,36 +38,33 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     int n = min(data.N - startVertexId, batchSize);
     int k = data.D;
 
-    OutStruct<value_t> out = { data.adj, data.vd, data.dots };
-    InStruct<value_t> in = { data.eps*data.eps, batchSize, n };
-
     char* workspace = nullptr;
     size_t workspaceSize = 0;
+    value_t eps2 = data.eps * data.eps;
+    int* vd = data.vd;
+    bool* adj = data.adj;
+    ///@todo: once we support bool outputs in distance method, this should be removed!
+    value_t* dist = data.dots;
 
     /**
      * Epilogue operator to fuse the construction of boolean eps neighborhood adjacency matrix, vertex degree array,
      * and the final distance matrix into a single kernel.
      */
-    auto dbscan_op = [] __device__
+    auto dbscan_op = [n, eps2, vd, adj] __device__
                         (value_t val, 							// current value in gemm matrix
-			 int global_c_idx,						// index of output in global memory
-                         const InStruct<value_t>& in_params,	// input parameters
-                         OutStruct<value_t>& out_params) {		// output parameters
-
-        int acc = val <= in_params.eps2;
-        int vd_offset = global_c_idx / in_params.N;   // bucket offset for the vertex degrees
-        atomicAdd(out_params.vd+vd_offset, acc);
-        atomicAdd(out_params.vd+in_params.N, acc);
-
-        out_params.adj[global_c_idx] = (bool)acc;
-
+			 int global_c_idx) {						// index of output in global memory
+        int acc = val <= eps2;
+        int vd_offset = global_c_idx / n;   // bucket offset for the vertex degrees
+        atomicAdd(vd+vd_offset, acc);
+        atomicAdd(vd+n, acc);
+        adj[global_c_idx] = (bool)acc;
         return val;
     };
 
-    MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
+    MLCommon::Distance::distance<value_t, value_t, value_t, OutputTile_t>
     		(data.x, data.x+startVertexId*k, 					// x & y inputs
+                 dist,  // output todo: this should be removed soon
     		 m, n, k, 											// Cutlass block params
-    		 in, out, 											// input / output params
     		 MLCommon::Distance::DistanceType::EucExpandedL2, 	// distance metric type
     		 (void*)workspace, workspaceSize, 							// workspace params
     		 dbscan_op, 										// epilogue operator
@@ -94,10 +76,10 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
         MLCommon::allocate(workspace, workspaceSize);
     }
 
-    MLCommon::Distance::distance<value_t, value_t, InStruct<value_t>, OutStruct<value_t>, OutputTile_t>
+    MLCommon::Distance::distance<value_t, value_t, value_t, OutputTile_t>
     		(data.x, data.x+startVertexId*k, 					// x & y inputs
+                 dist,  // output todo: this should be removed soon
     		 m, n, k, 											// Cutlass block params
-    		 in, out, 											// input / output params
     		 MLCommon::Distance::DistanceType::EucExpandedL2, 	// distance metric type
     		 (void*)workspace, workspaceSize, 					// workspace params
     		 dbscan_op, 										// epilogue operator

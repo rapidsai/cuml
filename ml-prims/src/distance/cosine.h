@@ -16,44 +16,44 @@
 
 #pragma once
 #include "distance/algo1.h"
+#include "distance/distance_fragment_multiply_add.h"
 #include "linalg/eltwise2d.h"
 
 namespace MLCommon {
 namespace Distance {
 
-template <typename IType,
-          typename AccType,
-          typename OType,
-          typename OutputTile_>
-void cosineAlgo1(int m, int n, int k,
-                 IType const* pA,
-                 IType const* pB,
-                 OType const* pC,
-                 OType* pD,
-                 OType alpha,
-                 OType beta,
-                 AccType* pWorkspace,
-                 size_t workspaceSize,
-                 cudaStream_t stream=0)
-{
-  auto op = [] __device__ (OType a, OType b, OType ab) {
-    return ab / (sqrt(a) * sqrt(b));
-  };
-
-  auto lambda = [=] (int rows, int cols,
-      const OType* dotA, const OType* dotB, const OType* pC, OType* pD,
-      OType alpha, OType beta,
-      cudaStream_t stream) {
-    LinAlg::eltwise2D<OType>(m, n, dotA, dotB, pC, pD, alpha, beta,
-      op, stream);
-  };
-
-  distanceAlgo1<IType, AccType, OType, OutputTile_>(m, n, k,
-    pA, pB, pC, pD,
-    alpha, beta,
-    pWorkspace, workspaceSize,
-    lambda, stream);
+/**
+ * @brief the expanded cosine distance matrix calculation
+ *  It computes the following equation: C = op(A^2 + B^2 - 2AB)
+ * @tparam IType input data-type (for A and B matrices)
+ * @tparam AccType accumulation data-type
+ * @tparam OType output data-type (for C and D matrices)
+ * @tparam OutputTile_ output tile size for the thread block
+ * @tparam FinalLambda user-defined epilogue lamba
+ * @param m number of rows of A and C/D
+ * @param n number of columns of B and C/D
+ * @param k number of cols of A and rows of B
+ * @param pA input matrix
+ * @param pB input matrix
+ * @param pD output matrix
+ * @tparam in_params user-defined input parameter
+ * @param workspace temporary workspace needed for computations
+ * @param worksize number of bytes of the workspace
+ * @param fin_op the final gemm epilogue lambda
+ * @param stream cuda stream where to launch work
+ * @{
+ */
+template <typename InType, typename AccType, typename OutType,
+          typename OutputTile_, typename FinalLambda>
+void cosineAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
+                 OutType *pD, AccType *workspace, size_t worksize,
+                 FinalLambda fin_op, cudaStream_t stream = 0) {
+  typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
+    FragmentMultiplyAdd_;
+  auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
+  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_>(
+    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
 }
 
-}
-}
+}; // end namespace Distance
+}; // end namespace MLCommon

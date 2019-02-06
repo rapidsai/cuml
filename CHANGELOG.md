@@ -5,6 +5,7 @@
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+- PR #167: Integrating full-n-final ml-prims repo inside cuml
 
 ## Bug Fixes
 

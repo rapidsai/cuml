@@ -18,92 +18,98 @@
 
 #include <cutlass/fragment.h>
 #include <cutlass/shape.h>
+#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Distance {
 
-template <typename Scalar_,
-          typename InParams_,
-          typename OutParams_>
-struct DistanceFragmentMultiplyAdd {
-  /// The shape of the instruction.
-  typedef cutlass::Shape<1, 1, 1, 1> InstructionShape;
-  /// The type for A.
-  typedef Scalar_ ScalarA;
-  /// The type for B.
-  typedef Scalar_ ScalarB;
-  /// The type for C.
-  typedef Scalar_ ScalarC;
-  /// The type for D.
-  typedef Scalar_ ScalarD;
-
+/**
+ * @brief Fragment-level epilogue function called by ExpandedEpilogueFunctor,
+ *  which calls FusedDistance and user lambda
+ * @tparam FusedDistance used to generate the final distance value
+ */
+template <typename FusedDistance>
+struct ExpandedDistanceFragmentMultiplyAdd {
   /// Ctor.
-  CUTLASS_DEVICE DistanceFragmentMultiplyAdd() {}
+  CUTLASS_DEVICE ExpandedDistanceFragmentMultiplyAdd() {}
 
-  /// Multiply : d = a*b.
-  template <bool enable_sqrt_,
-            typename FragmentB_,
-            typename FragmentCd_,
-            typename FragmentCol_,
-            typename FragmentRow_,
-            typename Lambda_>
-  CUTLASS_DEVICE void multiply(Scalar_ a,
-                               FragmentB_ const& b,
-                               FragmentCd_& d,
+  /// Multiply : d = b.
+  template <bool enable_sqrt_, typename FragmentB_, typename FragmentCd_,
+            typename FragmentCol_, typename FragmentRow_, typename Lambda_>
+  CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,
                                const int index[FragmentCd_::kElements],
-                               FragmentCol_ const& col,
-                               FragmentRow_ const& row,
-                               InParams_ const& in_params,
-                               OutParams_& out_params,
+                               FragmentCol_ const &col, FragmentRow_ const &row,
                                Lambda_ fin_op) {
+    FusedDistance fd;
     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
-    int const width =
-        FragmentCd_::kElements / FragmentCol_::kElements;
+    int const width = FragmentCd_::kElements / FragmentCol_::kElements;
     for (int j = 0; j < FragmentCd_::kElements; ++j) {
-      auto accum = a * b[j * kReduction + 0];
+      d[j] = b[j * kReduction + 0];
       for (int k = 1; k < kReduction; ++k) {
-        accum += a * b[j * kReduction + k];
+        d[j] += b[j * kReduction + k];
       }
-      accum = col[j / width] + row[j % width] - 2 *accum;
-      if(enable_sqrt_)
-        accum = sqrt(accum);
-      d[j] = (index[j] == -1)? accum : fin_op(accum, index[j], in_params, out_params);
+      if (index[j] != -1) {
+        fd.fused_distance<enable_sqrt_>(d[j], col[j / width], row[j % width]);
+        d[j] = fin_op(d[j], index[j]);
+      }
     }
   }
+};
 
-  /// Multiply : d = a*b + c.
-  template <bool enable_sqrt_,
-            typename FragmentB_,
-            typename FragmentCd_,
-            typename FragmentCol_,
-            typename FragmentRow_,
+struct L2FusedDistance {
+  /// Ctor.
+  CUTLASS_DEVICE L2FusedDistance() {}
+
+  template <bool enable_sqrt_, typename CdElement_, typename ColElement_,
+            typename RowElement_>
+  CUTLASS_DEVICE void fused_distance(CdElement_ &accum,
+                                     ColElement_ const &col_elem,
+                                     RowElement_ const &row_elem) {
+    accum = col_elem + row_elem - 2 * accum;
+    accum = enable_sqrt_ ? mySqrt(accum) : accum;
+  }
+};
+
+struct CosFusedDistance {
+  /// Ctor.
+  CUTLASS_DEVICE CosFusedDistance() {}
+
+  template <bool enable_sqrt_, typename CdElement_, typename ColElement_,
+            typename RowElement_>
+  CUTLASS_DEVICE void fused_distance(CdElement_ &accum,
+                                     ColElement_ const &col_elem,
+                                     RowElement_ const &row_elem) {
+    accum = accum / (col_elem * row_elem);
+  }
+};
+
+/**
+ * @brief Fragment-level epilogue function called by UnexpandedEpilogueFunctor,
+ *  which calls the user lambda
+ */
+struct UnexpandedDistanceFragmentMultiplyAdd {
+  /// Ctor.
+  CUTLASS_DEVICE UnexpandedDistanceFragmentMultiplyAdd() {}
+
+  /// Multiply : d = b.
+  template <bool enable_sqrt_, typename FragmentB_, typename FragmentCd_,
             typename Lambda_>
-  CUTLASS_DEVICE void multiply_add(Scalar_ a,
-                                   FragmentB_ const& b,
-                                   FragmentCd_ const& c,
-                                   FragmentCd_& d,
-                                   const int index[FragmentCd_::kElements],
-                                   FragmentCol_ const& col,
-                                   FragmentRow_ const& row,
-                                   InParams_ const& in_params,
-                                   OutParams_& out_params,
-                                   Lambda_ fin_op) {
+  CUTLASS_DEVICE void multiply(FragmentB_ const &b, FragmentCd_ &d,
+                               const int index[FragmentCd_::kElements],
+                               Lambda_ fin_op) {
     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
-    int const width =
-        FragmentCd_::kElements / FragmentCol_::kElements;
     for (int j = 0; j < FragmentCd_::kElements; ++j) {
-      auto accum = a * b[j * kReduction + 0] + c[j];
+      d[j] = b[j * kReduction + 0];
       for (int k = 1; k < kReduction; ++k) {
-        accum += a * b[j * kReduction + k];
+        d[j] += b[j * kReduction + k];
       }
-      accum = col[j / width] + row[j % width] - 2 * accum;
-      if(enable_sqrt_)
-        accum = sqrt(accum);
-      d[j] = (index[j] == -1)? accum : fin_op(accum, index[j], in_params, out_params);
+      if (index[j] != -1) {
+        d[j] = enable_sqrt_ ? mySqrt(d[j]) : d[j];
+        d[j] = fin_op(d[j], index[j]);
+      }
     }
   }
 };
 
 } // end namespace Distance
 } // end namespace MLCommon
-
