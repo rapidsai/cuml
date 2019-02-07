@@ -30,18 +30,6 @@ namespace GLM {
 
 using namespace MLCommon;
 
-template <typename T>
-HDI T myMax(T x, T y);
-template <>
-HDI float myMax<float>(float x, float y) {
-  return fmaxf(x, y);
-}
-template <>
-HDI double myMax<double>(double x, double y) {
-  return fmax(x, y);
-}
-
-
 
 template <typename T, class C, STORAGE_ORDER Storage>
 struct GLM_BG_Loss {
@@ -224,8 +212,6 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
     grad_w_host[d] = (lph - lmh) / (2 * h);
   }
 }
-
-
 
 }; // namespace GLM
 }; // namespace ML

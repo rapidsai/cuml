@@ -30,7 +30,6 @@ int fit_dispatch(T *X, T *y, int N, int D, bool has_bias, T l1, T l2,
   // opt_param.past = 1; //TODO if we wan delta to be used...
 
   OPT_RETCODE ret;
-  // TODO in lbfgs.h, detect nan and revert+break?
   if (l1 == 0.0) {
     LBFGSSolver<T> lbfgs(opt_param, loss.n_param);
     ret = lbfgs.minimize(loss, x, *fx, num_iters, verbosity);
@@ -45,7 +44,7 @@ int fit_dispatch(T *X, T *y, int N, int D, bool has_bias, T l1, T l2,
     if (verbosity > 0)
       printf("OWL-QN Done\n");
   }
-  // TODO report status
+  //TODO discuss return code convention
   return ret;
 }
 
@@ -61,7 +60,6 @@ void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
     linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters);
 
 }
-
 
 void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D, bool has_bias,
                              float l1, float l2, int max_iter, float grad_tol,
