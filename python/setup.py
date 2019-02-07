@@ -29,9 +29,9 @@ install_requires = [
     'cython'
 ]
 
+
 def find_in_path(name, path):
     "Find a file in a search path"
-    #adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
     for dir in path.split(os.pathsep):
         binpath = pjoin(dir, name)
         if os.path.exists(binpath):
@@ -58,7 +58,8 @@ def locate_cuda():
         nvcc = find_in_path('nvcc', os.environ['PATH'])
         if nvcc is None:
             raise EnvironmentError('The nvcc binary could not be '
-                'located in your $PATH. Either add it to your path, or set $CUDAHOME')
+                                   'located in your $PATH.')
+
         home = os.path.dirname(os.path.dirname(nvcc))
 
     cudaconfig = {'home':home, 'nvcc':nvcc,
@@ -66,10 +67,14 @@ def locate_cuda():
                   'lib64': pjoin(home, 'lib64')}
     for k, v in cudaconfig.items():
         if not os.path.exists(v):
-            raise EnvironmentError('The CUDA %s path could not be located in %s' % (k, v))
+            raise EnvironmentError('The CUDA %s path could not '
+                                   'be located in %s' % (k, v))
 
     return cudaconfig
+
+
 CUDA = locate_cuda()
+
 
 try:
     numpy_include = numpy.get_include()
@@ -90,11 +95,11 @@ extensions = [
                             '../cuML/external/ml-prims/external/cub',
                             CUDA["include"]],
               library_dirs=[get_python_lib()],
-              runtime_library_dirs = [CUDA["lib64"],
-                                      "/usr/lib",
-                                      "/usr/lib64",
-                                      "/usr/local/lib",
-                                      "/usr/local/lib64"],
+              runtime_library_dirs=[CUDA["lib64"],
+                                    "/usr/lib",
+                                    "/usr/lib64",
+                                    "/usr/local/lib",
+                                    "/usr/local/lib64"],
               libraries=['cuda', 'cuml'],
               language='c++',
               extra_compile_args=['-std=c++11'])
