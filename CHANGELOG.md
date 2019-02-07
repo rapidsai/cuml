@@ -9,6 +9,7 @@
 
 ## Bug Fixes
 
+- PR #193: Fix AttributeError in PCA and TSVD
 
 # cuML 0.5.0 (28 Jan 2019)
 
