@@ -15,6 +15,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
 
 
