@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <iostream>
 
 namespace MLCommon {
 
@@ -107,6 +108,16 @@ void allocate(Type *&ptr, size_t len, bool setZero = false) {
   CUDA_CHECK(cudaMalloc((void **)&ptr, sizeof(Type) * len));
   if (setZero)
     CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
+}
+
+/** Helper function to calculate need memory for allocate to store dense matrix.
+* @param rows number of rows in matrix
+* @param columns number of columns in matrix
+* @return need number of items to allocate via allocate()
+* @sa allocate()
+*/
+inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
+    return rows * columns;
 }
 
 /** performs a host to device copy */
@@ -332,7 +343,6 @@ HDI double myPow(double x, double power) {
 }
 /** @} */
 
-
 /**
  * @defgroup Pow Power function
  * @{
@@ -347,6 +357,60 @@ struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
 };
 /** @} */
+
+/**
+ * @defgroup Sign Obtain sign value
+ * @{
+ */
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+*/
+template <typename T> DI T signPrim(T x) { return x < 0 ? -1 : +1; }
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+*/
+template <> DI float signPrim(float x) { return signbit(x) == true ? -1.0f : +1.0f; }
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+*/
+template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1.0; }
+/** @} */
+
+/**
+ * @defgroup Max value
+ * @{
+ */
+
+/** Obtain maximum of two values
+* @param x one item
+* @param y second item
+* @return maximum of two items
+*/
+template <typename T> DI T maxPrim(T x, T y) { return x > y ? x : y; }
+
+/** Obtain maximum of two values with template specialization which exploit cuda mathematical funcions
+* @param x one item
+* @param y second item
+* @return maximum of two items
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
+*/
+template <> DI float maxPrim(float x, float y) { return fmaxf(x, y); }
+
+/** Obtain maximum of two values with template specialization which exploit mathematical funcions
+* @param x one item
+* @param y second item
+* @return maximum of two items
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
+*/
+template <> DI double maxPrim(double x, double y) { return fmax(x, y); }
 
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
@@ -413,5 +477,47 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
   return __shfl_xor(val, laneMask, width);
 #endif
 }
+
+
+/**
+ * @defgroup Debug utils for debug device code
+ * @{
+ */
+template<class T, class OutStream>
+void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount, OutStream& out)
+{
+    out << variableName << "=[";
+    for (size_t i = 0; i < componentsCount; ++i)
+    {
+        if (i != 0)
+            out << ",";
+        out << hostMem[i];
+    }
+    out << "];\n";
+}
+
+template<class T>
+void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount)
+{
+    myPrintHostVector(variableName, hostMem, componentsCount, std::cout);
+    std::cout.flush();
+}
+
+template<class T, class OutStream>
+void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount, OutStream& out)
+{
+    T* hostMem = new T[componentsCount];
+    CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
+    myPrintHostVector(variableName, hostMem, componentsCount, out);
+    delete []hostMem;
+}
+
+template<class T>
+void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount)
+{
+    myPrintDevVector(variableName, devMem, componentsCount, std::cout);
+    std::cout.flush();
+}
+/** @} */
 
 } // namespace MLCommon
