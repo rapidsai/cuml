@@ -12,6 +12,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #201: Pass CMAKE CUDA path to faiss/configure script
 
 
 # cuML 0.5.1 (05 Feb 2019)
