@@ -167,5 +167,5 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
                                   a, lda, b, ldb, &beta, c, ldc));
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+} // end namespace LinAlg
+} // end namespace MLCommon

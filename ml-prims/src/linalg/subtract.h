@@ -18,7 +18,7 @@
 
 #include "binary_op.h"
 #include "unary_op.h"
-
+#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -54,6 +54,39 @@ void subtract(math_t *out, const math_t *in1, const math_t *in2, int len,
               cudaStream_t stream = 0) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a - b; }, stream);
+}
+
+
+
+template<class math_t>
+__global__ void subtract_dev_scalar_kernel(math_t* outDev, const math_t* inDev, const math_t *singleScalarDev, int len)
+{
+    //TODO: kernel do not use shared memory in current implementation
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < len)
+    {
+        outDev[i] = inDev[i] - *singleScalarDev;
+    }
+}
+
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
+ * @param out the output buffer
+ * @param in the input buffer
+ * @param singleScalarDev pointer to the scalar located in device memory
+ * @param len number of elements in the input and output buffer
+ * @remark block size has not been tuned
+ * @{
+ */
+template <typename math_t, int TPB = 256>
+void subtractDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev, int len)
+{
+    // Just for the note - there is no way to express such operation with cuBLAS in effective way
+    // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
+    const int nblks = ceildiv(len, TPB);
+    dim3 block(TPB);
+    dim3 grid(nblks);
+    subtract_dev_scalar_kernel<math_t> <<<grid, block>>>(outDev, inDev, singleScalarDev, len);
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /** @} */
