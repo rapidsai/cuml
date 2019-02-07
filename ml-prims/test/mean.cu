@@ -52,15 +52,6 @@ protected:
     r.normal(data, len, params.mean, (T)1.0);
 
     meanSGtest(data);
-
-    CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
-    if (device_count > 1) {
-      T *h_data = (T *)malloc(len * sizeof(T));
-      updateHost(h_data, data, len);
-      meanMGColSplitTest(h_data);
-      free(h_data);
-    }
   }
 
   void meanSGtest(T *data) {
@@ -71,95 +62,14 @@ protected:
     mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
   }
 
-  void meanMGColSplitTest(T *h_data) {
-    int n_gpus = 2;
-
-    TypeMG<T> d_data[n_gpus];
-    TypeMG<T> d_mu[n_gpus];
-
-    for (int i = 0; i < n_gpus; i++) {
-      d_data[i].gpu_id = i;
-      d_mu[i].gpu_id = i;
-      CUDA_CHECK(cudaSetDevice(d_data[i].gpu_id));
-      CUDA_CHECK(cudaStreamCreate(&(d_data[i].stream)));
-      d_mu[i].stream = d_data[i].stream;
-    }
-
-    allocateMG(d_data, n_gpus, params.rows, params.cols, true, true, false);
-    allocateMG(d_mu, n_gpus, 1, params.cols, true, true, false);
-
-    updateDeviceMG(d_data, h_data, n_gpus, false);
-
-    meanMG(d_mu, d_data, params.cols, params.rows, n_gpus, true, false, false,
-           false);
-
-    int len = params.cols;
-    T *h_mu = (T *)malloc(len * sizeof(T));
-    updateHostMG(h_mu, d_mu, n_gpus, false);
-
-    streamSyncMG(d_data, n_gpus);
-    streamDestroyGPUs(d_data, n_gpus);
-
-    freeMG(d_data, n_gpus);
-    freeMG(d_mu, n_gpus);
-
-    allocate(mean_act_2, len);
-    updateDevice(mean_act_2, h_mu, len);
-
-    free(h_mu);
-  }
-
-  void meanMGRowSplitTest(T *h_data) {
-    int n_gpus = 2;
-
-    TypeMG<T> d_data[n_gpus];
-    TypeMG<T> d_mu[n_gpus];
-
-    for (int i = 0; i < n_gpus; i++) {
-      d_data[i].gpu_id = i;
-      d_mu[i].gpu_id = i;
-      CUDA_CHECK(cudaSetDevice(d_data[i].gpu_id));
-      CUDA_CHECK(cudaStreamCreate(&(d_data[i].stream)));
-      d_mu[i].stream = d_data[i].stream;
-    }
-
-    allocateMG(d_data, n_gpus, params.rows, params.cols, true, true, true);
-    allocateMG(d_mu, n_gpus, 1, params.cols, true, true, false);
-
-    updateDeviceMG(d_data, h_data, n_gpus, false);
-
-    meanMG(d_mu, d_data, params.cols, params.rows, n_gpus, true, false, true,
-           false);
-
-    int len = params.cols;
-    T *h_mu = (T *)malloc(len * sizeof(T));
-    updateHostMG(h_mu, d_mu, n_gpus, false);
-
-    streamSyncMG(d_data, n_gpus);
-    streamDestroyGPUs(d_data, n_gpus);
-
-    freeMG(d_data, n_gpus);
-    freeMG(d_mu, n_gpus);
-
-    allocate(mean_act_3, len);
-    updateDevice(mean_act_3, h_mu, len);
-
-    free(h_mu);
-  }
-
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(mean_act));
-    if (device_count > 1) {
-      CUDA_CHECK(cudaFree(mean_act_2));
-      // CUDA_CHECK(cudaFree(mean_act_3));
-    }
   }
 
 protected:
   MeanInputs<T> params;
-  T *data, *mean_act, *mean_act_2, *mean_act_3;
-  int device_count = 0;
+  T *data, *mean_act;
 };
 
 const std::vector<MeanInputs<float>> inputsf = {
@@ -202,22 +112,12 @@ typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
                           CompareApprox<float>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(params.mean, mean_act_2, params.cols,
-                            CompareApprox<float>(params.tolerance)));
-  }
 }
 
 typedef MeanTest<double> MeanTestD;
 TEST_P(MeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(params.mean, mean_act, params.cols,
                           CompareApprox<double>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(params.mean, mean_act_2, params.cols,
-                            CompareApprox<double>(params.tolerance)));
-  }
 }
 
 INSTANTIATE_TEST_CASE_P(MeanTests, MeanTestF, ::testing::ValuesIn(inputsf));

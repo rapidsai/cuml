@@ -41,22 +41,6 @@ void subtractScalar(math_t *out, const math_t *in, math_t scalar, int len,
 }
 
 /**
- * @defgroup ScalarOps Scalar operations on the input buffer
- * @param out the output buffer
- * @param in the input buffer
- * @param scalar the scalar used in the operations
- * @param len number of elements in the input buffer
- * @{
- */
-template <typename math_t>
-void subtractScalarMG(TypeMG<math_t> *out, const TypeMG<math_t> *in,
-                      math_t scalar, int len, int n_gpus, bool sync = false) {
-  unaryOpMG(out, in, scalar, len, n_gpus,
-            [] __device__(math_t in, math_t scalar) { return in - scalar; },
-            sync);
-}
-
-/**
  * @defgroup BinaryOps Element-wise binary operations on the input buffers
  * @param out the output buffer
  * @param in1 the first input buffer
@@ -70,23 +54,6 @@ void subtract(math_t *out, const math_t *in1, const math_t *in2, int len,
               cudaStream_t stream = 0) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a - b; }, stream);
-}
-
-/**
- * @defgroup BinaryOps Element-wise binary operations on the input buffers
- * @param out the output buffer
- * @param in1 the first input buffer
- * @param in2 the second input buffer
- * @param len number of elements in the input buffers
- * @param n_gpus number of gpus
- * @{
- */
-template <typename math_t>
-void subtractMG(TypeMG<math_t> *out, const TypeMG<math_t> *in1,
-                const TypeMG<math_t> *in2, int len, int n_gpus,
-                bool sync = false) {
-  binaryOpMG(out, in1, in2, len, n_gpus,
-             [] __device__(math_t a, math_t b) { return a - b; }, sync);
 }
 
 /** @} */
