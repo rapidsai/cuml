@@ -131,7 +131,6 @@ namespace ML {
 
 	int kNN::get_index_size() { return this->total_n; }
 
-
 	/**
 	 * Multi-node multi-GPU search for the k-nearest neighbors of a set of query vectors.
 	 * One rank from each physical node will perform their own knn::search() and send
@@ -205,6 +204,10 @@ namespace ML {
 
 		delete result_D;
 		delete result_I;
+
+		MPI_Group_free(&world_group);
+		MPI_Group_free(&prime_group);
+		MPI_Group_free(&prime_comm);
 	}
 
 

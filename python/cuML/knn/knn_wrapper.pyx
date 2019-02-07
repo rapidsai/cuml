@@ -231,11 +231,16 @@ cdef class KNN:
                    <int>len(alloc_info))
 
 
-    def query_mn(self, X, k, all_ranks, n_ranks):
+    def query_mn(self, X, k, all_ranks):
         """
         Queries kNN model using multiple.
         :param self:
         :param X:
+            An input cudf to search across workers.
+            Note: The first iteration of this implementation will spread this single cudf across
+            the master ranks, perform search in parallel and then reduce to the lowest rank.
+            Subsequent iterations will perform this same strategy, but on each cudf contained
+            within a larger dask_cudf.
         :return:
         """
         X_m = self._downcast(X)
@@ -243,14 +248,24 @@ cdef class KNN:
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
-        # Need to establish result matrices only if we are the top rank.
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
+        from mpi4py import MPI
+        comm = MPI.COMM_WORLD
+        cur_rank = comm.Get_rank()
+
+        if cur_rank == all_ranks[0]:
+            out_N, out_k = (N, k)
+        else:
+            out_N, out_k = (0, 0)
+
+        # Need to establish result matrices only if we are the first rank.
+        I_ndarr = cuda.to_device(np.zeros(out_N*out_k, dtype=np.int64))
+        D_ndarr = cuda.to_device(np.zeros(out_N*out_k, dtype=np.float32))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-
+        # Create c array from ranks to pass through Cython
+        n_ranks = len(all_ranks)
         ranks = <int*> malloc(sizeof(int)*n_ranks)
         for i in all_ranks:
             ranks[i] = all_ranks[i]
@@ -263,8 +278,8 @@ cdef class KNN:
                       <int*>ranks,
                       <int>n_ranks)
 
-        I_ndarr = I_ndarr.reshape((N, k)).transpose()
-        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+        I_ndarr = I_ndarr.reshape((out_N, out_k)).transpose()
+        D_ndarr = D_ndarr.reshape((out_N, out_k)).transpose()
 
         I = cudf.DataFrame()
         for i in range(0, I_ndarr.shape[0]):
@@ -279,8 +294,6 @@ cdef class KNN:
             D = np.asarray(D.as_gpu_matrix())
 
         return D, I
-
-
 
     def query(self, X, k):
         """
