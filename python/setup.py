@@ -17,8 +17,6 @@
 from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
-import numpy
-
 import versioneer
 from distutils.sysconfig import get_python_lib
 
@@ -28,18 +26,12 @@ install_requires = [
     'cython'
 ]
 
-try:
-    numpy_include = numpy.get_include()
-except AttributeError:
-    numpy_include = numpy.get_numpy_include()
-
 cython_files = ['cuML/cuml.pyx']
 
 extensions = [
     Extension("cuml",
               sources=cython_files,
-              include_dirs=[numpy_include,
-                            '../cuML/src',
+              include_dirs=['../cuML/src',
                             '../cuML/external',
                             '../cuML/external/ml-prims/src',
                             '../cuML/external/ml-prims/external/cutlass',
