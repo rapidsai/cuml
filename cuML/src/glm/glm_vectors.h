@@ -27,11 +27,6 @@ template <typename T, STORAGE_ORDER>
 struct SimpleMat;
 
 template <typename T>
-HDI int sgn(const T val) {
-  return (T(0) < val) - (val < T(0));
-}
-
-template <typename T>
 struct op_ax {
   T a;
   op_ax(T a) : a(a) {}

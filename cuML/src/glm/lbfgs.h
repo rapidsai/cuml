@@ -61,45 +61,38 @@ public:
   inline int check_param() const { // TODO exceptions
     int ret = 1;
     if (m <= 0)
-      return ret; // throw std::invalid_argument("'m' must be positive");
+      return ret; 
     ret++;
     if (epsilon <= 0)
-      return ret; // throw std::invalid_argument("'epsilon' must be positive");
+      return ret; 
     ret++;
     if (past < 0)
-      return ret; // throw std::invalid_argument("'past' must be non-negative");
+      return ret;
     ret++;
     if (delta < 0)
-      return ret; // throw std::invalid_argument("'delta' must be
-                  // non-negative");
+      return ret;
     ret++;
     if (max_iterations < 0)
-      return ret; // throw std::invalid_argument("'max_iterations' must be
-                  // non-negative");
+      return ret; 
     ret++;
     if (linesearch < LBFGS_LS_BT_ARMIJO ||
         linesearch > LBFGS_LS_BT_STRONG_WOLFE)
-      return ret; // throw std::invalid_argument("unsupported line search
-                  // algorithm");
+      return ret; 
     ret++;
     if (max_linesearch <= 0)
-      return ret; // throw std::invalid_argument("'max_linesearch' must be
-                  // positive");
+      return ret;
     ret++;
     if (min_step < 0)
-      return ret; // throw std::invalid_argument("'min_step' must be positive");
+      return ret;
     ret++;
     if (max_step < min_step)
-      return ret; // throw std::invalid_argument("'max_step' must be greater
-                  // than 'min_step'");
+      return ret; 
     ret++;
     if (ftol <= 0 || ftol >= 0.5)
-      return ret; // throw std::invalid_argument("'ftol' must satisfy 0 < ftol <
-                  // 0.5");
+      return ret; 
     ret++;
     if (wolfe <= ftol || wolfe >= 1)
-      return ret; // throw std::invalid_argument("'wolfe' must satisfy ftol <
-                  // wolfe < 1");
+      return ret;
     ret++;
     return 0;
   }
@@ -226,7 +219,6 @@ struct LineSearch {
     // Check the value of step
     if (step <= T(0))
       return LS_INVALID_STEP;
-    // std::invalid_argument("'step' must be positive");
 
     // Save the function value at the current x
     const T fx_init = fx;
@@ -235,8 +227,6 @@ struct LineSearch {
     // Make sure d points to a descent direction
     if (dg_init > 0)
       return LS_INVALID_DIR;
-    // std::logic_error("the moving direction increases the objective function
-    // value");
 
     const T dg_test = param.ftol * dg_init;
     T width;
@@ -271,8 +261,7 @@ struct LineSearch {
 
     // Check the value of step
     if (step <= T(0))
-      return LS_INVALID_STEP; // std::invalid_argument("'step' must be
-                              // positive");
+      return LS_INVALID_STEP;
 
     // Save the function value at the current x
     const T fx_init = fx;
@@ -280,8 +269,7 @@ struct LineSearch {
     const T dg_init = dot(pseudo_grad, drt);
     // Make sure d points to a descent direction
     if (dg_init > 0)
-      return LS_INVALID_DIR; // std::logic_error("the moving direction increases
-                             // the objective function value");
+      return LS_INVALID_DIR;
 
     const T dg_test = param.ftol * dg_init;
     T width;
@@ -581,7 +569,7 @@ struct OWLQNSolver : LBFGSSolver<T> {
 
     // Initial direction
     m_drt.ax(-1.0, m_pseudo); // using Pseudo gradient here
-    // seems unnecessary
+    // below should be done for consistency but seems unnecessary
     // m_drt.assign_k_ary(project, m_pseudo, x);
 
     // Initial step
@@ -590,8 +578,6 @@ struct OWLQNSolver : LBFGSSolver<T> {
     int end = 0;
     for ((*k) = 1; (*k) <= m_param.max_iterations; (*k)++) {
       if (isnan(fx) || isinf(fx)) {
-        //                        x = m_xp;
-        //                       m_grad = m_gradp;
         return OPT_NUMERIC_ERROR;
       }
       // Save the curent x and gradient
