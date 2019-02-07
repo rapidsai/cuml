@@ -8,6 +8,7 @@
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
+- PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
 
 ## Bug Fixes
 
