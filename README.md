@@ -63,18 +63,21 @@ The installation option provided currently consists on building from source. Upc
 
 ### Conda
 cuML can be installed using the `rapidsai` conda channel:
-```
+```bash
 conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
 
 ### Pip
 cuML can also be installed using pip. Select the package based on your version of CUDA:
-```
+```bash
+# cuda 9.2
 pip install cuml-cuda92
+
+# cuda 10.0
 pip install cuml-cuda100
 ```
 You also need to ensure `libomp` and `libopenblas` are installed:
-```
+```bash
 apt install libopenblas-base libomp-dev
 ```
 
