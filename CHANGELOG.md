@@ -12,7 +12,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
-
+- PR #196: Fix python build error due to not passing numpy include dir
 
 # cuML 0.5.1 (05 Feb 2019)
 
