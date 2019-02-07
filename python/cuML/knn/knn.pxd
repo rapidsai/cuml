@@ -33,3 +33,10 @@ cdef extern from "knn/knn.h" namespace "ML":
                     int k)
         void fit(kNNParams *input,
                  int N)
+        void search_mn(const float *search_items,
+                       int n,
+                       long *res_I,
+                       float *res_D,
+                       int k,
+					   int* ranks,
+                       int n_ranks)

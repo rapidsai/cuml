@@ -30,6 +30,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(MPI REQUIRED)
 find_package( BLAS REQUIRED )
 
+if(MPI_FOUND)
+    message(STATUS "MPI found in ${MPI_CXX_LIBRARIES}")
+endif()
+
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
     find_package(OpenMP)
@@ -224,7 +228,7 @@ add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
 
 
 target_link_libraries(ml_mg_test
-					  OpenMP::OpenMP_CXX
+                      OpenMP::OpenMP_CXX
                       ${GTEST_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
