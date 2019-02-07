@@ -17,26 +17,28 @@
 import os
 from setuptools import setup, Extension, find_packages
 from Cython.Build import cythonize
-import numpy
 import shutil
 from distutils.sysconfig import get_python_lib
 from cmake_setuptools import CMakeBuildExt, CMakeExtension, \
     convert_to_manylinux, InstallHeaders, distutils_dir_name
 
-cuda_version = ''.join(os.environ.get('CUDA', 'unknown').split('.')[:2])
+cuda_version = ''.join(os.environ.get('CUDA', '9.2').split('.')[:2])
 
 name = 'cuml-cuda{}'.format(cuda_version)
 version = os.environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev0').lstrip('v')
+
+cudf_version = os.environ.get('MIN_CUDF_VERSION', version)
+cudf_version_split = cudf_version.split('.')
+cudf_version_split[1] = str(int(cudf_version_split[1]) + 1)
+cudf_next_minor = '.'.join(cudf_version_split)
+max_cudf_version = os.environ.get('MAX_CUDF_VERSION', cudf_next_minor)
+
 install_requires = [
     'numpy',
     'cython>=0.29<0.30',
-    'cudf-cuda{}=={}'.format(cuda_version, version)
+    'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
-try:
-    numpy_include = numpy.get_include()
-except AttributeError:
-    numpy_include = numpy.get_numpy_include()
 
 cython_files = ['python/cuML/cuml.pyx']
 
@@ -44,8 +46,7 @@ extensions = [
     CMakeExtension('cuml', 'cuML'),
     Extension("cuml",
               sources=cython_files,
-              include_dirs=[numpy_include,
-                            'cuML/src',
+              include_dirs=['cuML/src',
                             'cuML/external/ml-prims/src',
                             'cuML/external/ml-prims/external/cutlass',
                             'cuML/external/cutlass',
@@ -73,6 +74,9 @@ setup(name=name,
           "Programming Language :: Python :: 3.7"
       ],
       packages=find_packages(where='python'),
+      package_dir={
+          'cuML': 'python/cuML'
+      },
       author="NVIDIA Corporation",
       license='Apache 2.0',
       install_requires=install_requires,

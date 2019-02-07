@@ -14,21 +14,31 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include "mnist.h"
+#pragma once
+
+#include "cuda_utils.h"
+#include "unary_op.h"
 
 
 namespace MLCommon {
-namespace mnist {
+namespace LinAlg {
 
-TEST(Mnist, Parse) {
-    ASSERT_EQ(0, system("../scripts/download_mnist.sh"));
-    Dataset data("train-images-idx3-ubyte.gz",
-                 "train-labels-idx1-ubyte.gz");
-    ASSERT_EQ(60000, data.nImages);
-    ASSERT_EQ(28, data.nRows);
-    ASSERT_EQ(28, data.nCols);
+/**
+ * @defgroup ScalarOps Scalar operations on the input buffer
+ * @param out the output buffer
+ * @param in the input buffer
+ * @param len number of elements in the input buffer
+ * @param stream cuda stream where to launch work
+ * @{
+ */
+template <typename math_t>
+void sqrt(math_t *out, const math_t *in, int len,
+          cudaStream_t stream = 0) {
+  unaryOp(out, in, len,
+          [] __device__(math_t in) { return mySqrt(in); },
+          stream);
 }
+/** @} */
 
-} // end namespace mnist
-} // end namespace MLCommon
+}; // end namespace LinAlg
+}; // end namespace MLCommon

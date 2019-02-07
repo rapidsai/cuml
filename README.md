@@ -53,8 +53,6 @@ Upcoming algorithms:
 
 - UMAP
 
-- UMAP
-
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
@@ -65,18 +63,21 @@ The installation option provided currently consists on building from source. Upc
 
 ### Conda
 cuML can be installed using the `rapidsai` conda channel:
-```
+```bash
 conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
 
 ### Pip
 cuML can also be installed using pip. Select the package based on your version of CUDA:
-```
+```bash
+# cuda 9.2
 pip install cuml-cuda92
+
+# cuda 10.0
 pip install cuml-cuda100
 ```
 You also need to ensure `libomp` and `libopenblas` are installed:
-```
+```bash
 apt install libopenblas-base libomp-dev
 ```
 
@@ -92,8 +93,7 @@ To install cuML from source, ensure the dependencies are met:
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
-7. faiss-gpu (>=1.4.0) - faiss-gpu is required to run the KNN algorithm. 
-    - For using KNN with CUDA 9.2 or CUDA 10.0, faiss-gpu can be installed using conda:
+7. BLAS - Any BLAS compatible with Cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html)
 
 ```bash
 # cuda 9.2
@@ -120,11 +120,20 @@ $ cd build
 $ cmake ..
 ```
 
-Note: if using a conda environment (recommended currently), then cmake can be configured appropriately via:
+If using a conda environment (recommended currently), then cmake can be configured appropriately via:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
+
+Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
+```
+Cannot generate a safe runtime search path for target ml_test because files
+in some directories may conflict with libraries in implicit directories:
+```
+
+The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version. 
+
 
 3. Build `libcuml`:
 
