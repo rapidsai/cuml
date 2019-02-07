@@ -206,6 +206,7 @@ void allocateMG(TypeMG<Type> *ptr, int n_gpus, int n_rows, int n_cols,
       }
     }
   }
+}
 
 
 /** Helper function to calculate need memory for allocate to store dense matrix.
