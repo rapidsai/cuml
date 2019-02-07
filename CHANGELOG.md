@@ -2,12 +2,25 @@
 
 ## New Features
 
+- ...
+
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
 - PR #168: Add /ci/gpu/build.sh file to cuML
 
 ## Bug Fixes
+
+- PR #167: Integrating full-n-final ml-prims repo inside cuml
+- PR #193: Fix AttributeError in PCA and TSVD
+
+
+# cuML 0.5.1 (05 Feb 2019)
+
+## Bug Fixes
+
+- PR #189 Avoid using numpy via cimport to prevent ABI issues in Cython compilation
+
 
 # cuML 0.5.0 (28 Jan 2019)
 
@@ -18,6 +31,7 @@
 - PR #69: Ridge (L2 Regularized) Linear Regression
 - PR #103: Linear Kalman Filter
 - PR #117: Pip install support
+- PR #64: Device to device support from cuML device pointers into FAISS
 
 ## Improvements
 
@@ -31,6 +45,7 @@
 - PR #139: Move thirdparty submodules to root and add symlinks to new locations
 - PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
 - PR #164: Add numba kernel for faster column to row major transform
+- PR #114: Adding FAISS to cuml build
 
 ## Bug Fixes
 

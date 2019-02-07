@@ -55,7 +55,7 @@ protected:
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
+		Random::Rng<T> r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
 
 		allocate(data, len);
@@ -98,7 +98,7 @@ protected:
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
+		Random::Rng<T> r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
 
 		paramsTSVD prms;

@@ -23,3 +23,6 @@ log
 .cproject
 .settings
 .ptp-sync-folder
+
+## Pycharm
+.idea
