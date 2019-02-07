@@ -12,6 +12,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #202: Adding back ability for users to define their own BLAS
 
 
 # cuML 0.5.1 (05 Feb 2019)
