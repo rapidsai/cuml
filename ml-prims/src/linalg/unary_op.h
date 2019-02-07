@@ -89,30 +89,5 @@ void unaryOp(math_t *out, const math_t *in, int len, Lambda op,
   }
 }
 
-
-/**
- * @brief perform element-wise unary operation in the input array
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in the input array
- * @param len number of elements in the input array
- * @param op the device-lambda
- */
-template <typename math_t, typename Lambda, int TPB = 256>
-void unaryOpMG(TypeMG<math_t> *out, const TypeMG<math_t> *in,
-               int len, int n_gpus, Lambda op, bool sync = false) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(in[i].gpu_id));
-
-    int len = in[i].n_cols * in[i].n_rows;
-    unaryOp(out[i].d_data, in[i].d_data, len, op, in[i].stream);
-  }
-
-  if (sync)
-    streamSyncMG(in, n_gpus);
-}
-
 }; // end namespace LinAlg
 }; // end namespace MLCommon
