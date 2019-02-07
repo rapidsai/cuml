@@ -1,7 +1,5 @@
 import numpy as np
-cimport numpy as np
 from libcpp cimport bool
-np.import_array
 
 cdef extern from "ml_utils.h" namespace "ML":
 
@@ -34,12 +32,12 @@ cdef extern from "ml_utils.h" namespace "ML":
 cdef extern from "tsvd/tsvd_c.h" namespace "ML":
 
     cdef void tsvdFit(float *input,
-                      float *components,                 
+                      float *components,
                       float *singular_vals,
                       paramsTSVD prms)
 
     cdef void tsvdFit(double *input,
-                      double *components,                    
+                      double *components,
                       double *singular_vals,
                       paramsTSVD prms)
 
