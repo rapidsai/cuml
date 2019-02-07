@@ -9,7 +9,7 @@
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
 - PR #114: Building faiss C++ api into libcuml
-- PR #64:
+- PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 
 ## Bug Fixes
 
