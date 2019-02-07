@@ -84,33 +84,5 @@ void binaryOp(math_t *out, const math_t *in1, const math_t *in2, int len,
   }
 }
 
-/**
- * @brief perform element-wise unary operation in the input array
- * @tparam math_t data-type upon which the math operation will be performed
- * @tparam Lambda the device-lambda performing the actual operation
- * @tparam TPB threads-per-block in the final kernel launched
- * @param out the output array
- * @param in1 the first input array
- * @param in2 the second input array
- * @param len number of elements in the input array
- * @param n_gpus number of gpus
- * @param op the device-lambda
- */
-template <typename math_t, typename Lambda, int TPB = 256>
-void binaryOpMG(TypeMG<math_t> *out, const TypeMG<math_t> *in1,
-                const TypeMG<math_t> *in2, int len, int n_gpus, Lambda op,
-                bool sync = false) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(in1[i].gpu_id));
-
-    int len = in1[i].n_cols * in1[i].n_rows;
-    binaryOp(out[i].d_data, in1[i].d_data, in2[i].d_data, len, op,
-             in1[i].stream);
-  }
-
-  if (sync)
-    streamSyncMG(in1, n_gpus);
-}
-
 }; // end namespace LinAlg
 }; // end namespace MLCommon
