@@ -1,4 +1,3 @@
-
 #include "knn/knn.cu"
 #include <vector>
 #include <gtest/gtest.h>

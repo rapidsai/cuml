@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#include "knn_c.h"
 #include "cuda_utils.h"
-
+#include "knn.h"
 #include <cuda_runtime.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -91,7 +90,7 @@ namespace ML {
 				sub_indices[i]->add(params->N, params->ptr);
 			} else {
 				std::stringstream ss;
-				ss << "Input memory for " << &params << " failed. memoryType=" << att.type;
+				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
 				throw ss.str();
 			}
 		}
@@ -106,7 +105,6 @@ namespace ML {
 	 * @param k			   number of neighbors to query
 	 */
 	void kNN::search(const float *search_items, int n, long *res_I, float *res_D, int k) {
-
 		float *result_D = new float[k*n];
 		long *result_I = new long[k*n];
 

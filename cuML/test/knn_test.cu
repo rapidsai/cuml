@@ -1,5 +1,20 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-#include "knn/knn.cu"
+#include "knn/knn.h"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
@@ -22,8 +37,6 @@ template<typename T>
 class KNNTest: public ::testing::Test {
 protected:
 	void basicTest() {
-
-		std::cout << "Running knn test" << std::endl;
 
 		// Allocate input
         allocate(d_train_inputs, n * d);
@@ -49,19 +62,11 @@ protected:
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
 
-        std::cout << "Allocations done. Fitting..." << std::endl;
-
         kNNParams params[1];
         params[0] = { d_train_inputs, n };
 
         knn->fit(params, 1);
-
-        std::cout << "Done fitting. Searching..." << std::endl;
-
         knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
-
-
-        std::cout << "Done." << std::endl;
     }
 
  	void SetUp() override {

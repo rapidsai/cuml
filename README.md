@@ -139,13 +139,18 @@ $ make -j
 $ make install
 ```
 
-To run tests (optional):
+To run single GPU tests (optional):
 
 ```bash
 $ ./ml_test
 ```
 
-If you want a list of the available tests:
+And to run multi GPU tests (optional):
+```bash
+$ ./ml_mg_test
+```
+
+If you want a list of the available tests (single-gpu):
 ```bash
 $ ./ml_test --gtest_list_tests
 ```
