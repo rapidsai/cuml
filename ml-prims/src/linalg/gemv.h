@@ -31,6 +31,19 @@ void gemv(const math_t* a, int n_rows, int n_cols, const math_t* x, int incx,
 
 	cublasOperation_t op_a = trans_a ? CUBLAS_OP_T : CUBLAS_OP_N;
 
+    // Unfortunately there is a clash of terminology 
+    // in BLAS https://docs.nvidia.com/cuda/cublas/index.html is opposite to Machine Learning
+    // In blas:
+    //  m - number of rows in input matrix
+    //  n - number of columns in input matrix
+    //  lda - purpose of it  to have ability to operate on submatrices of matrix without copying.
+    //        If you're not think about it it's always should be equal to m
+    //  lda has deal with memory layout, but has nothing with the requirement for cuBLAS perform transpose
+
+    // In Machine Learning:
+    //  m - nunmber of columns in design matrix(number of features)
+    //  n - number of rows in designed matrix (number of train examples)
+
 	int m = n_rows;
 	int n = n_cols;
 	int lda = trans_a ? m : n;
