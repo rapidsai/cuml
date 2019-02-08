@@ -212,7 +212,7 @@ cdef class KNN:
         :param n_dims
             the number of features for each vector
         :param alloc_info
-            a list of dicts in the following form: { "ptr": ptr, "n": length }
+            a list of __cuda_array_interface__ dicts
         :return:
         """
 
@@ -223,10 +223,19 @@ cdef class KNN:
         cdef uintptr_t input_ptr
         for i in range(len(alloc_info)):
             params = new kNNParams()
-            params.N = <int>alloc_info[i]["n"]
-            input_ptr = alloc_info[i]["ptr"]
+            params.N = <int>alloc_info[i]["shape"][0]
+
+            print("N=" + str(params.N))
+            input_ptr = alloc_info[i]["data"][0]
             params.ptr = <float*>input_ptr
+
+            print("ptr=" + str(input_ptr))
+
             self.input[i] = deref(params)
+
+        print("ABOUT TO CALL FIT!")
+
+        print("len=" + str(len(alloc_info)))
 
         self.k.fit(<kNNParams*> self.input,
                    <int>len(alloc_info))

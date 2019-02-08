@@ -1,21 +1,21 @@
 #include <cuda_runtime.h>
+#include <iostream>
 
-#ifndef ML_MG_UTILS_H_
-#define ML_MG_UTILS_H_
-
+#pragma once
 namespace ML {
 
-namespace MLCommon {
+	int get_device(const void *ptr) {
 
-	int get_device(void *ptr) {
+		std::cout << "Pointer:  " << ptr << std::endl;
+
 		cudaPointerAttributes att;
-		cudaPointerGetAttributes(&att, ptr);
+		cudaError_t err = cudaPointerGetAttributes(&att, ptr);
+
+		std::cout << "Error: " << err << std::endl;
+		std::cout << "Device #: " << att.device << std::endl;
+		std::cout << "Device Type: " << att.type << std::endl;
+
 		return att.device;
-	}
 }
 };
 
-
-
-
-#endif /* ML_MG_UTILS_H_ */

@@ -8,8 +8,9 @@ include "kalman/kalman_filter.pyx"
 include "linear_model/ridge.pyx"
 
 
-cdef extern from "ml_mg_utils.h" namespace "ML::MLCommon":
+cdef extern from "ml_mg_utils.h" namespace "ML":
    cdef int get_device(void *ptr)
 
-def device_from_ptr(ptr):
-   return get_device(<void*>ptr)
+def device_of_ptr(g):
+   cdef uintptr_t cptr = g.device_ctypes_pointer.value
+   return get_device( <void*> cptr)

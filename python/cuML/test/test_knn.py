@@ -35,8 +35,15 @@ def test_knn_search(input_type, should_downcast):
     knn_cu = cuKNN(should_downcast=should_downcast)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+
         knn_cu.fit(X)
+
+        print("FIT CUDF. Quewrying....")
+
         D_cuml, I_cuml = knn_cu.query(X, len(X))
+
+        print("QUERY SUCCEEDED")
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame

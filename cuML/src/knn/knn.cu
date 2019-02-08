@@ -144,6 +144,10 @@ namespace ML {
 	void kNN::search_mn(const float *search_items, int n, long *res_I, float *res_D, int k,
 						int* ranks, int n_ranks) {
 
+		std::cout << "Calling init" << std::endl;
+
+		MPI_Init(NULL, NULL);
+
 		int rank;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
