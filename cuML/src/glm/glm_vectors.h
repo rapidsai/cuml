@@ -1,18 +1,17 @@
 #pragma once
 #include <cuda_utils.h>
+#include <iostream>
 #include <linalg/binary_op.h>
 #include <linalg/map_then_reduce.h>
 #include <linalg/ternary_op.h>
 #include <linalg/unary_op.h>
-#include <iostream>
 #include <vector>
 
+#include "linalg/cublas_wrappers.h"
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
 #include <thrust/tuple.h>
-#include "linalg/cublas_wrappers.h"
-
 
 namespace ML {
 
@@ -20,37 +19,31 @@ using namespace MLCommon;
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
-template <typename T>
-struct SimpleVec;
+template <typename T> struct SimpleVec;
 
-template <typename T, STORAGE_ORDER>
-struct SimpleMat;
+template <typename T, STORAGE_ORDER> struct SimpleMat;
 
-template <typename T>
-struct op_ax {
+template <typename T> struct op_ax {
   T a;
   op_ax(T a) : a(a) {}
 
   HDI T operator()(T x) const { return a * x; }
 };
 
-template <typename T>
-struct op_axpy {
+template <typename T> struct op_axpy {
   T a;
   op_axpy(T a) : a(a) {}
   HDI T operator()(T x, T y) const { return a * x + y; }
 };
 
-template <typename T>
-struct op_axpby {
+template <typename T> struct op_axpby {
   T a;
   T b;
   op_axpby(T a, T b) : a(a), b(b) {}
   HDI T operator()(T x, T y) const { return a * x + b * y; }
 };
 
-template <typename T, STORAGE_ORDER Storage>
-struct gemv_helper {
+template <typename T, STORAGE_ORDER Storage> struct gemv_helper {
   static void gemv(SimpleVec<T> &v, const T alpha,
                    const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
                    const T beta, cublasHandle_t &cublas) {}
@@ -59,8 +52,7 @@ struct gemv_helper {
                     const T beta, cublasHandle_t &cublas) {}
 };
 
-template <typename T>
-struct SimpleVec {
+template <typename T> struct SimpleVec {
   typedef thrust::device_ptr<T> Ptr;
 
   T *data;
@@ -93,7 +85,6 @@ struct SimpleVec {
     p = thrust::device_pointer_cast(data);
   }
 
-
   inline void reset(T *new_data, int n) {
     if (free_data)
       CUDA_CHECK(cudaFree(data));
@@ -118,8 +109,8 @@ struct SimpleVec {
   inline void operator=(const T val) { fill(val); }
 
   inline void operator=(const SimpleVec<T> &other) {
-    CUDA_CHECK(
-      cudaMemcpy(data, other.data, len * sizeof(T), cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
+                          cudaMemcpyDeviceToDevice));
   }
 
   inline T operator[](int pos) const {
@@ -172,7 +163,7 @@ struct SimpleVec {
     auto begin = thrust::make_zip_iterator(thrust::make_tuple(args.p...));
 
     auto end =
-      thrust::make_zip_iterator(thrust::make_tuple((args.p + args.len)...));
+        thrust::make_zip_iterator(thrust::make_tuple((args.p + args.len)...));
     thrust::transform(begin, end, p, op);
   }
 
@@ -195,8 +186,7 @@ struct SimpleVec {
   }
 };
 
-template <typename T>
-struct gemv_helper<T, COL_MAJOR> {
+template <typename T> struct gemv_helper<T, COL_MAJOR> {
   static void gemv(SimpleVec<T> &v, const T alpha,
                    const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
                    const T beta, cublasHandle_t &cublas) {
@@ -211,8 +201,7 @@ struct gemv_helper<T, COL_MAJOR> {
   }
 };
 
-template <typename T>
-struct gemv_helper<T, ROW_MAJOR> {
+template <typename T> struct gemv_helper<T, ROW_MAJOR> {
   static void gemv(SimpleVec<T> &v, const T alpha,
                    const SimpleMat<T, ROW_MAJOR> &A, const SimpleVec<T> &x,
                    const T beta, cublasHandle_t &cublas) {
@@ -234,7 +223,7 @@ struct SimpleMat : SimpleVec<T> {
 
   SimpleMat(T *data, int m, int n) : Super(data, m * n), m(m), n(n) {}
   SimpleMat(T *data, int m, int n, const T val)
-    : Super(data, m * n, val), m(m), n(n) {}
+      : Super(data, m * n, val), m(m), n(n) {}
 
   SimpleMat(int m, int n, const T val = 0) : Super(m * n, val), m(m), n(n) {}
 
@@ -248,23 +237,15 @@ struct SimpleMat : SimpleVec<T> {
 };
 
 template <typename T>
-struct ColMajorMat : SimpleMat<T, COL_MAJOR> {
-  typedef SimpleMat<T, COL_MAJOR> Super;
-  using Super::m;
-  using Super::n;
-  ColMajorMat(T *data, int m, int n) : Super(data, m , n) {}
-
-  ColMajorMat(int m, int n, const T val = 0) : Super(m, n, val) {}
-
-  void col_ref(SimpleVec<T> &mask_vec, int c) {
-    T *tmp = &Super::data[m * c];
-    mask_vec.reset(tmp, m);
-  }
-};
+inline void col_ref(const SimpleMat<T, COL_MAJOR> &mat, SimpleVec<T> &mask_vec,
+                    int c) {
+  T *tmp = &mat.data[mat.m * c];
+  mask_vec.reset(tmp, mat.m);
+}
 
 // Reductions such as dot or norm require an additional location in dev mem
-// to hold the result. We don't want to deal with this in the SimpleVec class as
-// it  impedes thread safety and constness
+// to hold the result. We don't want to deal with this in the SimpleVec class
+// as it  impedes thread safety and constness
 
 template <typename T>
 inline void dot(T *out_dev, const SimpleVec<T> &u, const SimpleVec<T> &v,
@@ -279,8 +260,7 @@ inline void squaredNorm(T *out_dev, const SimpleVec<T> &v,
   auto f = [] __device__(const T x) { return x * x; };
   LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
 }
-template <typename T>
-struct inner_product {
+template <typename T> struct inner_product {
   SimpleVec<T> out;
 
   inner_product() : out(1) {}
@@ -293,8 +273,7 @@ struct inner_product {
   }
 };
 
-template <typename T, class I>
-struct norm {
+template <typename T, class I> struct norm {
   SimpleVec<T> out;
 
   norm() : out(1) {}
@@ -308,8 +287,7 @@ struct norm {
   }
 };
 
-template <typename T>
-struct norm2 : norm<T, norm2<T>> {
+template <typename T> struct norm2 : norm<T, norm2<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     squaredNorm(out_dev, v, stream);
     auto f = [] __device__(const T x) { return mySqrt<T>(x); };
@@ -317,22 +295,19 @@ struct norm2 : norm<T, norm2<T>> {
   }
 };
 
-template <typename T>
-struct norm1 : norm<T, norm1<T>> {
+template <typename T> struct norm1 : norm<T, norm1<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     auto f = [] __device__(const T x) { return abs(x); };
     LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
   }
 };
 
-template <typename T>
-struct norm0 : norm<T, norm0<T>> {
+template <typename T> struct norm0 : norm<T, norm0<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     auto f = [] __device__(const T x) { return x == T(0); };
     LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
   }
 };
-
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
@@ -378,6 +353,5 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T, ROW_MAJOR> &mat) {
 
   return os;
 }
-
 
 }; // namespace ML
