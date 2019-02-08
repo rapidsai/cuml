@@ -63,13 +63,7 @@ protected:
     } else {
         in = out = nullptr;
     }
-    char *workspace = nullptr;
-    size_t workspaceSize;
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
-    allocate(workspace, workspaceSize);
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
-    CUDA_CHECK(cudaFree(workspace));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    permute(outPerms, out, in, D, N, params.rowMajor);
   }
 
   void TearDown() override {
@@ -145,7 +139,8 @@ const std::vector<PermInputs<float>> inputsf = {
   {2*1024+500, 32, true, false, true, 1234567890ULL},
   {100000, 32, true, false, true, 1234ULL},
   {100000, 32, true, false, true, 1234567890ULL},
-  // permute and shuffle the data
+  {100001, 33, true, false, true, 1234567890ULL},
+  // permute and shuffle the data row major
   {32, 8, true, true, true, 1234ULL},
   {32, 8, true, true, true, 1234567890ULL},
   {1024, 32, true, true, true, 1234ULL},
@@ -155,7 +150,21 @@ const std::vector<PermInputs<float>> inputsf = {
   {2*1024+500, 32, true, true, true, 1234ULL},
   {2*1024+500, 32, true, true, true, 1234567890ULL},
   {100000, 32, true, true, true, 1234ULL},
-  {100000, 32, true, true, true, 1234567890ULL}};
+  {100000, 32, true, true, true, 1234567890ULL},
+  {100001, 31, true, true, true, 1234567890ULL},
+  // permute and shuffle the data column major
+  {32, 8, true, true, false, 1234ULL},
+  {32, 8, true, true, false, 1234567890ULL},
+  {1024, 32, true, true, false, 1234ULL},
+  {1024, 32, true, true, false, 1234567890ULL},
+  {2*1024, 32, true, true, false, 1234ULL},
+  {2*1024, 32, true, true, false, 1234567890ULL},
+  {2*1024+500, 32, true, true, false, 1234ULL},
+  {2*1024+500, 32, true, true, false, 1234567890ULL},
+  {100000, 32, true, true, false, 1234ULL},
+  {100000, 32, true, true, false, 1234567890ULL},
+  {100001, 33, true, true, false, 1234567890ULL}};
+
 typedef PermTest<float> PermTestF;
 TEST_P(PermTestF, Result) {
   if(params.needPerms) {
@@ -181,7 +190,8 @@ const std::vector<PermInputs<double>> inputsd = {
   {2*1024+500, 32, true, false, true, 1234567890ULL},
   {100000, 32, true, false, true, 1234ULL},
   {100000, 32, true, false, true, 1234567890ULL},
-  // permute and shuffle the data
+  {100001, 33, true, false, true, 1234567890ULL},
+  // permute and shuffle the data row major
   {32, 8, true, true, true, 1234ULL},
   {32, 8, true, true, true, 1234567890ULL},
   {1024, 32, true, true, true, 1234ULL},
@@ -191,7 +201,20 @@ const std::vector<PermInputs<double>> inputsd = {
   {2*1024+500, 32, true, true, true, 1234ULL},
   {2*1024+500, 32, true, true, true, 1234567890ULL},
   {100000, 32, true, true, true, 1234ULL},
-  {100000, 32, true, true, true, 1234567890ULL}};
+  {100000, 32, true, true, true, 1234567890ULL},
+  {100001, 31, true, true, true, 1234567890ULL},
+  // permute and shuffle the data column major
+  {32, 8, true, true, false, 1234ULL},
+  {32, 8, true, true, false, 1234567890ULL},
+  {1024, 32, true, true, false, 1234ULL},
+  {1024, 32, true, true, false, 1234567890ULL},
+  {2*1024, 32, true, true, false, 1234ULL},
+  {2*1024, 32, true, true, false, 1234567890ULL},
+  {2*1024+500, 32, true, true, false, 1234ULL},
+  {2*1024+500, 32, true, true, false, 1234567890ULL},
+  {100000, 32, true, true, false, 1234ULL},
+  {100000, 32, true, true, false, 1234567890ULL},
+  {100001, 33, true, true, false, 1234567890ULL}};
 typedef PermTest<double> PermTestD;
 TEST_P(PermTestD, Result) {
   if(params.needPerms) {
