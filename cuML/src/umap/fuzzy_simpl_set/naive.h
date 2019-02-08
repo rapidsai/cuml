@@ -390,7 +390,6 @@ namespace Naive {
 	    int cur_coo_len = 0;
 		MLCommon::updateHost(&cur_coo_len, rnnz+n, 1);
 
-
 		int *crows, *ccols;
 		T *cvals;
 		MLCommon::allocate(crows, cur_coo_len, true);

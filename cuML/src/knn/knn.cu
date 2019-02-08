@@ -37,14 +37,8 @@ namespace ML {
 	 */
 	kNN::kNN(int D): D(D), total_n(0), indices(0){}
 	kNN::~kNN() {
-
-		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
-			delete idx;
-		}
-
-		for(faiss::gpu::GpuResources *r : res) {
-			delete r;
-		}
+		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) { delete idx; }
+		for(faiss::gpu::GpuResources *r : res) { delete r; }
 	}
 
 	/**

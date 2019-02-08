@@ -23,8 +23,17 @@ namespace FuzzySimplSet {
 
 	using namespace ML;
 
+	/**
+	 * Calculates a fuzzy simplicial set of the input X and kNN results
+	 * @param n: number of rows in X
+	 * @param knn_indices: matrix of kNN indices size (nxn)
+	 * @param knn_dists: matrix of kNN dists size (nxn)
+	 * @param sigmas: output sigma params
+	 * @param rhos: output rho params
+	 * @param algorithm: the algorithm to use (allows easy comparisons)
+	 */
 	template<typename T>
-	void run(const T *X, int n,
+	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
 			 T *sigmas, T *rhos,
 			 UMAPParams *params,
