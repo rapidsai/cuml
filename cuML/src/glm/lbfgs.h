@@ -300,7 +300,7 @@ struct LineSearch {
 template <typename T>
 struct LBFGSSolver {
   typedef SimpleVec<T> Vector;
-  typedef ColMajorMat<T> Matrix;
+  typedef SimpleMat<T, COL_MAJOR> Matrix;
 
   const LBFGSParam<T> &m_param; // Parameters to control the LBFGS algorithm
   Matrix m_s;                   // History of the s vectors
@@ -441,8 +441,8 @@ struct LBFGSSolver {
    * y_{k+1} = g_{k+1} - g_k
    */
   void update_state(const int end, const Vector &x) {
-    m_s.col_ref(svec, end);
-    m_y.col_ref(yvec, end);
+    col_ref(m_s,svec, end);
+    col_ref(m_y,yvec, end);
     svec.axpy(-1.0, m_xp, x);
     yvec.axpy(-1.0, m_gradp, m_grad);
   }
@@ -468,8 +468,8 @@ struct LBFGSSolver {
     int j = end;
     for (int i = 0; i < bound; i++) {
       j = (j + m_param.m - 1) % m_param.m;
-      m_s.col_ref(sj, j);
-      m_y.col_ref(yj, j);
+      col_ref(m_s,sj, j);
+      col_ref(m_y,yj, j);
       m_alpha[j] = dot(sj, m_drt) / m_ys[j];
       m_drt.axpy(-m_alpha[j], yj, m_drt);
     }
@@ -477,8 +477,8 @@ struct LBFGSSolver {
     m_drt.ax(ys / yy, m_drt);
 
     for (int i = 0; i < bound; i++) {
-      m_s.col_ref(sj, j);
-      m_y.col_ref(yj, j);
+      col_ref(m_s,sj, j);
+      col_ref(m_y,yj, j);
       T beta = dot(yj, m_drt) / m_ys[j];
       m_drt.axpy((m_alpha[j] - beta), sj, m_drt);
       j = (j + 1) % m_param.m;
