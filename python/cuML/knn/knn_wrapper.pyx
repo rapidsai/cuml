@@ -30,6 +30,7 @@ class KNNparams:
         self.n_gpus = n_gpus
 
 
+
 cdef class KNN:
     """
 

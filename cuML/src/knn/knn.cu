@@ -129,6 +129,7 @@ namespace ML {
 	}
 
 
+
 	int kNN::get_index_size() { return this->total_n; }
 
 	/**
@@ -207,7 +208,7 @@ namespace ML {
 
 		MPI_Group_free(&world_group);
 		MPI_Group_free(&prime_group);
-		MPI_Group_free(&prime_comm);
+		MPI_Comm_free(&prime_comm);
 	}
 
 

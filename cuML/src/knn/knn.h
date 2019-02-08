@@ -63,6 +63,7 @@ namespace ML {
 		void fit(kNNParams *input, int N);
 		void search_mn(const float *search_items, int n, long *res_I, float *res_D, int k, int* ranks, int n_ranks);
 
+
 		int get_index_size();
 
 		template <class C>
