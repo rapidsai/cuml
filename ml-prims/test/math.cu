@@ -56,7 +56,7 @@ void naiveSqrt(Type *in, Type *out, int len) {
 }
 
 template <typename Type>
-__global__ void nativeSignFlipKernel(Type *in, Type *out, int rowCount,
+__global__ void naiveSignFlipKernel(Type *in, Type *out, int rowCount,
                                      int colCount) {
   int d_i = blockIdx.x * rowCount;
   int end = d_i + rowCount;
@@ -90,7 +90,7 @@ __global__ void nativeSignFlipKernel(Type *in, Type *out, int rowCount,
 
 template <typename Type>
 void naiveSignFlip(Type *in, Type *out, int rowCount, int colCount) {
-  nativeSignFlipKernel<Type><<<colCount, 1>>>(in, out, rowCount, colCount);
+  naiveSignFlipKernel<Type><<<colCount, 1>>>(in, out, rowCount, colCount);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -134,7 +134,7 @@ protected:
     r.uniform(in_power, len, T(-1.0), T(1.0));
     r.uniform(in_sqrt, len, T(0.0), T(1.0));
     // r.uniform(in_ratio, len, T(0.0), T(1.0));
-    r.uniform(in_sign_flip, len, T(0.0), T(1.0));
+    r.uniform(in_sign_flip, len, T(-100.0), T(100.0));
 
     naivePower(in_power, out_power_ref, len);
     power(in_power, len);
@@ -145,7 +145,33 @@ protected:
     ratio(in_ratio, in_ratio, 4);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
-    // signFlip(in_sign_flip, params.n_row, params.n_col);
+    signFlip(in_sign_flip, params.n_row, params.n_col);
+
+    allocate(in_recip, 4);
+    allocate(in_recip_ref, 4);
+    allocate(out_recip, 4);
+    // default threshold is 1e-15
+    std::vector<T> in_recip_h = {0.1, 0.01, -0.01, 0.1e-16};
+    std::vector<T> in_recip_ref_h = {10.0, 100.0, -100.0, 0.0};
+    updateDevice(in_recip, in_recip_h.data(), 4);
+    updateDevice(in_recip_ref, in_recip_ref_h.data(), 4);
+    T recip_scalar = T(1.0);
+
+    // this `reciprocal()` has to go first bc next one modifies its input
+    reciprocal(in_recip, out_recip, recip_scalar, 4);
+
+    reciprocal(in_recip, recip_scalar, 4, true);
+
+    std::vector<T> in_small_val_zero_h = {0.1, 1e-16, -1e-16, -0.1};
+    std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
+    allocate(in_smallzero, 4);
+    allocate(out_smallzero, 4);
+    allocate(out_smallzero_ref, 4);
+    updateDevice(in_smallzero, in_small_val_zero_h.data(), 4);
+    updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4);
+    setSmallValuesZero(out_smallzero, in_smallzero, 4);
+    setSmallValuesZero(in_smallzero, 4);
+
   }
 
   void TearDown() override {
@@ -157,12 +183,20 @@ protected:
     CUDA_CHECK(cudaFree(out_ratio_ref));
     CUDA_CHECK(cudaFree(in_sign_flip));
     CUDA_CHECK(cudaFree(out_sign_flip_ref));
+    CUDA_CHECK(cudaFree(in_recip));
+    CUDA_CHECK(cudaFree(in_recip_ref));
+    CUDA_CHECK(cudaFree(out_recip));
+    CUDA_CHECK(cudaFree(in_smallzero));
+    CUDA_CHECK(cudaFree(out_smallzero));
+    CUDA_CHECK(cudaFree(out_smallzero_ref));
+
   }
 
 protected:
   MathInputs<T> params;
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
-    *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref;
+    *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip,
+    *in_recip_ref, *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
 };
 
 const std::vector<MathInputs<float>> inputsf = {
@@ -219,6 +253,46 @@ TEST_P(MathSignFlipTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
+typedef MathTest<float> MathReciprocalTestF;
+TEST_P(MathReciprocalTestF, Result) {
+  ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
+                          CompareApprox<float>(params.tolerance)));
+
+  // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
+  ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
+                          CompareApprox<float>(params.tolerance)));
+}
+
+typedef MathTest<double> MathReciprocalTestD;
+TEST_P(MathReciprocalTestD, Result) {
+  ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
+                          CompareApprox<double>(params.tolerance)));
+
+  // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
+  ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
+                          CompareApprox<double>(params.tolerance)));
+}
+
+typedef MathTest<float> MathSetSmallZeroTestF;
+TEST_P(MathSetSmallZeroTestF, Result) {
+  ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
+                          CompareApprox<float>(params.tolerance)));
+
+
+  ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
+                          CompareApprox<float>(params.tolerance)));
+}
+
+typedef MathTest<double> MathSetSmallZeroTestD;
+TEST_P(MathSetSmallZeroTestD, Result) {
+  ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
+                          CompareApprox<double>(params.tolerance)));
+
+
+  ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
+                          CompareApprox<double>(params.tolerance)));
+}
+
 INSTANTIATE_TEST_CASE_P(MathTests, MathPowerTestF,
                         ::testing::ValuesIn(inputsf));
 
@@ -240,6 +314,17 @@ INSTANTIATE_TEST_CASE_P(MathTests, MathSignFlipTestF,
                         ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(MathTests, MathSignFlipTestD,
+                        ::testing::ValuesIn(inputsd));
+
+INSTANTIATE_TEST_CASE_P(MathTests, MathReciprocalTestF,
+                        ::testing::ValuesIn(inputsf));
+
+INSTANTIATE_TEST_CASE_P(MathTests, MathReciprocalTestD,
+                        ::testing::ValuesIn(inputsd));
+
+INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestF,
+                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestD,
                         ::testing::ValuesIn(inputsd));
 
 
