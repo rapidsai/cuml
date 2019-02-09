@@ -79,10 +79,10 @@ void SetUp() override {
         // cpu mallocs
         matrix = (T *)malloc(dim * dim * sizeof(T));
         x = (T *)malloc(dim * sizeof(T));
-        matrix[0] = 0.0;
+        matrix[0] = 5.0;
         matrix[1] = 1.0;
-        matrix[2] = 1.0;
-        matrix[3] = 0.0;
+        matrix[2] = 6.0;
+        matrix[3] = 10.0;
         x[0] = 2.0;
         x[1] = 1.0;
 
