@@ -1,6 +1,4 @@
-#include <random/rng.h>
-#include <linalg/cublas_wrappers.h>
-#include <ml_utils.h>
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,14 +18,28 @@
 #include <thrust/iterator/discard_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 
+#include <linalg/cublas_wrappers.h>
+#include <random/rng.h>
+#include <hmm/cublas_wrappers.h>
+#include <hmm/structs.h>
+
 #define IDX2C(i,j,ld) (j*ld + i)
 
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
-using namespace ML::HMM;
 
 namespace MLCommon {
 namespace HMM {
+
+template <typename T>
+class paramsRandom {
+public:
+paramsRandom(T _start, T _end, unsigned long long _seed) : start(_start),
+        end(_end), seed(_seed){
+};
+T start, end;
+unsigned long long seed;
+};
 
 template <typename T>
 struct Inv_functor
@@ -40,9 +52,9 @@ struct Inv_functor
 };
 
 template <typename T>
-void gen_array(T* array, const int dim, paramsRandom paramsRd){
-        MLCommon::Random::Rng<T> rng(paramsRd.seed);
-        rng.uniform(array, dim, paramsRd.start, paramsRd.end);
+void gen_array(T* array, const int dim, const paramsRandom<T> *paramsRd){
+        MLCommon::Random::Rng<T> rng(paramsRd->seed);
+        rng.uniform(array, dim, paramsRd->start, paramsRd->end);
 }
 
 template <typename T>

@@ -15,56 +15,58 @@
  */
 
 #include <gtest/gtest.h>
-#include "hmm/bilinear.h"
-#include "cuda_utils.h"
 #include <thrust/transform_reduce.h>
 #include <thrust/functional.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <cmath>
 
+#include "hmm/bilinear.h"
+#include "hmm/utils.h"
+#include "cuda_utils.h"
+
 #define IDX(i,j,lda) ((i)+(j)*(lda))
 
 namespace MLCommon {
-namespace LinAlg {
+namespace HMM {
 
 
 template <typename T>
-T naiveBilinear(const T* mat, int dim, const T* x) {
-    T result = 0;
-    for (int i = 0; i < dim; ++i)
-      for (int j = 0; j < dim; ++j)
-        result += mat[IDX(i, j, dim)] * x[i] * x[j];
-    return result;
+T naiveBilinear(T* mat, int dim, T* x) {
+        T result = 0;
+        for (int i = 0; i < dim; ++i)
+                for (int j = 0; j < dim; ++j)
+                        result += mat[IDX(i, j, dim)] * x[i] * x[j];
+        return result;
 }
 
 
 template <typename T>
-T compute_error(T* mat, int dim, T* x, cublasHandle_t cublas_handle){
-  T true_val;
-  true_val = naiveBilinear(mat, dim, x);
-  T computed, error;
+T compute_error(T *matrix, T *x, T *matrix_d, T *x_d, int dim, cublasHandle_t cublas_handle){
+        T true_val;
+        true_val = naiveBilinear(matrix, dim, x);
+        T computed, error;
 
-  MLCommon::LinAlg::bilinear(mat, dim, x, cublas_handle, &computed);
-  error = std::abs(computed - true_val);
-  return error;
+        bilinear(matrix_d, dim, x_d, cublas_handle, &computed);
+        error = std::abs(computed - true_val);
+        return error;
 }
 
 template <typename T>
 struct BilinearInputs {
-    T tolerance;
+        T tolerance;
 };
 
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const BilinearInputs<T>& dims) {
-    return os;
+        return os;
 }
 
 template <typename T>
-class BilinearTest: public ::testing::TestWithParam<BilinearInputs<T> > {
+class BilinearTest : public ::testing::TestWithParam<BilinearInputs<T> > {
 protected:
-    void SetUp() override {
-        params = ::testing::TestWithParam<BilinearInputs<T>>::GetParam();
+void SetUp() override {
+        params = ::testing::TestWithParam<BilinearInputs<T> >::GetParam();
         tolerance = params.tolerance;
 
         cublasHandle_t cublas_handle;
@@ -88,44 +90,44 @@ protected:
         updateDevice(matrix_d, matrix, dim * dim);
         updateDevice(x_d, x, dim);
 
-        error = compute_error(matrix_d, dim, x_d, cublas_handle);
-    }
+        error = compute_error(matrix, x, matrix_d, x_d, dim, cublas_handle);
+}
 
-    void TearDown() override {
+void TearDown() override {
         free(matrix);
         free(x);
 
         CUDA_CHECK(cudaFree(matrix_d));
         CUDA_CHECK(cudaFree(x_d));
-    }
+}
 
 protected:
-    BilinearInputs<T> params;
-    // random_matrix is generated with the primitive
-    // sums are the rowwize sums which should be equal to 1
-    T *matrix, *x, *matrix_d, *x_d;
-    int dim = 2;
-    unsigned long long seed;
-    T error, tolerance;
+BilinearInputs<T> params;
+// random_matrix is generated with the primitive
+// sums are the rowwize sums which should be equal to 1
+T *matrix, *x, *matrix_d, *x_d;
+int dim = 2;
+unsigned long long seed;
+T error, tolerance;
 };
 
 const std::vector<BilinearInputs<float> > inputsf2 = {
-    {0.000001f}
+        {0.000001f}
 };
 
 const std::vector<BilinearInputs<double> > inputsd2 = {
-    {0.000001}
+        {0.000001}
 };
 
 
 typedef BilinearTest<float> BilinearTestF;
 TEST_P(BilinearTestF, Result){
-    EXPECT_LT(error, tolerance) << " error out of tol.";
+        EXPECT_LT(error, tolerance) << " error out of tol.";
 }
 
 typedef BilinearTest<double> BilinearTestD;
 TEST_P(BilinearTestD, Result){
-    EXPECT_LT(error, tolerance) << " error out of tol.";
+        EXPECT_LT(error, tolerance) << " error out of tol.";
 }
 
 INSTANTIATE_TEST_CASE_P(BilinearTests, BilinearTestF,
