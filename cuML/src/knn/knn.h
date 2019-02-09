@@ -19,6 +19,7 @@
 #include <iostream>
 #include <faiss/gpu/GpuIndexFlat.h>
 
+
 #ifndef _KNN_H
 #define _KNN_H
 namespace ML {
@@ -35,20 +36,12 @@ namespace ML {
 		}
 	};
 
-	class MPI_Search_payload {
-	public:
-		float *d;
-		float *i;
-		int d_len;
-		int i_len;
-		int idx_size;
-	};
-
     class kNN {
 
 		std::vector<long> id_ranges;
 
-		std::vector<faiss::gpu::GpuResources* > res;
+
+     	std::vector<faiss::gpu::GpuResources* > res;
 		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
 
 		int total_n;

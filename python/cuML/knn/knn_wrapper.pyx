@@ -120,6 +120,12 @@ cdef class KNN:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
+    def __dealloc__ (self):
+        del self.k
+        del self.input
+
+
+
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -262,6 +268,8 @@ cdef class KNN:
         comm = MPI.COMM_WORLD
         cur_rank = comm.Get_rank()
 
+        print("MY RANK: " + str(cur_rank))
+
         if cur_rank == all_ranks[0]:
             out_N, out_k = (N, k)
         else:
@@ -277,7 +285,7 @@ cdef class KNN:
         # Create c array from ranks to pass through Cython
         n_ranks = len(all_ranks)
         ranks = <int*> malloc(sizeof(int)*n_ranks)
-        for i in all_ranks:
+        for i in range(n_ranks):
             ranks[i] = all_ranks[i]
 
         self.k.search_mn(<float*>X_ctype,

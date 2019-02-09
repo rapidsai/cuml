@@ -24,6 +24,7 @@
 
 #include <mpi.h>
 
+#include <map>
 #include <vector>
 #include <sstream>
 
@@ -38,13 +39,8 @@ namespace ML {
 	kNN::kNN(int D): D(D), total_n(0), indices(0){}
 	kNN::~kNN() {
 
-		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
-			delete idx;
-		}
-
-		for(faiss::gpu::GpuResources *r : res) {
-			delete r;
-		}
+		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) { delete idx; }
+		for(faiss::gpu::GpuResources *r : res) { delete r; }
 	}
 
 	/**
@@ -55,45 +51,63 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
-		for(int i = 0; i < N; i++) {
+		int nDevices;
+		cudaGetDeviceCount(&nDevices);
+
+     	std::map<int, std::vector<kNNParams*>*> m;
+     	for(int i = 0; i < N; i++) {
 
 			kNNParams *params = &input[i];
-
 			cudaPointerAttributes att;
 			cudaError_t err = cudaPointerGetAttributes(&att, params->ptr);
 
 			if(err == 0 && att.device > -1) {
-
-				if(i < N)
-					id_ranges.push_back(total_n);
-
-				this->total_n += params->N;
-				this->indices += 1;
-
-				res.emplace_back(new faiss::gpu::StandardGpuResources());
-
-				faiss::gpu::GpuIndexFlatConfig config;
-				config.device = att.device;
-				config.useFloat16 = false;
-				config.storeTransposed = false;
-
-				sub_indices.emplace_back(
-						new faiss::gpu::GpuIndexFlatL2(res[i], D, config)
-				);
-
-				// It's only necessary to maintain our set of shards because
-				// the GpuIndexFlat class does not support add_with_ids(),
-				// a dependency of the IndexShards composite class.
-				// As a result, we need to add the ids ourselves
-				// and have the reducer/combiner re-label the indices
-				// based on the shards they came from.
-				sub_indices[i]->add(params->N, params->ptr);
+				auto vec = m.find(att.device);
+				if(vec == m.end()) {
+					std::vector<kNNParams*> *new_vec = new std::vector<kNNParams*>();
+					new_vec->push_back(params);
+					m.insert(std::make_pair(att.device, new_vec));
+				} else {
+					vec->second->push_back(params);
+				}
 			} else {
+
 				std::stringstream ss;
 				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
 				throw ss.str();
 			}
 		}
+
+		std::map<int, std::vector<kNNParams*>*>::iterator it = m.begin();
+		while(it != m.end()) {
+
+			id_ranges.push_back(total_n);
+			auto *gpures = new faiss::gpu::StandardGpuResources();
+			res.emplace_back(gpures);
+
+			faiss::gpu::GpuIndexFlatConfig config;
+			config.device = it->first;
+			config.useFloat16 = false;
+			config.storeTransposed = false;
+
+			auto *idx = new faiss::gpu::GpuIndexFlatL2(gpures, D, config);
+			sub_indices.emplace_back(idx);
+			this->indices += 1;
+
+			std::vector<kNNParams*>::iterator vit = it->second->begin();
+			while(vit != it->second->end()) {
+				idx->add((*vit)->N, (*vit)->ptr);
+				this->total_n += (*vit)->N;
+				++vit;
+			}
+			++it;
+
+
+		}
+
+
+
+		std::cout << "Fit " << this->total_n << " items in " << this->indices << " indices" << std::endl;
 	}
 
 	/**
@@ -129,7 +143,6 @@ namespace ML {
 	}
 
 
-
 	int kNN::get_index_size() { return this->total_n; }
 
 	/**
@@ -144,9 +157,7 @@ namespace ML {
 	void kNN::search_mn(const float *search_items, int n, long *res_I, float *res_D, int k,
 						int* ranks, int n_ranks) {
 
-		std::cout << "Calling init" << std::endl;
-
-		MPI_Init(NULL, NULL);
+		std::cout << "Inside search_mn" << std::endl;
 
 		int rank;
 		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -160,13 +171,22 @@ namespace ML {
 		MPI_Comm prime_comm;
 		MPI_Comm_create_group(MPI_COMM_WORLD, prime_group, 0, &prime_comm);
 
-		std::cout << "Rank: " << rank << std::endl;
+		std::cout << "C++ Rank: " << rank << std::endl;
 
 		// perform local search
-		float *result_D = new float[k*n];
-		long *result_I = new long[k*n];
+		float *result_D, *tmp_D;
+		long *result_I, *tmp_I;
+
+		MLCommon::allocate(result_D, n*k);
+		MLCommon::allocate(result_I, n*k);
+
+		tmp_D = (float*)malloc(n*k*sizeof(float));
+		tmp_I = (long*)malloc(n*k*sizeof(long));
 
 		this->search(search_items, n, result_I, result_D, k);
+
+		MLCommon::updateHost(tmp_D, result_D, n*k);
+		MLCommon::updateHost(tmp_I, result_I, n*k);
 
 		int group_size;			// Will this ever be different than n_ranks?
 		int root = ranks[0];	// Always use smallest rank as the root
@@ -177,38 +197,61 @@ namespace ML {
 
 		MPI_Comm_size(prime_comm, &group_size);
 
+		std::cout << "Group size: " << group_size << std::endl;
+
+		// Only allocate buffers if we are the root rank
 		if(rank == ranks[0]) {
-			D_buf = (float*)malloc(group_size*n*k*sizeof(float));
+			std::cout << "Allocating buffers..." << std::endl;
 			I_buf = (long*)malloc(group_size*n*k*sizeof(long));
+			D_buf = (float*)malloc(group_size*n*k*sizeof(float));
 			idx_buf = (int*)malloc(group_size*sizeof(int));
+
+			std::cout << "Done." << std::endl;
 		}
 
 		int size_buf = this->get_index_size();
 
 		// We know how big buffers need to be so we could just do 3 gathers: D, I, & idx_size
-		MPI_Gather(result_I, n*k, MPI_LONG, I_buf, n*k, MPI_LONG, root, prime_comm);
-		MPI_Gather(result_D, n*k, MPI_FLOAT, D_buf, n*k, MPI_FLOAT, root, prime_comm);
-		MPI_Gather(&size_buf, 1, MPI_INT, idx_buf, n_ranks, MPI_INT, root, prime_comm);
+		MPI_Gather(tmp_I, n*k, MPI_LONG, I_buf, n*k, MPI_LONG, root, prime_comm);
+		MPI_Gather(tmp_D, n*k, MPI_FLOAT, D_buf, n*k, MPI_FLOAT, root, prime_comm);
+		MPI_Gather(&size_buf, 1, MPI_INT, idx_buf, 1, MPI_INT, root, prime_comm);
 
 		std::vector<long> rank_id_ranges;
+		std::cout << "Rank ID Ranges" << std::endl;
 		rank_id_ranges.push_back(0);
-		for(int i = 1; i < n_ranks; i++)
+		for(int i = 1; i < group_size; i++) {
+			std::cout << "Inside" << std::endl;
+			std::cout << idx_buf[i]+idx_buf[i-1] << ", ";
 			rank_id_ranges.push_back(idx_buf[i]+idx_buf[i-1]);
+		}
 
-		// Perform reduce
+		std::cout << "Done" << std::endl;
+
+		long *final_I = new long[n*k];
+		float *final_D = new float[n*k];
+
+		std::cout << "Running merge tables" << std::endl;
 		this->merge_tables<faiss::CMin<float, int>>(n, k, n_ranks,
-				result_D, result_I, D_buf, I_buf, rank_id_ranges.data());
+				final_D, final_I, D_buf, I_buf, rank_id_ranges.data());
 
+		std::cout << "Done." << std::endl;
+
+		std::cout << "Copying results." << std::endl;
 		// copy result to res_I and res_D
-		MLCommon::updateDevice(res_D, result_D, k*n, 0);
-		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+		MLCommon::updateDevice(res_I, result_I, n*k);
+		MLCommon::updateDevice(res_D, result_D,  n*k);
 
-		delete D_buf;
-		delete I_buf;
-		delete idx_buf;
+		if(rank == ranks[0]) {
+			delete D_buf;
+			delete I_buf;
+			delete idx_buf;
+		}
 
-		delete result_D;
-		delete result_I;
+		CUDA_CHECK(cudaFree(result_I));
+		CUDA_CHECK(cudaFree(result_D));
+
+		delete final_I;
+		delete final_D;
 
 		MPI_Group_free(&world_group);
 		MPI_Group_free(&prime_group);
