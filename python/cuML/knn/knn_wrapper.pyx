@@ -23,6 +23,8 @@ from librmm_cffi import librmm as rmm
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
 from numba import cuda
+# temporary import for numba_utils
+from cuML import numba_utils
 from knn cimport *
 
 class KNNparams:
@@ -160,7 +162,7 @@ cdef class KNN:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = X.as_gpu_matrix(order="C")
+            X = numba_utils.row_matrix(X)
         elif isinstance(X, np.ndarray):
             dtype = X.dtype
 

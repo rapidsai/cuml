@@ -51,9 +51,6 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
-		int nDevices;
-		cudaGetDeviceCount(&nDevices);
-
      	std::map<int, std::vector<kNNParams*>*> m;
      	for(int i = 0; i < N; i++) {
 
