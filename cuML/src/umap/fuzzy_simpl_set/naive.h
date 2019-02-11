@@ -28,6 +28,8 @@
 
 #include <thrust/device_vector.h>
 
+#include <stdio.h>
+
 namespace UMAP {
 namespace FuzzySimplSet {
 namespace Naive {
@@ -78,28 +80,32 @@ namespace Naive {
 	__global__ void smooth_knn_dist(const T *knn_dists, int n,
 								    float mean_dist,
 									T *sigmas, T *rhos,			// Size of n, iniitalized to zeros
-									UMAPParams *params,
+									int n_neighbors, float local_connectivity,
 									int n_iter = 64, float bandwidth = 1.0) {
 
-		float target = __log2f(params->n_neighbors) * bandwidth;
+		float target = __log2f(n_neighbors) * bandwidth;
+
+		printf("target=%f", target);
 
 		// row-based matrix 1 thread per row
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
+		int i = (row+col)*n_neighbors; // each thread processes one row of the dist matrix
+
+		printf("i=%d", i);
 
 		float lo = 0.0;
 		float hi = MAX_FLOAT;
 		float mid = 1.0;
 
-		float *ith_distances = new float[params->n_neighbors];
-		float *non_zero_dists = new float[params->n_neighbors];
+		float *ith_distances = new float[n_neighbors];
+		float *non_zero_dists = new float[n_neighbors];
 
 		int total_nonzero = 0;
 		int max_nonzero = -1;
 		float sum = 0;
 
-		for(int idx = 0; idx < params->n_neighbors; idx++) {
+		for(int idx = 0; idx < n_neighbors; idx++) {
 			ith_distances[idx] = knn_dists[i+idx];
 
 			sum += ith_distances[idx];
@@ -113,11 +119,11 @@ namespace Naive {
 				max_nonzero = ith_distances[idx];
 		}
 
-		float ith_distances_mean = sum / params->n_neighbors;
+		float ith_distances_mean = sum / n_neighbors;
 
-		if(total_nonzero > params->local_connectivity) {
-			int index = int(params->local_connectivity);
-			float interpolation = params->local_connectivity - index;
+		if(total_nonzero > local_connectivity) {
+			int index = int(local_connectivity);
+			float interpolation = local_connectivity - index;
 
 			if(index > 0) {
 				rhos[i] = non_zero_dists[index-1];
@@ -132,7 +138,7 @@ namespace Naive {
 
 		for(int iter = 0; iter < n_iter; iter++) {
 			float psum = 0.0;
-			for(int j = 0; j < params->n_neighbors; j++) {
+			for(int j = 0; j < n_neighbors; j++) {
 				float d = knn_dists[i + j] - rhos[i];
 				if(d > 0)
 					psum += exp(-(d/mid));
@@ -159,7 +165,7 @@ namespace Naive {
 
 		if(rhos[i] > 0.0) {
 			if(sigmas[i] < MIN_K_DIST_SCALE * ith_distances_mean)
-				sigmas[i] =MIN_K_DIST_SCALE * ith_distances_mean;
+				sigmas[i] = MIN_K_DIST_SCALE * ith_distances_mean;
 		} else {
 			if(sigmas[i] < MIN_K_DIST_SCALE * mean_dist)
 				sigmas[i] = MIN_K_DIST_SCALE * mean_dist;
@@ -191,20 +197,20 @@ namespace Naive {
 									 const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
 									 T *vals, int *rows, int *cols,  // result coo
 									 T *tvals, int *trows, int *tcols, // result coo transposed rows
-									 int n, UMAPParams *params) {	 // model params
+									 int n, int n_neighbors) {	 // model params
 
 		// row-based matrix is best
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
+		int i = (row+col)*n_neighbors; // each thread processes one row of the dist matrix
 
 		T cur_rho = rhos[i];
 		T cur_sigma = sigmas[i];
 
-		for(int j = 0; j < params->n_neighbors; j++) {
+		for(int j = 0; j < n_neighbors; j++) {
 
-			int idx = i*params->n_neighbors+j;
-			int t_idx = j*params->n_neighbors+i;
+			int idx = i*n_neighbors+j;
+			int t_idx = j*n_neighbors+i;
 
 			long cur_knn_ind = knn_indices[idx];
 			T cur_knn_dist = knn_dists[idx];
@@ -234,24 +240,25 @@ namespace Naive {
 	__global__ void compute_result(int *rows, int *cols, T *vals,
 								   int *trows, int *tcols, T *tvals,
 								   int *orows, int *ocols, T *ovals,
-								   int *rnnz, int n, UMAPParams *params) {
+								   int *rnnz, int n,
+								   int n_neighbors, float set_op_mix_ratio) {
 
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*params->n_neighbors; // each thread processes one row
+		int i = (row+col)*n_neighbors; // each thread processes one row
 		// Grab the n_neighbors from our transposed matrix,
 
 		int nnz = 0;
-		for(int j = 0; j < params->n_neighbors; j++) {
+		for(int j = 0; j < n_neighbors; j++) {
 
-			int idx = i*params->n_neighbors+j;
+			int idx = i*n_neighbors+j;
 
 			T result = vals[idx];
 			T transpose = tvals[idx];
 			T prod_matrix = vals[idx] * tvals[idx];
 
-			T res = params->set_op_mix_ratio * (result - transpose - prod_matrix)
-							+ (1.0 - params->set_op_mix_ratio) + prod_matrix;
+			T res = set_op_mix_ratio * (result - transpose - prod_matrix)
+							+ (1.0 - set_op_mix_ratio) + prod_matrix;
 
 			orows[idx] = rows[idx];
 			ocols[idx] = cols[idx];
@@ -268,17 +275,17 @@ namespace Naive {
 	template <typename T>
 	__global__ void compress_coo(int *rows, int *cols, T*vals,
 								 int *crows, int *ccols, T *cvals,
-								 int *ex_scan, UMAPParams *params) {
+								 int *ex_scan, int n_neighbors) {
 
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*params->n_neighbors; // each thread processes one row
+		int i = (row+col)*n_neighbors; // each thread processes one row
 
 		int start = ex_scan[i];
 		int cur_out_idx = start;
 
-		for(int j = 0; j < params->n_neighbors; j++) {
-			int idx = i*params->n_neighbors+j;
+		for(int j = 0; j < n_neighbors; j++) {
+			int idx = i*n_neighbors+j;
 			if(vals[idx] != 0.0) {
 				crows[cur_out_idx] = rows[idx];
 				ccols[cur_out_idx] = cols[idx];
@@ -287,6 +294,11 @@ namespace Naive {
 				++cur_out_idx;
 			}
 		}
+	}
+
+
+	void print(char* msg) {
+	    std::cout << msg << std::endl;
 	}
 
 	/**
@@ -305,19 +317,38 @@ namespace Naive {
 		/**
 		 * Calculate mean distance through a parallel reduction
 		 */
+
+		print("About to call mean");
+
+		std::cout << "n_neighbors: " << params->n_neighbors << std::endl;
+
+
+
 		T *dist_means_dev;
 		MLCommon::allocate(dist_means_dev, params->n_neighbors);
-		MLCommon::Stats::mean(dist_means_dev, knn_dists, params->n_neighbors, n, false, true);
+
+		MLCommon::Stats::mean(dist_means_dev, knn_dists, params->n_neighbors, n, false, false);
+
+		cudaDeviceSynchronize();
+		print("Done calling mean.");
+
+	    CUDA_CHECK(cudaPeekAtLastError());
+
+
 
 		T *dist_means_host = (T*)malloc(params->n_neighbors*sizeof(T));
 		MLCommon::updateHost(dist_means_host, dist_means_dev, params->n_neighbors);
 
-		// Might make sense to do this on device
+		// TODO: In the case of high number of features, it might make more sense to
+		// find this on the device.
 		float sum = 0.0;
 		for(int i = 0; i < params->n_neighbors; i++)
 			sum += dist_means_host[i];
 
 		float mean_dist = sum / params->n_neighbors;
+
+	    std::cout << "Mean: " << mean_dist << std::endl;
+
 
 		/**
 		 * Immediately free up memory for subsequent algorithms
@@ -338,7 +369,24 @@ namespace Naive {
 		/**
 		 * Call smooth_knn_dist to get sigmas and rhos
 		 */
-		smooth_knn_dist<<<grid,blk>>>(knn_dists, n, mean_dist, sigmas, rhos, params);
+		print("About to call smooth_knn_dist");
+		smooth_knn_dist<<<grid,blk>>>(knn_dists, n, mean_dist,
+				sigmas, rhos,
+				params->n_neighbors, params->local_connectivity);
+		cudaDeviceSynchronize();
+
+	    CUDA_CHECK(cudaPeekAtLastError());
+	    print("Done.");
+
+	    T* sigmas_h = (T*)malloc(n * sizeof(T));
+	    MLCommon::updateHost(sigmas_h, sigmas, n);
+
+	    std::cout << "Sigmas: ";
+	    for(int i = 0; i < n; i++) {
+	    	std::cout << sigmas_h[i];
+	    }
+
+	    std::cout << std::endl;
 
 		int k = params->n_neighbors;
 
@@ -352,13 +400,19 @@ namespace Naive {
 		/**
 		 * Call compute_membership_strength
 		 */
+
+		print("About to call compute_membership_strength");
 		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
 												  sigmas, rhos,
 												  vals, rows, cols,
 												  tvals, trows, tcols,
-												  n, params);
+												  n, params->n_neighbors);
+		cudaDeviceSynchronize();
 
-		int *orows, *ocols, *rnnz;
+	    CUDA_CHECK(cudaPeekAtLastError());
+	    print("Done.");
+
+	    int *orows, *ocols, *rnnz;
 		T *ovals;
 		MLCommon::allocate(orows, n*k, true);
 		MLCommon::allocate(ocols, n*k, true);
@@ -369,17 +423,22 @@ namespace Naive {
 		/**
 		 * Finish computation of matrix sums, Hadamard products, weighting, etc...
 		 */
+		print("About to call compute_result");
 		compute_result<<<grid, blk>>>(rows, cols, vals,
 					   trows, tcols, tvals,
 					   orows, ocols, ovals,
-					   rnnz, n, params);
+					   rnnz, n, params->n_neighbors, params->set_op_mix_ratio);
+		cudaDeviceSynchronize();
+		print("Done.");
 
-		CUDA_CHECK(cudaFree(rows));
-		CUDA_CHECK(cudaFree(cols));
-		CUDA_CHECK(cudaFree(vals));
+	    CUDA_CHECK(cudaPeekAtLastError());
+
+
 		CUDA_CHECK(cudaFree(trows));
-		CUDA_CHECK(cudaFree(trows));
-		CUDA_CHECK(cudaFree(trows));
+		CUDA_CHECK(cudaFree(tcols));
+		CUDA_CHECK(cudaFree(tvals));
+
+
 
 		/**
 		 * Compress resulting COO matrix
@@ -393,6 +452,7 @@ namespace Naive {
 
 	    int cur_coo_len = 0;
 		MLCommon::updateHost(&cur_coo_len, rnnz+n, 1);
+		cudaDeviceSynchronize();
 
 		int *crows, *ccols;
 		T *cvals;
@@ -402,7 +462,10 @@ namespace Naive {
 
 	    compress_coo<<<grid, blk>>>(orows, ocols, ovals,
 	    						    crows, ccols, cvals,
-	    						    rnnz, params);
+	    						    rnnz, params->n_neighbors);
+		cudaDeviceSynchronize();
+
+	    CUDA_CHECK(cudaPeekAtLastError());
 	}
 }
 }

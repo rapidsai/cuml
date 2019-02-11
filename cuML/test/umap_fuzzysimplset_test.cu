@@ -33,6 +33,7 @@ protected:
 	void basicTest() {
 
 		umap_params = new UMAPParams();
+		umap_params->n_neighbors = 2;
 
 		allocate(dists_d, n*k);
 		allocate(inds_d, n*k);
@@ -53,6 +54,7 @@ protected:
 
 		dists_h.resize(n*k);
 		inds_h.resize(n*k);
+
 		updateDevice(dists_d, dists_h.data(), n*k);
 		updateDevice(inds_d, inds_h.data(), n*k);
 
