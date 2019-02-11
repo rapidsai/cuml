@@ -16,8 +16,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
 template <typename T> struct SimpleVec;
@@ -61,7 +59,7 @@ template <typename T> struct SimpleVec {
       CUDA_CHECK(cudaFree(data));
 
     len = n;
-    allocate(data, len);
+    MLCommon::allocate(data, len);
     free_data = true;
     p = thrust::device_pointer_cast(data);
   }
@@ -84,7 +82,7 @@ template <typename T> struct SimpleVec {
 
   inline void fill(const T val) {
     auto f = [val] __device__(const T x) { return val; };
-    LinAlg::unaryOp(data, data, len, f);
+    MLCommon::LinAlg::unaryOp(data, data, len, f);
   }
 
   inline void operator=(const T val) { fill(val); }
@@ -96,7 +94,7 @@ template <typename T> struct SimpleVec {
 
   inline T operator[](int pos) const {
     T tmp;
-    updateHost(&tmp, &data[pos], 1);
+    MLCommon::updateHost(&tmp, &data[pos], 1);
     return tmp;
   }
 
@@ -105,38 +103,38 @@ template <typename T> struct SimpleVec {
   // this = a*x
   inline void ax(const T a, const SimpleVec<T> &x) {
     auto scale = [a] __device__(const T x) { return a * x; };
-    LinAlg::unaryOp(data, x.ptr(), len, scale);
+    MLCommon::LinAlg::unaryOp(data, x.ptr(), len, scale);
   }
 
   // this = a*x + y
   inline void axpy(const T a, const SimpleVec<T> &x, const SimpleVec<T> &y) {
     auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
-    LinAlg::binaryOp(data, x.data, y.data, len, axpy);
+    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy);
   }
 
   // this = a*x + b*y
   inline void axpby(const T a, const SimpleVec<T> &x, const T b,
                     const SimpleVec<T> &y) {
     auto axpby = [a, b] __device__(const T x, const T y) { return a * x + b * y; };
-    LinAlg::binaryOp(data, x.data, y.data, len, axpby);
+    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpby);
   }
 
   template <typename Lambda>
   inline void assign_unary(const SimpleVec<T> &other, Lambda &f) {
-    LinAlg::unaryOp(data, other.data, len, f);
+    MLCommon::LinAlg::unaryOp(data, other.data, len, f);
   }
 
   template <typename Lambda>
   inline void assign_binary(const SimpleVec<T> &other1,
                             const SimpleVec<T> &other2, Lambda &f) {
-    LinAlg::binaryOp(data, other1.data, other2.data, len, f);
+    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f);
   }
 
   template <typename Lambda>
   inline void assign_ternary(const SimpleVec<T> &other1,
                              const SimpleVec<T> &other2,
                              const SimpleVec<T> &other3, Lambda &f) {
-    LinAlg::ternaryOp(data, other1.data, other2.data, other3.data, len, f);
+    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data, len, f);
   }
 
   template <typename Op, typename... Vectors>
@@ -232,14 +230,14 @@ template <typename T>
 inline void dot(T *out_dev, const SimpleVec<T> &u, const SimpleVec<T> &v,
                 cudaStream_t stream = 0) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
-  LinAlg::mapThenSumReduce(out_dev, u.len, f, stream, u.data, v.data);
+  MLCommon::LinAlg::mapThenSumReduce(out_dev, u.len, f, stream, u.data, v.data);
 }
 
 template <typename T>
 inline void squaredNorm(T *out_dev, const SimpleVec<T> &v,
                         cudaStream_t stream = 0) {
   auto f = [] __device__(const T x) { return x * x; };
-  LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
+  MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
 }
 template <typename T> struct inner_product {
   SimpleVec<T> out;
@@ -263,7 +261,7 @@ template <typename T, class I> struct norm {
   inline T operator()(const SimpleVec<T> &u, cudaStream_t stream = 0) {
     static_cast<I *>(this)->get(out.data, u, stream);
     T ret = 0;
-    updateHost(&ret, out.data, 1);
+    MLCommon::updateHost(&ret, out.data, 1);
     return ret;
   }
 };
@@ -271,29 +269,29 @@ template <typename T, class I> struct norm {
 template <typename T> struct norm2 : norm<T, norm2<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     squaredNorm(out_dev, v, stream);
-    auto f = [] __device__(const T x) { return mySqrt<T>(x); };
-    LinAlg::unaryOp(out_dev, out_dev, 1, f, stream);
+    auto f = [] __device__(const T x) { return MLCommon::mySqrt<T>(x); };
+    MLCommon::LinAlg::unaryOp(out_dev, out_dev, 1, f, stream);
   }
 };
 
 template <typename T> struct norm1 : norm<T, norm1<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     auto f = [] __device__(const T x) { return abs(x); };
-    LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
+    MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
   }
 };
 
 template <typename T> struct norm0 : norm<T, norm0<T>> {
   inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
     auto f = [] __device__(const T x) { return x == T(0); };
-    LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
+    MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
   }
 };
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
   std::vector<T> out(v.len);
-  updateHost(&out[0], v.data, v.len);
+  MLCommon::updateHost(&out[0], v.data, v.len);
   int it = 0;
   for (; it < v.len - 1;) {
     os << out[it] << " ";
@@ -306,7 +304,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
   std::vector<T> out(mat.len);
-  updateHost(&out[0], mat.data, mat.len);
+  MLCommon::updateHost(&out[0], mat.data, mat.len);
   for (int r = 0; r < mat.m; r++) {
     int idx = r;
     for (int c = 0; c < mat.n - 1; c++) {
@@ -322,7 +320,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T, ROW_MAJOR> &mat) {
   std::vector<T> out(mat.len);
-  updateHost(&out[0], mat.data, mat.len);
+  MLCommon::updateHost(&out[0], mat.data, mat.len);
   for (int c = 0; c < mat.m; c++) {
     int idx = c * mat.n;
     for (int r = 0; r < mat.n - 1; r++) {

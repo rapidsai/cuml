@@ -28,9 +28,6 @@
 namespace ML {
 namespace GLM {
 
-using namespace MLCommon;
-
-
 template <typename T, class C, STORAGE_ORDER Storage>
 struct GLM_BG_Loss {
 
@@ -79,7 +76,7 @@ struct GLM_BG_Loss {
                                        loss_fn->eta.data);
  //Mapreduce memsets the output to 0. Otherwise, we could have saved this copy.
     T tmp;
-    updateHost(&tmp, loss_val, 1);
+    MLCommon::updateHost(&tmp, loss_val, 1);
 
     auto f_reg_2 = [=] __device__(const T w) {
       return tmp / D + 0.5 * lambda2 * w * w;
@@ -142,8 +139,8 @@ struct LogisticLoss : GLM_BG_Loss<T, LogisticLoss<T, Storage>, Storage> {
     : Super(X, y, eta, N, D, has_bias, lambda2) {}
 
   inline __device__ T log_sigmoid(T x) const {
-    T m = myMax<T>(T(0), x);
-    return -myLog(myExp(-m) + myExp(-x - m)) - m;
+    T m = MLCommon::myMax<T>(T(0), x);
+    return -MLCommon::myLog(MLCommon::myExp(-m) + MLCommon::myExp(-x - m)) - m;
   }
 
   inline __device__ T eval_l(const T y, const T eta) const {
@@ -153,7 +150,7 @@ struct LogisticLoss : GLM_BG_Loss<T, LogisticLoss<T, Storage>, Storage> {
 
   inline void eval_dl(const T *y, T *eta) {
     auto f = [] __device__(const T y, const T eta) {
-      return T(1.0) / (T(1.0) + myExp(-eta)) - y;
+      return T(1.0) / (T(1.0) + MLCommon::myExp(-eta)) - y;
     };
     MLCommon::LinAlg::binaryOp(eta, y, eta, Super::N, f);
   }
@@ -201,12 +198,12 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
     CUDA_CHECK(
       cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
 
-    modKernel<<<ceildiv(len, 256), 256>>>(w_mod.data, d, h);
+    modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, h);
     cudaThreadSynchronize();
 
     lph = loss(w_mod, grad);
 
-    modKernel<<<ceildiv(len, 256), 256>>>(w_mod.data, d, -2 * h);
+    modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, -2 * h);
     cudaThreadSynchronize();
     lmh = loss(w_mod, grad);
     grad_w_host[d] = (lph - lmh) / (2 * h);
