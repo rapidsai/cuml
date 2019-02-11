@@ -1,13 +1,14 @@
 #pragma once
-#include <cuda_utils.h>
 #include <iostream>
-#include <linalg/binary_op.h>
-#include <linalg/map_then_reduce.h>
-#include <linalg/ternary_op.h>
-#include <linalg/unary_op.h>
 #include <vector>
 
-#include "linalg/cublas_wrappers.h"
+#include <cuda_utils.h>
+#include <linalg/cublas_wrappers.h>
+#include <linalg/unary_op.h>
+#include <linalg/binary_op.h>
+#include <linalg/ternary_op.h>
+#include <linalg/map_then_reduce.h>
+
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
@@ -22,26 +23,6 @@ enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 template <typename T> struct SimpleVec;
 
 template <typename T, STORAGE_ORDER> struct SimpleMat;
-
-template <typename T> struct op_ax {
-  T a;
-  op_ax(T a) : a(a) {}
-
-  HDI T operator()(T x) const { return a * x; }
-};
-
-template <typename T> struct op_axpy {
-  T a;
-  op_axpy(T a) : a(a) {}
-  HDI T operator()(T x, T y) const { return a * x + y; }
-};
-
-template <typename T> struct op_axpby {
-  T a;
-  T b;
-  op_axpby(T a, T b) : a(a), b(b) {}
-  HDI T operator()(T x, T y) const { return a * x + b * y; }
-};
 
 template <typename T, STORAGE_ORDER Storage> struct gemv_helper {
   static void gemv(SimpleVec<T> &v, const T alpha,
@@ -123,20 +104,20 @@ template <typename T> struct SimpleVec {
 
   // this = a*x
   inline void ax(const T a, const SimpleVec<T> &x) {
-    auto scale = [a] __device__(T x) { return a * x; };
+    auto scale = [a] __device__(const T x) { return a * x; };
     LinAlg::unaryOp(data, x.ptr(), len, scale);
   }
 
   // this = a*x + y
   inline void axpy(const T a, const SimpleVec<T> &x, const SimpleVec<T> &y) {
-    auto axpy = [a] __device__(T x, T y) { return a * x + y; };
+    auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
     LinAlg::binaryOp(data, x.data, y.data, len, axpy);
   }
 
   // this = a*x + b*y
   inline void axpby(const T a, const SimpleVec<T> &x, const T b,
                     const SimpleVec<T> &y) {
-    auto axpby = [a, b] __device__(T x, T y) { return a * x + b * y; };
+    auto axpby = [a, b] __device__(const T x, const T y) { return a * x + b * y; };
     LinAlg::binaryOp(data, x.data, y.data, len, axpby);
   }
 
@@ -323,7 +304,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
 }
 
 template <typename T>
-std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
+std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
   std::vector<T> out(mat.len);
   updateHost(&out[0], mat.data, mat.len);
   for (int r = 0; r < mat.m; r++) {
