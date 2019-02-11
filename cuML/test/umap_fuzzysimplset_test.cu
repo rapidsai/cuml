@@ -29,32 +29,23 @@ using namespace MLCommon;
 using namespace std;
 
 template<typename T>
-struct UMAPFuzzySimplSetInputs {
-	T tolerance;
-	int len;
-	int n_row;
-	int n_col;
-	unsigned long long int seed;
-};
-
-template<typename T>
-::std::ostream& operator<<(::std::ostream& os, const UMAPFuzzySimplSetTests<T>& dims) {
-	return os;
-}
-
-template<typename T>
-class UMAPFuzzySimplSetTest: public ::testing::TestWithParam<UMAPFuzzySimplSetTest<T> > {
+class UMAPFuzzySimplSetTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
-		params = ::testing::TestWithParam<UMAPFuzzySimplSetInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
-		int len = params.len;
+		Random::Rng<T> r(1);
+
+		umap_params->
 
 		allocate(data, len);
 
-		std::vector<T> data_h = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
-		data_h.resize(len);
+		std::vector<T> input_h = { 1.0, 2.0, 2.0,
+								  2.0, 2.0, 3.0,
+								  8.0, 7.0, 8.0,
+								  8.0, 25.0, 80.0
+		};
+
+		input_h.resize(len);
 		updateDevice(data, data_h.data(), len);
 
 		allocate(labels, params.n_row);
@@ -82,17 +73,16 @@ protected:
 protected:
 	UMAPFuzzySimplSetInputs<T> params;
 
-	UMAPParams umap_params;
+	UMAPParams *umap_params;
 
-	T *dists;
-	long *indices;
+
+
+	float *dists_h;
+	long *inds_h;
+
+	float *dists_d;
+	long *inds_d;
 };
-
-const std::vector<UMAPFuzzySimplSetInputs<float> > inputsf2 = {
-		{ 0.05f, 6 * 2, 6, 2, 1234ULL }};
-
-const std::vector<UMAPFuzzySimplSetInputs<double> > inputsd2 = {
-		{ 0.05, 6 * 2, 6, 2, 1234ULL }};
 
 
 typedef UMAPFuzzySimplSetTest<float> UMAPFuzzySimplSetTestF;
@@ -103,16 +93,5 @@ TEST_P(UMAPFuzzySimplSetTestF, Result) {
 
 }
 
-typedef UMAPFuzzySimplSetTest<double> UMAPFuzzySimplSetTestD;
-TEST_P(UMAPFuzzySimplSetTestD, Result) {
-	ASSERT_TRUE(
-			devArrMatch(labels, labels_ref, params.n_row,
-					CompareApproxAbs<double>(params.tolerance)));
-}
-
-
-INSTANTIATE_TEST_CASE_P(UMAPFuzzySimplSetTests, UMAPFuzzySimplSetTestF, ::testing::ValuesIn(inputsf2));
-
-INSTANTIATE_TEST_CASE_P(UMAPFuzzySimplSetTests, UMAPFuzzySimplSetTestD, ::testing::ValuesIn(inputsd2));
 
 } // end namespace ML

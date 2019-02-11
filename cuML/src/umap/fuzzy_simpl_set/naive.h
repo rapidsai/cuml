@@ -82,7 +82,7 @@ namespace Naive {
 
 		float target = log2(params->n_neighbors) * bandwidth;
 
-		// row-based matrix is best
+		// row-based matrix 1 thread per row
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
 		int col = (blockIdx.x * TPB_X) + threadIdx.x;
 		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
