@@ -211,6 +211,23 @@ public:
   }
 
   /**
+   * @brief Generate integer pseudo-random numbers in the given range (start <= r < end)
+   * @param ptr the output array
+   * @param len the number of elements in the output
+   * @param start start of the range
+   * @param end end of the range
+   * @param stream stream where to launch the kernel
+   */
+  void randInt(Type *ptr, int len, Type start, Type end,
+               cudaStream_t stream = 0) {
+    randImpl<int,unsigned long long>(offset, ptr, len,
+             [=] __device__(unsigned long long val, unsigned idx) {
+               return (Type)(val % (end - start)) + start;
+             },
+             NumThreads, nBlocks, type, stream);
+  }
+
+  /**
    * @brief Generate normal distributed numbers
    * @param ptr the output array
    * @param len the number of elements in the output

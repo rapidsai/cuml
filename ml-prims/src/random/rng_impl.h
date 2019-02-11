@@ -67,7 +67,41 @@ struct PhiloxGenerator<double> : public PhiloxGeneratorBase {
 
   typedef double MathType;
 };
+
+template <>
+struct PhiloxGenerator<unsigned long long> : public PhiloxGeneratorBase {
+  using PhiloxGeneratorBase::PhiloxGeneratorBase;
+
+  DI unsigned long long next() { return curand(&(this->state)); }
+
+  typedef unsigned long long MathType;
+};
 /** @} */
+
+//LDB Helper for TapsGenerator:next(). This enables calls to TapsGenerator::next() for 
+// integral types
+namespace taps {
+template <typename Type, bool = std::is_integral<Type>::value>
+struct norm_helper 
+{ };
+template <typename Type>
+struct norm_helper<Type,true> {
+   DI Type static norm (uint64_t in)
+   {
+      return static_cast<Type>(in % numeric_limit_max<Type>());
+   }
+};
+template <typename Type>
+struct norm_helper<Type,false> {
+   DI Type static norm (uint64_t in)
+   {   
+      constexpr double ULL_LARGE = 1.8446744073709551614e19;
+      Type res = static_cast<Type>(in);
+      res /= static_cast<Type>(ULL_LARGE);
+      return res;
+   }
+};
+}
 
 
 /**
@@ -100,12 +134,9 @@ struct TapsGenerator {
   DI Type next() {
     constexpr uint64_t TAPS = 0x8000100040002000ULL;
     constexpr int ROUNDS = 128;
-    constexpr double ULL_LARGE = 1.8446744073709551614e19;
     for (int i = 0; i < ROUNDS; i++)
       state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
-    Type res = static_cast<Type>(state);
-    res /= static_cast<Type>(ULL_LARGE);
-    return res;
+    return taps::norm_helper<Type>::norm(state);
   }
 
   typedef Type MathType;
