@@ -35,14 +35,14 @@ namespace FuzzySimplSet {
 	template<typename T>
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
-			 T *sigmas, T *rhos,
+			 int *rows, int *cols, T *vals,
 			 UMAPParams *params,
 			 int algorithm = 0) {
 
 		switch(algorithm) {
 		case 0:
 			Naive::launcher(knn_indices, knn_dists, n,
-					       sigmas, rhos,
+					       rows, cols, vals,
 					       params);
 			break;
 		}

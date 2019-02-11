@@ -26,8 +26,7 @@
 
 #include <cuda_runtime.h>
 
-#include <limits>
-#include <math.h>
+#include <thrust/device_vector.h>
 
 namespace UMAP {
 namespace FuzzySimplSet {
@@ -35,6 +34,8 @@ namespace Naive {
 
 
 	using namespace ML;
+
+	static const float MAX_FLOAT = std::numeric_limits<float>::max();
 
 	/** number of threads in a CTA along X dim */
 	static const int TPB_X = 32;
@@ -80,7 +81,7 @@ namespace Naive {
 									UMAPParams *params,
 									int n_iter = 64, float bandwidth = 1.0) {
 
-		float target = log2(params->n_neighbors) * bandwidth;
+		float target = __log2f(params->n_neighbors) * bandwidth;
 
 		// row-based matrix 1 thread per row
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
@@ -88,24 +89,24 @@ namespace Naive {
 		int i = (row+col)*params->n_neighbors; // each thread processes one row of the dist matrix
 
 		float lo = 0.0;
-		float hi = std::numeric_limits<float>::max();
+		float hi = MAX_FLOAT;
 		float mid = 1.0;
 
-		float ith_distances[params->n_neighbors];
-
-		std::vector<float> non_zero_dists;
+		float *ith_distances = new float[params->n_neighbors];
+		float *non_zero_dists = new float[params->n_neighbors];
 
 		int total_nonzero = 0;
 		int max_nonzero = -1;
 		float sum = 0;
+
 		for(int idx = 0; idx < params->n_neighbors; idx++) {
 			ith_distances[idx] = knn_dists[i+idx];
 
 			sum += ith_distances[idx];
 
 			if(ith_distances[idx] > 0.0) {
+				non_zero_dists[total_nonzero] = ith_distances[idx];
 				total_nonzero+= 1;
-				non_zero_dists.push_back(ith_distances[idx]);
 			}
 
 			if(ith_distances[idx] > max_nonzero)
@@ -114,9 +115,8 @@ namespace Naive {
 
 		float ith_distances_mean = sum / params->n_neighbors;
 
-		non_zero_dists.resize(total_nonzero);
 		if(total_nonzero > params->local_connectivity) {
-			int index = floor(params->local_connectivity);
+			int index = int(params->local_connectivity);
 			float interpolation = params->local_connectivity - index;
 
 			if(index > 0) {
@@ -148,7 +148,7 @@ namespace Naive {
 				mid = (lo + hi) / 2.0;
 			} else {
 				lo = mid;
-				if(hi == std::numeric_limits<float>::max())
+				if(hi == MAX_FLOAT)
 					mid *= 2;
 				else
 					mid = (lo + hi) / 2.0;
@@ -231,9 +231,9 @@ namespace Naive {
 	}
 
 	template<typename T>
-	__global__ void compute_result(int *rows, int *cols, int *vals,
-								   int *trows, int *tcols, int *tvals,
-								   int *orows, int *ocols, int *ovals,
+	__global__ void compute_result(int *rows, int *cols, T *vals,
+								   int *trows, int *tcols, T *tvals,
+								   int *orows, int *ocols, T *ovals,
 								   int *rnnz, int n, UMAPParams *params) {
 
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
@@ -266,8 +266,8 @@ namespace Naive {
 	}
 
 	template <typename T>
-	__global__ void compress_coo(int *rows, int *cols, int *vals,
-								 int *crows, int *ccols, int *cvals,
+	__global__ void compress_coo(int *rows, int *cols, T*vals,
+								 int *crows, int *ccols, T *cvals,
 								 int *ex_scan, UMAPParams *params) {
 
 		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
@@ -300,7 +300,7 @@ namespace Naive {
 	template<typename T>
 	void launcher(const long *knn_indices, const float *knn_dists,
 			      int n, int *rows, int *cols, T *vals,
-				  UMAPParams *params, int algorithm) {
+				  UMAPParams *params) {
 
 		/**
 		 * Calculate mean distance through a parallel reduction
@@ -309,7 +309,7 @@ namespace Naive {
 		MLCommon::allocate(dist_means_dev, params->n_neighbors);
 		MLCommon::Stats::mean(dist_means_dev, knn_dists, params->n_neighbors, n, false, true);
 
-		T *dist_means_host = malloc(params->n_neighbors*sizeof(T));
+		T *dist_means_host = (T*)malloc(params->n_neighbors*sizeof(T));
 		MLCommon::updateHost(dist_means_host, dist_means_dev, params->n_neighbors);
 
 		// Might make sense to do this on device
@@ -327,6 +327,10 @@ namespace Naive {
 
 		T *sigmas;
 		T *rhos;
+
+		MLCommon::allocate(sigmas, n);
+		MLCommon::allocate(rhos, n);
+
 
 	    dim3 grid(MLCommon::ceildiv(n, TPB_X), MLCommon::ceildiv(n, TPB_Y), 1);
 	    dim3 blk(TPB_X, TPB_Y, 1);
@@ -350,8 +354,8 @@ namespace Naive {
 		 */
 		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
 												  sigmas, rhos,
-												  rows, cols, vals,
-												  trows, tcols, tvals,
+												  vals, rows, cols,
+												  tvals, trows, tcols,
 												  n, params);
 
 		int *orows, *ocols, *rnnz;
@@ -368,7 +372,7 @@ namespace Naive {
 		compute_result<<<grid, blk>>>(rows, cols, vals,
 					   trows, tcols, tvals,
 					   orows, ocols, ovals,
-					   n, params);
+					   rnnz, n, params);
 
 		CUDA_CHECK(cudaFree(rows));
 		CUDA_CHECK(cudaFree(cols));

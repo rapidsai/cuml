@@ -20,44 +20,52 @@
 #include <cuda_utils.h>
 #include "ml_utils.h"
 #include "umap/fuzzy_simpl_set/runner.h"
+#include "umap/umap.h"
 #include <linalg/cublas_wrappers.h>
 #include <vector>
 
-namespace ML {
-
+using namespace ML;
 using namespace MLCommon;
 using namespace std;
 
-template<typename T>
 class UMAPFuzzySimplSetTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
-		Random::Rng<T> r(1);
+		umap_params = new UMAPParams();
 
-		umap_params->
+		allocate(dists_d, n*k);
+		allocate(inds_d, n*k);
 
-		allocate(data, len);
-
-		std::vector<T> input_h = { 1.0, 2.0, 2.0,
-								  2.0, 2.0, 3.0,
-								  8.0, 7.0, 8.0,
-								  8.0, 25.0, 80.0
+		std::vector<float> dists_h = {
+			0.0, 1.0,
+			0.0, 1.0,
+			0.0, 1.0,
+			0.0, 1.0
 		};
 
-		input_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		std::vector<long> inds_h = {
+			0, 1,
+			1, 2,
+			2, 3,
+			3, 0,
+		};
 
-		allocate(labels, params.n_row);
-		allocate(labels_ref, params.n_row);
-		std::vector<int> labels_ref_h = { 0, 0, 0, 1, 1, -1 };
-		labels_ref_h.resize(len);
-		updateDevice(labels_ref, labels_ref_h.data(), params.n_row);
+		dists_h.resize(n*k);
+		inds_h.resize(n*k);
+		updateDevice(dists_d, dists_h.data(), n*k);
+		updateDevice(inds_d, inds_h.data(), n*k);
 
-		T eps = 3.0;
-		int min_pts = 2;
+		int *rows, *cols;
+		float *vals;
 
-		dbscanFitImpl(data, params.n_row, params.n_col, eps, min_pts, labels);
+		allocate(rows, n*k);
+		allocate(cols, n*k);
+		allocate(vals, n*k);
+
+		UMAP::FuzzySimplSet::run(n, inds_d, dists_d, rows, cols, vals, umap_params);
+
+
 
 	}
 
@@ -66,32 +74,26 @@ protected:
 	}
 
 	void TearDown() override {
-		CUDA_CHECK(cudaFree(dists));
-		CUDA_CHECK(cudaFree(indices));
+		CUDA_CHECK(cudaFree(dists_d));
+		CUDA_CHECK(cudaFree(inds_d));
 	}
 
 protected:
-	UMAPFuzzySimplSetInputs<T> params;
-
 	UMAPParams *umap_params;
 
-
-
-	float *dists_h;
-	long *inds_h;
+	int n = 4;
+	int k = 2;
 
 	float *dists_d;
 	long *inds_d;
 };
 
 
-typedef UMAPFuzzySimplSetTest<float> UMAPFuzzySimplSetTestF;
-TEST_P(UMAPFuzzySimplSetTestF, Result) {
-	ASSERT_TRUE(
-			devArrMatch(labels, labels_ref, params.n_row,
-					CompareApproxAbs<float>(params.tolerance)));
+typedef UMAPFuzzySimplSetTest UMAPFuzzySimplSetTestF;
+TEST_F(UMAPFuzzySimplSetTestF, Result) {
+//	ASSERT_TRUE(
+//			devArrMatch(labels, labels_ref, params.n_row,
+//					CompareApproxAbs<float>(params.tolerance)));
 
 }
 
-
-} // end namespace ML
