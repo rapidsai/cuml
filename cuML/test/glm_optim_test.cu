@@ -30,6 +30,8 @@
 
 #include <glm/glm_batch_gradient.h>
 
+using namespace MLCommon;
+
 // we link this against the dispatch method of the c api
 template <typename T, typename LossFunction>
 int fit_dispatch(T *X, T *y, int N, int D, bool has_bias, T l1, T l2,
@@ -37,6 +39,7 @@ int fit_dispatch(T *X, T *y, int N, int D, bool has_bias, T l1, T l2,
                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
                  T *w0, // initial value and result
                  T *fx, int *num_iters);
+
 
 namespace ML {
 

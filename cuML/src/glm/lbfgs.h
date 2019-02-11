@@ -106,7 +106,7 @@ HDI T project_orth(T x, T y) {
 template <typename T>
 HDI T get_pseudo_grad(T x, T dlossx, T C) {
   if (x != 0) {
-    return dlossx + sgn(x) * C;
+    return dlossx + MLCommon::sgn(x) * C;
   }
   T dplus = dlossx + C;
   T dmins = dlossx - C;

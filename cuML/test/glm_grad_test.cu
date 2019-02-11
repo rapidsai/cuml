@@ -26,6 +26,7 @@
 #include "linalg/unary_op.h"
 #include "random/rng.h"
 
+using namespace MLCommon;
 
 namespace ML {
 using namespace ML::GLM;

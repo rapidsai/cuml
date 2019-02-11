@@ -29,6 +29,7 @@
 
 
 namespace ML {
+using namespace MLCommon;
 
 using namespace ML::GLM;
 
