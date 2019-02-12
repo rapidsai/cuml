@@ -56,7 +56,7 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-  
+
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -170,7 +170,7 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
-file(GLOB_RECURSE hmm_test_cuda_sources "test/hmm/*.cpp" "test/hmm/*.c" "test/hmm/*.cu")
+file(GLOB_RECURSE hmm_test_cuda_sources "${MLPRIMS_DIR}/test/hmm/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
@@ -227,8 +227,8 @@ target_link_libraries(hmm_test
                       cuml
                       pthread
                       z)
-                      
-                      
+
+
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
@@ -259,8 +259,3 @@ endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 install(TARGETS cuml
         DESTINATION lib)
-        
-
-
-		
-

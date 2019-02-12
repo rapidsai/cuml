@@ -1,5 +1,9 @@
 #include <random/rng.h>
 #include <linalg/cublas_wrappers.h>
+#include <linalg/subtract.h>
+#include "linalg/eltwise.h"
+#include "linalg/transpose.h"
+#include "hmm/bilinear.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,107 +13,77 @@
 #include <curand.h>
 #include <cublas_v2.h>
 
-
-#define IDX2C(i,j,ld) (j*ld + i)
-
 using namespace MLCommon::LinAlg;
+using MLCommon::LinAlg::scalarMultiply;
 
 namespace MLCommon {
 namespace HMM {
 
 template <typename T>
-struct _gmm_likelihood_functor
-{
-        const T *data, *mus, *sigmas;
-        T* rhos;
-        const int n_classes, dim;
-        const bool is_log;
-
-        _likelihood_functor(T *data, T *mus, T *sigmas, T *rhos,
-                            int n_classes, int dim, bool is_log){
-                this->data = data;
-                this->mus = mus;
-                this->sigmas = sigmas;
-                this->rhos = rhos;
-                this.n_classes = n_classes;
-                this.dim = dim;
-                this.is_log = is_log;
-        }
-
-        __host__ __device__
-        T operator()(int sample_id, int class_id)
-        {
-                return (T) lhd_gaussian(x + dim * sample_id,
-                                        mus + dim * class_id,
-                                        sigmas + dim * dim * class_id,
-                                        rhos + n_classes * sample_id, is_log);
-        }
-};
-
-template <typename T>
-T lhd_gaussian(T* x, T* mu, T* sigma, int dim, bool is_log){
-        T logl = 0
-                 logl += 0.5 * std::log(2 * std::pi);
-        T determinant = 0.;
+__host__ __device__
+T _sample_gaussian_lhd(T* x, T* mu, T* sigma, int nDim, cublasHandle_t handle){
+        // Computes log likelihood for normal distribution
+        T logl = 0;
 
         // Compute the squared sum
         T* temp;
-        allocate(temp, dim);
+        allocate(temp, nDim);
 
         // x - mu
-        T scalar = -0.5;
-        subtract(temp, x, mu, dim);
-        LinAlg::scalarMultiply(temp, temp, scalar, dim);
+        subtract(temp, x, mu, nDim);
+        scalarMultiply(temp, temp, (T) -0.5, nDim);
 
         // sigma * (x - mu)
-        bilinear(sigma, dim, temp, cublas_h, result);
+        bilinear(sigma, nDim, temp, handle, &logl);
 
+        // logl += 0.5 * std::log(2 * std::pi);
+        T determinant = 0.;
         logl += determinant;
         return logl;
 }
 
-
 template <typename T>
-struct entropy_functor
+__host__ __device__
+struct _gmm_likelihood_functor
 {
+        T *data, *mus, *sigmas;
+        T* rhos;
+        int nCl, nDim;
+        cublasHandle_t *handle;
+
+        _gmm_likelihood_functor (T *data, T *mus, T *sigmas, T *rhos, int _nCl,
+                                 int _nDim,
+                                 cublasHandle_t *handle){
+                this->data = data;
+                this->mus = mus;
+                this->sigmas = sigmas;
+                this->rhos = rhos;
+                this->handle = handle;
+                nCl = _nCl;
+                nDim = _nDim;
+        }
+
         __host__ __device__
-        T operator()(T& x, T& p)
+        // T operator()(int sampleId, int classId)
+        T run(int sampleId, int classId)
         {
-                return (T) x * std::log(p);
+                return (T) rhos[classId] * _sample_gaussian_lhd(data + nDim * sampleId, mus + nDim * classId, sigmas + nDim * nDim * classId,
+                                                                nDim, *handle);
         }
 };
 
 template <typename T>
-T ll_multinomial(T* x, T* p, int dim){
+T set_gmm_lhd(T* data, T* mus, T* sigmas, T* rhos, int nCl, bool isLog, int nDim,
+              int nObs, cublasHandle_t *handle){
         T logl = 0;
-        entropy_functor<T> entropy_op;
-        thrust::plus<T> plus_op;
+        _gaussian_likelihood_functor<T> gaussian_lhd_op(data, mus, sigmas, rhos, nCl,nDim, handle);
 
-        thrust::transform_reduce(thrust::device_pointer_cast(x),
-                                 thrust::device_pointer_cast(x+dim),
-                                 thrust::device_pointer_cast(p),
-                                 thrust::device_pointer_cast(p+dim),
-                                 entropy_op, logl, plus_op);
-        cudaCheckError();
-        return logl;
-}
+        for (int c_id = 0; c_id < nCl; c_id++) {
+                for (int s_id = 0; s_id < nObs; s_id++) {
+                        logl += gaussian_lhd_op.run(s_id, c_id);
+                }
+        }
 
-
-template <typename T>
-T ll_gmm(T* x, T* p, T* mus, T* sigmas, int n_samples){
-        T logl = 0;
-        gmm_functor<T>(dim) gmm_op;
-        thrust::plus<T> plus_op;
-
-        thrust::device_vector<int>  samples_v(n_samples);
-        thrust::device_vector<int> classes_v(gmm.n_classes);
-        first = thrust::make_zip_iterator(thrust::make_tuple(samples_v.begin(), classes_v.begin()));
-        last  = thrust::make_zip_iterator(thrust::make_tuple(samples_v.end(),   classes_v.end()));
-
-        thrust::for_each(thrust::device, first, last, gmm_likelihood);
-        MLCommon::HMM::normalize_matrix(out_rhos, gmm.dim_x, gmm.n_classes);
-
-        thrust::transform_reduce(first, last, gmm_op, logl, plus_op);
         return logl;
 }
 

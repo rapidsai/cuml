@@ -82,10 +82,6 @@ struct _w_cov_functor
                 CUDA_CHECK(cudaMemset(matrix_diff, 0, nPts*dim));
                 matVecAdd(matrix_diff, data, mus + IDX2C(0, cluster_id, dim),
                           T(-1.0), nPts, dim);
-                printf("\n cluster %d", cluster_id);
-                // print_matrix(mus, dim, nCl, "s_weights");
-                print_matrix(mus, dim, nCl, "mus");
-                print_matrix(matrix_diff, dim, nPts, "matrix_diff");
 
                 // multiply by sqrt(weights)
                 CUBLAS_CHECK(cublasdgmm(*handle, CUBLAS_SIDE_RIGHT,

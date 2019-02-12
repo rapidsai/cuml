@@ -116,11 +116,6 @@ T compute_error_covs(T *data_d, T *weights_d, T *means_d,
 
         updateHost(comp_covs_h, comp_covs_d, nDims * nDims * nCl);
 
-        print_matrix_host(weights_h, nCl, nPts, "weights");
-        print_matrix_host(data_h, nDims, nPts, "data");
-        print_matrix_host(true_covs, nDims * nDims, nCl, "true covs");
-        print_matrix_host(comp_covs_h, nDims * nDims, nCl, "comp covs");
-
         int array_size = nDims * nDims * nCl;
         error = _compute_error(true_covs, comp_covs_h, array_size);
         return error;
