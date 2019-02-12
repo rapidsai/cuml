@@ -26,6 +26,8 @@
 
 #include <cuda_runtime.h>
 
+#include <cusparse_v2.h>
+
 #include <thrust/device_vector.h>
 
 #include <stdio.h>
@@ -206,9 +208,12 @@ namespace Naive {
 
 		// row-based matrix is best
 		int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+
 		int i = row*n_neighbors; // each thread processes one row of the dist matrix
 
 		if(row < n) {
+			printf("ROW=%d\n", row);
 			printf("compute_membership_strength(i=%d)\n", i);
 
 			T cur_rho = rhos[i];
@@ -217,7 +222,6 @@ namespace Naive {
 			for(int j = 0; j < n_neighbors; j++) {
 
 				int idx = i+j;
-				int t_idx = n-i;
 
 				long cur_knn_ind = knn_indices[idx];
 				T cur_knn_dist = knn_dists[idx];
@@ -237,11 +241,12 @@ namespace Naive {
 				rows[idx] = i;
 				cols[idx] = cur_knn_ind;
 				vals[idx] = val;
-				tcols[t_idx] = i;
-				trows[t_idx] = cur_knn_ind;
-				tvals[t_idx] = val;
-			}
 
+				// Transposed- swap rows/cols. Will sort by row.
+				tcols[idx] = i;
+				trows[idx] = cur_knn_ind;
+				tvals[idx] = val;
+			}
 		}
 	}
 
@@ -306,6 +311,74 @@ namespace Naive {
 
 	void print(char* msg) {
 	    std::cout << msg << std::endl;
+	}
+
+	template<typename T>
+	void coo_sort(const int m, const int n, const int nnz,
+				  int *rows, int *cols, T *vals) {
+
+		cusparseHandle_t handle = NULL;
+	    cudaStream_t stream = NULL;
+
+	    size_t pBufferSizeInBytes = 0;
+	    void *pBuffer = NULL;
+	    int *d_P = NULL;
+
+	    cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
+
+	    cusparseCreate(&handle);
+
+	    cusparseSetStream(handle, stream);
+
+	    cusparseXcoosort_bufferSizeExt(
+	        handle,
+	        m,
+	        n,
+	        nnz,
+	        rows,
+	        cols,
+	        &pBufferSizeInBytes
+	    );
+
+	    cudaMalloc(&d_P, sizeof(int)*nnz);
+	    cudaMalloc(&pBuffer, sizeof(char)* pBufferSizeInBytes);
+
+	    cusparseCreateIdentityPermutation(
+	        handle,
+	        nnz,
+	        d_P);
+
+	    cusparseXcoosortByRow(
+	        handle,
+	        m,
+	        n,
+	        nnz,
+	        rows,
+	        cols,
+	        d_P,
+	        pBuffer
+	    );
+
+	    T* vals_sorted;
+	    MLCommon::allocate(vals_sorted, m*n);
+
+	    cusparseSgthr(
+	        handle,
+	        nnz,
+	        vals,
+	        vals_sorted,
+	        d_P,
+	        CUSPARSE_INDEX_BASE_ZERO
+	    );
+	    cudaDeviceSynchronize(); /* wait until the computation is done */
+
+	    MLCommon::copy(vals, vals_sorted, m*n);
+
+	    cudaFree(d_P);
+	    cudaFree(vals_sorted);
+	    cudaFree(pBuffer);
+	    cusparseDestroy(handle);
+	    cudaStreamDestroy(stream);
 	}
 
 	/**
@@ -423,6 +496,28 @@ namespace Naive {
 												  n, params->n_neighbors);
 		cudaDeviceSynchronize();
 
+		/**
+		 * We use a strategy here to minimize the amount of memory for
+		 * storage while simultaneously minimizing the amount of
+		 * time spent scanning through indices.
+		 *
+		 * In order to accomplish this in the first naive computation,
+		 * I am storing the transposed matrix in its own set of
+		 * coo arrays. This transposed form of A then gets sorted by
+		 * row using the following function.
+		 *
+		 * The original A's lookup is deterministic since the hadamard
+		 * product and additional element-wise operations that follow
+		 * are done in parallel for each row. Since the lookup for A
+		 * transpose is not deterministic. We avoid having to store
+		 * an additional array, with a size n upper bound, by making
+		 * a log(n) lookup for the items by row in the transposed matrix.
+		 */
+		coo_sort(n, params->n_neighbors, n*k, trows, tcols, tvals);
+		cudaDeviceSynchronize();
+
+		// Need to do array sort here.
+
 	    int *rows_h = (int*) malloc(n*k*sizeof(int));
 	    int *cols_h = (int*) malloc(n*k*sizeof(int));
 	    float *vals_h = (float*) malloc(n*k*sizeof(float));
@@ -431,9 +526,20 @@ namespace Naive {
 	    MLCommon::updateHost(cols_h, tcols, n*k);
 	    MLCommon::updateHost(vals_h, tvals, n*k);
 
+	    printf("Transposed\n");
 	    for(int i = 0; i < n*k; i++) {
 	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
 	    }
+
+	    print("Normal\n");
+	    MLCommon::updateHost(rows_h, rows, n*k);
+	    MLCommon::updateHost(cols_h, cols, n*k);
+	    MLCommon::updateHost(vals_h, vals, n*k);
+
+	    for(int i = 0; i < n*k; i++) {
+	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
+	    }
+
 
 
 	    CUDA_CHECK(cudaPeekAtLastError());

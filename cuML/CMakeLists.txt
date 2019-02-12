@@ -204,6 +204,7 @@ target_link_libraries(ml_test
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
 		      gpufaisslib
                       faisslib
@@ -223,6 +224,7 @@ target_link_libraries(ml_mg_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
                       gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
