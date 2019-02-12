@@ -13,12 +13,13 @@ namespace GMM {
 
 template <typename T>
 struct GMM {
-        // these device pointers are NOT owned by this class
         T *z, *x;
-        T *mus, *sigmas, *rhos;
+        T *mus, *sigmas, *ps;
+        T *rhos;
 
-        int n_classes;
-        int dim_x;
+        int nCl;
+        int nDim;
+        int nObs;
 
         // EM parameters
         paramsEM paramsEm;
@@ -33,27 +34,59 @@ struct GMM {
 };
 
 template <typename T>
-void set(GMM<T> gmm, int n_classes, int dim_x, paramsRandom paramsRd,
-         paramsEM paramsEm) {
-        gmm.dim_x = dim_x;
-        gmm.n_classes = n_classes;
-        gmm.paramsRd = paramsRd;
-        gmm.paramsEm = paramsEm;
+void allocate_gmm(GMM<T> gmm){
+        allocate(gmm->mus, gmm.nDim * gmm.nCl);
+        CUDA_CHECK(cudaMemset(gmm.mus, (T)0, gmm.nDim * gmm.nCl));
+
+        allocate(gmm->sigmas, gmm.nDim * gmm.nDim * gmm.nCl);
+        CUDA_CHECK(cudaMemset(gmm.mus, (T)0,  gmm.nDim * gmm.nDim * gmm.nCl));
+
+        allocate(gmm->rhos, gmm.nObs * gmm.nCl);
+        CUDA_CHECK(cudaMemset(gmm.mus, (T)0, gmm.nObs * gmm.nCl ));
+
+        allocate(gmm->ps, gmm.nDim);
+        CUDA_CHECK(cudaMemset(gmm.ps, (T)0, gmm.nDim));
 }
 
 template <typename T>
-void initialize(GMM<T>& gmm) {
-        MLCommon::HMM::gen_trans_matrix(gmm.rhos, gmm.n_classes, gmm.dim_x,
+void free_gmm(GMM<T> gmm){
+        CUDA_CHECK(cudaFree(gmm->mus));
+        CUDA_CHECK(cudaFree(gmm->sigmas));
+        CUDA_CHECK(cudaFree(gmm->rhos));
+        CUDA_CHECK(cudaFree(gmm->ps));
+}
+
+template <typename T>
+void set_gmm(GMM<T> gmm, int nCl, int nDim, paramsRandom paramsRd,
+             paramsEM paramsEm) {
+        gmm.nDim = nDim;
+        gmm.nCl = nCl;
+        gmm.nObs = nObs;
+
+        gmm.paramsRd = paramsRd;
+        gmm.paramsEm = paramsEm;
+
+        allocate_memory(gmm);
+
+        CUBLAS_CHECK(cublasCreate(&handle));
+}
+
+
+template <typename T>
+void initialize(GMM<T> gmm) {
+        MLCommon::HMM::gen_trans_matrix(gmm->rhos, gmm.nCl, gmm.nDim,
                                         gmm.paramsRd);
-        MLCommon::HMM::gen_array(gmm.mus, gmm.dim_x * gmm.n_classes, gmm.paramsRd);
-        MLCommon::HMM::gen_array(gmm.sigmas, gmm.dim_x * gmm.dim_x * gmm.n_classes,
+        MLCommon::HMM::gen_trans_matrix(gmm->ps, 1, gmm.nCl, gmm.paramsRd);
+        MLCommon::HMM::gen_array(gmm->mus, gmm.nDim * gmm.nCl, gmm.paramsRd);
+        MLCommon::HMM::gen_array(gmm->sigmas, gmm.nDim * gmm.nDim * gmm.nCl,
                                  gmm.paramsRd);
 
         gmm.initialized = true;
 }
 
 template <typename T>
-void fit(GMM<T>& gmm) {
+void fit(GMM<T> gmm, T* data) {
+        gmm->x = data;
         _em(gmm);
 }
 

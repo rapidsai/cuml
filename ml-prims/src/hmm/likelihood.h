@@ -76,7 +76,7 @@ template <typename T>
 T set_gmm_lhd(T* data, T* mus, T* sigmas, T* rhos, int nCl, bool isLog, int nDim,
               int nObs, cublasHandle_t *handle){
         T logl = 0;
-        _gaussian_likelihood_functor<T> gaussian_lhd_op(data, mus, sigmas, rhos, nCl,nDim, handle);
+        _gmm_likelihood_functor<T> gaussian_lhd_op(data, mus, sigmas, rhos, nCl, nDim, handle);
 
         for (int c_id = 0; c_id < nCl; c_id++) {
                 for (int s_id = 0; s_id < nObs; s_id++) {
