@@ -41,8 +41,6 @@ namespace Naive {
 
 	/** number of threads in a CTA along X dim */
 	static const int TPB_X = 32;
-	/** number of threads in a CTA along Y dim */
-	static const int TPB_Y = 8;
 
 	static const float SMOOTH_K_TOLERANCE = 1.0;
 
@@ -85,91 +83,98 @@ namespace Naive {
 
 		float target = __log2f(n_neighbors) * bandwidth;
 
-		printf("target=%f", target);
-
 		// row-based matrix 1 thread per row
-		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
-		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*n_neighbors; // each thread processes one row of the dist matrix
+		int row = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = row*n_neighbors; // each thread processes one row of the dist matrix
 
-		printf("i=%d", i);
+		if(row < n) {
+			printf("row=%d, i=%d\n", row, i);
 
-		float lo = 0.0;
-		float hi = MAX_FLOAT;
-		float mid = 1.0;
+			float lo = 0.0;
+			float hi = MAX_FLOAT;
+			float mid = 1.0;
 
-		float *ith_distances = new float[n_neighbors];
-		float *non_zero_dists = new float[n_neighbors];
+			float *ith_distances = new float[n_neighbors];
+			float *non_zero_dists = new float[n_neighbors];
 
-		int total_nonzero = 0;
-		int max_nonzero = -1;
-		float sum = 0;
+			int total_nonzero = 0;
+			int max_nonzero = -1;
+			float sum = 0;
 
-		for(int idx = 0; idx < n_neighbors; idx++) {
-			ith_distances[idx] = knn_dists[i+idx];
+			for(int idx = 0; idx < n_neighbors; idx++) {
+				ith_distances[idx] = knn_dists[i+idx];
+				printf("i=%d, idx=%d, knn_dists=%f\n", i, idx, knn_dists[i+idx]);
 
-			sum += ith_distances[idx];
+				sum += ith_distances[idx];
 
-			if(ith_distances[idx] > 0.0) {
-				non_zero_dists[total_nonzero] = ith_distances[idx];
-				total_nonzero+= 1;
+				if(ith_distances[idx] > 0.0) {
+					non_zero_dists[total_nonzero] = ith_distances[idx];
+					total_nonzero+= 1;
+					printf("i=%d, total_nonzero=%d\n", i, total_nonzero);
+				}
+
+				if(ith_distances[idx] > max_nonzero)
+					max_nonzero = ith_distances[idx];
 			}
 
-			if(ith_distances[idx] > max_nonzero)
-				max_nonzero = ith_distances[idx];
-		}
+			float ith_distances_mean = sum / n_neighbors;
 
-		float ith_distances_mean = sum / n_neighbors;
+			printf("i=%d, ith_distances_mean=%f\n", i, ith_distances_mean);
 
-		if(total_nonzero > local_connectivity) {
-			int index = int(local_connectivity);
-			float interpolation = local_connectivity - index;
+			if(total_nonzero > local_connectivity) {
+				int index = int(local_connectivity);
+				float interpolation = local_connectivity - index;
 
-			if(index > 0) {
-				rhos[i] = non_zero_dists[index-1];
-				if(interpolation > SMOOTH_K_TOLERANCE)
-					rhos[i] += interpolation * (non_zero_dists[index] - non_zero_dists[index-1]);
-				else
-					rhos[i] = interpolation * non_zero_dists[0];
+				printf("i=%d, index=%d, interpolation=%f\n", i, index, interpolation);
 
-			} else if(total_nonzero > 0)
-				rhos[i] = max_nonzero;
-		}
+				if(index > 0) {
+					rhos[i] = non_zero_dists[index-1];
+					if(interpolation > SMOOTH_K_TOLERANCE)
+						rhos[i] += interpolation * (non_zero_dists[index] - non_zero_dists[index-1]);
+					else
+						rhos[i] = interpolation * non_zero_dists[0];
 
-		for(int iter = 0; iter < n_iter; iter++) {
-			float psum = 0.0;
-			for(int j = 0; j < n_neighbors; j++) {
-				float d = knn_dists[i + j] - rhos[i];
-				if(d > 0)
-					psum += exp(-(d/mid));
-				else
-					psum += 1.0;
+				} else if(total_nonzero > 0)
+					rhos[i] = max_nonzero;
 			}
 
-			if((psum - target) < SMOOTH_K_TOLERANCE)
-				break;
+			for(int iter = 0; iter < n_iter; iter++) {
+				float psum = 0.0;
+				for(int j = 0; j < n_neighbors; j++) {
+					float d = knn_dists[i + j] - rhos[i];
+					if(d > 0)
+						psum += exp(-(d/mid));
+					else
+						psum += 1.0;
+				}
 
-			if(psum > target) {
-				hi = mid;
-				mid = (lo + hi) / 2.0;
-			} else {
-				lo = mid;
-				if(hi == MAX_FLOAT)
-					mid *= 2;
-				else
+				if((psum - target) < SMOOTH_K_TOLERANCE)
+					break;
+
+				if(psum > target) {
+					hi = mid;
 					mid = (lo + hi) / 2.0;
+				} else {
+					lo = mid;
+					if(hi == MAX_FLOAT)
+						mid *= 2;
+					else
+						mid = (lo + hi) / 2.0;
+				}
 			}
+
+			sigmas[i] = mid;
+
+			if(rhos[i] > 0.0) {
+				if(sigmas[i] < MIN_K_DIST_SCALE * ith_distances_mean)
+					sigmas[i] = MIN_K_DIST_SCALE * ith_distances_mean;
+			} else {
+				if(sigmas[i] < MIN_K_DIST_SCALE * mean_dist)
+					sigmas[i] = MIN_K_DIST_SCALE * mean_dist;
+			}
+
 		}
 
-		sigmas[i] = mid;
-
-		if(rhos[i] > 0.0) {
-			if(sigmas[i] < MIN_K_DIST_SCALE * ith_distances_mean)
-				sigmas[i] = MIN_K_DIST_SCALE * ith_distances_mean;
-		} else {
-			if(sigmas[i] < MIN_K_DIST_SCALE * mean_dist)
-				sigmas[i] = MIN_K_DIST_SCALE * mean_dist;
-		}
 	}
 
 
@@ -200,39 +205,43 @@ namespace Naive {
 									 int n, int n_neighbors) {	 // model params
 
 		// row-based matrix is best
-		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
-		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*n_neighbors; // each thread processes one row of the dist matrix
+		int row = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = row*n_neighbors; // each thread processes one row of the dist matrix
 
-		T cur_rho = rhos[i];
-		T cur_sigma = sigmas[i];
+		if(row < n) {
+			printf("compute_membership_strength(i=%d)\n", i);
 
-		for(int j = 0; j < n_neighbors; j++) {
+			T cur_rho = rhos[i];
+			T cur_sigma = sigmas[i];
 
-			int idx = i*n_neighbors+j;
-			int t_idx = j*n_neighbors+i;
+			for(int j = 0; j < n_neighbors; j++) {
 
-			long cur_knn_ind = knn_indices[idx];
-			T cur_knn_dist = knn_dists[idx];
+				int idx = i+j;
+				int t_idx = n-i;
 
-			T val = 0.0;
-			if(cur_knn_ind == -1)
-				continue;
+				long cur_knn_ind = knn_indices[idx];
+				T cur_knn_dist = knn_dists[idx];
 
-			if(cur_knn_ind == i)
-				val = 0.0;
-			else if(cur_knn_dist - cur_rho <= 0.0)
-				val = 1.0;
-			else
-				val = exp(-((cur_knn_dist - cur_rho) / (cur_sigma)));
+				T val = 0.0;
+				if(cur_knn_ind == -1)
+					continue;
 
-			// TODO: Make both of these lower-triangular
-			rows[idx] = i;
-			cols[idx] = cur_knn_ind;
-			vals[idx] = val;
-			tcols[t_idx] = i;
-			trows[t_idx] = cur_knn_ind;
-			tvals[t_idx] = val;
+				if(cur_knn_ind == i)
+					val = 0.0;
+				else if(cur_knn_dist - cur_rho <= 0.0)
+					val = 1.0;
+				else
+					val = exp(-((cur_knn_dist - cur_rho) / (cur_sigma)));
+
+				// TODO: Make both of these lower-triangular
+				rows[idx] = i;
+				cols[idx] = cur_knn_ind;
+				vals[idx] = val;
+				tcols[t_idx] = i;
+				trows[t_idx] = cur_knn_ind;
+				tvals[t_idx] = val;
+			}
+
 		}
 	}
 
@@ -243,15 +252,14 @@ namespace Naive {
 								   int *rnnz, int n,
 								   int n_neighbors, float set_op_mix_ratio) {
 
-		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
-		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*n_neighbors; // each thread processes one row
+		int row = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = row*n_neighbors; // each thread processes one row
 		// Grab the n_neighbors from our transposed matrix,
 
 		int nnz = 0;
 		for(int j = 0; j < n_neighbors; j++) {
 
-			int idx = i*n_neighbors+j;
+			int idx = i+j;
 
 			T result = vals[idx];
 			T transpose = tvals[idx];
@@ -277,9 +285,8 @@ namespace Naive {
 								 int *crows, int *ccols, T *cvals,
 								 int *ex_scan, int n_neighbors) {
 
-		int row = (blockIdx.y * TPB_Y) + threadIdx.y;
-		int col = (blockIdx.x * TPB_X) + threadIdx.x;
-		int i = (row+col)*n_neighbors; // each thread processes one row
+		int row = (blockIdx.x * TPB_X) + threadIdx.x;
+		int i = row*n_neighbors; // each thread processes one row
 
 		int start = ex_scan[i];
 		int cur_out_idx = start;
@@ -363,8 +370,8 @@ namespace Naive {
 		MLCommon::allocate(rhos, n);
 
 
-	    dim3 grid(MLCommon::ceildiv(n, TPB_X), MLCommon::ceildiv(n, TPB_Y), 1);
-	    dim3 blk(TPB_X, TPB_Y, 1);
+	    dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+	    dim3 blk(TPB_X, 1, 1);
 
 		/**
 		 * Call smooth_knn_dist to get sigmas and rhos
@@ -379,16 +386,23 @@ namespace Naive {
 	    print("Done.");
 
 	    T* sigmas_h = (T*)malloc(n * sizeof(T));
+	    T* rhos_h = (T*)malloc(n * sizeof(T));
 	    MLCommon::updateHost(sigmas_h, sigmas, n);
+	    MLCommon::updateHost(rhos_h, rhos, n);
 
 	    std::cout << "Sigmas: ";
 	    for(int i = 0; i < n; i++) {
-	    	std::cout << sigmas_h[i];
+	    	std::cout << sigmas_h[i] << ", ";
 	    }
-
 	    std::cout << std::endl;
 
-		int k = params->n_neighbors;
+	    std::cout << "Rhos: ";
+	    for(int i = 0; i < n; i++) {
+	    	std::cout << rhos_h[i] << ", ";
+	    }
+	    std::cout << std::endl;
+
+	    int k = params->n_neighbors;
 
 		// We will keep arrays, with space O(n*k*9) representing 3 O(n^2) matrices.
 		int *trows, *tcols;
@@ -408,6 +422,19 @@ namespace Naive {
 												  tvals, trows, tcols,
 												  n, params->n_neighbors);
 		cudaDeviceSynchronize();
+
+	    int *rows_h = (int*) malloc(n*k*sizeof(int));
+	    int *cols_h = (int*) malloc(n*k*sizeof(int));
+	    float *vals_h = (float*) malloc(n*k*sizeof(float));
+
+	    MLCommon::updateHost(rows_h, trows, n*k);
+	    MLCommon::updateHost(cols_h, tcols, n*k);
+	    MLCommon::updateHost(vals_h, tvals, n*k);
+
+	    for(int i = 0; i < n*k; i++) {
+	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
+	    }
+
 
 	    CUDA_CHECK(cudaPeekAtLastError());
 	    print("Done.");

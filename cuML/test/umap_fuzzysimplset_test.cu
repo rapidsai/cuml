@@ -39,10 +39,10 @@ protected:
 		allocate(inds_d, n*k);
 
 		std::vector<float> dists_h = {
-			0.0, 1.0,
-			0.0, 1.0,
-			0.0, 1.0,
-			0.0, 1.0
+			1.0, 1.0,
+			1.0, 2.0,
+			1.0, 3.0,
+			1.0, 7.0
 		};
 
 		std::vector<long> inds_h = {
