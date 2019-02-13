@@ -1,4 +1,4 @@
-# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - RAPIDS Machine Learning Algorithms</div>
+# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - Machine Learning Algorithms</div>
 
 cuML is a suite of libraries that implement machine learning algorithms and share compatible APIs with other RAPIDS projects.
 
