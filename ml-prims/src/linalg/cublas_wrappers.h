@@ -303,5 +303,38 @@ inline cublasStatus_t cublastrsm(cublasHandle_t handle,
 	return cublasDtrsm(handle, side, uplo, trans, diag, m, n, alpha, A, lda, B, ldb);
 }
 
+
+
+/**
+ * @defgroup dot cublas dot calls
+ * @{
+ */
+template <typename T> cublasStatus_t
+cublasdot( cublasHandle_t handle,
+            int n,
+            const T *x, int incx,
+            const T *y, int incy,
+            T *result);
+
+template <>
+inline cublasStatus_t cublasdot( cublasHandle_t handle,
+                                int n,
+                                const float *x, int incx,
+                                const float *y, int incy,
+                                float *result)
+{
+    return cublasSdot(handle, n, x, incx, y, incy, result);
+}
+
+template <>
+inline cublasStatus_t  cublasdot( cublasHandle_t handle, int n,
+                                 const double *x, int incx,
+                                 const double *y, int incy,
+                                 double *result)
+{
+    return cublasDdot(handle, n, x, incx, y, incy, result);
+}
+/** @} */
+
 }; // namespace LinAlg
 }; // namespace MLCommon
