@@ -52,7 +52,10 @@ conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
 
 #### Pip
-cuML can also be installed using pip. Select the package based on your version of CUDA:
+cuML can also be installed using pip. Select the package based on your version of CUDA.
+
+*Note:* Pip has no faiss-gpu package: If installing cuML from pip and you plan to use cuml.KNN, you must install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
+
 ```bash
 # cuda 9.2
 pip install cuml-cuda92
@@ -65,14 +68,12 @@ You also need to ensure `libomp` and `libopenblas` are installed:
 apt install libopenblas-base libomp-dev
 ```
 
-*Note:* Pip has no faiss-gpu package: If installing cuML from pip and you plan to use cuml.KNN, you must install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
-
-
 **NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
 
 The cuML repository contains:
 
-1. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
+1. ***cuML***:
+  C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
   - Single GPU Truncated Singular Value Decomposition (tSVD)
   - Single GPU Principal Component Analysis (PCA)
   - Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
@@ -80,9 +81,11 @@ The cuML repository contains:
   - Multi-GPU K-Means Clustering
   - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
 
-2. ***python***: Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
+2. ***python***:
+  Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
-3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components:
+3. ***ml-prims***:
+  Low level machine learning primitives used in cuML. ml-prims is comprised of the following components:
   - Linear Algebra
   - Statistics
   - Basic Matrix Operations
@@ -96,7 +99,6 @@ Algorithms in progress:
 - Elastic-Net
 - Logistic Regression
 - UMAP
-
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
@@ -121,7 +123,6 @@ Please use GitHub issues and pull requests to report bugs and add or request fun
 ## Contact
 
 Find out more details on the [RAPIDS site](https://rapids.ai/community.html)
-
 
 ## <div align="left"><img src="img/rapids_logo.png" width="265px"/></div> Open GPU Data Science
 
