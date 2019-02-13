@@ -58,5 +58,34 @@ void add(math_t *out, const math_t *in1, const math_t *in2, int len,
 }
 /** @} */
 
+
+
+template<class math_t>
+__global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev, const math_t *singleScalarDev, int len)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < len)
+    {
+        outDev[i] = inDev[i] + *singleScalarDev;
+    }
+}
+
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
+ * @param out the output buffer
+ * @param in the input buffer
+ * @param singleScalarDev pointer to the scalar located in device memory
+ * @param len number of elements in the input and output buffer
+ * @{
+ */
+template <typename math_t>
+void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev, int len)
+{
+    // TODO: block dimension has not been tuned
+    dim3 block (256);
+    dim3 grid((len + block.x - 1) / block.x);
+    add_dev_scalar_kernel<math_t> <<<grid, block>>>(outDev, inDev, singleScalarDev, len);
+    CUDA_CHECK(cudaPeekAtLastError());
+}
+
 }; // end namespace LinAlg
 }; // end namespace MLCommon
