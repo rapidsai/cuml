@@ -19,10 +19,14 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
+
 #include "umap/knn_graph/runner.h"
 #include "umap/fuzzy_simpl_set/runner.h"
 #include "umap/umap.h"
+
 #include <linalg/cublas_wrappers.h>
+#include <sparse/coo.h>
+
 #include <vector>
 
 using namespace ML;

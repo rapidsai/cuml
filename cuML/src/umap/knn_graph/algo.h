@@ -36,18 +36,13 @@ namespace kNNGraph {
 					  long *knn_indices, T *knn_dists,
 					  UMAPParams *params) {
 
-			std::cout << "Calling knn" << std::endl;
 			ML::kNN knn(d);
 			ML::kNNParams *p = new kNNParams[1];
 			p[0].ptr = X;
 			p[0].N = n;
 
-			std::cout << "Calling fit" << std::endl;
 			knn.fit(p, 1);
-			std::cout << "Calling search" << std::endl;
 			knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
-
-			std::cout << "Done knn." << std::endl;
 
 			delete p;
 		}

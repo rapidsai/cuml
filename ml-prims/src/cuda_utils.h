@@ -283,11 +283,11 @@ std::string arr2Str(T *arr, int size, std::string name) {
 	T* arr_h = (T*)malloc(size * sizeof(T));
 	updateHost(arr_h, arr, size);
 
-	ss << name << "= [ ";
+	ss << name << " = [ ";
 	for(int i = 0; i < size; i++) {
 		ss << arr_h[i];
 
-		if(i > size-1)
+		if(i < size-1)
 			ss << ", ";
 	}
 	ss << " ]" << std::endl;

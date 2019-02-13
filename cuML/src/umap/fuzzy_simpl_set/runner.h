@@ -23,6 +23,10 @@ namespace FuzzySimplSet {
 
 	using namespace ML;
 
+    /** number of threads in a CTA along X dim */
+    static const int TPB_X = 32;
+
+
 	/**
 	 * Calculates a fuzzy simplicial set of the input X and kNN results
 	 * @param n: number of rows in X
@@ -41,7 +45,7 @@ namespace FuzzySimplSet {
 
 		switch(algorithm) {
 		case 0:
-			Naive::launcher(knn_indices, knn_dists, n,
+			Naive::launcher<TPB_X>(knn_indices, knn_dists, n,
 					       rows, cols, vals,
 					       params);
 			break;
