@@ -31,6 +31,7 @@
 #include <thrust/device_vector.h>
 
 #include <stdio.h>
+#include <string>
 
 namespace UMAP {
 namespace FuzzySimplSet {
@@ -207,8 +208,6 @@ namespace Naive {
 
 		// row-based matrix is best
 		int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-
 		int i = row*n_neighbors; // each thread processes one row of the dist matrix
 
 		if(row < n) {
@@ -260,6 +259,7 @@ namespace Naive {
 			for(int j = 0; j < n_neighbors; j++) {
 
 				int idx = i+j;
+				int out_idx = i*2;
 
 				/**
 				 * In order to do the Hadamard with the transposed
@@ -271,14 +271,32 @@ namespace Naive {
 				 * the knn_indices matrix and, thus, we only need a single
 				 * pass through it.
 				 */
-				int t_start = cols[idx]*n_neighbors;
+
+				int row_lookup = cols[idx];
+				int t_start = row_lookup*n_neighbors; // Start at
 
 				T transpose = 0.0;
-				for(int t_idx = t_start; t_idx < t_start+n_neighbors; t_idx++) {
-					if(cols[t_idx] == rows[idx]) {
-						transpose = vals[t_idx];
-						printf("Found transpose for i=%d\n", i);
+				bool found_match = false;
+				for(int t_idx = 0; t_idx < n_neighbors; t_idx++) {
+
+					int f_idx = t_idx + t_start;
+					// If we find a match, let's get out of the loop
+					if(	cols[f_idx] == rows[idx] && rows[f_idx] == cols[idx] && vals[f_idx] != 0.0) {
+						transpose = vals[f_idx];
+						printf("Found transpose!\n");
+						found_match = true;
+						break;
 					}
+					printf("End loop.\n");
+				}
+
+				// if we didn't find an exact match, we still need to add
+				// the transposed value into our current matrix.
+				if(!found_match && vals[idx] != 0.0) {
+					orows[out_idx+nnz] = cols[idx];
+					ocols[out_idx+nnz] = rows[idx];
+					ovals[out_idx+nnz] = vals[idx];
+					++nnz;
 				}
 
 				T result = vals[idx];
@@ -287,43 +305,56 @@ namespace Naive {
 				T res = set_op_mix_ratio * (result - transpose - prod_matrix)
 								+ (1.0 - set_op_mix_ratio) + prod_matrix;
 
-				orows[idx] = rows[idx];
-				ocols[idx] = cols[idx];
-				ovals[idx] = res;
-
-				if(res != 0)
+				if(res != 0.0) {
+					orows[out_idx+nnz] = rows[idx];
+					ocols[out_idx+nnz] = cols[idx];
+					ovals[out_idx+nnz] = res;
 					++nnz;
+				}
 			}
+			printf("rnnz[n]=%d\n", rnnz[n]);
 
-			rnnz[i] = nnz;
+			rnnz[row] = nnz;
+			printf("rnnz[%d]=%d\n", row, nnz);
+
+			printf("Adding %d\n", nnz);
 			atomicAdd(rnnz+n, nnz);
+
 
 		}
 	}
 
 	template <typename T>
-	__global__ void compress_coo(int *rows, int *cols, T*vals,
+	__global__ void compress_coo(int n,
+								 int *rows, int *cols, T*vals,
 								 int *crows, int *ccols, T *cvals,
 								 int *ex_scan, int n_neighbors) {
 
 		int row = (blockIdx.x * TPB_X) + threadIdx.x;
 		int i = row*n_neighbors; // each thread processes one row
 
-		int start = ex_scan[i];
-		int cur_out_idx = start;
+		if(row < n) {
+			int start = ex_scan[row];
 
-		for(int j = 0; j < n_neighbors; j++) {
-			int idx = i*n_neighbors+j;
-			if(vals[idx] != 0.0) {
-				crows[cur_out_idx] = rows[idx];
-				ccols[cur_out_idx] = cols[idx];
-				cvals[cur_out_idx] = vals[idx];
-				++cur_out_idx;
+			printf("row=%d, start=%d\n", row, start);
+			int cur_out_idx = start;
+			for(int j = 0; j < 4; j++) {
+				int idx = i+j;
+
+				printf("row=%d, idx=%d\n", row,idx);
+
+				if(vals[idx] != 0.0) {
+					crows[cur_out_idx] = rows[idx];
+					ccols[cur_out_idx] = cols[idx];
+					cvals[cur_out_idx] = vals[idx];
+					++cur_out_idx;
+				}
 			}
 		}
+
 	}
 
-	void print(char* msg) {
+	void print(std::string msg) {
 	    std::cout << msg << std::endl;
 	}
 
@@ -383,7 +414,6 @@ namespace Naive {
 		MLCommon::allocate(sigmas, n);
 		MLCommon::allocate(rhos, n);
 
-
 	    dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
 	    dim3 blk(TPB_X, 1, 1);
 
@@ -434,11 +464,10 @@ namespace Naive {
 
 	    int *orows, *ocols, *rnnz;
 		T *ovals;
-		MLCommon::allocate(orows, n*k, true);
-		MLCommon::allocate(ocols, n*k, true);
-		MLCommon::allocate(ovals, n*k, true);
+		MLCommon::allocate(orows, n*k*2, true);
+		MLCommon::allocate(ocols, n*k*2, true);
+		MLCommon::allocate(ovals, n*k*2, true);
 		MLCommon::allocate(rnnz, n+1, true);
-
 
 		/**
 		 * Finish computation of matrix sums, Hadamard products, weighting, etc...
@@ -452,20 +481,38 @@ namespace Naive {
 
 	    CUDA_CHECK(cudaPeekAtLastError());
 
+	    int *rows_h1 = (int*)malloc(n*k*sizeof(int));
+	    int *cols_h1 = (int*)malloc(n*k*sizeof(int));
+	    T *vals_h1 = (T*)malloc(n*k*sizeof(T));
 
-	    int *rows_h = (int*)malloc(n*k*sizeof(int));
-	    int *cols_h = (int*)malloc(n*k*sizeof(int));
-	    T *vals_h = (T*)malloc(n*k*sizeof(T));
-
-	    MLCommon::updateHost(rows_h, rows, n*k);
-	    MLCommon::updateHost(cols_h, cols, n*k);
-	    MLCommon::updateHost(vals_h, vals, n*k);
+	    MLCommon::updateHost(rows_h1, rows, n*k);
+	    MLCommon::updateHost(cols_h1, cols, n*k);
+	    MLCommon::updateHost(vals_h1, vals, n*k);
 
 	    printf("After Compute Result\n");
 	    for(int i = 0; i < n*k; i++) {
+	    	printf("row=%d, col=%d, val=%f\n", rows_h1[i], cols_h1[i], vals_h1[i]);
+	    }
+	    print("Done.");
+
+	    int *rows_h = (int*)malloc(n*k*2*sizeof(int));
+	    int *cols_h = (int*)malloc(n*k*2*sizeof(int));
+	    T *vals_h = (T*)malloc(n*k*2*sizeof(T));
+
+	    MLCommon::updateHost(rows_h, orows, n*k*2);
+	    MLCommon::updateHost(cols_h, ocols, n*k*2);
+	    MLCommon::updateHost(vals_h, ovals, n*k*2);
+
+	    printf("After Compute Result\n");
+	    for(int i = 0; i < n*k*2; i++) {
 	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
 	    }
 	    print("Done.");
+
+	    int cur_coo_len = 0;
+		MLCommon::updateHost(&cur_coo_len, rnnz+n, 1);
+		std::cout << "cur_coo_len=" << cur_coo_len << std::endl;
+
 
 	    /**
 		 * Compress resulting COO matrix
@@ -477,8 +524,6 @@ namespace Naive {
 	    thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
 	    thrust::exclusive_scan(dev_rnnz, dev_rnnz+n, dev_ex_scan);
 
-	    int cur_coo_len = 0;
-		MLCommon::updateHost(&cur_coo_len, rnnz+n, 1);
 		cudaDeviceSynchronize();
 
 		int *crows, *ccols;
@@ -487,10 +532,15 @@ namespace Naive {
 		MLCommon::allocate(ccols, cur_coo_len, true);
 		MLCommon::allocate(cvals, cur_coo_len, true);
 
-	    compress_coo<<<grid, blk>>>(orows, ocols, ovals,
+	    compress_coo<<<grid, blk>>>(n, orows, ocols, ovals,
 	    						    crows, ccols, cvals,
-	    						    rnnz, params->n_neighbors);
+	    						    dev_ex_scan.get(), params->n_neighbors);
 		cudaDeviceSynchronize();
+
+
+	    std::cout << MLCommon::arr2Str(crows, cur_coo_len, "compressed rows") << std::endl;
+	    std::cout << MLCommon::arr2Str(ccols, cur_coo_len, "compressed cols") << std::endl;
+	    std::cout << MLCommon::arr2Str(cvals, cur_coo_len, "compressed vals") << std::endl;
 
 	    CUDA_CHECK(cudaPeekAtLastError());
 	}

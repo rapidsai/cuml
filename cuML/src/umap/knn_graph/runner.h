@@ -19,25 +19,25 @@
 
 namespace UMAP {
 
-	namespace kNNGraph {
+namespace kNNGraph {
 
-		using namespace ML;
+	using namespace ML;
 
-		template<typename T>
-		void run(const T *X, int n, int d,
-			     long *knn_indices, T *knn_dists,
-			     UMAPParams *params,
-			     int algo = 0) {
+	template<typename T>
+	void run(const T *X, int n, int d,
+			 long *knn_indices, T *knn_dists,
+			 UMAPParams *params,
+			 int algo = 0) {
 
-			switch(algo) {
+		switch(algo) {
 
-			/**
-			 * Initial algo uses FAISS indices
-			 */
-			case 0:
-				Algo::launcher(X, n, d, knn_indices, knn_dists, params);
-				break;
-			}
+		/**
+		 * Initial algo uses FAISS indices
+		 */
+		case 0:
+			Algo::launcher(X, n, d, knn_indices, knn_dists, params);
+			break;
 		}
 	}
 }
+};

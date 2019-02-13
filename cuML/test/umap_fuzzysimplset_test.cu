@@ -19,6 +19,7 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
+#include "umap/knn_graph/runner.h"
 #include "umap/fuzzy_simpl_set/runner.h"
 #include "umap/umap.h"
 #include <linalg/cublas_wrappers.h>
@@ -33,30 +34,24 @@ protected:
 	void basicTest() {
 
 		umap_params = new UMAPParams();
-		umap_params->n_neighbors = 2;
+		umap_params->n_neighbors = k;
+
+
+		std::vector<float> X = {
+			1.0, 1.0, 34.0,
+			76.0, 2.0, 29.0,
+			34.0, 3.0, 13.0,
+			23.0, 7.0, 80.0
+		};
+
+		float* X_d;
+		MLCommon::allocate(X_d, n*d);
+		MLCommon::updateDevice(X_d, X.data(), n*d);
 
 		allocate(dists_d, n*k);
 		allocate(inds_d, n*k);
 
-		std::vector<float> dists_h = {
-			1.0, 1.0,
-			1.0, 2.0,
-			1.0, 3.0,
-			1.0, 7.0
-		};
-
-		std::vector<long> inds_h = {
-			0, 1,
-			1, 2,
-			2, 3,
-			3, 0,
-		};
-
-		dists_h.resize(n*k);
-		inds_h.resize(n*k);
-
-		updateDevice(dists_d, dists_h.data(), n*k);
-		updateDevice(inds_d, inds_h.data(), n*k);
+		UMAP::kNNGraph::run(X_d, n, d, inds_d, dists_d, umap_params);
 
 		int *rows, *cols;
 		float *vals;
@@ -67,8 +62,12 @@ protected:
 
 		UMAP::FuzzySimplSet::run(n, inds_d, dists_d, rows, cols, vals, umap_params);
 
-
-
+//		int *rows_h, *cols_h;
+//		float *vals_h;
+//
+//		MLCommon::updateHost(rows_h, rows, n*k);
+//		MLCommon::updateHost(cols_h, rows, n*k);
+//		MLCommon::updateHost(vals_h, rows, n*k);
 	}
 
 	void SetUp() override {
@@ -83,6 +82,7 @@ protected:
 protected:
 	UMAPParams *umap_params;
 
+	int d = 3;
 	int n = 4;
 	int k = 2;
 

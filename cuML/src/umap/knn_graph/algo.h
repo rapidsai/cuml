@@ -17,34 +17,41 @@
 
 #include "umap/umap.h"
 #include "knn/knn.h"
+#include <iostream>
 
 namespace UMAP {
 
-	namespace kNNGraph {
+namespace kNNGraph {
 
-		namespace Algo {
+	namespace Algo {
 
-			using namespace ML;
+		using namespace ML;
 
-			/**
-			 * Initial implementation calls out to FAISS to do its work.
-			 * TODO: cuML kNN implementation should support FAISS' approx NN variants.
-			 */
-			void launcher(const float *X, int n, int d,
-				     	  long *knn_indices, float *knn_dists,
-				     	  UMAPParams *params) {
+		/**
+		 * Initial implementation calls out to FAISS to do its work.
+		 * TODO: cuML kNN implementation should support FAISS' approx NN variants.
+		 */
+		template<typename T>
+		void launcher(const float *X, int n, int d,
+					  long *knn_indices, T *knn_dists,
+					  UMAPParams *params) {
 
-				ML::kNN knn(d);
-				ML::kNNParams *p = new kNNParams[1];
-				p[0].ptr = X;
-				p[0].N = n;
+			std::cout << "Calling knn" << std::endl;
+			ML::kNN knn(d);
+			ML::kNNParams *p = new kNNParams[1];
+			p[0].ptr = X;
+			p[0].N = n;
 
-				knn.fit(p, 1);
-				knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
+			std::cout << "Calling fit" << std::endl;
+			knn.fit(p, 1);
+			std::cout << "Calling search" << std::endl;
+			knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
 
-				delete p;
-			}
+			std::cout << "Done knn." << std::endl;
+
+			delete p;
 		}
 	}
 }
+};
 

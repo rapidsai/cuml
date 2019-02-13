@@ -18,6 +18,7 @@
 #include "fuzzy_simpl_set/runner.h"
 #include "knn_graph/runner.h"
 #include "simpl_set_embed/runner.h"
+#include "cuda_utils.h"
 
 namespace UMAP {
 
@@ -32,19 +33,26 @@ namespace UMAP {
 		long *knn_indices;
 		T *knn_dists;
 
+		MLCommon::allocate(knn_indices, n*params->n_neighbors);
+		MLCommon::allocate(knn_dists, n*params->n_neighbors);
+
 		kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
 
 		/**
 		 * Allocate workspace for fuzzy simplicial set.
 		 */
-		T *sigmas;
-		T *rhos;
+		int *rows, *cols;
+		T *vals;
+
+		MLCommon::allocate(rows, n*params->n_neighbors);
+		MLCommon::allocate(cols, n*params->n_neighbors);
+		MLCommon::allocate(vals, n*params->n_neighbors);
 
 		/**
 		 * Run Fuzzy simplicial set
 		 */
 		FuzzySimplSet::run(knn_indices, knn_dists, n,
-						   sigmas, rhos,
+						   rows, cols, vals,
 						   params, 0);
 
 		/**

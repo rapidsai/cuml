@@ -19,6 +19,7 @@
 #include <stdexcept>
 #include <string>
 #include <cstdio>
+#include <sstream>
 #include <stdint.h>
 
 namespace MLCommon {
@@ -99,6 +100,8 @@ template<typename IntType>
 constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
 	return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
 }
+
+
 
 template<typename Type>
 class TypeMG {
@@ -271,6 +274,29 @@ void updateHostMG(Type* hPtr, const TypeMG<Type>* ptr, int n_gpus,
 		}
 	}
 }
+
+template<typename T>
+std::string arr2Str(T *arr, int size, std::string name) {
+
+	std::stringstream ss;
+
+	T* arr_h = (T*)malloc(size * sizeof(T));
+	updateHost(arr_h, arr, size);
+
+	ss << name << "= [ ";
+	for(int i = 0; i < size; i++) {
+		ss << arr_h[i];
+
+		if(i > size-1)
+			ss << ", ";
+	}
+	ss << " ]" << std::endl;
+
+	delete arr_h;
+
+	return ss.str();
+}
+
 
 template<typename Type>
 void freeMG(Type* ptr, int n_gpus) {
