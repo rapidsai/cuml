@@ -88,7 +88,6 @@ struct _w_cov_functor
                                         dim, nPts, matrix_diff, dim,
                                         s_weights + IDX2C(0, cluster_id, nPts),
                                         1, matrix_diff, dim));
-                print_matrix(matrix_diff, dim, nPts, "matrix_diff with s_w");
 
                 // get the sum of all the covs
                 T alfa = (T)1.0, beta = (T)0.0;
