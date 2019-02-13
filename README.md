@@ -34,21 +34,21 @@ For additional examples, browse our complete [API documentation](https://rapidsa
 
 ### Supported Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD),
+- Truncated Singular Value Decomposition (tSVD)
 
-- Principal Component Analysis (PCA),
+- Principal Component Analysis (PCA)
 
-- Density-based spatial clustering of applications with noise (DBSCAN),
+- Density-based spatial clustering of applications with noise (DBSCAN)
 
-- K-Means Clustering,
+- K-Means Clustering
 
-- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use),
+- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
 
-- Linear Regression (Ordinary Least Squares),
+- Linear Regression (Ordinary Least Squares)
 
-- Ridge Regression.
+- Ridge Regression
 
-- Kalman Filter.
+- Kalman Filter
 
 
 ## Installation
@@ -73,7 +73,7 @@ You also need to ensure `libomp` and `libopenblas` are installed:
 apt install libopenblas-base libomp-dev
 ```
 
-*Note:* There is no faiss-gpu package installable by pip; cuml.KNN requires also installing [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
+*Note:* Pip has no faiss-gpu package: If installing cuML from pip and you plan to use cuml.KNN, you must install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
 
 
 **NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
@@ -81,42 +81,28 @@ apt install libopenblas-base libomp-dev
 The cuML repository contains:
 
 1. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
-
-   a) Single GPU Truncated Singular Value Decomposition (tSVD)
-
-   b) Single GPU Principal Component Analysis (PCA)
-
-   c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
-
-   d) Single GPU Kalman Filtering
-
-   e) Multi-GPU K-Means Clustering
-
-   f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
+  a) Single GPU Truncated Singular Value Decomposition (tSVD)
+  b) Single GPU Principal Component Analysis (PCA)
+  c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
+  d) Single GPU Kalman Filtering
+  e) Multi-GPU K-Means Clustering
+  f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
 
 2. ***python***: Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components:
-   a) Linear Algebra
-
-   b) Statistics
-
-   c) Basic Matrix Operations
-
-   d) Distance Functions
-
-   e) Random Number Generation
+  a) Linear Algebra
+  b) Statistics
+  c) Basic Matrix Operations
+  d) Distance Functions
+  e) Random Number Generation
 
 Algorithms in progress:
 
 - More Kalman Filter versions
-
 - Lasso
-
 - Elastic-Net
-
 - Logistic Regression
-
 - UMAP
 
 
