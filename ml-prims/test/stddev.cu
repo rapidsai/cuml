@@ -53,15 +53,6 @@ protected:
     r.normal(data, len, params.mean, params.stddev);
 
     stdVarSGtest(data);
-
-    CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
-    if (device_count > 1) {
-      T *h_data = (T *)malloc(len * sizeof(T));
-      updateHost(h_data, data, len);
-      stdMGColSplitTest(h_data);
-      free(h_data);
-    }
   }
 
   void stdVarSGtest(T *data) {
@@ -77,68 +68,16 @@ protected:
     Matrix::seqRoot(vars_act, T(1), cols);
   }
 
-
-  void stdMGColSplitTest(T *h_data) {
-    int n_gpus = 2;
-
-    TypeMG<T> d_data[n_gpus];
-    TypeMG<T> d_mu[n_gpus];
-    TypeMG<T> d_std[n_gpus];
-
-    for (int i = 0; i < n_gpus; i++) {
-      d_data[i].gpu_id = i;
-      d_mu[i].gpu_id = i;
-      d_std[i].gpu_id = i;
-      CUDA_CHECK(cudaSetDevice(d_data[i].gpu_id));
-      CUDA_CHECK(cudaStreamCreate(&(d_data[i].stream)));
-      d_mu[i].stream = d_data[i].stream;
-      d_std[i].stream = d_data[i].stream;
-    }
-
-    allocateMG(d_data, n_gpus, params.rows, params.cols, true, true, false);
-    allocateMG(d_mu, n_gpus, 1, params.cols, true, true, false);
-    allocateMG(d_std, n_gpus, 1, params.cols, true, true, false);
-
-    updateDeviceMG(d_data, h_data, n_gpus, false);
-
-    meanMG(d_mu, d_data, params.cols, params.rows, n_gpus, true, false, false,
-           false);
-
-    stddevMG(d_std, d_data, d_mu, params.cols, params.rows, n_gpus, true, false,
-             false, false);
-
-    int len = params.cols;
-    T *h_std = (T *)malloc(len * sizeof(T));
-    updateHostMG(h_std, d_std, n_gpus, false);
-
-    streamSyncMG(d_data, n_gpus);
-    streamDestroyGPUs(d_data, n_gpus);
-
-    freeMG(d_data, n_gpus);
-    freeMG(d_mu, n_gpus);
-    freeMG(d_std, n_gpus);
-
-    allocate(stddev_act_2, len);
-    updateDevice(stddev_act_2, h_std, len);
-
-    free(h_std);
-  }
-
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(mean_act));
     CUDA_CHECK(cudaFree(stddev_act));
     CUDA_CHECK(cudaFree(vars_act));
-
-    if (device_count > 1) {
-      CUDA_CHECK(cudaFree(stddev_act_2));
-    }
   }
 
 protected:
   StdDevInputs<T> params;
-  T *data, *mean_act, *stddev_act, *vars_act, *stddev_act_2;
-  int device_count = 0;
+  T *data, *mean_act, *stddev_act, *vars_act;
 };
 
 const std::vector<StdDevInputs<float>> inputsf = {
@@ -184,11 +123,6 @@ TEST_P(StdDevTestF, Result) {
 
   ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
                           CompareApprox<float>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(params.stddev, stddev_act_2, params.cols,
-                            CompareApprox<float>(params.tolerance)));
-  }
 }
 
 typedef StdDevTest<double> StdDevTestD;
@@ -198,11 +132,6 @@ TEST_P(StdDevTestD, Result) {
 
   ASSERT_TRUE(devArrMatch(stddev_act, vars_act, params.cols,
                           CompareApprox<double>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(params.stddev, stddev_act_2, params.cols,
-                            CompareApprox<double>(params.tolerance)));
-  }
 }
 
 

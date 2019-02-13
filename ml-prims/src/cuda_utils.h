@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <stdexcept>
 #include <string>
+#include <iostream>
 
 namespace MLCommon {
 
@@ -101,33 +102,6 @@ constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
   return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
 }
 
-template <typename Type>
-class TypeMG {
-public:
-  Type *d_data;
-  // Type *h_data;
-  int n_rows;
-  int n_cols;
-  int gpu_id;
-  cudaStream_t stream;
-};
-
-template <typename Type>
-void streamDestroyGPUs(TypeMG<Type> *data, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
-    CUDA_CHECK(cudaStreamDestroy(data[i].stream));
-  }
-}
-
-template <typename Type>
-void streamSyncMG(const TypeMG<Type> *data, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
-    CUDA_CHECK(cudaStreamSynchronize(data[i].stream));
-  }
-}
-
 /** cuda malloc */
 template <typename Type>
 void allocate(Type *&ptr, size_t len, bool setZero = false) {
@@ -136,75 +110,14 @@ void allocate(Type *&ptr, size_t len, bool setZero = false) {
     CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
 }
 
-template <typename Type>
-void allocateMG(TypeMG<Type> *ptr, int n_gpus, int n_rows, int n_cols,
-                bool even = true, bool setZero = false,
-                bool row_split = false) {
-  if (row_split) {
-    if (even) {
-      int n_row_gpu = int(n_rows / n_gpus);
-      if (n_row_gpu == 0)
-        ASSERT(false,
-               "allocateMG: Data is too small to distribute to multiple-gpus");
-
-      int remaining_n_rows = n_rows;
-
-      for (int i = 0; i < n_gpus; i++) {
-        if (remaining_n_rows <= 0)
-          break;
-
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-        if (i == (n_gpus - 1)) {
-          allocate(ptr[i].d_data, remaining_n_rows * n_cols, setZero);
-          ptr[i].n_rows = remaining_n_rows;
-        } else {
-          allocate(ptr[i].d_data, n_row_gpu * n_cols, setZero);
-          ptr[i].n_rows = n_row_gpu;
-        }
-
-        ptr[i].n_cols = n_cols;
-        remaining_n_rows = remaining_n_rows - n_row_gpu;
-      }
-    } else {
-      for (int i = 0; i < n_gpus; i++) {
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-        allocate(ptr[i].d_data, ptr[i].n_rows * n_cols, setZero);
-      }
-    }
-  } else {
-    if (even) {
-      int n_col_gpu = int(n_cols / n_gpus);
-      if (n_col_gpu == 0)
-        ASSERT(false,
-               "allocateMG: Data is too small to distribute to multiple-gpus");
-
-      int remaining_n_cols = n_cols;
-
-      for (int i = 0; i < n_gpus; i++) {
-        if (remaining_n_cols <= 0)
-          break;
-
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-        if (i == (n_gpus - 1)) {
-          allocate(ptr[i].d_data, remaining_n_cols * n_rows, setZero);
-          ptr[i].n_cols = remaining_n_cols;
-        } else {
-          allocate(ptr[i].d_data, n_col_gpu * n_rows, setZero);
-          ptr[i].n_cols = n_col_gpu;
-        }
-
-        ptr[i].n_rows = n_rows;
-        remaining_n_cols = remaining_n_cols - n_col_gpu;
-      }
-    } else {
-      for (int i = 0; i < n_gpus; i++) {
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-        allocate(ptr[i].d_data, ptr[i].n_cols * n_rows, setZero);
-      }
-    }
-  }
+/** Helper function to calculate need memory for allocate to store dense matrix.
+* @param rows number of rows in matrix
+* @param columns number of columns in matrix
+* @return need number of items to allocate via allocate()
+* @sa allocate()
+*/
+inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
+    return rows * columns;
 }
 
 /** performs a host to device copy */
@@ -222,21 +135,6 @@ void updateDeviceAsync(Type *dPtr, const Type *hPtr, size_t len,
                              cudaMemcpyHostToDevice, stream));
 }
 
-template <typename Type>
-void updateDeviceMG(TypeMG<Type> *ptr, const Type *hPtr, int n_gpus,
-                    bool row_major = false) {
-  if (row_major) {
-    ASSERT(false, "updateDeviceMG: row split not implemented");
-  } else {
-    for (int i = 0; i < n_gpus; i++) {
-      CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-      int len = ptr[i].n_cols * ptr[i].n_rows;
-      updateDeviceAsync(ptr[i].d_data, &hPtr[i * len], len, ptr[i].stream);
-    }
-  }
-}
-
 /** performs a device to host copy */
 template <typename Type>
 void updateHost(Type *hPtr, const Type *dPtr, size_t len,
@@ -250,29 +148,6 @@ void updateHostAsync(Type *hPtr, const Type *dPtr, size_t len,
                      cudaStream_t stream) {
   CUDA_CHECK(cudaMemcpyAsync(hPtr, dPtr, len * sizeof(Type),
                              cudaMemcpyDeviceToHost, stream));
-}
-
-template <typename Type>
-void updateHostMG(Type *hPtr, const TypeMG<Type> *ptr, int n_gpus,
-                  bool row_major = false) {
-  if (row_major) {
-    ASSERT(false, "updateDeviceMG: row split not implemented");
-  } else {
-    for (int i = 0; i < n_gpus; i++) {
-      CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-      int len = ptr[i].n_cols * ptr[i].n_rows;
-      updateHostAsync(&hPtr[i * len], ptr[i].d_data, len, ptr[i].stream);
-    }
-  }
-}
-
-template <typename Type>
-void freeMG(Type *ptr, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-    CUDA_CHECK(cudaFree(ptr[i].d_data));
-  }
 }
 
 template <typename Type>
@@ -468,7 +343,6 @@ HDI double myPow(double x, double power) {
 }
 /** @} */
 
-
 /**
  * @defgroup Pow Power function
  * @{
@@ -483,6 +357,60 @@ struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
 };
 /** @} */
+
+/**
+ * @defgroup Sign Obtain sign value
+ * @{
+ */
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+*/
+template <typename T> DI T signPrim(T x) { return x < 0 ? -1 : +1; }
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+*/
+template <> DI float signPrim(float x) { return signbit(x) == true ? -1.0f : +1.0f; }
+
+/** Obtain sign of x
+* @param x input
+* @return +1 if x>=0 and -1 otherwise
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+*/
+template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1.0; }
+/** @} */
+
+/**
+ * @defgroup Max value
+ * @{
+ */
+
+/** Obtain maximum of two values
+* @param x one item
+* @param y second item
+* @return maximum of two items
+*/
+template <typename T> DI T maxPrim(T x, T y) { return x > y ? x : y; }
+
+/** Obtain maximum of two values with template specialization which exploit cuda mathematical funcions
+* @param x one item
+* @param y second item
+* @return maximum of two items
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
+*/
+template <> DI float maxPrim(float x, float y) { return fmaxf(x, y); }
+
+/** Obtain maximum of two values with template specialization which exploit mathematical funcions
+* @param x one item
+* @param y second item
+* @return maximum of two items
+* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
+*/
+template <> DI double maxPrim(double x, double y) { return fmax(x, y); }
 
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
@@ -549,5 +477,47 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
   return __shfl_xor(val, laneMask, width);
 #endif
 }
+
+
+/**
+ * @defgroup Debug utils for debug device code
+ * @{
+ */
+template<class T, class OutStream>
+void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount, OutStream& out)
+{
+    out << variableName << "=[";
+    for (size_t i = 0; i < componentsCount; ++i)
+    {
+        if (i != 0)
+            out << ",";
+        out << hostMem[i];
+    }
+    out << "];\n";
+}
+
+template<class T>
+void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount)
+{
+    myPrintHostVector(variableName, hostMem, componentsCount, std::cout);
+    std::cout.flush();
+}
+
+template<class T, class OutStream>
+void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount, OutStream& out)
+{
+    T* hostMem = new T[componentsCount];
+    CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
+    myPrintHostVector(variableName, hostMem, componentsCount, out);
+    delete []hostMem;
+}
+
+template<class T>
+void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount)
+{
+    myPrintDevVector(variableName, devMem, componentsCount, std::cout);
+    std::cout.flush();
+}
+/** @} */
 
 } // namespace MLCommon
