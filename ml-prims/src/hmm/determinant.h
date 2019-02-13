@@ -75,6 +75,7 @@ struct Determinant
 
         Determinant(int _nDim){
                 nDim = _nDim;
+                CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
                 CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo, nDim, tempM, nDim, &cholWsSize));
                 allocate(cholWs, cholWsSize);
                 allocate(info, 1);
@@ -85,7 +86,6 @@ struct Determinant
         // We assume M is hermitian !!!
         T compute(T* M){
                 // TODO : Add Hermitian assertion
-
                 // Copy to tempM
                 copy(tempM, M, nDim * nDim);
 
@@ -97,7 +97,6 @@ struct Determinant
                 updateHost(&info_h, info, 1);
 
                 ASSERT(info_h == 0, "sigma: error in potrf, info=%d | expected=0", info_h);
-                // print_matrix(tempM, nDim, nDim, "M");
 
                 // Compute determinant
                 T prod =  diag_product(tempM, nDim);
