@@ -4,24 +4,6 @@ cuML is a suite of libraries that implement machine learning algorithms and shar
 
 cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
 
-#### Supported Algorithms:
-
-- Truncated Singular Value Decomposition (tSVD),
-
-- Principal Component Analysis (PCA),
-
-- Density-based spatial clustering of applications with noise (DBSCAN),
-
-- K-Means Clustering,
-
-- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use),
-
-- Linear Regression (Ordinary Least Squares),
-
-- Ridge Regression.
-
-- Kalman Filter.
-
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
 ```
 import cudf
@@ -49,6 +31,24 @@ dtype: int32
 ```
 
 For additional examples, browse our complete [API documentation](https://rapidsai.github.io/projects/cuml/en/latest/index.html), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
+
+#### Supported Algorithms:
+
+- Truncated Singular Value Decomposition (tSVD),
+
+- Principal Component Analysis (PCA),
+
+- Density-based spatial clustering of applications with noise (DBSCAN),
+
+- K-Means Clustering,
+
+- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use),
+
+- Linear Regression (Ordinary Least Squares),
+
+- Ridge Regression.
+
+- Kalman Filter.
 
 ## Installation
 
