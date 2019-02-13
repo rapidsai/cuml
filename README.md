@@ -1,6 +1,8 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - RAPIDS Machine Learning Algorithms</div>
 
-Machine learning is a fundamental capability of RAPIDS, the GPU accelerated data science ecosystem. cuML is a suite of libraries that implement machine learning algorithms and share compatible APIs with other RAPIDS projects. cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
+cuML is a suite of libraries that implement machine learning algorithms and share compatible APIs with other RAPIDS projects.
+
+cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
 
 #### Supported Algorithms:
 
