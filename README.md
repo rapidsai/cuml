@@ -104,7 +104,7 @@ cuML's core structure contains:
   - Random Number Generation
 
 ### Build from Source
-See [docs/build.md]
+[Instructions](docs/build.md)
 
 ## External
 
