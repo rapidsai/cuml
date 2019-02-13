@@ -53,64 +53,16 @@ protected:
 
     allocate(sum_act, cols);
     sum(sum_act, data, cols, rows, false);
-
-    CUDA_CHECK(cudaGetDeviceCount(&device_count));
-
-    if (device_count > 1) {
-      sumMGColSplitTest(data_h);
-    }
-  }
-
-  void sumMGColSplitTest(T *h_data) {
-    int n_gpus = 2;
-
-    TypeMG<T> d_data[n_gpus];
-    TypeMG<T> d_sum[n_gpus];
-
-    for (int i = 0; i < n_gpus; i++) {
-      d_data[i].gpu_id = i;
-      d_sum[i].gpu_id = i;
-      CUDA_CHECK(cudaSetDevice(d_data[i].gpu_id));
-      CUDA_CHECK(cudaStreamCreate(&(d_data[i].stream)));
-      d_sum[i].stream = d_data[i].stream;
-    }
-
-    allocateMG(d_data, n_gpus, params.rows, params.cols, true, true, false);
-    allocateMG(d_sum, n_gpus, 1, params.cols, true, true, false);
-
-    updateDeviceMG(d_data, h_data, n_gpus, false);
-
-    sumMG(d_sum, d_data, params.cols, params.rows, n_gpus, false, false, false);
-
-
-    int len = params.cols;
-    T *h_sum = (T *)malloc(len * sizeof(T));
-    updateHostMG(h_sum, d_sum, n_gpus, false);
-
-    streamSyncMG(d_data, n_gpus);
-    streamDestroyGPUs(d_data, n_gpus);
-
-    freeMG(d_data, n_gpus);
-    freeMG(d_sum, n_gpus);
-
-    allocate(sum_act_2, len);
-    updateDevice(sum_act_2, h_sum, len);
-
-    free(h_sum);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(sum_act));
-    if (device_count > 1) {
-      CUDA_CHECK(cudaFree(sum_act_2));
-    }
   }
 
 protected:
   SumInputs<T> params;
-  T *data, *sum_act, *sum_act_2;
-  int device_count = 0;
+  T *data, *sum_act;
 };
 
 const std::vector<SumInputs<float>> inputsf = {{0.05f, 1024, 32, 1234ULL},
@@ -123,22 +75,12 @@ typedef SumTest<float> SumTestF;
 TEST_P(SumTestF, Result) {
   ASSERT_TRUE(devArrMatch(float(params.rows), sum_act, params.cols,
                           CompareApprox<float>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(float(params.rows), sum_act_2, params.cols,
-                            CompareApprox<float>(params.tolerance)));
-  }
 }
 
 typedef SumTest<double> SumTestD;
 TEST_P(SumTestD, Result) {
   ASSERT_TRUE(devArrMatch(double(params.rows), sum_act, params.cols,
                           CompareApprox<double>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(double(params.rows), sum_act_2, params.cols,
-                            CompareApprox<double>(params.tolerance)));
-  }
 }
 
 INSTANTIATE_TEST_CASE_P(SumTests, SumTestF, ::testing::ValuesIn(inputsf));
