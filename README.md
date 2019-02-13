@@ -32,6 +32,8 @@ dtype: int32
 
 For additional examples, browse our complete [API documentation](https://rapidsai.github.io/projects/cuml/en/latest/index.html), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 
+**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
+
 ### Supported Algorithms:
 
 - Truncated Singular Value Decomposition (tSVD)
@@ -43,7 +45,22 @@ For additional examples, browse our complete [API documentation](https://rapidsa
 - Ridge Regression
 - Kalman Filter
 
+Algorithms in progress:
+
+- More Kalman Filter versions
+- Lasso
+- Elastic-Net
+- Logistic Regression
+- UMAP
+
+More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
+
 ## Installation
+
+Ensure `libomp` and `libopenblas` are installed:
+```bash
+sudo apt install libopenblas-base libomp-dev
+```
 
 #### Conda
 cuML can be installed using the `rapidsai` conda channel:
@@ -63,14 +80,8 @@ pip install cuml-cuda92
 # cuda 10.0
 pip install cuml-cuda100
 ```
-You also need to ensure `libomp` and `libopenblas` are installed:
-```bash
-apt install libopenblas-base libomp-dev
-```
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
-
-The cuML repository contains:
+cuML's core structure contains:
 
 1. ***cuML***:
   C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
@@ -82,25 +93,15 @@ The cuML repository contains:
   - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
 
 2. ***python***:
-  Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
+  for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
 
 3. ***ml-prims***:
-  Low level machine learning primitives used in cuML. ml-prims is comprised of the following components:
+  Low level machine learning primitives used in cuML. Includes:
   - Linear Algebra
   - Statistics
   - Basic Matrix Operations
   - Distance Functions
   - Random Number Generation
-
-Algorithms in progress:
-
-- More Kalman Filter versions
-- Lasso
-- Elastic-Net
-- Logistic Regression
-- UMAP
-
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
 ### Build from Source
 See [docs/build.md]
