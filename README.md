@@ -106,17 +106,6 @@ cuML's core structure contains:
 ### Build from Source
 [Instructions](docs/build.md)
 
-## External
-
-The external folders contains submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main `CMakeLists.txt` file for these.
-
-Current external submodules are:
-
-- [CUTLASS](https://github.com/NVIDIA/cutlass)
-- [Google Test](https://github.com/google/googletest)
-- [CUB](https://github.com/NVlabs/cub)
-
 ## Contributing
 
 Please use GitHub issues and pull requests to report bugs and add or request functionality.
