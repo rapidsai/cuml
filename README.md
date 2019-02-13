@@ -35,21 +35,13 @@ For additional examples, browse our complete [API documentation](https://rapidsa
 ### Supported Algorithms:
 
 - Truncated Singular Value Decomposition (tSVD)
-
 - Principal Component Analysis (PCA)
-
 - Density-based spatial clustering of applications with noise (DBSCAN)
-
 - K-Means Clustering
-
 - K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
-
 - Linear Regression (Ordinary Least Squares)
-
 - Ridge Regression
-
 - Kalman Filter
-
 
 ## Installation
 
@@ -81,21 +73,21 @@ apt install libopenblas-base libomp-dev
 The cuML repository contains:
 
 1. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
-  a) Single GPU Truncated Singular Value Decomposition (tSVD)
-  b) Single GPU Principal Component Analysis (PCA)
-  c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
-  d) Single GPU Kalman Filtering
-  e) Multi-GPU K-Means Clustering
-  f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
+  - Single GPU Truncated Singular Value Decomposition (tSVD)
+  - Single GPU Principal Component Analysis (PCA)
+  - Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
+  - Single GPU Kalman Filtering
+  - Multi-GPU K-Means Clustering
+  - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
 
 2. ***python***: Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
 3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components:
-  a) Linear Algebra
-  b) Statistics
-  c) Basic Matrix Operations
-  d) Distance Functions
-  e) Random Number Generation
+  - Linear Algebra
+  - Statistics
+  - Basic Matrix Operations
+  - Distance Functions
+  - Random Number Generation
 
 Algorithms in progress:
 
