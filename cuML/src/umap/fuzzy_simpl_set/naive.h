@@ -203,7 +203,6 @@ namespace Naive {
 	__global__ void compute_membership_strength(const long *knn_indices, const float *knn_dists,  // nn outputs
 									 const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
 									 T *vals, int *rows, int *cols,  // result coo
-									 T *tvals, int *trows, int *tcols, // result coo transposed rows
 									 int n, int n_neighbors) {	 // model params
 
 		// row-based matrix is best
@@ -241,18 +240,12 @@ namespace Naive {
 				rows[idx] = i;
 				cols[idx] = cur_knn_ind;
 				vals[idx] = val;
-
-				// Transposed- swap rows/cols. Will sort by row.
-				tcols[idx] = i;
-				trows[idx] = cur_knn_ind;
-				tvals[idx] = val;
 			}
 		}
 	}
 
 	template<typename T>
 	__global__ void compute_result(int *rows, int *cols, T *vals,
-								   int *trows, int *tcols, T *tvals,
 								   int *orows, int *ocols, T *ovals,
 								   int *rnnz, int n,
 								   int n_neighbors, float set_op_mix_ratio) {
@@ -261,28 +254,51 @@ namespace Naive {
 		int i = row*n_neighbors; // each thread processes one row
 		// Grab the n_neighbors from our transposed matrix,
 
-		int nnz = 0;
-		for(int j = 0; j < n_neighbors; j++) {
+		if(row < n) {
 
-			int idx = i+j;
+			int nnz = 0;
+			for(int j = 0; j < n_neighbors; j++) {
 
-			T result = vals[idx];
-			T transpose = tvals[idx];
-			T prod_matrix = vals[idx] * tvals[idx];
+				int idx = i+j;
 
-			T res = set_op_mix_ratio * (result - transpose - prod_matrix)
-							+ (1.0 - set_op_mix_ratio) + prod_matrix;
+				/**
+				 * In order to do the Hadamard with the transposed
+				 * matrix, look up the row corresponding to the current
+				 * column and iterate n_neighbors times max to find
+				 * if the value we are looking for is in here.
+				 *
+				 * Since a metric is symmetric, we can expect symmetry in
+				 * the knn_indices matrix and, thus, we only need a single
+				 * pass through it.
+				 */
+				int t_start = cols[idx]*n_neighbors;
 
-			orows[idx] = rows[idx];
-			ocols[idx] = cols[idx];
-			ovals[idx] = res;
+				T transpose = 0.0;
+				for(int t_idx = t_start; t_idx < t_start+n_neighbors; t_idx++) {
+					if(cols[t_idx] == rows[idx]) {
+						transpose = vals[t_idx];
+						printf("Found transpose for i=%d\n", i);
+					}
+				}
 
-			if(res != 0)
-				++nnz;
+				T result = vals[idx];
+				T prod_matrix = result * transpose;
+
+				T res = set_op_mix_ratio * (result - transpose - prod_matrix)
+								+ (1.0 - set_op_mix_ratio) + prod_matrix;
+
+				orows[idx] = rows[idx];
+				ocols[idx] = cols[idx];
+				ovals[idx] = res;
+
+				if(res != 0)
+					++nnz;
+			}
+
+			rnnz[i] = nnz;
+			atomicAdd(rnnz+n, nnz);
+
 		}
-
-		rnnz[i] = nnz;
-		atomicAdd(rnnz+n, nnz);
 	}
 
 	template <typename T>
@@ -302,83 +318,13 @@ namespace Naive {
 				crows[cur_out_idx] = rows[idx];
 				ccols[cur_out_idx] = cols[idx];
 				cvals[cur_out_idx] = vals[idx];
-
 				++cur_out_idx;
 			}
 		}
 	}
 
-
 	void print(char* msg) {
 	    std::cout << msg << std::endl;
-	}
-
-	template<typename T>
-	void coo_sort(const int m, const int n, const int nnz,
-				  int *rows, int *cols, T *vals) {
-
-		cusparseHandle_t handle = NULL;
-	    cudaStream_t stream = NULL;
-
-	    size_t pBufferSizeInBytes = 0;
-	    void *pBuffer = NULL;
-	    int *d_P = NULL;
-
-	    cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
-
-	    cusparseCreate(&handle);
-
-	    cusparseSetStream(handle, stream);
-
-	    cusparseXcoosort_bufferSizeExt(
-	        handle,
-	        m,
-	        n,
-	        nnz,
-	        rows,
-	        cols,
-	        &pBufferSizeInBytes
-	    );
-
-	    cudaMalloc(&d_P, sizeof(int)*nnz);
-	    cudaMalloc(&pBuffer, sizeof(char)* pBufferSizeInBytes);
-
-	    cusparseCreateIdentityPermutation(
-	        handle,
-	        nnz,
-	        d_P);
-
-	    cusparseXcoosortByRow(
-	        handle,
-	        m,
-	        n,
-	        nnz,
-	        rows,
-	        cols,
-	        d_P,
-	        pBuffer
-	    );
-
-	    T* vals_sorted;
-	    MLCommon::allocate(vals_sorted, m*n);
-
-	    cusparseSgthr(
-	        handle,
-	        nnz,
-	        vals,
-	        vals_sorted,
-	        d_P,
-	        CUSPARSE_INDEX_BASE_ZERO
-	    );
-	    cudaDeviceSynchronize(); /* wait until the computation is done */
-
-	    MLCommon::copy(vals, vals_sorted, m*n);
-
-	    cudaFree(d_P);
-	    cudaFree(vals_sorted);
-	    cudaFree(pBuffer);
-	    cusparseDestroy(handle);
-	    cudaStreamDestroy(stream);
 	}
 
 	/**
@@ -399,10 +345,7 @@ namespace Naive {
 		 */
 
 		print("About to call mean");
-
 		std::cout << "n_neighbors: " << params->n_neighbors << std::endl;
-
-
 
 		T *dist_means_dev;
 		MLCommon::allocate(dist_means_dev, params->n_neighbors);
@@ -413,8 +356,6 @@ namespace Naive {
 		print("Done calling mean.");
 
 	    CUDA_CHECK(cudaPeekAtLastError());
-
-
 
 		T *dist_means_host = (T*)malloc(params->n_neighbors*sizeof(T));
 		MLCommon::updateHost(dist_means_host, dist_means_dev, params->n_neighbors);
@@ -477,13 +418,6 @@ namespace Naive {
 
 	    int k = params->n_neighbors;
 
-		// We will keep arrays, with space O(n*k*9) representing 3 O(n^2) matrices.
-		int *trows, *tcols;
-		T *tvals;
-		MLCommon::allocate(trows, n*k, true);
-		MLCommon::allocate(tcols, n*k, true);
-		MLCommon::allocate(tvals, n*k, true);
-
 		/**
 		 * Call compute_membership_strength
 		 */
@@ -492,55 +426,8 @@ namespace Naive {
 		compute_membership_strength<<<grid,blk>>>(knn_indices, knn_dists,
 												  sigmas, rhos,
 												  vals, rows, cols,
-												  tvals, trows, tcols,
 												  n, params->n_neighbors);
 		cudaDeviceSynchronize();
-
-		/**
-		 * We use a strategy here to minimize the amount of memory for
-		 * storage while simultaneously minimizing the amount of
-		 * time spent scanning through indices.
-		 *
-		 * In order to accomplish this in the first naive computation,
-		 * I am storing the transposed matrix in its own set of
-		 * coo arrays. This transposed form of A then gets sorted by
-		 * row using the following function.
-		 *
-		 * The original A's lookup is deterministic since the hadamard
-		 * product and additional element-wise operations that follow
-		 * are done in parallel for each row. Since the lookup for A
-		 * transpose is not deterministic. We avoid having to store
-		 * an additional array, with a size n upper bound, by making
-		 * a log(n) lookup for the items by row in the transposed matrix.
-		 */
-		coo_sort(n, params->n_neighbors, n*k, trows, tcols, tvals);
-		cudaDeviceSynchronize();
-
-		// Need to do array sort here.
-
-	    int *rows_h = (int*) malloc(n*k*sizeof(int));
-	    int *cols_h = (int*) malloc(n*k*sizeof(int));
-	    float *vals_h = (float*) malloc(n*k*sizeof(float));
-
-	    MLCommon::updateHost(rows_h, trows, n*k);
-	    MLCommon::updateHost(cols_h, tcols, n*k);
-	    MLCommon::updateHost(vals_h, tvals, n*k);
-
-	    printf("Transposed\n");
-	    for(int i = 0; i < n*k; i++) {
-	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
-	    }
-
-	    print("Normal\n");
-	    MLCommon::updateHost(rows_h, rows, n*k);
-	    MLCommon::updateHost(cols_h, cols, n*k);
-	    MLCommon::updateHost(vals_h, vals, n*k);
-
-	    for(int i = 0; i < n*k; i++) {
-	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
-	    }
-
-
 
 	    CUDA_CHECK(cudaPeekAtLastError());
 	    print("Done.");
@@ -558,7 +445,6 @@ namespace Naive {
 		 */
 		print("About to call compute_result");
 		compute_result<<<grid, blk>>>(rows, cols, vals,
-					   trows, tcols, tvals,
 					   orows, ocols, ovals,
 					   rnnz, n, params->n_neighbors, params->set_op_mix_ratio);
 		cudaDeviceSynchronize();
@@ -567,13 +453,21 @@ namespace Naive {
 	    CUDA_CHECK(cudaPeekAtLastError());
 
 
-		CUDA_CHECK(cudaFree(trows));
-		CUDA_CHECK(cudaFree(tcols));
-		CUDA_CHECK(cudaFree(tvals));
+	    int *rows_h = (int*)malloc(n*k*sizeof(int));
+	    int *cols_h = (int*)malloc(n*k*sizeof(int));
+	    T *vals_h = (T*)malloc(n*k*sizeof(T));
 
+	    MLCommon::updateHost(rows_h, rows, n*k);
+	    MLCommon::updateHost(cols_h, cols, n*k);
+	    MLCommon::updateHost(vals_h, vals, n*k);
 
+	    printf("After Compute Result\n");
+	    for(int i = 0; i < n*k; i++) {
+	    	printf("row=%d, col=%d, val=%f\n", rows_h[i], cols_h[i], vals_h[i]);
+	    }
+	    print("Done.");
 
-		/**
+	    /**
 		 * Compress resulting COO matrix
 		 */
 		int *ex_scan;
