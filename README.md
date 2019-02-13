@@ -1,29 +1,8 @@
 # <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - RAPIDS Machine Learning Algorithms</div>
 
-Machine learning is a fundamental capability of RAPIDS. cuML is a suite of libraries that implements a machine learning algorithms within the RAPIDS data science ecosystem. cuML enables data scientists, researchers, and software engineers to run traditional ML tasks on GPUs without going into the details of CUDA programming.
+Machine learning is a fundamental capability of RAPIDS, the GPU accelerated data science ecosystem. cuML is a suite of libraries that implement machine learning algorithms and share compatible APIs with other RAPIDS projects. cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
-
-The cuML repository contains:
-
-1. ***python***: Python based GPU Dataframe (GDF) machine learning package that takes [cuDF](https://github.com/rapidsai/cudf) dataframes as input. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
-
-2. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms;
-   a) Single GPU Truncated Singular Value Decomposition (tSVD),
-   b) Single GPU Principal Component Analysis (PCA),
-   c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
-   d) Single GPU Kalman Filtering,
-   e) Multi-GPU K-Means Clustering,
-   f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss)).
-
-3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
-   a) Linear Algebra,
-   b) Statistics,
-   c) Basic Matrix Operations,
-   d) Distance Functions,
-   e) Random Number Generation.
-
-#### Available Algorithms:
+#### Supported Algorithms:
 
 - Truncated Singular Value Decomposition (tSVD),
 
@@ -41,25 +20,35 @@ The cuML repository contains:
 
 - Kalman Filter.
 
-Upcoming algorithms:
+As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
+```
+import cudf
+from cuml import DBSCAN
 
-- More Kalman Filter versions, 
+# Create and populate a GPU DataFrame
+gdf_float = cudf.DataFrame()
+gdf_float['0'] = [1.0, 2.0, 5.0]
+gdf_float['1'] = [4.0, 2.0, 1.0]
+gdf_float['2'] = [4.0, 2.0, 1.0]
 
-- Lasso,
+# Setup and fit clusters
+dbscan_float = DBSCAN(eps=1.0, min_samples=1)
+dbscan_float.fit(gdf_float)
 
-- Elastic-Net,
+print(dbsca_float.labels_)
+```
 
-- Logistic Regression,
+Output:
+```
+0    0
+1    1
+2    2
+dtype: int32
+```
 
-- UMAP
+For additional examples, browse our complete [API documentation](https://rapidsai.github.io/projects/cuml/en/latest/index.html), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 
-
-More ML algorithms in cuML and more ML primitives in ml-prims are being added currently. Example notebooks are provided in the python folder to test the functionality and performance. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
-
-The installation option provided currently consists on building from source. Upcoming versions will add `pip` and `conda` options, along docker containers. They will be available in the coming weeks.
-
-
-## Setup
+## Installation
 
 ### Conda
 cuML can be installed using the `rapidsai` conda channel:
@@ -83,103 +72,45 @@ apt install libopenblas-base libomp-dev
 
 *Note:* There is no faiss-gpu package installable by pip, so the KNN algorithm will not work unless you install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
 
-### Dependencies for Installing/Building from Source:
 
-To install cuML from source, ensure the dependencies are met:
+**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.0)
-2. zlib Provided by zlib1g-dev in Ubuntu 16.04
-3. cmake (>= 3.12.4)
-4. CUDA (>= 9.2)
-5. Cython (>= 0.29)
-6. gcc (>=5.4.0)
-7. BLAS - Any BLAS compatible with Cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html)
+The cuML repository contains:
 
-```bash
-# cuda 9.2
-conda install -c pytorch faiss-gpu cuda92
+1. ***cuML***: C++/CUDA machine learning algorithms. This library currently includes the following six algorithms;
+   a) Single GPU Truncated Singular Value Decomposition (tSVD),
+   b) Single GPU Principal Component Analysis (PCA),
+   c) Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN),
+   d) Single GPU Kalman Filtering,
+   e) Multi-GPU K-Means Clustering,
+   f) Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss)).
 
-# cuda 10.0
-conda install -c pytorch faiss-gpu cuda100
-```
+2. ***python***: Python bindings for the above, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without ever leaving GPU memory.
 
-### Installing from Source:
+3. ***ml-prims***: Low level machine learning primitives used in cuML. ml-prims is comprised of the following components;
+   a) Linear Algebra,
+   b) Statistics,
+   c) Basic Matrix Operations,
+   d) Distance Functions,
+   e) Random Number Generation.
 
-Once dependencies are present, follow the steps below:
+Algorithms in progress:
 
-1. Clone the repository.
-```bash
-$ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
-```
+- More Kalman Filter versions, 
 
-2. Build and install `libcuml` (the C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
-```bash
-$ cd cuML
-$ mkdir build
-$ cd build
-$ cmake ..
-```
+- Lasso,
 
-If using a conda environment (recommended currently), then cmake can be configured appropriately via:
+- Elastic-Net,
 
-```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-```
+- Logistic Regression,
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
-```
-Cannot generate a safe runtime search path for target ml_test because files
-in some directories may conflict with libraries in implicit directories:
-```
-
-The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version. 
+- UMAP
 
 
-3. Build `libcuml`:
+More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
-```bash
-$ make -j
-$ make install
-```
-
-To run tests (optional):
-
-```bash
-$ ./ml_test
-```
-
-If you want a list of the available tests:
-```bash
-$ ./ml_test --gtest_list_tests
-```
-
-4. Build the `cuml` python package:
-
-```bash
-$ cd ../../python
-$ python setup.py build_ext --inplace
-```
-
-To run Python tests (optional):
-
-```bash
-$ py.test -v
-```
-
-If you want a list of the available tests:
-```bash
-$ py.test cuML/test --collect-only
-```
-
-5. Finally, install the Python package to your Python path:
-
-```bash
-$ python setup.py install
-```
-
-### Python Notebooks
-
-Demo notebooks for the cuML Python algorithms can be found in the [rapidsai/notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml) repository on Github.
+### Build from Source
+See [docs/build.md]
 
 ## External
 
@@ -194,7 +125,7 @@ Current external submodules are:
 
 ## Contributing
 
-Please use issues and pull requests to report bugs and add functionality.
+Please use GitHub issues and pull requests to report bugs and add or request functionality.
 
 ## Contact
 
