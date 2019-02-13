@@ -93,7 +93,7 @@ cuML's core structure contains:
   - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
 
 2. ***python***:
-  for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf) GPU dataframes. cuML connects the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
+  Python bindings for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf). These bindings connect the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
 
 3. ***ml-prims***:
   Low level machine learning primitives used in cuML. Includes:
