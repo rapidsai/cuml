@@ -308,7 +308,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
   for (int r = 0; r < mat.m; r++) {
     int idx = r;
     for (int c = 0; c < mat.n - 1; c++) {
-      os << out[idx] << " ";
+      os << out[idx] << ",";
       idx += mat.m;
     }
     os << out[idx] << std::endl;
@@ -324,7 +324,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T, ROW_MAJOR> &mat) {
   for (int c = 0; c < mat.m; c++) {
     int idx = c * mat.n;
     for (int r = 0; r < mat.n - 1; r++) {
-      os << out[idx] << " ";
+      os << out[idx] << ",";
       idx += 1;
     }
     os << out[idx] << std::endl;
