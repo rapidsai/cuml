@@ -181,8 +181,9 @@ void permute(IntType* perms, Type* out, const Type* in, IntType D, IntType N,
     ASSERT(rowMajor, "permute: Currently only rowMajor layout is supported!");
     ///@todo: figure out this number based on input matrix dimensions
     constexpr int NumItems = 4;
+    constexpr int ItemsPerThread = NumItems * TPB;
     // get the next highest po2 for N
-    int k = (int)log2(N, (IntType)0);
+    int k = (int)log2(max(N, ItemsPerThread), (IntType)0);
     if(N > (1 << k)) ++k;
     IntType twoPowK = 1 << k;
     auto nblks = ceildiv(twoPowK, TPB * NumItems);

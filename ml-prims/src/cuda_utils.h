@@ -102,112 +102,13 @@ constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
   return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
 }
 
-template <typename Type>
-class TypeMG {
-public:
-  Type *d_data;
-  // Type *h_data;
-  int n_rows;
-  int n_cols;
-  int gpu_id;
-  cudaStream_t stream;
-};
-
-template <typename Type>
-void streamDestroyGPUs(TypeMG<Type> *data, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
-    CUDA_CHECK(cudaStreamDestroy(data[i].stream));
-  }
-}
-
-template <typename Type>
-void streamSyncMG(const TypeMG<Type> *data, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(data[i].gpu_id));
-    CUDA_CHECK(cudaStreamSynchronize(data[i].stream));
-  }
-}
-
-/** cuda malloc and free*/
+/** cuda malloc */
 template <typename Type>
 void allocate(Type *&ptr, size_t len, bool setZero = false) {
   CUDA_CHECK(cudaMalloc((void **)&ptr, sizeof(Type) * len));
   if (setZero)
     CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
 }
-
-template <typename Type>
-void allocateMG(TypeMG<Type> *ptr, int n_gpus, int n_rows, int n_cols,
-                bool even = true, bool setZero = false,
-                bool row_split = false) {
-  if (row_split) {
-    if (even) {
-      int n_row_gpu = int(n_rows / n_gpus);
-      if (n_row_gpu == 0)
-        ASSERT(false,
-               "allocateMG: Data is too small to distribute to multiple-gpus");
-
-      int remaining_n_rows = n_rows;
-
-      for (int i = 0; i < n_gpus; i++) {
-        if (remaining_n_rows <= 0)
-          break;
-
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-        if (i == (n_gpus - 1)) {
-          allocate(ptr[i].d_data, remaining_n_rows * n_cols, setZero);
-          ptr[i].n_rows = remaining_n_rows;
-        } else {
-          allocate(ptr[i].d_data, n_row_gpu * n_cols, setZero);
-          ptr[i].n_rows = n_row_gpu;
-        }
-
-        ptr[i].n_cols = n_cols;
-        remaining_n_rows = remaining_n_rows - n_row_gpu;
-      }
-    } else {
-      for (int i = 0; i < n_gpus; i++) {
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-        allocate(ptr[i].d_data, ptr[i].n_rows * n_cols, setZero);
-      }
-    }
-  } else {
-    if (even) {
-      int n_col_gpu = int(n_cols / n_gpus);
-      if (n_col_gpu == 0)
-        ASSERT(false,
-               "allocateMG: Data is too small to distribute to multiple-gpus");
-
-      int remaining_n_cols = n_cols;
-
-      for (int i = 0; i < n_gpus; i++) {
-        if (remaining_n_cols <= 0)
-          break;
-
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-        if (i == (n_gpus - 1)) {
-          allocate(ptr[i].d_data, remaining_n_cols * n_rows, setZero);
-          ptr[i].n_cols = remaining_n_cols;
-        } else {
-          allocate(ptr[i].d_data, n_col_gpu * n_rows, setZero);
-          ptr[i].n_cols = n_col_gpu;
-        }
-
-        ptr[i].n_rows = n_rows;
-        remaining_n_cols = remaining_n_cols - n_col_gpu;
-      }
-    } else {
-      for (int i = 0; i < n_gpus; i++) {
-        CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-        allocate(ptr[i].d_data, ptr[i].n_cols * n_rows, setZero);
-      }
-    }
-  }
-}
-
 
 /** Helper function to calculate need memory for allocate to store dense matrix.
 * @param rows number of rows in matrix
@@ -234,21 +135,6 @@ void updateDeviceAsync(Type *dPtr, const Type *hPtr, size_t len,
                              cudaMemcpyHostToDevice, stream));
 }
 
-template <typename Type>
-void updateDeviceMG(TypeMG<Type> *ptr, const Type *hPtr, int n_gpus,
-                    bool row_major = false) {
-  if (row_major) {
-    ASSERT(false, "updateDeviceMG: row split not implemented");
-  } else {
-    for (int i = 0; i < n_gpus; i++) {
-      CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-      int len = ptr[i].n_cols * ptr[i].n_rows;
-      updateDeviceAsync(ptr[i].d_data, &hPtr[i * len], len, ptr[i].stream);
-    }
-  }
-}
-
 /** performs a device to host copy */
 template <typename Type>
 void updateHost(Type *hPtr, const Type *dPtr, size_t len,
@@ -262,29 +148,6 @@ void updateHostAsync(Type *hPtr, const Type *dPtr, size_t len,
                      cudaStream_t stream) {
   CUDA_CHECK(cudaMemcpyAsync(hPtr, dPtr, len * sizeof(Type),
                              cudaMemcpyDeviceToHost, stream));
-}
-
-template <typename Type>
-void updateHostMG(Type *hPtr, const TypeMG<Type> *ptr, int n_gpus,
-                  bool row_major = false) {
-  if (row_major) {
-    ASSERT(false, "updateDeviceMG: row split not implemented");
-  } else {
-    for (int i = 0; i < n_gpus; i++) {
-      CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-
-      int len = ptr[i].n_cols * ptr[i].n_rows;
-      updateHostAsync(&hPtr[i * len], ptr[i].d_data, len, ptr[i].stream);
-    }
-  }
-}
-
-template <typename Type>
-void freeMG(Type *ptr, int n_gpus) {
-  for (int i = 0; i < n_gpus; i++) {
-    CUDA_CHECK(cudaSetDevice(ptr[i].gpu_id));
-    CUDA_CHECK(cudaFree(ptr[i].d_data));
-  }
 }
 
 template <typename Type>

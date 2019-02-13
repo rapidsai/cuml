@@ -89,61 +89,6 @@ protected:
     subtractScalar(out, out, T(1), len);
     subtract(in1, in1, in2, len);
     subtractScalar(in1, in1, T(1), len);
-
-    CUDA_CHECK(cudaGetDeviceCount(&device_count));
-    if (device_count > 1) {
-      T *h_in1 = (T *)malloc(len * sizeof(T));
-      T *h_in2 = (T *)malloc(len * sizeof(T));
-      updateHost(h_in1, in1, len);
-      updateHost(h_in2, in2, len);
-      subtractMGColSplitTest(h_in1, h_in2);
-      free(h_in1);
-      free(h_in2);
-    }
-  }
-
-  void subtractMGColSplitTest(T *h_in1, T *h_in2) {
-    int n_gpus = 2;
-
-    TypeMG<T> d_in1[n_gpus];
-    TypeMG<T> d_in2[n_gpus];
-    TypeMG<T> d_out[n_gpus];
-
-    for (int i = 0; i < n_gpus; i++) {
-      d_in1[i].gpu_id = i;
-      d_in2[i].gpu_id = i;
-      d_out[i].gpu_id = i;
-      CUDA_CHECK(cudaSetDevice(d_in1[i].gpu_id));
-      CUDA_CHECK(cudaStreamCreate(&(d_in1[i].stream)));
-      d_in2[i].stream = d_in1[i].stream;
-      d_out[i].stream = d_in1[i].stream;
-    }
-
-    int len = params.len;
-    allocateMG(d_in1, n_gpus, 1, len, true, true, false);
-    allocateMG(d_in2, n_gpus, 1, len, true, true, false);
-    allocateMG(d_out, n_gpus, 1, len, true, true, false);
-
-    updateDeviceMG(d_in1, h_in1, n_gpus, false);
-    updateDeviceMG(d_in1, h_in1, n_gpus, false);
-
-    subtractMG(d_out, d_in1, d_in2, len, n_gpus, false);
-    // subtractScalarMG(d_out, d_out, T(1), len, n_gpus, false);
-
-    T *h_out = (T *)malloc(len * sizeof(T));
-    updateHostMG(h_out, d_out, n_gpus, false);
-
-    streamSyncMG(d_out, n_gpus);
-    streamDestroyGPUs(d_out, n_gpus);
-
-    freeMG(d_in1, n_gpus);
-    freeMG(d_in2, n_gpus);
-    freeMG(d_out, n_gpus);
-
-    allocate(out_2, len);
-    updateDevice(out_2, h_out, len);
-
-    free(h_out);
   }
 
   void TearDown() override {
@@ -151,16 +96,11 @@ protected:
     CUDA_CHECK(cudaFree(in2));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(out));
-
-    if (device_count > 1) {
-      CUDA_CHECK(cudaFree(out_2));
-    }
   }
 
 protected:
   SubtractInputs<T> params;
-  T *in1, *in2, *out_ref, *out, *out_2;
-  int device_count = 0;
+  T *in1, *in2, *out_ref, *out;
 };
 
 const std::vector<SubtractInputs<float>> inputsf2 = {
@@ -176,11 +116,6 @@ TEST_P(SubtractTestF, Result) {
 
   ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
                           CompareApprox<float>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(out_ref, out_2, params.len,
-                            CompareApprox<float>(params.tolerance)));
-  }
 }
 
 typedef SubtractTest<double> SubtractTestD;
@@ -190,11 +125,6 @@ TEST_P(SubtractTestD, Result) {
 
   ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
                           CompareApprox<double>(params.tolerance)));
-
-  if (device_count > 1) {
-    ASSERT_TRUE(devArrMatch(out_ref, out_2, params.len,
-                            CompareApprox<double>(params.tolerance)));
-  }
 }
 
 INSTANTIATE_TEST_CASE_P(SubtractTests, SubtractTestF,
