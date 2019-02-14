@@ -142,7 +142,8 @@ protected:
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
     seqRoot(in_sqrt, len);
 
-    ratio(in_ratio, in_ratio, 4);
+    auto mgr = makeDefaultAllocator();
+    ratio(in_ratio, in_ratio, 4, mgr);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
     signFlip(in_sign_flip, params.n_row, params.n_col);

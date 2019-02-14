@@ -20,27 +20,10 @@
 #include "linalg/binary_op.h"
 #include "linalg/unary_op.h"
 #include "linalg/map_then_reduce.h"
+#include "device_allocator.h"
 
 namespace MLCommon {
 namespace Matrix {
-
-/**
- * @defgroup power math operation on the input matrix. Power of every element in
- * the input matrix
- * @param inout: input matrix and also the result is stored
- * @param scalar: every element is multiplied with scalar.
- * @param len: number elements of input matrix
- * @{
- */
-template <typename math_t>
-void power(math_t *inout, math_t scalar, int len) {
-
-  auto d_A = inout;
-
-  MLCommon::LinAlg::binaryOp(d_A, d_A, d_A, len,
-                             [=] __device__(math_t a, math_t b)
-                             {return scalar * a * b;});
-}
 
 /**
  * @defgroup power math operation on the input matrix. Power of every element in
@@ -60,6 +43,19 @@ void power(math_t *in, math_t *out, math_t scalar, int len) {
                              [=] __device__(math_t a, math_t b)
                              {return scalar * a * b;});
 
+}
+
+/**
+ * @defgroup power math operation on the input matrix. Power of every element in
+ * the input matrix
+ * @param inout: input matrix and also the result is stored
+ * @param scalar: every element is multiplied with scalar.
+ * @param len: number elements of input matrix
+ * @{
+ */
+template <typename math_t>
+void power(math_t *inout, math_t scalar, int len) {
+  power(inout, inout, scalar, len);
 }
 
 /**
@@ -88,23 +84,7 @@ void power(math_t *in, math_t *out, int len) {
   math_t scalar = 1.0;
   power(in, out, scalar, len);
 }
-/**
- * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
- * @param inout: input matrix and also the result is stored
- * @param scalar: every element is multiplied with scalar
- * @param len: number elements of input matrix
- * @{
- */
-template <typename math_t>
-void seqRoot(math_t* inout, math_t scalar, int len) {
 
-	auto d_A = inout;
-
-  MLCommon::LinAlg::unaryOp(d_A, d_A, len,
-                             [=] __device__(math_t a)
-                             {return sqrt(a * scalar);});
-  
-}
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
@@ -137,6 +117,19 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @param inout: input matrix and also the result is stored
+ * @param scalar: every element is multiplied with scalar
+ * @param len: number elements of input matrix
+ * @{
+ */
+template <typename math_t>
+void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
+  seqRoot(inout, inout, scalar, len, set_neg_zero);
+}
+
+
+/**
+ * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
@@ -155,26 +148,6 @@ void seqRoot(math_t* inout, int len) {
 }
 
 
-/**
- * @defgroup sets the small values to zero based on a defined threshold
- * @param inout: input matrix and also the result is stored
- * @param len: number elements of input matrix
- * @param thres: threshold
- * @{
- */
-template <typename math_t>
-void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
-	auto d_A = inout;
-
-  MLCommon::LinAlg::unaryOp(d_A, d_A, len, [=] __device__(math_t a){
-                                             if(a <= thres && -a <= thres) {
-                                               return math_t(0);
-                                             }
-                                             else {
-                                               return a;
-                                             }
-                                           });
-}
 
 template <typename math_t>
 void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15) {
@@ -189,6 +162,48 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
                                              });  
 }
 
+/**
+ * @defgroup sets the small values to zero based on a defined threshold
+ * @param inout: input matrix and also the result is stored
+ * @param len: number elements of input matrix
+ * @param thres: threshold
+ * @{
+ */
+template <typename math_t>
+void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
+  setSmallValuesZero(inout, inout, len, thres);
+}
+
+
+
+/**
+ * @defgroup inverse math operation on the input matrix. Reciprocal of every
+ * element in the input matrix
+ * @param in: input matrix and also the result is stored
+ * @param out: output matrix. The result is stored in the out matrix
+ * @param scalar: every element is multiplied with scalar
+ * @param len: number elements of input matrix
+ * @{
+ */
+template <typename math_t>
+void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
+                bool setzero = false, math_t thres = 1e-15) {
+  auto d_src = in;
+  auto d_dest = out;
+
+  MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=]__device__(math_t a){
+                                                  if (setzero) {
+                                                    if (abs(a) <= thres) {
+                                                      return math_t(0);
+                                                    } else {
+                                                      return scalar / a;
+                                                    }
+                                                  }
+                                                  else {
+                                                    return scalar / a;
+                                                  }
+                                                });
+}
 
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
@@ -203,41 +218,9 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
 template <typename math_t>
 void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
                 math_t thres = 1e-15) {
-  auto d_A = inout;
-  MLCommon::LinAlg::unaryOp(d_A, d_A, len, [=]__device__(math_t a){
-                                             if (setzero) {
-                                               if (abs(a) <= thres) {
-                                                 return math_t(0);
-                                               } else {
-                                                 return scalar / a;
-                                               }
-                                             }
-                                             else {
-                                               return scalar / a;
-                                             }
-                                           }
-    );  
+  reciprocal(inout, inout, scalar, len, setzero, thres);
 }
 
-
-/**
- * @defgroup inverse math operation on the input matrix. Reciprocal of every
- * element in the input matrix
- * @param in: input matrix and also the result is stored
- * @param out: output matrix. The result is stored in the out matrix
- * @param scalar: every element is multiplied with scalar
- * @param len: number elements of input matrix
- * @{
- */
-template <typename math_t>
-void reciprocal(math_t *in, math_t *out, math_t scalar, int len) {
-  auto d_src = in;
-  auto d_dest = out;
-
-  MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=]__device__(math_t a){
-                                                  return scalar / a;
-                                                });
-}
 
 /**
  * @defgroup overloaded reciprocal math operation on the input matrix.
@@ -277,19 +260,20 @@ void reciprocal(math_t *in, math_t *out, int len) {
  */
 
 template <typename math_t>
-void ratio(math_t *src, math_t *dest, int len) {
+void ratio(math_t *src, math_t *dest, int len,
+           DeviceAllocator &mgr) {
   auto d_src = src;
   auto d_dest = dest;
 
-  math_t* d_sum;
-  allocate(d_sum, 1);
+  math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t)*1);
+  
   auto no_op = [] __device__(math_t in) { return in; };
   MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, 0, src);
 
   MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=] __device__(math_t a)
                                                 { return a / (*d_sum); });
 
-  CUDA_CHECK(cudaFree(d_sum));
+  mgr.free(d_sum);
 }
 
 
