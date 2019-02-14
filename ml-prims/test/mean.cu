@@ -72,41 +72,44 @@ protected:
   T *data, *mean_act;
 };
 
+// Note: For 1024 samples, 256 experiments, a mean of 1.0 with stddev=1.0, the
+// measured mean (of a normal distribution) will fall outside of an epsilon of
+// 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
 const std::vector<MeanInputs<float>> inputsf = {
-  {0.1f, 1.f, 1024, 32, true, false, 1234ULL},
-  {0.1f, 1.f, 1024, 64, true, false, 1234ULL},
-  {0.1f, 1.f, 1024, 128, true, false, 1234ULL},
-  {0.1f, 1.f, 1024, 256, true, false, 1234ULL},
-  {0.1f, -1.f, 1024, 32, false, false, 1234ULL},
-  {0.1f, -1.f, 1024, 64, false, false, 1234ULL},
-  {0.1f, -1.f, 1024, 128, false, false, 1234ULL},
-  {0.1f, -1.f, 1024, 256, false, false, 1234ULL},
-  {0.1f, 1.f, 1024, 32, true, true, 1234ULL},
-  {0.1f, 1.f, 1024, 64, true, true, 1234ULL},
-  {0.12f, 1.f, 1024, 128, true, true, 1234ULL},
-  {0.1f, 1.f, 1024, 256, true, true, 1234ULL},
-  {0.1f, -1.f, 1024, 32, false, true, 1234ULL},
-  {0.1f, -1.f, 1024, 64, false, true, 1234ULL},
-  {0.12f, -1.f, 1024, 128, false, true, 1234ULL},
-  {0.1f, -1.f, 1024, 256, false, true, 1234ULL}};
+  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
+  {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
+  {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
+  {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
+  {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
 
 const std::vector<MeanInputs<double>> inputsd = {
-  {0.1, 1.0, 1024, 32, true, false, 1234ULL},
-  {0.1, 1.0, 1024, 64, true, false, 1234ULL},
-  {0.1, 1.0, 1024, 128, true, false, 1234ULL},
-  {0.1, 1.0, 1024, 256, true, false, 1234ULL},
-  {0.1, -1.0, 1024, 32, false, false, 1234ULL},
-  {0.1, -1.0, 1024, 64, false, false, 1234ULL},
-  {0.1, -1.0, 1024, 128, false, false, 1234ULL},
-  {0.1, -1.0, 1024, 256, false, false, 1234ULL},
-  {0.1, 1.0, 1024, 32, true, true, 1234ULL},
-  {0.1, 1.0, 1024, 64, true, true, 1234ULL},
-  {0.1, 1.0, 1024, 128, true, true, 1234ULL},
-  {0.1, 1.0, 1024, 256, true, true, 1234ULL},
-  {0.1, -1.0, 1024, 32, false, true, 1234ULL},
-  {0.1, -1.0, 1024, 64, false, true, 1234ULL},
-  {0.1, -1.0, 1024, 128, false, true, 1234ULL},
-  {0.1, -1.0, 1024, 256, false, true, 1234ULL}};
+  {0.15, 1.0, 1024, 32, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, false, 1234ULL},
+  {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, false, 1234ULL},
+  {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+  {0.15, 1.0, 1024, 32, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 128, true, true, 1234ULL},
+  {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+  {0.15, -1.0, 1024, 32, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 128, false, true, 1234ULL},
+  {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result) {
