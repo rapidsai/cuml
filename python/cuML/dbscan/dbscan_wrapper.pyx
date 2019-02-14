@@ -57,7 +57,7 @@ class DBSCAN:
 
     """
 
-    def __init__(self, eps=1.0, min_samples=1):
+    def __init__(self, eps=0.5, min_samples=5):
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
