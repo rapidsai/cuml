@@ -2,17 +2,24 @@
 
 ## New Features
 
-- ...
+
 
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
+- PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
+- PR #194: Added new ml-prims for supporting LASSO regression.
+- PR #114: Building faiss C++ api into libcuml
+- PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
 - PR #211: Fixing inconsistent use of proper batch size calculation
+- PR #202: Adding back ability for users to define their own BLAS
+- PR #201: Pass CMAKE CUDA path to faiss/configure script
+- PR #200 Avoid using numpy via cimport in KNN
 
 
 # cuML 0.5.1 (05 Feb 2019)
