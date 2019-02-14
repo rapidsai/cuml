@@ -19,19 +19,24 @@
 
 namespace ML {
 
+    using namespace UMAPAlgo;
+
 	/***
 	 * Fit a UMAP model, currently completely unsupervised.
 	 */
-	template<typename T>
-	void UMAP::fit(T *X, int n, int d) {
-		run(X, n, d, get_params());
+    template<class T>
+	void UMAP<T>::fit(T *X, int n, int d) {
+		_fit(X, n, d, get_params(), get_state());
 	}
 
-	template<typename T>
-	void UMAP::transform(T *x) {
-
+    template<class T>
+	void UMAP<T>::transform(T *x) {
 
 	}
 
-	UMAPParams* UMAP::get_params() { return &this->params; }
+    template<class T>
+	UMAPParams* UMAP<T>::get_params() { return this->params; }
+
+    template<class T>
+    UMAPState<T>* UMAP<T>::get_state() { return this->state; }
 }

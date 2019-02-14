@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <string>
 
-namespace UMAP {
+namespace UMAPAlgo {
     namespace FuzzySimplSet {
         namespace Naive {
 
@@ -129,7 +129,9 @@ namespace UMAP {
                     }
 
                     for (int iter = 0; iter < n_iter; iter++) {
+
                         float psum = 0.0;
+
                         for (int j = 0; j < n_neighbors; j++) {
                             float d = knn_dists[i + j] - rhos[i];
                             if (d > 0)

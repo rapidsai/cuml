@@ -20,12 +20,12 @@
 #include "simpl_set_embed/runner.h"
 #include "cuda_utils.h"
 
-namespace UMAP {
+namespace UMAPAlgo {
 
 	using namespace ML;
 
 	template<typename T>
-	size_t run(const T *X, int n, int d, UMAPParams *params) {
+	size_t _fit(const T *X, int n, int d, UMAPParams *params, UMAPState<T> *state) {
 
 		/**
 		 * Allocate workspace for kNN graph
@@ -41,23 +41,24 @@ namespace UMAP {
 		/**
 		 * Allocate workspace for fuzzy simplicial set.
 		 */
-		int *rows, *cols;
-		T *vals;
-
-		MLCommon::allocate(rows, n*params->n_neighbors);
-		MLCommon::allocate(cols, n*params->n_neighbors);
-		MLCommon::allocate(vals, n*params->n_neighbors);
+		MLCommon::allocate(state->graph_rows, n*params->n_neighbors);
+		MLCommon::allocate(state->graph_cols, n*params->n_neighbors);
+		MLCommon::allocate(state->graph_vals, n*params->n_neighbors);
 
 		/**
 		 * Run Fuzzy simplicial set
 		 */
 		FuzzySimplSet::run(knn_indices, knn_dists, n,
-						   rows, cols, vals,
+						   state->graph_rows,
+						   state->graph_cols,
+						   state->graph_vals,
 						   params, 0);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
-		SimplSetEmbed::run();
+		SimplSetEmbed::run(X, n,
+		        state->graph_rows, state->graph_cols, state->graph_vals,
+		        params, state);
 	}
 }

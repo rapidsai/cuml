@@ -30,6 +30,7 @@
 #include <vector>
 
 using namespace ML;
+using namespace UMAPAlgo;
 using namespace MLCommon;
 using namespace std;
 
@@ -55,7 +56,7 @@ protected:
 		allocate(dists_d, n*k);
 		allocate(inds_d, n*k);
 
-		UMAP::kNNGraph::run(X_d, n, d, inds_d, dists_d, umap_params);
+		kNNGraph::run(X_d, n, d, inds_d, dists_d, umap_params);
 
 		int *rows, *cols;
 		float *vals;
@@ -64,7 +65,7 @@ protected:
 		allocate(cols, n*k);
 		allocate(vals, n*k);
 
-		UMAP::FuzzySimplSet::run(n, inds_d, dists_d, rows, cols, vals, umap_params);
+		FuzzySimplSet::run<float>(n, inds_d, dists_d, rows, cols, vals, umap_params);
 
 //		int *rows_h, *cols_h;
 //		float *vals_h;

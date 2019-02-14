@@ -17,7 +17,7 @@
 #include "umap/umap.h"
 #include "algo.h"
 
-namespace UMAP {
+namespace UMAPAlgo {
 
 namespace kNNGraph {
 
@@ -28,7 +28,6 @@ namespace kNNGraph {
 			 long *knn_indices, T *knn_dists,
 			 UMAPParams *params,
 			 int algo = 0) {
-
 		switch(algo) {
 
 		/**

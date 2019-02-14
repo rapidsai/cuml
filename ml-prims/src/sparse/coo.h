@@ -20,10 +20,6 @@
 namespace MLCommon {
 
 
-
-    /**
-     *
-     */
     template<typename T>
     void coo_sort(int m, int n, int nnz,
                   int *rows, int *cols, T *vals) {

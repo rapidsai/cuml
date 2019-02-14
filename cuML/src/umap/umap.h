@@ -18,12 +18,21 @@
 
 namespace ML {
 
+    template<typename T>
+    class UMAPState {
+        public:
+            T *graph_vals;
+            int *graph_rows;
+            int *graph_cols;
+    };
+
 	class UMAPParams {
 	public:
 
-		int n_neighbors = 15;
+	    int n_neighbors = 15;
 		int n_components = 2;
 		int n_epochs = -1;
+
 		float learning_rate = 1.0;
 		float min_dist = 0.1;
 		float spread = 1.0;
@@ -34,29 +43,51 @@ namespace ML {
 		int negative_sample_rate = 5;
 		float transform_queue_size = 4.0;
 
-		float a;
-		float b;
+
+		/**
+		 * Parameters of differentiable approx
+		 * of right adjoint functor.
+		 */
+		float a, b;
+
+		float gamma;
 
 		int target_n_neighbors = -1;
 		float target_weight = 0.5;
+
+		/**
+		 * Initial learning rate for SGD
+		 */
+		float initial_alpha = 1.0;
+
+		/**
+		 * Fit a, b params for the differentiable curve used in
+		 * lower dimensional fuzzy simplicial complex construction.
+		 * We want the smooth curve (from a pre-defined family with
+		 * simple gradient) that best matches an offset exponential
+		 * decay.
+		 */
 	};
 
+
+	template<class T>
 	class UMAP {
 
 	private:
-		UMAPParams params;
+		UMAPParams *params;
+		UMAPState<T> *state;
 
 	public:
 
-		UMAP(UMAPParams params): params(params){}
+		UMAP(UMAPParams *params): params(params), state(new UMAPState<T>()){}
 
-		template<typename T>
 		void fit(T *X, int n, int d);
 
-		template<typename T>
 		void transform(T *X);
 
-		UMAPParams *get_params();
+		UMAPParams* get_params();
+
+		UMAPState<T>* get_state();
 	};
 
 }

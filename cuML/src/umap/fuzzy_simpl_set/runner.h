@@ -17,7 +17,7 @@
 #include "umap/umap.h"
 #include "naive.h"
 
-namespace UMAP {
+namespace UMAPAlgo {
 
 namespace FuzzySimplSet {
 

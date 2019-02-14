@@ -19,7 +19,7 @@
 #include "knn/knn.h"
 #include <iostream>
 
-namespace UMAP {
+namespace UMAPAlgo {
 
 namespace kNNGraph {
 

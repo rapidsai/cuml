@@ -14,15 +14,26 @@
  * limitations under the License.
  */
 
-namespace UMAP {
+#include "umap/umap.h"
+#include "algo.h"
+
+namespace UMAPAlgo {
 
 	namespace SimplSetEmbed {
 
-		void run() {
+	    template<typename T>
+		void run(T *X, int n,
+		        int *rows, int *cols, T *vals, int nnz,
+		        UMAPParams *params, UMAPState<T> *state,
+		        int algorithm = 0) {
 
+	        switch(algorithm) {
 
-
+	            case 0:
+	                SimplSetEmbed::launcher(X, n,
+	                        rows, cols, vals, nnz,
+	                        params);
+	        }
 		}
 	}
-
 }
