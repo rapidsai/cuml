@@ -1,6 +1,8 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
+
+- PR #247 : Added "proper" CUDA API to cuML
 - PR #235: NearestNeighbors MG Support
 
 
