@@ -12,6 +12,7 @@
 - PR #194: Added new ml-prims for supporting LASSO regression.
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
+- PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
 
 ## Bug Fixes
 
