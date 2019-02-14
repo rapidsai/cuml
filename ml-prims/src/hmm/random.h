@@ -15,13 +15,10 @@
 #include <thrust/scan.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/transform_iterator.h>
-#include <thrust/iterator/discard_iterator.h>
-#include <thrust/iterator/permutation_iterator.h>
 
 #include <linalg/cublas_wrappers.h>
 #include <random/rng.h>
 #include <hmm/cublas_wrappers.h>
-#include <hmm/structs.h>
 
 #define IDX2C(i,j,ld) (j*ld + i)
 
@@ -32,13 +29,12 @@ namespace MLCommon {
 namespace HMM {
 
 template <typename T>
-class paramsRandom {
-public:
-paramsRandom(T _start, T _end, unsigned long long _seed) : start(_start),
-        end(_end), seed(_seed){
-};
-T start, end;
-unsigned long long seed;
+struct paramsRandom {
+        T start, end;
+        unsigned long long seed;
+        paramsRandom(T _start, T _end, unsigned long long _seed) : start(_start),
+                end(_end), seed(_seed){
+        };
 };
 
 template <typename T>
@@ -52,7 +48,7 @@ struct Inv_functor
 };
 
 template <typename T>
-void gen_array(T* array, const int dim, const paramsRandom<T> *paramsRd){
+void gen_array(T* array, int dim, paramsRandom<T> *paramsRd){
         MLCommon::Random::Rng<T> rng(paramsRd->seed);
         rng.uniform(array, dim, paramsRd->start, paramsRd->end);
 }
@@ -91,10 +87,9 @@ void normalize_matrix(T* array, int n_rows, int n_cols){
 }
 
 template <typename T>
-void gen_trans_matrix(T* matrix, int n_rows, int n_cols, T start, T end,
-                      unsigned long long seed){
+void gen_trans_matrix(T* matrix, int n_rows, int n_cols, paramsRandom<T> *paramsRd){
         int dim = n_rows * n_cols;
-        generate_array(matrix, dim, start, end, seed);
+        gen_array(matrix, dim, paramsRd);
         normalize_matrix(matrix, n_rows, n_cols);
 }
 

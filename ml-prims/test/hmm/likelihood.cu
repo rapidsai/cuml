@@ -45,9 +45,10 @@ T compute_error_lhd(){
         T diff=0;
         T est_val, true_val;
         for (int testId = 0; testId < nTests; testId++) {
-                est_val = set_gmm_lhd(data_d, mus_d, sigmas_d,
-                                      rhos_d + nDim * testId,
-                                      isLog, nCl, nDim, nObs, &handle);
+                GMMLikelihood<T> GMMLhd(data_d, mus_d,
+                                        sigmas_d, rhos_d + testId * nDim,
+                                        nCl, nDim, nObs, isLog, &handle);
+                est_val = GMMLhd.set_llhd();
                 true_val = *(llhds_h + testId);
                 diff += std::abs(true_val - est_val);
         }
@@ -147,6 +148,7 @@ void TearDown() override {
 
 protected:
 LikelihoodInputs<T> params;
+
 T error, tolerance;
 int nDim, nCl, nObs, nDists;
 bool isLog;
