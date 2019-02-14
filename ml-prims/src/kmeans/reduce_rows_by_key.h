@@ -25,7 +25,7 @@
 
 
 namespace MLCommon {
-namespace Selection {
+namespace KMeans {
 
 //
 // Small helper function to convert from int->char and char->int 
@@ -54,16 +54,21 @@ void convert_array(cudaStream_t st, T1 *dst, T2 *src, int n) {
 }
 
 
+template <typename T>
+struct quad
+{
+   T x,y,z,w;
+};
 //
 // Functor for reduce by key, small k
 //
-
-struct double4Sum
+template <typename T>
+struct quadSum
 {
-    __host__ __device__ __forceinline__ double4 operator()(const double4 &a, const double4 &b) const
+    __host__ __device__ __forceinline__ quad<T> operator()(const quad<T> &a, const quad<T> &b) const
     {
         // wasting a double4..
-        double4 c;
+        quad<T> c;
         c.x = a.x + b.x; 
         c.y = a.y + b.y; 
         c.z = a.z + b.z; 
@@ -90,7 +95,7 @@ struct double4Sum
 template <typename DataType>
 __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 8)
 __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda, char *d_keys, int nrows, int ncols, int nkeys, DataType *d_sums) {
-        typedef cub::BlockReduce<double4, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
+        typedef cub::BlockReduce<quad<DataType>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
         __shared__ typename BlockReduce::TempStorage temp_storage;
 
         for(int idim = blockIdx.y;
@@ -101,7 +106,7 @@ __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda,
                 __syncthreads(); // we're reusing temp_storage
 
             // threadIdx.x stores partial sum for current dim and key=threadIdx.x in this reg
-            double4 thread_sums;
+            quad<DataType> thread_sums;
             thread_sums.x = 0.0;
             thread_sums.y = 0.0;
             thread_sums.z = 0.0;
@@ -113,7 +118,7 @@ __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda,
                     block_offset_irow += blockDim.x * gridDim.x) {
 
                 int irow = block_offset_irow + threadIdx.x;
-                DataType val = (irow < nrows) ? d_A[idim * lda + irow] : 0.0;
+                DataType val = (irow < nrows) ? d_A[irow * lda + idim] : 0.0;
                 // we are not reusing the keys - after profiling 
                 // d_keys is mainly loaded from L2, and this kernel is DRAM BW bounded
                 // (experimentation gave a 10% speed up - not worth the many code lines added)
@@ -132,22 +137,22 @@ __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda,
 
 
             // Reducing by key
-            thread_sums = BlockReduce(temp_storage).Reduce(thread_sums, double4Sum());
+            thread_sums = BlockReduce(temp_storage).Reduce(thread_sums, quadSum<DataType>());
 
             if(threadIdx.x < 32) {
                 // We only need 4
                 thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
-                if(threadIdx.x == 0)    atomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.x);
-                if(threadIdx.x == 1)    atomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.y);
-                if(threadIdx.x == 2)    atomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.z);
-                if(threadIdx.x == 3)    atomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.w);
+                if(threadIdx.x == 0)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.x);
+                if(threadIdx.x == 1)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.y);
+                if(threadIdx.x == 2)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.z);
+                if(threadIdx.x == 3)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.w);
             }
         }
 
 }
 
 
-template <typename DataType, typename KeyType>
+template <typename DataType>
 void sum_rows_by_key_small_nkeys(cudaStream_t st, const DataType *d_A, int lda, char *d_keys, int nrows, int ncols, int nkeys, DataType *d_sums) {
         dim3 grid,block;
         block.x = SUM_ROWS_SMALL_K_DIMX;
@@ -172,7 +177,7 @@ template <typename DataType, typename KeyType>
 __global__ void sum_rows_by_key_large_nkeys_kernel(const DataType *d_A, int lda, KeyType *d_keys, int nrows, int ncols, int key_offset, int nkeys, DataType *d_sums) {
         __shared__ DataType local_sums[SUM_ROWS_BY_KEY_LARGE_K_MAX_K];
 
-        for(KeyType local_key=threadIdx.x; local_key<nkeys; local_key+=blockDim.x)
+        for(int local_key=threadIdx.x; local_key<nkeys; local_key+=blockDim.x)
             local_sums[local_key] = 0.0;
 
         for(int idim = blockIdx.y;
@@ -187,21 +192,21 @@ __global__ void sum_rows_by_key_large_nkeys_kernel(const DataType *d_A, int lda,
                        irow < nrows;
                        irow += blockDim.x * gridDim.x) {
                     // Branch div in this loop - not an issue with current code 
-                    DataType val  = d_A[idim*lda + irow];
+                    DataType val  = d_A[irow*lda + idim];
                     int local_key = d_keys[irow] - key_offset;
 
                     // We could load next val here
-                    atomicAdd(&local_sums[local_key], val);
+                    myAtomicAdd(&local_sums[local_key], val);
                }
                 
                __syncthreads(); // local_sums
                 
-                for(KeyType local_key=threadIdx.x; local_key<nkeys; local_key+=blockDim.x) {
-                    int local_sum = local_sums[local_key];
+                for(int local_key=threadIdx.x; local_key<nkeys; local_key+=blockDim.x) {
+                    DataType local_sum = local_sums[local_key];
 
                     if(local_sum != 0.0) {
                         KeyType global_key = key_offset + local_key;
-                        atomicAdd(&d_sums[global_key*ncols + idim], local_sum);
+                        myAtomicAdd(&d_sums[global_key*ncols + idim], local_sum);
                         local_sums[local_key] = 0.0;
                     }
                 }
@@ -238,7 +243,7 @@ void sum_rows_by_key_large_nkeys(cudaStream_t st, const DataType *d_A, int lda, 
  */
 //TODO template for reduction type
 template <typename DataType, typename KeyType>
-void reduce_row_by_key(cudaStream_t st, const DataType *d_A, int lda, KeyType *d_keys, char *d_keys_char, int nrows, int ncols, int nkeys, DataType *d_sums) {
+void reduce_rows_by_key(cudaStream_t st, const DataType *d_A, int lda, KeyType *d_keys, char *d_keys_char, int nrows, int ncols, int nkeys, DataType *d_sums) {
     // Following kernel needs memset
     cudaMemsetAsync(d_sums, 0, ncols * nkeys * sizeof(int), st);
    
@@ -261,5 +266,5 @@ void reduce_row_by_key(cudaStream_t st, const DataType *d_A, int lda, KeyType *d
     
 }
 
-}; // end namespace Selection
+}; // end namespace KMeans
 }; // end namespace MLCommon
