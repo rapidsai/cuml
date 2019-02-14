@@ -53,7 +53,7 @@ namespace UMAPAlgo {
 	    void make_epochs_per_sample(T *weights, int weights_n, int n_epochs,
 	            T *result) {
 
-	        T *weights_max = -1;
+	        T weights_max = -1.0;
 	        for(int i = 0; i < weights_n; i++)  {
 	            if(weights[i] > weights_max)
 	                weights_max = weights[i];

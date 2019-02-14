@@ -60,6 +60,8 @@ void launcher(Pack<Type> data, int batchSize, cudaStream_t stream) {
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
     exclusive_scan(dev_vd, dev_vd + batchSize, dev_ex_scan);
     adj_graph_kernel<Type, TPB_X><<<blocks, threads>>>(data, batchSize);
+
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // End Algo

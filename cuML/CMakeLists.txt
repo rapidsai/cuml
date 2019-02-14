@@ -187,7 +187,7 @@ add_library(cuml SHARED
             src/umap/umap.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} faisslib gpufaisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -206,7 +206,7 @@ target_link_libraries(ml_test
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_cusparse_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
-		      gpufaisslib
+				      gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
                       pthread

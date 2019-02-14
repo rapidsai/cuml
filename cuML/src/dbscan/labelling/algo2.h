@@ -22,6 +22,7 @@
 #include <thrust/sort.h>
 #include <cuda_utils.h>
 #include "pack.h"
+#include <stdio.h>
 #include "dbscan/common.h"
 #include <iostream>
 #include <limits>
@@ -117,8 +118,11 @@ void label(Pack<Type> data, int startVertexId, int batchSize) {
     init_label<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize, MAX_LABEL); 
     do {
         cudaMemset(data.m, false, sizeof(bool));
+
         label_device<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
         cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+
         //** swapping F1 and F2
         MLCommon::updateHost(host_fa, data.fa, N);
         MLCommon::updateHost(host_xa, data.xa, N);
@@ -141,7 +145,11 @@ void launcher(Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStr
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     if(startVertexId == 0)
         init_all<Type, TPB_X><<<blocks, threads>>>(data, MAX_LABEL); 
+    std::cout << "About to call label" << std::endl;
     label(data, startVertexId, batchSize);
+    std::cout << "Called label" << std::endl;
+
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename Type>
