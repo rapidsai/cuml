@@ -12,6 +12,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #211: Fixing inconsistent use of proper batch size calculation
 
 
 # cuML 0.5.1 (05 Feb 2019)
