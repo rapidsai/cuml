@@ -30,12 +30,15 @@ __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
                           int ncols, int nkeys, Type *d_sums) 
 {
     int c=threadIdx.x + blockIdx.x*blockDim.x;
+    if (c >= ncols) return;
     int this_key = threadIdx.y+blockIdx.y*blockDim.y;
     
+    Type sum = 0.0;
     for (int r=0;r<nrows;r++) {
        if (this_key != d_keys[r]) continue;
-       myAtomicAdd(&d_sums[this_key*ncols+c], d_A[lda*r+c]);
+       sum += d_A[lda*r+c];
     }
+    d_sums[this_key*ncols + c] = sum;
 }
 template <typename Type>
 void naiveReduceRowsByKey( int stream, Type* d_A, int lda, 
@@ -45,25 +48,8 @@ void naiveReduceRowsByKey( int stream, Type* d_A, int lda,
     cudaMemset(d_sums, 0, sizeof(Type) * nkeys*ncols);
 
     naiveReduceRowsByKeyKernel
-          <<<dim3(ncols/32,1),dim3(32,nkeys)>>>
-                      (d_A,lda,d_keys,d_char_keys,nrows,ncols,nkeys,d_sums);
-    //for (int r=0;r<nrows;r++) {
-    //   int this_key = d_keys[r];
-    //   std::cout << "this_key[" << r << "] = " << this_key << std::endl;std::cout.flush();
-    //   for (int c=0;c<ncols;c++) {
-    //      d_sums[this_key*ncols+c] += d_A[lda*r+c];
-    //   }
-    //}
-}
-template <typename DataType, typename KeyType>
-void reduce_rows_by_key( int stream, DataType* d_A, int lda, 
-                          KeyType *d_keys, char *d_char_keys, int nrows, 
-                          int ncols, int nkeys, DataType *d_sums) 
-{
-    cudaMemset(d_sums, 0, sizeof(DataType) * nkeys*ncols);
-
-    naiveReduceRowsByKeyKernel
-          <<<dim3(ncols/32,1),dim3(32,nkeys)>>>
+          <<< dim3((ncols+31)/32, nkeys ),
+              dim3(32, 1) >>>
                       (d_A,lda,d_keys,d_char_keys,nrows,ncols,nkeys,d_sums);
 }
 
@@ -71,7 +57,7 @@ void reduce_rows_by_key( int stream, DataType* d_A, int lda,
 template <typename T>
 struct ReduceRowsInputs {
     T tolerance;
-    int rows;
+    int nobs;
     int cols;
     int nkeys;
     unsigned long long int seed;
@@ -89,20 +75,20 @@ protected:
         params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
         Random::Rng<T> r(params.seed);
         Random::Rng<int> r_int(params.seed);
-        int rows = params.rows;
+        int nobs = params.nobs;
         int cols = params.cols;
         int nkeys = params.nkeys;
-        allocate(in1, rows*cols);
-        allocate(in2, rows);
-        allocate(chars2, rows);
+        allocate(in1, nobs*cols);
+        allocate(in2, nobs);
+        allocate(chars2, nobs);
         allocate(out_ref, nkeys*cols);
         allocate(out, nkeys*cols);
-        r.uniform(in1, rows*cols, T(-1.0), T(1.0));
-        r_int.randInt(in2, rows, 0, nkeys);
+        r.uniform(in1, nobs*cols, T(-1.0), T(1.0));
+        r_int.randInt(in2, nobs, 0, nkeys);
         naiveReduceRowsByKey(0, in1, cols, in2, chars2,
-                               rows, cols, nkeys, out_ref );
+                               nobs, cols, nkeys, out_ref );
         reduce_rows_by_key(0, in1, cols, in2, chars2, 
-                               rows, cols, nkeys, out );
+                               nobs, cols, nkeys, out );
         /*
         CUDA_CHECK(cudaGetDeviceCount(&device_count));
         if (device_count > 1) {
@@ -181,47 +167,78 @@ protected:
     int device_count = 0;
 };
 
+// ReduceRowTestF
+// 128 Obs, 32 cols, 6 clusters
 const std::vector<ReduceRowsInputs<float> > inputsf2 = {
-    {0.000001f, 128, 32, 6, 1234ULL}
+    {0.00001f, 128, 32, 6, 1234ULL}
 };
-
-const std::vector<ReduceRowsInputs<double> > inputsd2 = {
-    {0.00000001, 128, 32, 6, 1234ULL}
-};
-
-typedef ReduceRowTest<double> ReduceRowTestD;
-TEST_P(ReduceRowTestD, Result){
-    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols,
-                            CompareApprox<double>(params.tolerance)));
-
-    //ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-     //                       CompareApprox<double>(params.tolerance)));
-
+typedef ReduceRowTest<float> ReduceRowTestF;
+TEST_P(ReduceRowTestF, Result) {
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<float>(params.tolerance)));
     //if (device_count > 1) {
    // 	ASSERT_TRUE(devArrMatch(out_ref, out_2, params.len,
     //	                    CompareApprox<double>(params.tolerance)));
     //}
 }
+INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestF,
+                        ::testing::ValuesIn(inputsf2));
 
-typedef ReduceRowTest<float> ReduceRowTestF;
-TEST_P(ReduceRowTestF, Result) {
-    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols,
-                            CompareApprox<float>(params.tolerance)));
+// ReduceRowTestD
+// 128 Obs, 32 cols, 6 clusters, double precision 
+const std::vector<ReduceRowsInputs<double> > inputsd2 = {
+    {0.00000001, 128, 32, 6, 1234ULL}
+};
+typedef ReduceRowTest<double> ReduceRowTestD;
+TEST_P(ReduceRowTestD, Result){
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<double>(params.tolerance)));
 
-    //ASSERT_TRUE(devArrMatch(out_ref, in1, params.cols,
-      //                      CompareApprox<float>(params.tolerance)));
-
-    //if (device_count > 1) {
-    //	ASSERT_TRUE(devArrMatch(out_ref, out_2, params.cols,
-    //	                    CompareApprox<float>(params.tolerance)));
-    //}
 }
-
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestD,
                         ::testing::ValuesIn(inputsd2));
 
-INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestF,
-                        ::testing::ValuesIn(inputsf2));
+// ReduceRowTestSmallnKey
+// 128 Obs, 32 cols, 3 clusters
+const std::vector<ReduceRowsInputs<float> > inputsf_small_nkey = {
+    {0.00001f, 128, 32, 3, 1234ULL}
+};
+typedef ReduceRowTest<float> ReduceRowTestSmallnKey;
+TEST_P(ReduceRowTestSmallnKey, Result){
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<float>(params.tolerance)));
+
+}
+INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestSmallnKey,
+                        ::testing::ValuesIn(inputsf_small_nkey));
+
+// ReduceRowTestBigSpace
+// 512 Obs, 1024 cols, 32 clusters, double precision 
+const std::vector<ReduceRowsInputs<double> > inputsd_big_space = {
+    {0.00000001, 512, 1024, 40, 1234ULL}
+};
+typedef ReduceRowTest<double> ReduceRowTestBigSpace;
+TEST_P(ReduceRowTestBigSpace, Result){
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<double>(params.tolerance)));
+
+}
+INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestBigSpace,
+                        ::testing::ValuesIn(inputsd_big_space));
+
+// ReduceRowTestManyObs
+// 100000 Obs, 37 cols, 32 clusters
+const std::vector<ReduceRowsInputs<float> > inputsf_many_obs = {
+    {0.00001f, 100000, 37, 32, 1234ULL}
+};
+typedef ReduceRowTest<float> ReduceRowTestManyObs;
+TEST_P(ReduceRowTestManyObs, Result){
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<float>(params.tolerance)));
+
+}
+INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestManyObs,
+                        ::testing::ValuesIn(inputsf_many_obs));
 
 } // end namespace LinAlg
 } // end namespace MLCommon
