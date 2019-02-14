@@ -27,7 +27,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
 
-find_package( BLAS REQUIRED )
+if(NOT DEFINED BLAS_LIBRARIES)
+    find_package( BLAS REQUIRED )
+else()
+	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
