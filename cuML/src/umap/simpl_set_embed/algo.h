@@ -59,9 +59,6 @@ namespace UMAPAlgo {
 	                weights_max = weights[i];
                 result[i] = -1;
 	        }
-
-
-
 	    }
 
 	    template<typename T>
