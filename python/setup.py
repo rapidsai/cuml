@@ -18,7 +18,6 @@ from setuptools import setup, find_packages
 from setuptools.extension import Extension
 from Cython.Build import cythonize
 import versioneer
-import numpy
 from distutils.sysconfig import get_python_lib
 
 
@@ -38,8 +37,7 @@ extensions = [
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
                             '../cuML/external/ml-prims/external/cub',
-                            '/usr/local/cuda/include',
-                            numpy.get_include()],
+                            '/usr/local/cuda/include'],
               library_dirs=[get_python_lib()],
               libraries=['cuda', 'cuml'],
               language='c++',
