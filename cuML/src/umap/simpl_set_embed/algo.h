@@ -19,6 +19,7 @@
 #include "solver/learning_rate.h"
 #include "functions/penalty.h"
 #include "functions/linearReg.h"
+#include "random/rng.h"
 #include <math.h>
 
 namespace UMAPAlgo {
@@ -54,9 +55,7 @@ namespace UMAPAlgo {
 	     * @returns an array of number of epochs per sample, one for each 1-simplex
 	     */
 	    template<typename T>
-	    void make_epochs_per_sample(T *weights, int weights_n, int n_epochs,
-	            T *result) {
-
+	    void make_epochs_per_sample(const T *weights, int weights_n, int n_epochs, T *result) {
 	        T weights_max = -1.0;
 	        for(int i = 0; i < weights_n; i++)  {
 	            if(weights[i] > weights_max)
@@ -65,42 +64,6 @@ namespace UMAPAlgo {
 	        }
 	    }
 
-	    void find_params_ab(UMAPParams *params) {
-
-	        float spread = params->spread;
-	        float min_dist = params->min_dist;
-
-	        float step = 300 / spread*3;
-
-	        float* X = (float*)malloc(300 * sizeof(float));
-	        float* y = (float*)malloc(300 * sizeof(float));
-
-	        for(int i = 0; i < 300; i++) {
-                X[i] = i*step;
-                y[i] = 0.0;
-                if(X[i] >= min_dist)
-                    exp(-(X[i]-min_dist)/ spread);
-                else if(X[i] < min_dist)
-                    X[i] = 1.0;
-	        }
-
-	        float *X_d;
-	        MLCommon::allocate(X_d, 300);
-	        MLCommon::updateDevice(X_d, X, 300);
-
-	        float *coeffs;
-	        MLCommon::allocate(coeffs, 1);
-
-	        float *intercept;
-	        MLCommon::allocate(intercept, 1);
-
-	        Solver::sgdFit(X_d, 300, 1, y,
-                   coeffs, intercept, true,
-                   10, 5, lr_type::ADAPTIVE,
-                   1e-3, -1, loss_funct::SQRD_LOSS,
-                   MLCommon::Functions::penalty::NONE,
-                   -1, -1, true, 1e-3, 2);
-	    }
 
 	    template<typename T>
 	    T* optimize_layout(
@@ -213,7 +176,7 @@ namespace UMAPAlgo {
 	     * dimensional fuzzy simplicial sets.
 	     */
 	    template<typename T>
-		void launcher(T *X, int n,
+		void launcher(T *X, int m, int n,
 		        int *rows, int *cols, T *vals, int nnz,
 		        UMAPParams *params) {
 
@@ -221,17 +184,30 @@ namespace UMAPAlgo {
 	         * Sum duplicates
 	         */
 
+
+
+
+
 	        /**
 	         * graph.data[graph.data < (graph.data.max() / float(n_epochs))] = 0.0
 	         * eliminate zeros
 	         * n_vertices = n_neighbors
 	         */
 
+	        T *embedding;
+	        MLCommon::allocate(embedding, m * params->n_components);
+
+	        // Doing a random initialization for now
+	        MLCommon::Random::Rng<T>::uniform(embedding, m*params->n_components, -10, 10);
+
 	        /**
 	         * Initialize embedding:
 	         *
 	         *   if random:
 	         *       embedding = random_state.uniform(low=-10.0, high=10.0, size=(n, n_components)
+	         *
+	         *
+	         *
 	         *   else spectral:
 	         *       initialization = spectral_layout(data, graph, n_components, random_state, metric=metric)
 	         *       expansion = 10.0 / initialization.max()
@@ -250,6 +226,8 @@ namespace UMAPAlgo {
 	         *
 	         *
 	         */
+
+
 
 
 
