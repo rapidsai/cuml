@@ -175,17 +175,27 @@ namespace UMAPAlgo {
 	    template<typename T>
 		void launcher(const T *X, int m, int n,
 		        const int *rows, const int *cols, const T *vals, int nnz,
-		        UMAPParams *params) {
+		        UMAPParams *params, T* embedding) {
 
 	        /**
 	         * Sum duplicates
 	         */
 
 	        /**
-	         * graph.data[graph.data < (graph.data.max() / float(n_epochs))] = 0.0
-	         * eliminate zeros
-	         * n_vertices = n_neighbors
+	         * Find vals.max()
 	         */
+
+	        /**
+	         * Go thorugh data and set everything that's less than
+	         * vals.max() / params->n_epochs to 0.0
+	         */
+
+	        /**
+	         * n_vertices = n_neighbors?
+	         */
+
+
+
 
 
             T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
@@ -199,7 +209,7 @@ namespace UMAPAlgo {
 	        MLCommon::Random::Rng<T>::uniform(embedding, m*params->n_components, -10, 10);
 
 	        optimize_layout(embedding, embedding, rows, cols, nnz,
-	                          epochs_per_sample, n, params);
+	                          epochs_per_sample, params->n_neighbors, params);
 		}
 	}
 }
