@@ -169,58 +169,82 @@ protected:
   T h_stats[2]; // mean, var
 };
 
+
+  // The measured mean and standard deviation for each tested distribution are,
+  // of course, statistical variables. Thus setting an appropriate testing
+  // tolerance essentially requires one to set a probability of test failure. We
+  // choose to set this at 3-4 x sigma, i.e., a 99.7-99.9% confidence interval so that
+  // the test will indeed pass. In quick experiments (using the identical
+  // distributions given by NumPy/SciPy), the measured standard deviation is the
+  // variable with the greatest variance and so we determined the variance for
+  // each distribution and number of samples (32*1024 or 8*1024). Below
+  // are listed the standard deviation for these tests.
+
+  // Distribution: StdDev 32*1024, StdDev 8*1024
+  // Normal: 0.0055, 0.011
+  // LogNormal: 0.05, 0.1
+  // Uniform: 0.003, 0.005
+  // Gumbel: 0.005, 0.01
+  // Logistic: 0.005, 0.01
+  // Exp: 0.008, 0.015
+  // Rayleigh: 0.0125, 0.025
+  // Laplace: 0.02, 0.04
+
+  // We generally want 3*sigma = 99.7% chance of success
+
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL},
-  {0.02f, 8 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL},
-  {0.2f, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.1f, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.02f, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
+  {0.015f  , 32 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL}, 
+  {0.03f   , 8 * 1024, 1.f, 1.f, RNG_Normal, GenPhilox, 1234ULL},
+  {0.15f   , 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {0.3f    , 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenPhilox, 1234ULL},
+  {0.012f , 32 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.02f  , 8 * 1024, -1.f, 1.f, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.02f  , 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {0.04f   , 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenPhilox, 1234ULL},
+  {0.015f  , 32 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.03f   , 8 * 1024, 1.f, 1.f, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.025f  , 32 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
+  {0.05f   , 8 * 1024, 1.f, 1.f, RNG_Exp, GenPhilox, 1234ULL},
+  {0.04f   , 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {0.075f  , 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {0.06f   , 32 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
+  {0.12f   , 8 * 1024, 1.f, 1.f, RNG_Laplace, GenPhilox, 1234ULL},
 
-  {0.001f, 32 * 1024, 1.f, 1.f, RNG_Normal, GenTaps, 1234ULL},
-  {0.005f, 8 * 1024, 1.f, 1.f, RNG_Normal, GenTaps, 1234ULL},
-  {0.05f, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenTaps, 1234ULL},
-  {0.001f, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenTaps, 1234ULL},
-  {0.001f, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenTaps, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenTaps, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenTaps, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Exp, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Exp, GenTaps, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenTaps, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenTaps, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenTaps, 1234ULL},
+  {0.015f , 32 * 1024, 1.f, 1.f, RNG_Normal, GenTaps, 1234ULL},
+  {0.03f  , 8 * 1024, 1.f, 1.f, RNG_Normal, GenTaps, 1234ULL},
+  {0.15f  , 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenTaps, 1234ULL},
+  {0.3f   , 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenTaps, 1234ULL},
+  {0.012f, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenTaps, 1234ULL},
+  {0.020f , 8 * 1024, -1.f, 1.f, RNG_Uniform, GenTaps, 1234ULL},
+  {0.02f , 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenTaps, 1234ULL},
+  {0.04f  , 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenTaps, 1234ULL},
+  {0.02f , 32 * 1024, 1.f, 1.f, RNG_Logistic, GenTaps, 1234ULL},
+  {0.04f  , 8 * 1024, 1.f, 1.f, RNG_Logistic, GenTaps, 1234ULL},
+  {0.025f , 32 * 1024, 1.f, 1.f, RNG_Exp, GenTaps, 1234ULL},
+  {0.05f  , 8 * 1024, 1.f, 1.f, RNG_Exp, GenTaps, 1234ULL},
+  {0.04f  , 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenTaps, 1234ULL},
+  {0.075f , 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenTaps, 1234ULL},
+  {0.06f  , 32 * 1024, 1.f, 1.f, RNG_Laplace, GenTaps, 1234ULL},
+  {0.12f  , 8 * 1024, 1.f, 1.f, RNG_Laplace, GenTaps, 1234ULL},
 
-  {0.02f, 32 * 1024, 1.f, 1.f, RNG_Normal, GenKiss99, 1234ULL},
-  {0.02f, 8 * 1024, 1.f, 1.f, RNG_Normal, GenKiss99, 1234ULL},
-  {0.15f, 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenKiss99, 1234ULL},
-  {0.15f, 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenKiss99, 1234ULL},
-  {0.01f, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenKiss99, 1234ULL},
-  {0.01f, 8 * 1024, -1.f, 1.f, RNG_Uniform, GenKiss99, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenKiss99, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenKiss99, 1234ULL},
-  {0.03f, 32 * 1024, 1.f, 1.f, RNG_Logistic, GenKiss99, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Logistic, GenKiss99, 1234ULL},
-  {0.03f, 32 * 1024, 1.f, 1.f, RNG_Exp, GenKiss99, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Exp, GenKiss99, 1234ULL},
-  {0.01f, 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenKiss99, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenKiss99, 1234ULL},
-  {0.03f, 32 * 1024, 1.f, 1.f, RNG_Laplace, GenKiss99, 1234ULL},
-  {0.05f, 8 * 1024, 1.f, 1.f, RNG_Laplace, GenKiss99, 1234ULL}};
+  {0.015f , 32 * 1024, 1.f, 1.f, RNG_Normal, GenKiss99, 1234ULL},
+  {0.03f  , 8 * 1024, 1.f, 1.f, RNG_Normal, GenKiss99, 1234ULL},
+  {0.15f  , 32 * 1024, 1.f, 1.f, RNG_LogNormal, GenKiss99, 1234ULL},
+  {0.3f   , 8 * 1024, 1.f, 1.f, RNG_LogNormal, GenKiss99, 1234ULL},
+  {0.012f, 32 * 1024, -1.f, 1.f, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.020f , 8 * 1024, -1.f, 1.f, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.02f , 32 * 1024, 1.f, 1.f, RNG_Gumbel, GenKiss99, 1234ULL},
+  {0.04f  , 8 * 1024, 1.f, 1.f, RNG_Gumbel, GenKiss99, 1234ULL},
+  {0.02f , 32 * 1024, 1.f, 1.f, RNG_Logistic, GenKiss99, 1234ULL},
+  {0.04f  , 8 * 1024, 1.f, 1.f, RNG_Logistic, GenKiss99, 1234ULL},
+  {0.025f , 32 * 1024, 1.f, 1.f, RNG_Exp, GenKiss99, 1234ULL},
+  {0.05f  , 8 * 1024, 1.f, 1.f, RNG_Exp, GenKiss99, 1234ULL},
+  {0.04f  , 32 * 1024, 1.f, 1.f, RNG_Rayleigh, GenKiss99, 1234ULL},
+  {0.075f , 8 * 1024, 1.f, 1.f, RNG_Rayleigh, GenKiss99, 1234ULL},
+  {0.06f  , 32 * 1024, 1.f, 1.f, RNG_Laplace, GenKiss99, 1234ULL},
+  {0.12f  , 8 * 1024, 1.f, 1.f, RNG_Laplace, GenKiss99, 1234ULL}};
+
 TEST_P(RngTestF, Result) {
   float meanvar[2];
   getExpectedMeanVar(meanvar);
@@ -228,61 +252,63 @@ TEST_P(RngTestF, Result) {
     match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+  // std::printf("meanvar: (G:%f, R:%f) and (G:%f, R:%f)\n",
+  //             h_stats[0], meanvar[0], h_stats[1], meanvar[1]);
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
 typedef RngTest<double> RngTestD;
 const std::vector<RngInputs<double>> inputsd = {
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
-  {0.03, 8 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
-  {0.05, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.07, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
-  {0.01, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.01, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
-  {0.02, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
-  {0.02, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
+  {0.015f  , 32 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
+  {0.03f   , 8 * 1024, 1.0, 1.0, RNG_Normal, GenPhilox, 1234ULL},
+  {0.15f   , 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
+  {0.3f    , 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenPhilox, 1234ULL},
+  {0.012f , 32 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.020f  , 8 * 1024, -1.0, 1.0, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenPhilox, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Logistic, GenPhilox, 1234ULL},
+  {0.025f  , 32 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
+  {0.05f   , 8 * 1024, 1.0, 1.0, RNG_Exp, GenPhilox, 1234ULL},
+  {0.04f   , 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {0.075f  , 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenPhilox, 1234ULL},
+  {0.06f   , 32 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
+  {0.12f   , 8 * 1024, 1.0, 1.0, RNG_Laplace, GenPhilox, 1234ULL},
 
-  {0.001, 32 * 1024, 1.0, 1.0, RNG_Normal, GenTaps, 1234ULL},
-  {0.005, 8 * 1024, 1.0, 1.0, RNG_Normal, GenTaps, 1234ULL},
-  {0.05, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenTaps, 1234ULL},
-  {0.001, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenTaps, 1234ULL},
-  {0.001, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenTaps, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenTaps, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenTaps, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Exp, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Exp, GenTaps, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenTaps, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenTaps, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenTaps, 1234ULL},
+  {0.015f  , 32 * 1024, 1.0, 1.0, RNG_Normal, GenTaps, 1234ULL},
+  {0.03f   , 8 * 1024, 1.0, 1.0, RNG_Normal, GenTaps, 1234ULL},
+  {0.15f   , 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenTaps, 1234ULL},
+  {0.3f    , 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenTaps, 1234ULL},
+  {0.012f , 32 * 1024, -1.0, 1.0, RNG_Uniform, GenTaps, 1234ULL},
+  {0.020f  , 8 * 1024, -1.0, 1.0, RNG_Uniform, GenTaps, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenTaps, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenTaps, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Logistic, GenTaps, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Logistic, GenTaps, 1234ULL},
+  {0.025f  , 32 * 1024, 1.0, 1.0, RNG_Exp, GenTaps, 1234ULL},
+  {0.05f   , 8 * 1024, 1.0, 1.0, RNG_Exp, GenTaps, 1234ULL},
+  {0.04f   , 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenTaps, 1234ULL},
+  {0.075f  , 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenTaps, 1234ULL},
+  {0.06f   , 32 * 1024, 1.0, 1.0, RNG_Laplace, GenTaps, 1234ULL},
+  {0.12f   , 8 * 1024, 1.0, 1.0, RNG_Laplace, GenTaps, 1234ULL},
 
-  {0.02, 32 * 1024, 1.0, 1.0, RNG_Normal, GenKiss99, 1234ULL},
-  {0.02, 8 * 1024, 1.0, 1.0, RNG_Normal, GenKiss99, 1234ULL},
-  {0.15, 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenKiss99, 1234ULL},
-  {0.01, 32 * 1024, -1.0, 1.0, RNG_Uniform, GenKiss99, 1234ULL},
-  {0.03, 8 * 1024, -1.0, 1.0, RNG_Uniform, GenKiss99, 1234ULL},
-  {0.03, 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenKiss99, 1234ULL},
-  {0.03, 32 * 1024, 1.0, 1.0, RNG_Logistic, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Logistic, GenKiss99, 1234ULL},
-  {0.03, 32 * 1024, 1.0, 1.0, RNG_Exp, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Exp, GenKiss99, 1234ULL},
-  {0.01, 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenKiss99, 1234ULL},
-  {0.03, 32 * 1024, 1.0, 1.0, RNG_Laplace, GenKiss99, 1234ULL},
-  {0.05, 8 * 1024, 1.0, 1.0, RNG_Laplace, GenKiss99, 1234ULL}};
+  {0.015f  , 32 * 1024, 1.0, 1.0, RNG_Normal, GenKiss99, 1234ULL},
+  {0.03f   , 8 * 1024, 1.0, 1.0, RNG_Normal, GenKiss99, 1234ULL},
+  {0.15f   , 32 * 1024, 1.0, 1.0, RNG_LogNormal, GenKiss99, 1234ULL},
+  {0.3f    , 8 * 1024, 1.0, 1.0, RNG_LogNormal, GenKiss99, 1234ULL},
+  {0.012f , 32 * 1024, -1.0, 1.0, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.020f  , 8 * 1024, -1.0, 1.0, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Gumbel, GenKiss99, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Gumbel, GenKiss99, 1234ULL},
+  {0.02f  , 32 * 1024, 1.0, 1.0, RNG_Logistic, GenKiss99, 1234ULL},
+  {0.04f   , 8 * 1024, 1.0, 1.0, RNG_Logistic, GenKiss99, 1234ULL},
+  {0.025f  , 32 * 1024, 1.0, 1.0, RNG_Exp, GenKiss99, 1234ULL},
+  {0.05f   , 8 * 1024, 1.0, 1.0, RNG_Exp, GenKiss99, 1234ULL},
+  {0.04f   , 32 * 1024, 1.0, 1.0, RNG_Rayleigh, GenKiss99, 1234ULL},
+  {0.075f  , 8 * 1024, 1.0, 1.0, RNG_Rayleigh, GenKiss99, 1234ULL},
+  {0.06f   , 32 * 1024, 1.0, 1.0, RNG_Laplace, GenKiss99, 1234ULL},
+  {0.12f   , 8 * 1024, 1.0, 1.0, RNG_Laplace, GenKiss99, 1234ULL}};
 TEST_P(RngTestD, Result) {
   double meanvar[2];
   getExpectedMeanVar(meanvar);
@@ -290,6 +316,8 @@ TEST_P(RngTestD, Result) {
     match(meanvar[0], h_stats[0], CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<double>(params.tolerance)));
+  // std::printf("meanvar: (G:%f, R:%f) and (G:%f, R:%f)\n",
+  //             h_stats[0], meanvar[0], h_stats[1], meanvar[1]);
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
