@@ -65,7 +65,7 @@ namespace UMAPAlgo {
 	        }
 	    }
 
-	    void params_ab(UMAPParams *params) {
+	    void find_params_ab(UMAPParams *params) {
 
 	        float spread = params->spread;
 	        float min_dist = params->min_dist;
@@ -89,10 +89,13 @@ namespace UMAPAlgo {
 	        MLCommon::updateDevice(X_d, X, 300);
 
 	        float *coeffs;
-	        MLCommon::allocate(coeffs, 2);
+	        MLCommon::allocate(coeffs, 1);
+
+	        float *intercept;
+	        MLCommon::allocate(intercept, 1);
 
 	        Solver::sgdFit(X_d, 300, 1, y,
-                   coeffs, nullptr, false,
+                   coeffs, intercept, true,
                    10, 5, lr_type::ADAPTIVE,
                    1e-3, -1, loss_funct::SQRD_LOSS,
                    MLCommon::Functions::penalty::NONE,

@@ -16,6 +16,7 @@
 
 #pragma once
 
+
 namespace ML {
 
     template<typename T>
@@ -60,13 +61,7 @@ namespace ML {
 		 */
 		float initial_alpha = 1.0;
 
-		/**
-		 * Fit a, b params for the differentiable curve used in
-		 * lower dimensional fuzzy simplicial complex construction.
-		 * We want the smooth curve (from a pre-defined family with
-		 * simple gradient) that best matches an offset exponential
-		 * decay.
-		 */
+        void find_params_ab();
 	};
 
 
