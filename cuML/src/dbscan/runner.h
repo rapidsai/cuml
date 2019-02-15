@@ -145,7 +145,6 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         int nblks = ceildiv(N, TPB);
         relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
 
-        CUDA_CHECK(cudaDeviceSynchronize());
         CUDA_CHECK(cudaPeekAtLastError());
 
 
