@@ -21,6 +21,7 @@
 #include <stats/mean_center.h>
 #include <stats/stddev.h>
 #include <linalg/norm.h>
+#include <linalg/gemm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 
