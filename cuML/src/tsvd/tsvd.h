@@ -64,7 +64,8 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 	LinAlg::transpose(components_temp, components, prms.n_cols,
 			prms.n_components, cublas_handle);
 	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components);
-	Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components);
+  auto mgr = makeDefaultAllocator();
+  Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, mgr);
 
 	if (components_temp)
 		CUDA_CHECK(cudaFree(components_temp));
