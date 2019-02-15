@@ -4,7 +4,7 @@
 #include <math.h>
 
 #include "hmm/inverse.h"
-#include "hmm/utils.h"
+// #include "hmm/utils.h"
 
 #include "linalg/mean_squared_error.h"
 
@@ -90,7 +90,7 @@ void copy_to_device(){
 
 
 void compute_error_inv(){
-        Inverse<T> Inverse(nDim);
+        Inverse<T> Inverse(nDim, &cusolverHandle);
         Inverse.compute(M_d, est_inv_d);
         meanSquaredError(error_d, est_inv_d, true_inv_d, nDim*nDim);
         updateHost(&error, error_d, 1);
@@ -106,6 +106,7 @@ void TearDown() override {
         CUDA_CHECK(cudaFree(true_inv_d));
         CUDA_CHECK(cudaFree(est_inv_d));
         CUDA_CHECK(cudaFree(error_d));
+
 }
 
 protected:
@@ -117,6 +118,8 @@ T *error_d;
 T *true_inv_d, *true_inv_h;
 T *est_inv_d, *est_inv_h;
 T *M_h, *M_d;
+
+cusolverDnHandle_t cusolverHandle;
 };
 
 

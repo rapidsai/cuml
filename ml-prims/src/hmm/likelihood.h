@@ -15,7 +15,7 @@
 #include <curand.h>
 #include <cublas_v2.h>
 
-#include "hmm/utils.h"
+// #include "hmm/utils.h"
 #include "hmm/determinant.h"
 #include "hmm/inverse.h"
 
@@ -26,11 +26,13 @@ using MLCommon::LinAlg::scalarMultiply;
 namespace MLCommon {
 namespace HMM {
 
+
 template <typename T>
+// __host__ __device__
 struct GMMLikelihood
 {
         T *data, *mus, *sigmas;
-        T* rhos;
+        T* ps;
         int nCl, nDim, nObs;
 
         bool isLog;
@@ -39,13 +41,13 @@ struct GMMLikelihood
         Determinant<T> *Det;
         Inverse<T> *Inv;
 
-        GMMLikelihood (T *data, T *mus, T *sigmas, T *rhos, int _nCl,
+        GMMLikelihood (T *data, T *mus, T *sigmas, T *ps, int _nCl,
                        int _nDim, int _nObs, bool _isLog, cublasHandle_t *handle
                        ){
                 this->data = data;
                 this->mus = mus;
                 this->sigmas = sigmas;
-                this->rhos = rhos;
+                this->ps = ps;
 
                 this->handle = handle;
 
@@ -59,25 +61,26 @@ struct GMMLikelihood
                 this->Inv = new Inverse<T>(nDim);
         }
 
-        T _sample_gaussian_lhd(int sampleId, int classId){
+        T _sample_gaussian_lhd(T* x, T* mu, T* sigma){
                 // Computes log likelihood for normal distribution
-                T logl=0, det =0;
-
-                T* inv_sigma, *temp;
-
-                allocate(inv_sigma, nDim);
-                allocate(temp, nDim);
-
-                Inv->compute(sigmas + nDim * nDim * classId, inv_sigma);
-
-                // x - mu
-                subtract(temp, data + nDim * sampleId, mus + nDim * classId, nDim);
+                T logl=0;
 
                 // Compute the squared sum
+                T* temp;
+                allocate(temp, nDim);
+
+                T* inv_sigma;
+                allocate(inv_sigma, nDim * nDim);
+                Inv->compute(sigma, inv_sigma);
+
+                // x - mu
+                subtract(temp, x, mu, nDim);
+
+                // sigma * (x - mu)
                 bilinear(inv_sigma, nDim, temp, *handle, &logl);
                 logl *= -0.5;
 
-                det = Det->compute(sigmas + nDim * nDim * classId);
+                T det = Det->compute(sigma);
                 logl += -0.5 * std::log(det);
 
                 logl += -0.5 * nDim * std::log(2 * M_PI);
@@ -86,9 +89,12 @@ struct GMMLikelihood
 
         T _class_sample_llhd(int sampleId, int classId)
         {
+
                 T rho_h;
-                updateHost(&rho_h, rhos + classId, 1);
-                return rho_h * _sample_gaussian_lhd(sampleId, classId);
+                updateHost(&rho_h, ps + classId, 1);
+                return rho_h * _sample_gaussian_lhd(data + nDim * sampleId,
+                                                    mus + nDim * classId,
+                                                    sigmas + nDim * nDim * classId);;
         }
 
         T set_llhd(){
@@ -105,13 +111,14 @@ struct GMMLikelihood
                 return logl;
         }
 
-        // void fill_rhos(int sampleId, int classId)
-        // {
-        //         *(rhos + classId + sampleId * nObs) = std::exp(_sample_gaussian_lhd(data + nDim * sampleId,
-        //                                                                             mus + nDim * classId,
-        //                                                                             sigmas + nDim * nDim * classId,
-        //                                                                             nDim, *handle, *Det));
-        // }
+        void fill_rhos(T* rhos)
+        {
+                for (int c_id = 0; c_id < nCl; c_id++) {
+                        for (int s_id = 0; s_id < nObs; s_id++) {
+                                *(rhos + s_id * nCl + c_id)  = _sample_gaussian_lhd(data + nDim * s_id, mus + nDim * c_id, sigmas + nDim * nDim * c_id);
+                        }
+                }
+        }
 };
 
 

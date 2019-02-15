@@ -13,7 +13,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
 
-#include <hmm/utils.h>
+// #include <hmm/utils.h>
 
 
 using namespace MLCommon::LinAlg;
@@ -35,7 +35,7 @@ struct Inverse {
         int wsSize;
         T *workspace_lu = nullptr;
 
-        Inverse(int _nDim){
+        Inverse(int _nDim, cusolverDnHandle_t *_cusolverHandle){
                 nDim = _nDim;
                 CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
                 CUSOLVER_CHECK(cusolverDngetrf_bufferSize(cusolverHandle, nDim, nDim, tempM, nDim, &wsSize));
@@ -57,6 +57,7 @@ struct Inverse {
 
                 // Making ID matrix
                 make_ID_matrix(invM, nDim);
+                cudaThreadSynchronize();
 
                 CUSOLVER_CHECK(cusolverDngetrs(cusolverHandle, CUBLAS_OP_N, nDim, nDim, (const T *)tempM, nDim,(const int *)piv, invM, nDim, info));
 

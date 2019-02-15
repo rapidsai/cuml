@@ -5,7 +5,7 @@
 
 #include "hmm/determinant.h"
 #include "hmm/likelihood.h"
-#include "hmm/utils.h"
+// #include "hmm/utils.h"
 
 #include "cuda_utils.h"
 

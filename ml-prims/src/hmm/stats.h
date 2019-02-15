@@ -7,18 +7,17 @@
 #include <cuda.h>
 #include <cublas_v2.h>
 
-#include <thrust/device_vector.h>
-#include <thrust/iterator/counting_iterator.h>
-
 #include <random/rng.h>
+#include "random/mvg.h"
+
 #include <linalg/cublas_wrappers.h>
 #include <linalg/sqrt.h>
 #include <linalg/transpose.h>
+
 #include <hmm/cublas_wrappers.h>
-#include <ml_utils.h>
-#include "random/mvg.h"
-#include "cuda_utils.h"
-#include "utils.h"
+
+// #include "cuda_utils.h"
+// #include "utils.h"
 
 namespace MLCommon {
 namespace HMM {

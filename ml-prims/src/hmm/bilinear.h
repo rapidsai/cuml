@@ -3,7 +3,7 @@
 #include "cuda_utils.h"
 #include <cublas_v2.h>
 #include "linalg/cublas_wrappers.h"
-#include "hmm/utils.h"
+// #include "hmm/utils.h"
 
 
 using namespace MLCommon;

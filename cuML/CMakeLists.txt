@@ -27,7 +27,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
 
-find_package( BLAS REQUIRED )
+if(NOT DEFINED BLAS_LIBRARIES)
+    find_package( BLAS REQUIRED )
+else()
+	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -56,7 +60,7 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-
+  
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -64,9 +68,9 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
   "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
-option(LINEINFO "Enable lineinfo in nvcc" OFF)
+option(LINEINFO "Enable lineinfo in nvcc" ON)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
-option(DEBUG "Get a debug build" OFF)
+option(DEBUG "Get a debug build" ON)
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
@@ -87,10 +91,10 @@ endif()
 if(KERNELINFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
 endif()
-if(DEBUG)
+# if(DEBUG)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-endif()
+# endif()
 # Generate optimized binary for every known arch
 if(NOT "${GPU_ARCHS}")
   set(GPU_ARCHS "60;61")
@@ -170,8 +174,12 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
-file(GLOB_RECURSE hmm_test_cuda_sources "${MLPRIMS_DIR}/test/hmm/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
+
+
+file(GLOB_RECURSE ml_prims_test_cuda_sources "${MLPRIMS_DIR}/test/*.cu")
+file(GLOB_RECURSE gmm_test_cuda_sources "test/gmm_test.cu")
+file(GLOB_RECURSE gmm_prims_test_cuda_sources "${MLPRIMS_DIR}/test/hmm/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -195,9 +203,48 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
-add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
+# add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
-target_link_libraries(ml_test
+# target_link_libraries(ml_test
+#                       ${GTEST_LIBNAME}
+#                       ${CUDA_cublas_LIBRARY}
+#                       ${CUDA_curand_LIBRARY}
+#                       ${CUDA_cusolver_LIBRARY}
+#                       ${CUDA_CUDART_LIBRARY}
+# 		              gpufaisslib
+#                       faisslib
+#                       ${BLAS_LIBRARIES}
+#                       cuml
+#                       pthread
+#                       z)
+                      
+                      
+###################################################################################################
+# - build test executable -------------------------------------------------------------------------
+
+# add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
+
+# target_link_libraries(ml_mg_test
+#                       ${GTEST_LIBNAME}
+#                       ${CUDA_cublas_LIBRARY}
+#                       ${CUDA_curand_LIBRARY}
+#                       ${CUDA_cusolver_LIBRARY}
+#                       ${CUDA_CUDART_LIBRARY}
+#                       gpufaisslib
+#                       faisslib
+#                       ${BLAS_LIBRARIES}
+#                       cuml
+#                       pthread
+#                       ${ZLIB_LIBRARIES})
+
+
+                      
+###################################################################################################
+# - build test executable -------------------------------------------------------------------------
+
+add_executable(gmm_test ${gmm_test_cuda_sources} ${ml_prims_header})
+
+target_link_libraries(gmm_test
                       ${GTEST_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
@@ -209,53 +256,39 @@ target_link_libraries(ml_test
                       cuml
                       pthread
                       z)
-
+                      
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
-add_executable(hmm_test ${hmm_test_cuda_sources} ${ml_prims_header})
+add_executable(gmm_prims_test ${gmm_prims_test_cuda_sources} ${ml_prims_header})
 
-target_link_libraries(hmm_test
+target_link_libraries(gmm_prims_test
                       ${GTEST_LIBNAME}
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
-	    	              gpufaisslib
+		              gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
                       cuml
                       pthread
-                      z)
+                      z)                      
 
-
-###################################################################################################
-# - build test executable -------------------------------------------------------------------------
-
-add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
-
-target_link_libraries(ml_mg_test
-                      ${GTEST_LIBNAME}
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      cuml
-                      pthread
-                      ${ZLIB_LIBRARIES})
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-    add_subdirectory(examples)
-endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+# if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+#     add_subdirectory(examples)
+# endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS cuml
         DESTINATION lib)
+        
+
+
+		

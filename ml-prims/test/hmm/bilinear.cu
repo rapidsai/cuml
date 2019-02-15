@@ -22,7 +22,7 @@
 #include <cmath>
 
 #include "hmm/bilinear.h"
-#include "hmm/utils.h"
+// #include "hmm/utils.h"
 #include "cuda_utils.h"
 
 #define IDX(i,j,lda) ((i)+(j)*(lda))
