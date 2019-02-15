@@ -12,10 +12,12 @@
 - PR #194: Added new ml-prims for supporting LASSO regression.
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
+- PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
 
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #211: Fixing inconsistent use of proper batch size calculation in DBSCAN
 - PR #202: Adding back ability for users to define their own BLAS
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
