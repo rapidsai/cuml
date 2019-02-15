@@ -47,7 +47,6 @@ void linearRegH(const math_t *input, int n_rows, int n_cols,
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);
-
 }
 
 template<typename math_t>

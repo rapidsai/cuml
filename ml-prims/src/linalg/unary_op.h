@@ -80,7 +80,6 @@ void unaryOp(math_t* out, const math_t* in, math_t scalar, int len, Lambda op,
     }
 }
 
-
 /**
  * @brief perform element-wise unary operation in the input array
  * @tparam math_t data-type upon which the math operation will be performed

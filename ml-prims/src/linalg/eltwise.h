@@ -133,6 +133,8 @@ void eltwiseDivideMG(TypeMG<math_t>* out, const TypeMG<math_t>* in1, const TypeM
 	                                 }, sync);
 }
 
+
+
 /** @} */
 
 }; // end namespace LinAlg
