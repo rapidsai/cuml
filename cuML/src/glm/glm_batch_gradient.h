@@ -16,20 +16,95 @@
 
 #pragma once
 
-#include <glm/glm_vectors.h>
-#include <vector>
 #include "cuda_utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
+#include <glm/glm_vectors.h>
+#include <vector>
 
 namespace ML {
 namespace GLM {
 
-template <typename T, class C, STORAGE_ORDER Storage>
-struct GLM_BG_Loss {
+template <typename T, STORAGE_ORDER Storage>
+inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T, Storage> &X,
+                      const SimpleMat<T> &W, bool has_bias) {
+  // compute Z <- X * W (+b)
+}
+
+template <typename T, STORAGE_ORDER Storage>
+inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T, Storage> &X,
+                      const SimpleMat<T> &dZ, bool has_bias) {
+  // compute G <- X.T * dZ
+  // Gb = mean(dZ, 1)
+}
+
+template <typename T, class Loss, STORAGE_ORDER Storage> struct GLMBase {
+
+  typedef SimpleMat<T, COL_MAJOR> Mat;
+  typedef SimpleVec<T> Vec;
+
+  Vec lossVal; // to hold the loss value on device
+
+  bool fit_intercept;
+  cublasHandle_t cublas;
+  cudaStream_t stream;
+  int C, D, dims;
+
+  GLMBase(int D, int C, bool fit_intercept, cudaStream_t stream = 0)
+      : C(C), D(D), dims(D + fit_intercept), lossVal(1),
+        fit_intercept(fit_intercept), stream(stream) {
+    cublasCreate(&cublas);
+  }
+
+  /*
+   * Computes the following:
+   * 1. Z <- dL/DZ
+   * 2. loss_val <- sum loss(Z)
+   *
+   * Default: elementwise application of loss and its derivative
+   */
+  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
+                           const SimpleVec<T> &y) {
+    Loss *loss = static_cast<Loss *>(this);
+    // TODO
+  }
+
+  T loss_grad(Vec &gradFlat, const Vec &wFlat, const SimpleMat<T, Storage> &Xb,
+              const Vec &yb, Mat &Zb) {
+
+    Mat W(wFlat.data, C, dims);
+    Mat G(gradFlat.data, C, dims);
+    linearFwd(Zb, Xb, W, fit_intercept); // linear part: forward pass
+    getLossAndDZ(lossVal.data, Zb, yb);  // loss specific part
+    linearBwd(G, Xb, Zb, fit_intercept); // linear part: backward pass
+    return lossVal[0];
+  }
+};
+
+template <typename T, class BaseLoss, STORAGE_ORDER Storage>
+struct GLMWithData : BaseLoss {
+  typedef SimpleMat<T> Mat;
+  typedef SimpleVec<T> Vec;
+
+  SimpleMat<T, Storage> X;
+  Mat Z;
+  Vec y;
+
+  GLMWithData(T *Xptr, T *yptr, T *Zptr, int N, int D, int C,
+              bool fit_intercept, cudaStream_t stream = 0)
+      : X(Xptr, N, D), y(N), Z(C, D), BaseLoss(N, D, C, fit_intercept, stream) {
+  }
+
+  T operator()(const Vec &wFlat, Vec &gradFlat) {
+    // optimizers often operate on vectors
+    return BaseLoss::loss_grad(gradFlat, wFlat, X, y, Z);
+  }
+};
+
+template <typename T, class C, STORAGE_ORDER Storage> struct GLM_BG_Loss {
 
   typedef SimpleVec<T> Vec;
   typedef SimpleMat<T, Storage> Mat;
@@ -55,9 +130,9 @@ struct GLM_BG_Loss {
 
   GLM_BG_Loss(T *Xptr, T *Yptr, T *EtaPtr, int N_, int D_, bool has_bias_,
               T lambda2_, cudaStream_t stream_ = 0)
-    : lambda2(lambda2_), has_bias(has_bias_), N(N_), D(D_), invN(1.0 / N_),
-      n_param(has_bias_ + D_), X(Xptr, N_, D_), y(Yptr, N_), eta(EtaPtr, N_),
-      loss_val(1), stream(stream_) {
+      : lambda2(lambda2_), has_bias(has_bias_), N(N_), D(D_), invN(1.0 / N_),
+        n_param(has_bias_ + D_), X(Xptr, N_, D_), y(Yptr, N_), eta(EtaPtr, N_),
+        loss_val(1), stream(stream_) {
     cublasCreate(&cublas);
     cublasSetPointerMode(cublas, CUBLAS_POINTER_MODE_HOST);
   }
@@ -74,7 +149,8 @@ struct GLM_BG_Loss {
     MLCommon::LinAlg::mapThenSumReduce(loss_val, loss_fn->y.len, f_l,
                                        loss_fn->stream, loss_fn->y.data,
                                        loss_fn->eta.data);
- //Mapreduce memsets the output to 0. Otherwise, we could have saved this copy.
+    // Mapreduce memsets the output to 0. Otherwise, we could have saved this
+    // copy.
     T tmp;
     MLCommon::updateHost(&tmp, loss_val, 1);
 
@@ -118,7 +194,7 @@ struct GLM_BG_Loss {
     int D = X.n;
 
     if (has_bias) {
-        T * tmp = weights.data;
+      T *tmp = weights.data;
       auto f = [=] __device__(const T x) { return tmp[D]; };
       eta.assign_unary(eta, f);
       cudaThreadSynchronize();
@@ -130,13 +206,12 @@ struct GLM_BG_Loss {
   }
 };
 
-
-template <typename T, STORAGE_ORDER Storage=COL_MAJOR>
+template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
 struct LogisticLoss : GLM_BG_Loss<T, LogisticLoss<T, Storage>, Storage> {
   typedef GLM_BG_Loss<T, LogisticLoss<T, Storage>, Storage> Super;
 
   LogisticLoss(T *X, T *y, T *eta, int N, int D, bool has_bias, T lambda2)
-    : Super(X, y, eta, N, D, has_bias, lambda2) {}
+      : Super(X, y, eta, N, D, has_bias, lambda2) {}
 
   inline __device__ T log_sigmoid(T x) const {
     T m = MLCommon::myMax<T>(T(0), x);
@@ -156,13 +231,13 @@ struct LogisticLoss : GLM_BG_Loss<T, LogisticLoss<T, Storage>, Storage> {
   }
 };
 
-
-template <typename T, STORAGE_ORDER Storage=COL_MAJOR>
+template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
 struct SquaredLoss : GLM_BG_Loss<T, SquaredLoss<T, Storage>, Storage> {
   typedef GLM_BG_Loss<T, SquaredLoss<T, Storage>, Storage> Super;
 
   SquaredLoss(T *X, T *y, T *eta, int N, int D, bool has_bias, T lambda2)
-    : GLM_BG_Loss<T, SquaredLoss<T, Storage>, Storage>(X, y, eta, N, D, has_bias, lambda2) {}
+      : GLM_BG_Loss<T, SquaredLoss<T, Storage>, Storage>(X, y, eta, N, D,
+                                                         has_bias, lambda2) {}
 
   inline __device__ T eval_l(const T y, const T eta) const {
     T diff = y - eta;
@@ -173,9 +248,7 @@ struct SquaredLoss : GLM_BG_Loss<T, SquaredLoss<T, Storage>, Storage> {
     auto f = [] __device__(const T y, const T eta) { return (eta - y); };
     MLCommon::LinAlg::binaryOp(eta, y, eta, Super::N, f);
   }
-
 };
-
 
 template <typename T>
 __global__ void modKernel(T *w, const int tidx, const T h) {
@@ -191,12 +264,11 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
   int len = loss.n_param;
   SimpleVec<T> w_mod(len), grad(len);
 
-
   T lph = 0, lmh = 0;
 
   for (int d = 0; d < len; d++) {
     CUDA_CHECK(
-      cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
+        cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
 
     modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, h);
     cudaThreadSynchronize();

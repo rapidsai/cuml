@@ -3,11 +3,11 @@
 #include <vector>
 
 #include <cuda_utils.h>
-#include <linalg/cublas_wrappers.h>
-#include <linalg/unary_op.h>
 #include <linalg/binary_op.h>
-#include <linalg/ternary_op.h>
+#include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.h>
+#include <linalg/ternary_op.h>
+#include <linalg/unary_op.h>
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/zip_iterator.h>
@@ -29,6 +29,18 @@ template <typename T, STORAGE_ORDER Storage> struct gemv_helper {
   static void gemvT(SimpleVec<T> &v, const T alpha,
                     const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
                     const T beta, cublasHandle_t &cublas) {}
+};
+
+template <typename T,STORAGE_ORDER StorageC, STORAGE_ORDER StorageA, STORAGE_ORDER StorageB>
+struct gemm_helper {
+  static void gemm(SimpleMat<T, COL_MAJOR> &C, const T alpha,
+                   const SimpleMat<T, COL_MAJOR> &A,
+                   const SimpleMat<T, COL_MAJOR> &B, const T beta,
+                   cublasHandle_t &cublas) {}
+  static void gemvBT(SimpleMat<T, COL_MAJOR> &C, const T alpha,
+                     const SimpleMat<T, COL_MAJOR> &A,
+                     const SimpleMat<T, COL_MAJOR> &B, const T beta,
+                     cublasHandle_t &cublas) {}
 };
 
 template <typename T> struct SimpleVec {
@@ -115,7 +127,9 @@ template <typename T> struct SimpleVec {
   // this = a*x + b*y
   inline void axpby(const T a, const SimpleVec<T> &x, const T b,
                     const SimpleVec<T> &y) {
-    auto axpby = [a, b] __device__(const T x, const T y) { return a * x + b * y; };
+    auto axpby = [a, b] __device__(const T x, const T y) {
+      return a * x + b * y;
+    };
     MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpby);
   }
 
@@ -134,7 +148,8 @@ template <typename T> struct SimpleVec {
   inline void assign_ternary(const SimpleVec<T> &other1,
                              const SimpleVec<T> &other2,
                              const SimpleVec<T> &other3, Lambda &f) {
-    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data, len, f);
+    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data,
+                                len, f);
   }
 
   template <typename Op, typename... Vectors>
@@ -213,6 +228,20 @@ struct SimpleMat : SimpleVec<T> {
   }
 
   void print() const { std::cout << (*this) << std::endl; }
+
+  template <STORAGE_ORDER StorageB>
+  void assign_gemm(const T alpha, const SimpleMat<T> &A,
+                   const SimpleMat<T, StorageB> &B, const T beta,
+                   cublasHandle_t &cublas) {
+    gemm_helper<T,Storage, COL_MAJOR, StorageB>::gemm((*this), alpha, A, B, beta, cublas);
+  }
+  template <STORAGE_ORDER StorageB>
+  void assign_gemmBT(const T alpha, const SimpleMat<T> &A,
+                     const SimpleMat<T, StorageB> &B, const T beta,
+                     cublasHandle_t &cublas) {
+    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemmBT((*this), alpha, A, B, beta,
+                                              cublas);
+  }
 };
 
 template <typename T>
@@ -221,6 +250,75 @@ inline void col_ref(const SimpleMat<T, COL_MAJOR> &mat, SimpleVec<T> &mask_vec,
   T *tmp = &mat.data[mat.m * c];
   mask_vec.reset(tmp, mat.m);
 }
+
+template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
+  static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
+                   const SimpleMat<T> &B, const T beta,
+                   cublasHandle_t &cublas) {
+
+      ASSERT(A.n == B.m, "GEMM invalid dims");
+      ASSERT(A.m == C.m, "GEMM invalid dims");
+      ASSERT(B.n == C.n, "GEMM invalid dims");
+    MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N,
+                                 CUBLAS_OP_N,   // transA, transB
+                                 C.m, C.n, A.n, // dimensions m,n,k
+                                 &alpha, A.data,
+                                 A.m,         // lda
+                                 B.data, B.m, // ldb
+                                 &beta, C.data,
+                                 C.m // ldc
+    );
+  }
+  static void gemmBT(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
+                     const SimpleMat<T> &B, const T beta,
+                     cublasHandle_t &cublas) {
+      ASSERT(A.n == B.n, "GEMM BT invalid dims");
+      ASSERT(A.m == C.m, "GEMM invalid dims");
+      ASSERT(B.m == C.n, "GEMM invalid dims");
+    MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N, // transA
+                                 CUBLAS_OP_T,         // transB
+                                 C.m, C.n, A.n,       // dimensions m,n,k
+                                 &alpha, A.data,
+                                 A.m,         // lda
+                                 B.data, B.m, // ldb
+                                 &beta, C.data, C.m);
+  }
+};
+
+template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, ROW_MAJOR> {
+  static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
+                   const SimpleMat<T, ROW_MAJOR> &B, const T beta,
+                   cublasHandle_t &cublas) {
+
+      ASSERT(A.n == B.m, "GEMM RM invalid dims");
+      ASSERT(A.m == C.m, "GEMM RM invalid dims");
+      ASSERT(B.n == C.n, "GEMM RM invalid dims");
+    MLCommon::LinAlg::cublasgemm(cublas,
+                                 CUBLAS_OP_N,   // tranA
+                                 CUBLAS_OP_T,   // transB
+                                 C.m, C.n, A.n, // dimensions m,n,k
+                                 &alpha, A.data,
+                                 A.m,         // lda
+                                 B.data, B.n, // ldb
+                                 &beta, C.data, C.m);
+  }
+  static void gemmBT(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
+                     const SimpleMat<T, ROW_MAJOR> &B, const T beta,
+                     cublasHandle_t &cublas) {
+
+      ASSERT(A.n == B.n, "GEMM RM BT invalid dims");
+      ASSERT(A.m == C.m, "GEMM RM invalid dims");
+      ASSERT(B.m == C.n, "GEMM RM invalid dims");
+    MLCommon::LinAlg::cublasgemm(cublas,
+                                 CUBLAS_OP_N,   // tranA
+                                 CUBLAS_OP_N,   // transB
+                                 C.m, C.n, A.n, // dimensions m,n,k
+                                 &alpha, A.data,
+                                 A.m,         // lda
+                                 B.data, B.n, // ldb
+                                 &beta, C.data, C.m);
+  }
+};
 
 // Reductions such as dot or norm require an additional location in dev mem
 // to hold the result. We don't want to deal with this in the SimpleVec class
