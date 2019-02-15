@@ -109,13 +109,10 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     Type* map_id = (Type*)temp;    temp += mapIdSize;
     Type_f* dots = (Type_f*)temp;
 
-    std::cout << "Distance calc ptr: " << static_cast<void*>(dots) << std::endl;
-
     
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
 
-	    std::cout << "Running batch " << i+1 << " / " << nBatches << " with batch size " << nPoints << std::endl;
 
 		Type *adj_graph = NULL;
 		int startVertexId = i * batchSize;
@@ -123,11 +120,8 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         if(nPoints <= 0)
             continue;
 
-        std::cout << "Running vertexDeg" << std::endl;
 		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
 				startVertexId, nPoints);
-
-		std::cout << "done." << std::endl;
 
 		MLCommon::updateHost(&curradjlen, vd + batchSize, 1);  // Copy the running degree total into curradjlen on host
 		// Running AdjGraph
@@ -137,30 +131,23 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 			CUDA_CHECK(cudaMalloc((void** )&adj_graph, sizeof(Type) * adjlen));
 		}
 
-		std::cout << "Running adjGraph" << std::endl;
 		AdjGraph::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, stream,
 				algoAdj, nPoints);
 
-		std::cout << "Done." << std::endl;
 		// Running Labelling
 
-		std::cout << "Running labeling" << std::endl;
 		Label::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, stream, algoCcl, startVertexId,
 				nPoints);
 		if (adj_graph != NULL)
 			CUDA_CHECK(cudaFree(adj_graph));
-
-		std::cout << "Done." << std::endl;
 	}
 
 
 	if (algoCcl == 2) {
-	    std::cout << "Running final relabel" << std::endl;
 		Type *adj_graph = NULL;
 		Label::final_relabel(adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
 				visited, labels, xa, fa, m, map_id, stream);
-		std::cout << "Done" << std::endl;
 	}
 
         static const int TPB = 256;

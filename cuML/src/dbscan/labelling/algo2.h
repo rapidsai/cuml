@@ -145,9 +145,7 @@ void launcher(Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStr
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     if(startVertexId == 0)
         init_all<Type, TPB_X><<<blocks, threads>>>(data, MAX_LABEL); 
-    std::cout << "About to call label" << std::endl;
     label(data, startVertexId, batchSize);
-    std::cout << "Called label" << std::endl;
 
     CUDA_CHECK(cudaPeekAtLastError());
 }
