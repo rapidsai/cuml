@@ -66,12 +66,11 @@ namespace UMAPAlgo {
 
 
 	    template<typename T>
-	    T* optimize_layout(
-	            T** head_embedding, int head_n,
-	            T** tail_embedding, int tail_n,
+	    void optimize_layout(
+	            T *head_embedding, int head_n,
+	            T *tail_embedding, int tail_n,
 	            T *head, T *tail, int nnz,
 	            T *epochs_per_sample,
-	            int epochs_per_sample_n,
 	            int n_vertices,
 	            UMAPParams *params) {
 
@@ -80,19 +79,19 @@ namespace UMAPAlgo {
 	        T alpha = params->initial_alpha;
 
 	        //TODO: Parallelize this!
-	        T *epochs_per_negative_sample = (T*)malloc(epochs_per_sample_n * sizeof(T));
-	        for(int i = 0; i < epochs_per_sample_n; i++) {
+	        T *epochs_per_negative_sample = (T*)malloc(nnz * sizeof(T));
+	        for(int i = 0; i < nnz; i++) {
 	            epochs_per_sample[i] / params->negative_sample_rate;
 	        }
 
-	        T *epoch_of_next_negative_sample = (T*)malloc(epochs_per_sample_n*sizeof(T));
-	        memcpy(epoch_of_next_negative_sample, epochs_per_negative_sample, epochs_per_sample_n);
+	        T *epoch_of_next_negative_sample = (T*)malloc(nnz*sizeof(T));
+	        memcpy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
 
-	        T *epoch_of_next_sample = (T*)malloc(epochs_per_sample_n*sizeof(T));
-	        memcpy(epoch_of_next_sample, epochs_per_sample, epochs_per_sample_n);
+	        T *epoch_of_next_sample = (T*)malloc(nnz*sizeof(T));
+	        memcpy(epoch_of_next_sample, epochs_per_sample, nnz);
 
 	        for(int n = 0; n < params->n_epochs; n++) {
-	            for(int i = 0; i < epochs_per_sample_n; i++) {
+	            for(int i = 0; i < nnz; i++) {
 
 	                if(epoch_of_next_sample[i] <= n) {
 	                    T j = head[i];
@@ -163,8 +162,6 @@ namespace UMAPAlgo {
 	                alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
 	        }
-
-            return head_embedding;
 	    }
 
 
@@ -176,17 +173,13 @@ namespace UMAPAlgo {
 	     * dimensional fuzzy simplicial sets.
 	     */
 	    template<typename T>
-		void launcher(T *X, int m, int n,
-		        int *rows, int *cols, T *vals, int nnz,
+		void launcher(const T *X, int m, int n,
+		        const int *rows, const int *cols, const T *vals, int nnz,
 		        UMAPParams *params) {
 
 	        /**
 	         * Sum duplicates
 	         */
-
-
-
-
 
 	        /**
 	         * graph.data[graph.data < (graph.data.max() / float(n_epochs))] = 0.0
@@ -194,44 +187,19 @@ namespace UMAPAlgo {
 	         * n_vertices = n_neighbors
 	         */
 
+
+            T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
+            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
+
+
 	        T *embedding;
 	        MLCommon::allocate(embedding, m * params->n_components);
 
 	        // Doing a random initialization for now
 	        MLCommon::Random::Rng<T>::uniform(embedding, m*params->n_components, -10, 10);
 
-	        /**
-	         * Initialize embedding:
-	         *
-	         *   if random:
-	         *       embedding = random_state.uniform(low=-10.0, high=10.0, size=(n, n_components)
-	         *
-	         *
-	         *
-	         *   else spectral:
-	         *       initialization = spectral_layout(data, graph, n_components, random_state, metric=metric)
-	         *       expansion = 10.0 / initialization.max()
-	         *       embedding = (initialization * expansion.astype(np.float32) +
-	         *          random_state.normal(scale=0.0001, size=[n, n_components]).astype(np.float32)
-	         *   else:
-	         *       init_data = np.array(init)
-	         *       if len(init_data.shape) == 2:
-	         *          if np.unique(init_data, axis = 0).shape[0] < init_data.shape[0]:
-	         *              tree = KDTree(init_data)
-	         *              dist, ind = tree.query(init_data, k=2)
-	         *              nndist = np.mean(dist[:,1])
-	         *              embedding = init_data + np.random_normal(scale=0.001*nndist, size=init_data.shape).astype(np.float32)
-	         *          else:
-	         *              embedding=init_data
-	         *
-	         *
-	         */
-
-
-
-
-
-
+	        optimize_layout(embedding, embedding, rows, cols, nnz,
+	                          epochs_per_sample, n, params);
 		}
 	}
 }
