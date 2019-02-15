@@ -35,9 +35,9 @@ using namespace MLCommon;
 
 template<typename math_t>
 void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
-		math_t *explained_var_ratio, paramsTSVD prms,
+                      math_t *explained_var_ratio, paramsTSVD prms,
                       cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
-    DeviceAllocator &mgr) {
+                      DeviceAllocator &mgr) {
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -54,7 +54,7 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
 			prms.n_components, prms.n_cols);
 
-	Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols);
+  Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols, mgr);
 
 	Matrix::truncZeroOrigin(explained_var_all, prms.n_cols, explained_var,
 			prms.n_components, 1);
