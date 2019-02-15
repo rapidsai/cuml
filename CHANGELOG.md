@@ -15,6 +15,7 @@
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
 - PR #209: Simplify README.md, move build instructions to BUILD.md
+- PR #218: Fix RNG to use given seed and adjust RNG test tolerances.
 - PR #225: Support for generating random integers
 
 ## Bug Fixes
