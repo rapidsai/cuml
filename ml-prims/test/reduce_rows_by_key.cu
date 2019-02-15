@@ -83,7 +83,7 @@ protected:
         allocate(chars2, nobs);
         allocate(out_ref, nkeys*cols);
         allocate(out, nkeys*cols);
-        r.uniform(in1, nobs*cols, T(-1.0), T(1.0));
+        r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
         r_int.randInt(in2, nobs, 0, nkeys);
         naiveReduceRowsByKey(0, in1, cols, in2, chars2,
                                nobs, cols, nkeys, out_ref );
@@ -170,7 +170,7 @@ protected:
 // ReduceRowTestF
 // 128 Obs, 32 cols, 6 clusters
 const std::vector<ReduceRowsInputs<float> > inputsf2 = {
-    {0.00001f, 128, 32, 6, 1234ULL}
+    {0.000001f, 128, 32, 6, 1234ULL}
 };
 typedef ReduceRowTest<float> ReduceRowTestF;
 TEST_P(ReduceRowTestF, Result) {
@@ -201,7 +201,7 @@ INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestD,
 // ReduceRowTestSmallnKey
 // 128 Obs, 32 cols, 3 clusters
 const std::vector<ReduceRowsInputs<float> > inputsf_small_nkey = {
-    {0.00001f, 128, 32, 3, 1234ULL}
+    {0.000001f, 128, 32, 3, 1234ULL}
 };
 typedef ReduceRowTest<float> ReduceRowTestSmallnKey;
 TEST_P(ReduceRowTestSmallnKey, Result){
