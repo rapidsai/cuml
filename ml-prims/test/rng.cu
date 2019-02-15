@@ -252,8 +252,6 @@ TEST_P(RngTestF, Result) {
     match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
-  // std::printf("meanvar: (G:%f, R:%f) and (G:%f, R:%f)\n",
-  //             h_stats[0], meanvar[0], h_stats[1], meanvar[1]);
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestF, ::testing::ValuesIn(inputsf));
 
@@ -316,8 +314,6 @@ TEST_P(RngTestD, Result) {
     match(meanvar[0], h_stats[0], CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(
     match(meanvar[1], h_stats[1], CompareApprox<double>(params.tolerance)));
-  // std::printf("meanvar: (G:%f, R:%f) and (G:%f, R:%f)\n",
-  //             h_stats[0], meanvar[0], h_stats[1], meanvar[1]);
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
