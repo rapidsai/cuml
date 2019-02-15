@@ -75,7 +75,6 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     		 stream												// cuda stream
 	);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaPeekAtLastError());
 
     if (workspaceSize != 0) {
@@ -92,9 +91,7 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     		 stream												// cuda stream
 	 );
 
-    CUDA_CHECK(cudaDeviceSynchronize());
     CUDA_CHECK(cudaPeekAtLastError());
-
     CUDA_CHECK(cudaFree(workspace));
 }
 
