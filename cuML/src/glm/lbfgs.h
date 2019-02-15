@@ -1,5 +1,25 @@
 #pragma once
 
+/*
+ * This file contains implementations of two popular Quasi-Newton methods:
+ * - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal, Wright - Numerical Optimization (1999)]
+ * - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML 2007]
+ *   https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/
+ *
+ * L-BFGS is a classical method to solve unconstrained optimization problems of 
+ * differentiable multi-variate functions f: R^D \mapsto R, i.e. it solves
+ *
+ * \min_{x \in R^D} f(x)
+ *
+ * iteratively by building up a m-dimensional (inverse) Hessian approximation.
+ *
+ * OWL-QN is an extension of L-BFGS that is specifically designed to optimize functions of the form
+ *
+ * f(x) + \lambda * \sum_i |x_i|,
+ *
+ * i.e. functions with an l1 penalty, by leveraging that |z| is differentiable when restricted to an orthant.
+ *
+ */
 #include <glm/glm_vectors.h>
 namespace ML {
 namespace GLM {
@@ -604,7 +624,6 @@ struct OWLQNSolver : LBFGSSolver<T> {
 
       // Project m_drt onto orthant of -pseudog
       m_drt.assign_binary(m_drt, m_pseudo, project_neg);
-
 
       // step = 1.0 as initial guess
       step = T(1.0);
