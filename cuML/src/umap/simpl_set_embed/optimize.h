@@ -90,33 +90,31 @@ namespace UMAPAlgo {
              */
             MLCommon::LinAlg::subtract(labels_pred, labels_pred, labels, n_rows);
 
-            // TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
-            MLCommon::LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
-            MLCommon::Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false);
-            MLCommon::LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
-
-            MLCommon::Stats::mean(grads, input, n_cols, n_rows, false, false);
-            MLCommon::LinAlg::scalarMultiply(grads, grads, math_t(2), n_cols);
-
-
             /**
              * Gradient w/ respect to a
              */
+            T *a_deriv;
+            MLCommon::copy(a_deriv, input, n_rows);
+
+            // sum_error * (x^(2b)) / ((1+ax^(2b))^2)
 
 
 
             /**
              * Gradient w/ respect to b
              */
+            T *b_deriv;
+            MLCommon::copy(b_deriv, input, n_rows);
+
+            // sum_error * -(2ax^(2b)*ln(x))/(1 + ax^(2b))^2
 
 
 
+            /**
+             * Finally, take the mean
+             */
+            MLCommon::Stats::mean(grads, input, n_cols, n_rows, false, false);
 
-            // Derivative w/ respect to a:
-            // MSE * (x^(2b)) / ((1+ax^(2b))^2)
-
-            // Derivative w/ respect to b:
-            // MSE * -(2ax^(2b)*ln(x))/(1 + ax^(2b))^2
         }
     }
 }

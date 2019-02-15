@@ -194,16 +194,8 @@ namespace UMAPAlgo {
 	         * n_vertices = n_neighbors?
 	         */
 
-
-
-
-
-            T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
+	        T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
             make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
-
-
-	        T *embedding;
-	        MLCommon::allocate(embedding, m * params->n_components);
 
 	        // Doing a random initialization for now
 	        MLCommon::Random::Rng<T>::uniform(embedding, m*params->n_components, -10, 10);
