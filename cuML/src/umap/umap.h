@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 namespace ML {
 
     template<typename T>
@@ -60,8 +59,6 @@ namespace ML {
 		 * Initial learning rate for SGD
 		 */
 		float initial_alpha = 1.0;
-
-        void find_params_ab();
 	};
 
 

@@ -60,5 +60,7 @@ namespace UMAPAlgo {
 		SimplSetEmbed::run(X, n,
 		        state->graph_rows, state->graph_cols, state->graph_vals,
 		        params, state);
+
+
 	}
 }

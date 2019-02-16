@@ -29,7 +29,7 @@ namespace kNNGraph {
 
 		/**
 		 * Initial implementation calls out to FAISS to do its work.
-		 * TODO: cuML kNN implementation should support FAISS' approx NN variants.
+		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
 		template<typename T>
 		void launcher(const float *X, int n, int d,

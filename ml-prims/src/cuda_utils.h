@@ -276,7 +276,7 @@ void updateHostMG(Type* hPtr, const TypeMG<Type>* ptr, int n_gpus,
 }
 
 template<typename T>
-std::string arr2Str(T *arr, int size, std::string name) {
+std::string arr2Str(const T *arr, int size, std::string name) {
 
 	std::stringstream ss;
 

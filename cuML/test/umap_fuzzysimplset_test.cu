@@ -19,6 +19,7 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
+#include "umap/optimize.h"
 
 #include "umap/knn_graph/runner.h"
 #include "umap/fuzzy_simpl_set/runner.h"
@@ -66,6 +67,9 @@ protected:
 		allocate(vals, n*k);
 
 		FuzzySimplSet::run<float>(n, inds_d, dists_d, rows, cols, vals, umap_params);
+
+
+		UMAPAlgo::Optimize::find_params_ab(umap_params);
 
 //		int *rows_h, *cols_h;
 //		float *vals_h;

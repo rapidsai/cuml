@@ -15,6 +15,7 @@
  */
 
 #include "umap.h"
+#include "optimize.h"
 #include "runner.h"
 
 #include "ml_utils.h"
@@ -27,6 +28,8 @@
 namespace ML {
 
     using namespace UMAPAlgo;
+
+
 
 	/***
 	 * Fit a UMAP model, currently completely unsupervised.
@@ -47,37 +50,4 @@ namespace ML {
     template<class T>
     UMAPState<T>* UMAP<T>::get_state() { return this->state; }
 
-    void UMAPParams::find_params_ab() {
-
-        float step = 300 / spread*3;
-
-        float* X = (float*)malloc(300 * sizeof(float));
-        float* y = (float*)malloc(300 * sizeof(float));
-
-        for(int i = 0; i < 300; i++) {
-            X[i] = i*step;
-            y[i] = 0.0;
-            if(X[i] >= min_dist)
-                exp(-(X[i]-min_dist)/ spread);
-            else if(X[i] < min_dist)
-                X[i] = 1.0;
-        }
-
-        float *X_d;
-        MLCommon::allocate(X_d, 300);
-        MLCommon::updateDevice(X_d, X, 300);
-
-        float *coeffs;
-        MLCommon::allocate(coeffs, 1);
-
-        float *intercept;
-        MLCommon::allocate(intercept, 1);
-
-        Solver::sgdFit(X_d, 300, 1, y,
-               coeffs, intercept, true,
-               10, 5, lr_type::ADAPTIVE,
-               1e-3, -1, loss_funct::SQRD_LOSS,
-               MLCommon::Functions::penalty::NONE,
-               -1, -1, true, 1e-3, 2);
-    }
 }
