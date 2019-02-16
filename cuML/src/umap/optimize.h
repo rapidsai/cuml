@@ -154,12 +154,17 @@ namespace UMAPAlgo {
 
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, int n_epochs, UMAPParams *params) {
+                T *coef, UMAPParams *params, float tolerance = 1e-8) {
 
-            double learning_rate = 0.7;
+            // Don't really need a learning rate since
+            // we aren't using stochastic GD
+            double learning_rate = 1.0;
 
-            for(int i = 0; i < n_epochs; i++) {
+            int num_iters = 0;
+            int tol_grads = 0;
+            do {
 
+                tol_grads = 0;
                 T *grads;
                 MLCommon::allocate(grads, 2, true);
 
@@ -167,7 +172,19 @@ namespace UMAPAlgo {
 
                 MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2);
                 MLCommon::LinAlg::subtract(coef, coef, grads, 2);
-            }
+
+                T * grads_h = (T*)malloc(2 * sizeof(T));
+                MLCommon::updateHost(grads_h, grads, 2);
+                for(int i = 0; i < 2; i++) {
+                    if(abs(grads_h[i]) - tolerance <= 0)
+                        tol_grads += 1;
+                }
+
+                num_iters += 1;
+
+            } while(tol_grads < 2);
+
+            std::cout << "Num iters: " << num_iters << std::endl;
         }
 
         void find_params_ab(UMAPParams *params) {
@@ -196,7 +213,6 @@ namespace UMAPAlgo {
             double *y_d;
             MLCommon::allocate(y_d, 300);
             MLCommon::updateDevice(y_d, y, 300);
-//
             double *coeffs_h = (double*)malloc(2 * sizeof(double));
             coeffs_h[0] = 1.0;
             coeffs_h[1] = 1.0;
@@ -205,9 +221,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(coeffs, 2, true);
             MLCommon::updateDevice(coeffs, coeffs_h, 2);
 
-            int n_epochs = 500;
-
-            optimize_params<double, 256>(X_d, 300, y_d, coeffs, n_epochs, params);
+            optimize_params<double, 256>(X_d, 300, y_d, coeffs, params);
 
             std::cout << MLCommon::arr2Str(coeffs, 2, "coefficients");
         }
