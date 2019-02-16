@@ -20,6 +20,10 @@
 #include "functions/penalty.h"
 #include "functions/linearReg.h"
 #include "random/rng.h"
+
+#include <thrust/extrema.h>
+#include <thrust/device_ptr.h>
+
 #include <math.h>
 
 namespace UMAPAlgo {
@@ -184,6 +188,9 @@ namespace UMAPAlgo {
 	        /**
 	         * Find vals.max()
 	         */
+
+	        thrust::device_ptr<T> d_ptr = thrust::device_ptr_cast(vals);
+	        T max = thrust::max_element(d_ptr, d_ptr+nnz);
 
 	        /**
 	         * Go thorugh data and set everything that's less than

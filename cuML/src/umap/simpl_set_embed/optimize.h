@@ -20,6 +20,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/unary_op.h"
 #include "matrix/math.h"
+#include "stats/mean.h"
 
 namespace UMAPAlgo {
 
@@ -54,40 +55,61 @@ namespace UMAPAlgo {
          * x-values.
          */
         template<typename T>
-        void f(const T *input, int n_rows,
-               T *coef, int n_coeffs, T *preds,
-               UMAPParams *params) {
+        void f(const T *input, int n_rows, T a, T b, T *preds, UMAPParams *params) {
+
+            T *coef_h = (T*)malloc(2*sizeof(T));
+            MLCommon::updateHost(coef_h, coef, 2);
 
             // Function: 1/1+ax^(2b)
-            MLCommon::LinAlg::multiplyScalar(preds, input, params->a, n_rows);
-            MLCommon::LinAlg::powerScalar(preds, preds, 2*params->b, n_rows);
+            MLCommon::LinAlg::multiplyScalar(preds, input, a, n_rows);
+            MLCommon::LinAlg::powerScalar(preds, preds, 2*b, n_rows);
             MLCommon::LinAlg::addScalar(preds, preds, 1, n_rows);
             MLCommon::Matrix::reciprocal(preds, n_rows);
         }
+
+
+        template<typename T, int TPB_X>
+        __device__ void grad_a_kernel(T *input, T* output, n_rows, T *coef, a, b) {
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            T x = input[row];
+            output[row] = powf(x, 2*b) / powf((1 + a * powf(x, 2 * b)), 2);
+        }
+
+        template<typename T, int TPB_X>
+        __device__ void grad_b_kernel(T *input, T*output, n_rows, a, b) {
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            T x = input[row];
+            output[row] = -(2 * a * powf(x, 2 * b)) / powf(1 + a * powf(x, 2 * b), 2);
+        }
+
 
         /**
          * Calculate the gradients for fitting parameters a and b
          * to a smooth function based on exponential decay
          */
         template<typename T>
-        void abLossGrads(T *input, int n_rows, int n_cols,
+        __global__ void abLossGrads(T *input, int n_rows, int n_cols,
                 const T *labels, const T *coef, n_coefs, T *grads, penalty pen,
                 T alpha, T l1_ratio, cublasHandle_t cublas_handle) {
 
             UMAPParams *params; // todo: Need to be able to use the params
                                 // associated w/ the UMAP class
 
+            dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
+            dim3 blk(TPB_X, 1, 1);
+
+            T *coef_h = (T*)malloc(2 * sizeof(T));
+            MLCommon::updateHost(coef_h, coef, 2);
+
+            T a = coef_h[0];
+            T b = coef_h[1];
+
             /**
-             * Calculate f(x, a) for all a in 1..N
+             * Calculate residuals
              */
             T *labels_pred;
             MLCommon::allocate(labels_pred, n_rows);
-
             f(input, n_rows, coef, n_coefs, labels_pred, params);
-
-            /**
-             * Calculate MSE
-             */
             MLCommon::LinAlg::subtract(labels_pred, labels_pred, labels, n_rows);
 
             /**
@@ -95,26 +117,27 @@ namespace UMAPAlgo {
              */
             T *a_deriv;
             MLCommon::copy(a_deriv, input, n_rows);
+            grad_a_kernel<<<grid, blk>>>(a_deriv, a_deriv, n_rows, a, b);
 
-            // sum_error * (x^(2b)) / ((1+ax^(2b))^2)
-
-
+            MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, labels_pred, n_rows);
 
             /**
              * Gradient w/ respect to b
              */
             T *b_deriv;
             MLCommon::copy(b_deriv, input, n_rows);
+            grad_b_kernel<<<grid, blk>>>(b_deriv, b_deriv, n_rows, a, b);
 
-            // sum_error * -(2ax^(2b)*ln(x))/(1 + ax^(2b))^2
-
-
+            /**
+             * Multiply partial derivs by residuals
+             */
+            MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, n_rows, a, b);
 
             /**
              * Finally, take the mean
              */
-            MLCommon::Stats::mean(grads, input, n_cols, n_rows, false, false);
-
+            MLCommon::Stats::mean(grads, a_deriv, 1, n_rows, false, true);
+            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, true);
         }
     }
 }

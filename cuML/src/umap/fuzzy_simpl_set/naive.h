@@ -328,8 +328,6 @@ namespace UMAPAlgo {
 
                 MLCommon::Stats::mean(dist_means_dev, knn_dists,
                         params->n_neighbors, n, false, false);
-
-                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
@@ -360,8 +358,6 @@ namespace UMAPAlgo {
                  */
                 smooth_knn_dist<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
-
-                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 print("Got past smooth_knn_dist");
@@ -379,8 +375,6 @@ namespace UMAPAlgo {
                 compute_membership_strength<TPB_X><<<grid, blk>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
-
-                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 print("Got past compute membership strength");
@@ -399,8 +393,6 @@ namespace UMAPAlgo {
                 compute_result<TPB_X><<<grid, blk>>>(rows, cols, vals, orows, ocols,
                         ovals, rnnz, n, params->n_neighbors,
                         params->set_op_mix_ratio);
-
-                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 print("Got past compute result");
