@@ -30,7 +30,7 @@ namespace UMAPAlgo {
 
         /**
          * Calculate the gradients for training the embeddings in UMAP.
-         * Rather The difference in this gradient descent is that
+         * The difference in this gradient descent is that
          * the parameters being updated are the embeddings themselves.
          *
          * Will need to think of a good way to incorporate this into
@@ -136,8 +136,8 @@ namespace UMAPAlgo {
             /**
              * Finally, take the mean
              */
-            MLCommon::Stats::mean(grads, a_deriv, 1, n_rows, false, true);
-            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, true);
+            MLCommon::Stats::mean(grads, a_deriv, 1, n_rows, false, false);
+            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false);
         }
     }
 }

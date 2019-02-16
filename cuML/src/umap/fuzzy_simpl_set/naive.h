@@ -345,8 +345,6 @@ namespace UMAPAlgo {
                 delete dist_means_host;
                 CUDA_CHECK(cudaFree(dist_means_dev));
 
-                print("Got past mean");
-
                 T *sigmas;
                 T *rhos;
 
@@ -359,8 +357,6 @@ namespace UMAPAlgo {
                 smooth_knn_dist<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
-
-                print("Got past smooth_knn_dist");
 
                 T* sigmas_h = (T*) malloc(n * sizeof(T));
                 T* rhos_h = (T*) malloc(n * sizeof(T));
@@ -376,8 +372,6 @@ namespace UMAPAlgo {
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
                 CUDA_CHECK(cudaPeekAtLastError());
-
-                print("Got past compute membership strength");
 
                 int *orows, *ocols, *rnnz;
                 T *ovals;
@@ -395,8 +389,6 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                print("Got past compute result");
-
                 int cur_coo_len = 0;
                 MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
 
@@ -413,10 +405,6 @@ namespace UMAPAlgo {
                         orows, ocols, ovals,
                         crows, ccols, cvals,
                         rnnz, n);
-
-                print("Got past remove zeros");
-
-                std::cout << "cur_coo_len=" << cur_coo_len << std::endl;
 
                 MLCommon::coo_sort(n, k, cur_coo_len, crows, ccols, cvals);
 

@@ -168,6 +168,10 @@ namespace UMAPAlgo {
 	        }
 	    }
 
+	    template<typename T, int TPB_X>
+	    __device__ void sum_duplicates(int *rows, int *cols, T *vals, int nnz) {
+
+	    }
 
 
 	    /**
@@ -176,30 +180,39 @@ namespace UMAPAlgo {
 	     * cross entropy between the 1-skeleton of the high and low
 	     * dimensional fuzzy simplicial sets.
 	     */
-	    template<typename T>
+	    template<typename T, int TPB_X>
 		void launcher(const T *X, int m, int n,
 		        const int *rows, const int *cols, const T *vals, int nnz,
 		        UMAPParams *params, T* embedding) {
 
-	        /**
+            dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+            dim3 blk(TPB_X, 1, 1);
+
+            /**
 	         * Sum duplicates
 	         */
+
+
+
 
 	        /**
 	         * Find vals.max()
 	         */
-
-	        thrust::device_ptr<T> d_ptr = thrust::device_ptr_cast(vals);
-	        T max = thrust::max_element(d_ptr, d_ptr+nnz);
+	        thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(vals);
+	        T max = &thrust::max_element(d_ptr, d_ptr+nnz);
 
 	        /**
 	         * Go thorugh data and set everything that's less than
 	         * vals.max() / params->n_epochs to 0.0
 	         */
+	        auto adjust_vals_op = [] __device__(T input, T scalar) {
+	            if (input < scalar)
+	                return 0.0;
+	            else
+	                return input;
+	        };
 
-	        /**
-	         * n_vertices = n_neighbors?
-	         */
+	        unaryOp(vals, vals, &max / params->n_epochs, nnz, adjust_vals_op);
 
 	        T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
             make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
