@@ -74,8 +74,6 @@ def locate_cuda():
 
 CUDA = locate_cuda()
 
-
-
 cython_files = ['cuML/cuml.pyx']
 
 extensions = [
