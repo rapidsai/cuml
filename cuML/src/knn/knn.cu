@@ -101,10 +101,6 @@ namespace ML {
 
 
 		}
-
-
-
-		std::cout << "Fit " << this->total_n << " items in " << this->indices << " indices" << std::endl;
 	}
 
 	/**
