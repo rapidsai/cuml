@@ -26,7 +26,7 @@ build:
 
 requirements:
   build:
-    - cmake 3.12.4
+    - cmake>=3.12.4
     - cudf 0.5*
   run:
     - faiss-gpu

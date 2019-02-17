@@ -26,7 +26,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # - Requirements ----------------------------------------------------------------------------------
 
 find_package(MPI REQUIRED)
-find_package( BLAS REQUIRED )
+if(NOT DEFINED BLAS_LIBRARIES)
+    find_package( BLAS REQUIRED )
+else()
+	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
 
 if(MPI_FOUND)
     message(STATUS "MPI found in ${MPI_CXX_LIBRARIES}")
@@ -141,7 +145,7 @@ endif(NOT CMAKE_CXX11_ABI)
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --quiet
+  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)

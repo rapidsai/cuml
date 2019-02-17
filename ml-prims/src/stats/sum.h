@@ -93,39 +93,5 @@ void sum(Type *output, const Type *input, int D, int N, bool rowMajor,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-/**
- * @brief Compute sum of the input matrix
- *
- * Sum operation is assumed to be performed on a given column.
- *
- * @tparam Type the data type
- * @param output the output mean vector
- * @param input the input matrix
- * @param D number of columns of data
- * @param N number of rows of data
- * @param n_gpu: number of gpus.
- * @param rowMajor whether the input data is row or col major
- * @param row_split: true if the data is broken by row
- * @param sync: synch the streams if it's true
- */
-template <typename Type>
-void sumMG(TypeMG<Type> *output, const TypeMG<Type> *input, int D, int N,
-           int n_gpus, bool rowMajor, bool row_split = false,
-           bool sync = false) {
-  if (row_split) {
-    ASSERT(false, "sumMG: row split is not supported");
-  } else {
-    for (int i = 0; i < n_gpus; i++) {
-      CUDA_CHECK(cudaSetDevice(input[i].gpu_id));
-
-      sum(output[i].d_data, input[i].d_data, input[i].n_cols, input[i].n_rows,
-          rowMajor, input[i].stream);
-    }
-  }
-
-  if (sync)
-    streamSyncMG(input, n_gpus);
-}
-
 }; // end namespace Stats
 }; // end namespace MLCommon
