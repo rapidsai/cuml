@@ -154,7 +154,7 @@ namespace UMAPAlgo {
 
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-8) {
+                T *coef, UMAPParams *params, float tolerance = 1e-8, int max_epochs = 5000) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
@@ -182,7 +182,7 @@ namespace UMAPAlgo {
 
                 num_iters += 1;
 
-            } while(tol_grads < 2);
+            } while(tol_grads < 2 && num_iters < max_epochs);
 
             std::cout << "Num iters: " << num_iters << std::endl;
         }
