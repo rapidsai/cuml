@@ -21,6 +21,7 @@
 #include <cstdlib>
 #include "cuda_utils.h"
 #include "rng_impl.h"
+#include <type_traits>
 
 
 namespace MLCommon {
@@ -175,7 +176,6 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
  * @brief Random number generator
  * @tparam Type the data-type in which to return the random numbers
  */
-template <typename Type>
 class Rng {
 public:
   /** ctor */
@@ -198,15 +198,31 @@ public:
    * @param start start of the range
    * @param end end of the range
    * @param stream stream where to launch the kernel
+   * @{
    */
+  template <typename Type>
   void uniform(Type *ptr, int len, Type start, Type end,
                cudaStream_t stream = 0) {
+    static_assert(std::is_floating_point<Type>::value,
+                  "Type for 'uniform' can only be floating point type!");
     randImpl(offset, ptr, len,
              [=] __device__(Type val, unsigned idx) {
-               return (end - start) * val + start;
+               return (val * (end - start)) + start;
              },
              NumThreads, nBlocks, type, stream);
   }
+  template <typename IntType>
+  void uniformInt(IntType *ptr, int len, IntType start, IntType end,
+                  cudaStream_t stream = 0) {
+    static_assert(std::is_integral<IntType>::value,
+                  "Type for 'uniformInt' can only be integer type!");
+    randImpl(offset, ptr, len,
+             [=] __device__(IntType val, unsigned idx) {
+               return (val % (end - start)) + start;
+             },
+             NumThreads, nBlocks, type, stream);
+  }
+  /** @} */
 
   /**
    * @brief Generate normal distributed numbers
@@ -216,6 +232,7 @@ public:
    * @param sigma std-dev of the distribution
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void normal(Type *ptr, int len, Type mu, Type sigma,
               cudaStream_t stream = 0) {
     rand2Impl(offset, ptr, len,
@@ -239,6 +256,7 @@ public:
    * @param val value to be filled
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void fill(Type *ptr, int len, Type val, cudaStream_t stream = 0) {
     constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -251,6 +269,7 @@ public:
    * @param prob coin-toss probability for heads
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void bernoulli(bool *ptr, int len, Type prob, cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, unsigned idx) { return val > prob; },
@@ -266,6 +285,7 @@ public:
    * @param stream stream where to launch the kernel
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
+  template <typename Type>
   void gumbel(Type *ptr, int len, Type mu, Type beta, cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, unsigned idx) {
@@ -282,6 +302,7 @@ public:
    * @param sigma std-dev of the distribution
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void lognormal(Type *ptr, int len, Type mu, Type sigma,
                  cudaStream_t stream = 0) {
     rand2Impl(offset, ptr, len,
@@ -308,6 +329,7 @@ public:
    * @param scale scale value
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void logistic(Type *ptr, int len, Type mu, Type scale,
                 cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,
@@ -325,6 +347,7 @@ public:
    * @param lambda the lambda
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void exponential(Type *ptr, int len, Type lambda, cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, unsigned idx) {
@@ -341,6 +364,7 @@ public:
    * @param sigma the sigma
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void rayleigh(Type *ptr, int len, Type sigma, cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, unsigned idx) {
@@ -359,6 +383,7 @@ public:
    * @param scale the scale
    * @param stream stream where to launch the kernel
    */
+  template <typename Type>
   void laplace(Type *ptr, int len, Type mu, Type scale,
                cudaStream_t stream = 0) {
     randImpl(offset, ptr, len,

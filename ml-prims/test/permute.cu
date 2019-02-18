@@ -46,7 +46,7 @@ protected:
     if(params.needShuffle) {
       params.needPerms = true;
     }
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int N = params.N;
     int D = params.D;
     int len = N * D;

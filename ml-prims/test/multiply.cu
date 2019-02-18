@@ -28,7 +28,7 @@ class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
 
     allocate(in, len);
