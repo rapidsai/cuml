@@ -46,28 +46,32 @@ inline uint64_t _nextSeed() {
   return t0 | t1 | t2 | t3;
 }
 
-template <typename OutType, typename GenType, typename Lambda>
+template <typename OutType, typename MathType, typename GenType,
+          typename Lambda>
 __global__ void randKernel(uint64_t seed, uint64_t offset, OutType *ptr,
                            int len, Lambda randOp) {
   unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
   const unsigned stride = gridDim.x * blockDim.x;
   for (unsigned idx = tid; idx < len; idx += stride) {
-    auto val = gen.next();
-    ptr[idx] = (OutType)randOp(val, idx);
+    MathType val;
+    gen.next(val);
+    ptr[idx] = randOp(val, idx);
   }
 }
 
 // used for Box-Muller type transformations
-template <typename OutType, typename GenType, typename Lambda2>
+template <typename OutType, typename MathType, typename GenType,
+          typename Lambda2>
 __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
                             int len, Lambda2 rand2Op) {
   unsigned tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   detail::Generator<GenType> gen(seed, (uint64_t)tid, offset);
   const unsigned stride = gridDim.x * blockDim.x;
   for (unsigned idx = tid; idx < len; idx += stride) {
-    auto val1 = gen.next();
-    auto val2 = gen.next();
+    MathType val1, val2;
+    gen.next(val1);
+    gen.next(val2);
     rand2Op(val1, val2, idx);
     if (idx < len)
       ptr[idx] = (OutType)val1;
@@ -110,19 +114,16 @@ void randImpl(uint64_t &offset, OutType *ptr, int len, Lambda randOp,
     _setupSeeds<false, MathType>(seed, offset, len, nThreads, nBlocks);
   switch (type) {
     case GenPhilox:
-      randKernel<OutType, detail::PhiloxGenerator<MathType>,
-                 Lambda><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                           len, randOp);
+      randKernel<OutType, MathType, detail::PhiloxGenerator, Lambda>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
       break;
     case GenTaps:
-      randKernel<OutType, detail::TapsGenerator<MathType>,
-                 Lambda><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                           len, randOp);
+      randKernel<OutType, MathType, detail::TapsGenerator, Lambda>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
       break;
     case GenKiss99:
-      randKernel<OutType, detail::Kiss99Generator<MathType>,
-                 Lambda><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                           len, randOp);
+      randKernel<OutType, MathType, detail::Kiss99Generator, Lambda>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
       break;
     default:
       ASSERT(false, "randImpl: Incorrect generator type! %d", type);
@@ -142,19 +143,16 @@ void rand2Impl(uint64_t &offset, OutType *ptr, int len, Lambda2 rand2Op,
     _setupSeeds<true, MathType>(seed, offset, len, nThreads, nBlocks);
   switch (type) {
     case GenPhilox:
-      rand2Kernel<OutType, detail::PhiloxGenerator<MathType>,
-                  Lambda2><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                             len, rand2Op);
+      rand2Kernel<OutType, MathType, detail::PhiloxGenerator, Lambda2>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
       break;
     case GenTaps:
-      rand2Kernel<OutType, detail::TapsGenerator<MathType>,
-                  Lambda2><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                             len, rand2Op);
+      rand2Kernel<OutType, MathType, detail::TapsGenerator, Lambda2>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
       break;
     case GenKiss99:
-      rand2Kernel<OutType, detail::Kiss99Generator<MathType>,
-                  Lambda2><<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr,
-                                                             len, rand2Op);
+      rand2Kernel<OutType, MathType, detail::Kiss99Generator, Lambda2>
+        <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
       break;
     default:
       ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
