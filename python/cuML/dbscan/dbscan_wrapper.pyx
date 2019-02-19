@@ -57,10 +57,11 @@ class DBSCAN:
 
     """
 
-    def __init__(self, eps=1.0, min_samples=1):
+    def __init__(self, eps=0.5, min_samples=5):
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
+        self.labels_array = None
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -80,6 +81,12 @@ class DBSCAN:
             X : cuDF DataFrame
                Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
+
+        if self.labels_ is not None:
+            del self.labels_
+
+        if self.labels_array is not None:
+            del self.labels_array
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
@@ -121,7 +128,7 @@ class DBSCAN:
                                <double> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
-        #del(X_m)
+        del(X_m)
         return self
 
     def fit_predict(self, X):

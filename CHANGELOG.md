@@ -7,6 +7,7 @@
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+- PR #168: Add /ci/gpu/build.sh file to cuML
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
 - PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
 - PR #194: Added new ml-prims for supporting LASSO regression.
@@ -18,6 +19,7 @@
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #211: Fixing inconsistent use of proper batch size calculation in DBSCAN
 - PR #202: Adding back ability for users to define their own BLAS
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
