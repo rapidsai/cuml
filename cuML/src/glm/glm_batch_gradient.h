@@ -23,39 +23,103 @@
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
 #include <glm/glm_vectors.h>
+#include <linalg/matrix_vector_op.h>
 #include <vector>
 
 namespace ML {
 namespace GLM {
-
+/*
 template <typename T, STORAGE_ORDER Storage>
 inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T, Storage> &X,
-                      const SimpleMat<T> &W, bool has_bias) {
-  // compute Z <- X * W (+b)
+                      const SimpleMat<T> &W, cublasHandle_t &cublas,
+                      cudaStream_t stream = 0) {
+  // Forward pass:  compute Z <- W * X.T + bias
+  const bool has_bias = X.n != W.n;
+  const int D = X.n;
+  if (has_bias) {
+    SimpleVec<T> bias;
+    SimpleMat<T> weights;
+    col_ref(W, bias, D);
+    col_slice(W, weights, 0, D);
+    // We implement Z <- W * X + b by
+    // - Z <- b (broadcast): TODO reads Z unnecessarily atm
+    // - Z <- W * X + Z    : TODO can be fused in CUTLASS?
+    auto set_bias = [] __device__(const T z, const T b) { return b; };
+    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.m, Z.n, false,
+                                     true, set_bias);
+
+    Z.assign_gemmBT(1, weights, X, 1, cublas);
+  } else {
+    Z.assign_gemmBT(1, W, X, 0, cublas);
+  }
 }
 
 template <typename T, STORAGE_ORDER Storage>
 inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T, Storage> &X,
-                      const SimpleMat<T> &dZ, bool has_bias) {
-  // compute G <- X.T * dZ
-  // Gb = mean(dZ, 1)
+                      const SimpleMat<T> &dZ, bool setZero,
+                      cublasHandle_t &cublas, cudaStream_t stream = 0) {
+  // Backward pass:
+  // - compute G <- dZ * X.T
+  // - for bias: Gb = mean(dZ, 1)
+
+  const bool has_bias = X.n != G.n;
+  const int D = X.n;
+  const T beta = setZero ? T(0) : T(1);
+  if (has_bias) {
+    SimpleVec<T> Gbias;
+    SimpleMat<T> Gweights;
+    col_ref(G, Gbias, D);
+    col_slice(G, Gweights, 0, D);
+
+    //TODO can this be fused somehow?
+    Gweights.assign_gemm(1.0 / X.m, dZ, X, beta, cublas);
+    MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+  } else {
+    G.assign_gemm(1.0 / X.m, dZ, X, beta, cublas);
+  }
 }
 
-template <typename T, class Loss, STORAGE_ORDER Storage> struct GLMBase {
+template <typename T> struct Tikhonov {
+  T l2_penalty;
+  Tikhonov(T l2) : l2_penalty(l2) {}
+  Tikhonov(const Tikhonov<T> &other) : l2_penalty(other.l2_penalty) {}
+
+  HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
+
+  inline void loss_grad(T *reg_val, SimpleMat<T> &G, const SimpleMat<T> &W,
+                        const bool has_bias, cudaStream_t stream=0) const {
+
+    SimpleMat<T> Gweights;
+    SimpleMat<T> Wweights;
+    col_slice(G, Gweights, 0, G.n - has_bias);
+    col_slice(W, Wweights, 0, G.n - has_bias);
+    Gweights.ax(l2_penalty, Wweights);
+
+    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream, Wweights.data);
+  }
+};
+
+struct GLMDims {
+
+  bool fit_intercept;
+  int C, D, dims, n_param;
+  GLMDims(int C, int D, bool fit_intercept) : C(C), D(D), fit_intercept(fit_intercept) {
+    dims = D + fit_intercept;
+    n_param = dims * C;
+  }
+};
+
+template <typename T, class Loss, STORAGE_ORDER Storage>
+struct GLMBase : GLMDims {
 
   typedef SimpleMat<T, COL_MAJOR> Mat;
   typedef SimpleVec<T> Vec;
 
-  Vec lossVal; // to hold the loss value on device
-
-  bool fit_intercept;
   cublasHandle_t cublas;
   cudaStream_t stream;
-  int C, D, dims;
 
   GLMBase(int D, int C, bool fit_intercept, cudaStream_t stream = 0)
-      : C(C), D(D), dims(D + fit_intercept), lossVal(1),
-        fit_intercept(fit_intercept), stream(stream) {
+      : GLMDims(C, D, fit_intercept), stream(stream) {
     cublasCreate(&cublas);
   }
 
@@ -65,45 +129,108 @@ template <typename T, class Loss, STORAGE_ORDER Storage> struct GLMBase {
    * 2. loss_val <- sum loss(Z)
    *
    * Default: elementwise application of loss and its derivative
-   */
+   * /
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
                            const SimpleVec<T> &y) {
+    // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
-    // TODO
+    T invN = 1.0 / y.len;
+
+    auto f_l = [=] __device__(const T y, const T z) {
+      return loss->eval_l(y, z) * invN;
+    };
+
+    // TODO would be nice to have a kernel that fuses these two steps
+    MLCommon::LinAlg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
+                                       Z.data);
+
+    loss->eval_dl(y.data, Z.data, y.len);
   }
 
-  T loss_grad(Vec &gradFlat, const Vec &wFlat, const SimpleMat<T, Storage> &Xb,
-              const Vec &yb, Mat &Zb) {
-
-    Mat W(wFlat.data, C, dims);
-    Mat G(gradFlat.data, C, dims);
-    linearFwd(Zb, Xb, W, fit_intercept); // linear part: forward pass
-    getLossAndDZ(lossVal.data, Zb, yb);  // loss specific part
-    linearBwd(G, Xb, Zb, fit_intercept); // linear part: backward pass
-    return lossVal[0];
+  inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
+                        const SimpleMat<T, Storage> &Xb, const Vec &yb, Mat &Zb,
+                        bool initGradZero = true) {
+    // reshape data
+    Loss *loss = static_cast<Loss *>(this); // polymorphism
+    linearFwd(Zb, Xb, W, cublas, stream);   // linear part: forward pass
+    loss->getLossAndDZ(loss_val, Zb, yb);   // loss specific part
+    linearBwd(G, Xb, Zb, initGradZero, cublas,
+              stream); // linear part: backward pass
   }
 };
 
-template <typename T, class BaseLoss, STORAGE_ORDER Storage>
-struct GLMWithData : BaseLoss {
+template <typename T, class Loss, class Reg, STORAGE_ORDER Storage = COL_MAJOR>
+struct RegularizedGLM {
+  Reg *reg;
+  Loss *loss;
+  RegularizedGLM(Loss *loss, Reg *reg) : reg(reg), loss(loss) {}
+  inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
+                        const SimpleMat<T, Storage> &Xb, const SimpleVec<T> &yb,
+                        SimpleMat<T> &Zb, bool initGradZero = true) {
+    SimpleVec<T> lossVal(loss_val, 1);
+    reg->loss_grad(lossVal.data, G, W, loss->stream);
+    T reg = lossVal[0];
+    loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, false);
+    T loss = lossVal[0];
+    lossVal.fill(loss + reg);
+  }
+};
+
+template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
+struct LogisticLoss1 : GLMBase<T, LogisticLoss1<T, Storage>, Storage> {
+  typedef GLMBase<T, LogisticLoss1<T, Storage>, Storage> Super;
+
+  LogisticLoss1(int D, bool has_bias, cudaStream_t stream = 0)
+      : Super(D, 1, has_bias, stream) {}
+
+  inline __device__ T log_sigmoid(T x) const {
+    T m = MLCommon::myMax<T>(T(0), x);
+    return -MLCommon::myLog(MLCommon::myExp(-m) + MLCommon::myExp(-x - m)) - m;
+  }
+
+  inline __device__ T eval_l(const T y, const T eta) const {
+    T ytil = 2 * y - 1;
+    return -log_sigmoid(ytil * eta);
+  }
+
+  inline void eval_dl(const T *y, T *eta, const int N) {
+    auto f = [] __device__(const T y, const T eta) {
+      return T(1.0) / (T(1.0) + MLCommon::myExp(-eta)) - y;
+    };
+    MLCommon::LinAlg::binaryOp(eta, y, eta, N, f);
+  }
+};
+
+template <typename T, class GLMObjective, STORAGE_ORDER Storage = COL_MAJOR>
+struct GLMWithData :GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
   SimpleMat<T, Storage> X;
   Mat Z;
   Vec y;
+  SimpleVec<T> lossVal;
+  GLMObjective *objective;
 
-  GLMWithData(T *Xptr, T *yptr, T *Zptr, int N, int D, int C,
+  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, int D,
+              bool fit_intercept)
+      : objective(obj), X(Xptr, N, D), y(yptr, N), Z(Zptr, 1, N), lossVal(1),
+        GLMDims(1,D, fit_intercept){}
+
+  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, int D, int C,
               bool fit_intercept, cudaStream_t stream = 0)
-      : X(Xptr, N, D), y(N), Z(C, D), BaseLoss(N, D, C, fit_intercept, stream) {
-  }
+      : objective(obj), X(Xptr, N, D), y(yptr, N), Z(Zptr, C, N), lossVal(1),
+        GLMDims(C,D,fit_intercept){}
 
   T operator()(const Vec &wFlat, Vec &gradFlat) {
+    Mat W(wFlat.data, C, dims);
+    Mat G(gradFlat.data, C, dims);
     // optimizers often operate on vectors
-    return BaseLoss::loss_grad(gradFlat, wFlat, X, y, Z);
+    objective->loss_grad(lossVal.data, G, W, X, y, Z);
+    return lossVal[0];
   }
 };
-
+/* */
 template <typename T, class C, STORAGE_ORDER Storage> struct GLM_BG_Loss {
 
   typedef SimpleVec<T> Vec;
@@ -160,6 +287,10 @@ template <typename T, class C, STORAGE_ORDER Storage> struct GLM_BG_Loss {
     // reduce over D: do not penalize bias!
     MLCommon::LinAlg::mapThenSumReduce(loss_val, D, f_reg_2, loss_fn->stream,
                                        weights.data);
+
+    T tmp2;
+    MLCommon::updateHost(&tmp2, loss_val, 1);
+
   }
 
   inline void eval_loss(const SimpleVec<T> &weights, T *loss_val) {
