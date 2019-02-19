@@ -30,6 +30,7 @@ namespace Algo {
 
 template <typename value_t>
 void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int batchSize) {
+
     data.resetArray(stream, batchSize+1);
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
@@ -40,9 +41,12 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
 
     char* workspace = nullptr;
     size_t workspaceSize = 0;
+
     value_t eps2 = data.eps * data.eps;
+
     int* vd = data.vd;
     bool* adj = data.adj;
+
     ///@todo: once we support bool outputs in distance method, this should be removed!
     value_t* dist = data.dots;
 
@@ -69,8 +73,9 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     		 (void*)workspace, workspaceSize, 							// workspace params
     		 dbscan_op, 										// epilogue operator
     		 stream												// cuda stream
-	 );
+	);
 
+    CUDA_CHECK(cudaPeekAtLastError());
 
     if (workspaceSize != 0) {
         MLCommon::allocate(workspace, workspaceSize);
@@ -86,7 +91,8 @@ void launcher(Pack<value_t> data, cudaStream_t stream, int startVertexId, int ba
     		 stream												// cuda stream
 	 );
 
-    CUDA_CHECK(cudaDeviceSynchronize());
+    CUDA_CHECK(cudaPeekAtLastError());
+    CUDA_CHECK(cudaFree(workspace));
 }
 
 
