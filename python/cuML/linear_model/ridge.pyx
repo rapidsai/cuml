@@ -29,52 +29,61 @@ class Ridge:
 
     .. code-block:: python
 
-    import numpy as np
-    import cudf
-    from cuml import linear_model as cumlOLS
+        import numpy as np
+        import cudf
+        from cuml import Ridge as cumlRidge
 
-    lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
+        fit_intercept = True
+        normalize = False
+        alpha = np.array([1.0])
+        # eig: eigen decomposition based method, 
+        # svd: singular value decomposition based method,
+        # cd: coordinate descend.
+        solver = "eig"
 
-    X = cudf.DataFrame()
-    X['col1']=np.array([1,1,2,2],dtype=np.float32)
-    X['col2']=np.array([1,2,2,3],dtype=np.float32)
+        ridge = cumlRidge(alpha=alpha, fit_intercept=fit_intercept, normalize=normalize, solver=solver)
 
-    y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
+        X = cudf.DataFrame()
+        X['col1']=np.array([1,1,2,2],dtype=np.float32)
+        X['col2']=np.array([1,2,2,3],dtype=np.float32)
 
-    reg = lr.fit(X,y)
-    print("Coefficients:")
-    print(reg.coef_)
-    print("intercept:")
-    print(reg.intercept_)
+        y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
-    X_new = cudf.DataFrame()
-    X_new['col1']=np.array([3,2],dtype=np.float32)
-    X_new['col2']=np.array([5,5],dtype=np.float32)
-    preds = lr.predict(X_new)
+        result_ridge = ridge.fit(X_cudf, y_cudf)
+        print("Coefficients:")
+        print(result_ridge.coef_)
+        print("intercept:")
+        print(result_ridge.intercept_)
 
-    print(preds)
+        X_new = cudf.DataFrame()
+        X_new['col1']=np.array([3,2],dtype=np.float32)
+        X_new['col2']=np.array([5,5],dtype=np.float32)
+        preds = result_ridge.predict(X_new)
+
+        print(preds)
 
     Output:
 
     .. code-block:: python
 
-    Coefficients:
+        Coefficients:
 
-                  0 1.0000001
-                  1 1.9999998
+                    0 1.0000001
+                    1 1.9999998
 
-    Intercept:
-                  3.0
+        Intercept:
+                    3.0
 
-    Preds:
+        Preds:
 
-                  0 15.999999
-                  1 14.999999
+                    0 15.999999
+                    1 14.999999
 
 
-    For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_. For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_. For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
 
     """
+
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
 
