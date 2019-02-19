@@ -15,12 +15,12 @@
  */
 
 #include <gtest/gtest.h>
-#include "stats/norm.h"
+#include "linalg/norm.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
 namespace MLCommon {
-namespace Stats {
+namespace LinAlg {
 
 template <typename T>
 struct NormInputs {
