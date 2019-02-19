@@ -215,6 +215,7 @@ struct SimpleMat : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   int m, n;
 
+  SimpleMat():Super(){}
   SimpleMat(T *data, int m, int n) : Super(data, m * n), m(m), n(n) {}
   SimpleMat(T *data, int m, int n, const T val)
       : Super(data, m * n, val), m(m), n(n) {}
@@ -251,6 +252,15 @@ inline void col_ref(const SimpleMat<T, COL_MAJOR> &mat, SimpleVec<T> &mask_vec,
   mask_vec.reset(tmp, mat.m);
 }
 
+template<typename T>
+inline void col_slice(const SimpleMat<T, COL_MAJOR>  & mat, SimpleMat<T, COL_MAJOR> & mask_mat, int c_from, int c_to){
+    ASSERT(c_from >= 0 && c_from < mat.n, "col_slice: invalid from");
+    ASSERT(c_to >= 0 && c_to <= mat.n, "col_slice: invalid to");
+
+  T *tmp = &mat.data[mat.m * c_from];
+  mask_mat.reset(tmp, mat.m, c_to - c_from);
+}
+
 template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
   static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
                    const SimpleMat<T> &B, const T beta,
@@ -273,8 +283,8 @@ template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
                      const SimpleMat<T> &B, const T beta,
                      cublasHandle_t &cublas) {
       ASSERT(A.n == B.n, "GEMM BT invalid dims");
-      ASSERT(A.m == C.m, "GEMM invalid dims");
-      ASSERT(B.m == C.n, "GEMM invalid dims");
+      ASSERT(A.m == C.m, "GEMM BT invalid dims");
+      ASSERT(B.m == C.n, "GEMM BT invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N, // transA
                                  CUBLAS_OP_T,         // transB
                                  C.m, C.n, A.n,       // dimensions m,n,k
@@ -307,8 +317,8 @@ template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, ROW_MAJOR> {
                      cublasHandle_t &cublas) {
 
       ASSERT(A.n == B.n, "GEMM RM BT invalid dims");
-      ASSERT(A.m == C.m, "GEMM RM invalid dims");
-      ASSERT(B.m == C.n, "GEMM RM invalid dims");
+      ASSERT(A.m == C.m, "GEMM RM BT invalid dims");
+      ASSERT(B.m == C.n, "GEMM RM BT invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas,
                                  CUBLAS_OP_N,   // tranA
                                  CUBLAS_OP_N,   // transB
