@@ -18,8 +18,9 @@
 #include <cub/cub.cuh>
 #include "cuda_utils.h"
 #include "random/rng.h"
+#include "stats/mean.h"
+#include "stats/stddev.h"
 #include "test_utils.h"
-
 
 namespace MLCommon {
 namespace Random {
@@ -72,13 +73,16 @@ template <typename T>
   return os;
 }
 
+#include <time.h>
+#include <sys/timeb.h>
+
 template <typename T>
 class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 protected:
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
-    // 3 x sigma indicates the test shouldn't fail 99.7% of the time.
-    num_sigma = 3;
+    // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
+    num_sigma = 4;
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
     allocate(data, params.len);
@@ -194,7 +198,7 @@ protected:
   // Rayleigh: 0.0125, 0.025
   // Laplace: 0.02, 0.04
 
-  // We generally want 3*sigma = 99.7% chance of success
+  // We generally want 4 x sigma >= 99.9% chance of success
 
 typedef RngTest<float> RngTestF;
 const std::vector<RngInputs<float>> inputsf = {
@@ -320,6 +324,92 @@ TEST_P(RngTestD, Result) {
     match(meanvar[1], h_stats[1], CompareApprox<double>(num_sigma*params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
+
+  // ---------------------------------------------------------------------- //
+  // Test for expected variance in mean calculations
+
+  template <typename T>
+  T quick_mean(const std::vector<T>& d) {
+    T acc = T(0);
+    for(const auto& di : d) {
+      acc += di;
+    }
+    return acc/d.size();
+  }
+
+  template <typename T>
+  T quick_std(const std::vector<T>& d) {
+    T acc = T(0);
+    T d_mean = quick_mean(d);
+    for(const auto& di : d) {
+      acc += ((di - d_mean)*(di - d_mean));
+    }
+    return std::sqrt(acc/(d.size()-1));
+  }
+
+  template <typename T>
+  std::ostream& operator<< (std::ostream& out, const std::vector<T>& v) {
+    if ( !v.empty() ) {
+      out << '[';
+      std::copy (v.begin(), v.end(), std::ostream_iterator<T>(out, ", "));
+      out << "\b\b]";
+    }
+    return out;
+  }
+
+  // The following tests the 3 random number generators by checking that the
+  // measured mean error is close to the well-known analytical result
+  // (sigma/sqrt(n_samples)). To compute the mean error, we a number of
+  // experiments computing the mean, giving us a distribution of the mean
+  // itself. The mean error is simply the standard deviation of this
+  // distribution (the standard deviation of the mean).
+  TEST(Rng, Normal) {
+
+    timeb time_struct;
+    ftime(&time_struct);
+    int seed = time_struct.millitm;
+    int num_samples = 1024;
+    int num_experiments = 1024;
+    float* data;
+    float* mean_result;
+    float* std_result;
+    int len = num_samples*num_experiments;
+
+    allocate(data, len);
+    allocate(mean_result, num_experiments);
+    allocate(std_result, num_experiments);
+
+
+    for(auto rtype : {Random::GenPhilox, Random::GenKiss99, Random::GenTaps}) {
+      Random::Rng<float> r(seed, rtype);
+      r.normal(data, len, 3.3, 0.23);
+      // r.uniform(data, len, -1.0, 2.0);
+      Stats::mean(mean_result, data, num_samples, num_experiments, false, false);
+      Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false, false);
+      std::vector<float> h_mean_result(num_experiments);
+      std::vector<float> h_std_result(num_experiments);
+      updateHost(h_mean_result.data(), mean_result, num_experiments);
+      updateHost(h_std_result.data(), std_result, num_experiments);
+      auto d_mean = quick_mean(h_mean_result);
+
+      // std-dev of mean; also known as mean error
+      auto d_std_of_mean = quick_std(h_mean_result);
+      auto d_std = quick_mean(h_std_result);
+      auto d_std_of_mean_analytical = d_std/std::sqrt(num_samples);
+
+      // std::cout << "measured mean error: " << d_std_of_mean << "\n";
+      // std::cout << "expected mean error: " << d_std/std::sqrt(num_samples) << "\n";
+
+      auto diff_expected_vs_measured_mean_error = std::abs(d_std_of_mean - d_std/std::sqrt(num_samples));
+
+      ASSERT_TRUE((diff_expected_vs_measured_mean_error/d_std_of_mean_analytical < 0.5));
+    }
+    CUDA_CHECK(cudaFree(data));
+    CUDA_CHECK(cudaFree(mean_result));
+    CUDA_CHECK(cudaFree(std_result));
+    
+    // std::cout << "mean_res:" << h_mean_result << "\n";
+  }
 
 } // end namespace Random
 } // end namespace MLCommon
