@@ -41,7 +41,7 @@ logger "Build libcuml..."
 mkdir -p $WORKSPACE/cuML/build
 cd $WORKSPACE/cuML/build
 logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
 
 logger "Clean up make..."
 make clean
