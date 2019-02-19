@@ -14,7 +14,6 @@
 
 ## Bug Fixes
 
-- PR #167: Integrating full-n-final ml-prims repo inside cuml
 - PR #193: Fix AttributeError in PCA and TSVD
 - PR #200 Avoid using numpy via cimport in KNN
 
