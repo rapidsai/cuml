@@ -109,20 +109,17 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     Type* map_id = (Type*)temp;    temp += mapIdSize;
     Type_f* dots = (Type_f*)temp;
 
-    std::cout << "Distance calc ptr: " << static_cast<void*>(dots) << std::endl;
-
-    
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
 		Type *adj_graph = NULL;
 		int startVertexId = i * batchSize;
-                int nPoints = min(N-startVertexId, batchSize);
-                if(nPoints <= 0)
-                    continue;
+        int nPoints = min(N-startVertexId, batchSize);
+        if(nPoints <= 0)
+            continue;
 		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
-				startVertexId, batchSize);
+				startVertexId, nPoints);
 
-		MLCommon::updateHost(&curradjlen, vd + batchSize, 1);  // Copy the running degree total into curradjlen on host
+		MLCommon::updateHost(&curradjlen, vd + nPoints, 1);
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph == NULL) {
@@ -147,6 +144,9 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         static const int TPB = 256;
         int nblks = ceildiv(N, TPB);
         relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
+
+        CUDA_CHECK(cudaPeekAtLastError());
+
 
 	return (size_t) 0;
 }
