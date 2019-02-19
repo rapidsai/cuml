@@ -38,9 +38,6 @@ void svcFit(float *input,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 	svcFit(input,
 			       n_rows,
 				   n_cols,
@@ -48,12 +45,9 @@ void svcFit(float *input,
 				   coef,
 				   C,
 				   tol,
-				   cublas_handle,
-				   cusolver_handle);
+				   cublas_handle);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
 }
 
 void svcFit(double *input,
@@ -67,9 +61,6 @@ void svcFit(double *input,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 	svcFit(input,
 			       n_rows,
 				   n_cols,
@@ -77,12 +68,9 @@ void svcFit(double *input,
 				   coef,
 				   C,
 				   tol,
-				   cublas_handle,
-				   cusolver_handle);
+				   cublas_handle);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
 }
 /*
 void svcPredict(const float *input, int n_rows, int n_cols, const float *coef,
