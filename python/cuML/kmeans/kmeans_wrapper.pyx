@@ -230,7 +230,6 @@ class KMeans:
                     Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
-        self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):

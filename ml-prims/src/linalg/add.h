@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "unary_op.h"
 #include "binary_op.h"
+#include "unary_op.h"
 
 
 namespace MLCommon {
@@ -29,70 +29,63 @@ namespace LinAlg {
  * @param in the input buffer
  * @param scalar the scalar used in the operations
  * @param len number of elements in the input buffer
+ * @param stream cuda stream where to launch work
  * @{
  */
 template <typename math_t>
-void addScalar(math_t* out, const math_t* in, math_t scalar, int len) {
-
-    unaryOp(out, in, scalar, len, [] __device__ (math_t in, math_t scalar) {
-                                      return in + scalar;
-                                  });
-
+void addScalar(math_t *out, const math_t *in, math_t scalar, int len,
+               cudaStream_t stream = 0) {
+  unaryOp(out, in, len,
+          [scalar] __device__(math_t in) { return in + scalar; },
+          stream);
 }
+/** @} */
 
 /**
- * @defgroup ScalarOps Scalar operations on the input buffer
+ * @defgroup BinaryOps Element-wise binary operations on the input buffers
+ * @param out the output buffer
+ * @param in1 the first input buffer
+ * @param in2 the second input buffer
+ * @param len number of elements in the input buffers
+ * @param stream cuda stream where to launch work
+ * @{
+ */
+template <typename math_t>
+void add(math_t *out, const math_t *in1, const math_t *in2, int len,
+         cudaStream_t stream = 0) {
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) { return a + b; }, stream);
+}
+/** @} */
+
+
+
+template<class math_t>
+__global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev, const math_t *singleScalarDev, int len)
+{
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i < len)
+    {
+        outDev[i] = inDev[i] + *singleScalarDev;
+    }
+}
+
+/** Substract single value pointed by singleScalarDev parameter in device memory from inDev[i] and write result to outDev[i]
  * @param out the output buffer
  * @param in the input buffer
- * @param scalar the scalar used in the operations
- * @param len number of elements in the input buffer
+ * @param singleScalarDev pointer to the scalar located in device memory
+ * @param len number of elements in the input and output buffer
  * @{
  */
 template <typename math_t>
-void addScalarMG(TypeMG<math_t>* out, const TypeMG<math_t>* in, math_t scalar, int len,
-		         int n_gpus, bool sync = false) {
-
-	unaryOpMG(out, in, scalar, len, n_gpus, [] __device__ (math_t in, math_t scalar) {
-                                               return in + scalar;
-                                            }, sync);
-
+void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev, int len)
+{
+    // TODO: block dimension has not been tuned
+    dim3 block (256);
+    dim3 grid((len + block.x - 1) / block.x);
+    add_dev_scalar_kernel<math_t> <<<grid, block>>>(outDev, inDev, singleScalarDev, len);
+    CUDA_CHECK(cudaPeekAtLastError());
 }
-
-/**
- * @defgroup BinaryOps Element-wise binary operations on the input buffers
- * @param out the output buffer
- * @param in1 the first input buffer
- * @param in2 the second input buffer
- * @param len number of elements in the input buffers
- * @{
- */
-template <typename math_t>
-void add(math_t* out, const math_t* in1, const math_t* in2, int len) {
-    binaryOp(out, in1, in2, len, [] __device__ (math_t a, math_t b) {
-                                     return a + b;
-                                 });
-}
-
-/**
- * @defgroup BinaryOps Element-wise binary operations on the input buffers
- * @param out the output buffer
- * @param in1 the first input buffer
- * @param in2 the second input buffer
- * @param len number of elements in the input buffers
- * @param n_gpus number of gpus
- * @{
- */
-template <typename math_t>
-void addMG(TypeMG<math_t>* out, const TypeMG<math_t>* in1, const TypeMG<math_t>* in2,
-		   int len, int n_gpus, bool sync = false) {
-
-	binaryOpMG(out, in1, in2, len, n_gpus, [] __device__ (math_t a, math_t b) {
-                                              return a + b;
-                                           }, sync);
-
-}
-
-/** @} */
 
 }; // end namespace LinAlg
 }; // end namespace MLCommon

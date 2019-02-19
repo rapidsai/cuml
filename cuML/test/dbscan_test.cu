@@ -21,7 +21,6 @@
 #include "ml_utils.h"
 #include "dbscan/dbscan.h"
 #include <linalg/cublas_wrappers.h>
-#include <iostream>
 #include <vector>
 
 namespace ML {
