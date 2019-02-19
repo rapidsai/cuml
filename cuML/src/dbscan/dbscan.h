@@ -22,66 +22,42 @@ namespace ML {
 
 using namespace Dbscan;
 
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels) {
+int computeBatchCount(int n_rows) {
 
-	int algoVd = 401;
-	int algoAdj = 1;
-	int algoCcl = 2;
-	int n_batches = 1;
-	int workspaceSize;
+    int n_batches = 1;
+    // There seems to be a weird overflow bug with cutlass gemm kernels
+    // hence, artifically limiting to a smaller batchsize!
+    ///TODO: in future, when we bump up the underlying cutlass version, this should go away
+    // paving way to cudaMemGetInfo based workspace allocation
+    static const size_t MaxElems = (size_t)1024 * 1024 * 1024 * 2;  // 2e9
+    while(true) {
 
-	size_t free, total;
-	CUDA_CHECK(cudaMemGetInfo(&free, &total));
+        size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
+        if(batchSize * n_rows < MaxElems)
+            break;
+        ++n_batches;
+    }
 
-	while (true) {
-		workspaceSize = Dbscan::run(input, n_rows, n_cols, eps, min_pts,
-				labels, algoVd, algoAdj, algoCcl, NULL, n_batches, 0);
-
-		if (workspaceSize < free)
-			break;
-
-		n_batches++;
-	}
-
-	char* workspace;
-	CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
-
-	Dbscan::run(input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-			algoCcl, workspace, n_batches, 0);
-
-	CUDA_CHECK(cudaFree(workspace));
+    return n_batches;
 }
 
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels) {
+template<typename T>
+void dbscanFitImpl(T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels) {
+    int algoVd = 1;
+    int algoAdj = 1;
+    int algoCcl = 2;
+    int n_batches = computeBatchCount(n_rows);
+    size_t workspaceSize = Dbscan::run(input, n_rows, n_cols, eps, min_pts,
+                                       labels, algoVd, algoAdj, algoCcl, NULL,
+                                       n_batches, 0);
 
-	int algoVd = 401;
-	int algoAdj = 1;
-	int algoCcl = 2;
-	int n_batches = 1;
-	int workspaceSize;
+    char* workspace;
+    CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
 
-	size_t free, total;
-	CUDA_CHECK(cudaMemGetInfo(&free, &total));
+    Dbscan::run(input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
+                algoCcl, workspace, n_batches, 0);
 
-	while (true) {
-		workspaceSize = Dbscan::run(input, n_rows, n_cols, eps, min_pts,
-				labels, algoVd, algoAdj, algoCcl, NULL, n_batches, 0);
-
-		if (workspaceSize < free)
-			break;
-
-		n_batches++;
-	}
-
-	char* workspace;
-	CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
-
-	Dbscan::run(input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-			algoCcl, workspace, n_batches, 0);
-
-	CUDA_CHECK(cudaFree(workspace));
+    CUDA_CHECK(cudaFree(workspace));
 }
 
 /** @} */

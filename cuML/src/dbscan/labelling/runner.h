@@ -29,7 +29,7 @@ namespace Label {
 
 
 template <typename Type>
-void run(bool* adj, Type* vd, Type* adj_graph, Type* ex_scan, Type N,
+void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster, 
          bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream, 
          int algo, int startVertexId, int batchSize) {
@@ -52,7 +52,7 @@ void run(bool* adj, Type* vd, Type* adj_graph, Type* ex_scan, Type N,
 }
 
 template <typename Type>
-void final_relabel(bool* adj, Type* vd, Type* adj_graph, Type* ex_scan, Type N,
+void final_relabel(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
          bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,

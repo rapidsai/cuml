@@ -22,6 +22,8 @@ from libcpp cimport bool
 import ctypes
 from libc.stdint cimport uintptr_t
 from c_dbscan cimport *
+# temporary import for numba_utils
+from cuML import numba_utils
 
 
 class DBSCAN:
@@ -55,10 +57,11 @@ class DBSCAN:
 
     """
 
-    def __init__(self, eps=1.0, min_samples=1):
+    def __init__(self, eps=0.5, min_samples=5):
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
+        self.labels_array = None
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -79,10 +82,16 @@ class DBSCAN:
                Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
 
+        if self.labels_ is not None:
+            del self.labels_
+
+        if self.labels_array is not None:
+            del self.labels_array
+
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -92,29 +101,33 @@ class DBSCAN:
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
+
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
+        print("n_rows: "+ str(self.n_rows))
+
         input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
+        self.labels_array = self.labels_._column._data.to_gpu_array()
+        cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
+        print(hex(labels_ptr))
         if self.gdf_datatype.type == np.float32:
             c_dbscan.dbscanFit(<float*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
-		                       <int*> labels_ptr)
+		               <int*> labels_ptr)
         else:
             c_dbscan.dbscanFit(<double*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <double> self.eps,
                                <int> self.min_samples,
-		                       <int*> labels_ptr)
+		               <int*> labels_ptr)
         del(X_m)
         return self
 

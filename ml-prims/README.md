@@ -1,35 +1,48 @@
-# ml-prims
-This repo contains most of the ML primitives.
+# Introduction
+
+This folder contains some of the common  components and
+computational primitives that form part of the machine learning algorithms in cuML,
+and can be used individually as well in the form of a header only library.
 
 # Setup
-## Dependencies
+## Dependencies (pre-requisites)
+1. git
+2. cmake (>= 3.12.4)
+3. CUDA  (>= 9.2)
 
-1. zlib
-2. cmake (>= 3.8 and <= 3.11.4, version 3.11.4 is recommended and there are some issues with version 3.12)
-3. CUDA SDK (>= 8.0)
-4. Cython (>= 0.28)
-5. gcc (>=5.4.0)
-6. nvcc (this comes with CUDA SDK)
-
-### Building ml-prims:
-
-ml-prims is implemented as header only C++/CUDA libraries for the developers who would like to call these APIs from their projects. You can build and run the Google tests if you are interested in helping us to improve these libraries.
-
-First, clone the cuML if you haven't cloned it yet.
-
+## Getting the ML primitives:
 ```bash
-$ git clone --recursive git@github.com:rapidsai/cuml-alpha.git
+$ git clone --recursive https://github.com/rapidsai/cuml
 ```
 
-To build ml-prims, in the main folder;
+The primitives are contained in the ml-prims folder.
 
+## In case you prefer working inside docker
+This now comes with open-mpi built inside the container itself.
 ```bash
-$ cd ml-prims
+$ git clone https://github.com/teju85/dockerfiles
+$ cd dockerfiles/ubuntu1604
+$ make ml-dev
+$ cd ../..
+$ ./dockerfiles/scripts/launch -runas user ml:dev /bin/bash
+container$ cd /work/cuml/ml-prims
+```
+
+# Building and executing tests
+```bash
+$ cd cuml/ml-prims
 $ mkdir build
 $ cd build
-$ cmake ..
+$ cmake .. ## Use specific GPU architecture with -DGPU_ARCHS=70,  to significantly reduce compile time!
 $ make -j
-$ ./mlcommon_test
+```
+
+To run the tests:
+
+```bash
+# build using above instructions
+$ cd build
+$ ./test/mlcommon_test
 ```
 
 ## External
@@ -42,3 +55,8 @@ Current external submodules are:
 1. [CUTLASS](https://github.com/NVIDIA/cutlass)
 2. [CUB](https://github.com/NVlabs/cub)
 3. [Google Test](https://github.com/google/googletest)
+
+Information about needed memory layout in current implementation:
+
+1. Memory storage for matrix is dense, and in both column-major and row-major. Please see individual file/function documentation to see which format is needed for each case..
+2. Matrix is densely packed without any LDA

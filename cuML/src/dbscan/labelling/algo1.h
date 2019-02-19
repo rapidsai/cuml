@@ -47,7 +47,7 @@ __global__ void bfs_device(Pack<Type> data, int startVertexId, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, Type *host_vd,
+void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
          int startVertexId, int batchSize) {
     bool *host_xa = new bool[N];
@@ -62,7 +62,6 @@ void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, Type
     dim3 threads(TPB_X, 1, 1);
     while(countFa > 0) {
         bfs_device<Type,TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
-        cudaThreadSynchronize();
         cudaDeviceSynchronize();
         countFa = count(device, data.fa, data.fa + N, true);
     }
@@ -81,7 +80,7 @@ template <typename Type>
 void identifyCluster(Pack<Type> data, int startVertexId, int batchSize) {
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
-    Type *host_vd = new Type[batchSize+1];
+    int *host_vd = new int[batchSize+1];
     bool *host_core_pts = new bool[batchSize];
     bool *host_visited = new bool[N];
     Type *host_ex_scan = new Type[batchSize];

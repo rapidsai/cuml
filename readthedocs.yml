@@ -6,4 +6,4 @@ python:
    setup_py_install: false
 
 conda:
-   file: conda_environments/builddocs_py36.yml
+   file: conda/environments/builddocs_py36.yml

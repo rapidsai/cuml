@@ -27,7 +27,7 @@ using namespace MLCommon;
 
 template<typename Type, typename Type_f>
 void run(Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
-		Type* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
+		int* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
 		Type *db_cluster, bool *xa, bool *fa, bool *m, Type *map_id,
 		Type_f* dots, cudaStream_t stream, int algoVd, int algoAdj,
 		int algoCcl) {
@@ -80,7 +80,8 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
     size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
-    size_t dotsSize = alignTo<size_t>(sizeof(Type_f) * N, align);
+    size_t dotsSize = alignTo<size_t>(sizeof(Type_f) * N * batchSize, align);
+
     if(workspace == NULL) {
         auto size = adjSize
             + corePtsSize
@@ -103,20 +104,22 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     bool* xa = (bool*)temp;        temp += xaSize;
     bool* fa = (bool*)temp;        temp += xaSize;
     bool* m = (bool*)temp;         temp += mSize;
-    Type* vd = (Type*)temp;        temp += vdSize;
+    int* vd = (int*)temp;        temp += vdSize;
     Type* ex_scan = (Type*)temp;   temp += exScanSize;
     Type* map_id = (Type*)temp;    temp += mapIdSize;
     Type_f* dots = (Type_f*)temp;
+
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
 		Type *adj_graph = NULL;
 		int startVertexId = i * batchSize;
-                int nPoints = min(N-startVertexId, batchSize);
-                if(nPoints <= 0)
-                    continue;
+        int nPoints = min(N-startVertexId, batchSize);
+        if(nPoints <= 0)
+            continue;
 		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
-				startVertexId, batchSize);
-		MLCommon::updateHost(&curradjlen, vd + batchSize, 1);
+				startVertexId, nPoints);
+
+		MLCommon::updateHost(&curradjlen, vd + nPoints, 1);
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph == NULL) {
@@ -141,6 +144,9 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         static const int TPB = 256;
         int nblks = ceildiv(N, TPB);
         relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
+
+        CUDA_CHECK(cudaPeekAtLastError());
+
 
 	return (size_t) 0;
 }
