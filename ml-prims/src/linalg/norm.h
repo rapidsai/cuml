@@ -21,7 +21,7 @@
 
 
 namespace MLCommon {
-namespace Stats {
+namespace LinAlg {
 
 /** different types of norms supported on the input buffers */
 enum NormType { L1Norm = 0, L2Norm };

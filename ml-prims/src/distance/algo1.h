@@ -21,7 +21,7 @@
 #include "distance/distance_epilogue_functor.h"
 #include "distance/distance_fragment_multiply_add.h"
 #include "linalg/gemm.h"
-#include "stats/norm.h"
+#include "linalg/norm.h"
 #include "linalg/row_gemm.h"
 
 #include <cutlass/gemm/gemm_epilogue_traits.h>
@@ -75,10 +75,10 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    Stats::rowNorm(col_vec, pA, k, m, Stats::L2Norm, norm_op, stream);
-    Stats::rowNorm(row_vec, pB, k, n, Stats::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, norm_op, stream);
   } else {
-    Stats::rowNorm(col_vec, pA, k, m, Stats::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
   }
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
