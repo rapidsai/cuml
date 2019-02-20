@@ -1,6 +1,8 @@
-# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - Machine Learning Algorithms</div>
+# <div align="left"><img src="img/rapids_logo.png" width="90px"/>&nbsp;cuML - GPU Machine Learning Algorithms</div>
 
-cuML is a suite of libraries that implement machine learning algorithms and share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
+**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
+
+cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives functions that share compatible APIs with other [RAPIDS](https://rapids.ai/) projects.
 
 cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
 
@@ -32,18 +34,16 @@ dtype: int32
 
 For additional examples, browse our complete [API documentation](https://rapidsai.github.io/projects/cuml/en/latest/index.html), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 
-**NOTE:** For the latest stable [README.md](https://github.com/rapidsai/cuml/blob/master/README.md) ensure you are on the `master` branch.
-
 ### Supported Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD)
-- Principal Component Analysis (PCA)
-- Density-based spatial clustering of applications with noise (DBSCAN)
-- K-Means Clustering
-- K-Nearest Neighbors (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
-- Linear Regression (Ordinary Least Squares)
-- Ridge Regression
-- Kalman Filter
+- Truncated Singular Value Decomposition (tSVD) - Single GPU
+- Principal Component Analysis (PCA) - Single GPU
+- Density-based spatial clustering of applications with noise (DBSCAN) - Single GPU
+- K-Means Clustering - Multi-GPU
+- K-Nearest Neighbors - Multi-GPU (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
+- Linear Regression (Ordinary Least Squares) - Single GPU
+- Ridge Regression - Single GPU
+- Kalman Filter - Single GPU
 
 Algorithms in progress:
 
@@ -57,7 +57,7 @@ More ML algorithms in cuML and more ML primitives in ml-prims are being worked o
 
 ## Installation
 
-Ensure `libomp` and `libopenblas` are installed:
+Ensure `libomp` and `libopenblas` are installed, for example via apt:
 ```bash
 sudo apt install libopenblas-base libomp-dev
 ```
@@ -81,30 +81,8 @@ pip install cuml-cuda92
 pip install cuml-cuda100
 ```
 
-cuML's core structure contains:
-
-1. ***cuML***:
-  C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
-  - Single GPU Truncated Singular Value Decomposition (tSVD)
-  - Single GPU Principal Component Analysis (PCA)
-  - Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
-  - Single GPU Kalman Filtering
-  - Multi-GPU K-Means Clustering
-  - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
-
-2. ***python***:
-  Python bindings for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf). These bindings connect the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
-
-3. ***ml-prims***:
-  Low level machine learning primitives used in cuML. Includes:
-  - Linear Algebra
-  - Statistics
-  - Basic Matrix Operations
-  - Distance Functions
-  - Random Number Generation
-
-### Build from Source
-[Instructions](docs/build.md)
+#### Build/Install from Source
+See build [instructions](BUILD.md)
 
 ## Contributing
 

@@ -2,7 +2,7 @@
 
 To install cuML from source, ensure the dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.0)
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.1)
 2. zlib Provided by zlib1g-dev in Ubuntu 16.04
 3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
@@ -83,6 +83,28 @@ $ py.test cuML/test --collect-only
 ```bash
 $ python setup.py install
 ```
+
+cuML's core structure contains:
+
+1. ***cuML***:
+  C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
+  - Single GPU Truncated Singular Value Decomposition (tSVD)
+  - Single GPU Principal Component Analysis (PCA)
+  - Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
+  - Single GPU Kalman Filtering
+  - Multi-GPU K-Means Clustering
+  - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
+
+2. ***python***:
+  Python bindings for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf). These bindings connect the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
+
+3. ***ml-prims***:
+  Low level machine learning primitives header only library, used in cuML algorithms. Includes:
+  - Linear Algebra
+  - Statistics
+  - Basic Matrix Operations
+  - Distance Functions
+  - Random Number Generation
 
 ## External
 
