@@ -28,8 +28,8 @@ template <typename T>
 struct SquaredLoss1 : GLMBase<T, SquaredLoss1<T>> {
   typedef GLMBase<T, SquaredLoss1<T>> Super;
 
-  SquaredLoss1(T *X, T *y, T *eta, int N, int D, bool has_bias, T lambda2)
-      : Super(X, y, eta, N, D, has_bias, lambda2) {}
+  SquaredLoss1(int D, bool has_bias, cudaStream_t stream = 0)
+      : Super(D, 1, has_bias, stream) {}
 
   inline __device__ T eval_l(const T y, const T eta) const {
     T diff = y - eta;

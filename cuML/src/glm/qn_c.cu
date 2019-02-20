@@ -2,6 +2,7 @@
 #include <glm/glm_base.h>
 #include <glm/glm_batch_gradient.h>
 #include <glm/glm_logistic.h>
+#include <glm/glm_softmax.h>
 #include <glm/glm_regularizer.h>
 #include <glm/lbfgs.h>
 #include <glm/qn_c.h>
@@ -164,6 +165,7 @@ void dummy(double *X, double *y, int N, int D, bool has_bias, double l1,
   qn_fit<double, LogisticLoss1<double>, ROW_MAJOR>(
       &loss, X, y, z.data, N, has_bias, l1, l2, max_iter, grad_tol, value_rel_tol,
       linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters);
+
 }
 
 void dummy(float *X, float *y, int N, int D, bool has_bias, float l1, float l2,

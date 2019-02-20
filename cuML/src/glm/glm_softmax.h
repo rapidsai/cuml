@@ -23,6 +23,10 @@
 
 namespace ML {
 namespace GLM {
+using MLCommon::ceildiv;
+using MLCommon::myExp;
+using MLCommon::myLog;
+using MLCommon::myMax;
 
 template <typename T, int BX = 32, int BY = 8>
 __global__ void logsoftmaxKernel2(T *out, T *dZ, const T *in, const T *labels,
@@ -107,18 +111,19 @@ __global__ void logsoftmaxKernel2(T *out, T *dZ, const T *in, const T *labels,
    * label y If we getDerivative=false, dZ will just contain P, which might be
    * useful
    */
+
   if (C <= BX) { // this means one block covers a column and myEta is valid
     int idx = threadIdx.x + y * C;
     if (threadIdx.x < C && idx < len) {
-      dZ[idx] =
-          myExp<T>(myEta - lse) - getDerivative ? (threadIdx.x == label) : T(0);
+      dZ[idx] = (myExp<T>(myEta - lse) -
+                 (getDerivative ? (threadIdx.x == label) : T(0)));
     }
   } else {
     for (int x = threadIdx.x; x < C; x += BX) {
       int idx = x + y * C;
       if (x < C && idx < len) {
         T logP = in[idx] - lse;
-        dZ[idx] = myExp<T>(logP) - getDerivative ? (x == label) : T(0);
+        dZ[idx] = (myExp<T>(logP) - (getDerivative ? (x == label) : T(0)));
       }
     }
   }
@@ -128,7 +133,7 @@ __global__ void logsoftmaxKernel2(T *out, T *dZ, const T *in, const T *labels,
 
   T lossVal = 0;
   if (delta) {
-    lossVal = (eta_y - lse) / N;
+    lossVal = (lse - eta_y) / N;
   }
 
   /*
@@ -143,6 +148,8 @@ __global__ void logsoftmaxKernel2(T *out, T *dZ, const T *in, const T *labels,
 template <typename T>
 void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
                       int N, cudaStream_t stream = 0) {
+
+  CUDA_CHECK(cudaMemset(loss_val, 0, sizeof(T)));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
@@ -164,17 +171,18 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
     logsoftmaxKernel2<T, 32, 8>
         <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-struct Softmax : GLMBase<T, Softmax<T>> {
+template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
-  Softmax(T *X, T *y, T *eta, int N, int D, int C, bool has_bias, T lambda2)
-      : Super(X, y, eta, N, D, C, has_bias, lambda2) {}
+  Softmax(int D, int C, bool has_bias, cudaStream_t stream = 0)
+      : Super(D, C, has_bias, stream) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
                            const SimpleVec<T> &y) {
+
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n);
   }
 };
