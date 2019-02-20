@@ -112,6 +112,7 @@ struct GLMBase : GLMDims {
    */
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
                            const SimpleVec<T> &y) {
+
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
     T invN = 1.0 / y.len;
@@ -160,6 +161,7 @@ struct GLMWithData : GLMDims {
     Mat G(gradFlat.data, C, dims);
     // optimizers often operate on vectors
     objective->loss_grad(lossVal.data, G, W, X, y, Z);
+
     return lossVal[0];
   }
 };
