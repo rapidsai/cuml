@@ -51,6 +51,16 @@ struct PhiloxGenerator {
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
+  }
   /** @} */
 
 private:
@@ -100,6 +110,16 @@ struct TapsGenerator {
     uint64_t val;
     next(val);
     ret = (uint32_t)val;
+  }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
@@ -151,6 +171,16 @@ struct Kiss99Generator {
     next(a);
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
+  }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 

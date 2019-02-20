@@ -7,12 +7,14 @@
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+- PR #168: Add /ci/gpu/build.sh file to cuML
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
 - PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
 - PR #194: Added new ml-prims for supporting LASSO regression.
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #225: Support for generating random integers
 
 ## Bug Fixes
 
