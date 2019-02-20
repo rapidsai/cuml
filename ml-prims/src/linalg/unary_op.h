@@ -62,6 +62,8 @@ void unaryOpImpl(math_t *out, const math_t *in, int len,
 template <typename math_t, typename Lambda, int TPB = 256>
 void unaryOp(math_t *out, const math_t *in, int len, Lambda op,
              cudaStream_t stream = 0) {
+  if(len <= 0) return; //silently skip in case of 0 length input
+
   size_t bytes = len * sizeof(math_t);
   uint64_t inAddr = uint64_t(in);
   uint64_t outAddr = uint64_t(out);
