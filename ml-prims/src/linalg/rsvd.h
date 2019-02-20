@@ -82,8 +82,8 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 
   // build random matrix
   math_t *RN = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
-  Random::Rng<math_t> rng(484);
-  rng.normal(RN, n * l, 0.0, alpha, stream);
+  Random::Rng rng(484);
+  rng.normal(RN, n * l, math_t(0.0), alpha, stream);
 
   // multiply to get matrix of random samples Y
   math_t *Y = (math_t *)mgr.alloc(sizeof(math_t) * m * l);
