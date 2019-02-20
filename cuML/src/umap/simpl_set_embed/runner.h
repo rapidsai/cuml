@@ -15,24 +15,28 @@
  */
 
 #include "umap/umap.h"
+#include "umap/umapparams.h"
 #include "algo.h"
 
 namespace UMAPAlgo {
 
+
 	namespace SimplSetEmbed {
 
-	    template<typename T>
-		void run(T *X, int n,
+	    using namespace ML;
+
+	    template<typename T, int TPB_X>
+		void run(T *X, int m, int n,
 		        int *rows, int *cols, T *vals, int nnz,
-		        UMAPParams *params, UMAPState<T> *state,
+		        UMAPParams *params, T *embedding,
 		        int algorithm = 0) {
 
 	        switch(algorithm) {
-
 	            case 0:
-	                SimplSetEmbed::launcher(X, n,
+	                SimplSetEmbed::launcher<T, TPB_X>(
+	                        m, n,
 	                        rows, cols, vals, nnz,
-	                        params);
+	                        params, embedding);
 	        }
 		}
 	}

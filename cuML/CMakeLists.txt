@@ -19,8 +19,6 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -44,7 +42,7 @@ endif(ZLIB_FOUND)
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
@@ -157,11 +155,9 @@ set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libg
 
 include_directories(src
 	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
-	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
             ${GTEST_DIR}/include
             ${MLPRIMS_DIR}/src
-            ${MLPRIMS_DIR}/src/dbscan
             ${MLPRIMS_DIR}/test
             ${CUTLASS_DIR}
             ${CUB_DIR}
@@ -188,7 +184,7 @@ add_library(cuml SHARED
             src/solver/solver.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_cusparse_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -211,7 +207,8 @@ target_link_libraries(ml_test
                       faisslib
                       ${BLAS_LIBRARIES}
                       pthread
-                      z)
+                      z
+                      )
                       
                       
 ###################################################################################################

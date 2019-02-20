@@ -85,6 +85,7 @@ namespace ML {
 			} else {
 				std::stringstream ss;
 				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
+				std::cout << ss.str() << std::endl;
 				throw ss.str();
 			}
 		}

@@ -16,6 +16,7 @@
  */
 
 #include "umap/umap.h"
+#include "umap/umapparams.h"
 #include "knn/knn.h"
 #include <iostream>
 
@@ -36,12 +37,17 @@ namespace kNNGraph {
 					  long *knn_indices, T *knn_dists,
 					  UMAPParams *params) {
 
-			ML::kNN knn(d);
-			ML::kNNParams *p = new kNNParams[1];
+		    std::cout << "Creating knn" << std::endl;
+
+		    kNN knn(d);
+			kNNParams *p = new kNNParams[1];
 			p[0].ptr = X;
 			p[0].N = n;
 
+            std::cout << "Calling fit..." << std::endl;
 			knn.fit(p, 1);
+
+			std::cout << "Calling search..." << std::endl;
 			knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
 
 			delete p;

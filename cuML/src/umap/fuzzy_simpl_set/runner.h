@@ -15,6 +15,7 @@
  */
 
 #include "umap/umap.h"
+#include "umap/umapparams.h"
 #include "naive.h"
 
 namespace UMAPAlgo {
@@ -40,13 +41,13 @@ namespace FuzzySimplSet {
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
 			 int *rows, int *cols, T *vals,
-			 UMAPParams *params,
+			 UMAPParams *params, int *nnz,
 			 int algorithm = 0) {
 
 		switch(algorithm) {
 		case 0:
-			Naive::launcher<TPB_X>(knn_indices, knn_dists, n,
-					       rows, cols, vals,
+			Naive::launcher<TPB_X>(n, knn_indices, knn_dists,
+					       rows, cols, vals, nnz,
 					       params);
 			break;
 		}

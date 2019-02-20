@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+#include "umap.h"
+#include "umap/umapparams.h"
+
+
 #include "solver/solver_c.h"
 #include "functions/linearReg.h"
 #include "linalg/add.h"
@@ -25,16 +29,15 @@
 #include "matrix/math.h"
 #include "stats/mean.h"
 
-#include "umap.h"
 
 #include <cuda_runtime.h>
 
 namespace UMAPAlgo {
 
-    using namespace ML;
 
     namespace Optimize {
 
+        using namespace ML;
         /**
          * Calculate the gradients for training the embeddings in UMAP.
          * The difference in this gradient descent is that
@@ -154,11 +157,11 @@ namespace UMAPAlgo {
 
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-8, int max_epochs = 5000) {
+                T *coef, UMAPParams *params, float tolerance = 1e-8, int max_epochs = 25000) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
-            double learning_rate = 1.0;
+            float learning_rate = 1.0;
 
             int num_iters = 0;
             int tol_grads = 0;
@@ -189,13 +192,13 @@ namespace UMAPAlgo {
 
         void find_params_ab(UMAPParams *params) {
 
-            double spread = params->spread;
-            double min_dist = params->min_dist;
+            float spread = params->spread;
+            float min_dist = params->min_dist;
 
-            double step = (spread*3.0)/300.0;
+            float step = (spread*3.0)/300.0;
 
-            double* X = (double*)malloc(300 * sizeof(double));
-            double* y = (double*)malloc(300 * sizeof(double));
+            float* X = (float*)malloc(300 * sizeof(float));
+            float* y = (float*)malloc(300 * sizeof(float));
 
             for(int i = 0; i < 300; i++) {
                 X[i] = i*step;
@@ -206,26 +209,26 @@ namespace UMAPAlgo {
                     y[i] = 1.0;
             }
 
-            double *X_d;
+            float *X_d;
             MLCommon::allocate(X_d, 300);
             MLCommon::updateDevice(X_d, X, 300);
 
-            double *y_d;
+            float *y_d;
             MLCommon::allocate(y_d, 300);
             MLCommon::updateDevice(y_d, y, 300);
-            double *coeffs_h = (double*)malloc(2 * sizeof(double));
+            float *coeffs_h = (float*)malloc(2 * sizeof(float));
             coeffs_h[0] = 1.0;
             coeffs_h[1] = 1.0;
 
-            double *coeffs;
+            float *coeffs;
             MLCommon::allocate(coeffs, 2, true);
             MLCommon::updateDevice(coeffs, coeffs_h, 2);
 
-            optimize_params<double, 256>(X_d, 300, y_d, coeffs, params);
+            optimize_params<float, 256>(X_d, 300, y_d, coeffs, params);
 
-            std::cout << MLCommon::arr2Str(coeffs, 2, "coefficients");
+            MLCommon::updateHost(&(params->a), coeffs, 1);
+            MLCommon::updateHost(&(params->b), coeffs+1, 1);
         }
-
     }
 }
 

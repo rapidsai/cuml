@@ -19,20 +19,18 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
-#include "umap/optimize.h"
-
-#include "umap/knn_graph/runner.h"
-#include "umap/fuzzy_simpl_set/runner.h"
 #include "umap/umap.h"
+#include "umap/umapparams.h"
+#include "umap/runner.h"
 
 #include <linalg/cublas_wrappers.h>
 #include <sparse/coo.h>
 
 #include <vector>
 
+#include <iostream>
+
 using namespace ML;
-using namespace UMAPAlgo;
-using namespace MLCommon;
 using namespace std;
 
 class UMAPFuzzySimplSetTest: public ::testing::Test {
@@ -42,6 +40,8 @@ protected:
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
 
+
+		UMAPAlgo::find_ab(umap_params);
 
 		std::vector<float> X = {
 			1.0, 1.0, 34.0,
@@ -54,29 +54,7 @@ protected:
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
 
-		allocate(dists_d, n*k);
-		allocate(inds_d, n*k);
-
-		kNNGraph::run(X_d, n, d, inds_d, dists_d, umap_params);
-
-		int *rows, *cols;
-		float *vals;
-
-		allocate(rows, n*k);
-		allocate(cols, n*k);
-		allocate(vals, n*k);
-
-		FuzzySimplSet::run<float>(n, inds_d, dists_d, rows, cols, vals, umap_params);
-
-
-		UMAPAlgo::Optimize::find_params_ab(umap_params);
-
-//		int *rows_h, *cols_h;
-//		float *vals_h;
-//
-//		MLCommon::updateHost(rows_h, rows, n*k);
-//		MLCommon::updateHost(cols_h, rows, n*k);
-//		MLCommon::updateHost(vals_h, rows, n*k);
+		UMAPAlgo::_fit(X_d, n, d, umap_params);
 	}
 
 	void SetUp() override {
@@ -84,11 +62,12 @@ protected:
 	}
 
 	void TearDown() override {
-		CUDA_CHECK(cudaFree(dists_d));
-		CUDA_CHECK(cudaFree(inds_d));
+//		CUDA_CHECK(cudaFree(dists_d));
+//		CUDA_CHECK(cudaFree(inds_d));
 	}
 
 protected:
+
 	UMAPParams *umap_params;
 
 	int d = 3;
@@ -106,5 +85,6 @@ TEST_F(UMAPFuzzySimplSetTestF, Result) {
 //			devArrMatch(labels, labels_ref, params.n_row,
 //					CompareApproxAbs<float>(params.tolerance)));
 
+    std::cout << "HELLO!" << std::endl;
 }
 

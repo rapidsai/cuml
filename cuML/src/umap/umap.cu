@@ -15,39 +15,22 @@
  */
 
 #include "umap.h"
-#include "optimize.h"
+#include "umap/umapparams.h"
 #include "runner.h"
-
-#include "ml_utils.h"
-
-#include "solver/solver_c.h"
-#include "solver/learning_rate.h"
-#include "functions/penalty.h"
-#include "functions/linearReg.h"
 
 namespace ML {
 
-    using namespace UMAPAlgo;
-
-
+    UMAP::UMAP(UMAPParams *params): params(params){}
 
 	/***
 	 * Fit a UMAP model, currently completely unsupervised.
 	 */
-    template<class T>
-	void UMAP<T>::fit(T *X, int n, int d) {
-		_fit(X, n, d, get_params(), get_state());
+	void UMAP::fit(float *X, int n, int d) {
+		UMAPAlgo::_fit(X, n, d, get_params());
 	}
 
-    template<class T>
-	void UMAP<T>::transform(T *x) {
+	void UMAP::transform(float *x) {}
 
-	}
-
-    template<class T>
-	UMAPParams* UMAP<T>::get_params() { return this->params; }
-
-    template<class T>
-    UMAPState<T>* UMAP<T>::get_state() { return this->state; }
+	UMAPParams* UMAP::get_params() { return this->params; }
 
 }

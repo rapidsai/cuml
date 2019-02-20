@@ -16,6 +16,7 @@
 
 #include "knn/knn.h"
 #include "umap/umap.h"
+#include "umap/umapparams.h"
 
 #include "cuda_utils.h"
 
@@ -23,8 +24,6 @@
 #include "sparse/coo.h"
 
 #include <cuda_runtime.h>
-
-#include <cusparse_v2.h>
 
 
 #include <stdio.h>
@@ -71,10 +70,13 @@ namespace UMAPAlgo {
              *
              */
             template<int TPB_X, typename T>
-            __global__ void smooth_knn_dist(const T *knn_dists, int n,
+            __global__ void smooth_knn_dist(
+                    const T *knn_dists, int n,
                     float mean_dist, T *sigmas,
                     T *rhos,			// Size of n, iniitalized to zeros
-                    int n_neighbors, float local_connectivity, int n_iter = 64,
+                    int n_neighbors,
+                    float local_connectivity,
+                    int n_iter = 64,
                     float bandwidth = 1.0) {
 
                 float target = __log2f(n_neighbors) * bandwidth;
@@ -96,6 +98,7 @@ namespace UMAPAlgo {
                     float sum = 0;
 
                     for (int idx = 0; idx < n_neighbors; idx++) {
+
                         ith_distances[idx] = knn_dists[i + idx];
 
                         sum += ith_distances[idx];
@@ -116,16 +119,16 @@ namespace UMAPAlgo {
                         float interpolation = local_connectivity - index;
 
                         if (index > 0) {
-                            rhos[i] = non_zero_dists[index - 1];
+                            rhos[row] = non_zero_dists[index - 1];
                             if (interpolation > SMOOTH_K_TOLERANCE)
-                                rhos[i] += interpolation
+                                rhos[row] += interpolation
                                         * (non_zero_dists[index]
                                                 - non_zero_dists[index - 1]);
                             else
-                                rhos[i] = interpolation * non_zero_dists[0];
+                                rhos[row] = interpolation * non_zero_dists[0];
 
                         } else if (total_nonzero > 0)
-                            rhos[i] = max_nonzero;
+                            rhos[row] = max_nonzero;
                     }
 
                     for (int iter = 0; iter < n_iter; iter++) {
@@ -133,7 +136,7 @@ namespace UMAPAlgo {
                         float psum = 0.0;
 
                         for (int j = 0; j < n_neighbors; j++) {
-                            float d = knn_dists[i + j] - rhos[i];
+                            float d = knn_dists[i + j] - rhos[row];
                             if (d > 0)
                                 psum += exp(-(d / mid));
                             else
@@ -155,14 +158,14 @@ namespace UMAPAlgo {
                         }
                     }
 
-                    sigmas[i] = mid;
+                    sigmas[row] = mid;
 
-                    if (rhos[i] > 0.0) {
-                        if (sigmas[i] < MIN_K_DIST_SCALE * ith_distances_mean)
-                            sigmas[i] = MIN_K_DIST_SCALE * ith_distances_mean;
+                    if (rhos[row] > 0.0) {
+                        if (sigmas[row] < MIN_K_DIST_SCALE * ith_distances_mean)
+                            sigmas[row] = MIN_K_DIST_SCALE * ith_distances_mean;
                     } else {
-                        if (sigmas[i] < MIN_K_DIST_SCALE * mean_dist)
-                            sigmas[i] = MIN_K_DIST_SCALE * mean_dist;
+                        if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist)
+                            sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
 
                 }
@@ -201,8 +204,8 @@ namespace UMAPAlgo {
 
                 if (row < n) {
 
-                    T cur_rho = rhos[i];
-                    T cur_sigma = sigmas[i];
+                    T cur_rho = rhos[row];
+                    T cur_sigma = sigmas[row];
 
                     for (int j = 0; j < n_neighbors; j++) {
 
@@ -214,8 +217,7 @@ namespace UMAPAlgo {
                         T val = 0.0;
                         if (cur_knn_ind == -1)
                             continue;
-
-                        if (cur_knn_ind == i)
+                        if (cur_knn_ind == row)
                             val = 0.0;
                         else if (cur_knn_dist - cur_rho <= 0.0)
                             val = 1.0;
@@ -223,7 +225,7 @@ namespace UMAPAlgo {
                             val = exp(
                                     -((cur_knn_dist - cur_rho) / (cur_sigma)));
 
-                        rows[idx] = i;
+                        rows[idx] = row;
                         cols[idx] = cur_knn_ind;
                         vals[idx] = val;
                     }
@@ -231,7 +233,8 @@ namespace UMAPAlgo {
             }
 
             template<int TPB_X, typename T>
-            __global__ void compute_result(int *rows, int *cols, T *vals,
+            __global__ void compute_result(
+                    int *rows, int *cols, T *vals,
                     int *orows, int *ocols, T *ovals, int *rnnz, int n,
                     int n_neighbors, float set_op_mix_ratio) {
 
@@ -290,7 +293,6 @@ namespace UMAPAlgo {
                     }
                     rnnz[row] = nnz;
                     atomicAdd(rnnz + n, nnz);
-
                 }
             }
 
@@ -308,8 +310,8 @@ namespace UMAPAlgo {
              * fuzzy simplicial sets into a global one via a fuzzy union.
              */
             template<int TPB_X, typename T>
-            void launcher(const long *knn_indices, const float *knn_dists,
-                    int n, int *rows, int *cols, T *vals, UMAPParams *params) {
+            void launcher(int n, const long *knn_indices, const float *knn_dists,
+                   int *rows, int *cols, T *vals, int *nnz, UMAPParams *params) {
 
                 /**
                  * All of the kernels in this algorithm are row-based and
@@ -358,10 +360,8 @@ namespace UMAPAlgo {
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                T* sigmas_h = (T*) malloc(n * sizeof(T));
-                T* rhos_h = (T*) malloc(n * sizeof(T));
-                MLCommon::updateHost(sigmas_h, sigmas, n);
-                MLCommon::updateHost(rhos_h, rhos, n);
+                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
 
                 int k = params->n_neighbors;
 
@@ -372,6 +372,10 @@ namespace UMAPAlgo {
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
                 CUDA_CHECK(cudaPeekAtLastError());
+
+                std::cout << MLCommon::arr2Str(rows, n*k, "set_membership_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(cols, n*k, "set_membership_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(vals, n*k, "set_membership_vals") << std::endl;
 
                 int *orows, *ocols, *rnnz;
                 T *ovals;
@@ -388,6 +392,11 @@ namespace UMAPAlgo {
                         ovals, rnnz, n, params->n_neighbors,
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
+
+                std::cout << MLCommon::arr2Str(orows, n*k*2, "orows") << std::endl;
+                std::cout << MLCommon::arr2Str(ocols, n*k*2, "ocols") << std::endl;
+                std::cout << MLCommon::arr2Str(ovals, n*k*2, "ovals") << std::endl;
+
 
                 int cur_coo_len = 0;
                 MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
@@ -411,6 +420,12 @@ namespace UMAPAlgo {
                 std::cout << MLCommon::arr2Str(crows, cur_coo_len, "rows") << std::endl;
                 std::cout << MLCommon::arr2Str(ccols, cur_coo_len, "cols") << std::endl;
                 std::cout << MLCommon::arr2Str(cvals, cur_coo_len, "vals") << std::endl;
+
+                nnz[0] = cur_coo_len;
+
+                MLCommon::copy(rows, crows, cur_coo_len);
+                MLCommon::copy(cols, ccols, cur_coo_len);
+                MLCommon::copy(vals, cvals, cur_coo_len);
             }
         }
     }

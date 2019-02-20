@@ -15,6 +15,7 @@
  */
 
 #include "umap/umap.h"
+#include "umap/umapparams.h"
 #include "algo.h"
 
 namespace UMAPAlgo {
