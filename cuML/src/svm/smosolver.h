@@ -23,6 +23,9 @@
 #include <linalg/unary_op.h>
 #include <linalg/ternary_op.h>
 
+#include "smo_sets.h"
+#include "workingset.h"
+
 #include <iostream>
 /*
 #include <linalg/gemv.h>
@@ -44,55 +47,34 @@ namespace SVM {
 
 using namespace MLCommon;
 
-/** Determines weather a training instance is in the upper set */
-template<typename math_t> 
-DI bool in_upper(math_t a, math_t y, math_t C) {
-  // return (0 < a && a < C) || ((y - 1) < eps && a < eps) || ((y + 1) < eps && (a - C) < eps);
-  // since a is always clipped to lie in the [0 C] region, therefore this is equivalent with
-  return (y < 0 && a > 0) || (y > 0 && a < C);
-}
-
-/** determines weather a training instance is in the lower set */
-template<typename math_t> 
-DI bool in_lower(math_t a, math_t y, math_t C) {
-  // return (0 < a && a < C) || ((y - 1) < eps && a < eps) || ((y + 1) < eps && (a - C) < eps);
-  // since a is always clipped to lie in the [0 C] region, therefore this is equivalent with
-  return (y < 0 && a < C) || (y > 0 && a > 0);
-}
-
-template <typename math_t>
-__global__ void init_smo_buffers(int n_rows, int* f_idx) {
-    int idx = threadIdx.x + blockIdx.x * blockDim.x;
-
-  if (idx < n_rows) {
-    f_idx[idx] = idx;
-  }
-}
 
 /**
 * Implements SMO algorithm based on ThunderSVM and OHD-SVM. 
 */
 template<typename math_t>
 class SmoSolver {
-  int n_rows;
-  int n_ws;
+  int n_rows = 0;
+  int n_ws = 0;
   // Buffers for the domain [n_rows]
-  math_t *alpha;       //< dual coordinates
-  math_t *f;           //< optimality indicator vector
-  int *f_idx;          //< Arrays used for sorting f
-  int *f_idx_sorted;   //<
+  math_t *alpha = nullptr;       //< dual coordinates
+  math_t *f = nullptr;           //< optimality indicator vector
   
   // Buffers for the working set [n_ws]
-  math_t *delta_alpha; // change for the working set
-  int *ws_idx; // indices for elements in the working set
-  math_t return_buff[2];  // used to return iteration numbef and convergence information from the kernel
-  void *cub_temp_storage = NULL; // used by cub for reduction
-  int cub_temp_storage_bytes;
+  math_t *delta_alpha = nullptr; // change for the working set
   
+  // return some parameters from the kernel;
+  math_t *return_buff = nullptr;
+  math_t host_return_buff[2];  // used to return iteration numbef and convergence information from the kernel
+
+  WorkingSet<math_t> *ws;
+  //KernelCache cache;
+  
+  math_t C;
+  math_t tol;
 public:
-  SmoSolver(int n_rows, int ws_size)
-    : n_rows(n_rows), n_ws(n_ws) {
-      AllocateBuffers();
+  SmoSolver(math_t C = 1, math_t tol = 0.001) 
+    : n_rows(n_rows), C(C), tol(tol)
+  {
   }
   
   ~SmoSolver() {
@@ -100,52 +82,25 @@ public:
   }
   
 
+  // this needs to know n_ws, therefore it can be only called during the solve step
   void AllocateBuffers() {
+    FreeBuffers();
+    this->n_rows=n_rows;
     allocate(alpha, n_rows); 
     allocate(f, n_rows);  
-    allocate(f_idx, n_rows);     
-    allocate(f_idx_sorted, n_rows);
-    //allocate(tmp, n_rows);   
     allocate(delta_alpha, n_ws);
-    allocate(ws_idx, n_ws);
-
-    // Determine temporary device storage requirements for cub
-    cub_temp_storage = NULL;
-    cub_temp_storage_bytes = 0;
-    //cub::DeviceRadixSort::SortPairs(cub_temp_storage, cub_temp_storage_bytes, f_idx, f_idx, 
-    //                                f, f, n_rows);
-    allocate(cub_temp_storage, cub_temp_storage_bytes);
+    allocate(return_buff, 2);
   }    
   
   void FreeBuffers() {
-    CUDA_CHECK(cudaFree(alpha));
-    CUDA_CHECK(cudaFree(f));
-    CUDA_CHECK(cudaFree(f_idx));
-    CUDA_CHECK(cudaFree(f_idx_sorted));
-    //CUDA_CHECK(cudaFree(tmp));
-    CUDA_CHECK(cudaFree(delta_alpha));
-    CUDA_CHECK(cudaFree(cub_temp_storage));
-    CUDA_CHECK(cudaFree(ws_idx));
-  }
-  /*
-  void SelectWorkingSet() {
-    // Run sorting operation
-    cub::DeviceRadixSort::SortPairs(cub_temp_storage, cub_temp_storage_bytes,
-        f_idx, f_idx_sorted, f, f_sorted, n_rows);
-      
-    int n_selected;
-    // Run selection
-    cub::DeviceSelect::If(cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, idx_tmp, n_selected, n_rows, 
-        [alpha, y, C](idx) { return in_upper(alpha[idx], y[idx], C); }
-    );
-      
-    CUDA_CHECK(cudaMemcpy(ws_idx, idx_tmp, n_ws/2 * sizeof(int), cudaMemcpyDeviceToDevice));
-      
-    cub::DeviceSelect::If(cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, idx_tmp, n_selected, n_rows, 
-        [alpha, y, C](idx) { return in_lower(alpha[idx], y[idx], C); }
-    );
-      
-    CUDA_CHECK(cudaMemcpy(ws_idx + n_ws/2, idx_tmp+n_selected-n_ws/2, n_ws/2 * sizeof(int), cudaMemcpyDeviceToDevice));
+    if(alpha) CUDA_CHECK(cudaFree(alpha));
+    if(f) CUDA_CHECK(cudaFree(f));
+    if(delta_alpha) CUDA_CHECK(cudaFree(delta_alpha));
+    if(return_buff) CUDA_CHECK(cudaFree(return_buff));
+    alpha = nullptr;
+    f = nullptr;
+    delta_alpha = nullptr;
+    return_buff = nullptr;
   }
   /*
   void BlockSolve() {
@@ -196,43 +151,46 @@ public:
           break; 
     }
   }
-
+  */
   ///
   /// Init the values of alpha, f, and helper buffers. 
   void Initialize(math_t* y) {
     // we initialize 
     // alpha_i = 0 and 
     // f_i = -y_i
-    CUDA_CHECK(cudaMemset(*alpha, 0, n_rows * sizeof(mem_t)));
-    unaryOp(*f, y, int n_rows, []__device__(math_t f, math_t y){ return -y; });
-
-    int TPB = 256;
-    init_smo_buffers<<<ceildiv(n_rows, TPB), TPB>>>(n_rows, *f_idx);
+    //CUDA_CHECK(cudaMemset((*void)alpha, 0, n_rows * sizeof(math_t)));
+   // unaryOp(*f, y, int n_rows, []__device__(math_t f, math_t y){ return -y; });
 
   }
-  */
+
   
-  void Solve(math_t* x, math_t* y, math_t **nz_alpha, int **idx) {
+  void Solve(math_t* x, int n_rows, int n_cols, math_t* y, math_t **nz_alpha, int **idx) {
     int n_iter = 0;
-    int * idx_tmp;
     
-    //Initialize(y);
-        
+    ws = new WorkingSet<math_t>(n_rows);
+    int n_ws = ws->GetSize();
+    AllocateBuffers();    
+    
+    Initialize(y);
+    
+    //cache = new KernelCache(x, n_rows, n_cols, n_ws);
+    
     while (n_iter < 1) { // TODO: add proper stopping condition
-   /*     SelectWorkingSet(n_rows, n_ws, y, f, f_idx, f_idx_sorted, alpha, 
-                 cub_temp_storage,  cub_temp_storage_bytes, ws_idx );
+      ws->Select(f, alpha, y, C);
+      //math_t * cacheTile = cache->initTile(ws->idx); 
+      CUDA_CHECK(cudaMemset(delta_alpha, 0, n_ws * sizeof(math_t)));
         
-        //initCacheTile(); 
-
-        CUDA_CHECK(cudaMemset(delta_alpha, 0, n_ws * sizeof(mem_t)));
-     */   
-        //BlockSolve<1,ws,CALC_SHMEM_SIZE>(n_ws, f, y, alpha, delta_alpha, ws_idx, return_buff);
+      //BlockSolve<1,ws,CALC_SHMEM_SIZE>(n_ws, f, y, alpha, delta_alpha, ws_idx, return_buff);
 
         
-       // updateF;
+      // updateF();
         
-       n_iter++;
+      n_iter++;
     }    
+    
+    //delete cache;
+    delete ws;
+    FreeBuffers(); 
   }
 };
 

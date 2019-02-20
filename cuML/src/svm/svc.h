@@ -22,7 +22,7 @@
 #include <limits.h>
 #include <linalg/ternary_op.h>
 
-#include "smo.h"
+#include "smosolver.h"
 
 #include <linalg/gemv.h>
 #include <stats/mean.h>
@@ -66,11 +66,11 @@ void svcFit(math_t *input,
      // calculate the size of the working set
     int n_ws = min(1024, n_rows); // TODO: also check if we fit in memory (we will need n_ws^2 space for kernel cache)?
     
-    SmoSolver<math_t> smo(n_rows, n_ws);
+    SmoSolver<math_t> smo(C, tol);
     
     int *idx;
     
-    smo.Solve(input, labels, &coef, &idx);
+    smo.Solve(input, n_rows, n_cols, labels, &coef, &idx);
  
     // get output support vectors and return them, return nonzero alpha coefficients.
     
