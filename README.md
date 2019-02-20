@@ -7,7 +7,7 @@ cuML is a suite of libraries that implement machine learning algorithms and math
 cuML enables data scientists, researchers, and software engineers to run traditional tabular ML tasks on GPUs without going into the details of CUDA programming.
 
 As an example, the following Python snippet loads input and computes DBSCAN clusters, all on GPU:
-```
+```python
 import cudf
 from cuml import DBSCAN
 
