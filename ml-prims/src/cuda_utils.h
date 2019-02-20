@@ -519,34 +519,5 @@ void myPrintDevVector(const char * variableName, const T * devMem, size_t compon
     std::cout.flush();
 }
 /** @} */
-template<class T>
-DI uint64_t numeric_limit_max()
-{ };
-template<>
-DI uint64_t numeric_limit_max<int>()
-{ return INT_MAX;}
-template<>
-DI uint64_t numeric_limit_max<char>()
-{ return CHAR_MAX;}
-template<>
-DI uint64_t numeric_limit_max<unsigned char>()
-{ return UCHAR_MAX;}
-template<>
-DI uint64_t numeric_limit_max<unsigned int>()
-{ return UINT_MAX;}
-template<>
-DI uint64_t numeric_limit_max<long>()
-{ return LONG_MAX;}
-template<>
-DI uint64_t numeric_limit_max<unsigned long>()
-{ return ULONG_MAX;}
-template<>
-DI uint64_t numeric_limit_max<long long>()
-{ return LLONG_MAX;}
-template<>
-DI uint64_t numeric_limit_max<unsigned long long>()
-{ return ULLONG_MAX;}
-
-
 
 } // namespace MLCommon
