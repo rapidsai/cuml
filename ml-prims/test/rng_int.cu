@@ -112,10 +112,8 @@ typedef RngTest<uint32_t> RngTestU32;
 const std::vector<RngInputs<uint32_t>> inputs_u32 = {
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
-
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
-
   {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
   {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
 TEST_P(RngTestU32, Result) {
@@ -127,6 +125,60 @@ TEST_P(RngTestU32, Result) {
     match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RngTests, RngTestU32, ::testing::ValuesIn(inputs_u32));
+
+typedef RngTest<uint64_t> RngTestU64;
+const std::vector<RngInputs<uint64_t>> inputs_u64 = {
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
+TEST_P(RngTestU64, Result) {
+  float meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(
+    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(RngTests, RngTestU64, ::testing::ValuesIn(inputs_u64));
+
+typedef RngTest<int32_t> RngTestS32;
+const std::vector<RngInputs<int32_t>> inputs_s32 = {
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
+TEST_P(RngTestS32, Result) {
+  float meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(
+    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(RngTests, RngTestS32, ::testing::ValuesIn(inputs_s32));
+
+typedef RngTest<int64_t> RngTestS64;
+const std::vector<RngInputs<int64_t>> inputs_s64 = {
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenPhilox, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenTaps, 1234ULL},
+  {0.1f, 32 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL},
+  {0.1f, 8 * 1024, 0, 20, RNG_Uniform, GenKiss99, 1234ULL}};
+TEST_P(RngTestS64, Result) {
+  float meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(
+    match(meanvar[0], h_stats[0], CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    match(meanvar[1], h_stats[1], CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(RngTests, RngTestS64, ::testing::ValuesIn(inputs_s64));
 
 } // end namespace Random
 } // end namespace MLCommon
