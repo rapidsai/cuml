@@ -14,6 +14,7 @@
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
 
 ## Bug Fixes
