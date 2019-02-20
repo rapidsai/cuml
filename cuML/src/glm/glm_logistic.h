@@ -24,9 +24,9 @@
 namespace ML {
 namespace GLM {
 
-template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
-struct LogisticLoss1 : GLMBase<T, LogisticLoss1<T, Storage>, Storage> {
-  typedef GLMBase<T, LogisticLoss1<T, Storage>, Storage> Super;
+template <typename T>
+struct LogisticLoss1 : GLMBase<T, LogisticLoss1<T>> {
+  typedef GLMBase<T, LogisticLoss1<T>> Super;
 
   LogisticLoss1(int D, bool has_bias, cudaStream_t stream = 0)
       : Super(D, 1, has_bias, stream) {}

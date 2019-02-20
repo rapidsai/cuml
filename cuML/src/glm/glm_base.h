@@ -89,7 +89,7 @@ struct GLMDims {
   }
 };
 
-template <typename T, class Loss, STORAGE_ORDER Storage>
+template <typename T, class Loss>
 struct GLMBase : GLMDims {
 
   typedef SimpleMat<T, COL_MAJOR> Mat;
@@ -127,8 +127,9 @@ struct GLMBase : GLMDims {
     loss->eval_dl(y.data, Z.data, y.len);
   }
 
+  template<typename XMat>
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
-                        const SimpleMat<T, Storage> &Xb, const Vec &yb, Mat &Zb,
+                        const XMat &Xb, const Vec &yb, Mat &Zb,
                         bool initGradZero = true) {
     // reshape data
     Loss *loss = static_cast<Loss *>(this); // polymorphism
@@ -140,7 +141,7 @@ struct GLMBase : GLMDims {
 };
 
 template <typename T, class GLMObjective, STORAGE_ORDER Storage = COL_MAJOR>
-struct GLMWithData :GLMDims {
+struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
@@ -150,15 +151,9 @@ struct GLMWithData :GLMDims {
   SimpleVec<T> lossVal;
   GLMObjective *objective;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, int D,
-              bool fit_intercept)
-      : objective(obj), X(Xptr, N, D), y(yptr, N), Z(Zptr, 1, N), lossVal(1),
-        GLMDims(1,D, fit_intercept){}
-
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, int D, int C,
-              bool fit_intercept, cudaStream_t stream = 0)
-      : objective(obj), X(Xptr, N, D), y(yptr, N), Z(Zptr, C, N), lossVal(1),
-        GLMDims(C,D,fit_intercept){}
+  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N)
+      : objective(obj), X(Xptr, N, obj->D), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
+        GLMDims(obj->C,obj->D, obj->fit_intercept){}
 
   inline T operator()(const Vec &wFlat, Vec &gradFlat) {
     Mat W(wFlat.data, C, dims);
@@ -168,5 +163,7 @@ struct GLMWithData :GLMDims {
     return lossVal[0];
   }
 };
+
+
 }; // namespace GLM
 }; // namespace ML

@@ -632,5 +632,29 @@ struct OWLQNSolver : LBFGSSolver<T> {
   }
 };
 
+
+/*
+ * Chooses the right algorithm, depending on presence of l1 term
+ */
+template <typename T, typename LossFunction>
+inline int qn_minimize(SimpleVec<T> &x, T * fx, int * num_iters, LossFunction &loss, const T l1, const LBFGSParam<T> & opt_param,  const int verbosity = 0) {
+
+  OPT_RETCODE ret;
+  if (l1 == 0.0) {
+    LBFGSSolver<T> lbfgs(opt_param, loss.n_param);
+    ret = lbfgs.minimize(loss, x, *fx, num_iters, verbosity);
+
+    if (verbosity > 0)
+      printf("L-BFGS Done\n");
+  } else {
+//    opt_param.linesearch = LBFGS_LS_BT_ARMIJO; // Reference paper uses simple armijo ls...
+    OWLQNSolver<T> owlqn(opt_param, loss.n_param);
+    ret = owlqn.minimize(loss, l1, x, *fx, num_iters, verbosity);
+    if (verbosity > 0)
+      printf("OWL-QN Done\n");
+  }
+  return ret;
+}
+
 }; // namespace GLM
 }; // namespace ML

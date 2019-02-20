@@ -46,11 +46,13 @@ template <typename T> struct Tikhonov {
 };
 
 template <typename T, class Loss, class Reg, STORAGE_ORDER Storage = COL_MAJOR>
-struct RegularizedGLM {
+struct RegularizedGLM :GLMDims {
   Reg *reg;
   Loss *loss;
 
-  RegularizedGLM(Loss *loss, Reg *reg) : reg(reg), loss(loss) {}
+  RegularizedGLM(Loss *loss, Reg *reg) : reg(reg), loss(loss), GLMDims(
+loss->C, loss->D, loss->fit_intercept
+          ) {}
   
   inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
                         const SimpleMat<T, Storage> &Xb, const SimpleVec<T> &yb,
