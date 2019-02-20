@@ -93,7 +93,7 @@ struct quadSum
 #define SUM_ROWS_SMALL_K_DIMX 256
 #define SUM_ROWS_BY_KEY_SMALL_K_MAX_K 4 
 template <typename DataType>
-__launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 8)
+__launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4)
 __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda, char *d_keys, int nrows, int ncols, int nkeys, DataType *d_sums) {
         typedef cub::BlockReduce<quad<DataType>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
         __shared__ typename BlockReduce::TempStorage temp_storage;
