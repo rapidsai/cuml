@@ -24,9 +24,9 @@
 namespace ML {
 namespace GLM {
 
-template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
-struct SquaredLoss1 : GLMBase<T, SquaredLoss1<T, Storage>, Storage> {
-  typedef GLMBase<T, SquaredLoss1<T, Storage>, Storage> Super;
+template <typename T>
+struct SquaredLoss1 : GLMBase<T, SquaredLoss1<T>> {
+  typedef GLMBase<T, SquaredLoss1<T>> Super;
 
   SquaredLoss1(T *X, T *y, T *eta, int N, int D, bool has_bias, T lambda2)
       : Super(X, y, eta, N, D, has_bias, lambda2) {}

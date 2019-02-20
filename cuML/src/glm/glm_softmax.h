@@ -166,9 +166,9 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
   }
 }
 
-template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
-struct Softmax : GLMBase<T, Softmax<T, Storage>, Storage> {
-  typedef GLMBase<T, Softmax<T, Storage>, Storage> Super;
+template <typename T>
+struct Softmax : GLMBase<T, Softmax<T>> {
+  typedef GLMBase<T, Softmax<T>> Super;
 
   Softmax(T *X, T *y, T *eta, int N, int D, int C, bool has_bias, T lambda2)
       : Super(X, y, eta, N, D, C, has_bias, lambda2) {}
