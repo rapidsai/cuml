@@ -250,27 +250,30 @@ namespace UMAPAlgo {
                         int idx = i + j;
                         int out_idx = i * 2;
 
-                        int row_lookup = cols[idx];
-                        int t_start = row_lookup * n_neighbors; // Start at
+//                        int row_lookup = cols[idx];
+//                        int t_start = row_lookup * n_neighbors; // Start at
 
                         T transpose = 0.0;
-                        bool found_match = false;
-                        for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
-
-                            int f_idx = t_idx + t_start;
-                            // If we find a match, let's get out of the loop
-                            if (cols[f_idx] == rows[idx]
-                                    && rows[f_idx] == cols[idx]
-                                    && vals[f_idx] != 0.0) {
-                                transpose = vals[f_idx];
-                                found_match = true;
-                                break;
-                            }
-                        }
+//                        bool found_match = false;
+//                        for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
+//
+//                            int f_idx = t_idx + t_start;
+//                            // If we find a match, let's get out of the loop
+//                            if (cols[f_idx] == rows[idx]
+//                                    && rows[f_idx] == cols[idx]
+//                                    && vals[f_idx] != 0.0) {
+//
+//                                printf("Match found! row=%d, col=%d\n", row, cols[idx]);
+//                                transpose = vals[f_idx];
+//                                found_match = true;
+//                                break;
+//                            }
+//                        }
 
                         // if we didn't find an exact match, we still need to add
                         // the transposed value into our current matrix.
-                        if (!found_match && vals[idx] != 0.0) {
+//                        if (!found_match && vals[idx] != 0.0) {
+                          if (vals[idx] != 0.0) {
                             orows[out_idx + nnz] = cols[idx];
                             ocols[out_idx + nnz] = rows[idx];
                             ovals[out_idx + nnz] = vals[idx];

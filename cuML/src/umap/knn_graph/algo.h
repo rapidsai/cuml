@@ -18,6 +18,7 @@
 #include "umap/umap.h"
 #include "umap/umapparams.h"
 #include "knn/knn.h"
+#include "linalg/unary_op.h"
 #include <iostream>
 
 namespace UMAPAlgo {
@@ -49,6 +50,12 @@ namespace kNNGraph {
 
 			std::cout << "Calling search..." << std::endl;
 			knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
+
+            auto adjust_vals_op = [] __device__(T input, T scalar) {
+                    return sqrt(input);
+            };
+
+            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, n*params->n_neighbors, adjust_vals_op);
 
 			delete p;
 		}
