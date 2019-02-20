@@ -48,7 +48,7 @@ protected:
     auto mgr = makeDefaultAllocator();
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
 
     allocate(cov_matrix, len);
