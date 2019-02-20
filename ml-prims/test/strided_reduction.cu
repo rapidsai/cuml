@@ -73,14 +73,14 @@ class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInp
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows*cols;
 
     allocate(data, len);
     allocate(dots_exp, cols); //expected dot products (from test)
     allocate(dots_act, cols); //actual dot products (from prim)
-    r.uniform(data, len, -1.f, 1.f); //initialize matrix to random
+    r.uniform(data, len, T(-1.0), T(1.0)); //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows);
     stridedReductionLaunch(dots_act, data, cols, rows);

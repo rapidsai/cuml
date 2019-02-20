@@ -43,7 +43,7 @@ class StdDevTest : public ::testing::TestWithParam<StdDevInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<StdDevInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     allocate(data, len);

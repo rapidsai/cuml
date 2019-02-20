@@ -52,7 +52,7 @@ protected:
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
-    Random::Rng<T> r(params.seed, Random::GenTaps);
+    Random::Rng r(params.seed, Random::GenTaps);
     int m = params.n_row, n = params.n_col;
     T eig_svd_tol = 1.e-7;
     int max_sweeps = 100;

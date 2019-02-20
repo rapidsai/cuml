@@ -132,7 +132,7 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     allocate(arr, params.rows * params.cols);
     allocate(outk, params.rows * params.k);
     allocate(outv, params.rows * params.k);
