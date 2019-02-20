@@ -534,30 +534,48 @@ struct OWLQNSolver : LBFGSSolver<T> {
   using Super::l2norm;
   using Super::linesearch;
 
+  int pg_limit; //
+
   Vector m_pseudo;
   // op to project a vector onto the orthant of the neg of another vector
   op_project<T> project_neg;
 
   norm1<T> l1norm;
 
-  OWLQNSolver(const LBFGSParam<T> &param, const int n)
-    : Super(param, n), m_pseudo(n), project_neg(T(-1.0)) {}
+  OWLQNSolver(const LBFGSParam<T> &param, const int n, const int pg_limit)
+      : Super(param, n), m_pseudo(n), project_neg(T(-1.0)) , pg_limit(pg_limit){
+          ASSERT(pg_limit <= n, "OWL-QN: Invalid pseuda grad limit parameter");
+      }
 
-  OWLQNSolver(const LBFGSParam<T> &param, const int n, T *workspace)
-    : Super(param, n, workspace),
+  OWLQNSolver(const LBFGSParam<T> &param, const int n, const int pg_limit, T *workspace)
+    : Super(param, n, workspace), pg_limit(pg_limit),
       m_pseudo(n, workspace + Super::workspace_size(param, n)),
-      project_neg(T(-1.0)) {}
+      project_neg(T(-1.0)) {
+          ASSERT(pg_limit <= n, "OWL-QN: Invalid pseuda grad limit parameter");
+      }
 
   static int workspace_size(const LBFGSParam<T> &param, int n) {
     return Super::workspace_size(param, n) + n;
   }
 
+  inline void update_pseudo(const SimpleVec<T> & x, const op_pseudo_grad<T> & pseudo_grad){
+      if(m_grad.len > pg_limit){
+          m_pseudo = m_grad;
+          SimpleVec<T> mask(m_pseudo.data, pg_limit);
+          mask.assign_binary(x, m_grad, pseudo_grad);
+      }else{
+          m_pseudo.assign_binary(x, m_grad, pseudo_grad);
+      }
+  }
+
   template <typename Function>
   inline OPT_RETCODE minimize(Function &f, const T l1_penalty, Vector &x, T &fx,
                               int *k, const int verbosity = 0) {
+
     auto f_wrap = [&f, &l1_penalty, this](SimpleVec<T> &x, SimpleVec<T> &grad) {
       T tmp = f(x, grad);
-      return tmp + l1_penalty * this->l1norm(x);
+      SimpleVec<T> mask(x.data, pg_limit);
+      return tmp + l1_penalty * this->l1norm(mask);
     };
 
     *k = 0;
@@ -571,7 +589,8 @@ struct OWLQNSolver : LBFGSSolver<T> {
     fx = f_wrap(x, m_grad); // fx is loss+regularizer, grad is grad of loss only
 
     // compute pseudo grad, but don't overwrite grad: used to build H
-    m_pseudo.assign_binary(x, m_grad, pseudo_grad);
+    //m_pseudo.assign_binary(x, m_grad, pseudo_grad);
+    update_pseudo(x, pseudo_grad);
 
     T xnorm = l2norm(x);
     T gnorm = l2norm(m_pseudo);
@@ -611,7 +630,8 @@ struct OWLQNSolver : LBFGSSolver<T> {
       if (lsret != LS_SUCCESS)
         return OPT_LS_FAILED;
       // recompute pseudo
-      m_pseudo.assign_binary(x, m_grad, pseudo_grad);
+    //  m_pseudo.assign_binary(x, m_grad, pseudo_grad);
+    update_pseudo(x, pseudo_grad);
 
       if (Super::check_convergence(*k, fx, x, m_pseudo, verbosity)) {
         return OPT_SUCCESS;
@@ -648,7 +668,7 @@ inline int qn_minimize(SimpleVec<T> &x, T * fx, int * num_iters, LossFunction &l
       printf("L-BFGS Done\n");
   } else {
 //    opt_param.linesearch = LBFGS_LS_BT_ARMIJO; // Reference paper uses simple armijo ls...
-    OWLQNSolver<T> owlqn(opt_param, loss.n_param);
+    OWLQNSolver<T> owlqn(opt_param, loss.n_param, loss.D);
     ret = owlqn.minimize(loss, l1, x, *fx, num_iters, verbosity);
     if (verbosity > 0)
       printf("OWL-QN Done\n");

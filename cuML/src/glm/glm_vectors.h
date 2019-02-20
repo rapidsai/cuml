@@ -265,7 +265,6 @@ template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
   static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
                    const SimpleMat<T> &B, const T beta,
                    cublasHandle_t &cublas) {
-
       ASSERT(A.n == B.m, "GEMM invalid dims");
       ASSERT(A.m == C.m, "GEMM invalid dims");
       ASSERT(B.n == C.n, "GEMM invalid dims");
