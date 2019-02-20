@@ -10,18 +10,30 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <linalg/transpose.h>
 #include <glm/glm_batch_gradient.h>
 #include <glm/gradient_descent.h>
 #include <glm/lbfgs.h>
 #include <glm/qn_c.h>
+#include <linalg/transpose.h>
+#include <glm/glm_logistic.h>
 
+using namespace ML;
+using namespace ML::GLM;
 template <typename T, typename LossFunction>
 int fit_dispatch(T *X, T *y, int N, int D, bool has_bias, T l1, T l2,
                  int max_iter, T grad_tol, T value_rel_tol,
                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
                  T *w0, // initial value and result
                  T *fx, int *num_iters);
+
+template <typename T, typename LossFunction, STORAGE_ORDER Storage=COL_MAJOR>
+int qn_fit(LossFunction *loss,
+        T *Xptr, T *yptr,T*zptr, int N, bool has_bias, T l1, T l2,
+                 int max_iter, T grad_tol, T value_rel_tol,
+                 int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                 T *w0, // initial value and result
+                 T *fx, int *num_iters
+       ) ;
 
 namespace ML {
 namespace GLM {
@@ -45,7 +57,7 @@ template <class T> struct DevUpload {
   SimpleMat<T> devX;
   SimpleVec<T> devY;
   DevUpload(const InputSpec &inSpec, const T *x, const T *y,
-                        cublasHandle_t &cublas)
+            cublasHandle_t &cublas)
       : devX(inSpec.n_row, inSpec.n_col), devY(inSpec.n_row) {
 
     SimpleMat<T> devXtmp(inSpec.n_row, inSpec.n_col);
@@ -54,8 +66,8 @@ template <class T> struct DevUpload {
     updateDevice(devY.data, y, inSpec.n_row);
   }
 };
-template <typename T>
-T run(InputSpec &in, DevUpload<T> &devUpload, T l1) {
+
+template <typename T> T run(InputSpec &in, DevUpload<T> &devUpload, T l1) {
   int N = in.n_row, D = in.n_col;
   bool has_bias = in.fit_intercept;
   T l2 = 0.0;
@@ -68,11 +80,12 @@ T run(InputSpec &in, DevUpload<T> &devUpload, T l1) {
   int verbosity = 1;
   int num_iters = 0;
   T lassoObjective = 0;
-  fit_dispatch<T, SquaredLoss<T, ROW_MAJOR>>(devUpload.devX.data, devUpload.devY.data, N, D, has_bias,
-                                  l1, l2, max_iter, grad_tol, value_rel_tol,
-                                  linesearch_max_iter, lbfgs_memory, verbosity,
-                                  w.data, // initial value and result
-                                  &lassoObjective, &num_iters);
+  fit_dispatch<T, SquaredLoss<T, ROW_MAJOR>>(
+      devUpload.devX.data, devUpload.devY.data, N, D, has_bias, l1, l2,
+      max_iter, grad_tol, value_rel_tol, linesearch_max_iter, lbfgs_memory,
+      verbosity,
+      w.data, // initial value and result
+      &lassoObjective, &num_iters);
 
   return lassoObjective;
 }
@@ -191,5 +204,54 @@ TEST_F(QuasiNewtonTest, QN_Lasso_Test_DesignMatrix_10_2_and_alpha_eq_half) {
         << "Check that result is the same as for SkLearn";
   }
 }
+
+TEST_F(QuasiNewtonTest, BinLogreg) {
+  double X[10][2] = {{-0.2047076594847130, 0.4789433380575482},
+                     {-0.5194387150567381, -0.5557303043474900},
+                     {1.9657805725027142, 1.3934058329729904},
+                     {0.0929078767437177, 0.2817461528302025},
+                     {0.7690225676118387, 1.2464347363862822},
+                     {1.0071893575830049, -1.2962211091122635},
+                     {0.2749916334321240, 0.2289128789353159},
+                     {1.3529168351654497, 0.8864293405915888},
+                     {-2.0016373096603974, -0.3718425371402544},
+                     {1.6690253095248706, -0.4385697358355719}};
+  double y[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
+  double w[2] = {-0.0019135297382819, 0.0014926327113983};
+  double b = 0.0;
+  double obj = 0.6932044347465082;
+  InputSpec in;
+  in.n_row = 10;
+  in.n_col = 2;
+  in.fit_intercept = true;
+
+  DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
+
+  double fx;
+
+  LogisticLoss1<double> loss(in.n_col, in.fit_intercept);
+
+  SimpleVec<double> w0(loss.n_param);
+
+  int max_iter = 100;
+  double grad_tol = 1e-8;
+  double value_rel_tol = 1e-5;
+  int linesearch_max_iter = 50;
+  int lbfgs_memory = 5;
+  int verbosity = 1;
+  int num_iters = 0;
+  double l1 = 0.01;
+  double l2 = 0.00;
+  SimpleVec<double> z(in.n_row);
+
+  qn_fit<double, LogisticLoss1<double>, ROW_MAJOR>(
+      &loss, devUpload.devX.data, devUpload.devY.data, z.data, in.n_row,
+      loss.fit_intercept, l1, l2, max_iter, grad_tol, value_rel_tol,
+      linesearch_max_iter, lbfgs_memory, verbosity, w0.data, &fx, &num_iters);
+
+  w0.print();
+  printf("Ref=%f, %f\n", obj, fx);
+}
+
 } // namespace GLM
 } // end namespace ML
