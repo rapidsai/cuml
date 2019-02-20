@@ -73,13 +73,13 @@ class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductio
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
-    r.uniform(data, len, -1.f, 1.f);
+    r.uniform(data, len, T(-1.0), T(1.0));
     naiveReduction(dots_exp, data, cols, rows);
 
     // Perform reduction with default inplace = false first
