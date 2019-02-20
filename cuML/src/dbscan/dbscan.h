@@ -23,15 +23,15 @@ namespace ML {
 using namespace Dbscan;
 
 int computeBatchCount(int n_rows) {
+
     int n_batches = 1;
-    // HACK HACK HACK: there seems to be a weird overflow bug with cutlass gemm kernels
+    // There seems to be a weird overflow bug with cutlass gemm kernels
     // hence, artifically limiting to a smaller batchsize!
-    ///@todo: in future, when we bump up the underlying cutlass version, this should go away
+    ///TODO: in future, when we bump up the underlying cutlass version, this should go away
     // paving way to cudaMemGetInfo based workspace allocation
     static const size_t MaxElems = (size_t)1024 * 1024 * 1024 * 2;  // 2e9
     while(true) {
 
-	// @todo: Shouldn't this be dependent on the columns and not just the rows?
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
         if(batchSize * n_rows < MaxElems)
             break;
