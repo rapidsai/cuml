@@ -30,7 +30,7 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
 public:
   void SetUp() override {
     params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
-    Random::Rng<T> rng(params.seed);
+    Random::Rng rng(params.seed);
 
     int len = params.len;
     allocate(in1, len);

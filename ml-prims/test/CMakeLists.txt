@@ -49,6 +49,7 @@ add_executable(mlcommon_test
   power.cu
   reduce_rows_by_key.cu
   rng.cu
+  rng_int.cu
   rsvd.cu
   sqrt.cu
   stddev.cu

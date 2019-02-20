@@ -284,8 +284,8 @@ void sum_rows_by_key_large_nkeys_rowmajor(cudaStream_t st, const DataType *d_A, 
         grid.z = std::max(40960000/nkeys/ncols, (int)1); //Adjust me!
         grid.z = std::min(grid.z, (unsigned int)nrows);
         grid.z = std::min(grid.z, MAX_BLOCKS);
-        std::cout << "block = " << block.x << ", " << block.y << std::endl;
-        std::cout << "grid = " << grid.x << ", " << grid.y << ", " << grid.z << std::endl;
+        //std::cout << "block = " << block.x << ", " << block.y << std::endl;
+        //std::cout << "grid = " << grid.x << ", " << grid.y << ", " << grid.z << std::endl;
         cudaMemset(d_sums, 0, sizeof(DataType)*nkeys*ncols);
         sum_rows_by_key_large_nkeys_kernel_rowmajor<<<grid,block,0,st>>>(d_A, lda, d_keys, nrows, ncols, key_offset, nkeys, d_sums);   
 }

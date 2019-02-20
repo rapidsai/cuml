@@ -26,7 +26,7 @@ namespace KMeans {
 
 template <typename Type>
 __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
-                          int *d_keys,char *d_char_keys, int nrows, 
+                          uint32_t *d_keys,char *d_char_keys, int nrows, 
                           int ncols, int nkeys, Type *d_sums) 
 {
     int c=threadIdx.x + blockIdx.x*blockDim.x;
@@ -42,7 +42,7 @@ __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
 }
 template <typename Type>
 void naiveReduceRowsByKey( int stream, Type* d_A, int lda, 
-                          int *d_keys,char *d_char_keys, int nrows, 
+                          uint32_t *d_keys,char *d_char_keys, int nrows, 
                           int ncols, int nkeys, Type *d_sums) 
 {
     cudaMemset(d_sums, 0, sizeof(Type) * nkeys*ncols);
@@ -58,8 +58,8 @@ template <typename T>
 struct ReduceRowsInputs {
     T tolerance;
     int nobs;
-    int cols;
-    int nkeys;
+    uint32_t cols;
+    uint32_t nkeys;
     unsigned long long int seed;
 };
 
@@ -73,18 +73,18 @@ class ReduceRowTest: public ::testing::TestWithParam<ReduceRowsInputs<T> > {
 protected:
     void SetUp() override {
         params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
-        Random::Rng<T> r(params.seed);
-        Random::Rng<int> r_int(params.seed);
+        Random::Rng r(params.seed);
+        Random::Rng r_int(params.seed);
         int nobs = params.nobs;
-        int cols = params.cols;
-        int nkeys = params.nkeys;
+        uint32_t cols = params.cols;
+        uint32_t nkeys = params.nkeys;
         allocate(in1, nobs*cols);
         allocate(in2, nobs);
         allocate(chars2, nobs);
         allocate(out_ref, nkeys*cols);
         allocate(out, nkeys*cols);
         r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
-        r_int.randInt(in2, nobs, 0, nkeys);
+        r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys);
         naiveReduceRowsByKey(0, in1, cols, in2, chars2,
                                nobs, cols, nkeys, out_ref );
         reduce_rows_by_key(0, in1, cols, in2, chars2, 
@@ -162,7 +162,7 @@ protected:
 protected:
     ReduceRowsInputs<T> params;
     T *in1, *out_ref, *out, *out_2;
-    int *in2;
+    uint32_t *in2;
     char *chars2;
     int device_count = 0;
 };

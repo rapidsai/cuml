@@ -30,7 +30,7 @@ class AddTest : public ::testing::TestWithParam<AddInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<AddInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
     allocate(in1, len);
     allocate(in2, len);

@@ -77,7 +77,7 @@ class RngTest : public ::testing::TestWithParam<RngInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
-    Rng<T> r(params.seed, params.gtype);
+    Rng r(params.seed, params.gtype);
     allocate(data, params.len);
     allocate(stats, 2, true);
     switch (params.type) {
