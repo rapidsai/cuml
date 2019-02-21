@@ -25,7 +25,7 @@
 
 
 namespace MLCommon {
-namespace KMeans {
+namespace LinAlg {
 
 //
 // Small helper function to convert from int->char and char->int 
@@ -335,5 +335,5 @@ void reduce_rows_by_key(const DataType *d_A, int lda, KeyType *d_keys,
     
 }
 
-}; // end namespace KMeans
+}; // end namespace LinAlg
 }; // end namespace MLCommon

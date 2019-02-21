@@ -21,7 +21,7 @@
 #include <iostream>
 
 namespace MLCommon {
-namespace KMeans {
+namespace LinAlg {
 
 
 template <typename Type>
