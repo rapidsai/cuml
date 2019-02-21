@@ -41,7 +41,7 @@ __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
     d_sums[this_key*ncols + c] = sum;
 }
 template <typename Type>
-void naiveReduceRowsByKey( int stream, Type* d_A, int lda, 
+void naiveReduceRowsByKey( Type* d_A, int lda, 
                           uint32_t *d_keys,char *d_char_keys, int nrows, 
                           int ncols, int nkeys, Type *d_sums) 
 {
@@ -85,9 +85,9 @@ protected:
         allocate(out, nkeys*cols);
         r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
         r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys);
-        naiveReduceRowsByKey(0, in1, cols, in2, chars2,
+        naiveReduceRowsByKey(in1, cols, in2, chars2,
                                nobs, cols, nkeys, out_ref );
-        reduce_rows_by_key(0, in1, cols, in2, chars2, 
+        reduce_rows_by_key(in1, cols, in2, chars2, 
                                nobs, cols, nkeys, out );
     }
 
