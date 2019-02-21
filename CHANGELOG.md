@@ -14,6 +14,7 @@
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #209: Simplify README.md, move build instructions to BUILD.md
 - PR #225: Support for generating random integers
 
 ## Bug Fixes
@@ -23,6 +24,7 @@
 - PR #202: Adding back ability for users to define their own BLAS
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
+- PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 
 
 # cuML 0.5.1 (05 Feb 2019)
