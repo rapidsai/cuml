@@ -34,5 +34,4 @@ namespace ML {
 	}
 
 	UMAPParams* UMAP::get_params() { return this->params; }
-
 };

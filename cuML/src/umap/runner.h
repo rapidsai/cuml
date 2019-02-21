@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
 #include "umapparams.h"
 #include "optimize.h"
 
@@ -54,6 +52,10 @@ namespace UMAPAlgo {
         }
 	}
 
+
+    void find_ab(UMAPParams *params) {
+        Optimize::find_params_ab(params);
+    }
 
 
 	template<typename T>
@@ -182,7 +184,6 @@ namespace UMAPAlgo {
         /**
          * Compute graph of membership strengths
          */
-
         int *graph_rows, *graph_cols;
         T *graph_vals;
 
@@ -204,12 +205,14 @@ namespace UMAPAlgo {
 
         CUDA_CHECK(cudaPeekAtLastError());
 
-        T *ia;
+        int *ia;
         MLCommon::allocate(ia, n, true);
 
         // TODO: Need prim to build the ex_scan row array for csr (from coo)
 
-        // MLCommon::csr_row_normalize_l1(ia, graph_vals, nnz, n, graph_vals);
+
+         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(ia, graph_vals, nnz,
+                 n, params->n_neighbors, graph_vals);
 
         /**
          * Init_transform()
@@ -245,8 +248,9 @@ namespace UMAPAlgo {
 
         /**
          * Remove zeros from vals
+         *
+         * TODO: Create rnnz array (and ex_scan_) for removing the vals
          */
-
 
 
         T *epochs_per_sample = (T*)malloc(nnz*sizeof(T));
@@ -268,8 +272,4 @@ namespace UMAPAlgo {
 
 	}
 
-
-	void find_ab(UMAPParams *params) {
-	    Optimize::find_params_ab(params);
-	}
 }
