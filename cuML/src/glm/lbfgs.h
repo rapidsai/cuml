@@ -668,7 +668,7 @@ inline int qn_minimize(SimpleVec<T> &x, T * fx, int * num_iters, LossFunction &l
       printf("L-BFGS Done\n");
   } else {
 //    opt_param.linesearch = LBFGS_LS_BT_ARMIJO; // Reference paper uses simple armijo ls...
-    OWLQNSolver<T> owlqn(opt_param, loss.n_param, loss.D);
+    OWLQNSolver<T> owlqn(opt_param, loss.n_param, loss.D * loss.C);
     ret = owlqn.minimize(loss, l1, x, *fx, num_iters, verbosity);
     if (verbosity > 0)
       printf("OWL-QN Done\n");
