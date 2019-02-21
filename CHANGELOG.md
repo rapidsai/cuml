@@ -16,6 +16,7 @@
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
 - PR #209: Simplify README.md, move build instructions to BUILD.md
 - PR #225: Support for generating random integers
+- PR #230: Refactored the cuda_utils header
 
 ## Bug Fixes
 
