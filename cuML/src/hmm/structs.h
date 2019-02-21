@@ -1,4 +1,6 @@
 #include <hmm/random.h>
+#include "linalg/cusolver_wrappers.h"
+
 
 using namespace MLCommon::HMM;
 
@@ -41,7 +43,7 @@ struct GMM {
         int *info;
         bool initialized=false;
 
-        // cusolverDnHandle_t *cusolverHandle;
+        cusolverDnHandle_t *cusolverHandle;
         cublasHandle_t *cublasHandle;
 };
 

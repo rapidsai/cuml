@@ -45,11 +45,15 @@ void initialize(DeterminantInputs<T> params){
         allocate(M_d, nDim * nDim);
         CUDA_CHECK(cudaMemset(M_d, (T)0, nDim * nDim));
 
+
         M_h[0] = (T) 9.5;
         M_h[1] = (T) 5;
         M_h[2] = (T) 5.;
         M_h[3] = (T) 4.;
         true_det = (T) 13;
+
+        CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
+        this->Det = new Determinant<T>(nDim, &cusolverHandle);
 }
 
 
@@ -59,8 +63,7 @@ void copy_to_device(){
 
 
 void compute_error_det(T true_det){
-        Determinant<T> determinant(nDim);
-        T est_det = determinant.compute(M_d);
+        T est_det = Det->compute(M_d);
         // printf("line number %d in file %s\n", __LINE__, __FILE__);
         error = std::abs(est_det - true_det);
 }
@@ -69,15 +72,21 @@ void compute_error_det(T true_det){
 void TearDown() override {
         free(M_h);
         CUDA_CHECK(cudaFree(M_d));
+        CUSOLVER_CHECK(cusolverDnDestroy(cusolverHandle));
+        Det->TearDown();
 }
 
 protected:
 DeterminantInputs<T> params;
+
+Determinant<T> *Det;
+
 T error, tolerance;
 T true_det;
 int nDim;
 
 T *M_h, *M_d;
+cusolverDnHandle_t cusolverHandle;
 };
 
 

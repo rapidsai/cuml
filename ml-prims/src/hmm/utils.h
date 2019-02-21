@@ -10,6 +10,7 @@
 
 using namespace MLCommon;
 
+// printf("line number %d in file %s\n", __LINE__, __FILE__);
 
 template <typename T>
 void print_matrix_host(T* cpu, int rows, int cols, const std::string& msg){
@@ -58,5 +59,6 @@ void make_ID_matrix(T *I, int dim) {
         dim3 block(32,32);
         dim3 grid(ceildiv(dim, (int)block.x), ceildiv(dim, (int)block.y));
         Linear_KF_ID_kernel<T> <<< grid, block >>>(I, dim);
+        // cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }

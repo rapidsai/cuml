@@ -10,11 +10,13 @@
 #include <random/rng.h>
 #include "random/mvg.h"
 
+#include <linalg/eltwise.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/sqrt.h>
 #include <linalg/transpose.h>
 
 #include <hmm/cublas_wrappers.h>
+#include <hmm/utils.h>
 
 // #include "cuda_utils.h"
 // #include "utils.h"
@@ -27,15 +29,11 @@ using namespace MLCommon;
 using MLCommon::Random::matVecAdd;
 
 template <typename T>
-void weighted_means(T* weights, T* data, T* means, int dim, int n_samples, int n_classes, cublasHandle_t handle){
-        // X (dim, n_samples)
-        // rhos (n_classes, n_samples)
-        // mu (dim, n_classes)
-        // return data * rhos^T
-
-        T alfa = (T)1.0, beta = (T)0.0;
-        CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim, n_classes,
-                                n_samples, &alfa, data, dim, weights, n_classes, &beta, means, dim));
+void weighted_means(T* weights, T* data, T* means, T* ps, int dim, int n_samples, int n_classes, cublasHandle_t handle){
+        T alfa = (T)1.0 / n_samples, beta = (T)0.0;
+        CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, dim,
+                                n_classes, n_samples, &alfa, data, dim, weights, n_samples, &beta, means, dim));
+        CUBLAS_CHECK(cublasdgmm(handle, CUBLAS_SIDE_RIGHT, dim, n_classes, means, dim, ps, 1, means, dim));
 }
 
 
@@ -43,44 +41,33 @@ void weighted_means(T* weights, T* data, T* means, int dim, int n_samples, int n
 template <typename T>
 struct _w_cov_functor
 {
-        T *data, *mus, *weights;
-        T *sigmas, *s_weights;
+        T *s_weights;
+        T* matrix_diff;
         int dim, nPts, nCl;
         cublasHandle_t* handle;
 
 
-        _w_cov_functor(T *data, T *weights, T *mus, T *sigmas,
-                       int _dim, int _nPts, int _nCl,
-                       cublasHandle_t* handle){
+        _w_cov_functor(int _dim, int _nPts, int _nCl, cublasHandle_t* handle){
                 dim = _dim;
                 nPts = _nPts;
                 nCl = _nCl;
-
-                this->data = data;
-                this->weights = weights;
-
                 allocate(s_weights, nCl * nPts);
-                transpose(weights, s_weights, nCl, nPts, *handle);
-                sqrt(s_weights, s_weights, nCl * nPts);
+                allocate(matrix_diff, nPts*dim);
 
-                this->mus = mus;
-                this->sigmas = sigmas;
                 this->handle = handle;
-
         }
 
-
-        // Compute sigma_k
-        // __host__ __device__
-        // void operator() (const int cluster_id)
-        void run (int cluster_id)
+        void run (int cluster_id, T *data, T *weights, T *mus, T *sigmas)
         {
                 // find the offsets of points
-                T* matrix_diff;
-                allocate(matrix_diff, nPts*dim);
+                sqrt(s_weights, weights, nCl * nPts);
                 CUDA_CHECK(cudaMemset(matrix_diff, 0, nPts*dim));
                 matVecAdd(matrix_diff, data, mus + IDX2C(0, cluster_id, dim),
                           T(-1.0), nPts, dim);
+
+                // print_matrix(data, dim, nPts, "data");
+                // print_matrix(mus, dim, nCl, "mus");
+                // print_matrix(matrix_diff, dim, nPts, "matrix_diff");
 
                 // multiply by sqrt(weights)
                 CUBLAS_CHECK(cublasdgmm(*handle, CUBLAS_SIDE_RIGHT,
@@ -88,33 +75,37 @@ struct _w_cov_functor
                                         s_weights + IDX2C(0, cluster_id, nPts),
                                         1, matrix_diff, dim));
 
+                // print_matrix(weights, nPts, nCl, "weights");
+                // print_matrix(s_weights, nPts, nCl, "s_weights");
+                // print_matrix(matrix_diff, dim, nPts, "matrix_diff_weighted");
+
                 // get the sum of all the covs
-                T alfa = (T)1.0, beta = (T)0.0;
+                T alfa = (T)1.0 / nPts, beta = (T)0.0;
                 CUBLAS_CHECK(cublasgemm(*handle, CUBLAS_OP_N,
                                         CUBLAS_OP_T, dim, dim, nPts,
                                         &alfa, matrix_diff,
                                         dim, matrix_diff, dim,
                                         &beta, sigmas + IDX2C(0, cluster_id, dim*dim),
                                         dim));
+
         }
 };
 
 
 
 template <typename T>
-void weighted_covs(T *data, T *weights, T *mus, T *sigmas,
-                   int dim, int nPts, int n_classes, cublasHandle_t* handle){
+void weighted_covs(T *data, T *weights, T *mus, T *sigmas, T* ps,
+                   int dim, int nPts, int n_classes, cublasHandle_t* cublasHandle){
 
-        _w_cov_functor<T> w_cov(data, weights, mus, sigmas, dim, nPts, n_classes,
-                                handle);
+        _w_cov_functor<T> w_cov(dim, nPts, n_classes, cublasHandle);
 
-        for (size_t i = 0; i < n_classes; i++) {
-                w_cov.run(i);
+        for (int i = 0; i < n_classes; i++) {
+                w_cov.run(i, data, weights, mus, sigmas);
         }
-        // thrust::counting_iterator<int> first(0);
-        // thrust::counting_iterator<int> last = first + n_classes;
+        print_matrix(ps, 1, n_classes, "ps");
 
-        // thrust::for_each(thrust::device, first, last, w_cov);
+        CUBLAS_CHECK(cublasdgmm(*cublasHandle, CUBLAS_SIDE_RIGHT, dim * dim, n_classes, sigmas, dim * dim, ps, 1, sigmas, dim * dim));
+
 }
 }
 

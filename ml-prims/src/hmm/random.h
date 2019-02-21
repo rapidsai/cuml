@@ -49,43 +49,69 @@ void gen_array(T* array, int dim, paramsRandom<T> *paramsRd){
 }
 
 template <typename T>
-void normalize_matrix(T* array, int n_rows, int n_cols){
+void normalize_matrix(T* array, int n_rows, int n_cols, bool colwise){
         // cublas handles
         cublasHandle_t cublas_handle;
         cublasCreate(&cublas_handle);
 
-        // initializations
-        T *sums, *ones;
-        cudaMalloc(&sums, n_rows * sizeof(T));
-        cudaMalloc(&ones, n_cols * sizeof(T));
 
-        thrust::device_ptr<T> sums_th(sums);
-        thrust::device_ptr<T> ones_th(ones);
+        if(colwise) {
+                // initializations
+                T *sums, *ones;
+                cudaMalloc(&sums, n_rows * sizeof(T));
+                cudaMalloc(&ones, n_cols * sizeof(T));
 
-        const T alpha = (T) 1;
-        const T beta = (T) 0;
+                thrust::device_ptr<T> sums_th(sums);
+                thrust::device_ptr<T> ones_th(ones);
 
-        thrust::fill(sums_th, sums_th + n_rows, beta);
-        thrust::fill(ones_th, ones_th + n_cols, alpha);
+                const T alpha = (T) 1;
+                const T beta = (T) 0;
 
-        // Compute the sum of each row
+                thrust::fill(sums_th, sums_th + n_rows, beta);
+                thrust::fill(ones_th, ones_th + n_cols, alpha);
 
-        CUBLAS_CHECK(cublasgemv(cublas_handle, CUBLAS_OP_N, n_rows, n_cols, &alpha,
-                                array, n_rows, ones, 1, &beta, sums, 1));
+                // Compute the sum of each row
+                CUBLAS_CHECK(cublasgemv(cublas_handle, CUBLAS_OP_N, n_rows, n_cols, &alpha, array, n_rows, ones, 1, &beta, sums, 1));
 
-        // Inverse the sums
-        thrust::transform(sums_th, sums_th + n_rows, sums_th, Inv_functor<T>());
+                // Inverse the sums
+                thrust::transform(sums_th, sums_th + n_rows, sums_th, Inv_functor<T>());
 
-        // Multiply by the inverse
-        CUBLAS_CHECK(cublasdgmm(cublas_handle, CUBLAS_SIDE_LEFT, n_rows, n_cols, array,
-                                n_rows, sums, 1, array, n_rows));
+                // Multiply by the inverse
+                CUBLAS_CHECK(cublasdgmm(cublas_handle, CUBLAS_SIDE_LEFT, n_rows, n_cols, array,n_rows, sums, 1, array, n_rows));
+        }
+        else{
+                // initializations
+                T *sums, *ones;
+                cudaMalloc(&sums, n_cols * sizeof(T));
+                cudaMalloc(&ones, n_rows * sizeof(T));
+
+                thrust::device_ptr<T> sums_th(sums);
+                thrust::device_ptr<T> ones_th(ones);
+
+                const T alpha = (T) 1;
+                const T beta = (T) 0;
+
+                thrust::fill(ones_th, ones_th + n_rows, alpha);
+                thrust::fill(sums_th, sums_th + n_cols, beta);
+
+                // Compute the sum of each col
+                CUBLAS_CHECK(cublasgemv(cublas_handle, CUBLAS_OP_T, n_rows, n_cols, &alpha, array, n_rows, ones, 1, &beta, sums, 1));
+
+                // Inverse the sums
+                thrust::transform(sums_th, sums_th + n_cols, sums_th, Inv_functor<T>());
+
+                // Multiply by the inverse
+                CUBLAS_CHECK(cublasdgmm(cublas_handle, CUBLAS_SIDE_RIGHT, n_rows, n_cols, array, n_rows, sums, 1, array, n_rows));
+
+        }
+
 }
 
 template <typename T>
-void gen_trans_matrix(T* matrix, int n_rows, int n_cols, paramsRandom<T> *paramsRd){
+void gen_trans_matrix(T* matrix, int n_rows, int n_cols, paramsRandom<T> *paramsRd, bool colwise){
         int dim = n_rows * n_cols;
         gen_array(matrix, dim, paramsRd);
-        normalize_matrix(matrix, n_rows, n_cols);
+        normalize_matrix(matrix, n_rows, n_cols, colwise);
 }
 
 }

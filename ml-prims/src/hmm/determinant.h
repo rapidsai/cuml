@@ -68,19 +68,19 @@ struct Determinant
 
         // Cusolver variables
         int *info, info_h;
-        cusolverDnHandle_t cusolverHandle;
+        cusolverDnHandle_t *cusolverHandle;
         cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER;
         int cholWsSize;
         T *cholWs = nullptr;
 
-        Determinant(int _nDim){
+        Determinant(int _nDim, cusolverDnHandle_t *_cusolverHandle){
                 nDim = _nDim;
-                CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
-                CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(cusolverHandle, uplo, nDim, tempM, nDim, &cholWsSize));
+                // CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
+                cusolverHandle = _cusolverHandle;
+                CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(*cusolverHandle, uplo, nDim, tempM, nDim, &cholWsSize));
                 allocate(cholWs, cholWsSize);
                 allocate(info, 1);
                 allocate(tempM, nDim * nDim);
-
         }
 
         // We assume M is hermitian !!!
@@ -91,7 +91,7 @@ struct Determinant
 
                 // Compute Cholesky decomposition
                 // TODO : Optimize memory usage
-                CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(cusolverHandle, uplo,
+                CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(*cusolverHandle, uplo,
                                                        nDim, tempM, nDim,
                                                        cholWs, cholWsSize, info));
                 updateHost(&info_h, info, 1);
@@ -102,6 +102,13 @@ struct Determinant
                 T prod =  diag_product(tempM, nDim);
                 return prod * prod;
         }
+
+        void TearDown() {
+                CUDA_CHECK(cudaFree(cholWs));
+                CUDA_CHECK(cudaFree(tempM));
+                CUDA_CHECK(cudaFree(info));
+        }
+
 };
 
 

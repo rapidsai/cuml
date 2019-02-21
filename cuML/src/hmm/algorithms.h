@@ -10,32 +10,83 @@ namespace ML {
 namespace HMM {
 
 template <typename T>
+void compute_ps(T* rhos, T* ps, int n_rows, int n_cols, cublasHandle_t *cublasHandle){
+        // initializations
+        T *ones;
+        cudaMalloc(&ones, n_rows * sizeof(T));
+
+        thrust::device_ptr<T> ones_th(ones);
+
+        const T alpha = (T) 1 / n_rows;
+        const T beta = (T) 0;
+
+        thrust::fill(ones_th, ones_th + n_rows, (T) 1);
+
+        CUBLAS_CHECK(cublasgemv(*cublasHandle, CUBLAS_OP_T, n_rows, n_cols, &alpha, rhos, n_rows, ones, 1, &beta, ps, 1));
+}
+
+
+
+template <typename T>
 void _em(GMM<T>& gmm){
         assert(gmm.initialized);
-        bool isLog = true;
+        bool isLog = false;
 
         GMMLikelihood<T> GMMLhd(gmm.x, gmm.mus, gmm.sigmas, gmm.rhos,
-                                gmm.nCl, gmm.nDim, gmm.nObs, isLog, gmm.cublasHandle);
+                                gmm.nCl, gmm.nDim, gmm.nObs, isLog,
+                                gmm.cublasHandle, gmm.cusolverHandle);
 
-        printf("iterations %d\n", gmm.paramsEm->n_iter);
+        // MLCommon::HMM::gen_trans_matrix(gmm.rhos, gmm.nObs, gmm.nCl,
+        //                                 gmm.paramsRd, true);
+        MLCommon::HMM::gen_trans_matrix(gmm.ps, 1, gmm.nCl,
+                                        gmm.paramsRd, true);
+        // compute_ps(gmm.rhos, gmm.ps, gmm.nObs, gmm.nCl, gmm.cublasHandle);
+
+
+        MLCommon::HMM::gen_array(gmm.mus, gmm.nDim * gmm.nCl, gmm.paramsRd);
+
+        gmm.paramsRd->start = 1;
+        gmm.paramsRd->end = 5;
+        MLCommon::HMM::gen_array(gmm.sigmas, gmm.nDim * gmm.nDim * gmm.nCl,
+                                 gmm.paramsRd);
+
         // Run the EM algorithm
         for (int it = 0; it < gmm.paramsEm->n_iter; it++) {
                 printf("\n -------------------------- \n");
-                printf(" iteration %d\n", gmm.paramsEm->n_iter);
-                print_matrix(gmm.mus, gmm.nDim,gmm.nCl, "gmm.mus");
-                print_matrix(gmm.sigmas, gmm.nDim * gmm.nDim, gmm.nCl, "gmm.sigmas");
-                print_matrix(gmm.rhos, gmm.nCl, gmm.nObs, "gmm.rhos");
+                printf(" iteration %d\n", it);
+
+                // printf("line number %d in file %s\n", __LINE__, __FILE__);
 
                 // E step
-                GMMLhd.fill_rhos(gmm.rhos);
-                normalize_matrix(gmm.rhos, gmm.nDim, gmm.nCl);
+                GMMLhd.fill_rhos(gmm.rhos, gmm.ps);
+
+                // printf("line number %d in file %s\n", __LINE__, __FILE__);
+
+                normalize_matrix(gmm.rhos, gmm.nObs, gmm.nCl, true);
+
+                // printf("line number %d in file %s\n", __LINE__, __FILE__);
+
+                print_matrix(gmm.x, gmm.nDim, gmm.nObs, "gmm.data");
+                print_matrix(gmm.mus, gmm.nDim, gmm.nCl, "gmm.mus");
+                print_matrix(gmm.sigmas, gmm.nDim * gmm.nDim, gmm.nCl, "gmm.sigmas");
+                print_matrix(gmm.rhos, gmm.nObs, gmm.nCl, "rhos alg");
+                print_matrix(gmm.ps, 1, gmm.nCl, "gmm.ps");
+
 
                 // M step
-                weighted_means(gmm.rhos, gmm.x, gmm.mus,
+
+                weighted_means(gmm.rhos, gmm.x, gmm.mus, gmm.ps,
                                gmm.nDim, gmm.nObs, gmm.nCl, *gmm.cublasHandle);
-                weighted_covs(gmm.x, gmm.rhos, gmm.mus, gmm.sigmas,
+                // printf("line number %d in file %s\n", __LINE__, __FILE__);
+
+                weighted_covs(gmm.x, gmm.rhos, gmm.mus, gmm.sigmas, gmm.ps,
                               gmm.nDim, gmm.nObs, gmm.nCl, gmm.cublasHandle);
+                compute_ps(gmm.rhos, gmm.ps, gmm.nObs, gmm.nCl, gmm.cublasHandle);
+                // printf("line number %d in file %s\n", __LINE__, __FILE__);
+
         }
+
+        GMMLhd.TearDown();
 }
 
 //

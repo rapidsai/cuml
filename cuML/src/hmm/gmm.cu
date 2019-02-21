@@ -10,50 +10,49 @@ namespace HMM {
 template <typename T>
 void allocate_gmm(GMM<T>& gmm){
         allocate(gmm.mus, gmm.nDim * gmm.nCl);
-        CUDA_CHECK(cudaMemset(gmm.mus, (T) 0., gmm.nDim * gmm.nCl));
-
         allocate(gmm.sigmas, gmm.nDim * gmm.nDim * gmm.nCl);
-        CUDA_CHECK(cudaMemset(gmm.sigmas, (T)0.,  gmm.nDim * gmm.nDim * gmm.nCl));
-
         allocate(gmm.rhos, gmm.nObs * gmm.nCl);
-        CUDA_CHECK(cudaMemset(gmm.rhos, (T)0., gmm.nObs * gmm.nCl ));
-
-        allocate(gmm.ps, gmm.nDim);
-        CUDA_CHECK(cudaMemset(gmm.ps, (T)0., gmm.nDim));
+        allocate(gmm.ps, gmm.nCl);
+        allocate(gmm.info, 1);
 }
 
 template <typename T>
-void free_gmm(GMM<T>& gmm){
+void TearDownGMM(GMM<T>& gmm){
         CUDA_CHECK(cudaFree(gmm.mus));
         CUDA_CHECK(cudaFree(gmm.sigmas));
         CUDA_CHECK(cudaFree(gmm.rhos));
         CUDA_CHECK(cudaFree(gmm.ps));
+        CUDA_CHECK(cudaFree(gmm.info));
 }
 
 template <typename T>
 void set_gmm(GMM<T>& gmm, int nCl, int nDim, int nObs,
-             paramsRandom<T>* paramsRd, paramsEM* paramsEm) {
+             paramsRandom<T>* paramsRd, paramsEM* paramsEm,
+             cusolverDnHandle_t *_cusolverHandle, cublasHandle_t *_cublasHandle) {
+
         gmm.nDim = nDim;
         gmm.nCl = nCl;
         gmm.nObs = nObs;
 
-        // printf("iterations %d\n", gmm.paramsEm->n_iter);
-
-
         gmm.paramsRd = paramsRd;
         gmm.paramsEm = paramsEm;
 
-        printf(" after alloc iterations %d\n", gmm.paramsEm->n_iter);
+        gmm.cusolverHandle = _cusolverHandle;
+        gmm.cublasHandle = _cublasHandle;
+
         allocate_gmm(gmm);
-        printf(" after alloc iterations %d\n", gmm.paramsEm->n_iter);
 }
+
 
 
 template <typename T>
 void initialize(GMM<T>& gmm) {
-        MLCommon::HMM::gen_trans_matrix(gmm.rhos, gmm.nCl, gmm.nDim,
-                                        gmm.paramsRd);
-        MLCommon::HMM::gen_trans_matrix(gmm.ps, (int) 1, gmm.nCl, gmm.paramsRd);
+        // MLCommon::HMM::gen_trans_matrix(gmm.rhos, gmm.nObs, gmm.nCl,
+        //                                 gmm.paramsRd, true);
+        MLCommon::HMM::gen_trans_matrix(gmm.ps, 1, gmm.nCl,
+                                        gmm.paramsRd, true);
+        // compute_ps(gmm.rhos, gmm.ps, gmm.nObs, gmm.nCl, gmm.cublasHandle);
+
 
         MLCommon::HMM::gen_array(gmm.mus, gmm.nDim * gmm.nCl, gmm.paramsRd);
         MLCommon::HMM::gen_array(gmm.sigmas, gmm.nDim * gmm.nDim * gmm.nCl,
@@ -64,8 +63,6 @@ void initialize(GMM<T>& gmm) {
 
 template <typename T>
 void fit(GMM<T>& gmm, T* data) {
-        printf("iterations %d\n", gmm.paramsEm->n_iter);
-
         gmm.x = data;
         _em(gmm);
 }

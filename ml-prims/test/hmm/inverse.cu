@@ -80,6 +80,10 @@ void allocate_memory(){
         CUDA_CHECK(cudaMemset(est_inv_d, (T)0, nDim * nDim));
 
         allocate(error_d, 1);
+
+        CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
+
+        this->Inv = new Inverse<T>(nDim, &cusolverHandle);
 }
 
 
@@ -90,8 +94,7 @@ void copy_to_device(){
 
 
 void compute_error_inv(){
-        Inverse<T> Inverse(nDim, &cusolverHandle);
-        Inverse.compute(M_d, est_inv_d);
+        Inv->compute(M_d, est_inv_d);
         meanSquaredError(error_d, est_inv_d, true_inv_d, nDim*nDim);
         updateHost(&error, error_d, 1);
 }
@@ -107,12 +110,16 @@ void TearDown() override {
         CUDA_CHECK(cudaFree(est_inv_d));
         CUDA_CHECK(cudaFree(error_d));
 
+        CUSOLVER_CHECK(cusolverDnDestroy(cusolverHandle));
+        Inv->TearDown();
 }
 
 protected:
 InverseInputs<T> params;
 T error, tolerance;
 int nDim;
+
+Inverse<T> *Inv;
 
 T *error_d;
 T *true_inv_d, *true_inv_h;
