@@ -5,8 +5,8 @@ namespace MLCommon {
 
     template<int TPB_X, typename T>
     __global__ void csr_row_normalize_l1(
-            int *ia,    // csr row array (ex_scan of row counts)
-            T *vals, int nnz,  // array of values and number of nonzeros
+            int *ia,    // csr row counts (sorted by row)
+            T *vals, int nnz,  // array of values and number of non-zeros
             int m,          // num rows in csr
             int n,
             T *result) {    // output array

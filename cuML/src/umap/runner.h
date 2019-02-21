@@ -21,6 +21,9 @@
 #include "simpl_set_embed/runner.h"
 #include "init_embed/runner.h"
 
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
+
 #include "sparse/csr.h"
 
 #include "cuda_utils.h"
@@ -51,6 +54,14 @@ namespace UMAPAlgo {
             }
         }
 	}
+
+    template<int TPB_X, typename T>
+    __global__ void coo_row_counts(int *rows, T *vals, int nnz,
+            int *results, int n) {
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+        if(row < n && vals[row] != 0.0)
+            atomicAdd(results+row, 1);
+    }
 
 
     void find_ab(UMAPParams *params) {
@@ -208,10 +219,18 @@ namespace UMAPAlgo {
         int *ia;
         MLCommon::allocate(ia, n, true);
 
-        // TODO: Need prim to build the ex_scan row array for csr (from coo)
+        int *ex_scan;
+        MLCommon::allocate(ex_scan, n, true);
 
 
-         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(ia, graph_vals, nnz,
+        // COO should be sorted by row- we get the counts and then normalize
+        coo_row_counts<TPB_X, T><<<grid, blk>>>(graph_rows, graph_vals, nnz, ia, n);
+
+        thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
+        thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
+        exclusive_scan(dev_ia, dev_ia + n, dev_ex_scan);
+
+         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(dev_ex_scan.get(), graph_vals, nnz,
                  n, params->n_neighbors, graph_vals);
 
         /**
