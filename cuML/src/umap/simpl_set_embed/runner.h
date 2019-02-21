@@ -32,7 +32,7 @@ namespace UMAPAlgo {
 
 	        switch(algorithm) {
 	            case 0:
-	                SimplSetEmbed::launcher<T, TPB_X>(
+	                SimplSetEmbed::Algo::launcher<T, TPB_X>(
 	                        m, n,
 	                        rows, cols, vals, nnz,
 	                        params, embedding);

@@ -407,10 +407,6 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << MLCommon::arr2Str(orows, n*k*2, "orows") << std::endl;
-                std::cout << MLCommon::arr2Str(ocols, n*k*2, "ocols") << std::endl;
-                std::cout << MLCommon::arr2Str(ovals, n*k*2, "ovals") << std::endl;
-
 
                 int cur_coo_len = 0;
                 MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
@@ -431,15 +427,7 @@ namespace UMAPAlgo {
 
                 MLCommon::coo_sort(n, k, cur_coo_len, crows, ccols, cvals);
 
-                std::cout << MLCommon::arr2Str(crows, cur_coo_len, "rows") << std::endl;
-                std::cout << MLCommon::arr2Str(ccols, cur_coo_len, "cols") << std::endl;
-                std::cout << MLCommon::arr2Str(cvals, cur_coo_len, "vals") << std::endl;
-
                 nnz[0] = cur_coo_len;
-
-                MLCommon::copy(rows, crows, cur_coo_len);
-                MLCommon::copy(cols, ccols, cur_coo_len);
-                MLCommon::copy(vals, cvals, cur_coo_len);
             }
         }
     }

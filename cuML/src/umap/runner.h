@@ -23,6 +23,8 @@
 #include "simpl_set_embed/runner.h"
 #include "init_embed/runner.h"
 
+#include "sparse/csr.h"
+
 #include "cuda_utils.h"
 
 #include <iostream>
@@ -51,6 +53,7 @@ namespace UMAPAlgo {
             }
         }
 	}
+
 
 
 	template<typename T>
@@ -130,11 +133,14 @@ namespace UMAPAlgo {
 		return 0;
 	}
 
+
+
 	template<typename T, int TPB_X>
 	size_t _transform(const T *X,
 	                  int n,
 	                  int d,
 	                  const T *embedding,
+	                  int embedding_n,
 	                  UMAPParams *params,
 	                  T *transformed) {
 
@@ -154,8 +160,6 @@ namespace UMAPAlgo {
 
         kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
         CUDA_CHECK(cudaPeekAtLastError());
-
-
 
 	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
 
@@ -190,49 +194,73 @@ namespace UMAPAlgo {
         MLCommon::allocate(graph_vals, n*params->n_neighbors);
 
 
-        //TODO: Expose this so it can be swapped out
+        //TODO: Expose this so it can be swapped out easily
         FuzzySimplSet::Naive::compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
                 knn_dists, sigmas, rhos, graph_vals, graph_rows, graph_cols, n,
                 params->n_neighbors);
+
+
+        int nnz = 0; // TODO: Set this!
+
         CUDA_CHECK(cudaPeekAtLastError());
 
-	    /**
-	     * Init_transform()
-	     *
-	     *         # This was a very specially constructed graph with constant degree.
-                    # That lets us do fancy unpacking by reshaping the csr matrix indices
-                    # and data. Doing so relies on the constant degree assumption!
-                    csr_graph = normalize(graph.tocsr(), norm="l1")
-                    inds = csr_graph.indices.reshape(X.shape[0], self._n_neighbors)
-                    weights = csr_graph.data.reshape(X.shape[0], self._n_neighbors)
-                    embedding = init_transform(inds, weights, self.embedding_)
-	     */
+        T *ia;
+        MLCommon::allocate(ia, n, true);
+
+        // TODO: Need prim to build the ex_scan row array for csr (from coo)
+        // MLCommon::csr_row_normalize_l1(ia, graph_vals, nnz, n, graph_vals);
+
+        /**
+         * Init_transform()
+         *
+         */
+        // cols.shape = (X.shape[0], self._n_neighbors)
+        // vas.shape = (X.shape[0], self._n_neighbors)
+        T *result;
+        MLCommon::allocate(result, n*params->n_components);
+
+        init_transform(graph_cols, graph_vals, n,
+                embedding, embedding_n, params->n_components,
+                result);
+
+        /**
+         * Find max of data
+         */
+        thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(graph_vals);
+        T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
+
+        /**
+         * Go through COO values and set everything that's less than
+         * vals.max() / params->n_epochs to 0.0
+         */
+        auto adjust_vals_op = [] __device__(T input, T scalar) {
+            if (input < scalar)
+                return 0.0f;
+            else
+                return input;
+        };
+
+        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz, adjust_vals_op);
 
 
-//        graph.data[graph.data < (graph.data.max() / float(n_epochs))] = 0.0
-//        graph.eliminate_zeros()
-//
-//        epochs_per_sample = make_epochs_per_sample(graph.data, n_epochs)
-//
-//        head = graph.row
-//        tail = graph.col
-//
-//        embedding = optimize_layout(
-//            embedding,
-//            self.embedding_,
-//            head,
-//            tail,
-//            n_epochs,
-//            graph.shape[1],
-//            epochs_per_sample,
-//            self._a,
-//            self._b,
-//            rng_state,
-//            self.repulsion_strength,
-//            self._initial_alpha,
-//            self.negative_sample_rate,
-//            verbose=self.verbose,
-//        )
+        /**
+         * Remove zeros from vals
+         */
+
+
+        int *epochs_per_sample = make_epochs_per_sample(graph_vals, params->n_epochs);
+
+        int *head = graph_rows;
+        int *tail = graph_cols;
+
+        SimplSetEmbed::Algo::optimize_layout(
+            result, embedding_n,
+            embedding, n,
+            head, tail, nnz,
+            epochs_per_sample,
+            n,
+            params
+        );
 
 	}
 
