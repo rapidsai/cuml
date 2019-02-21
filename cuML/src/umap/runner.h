@@ -34,11 +34,31 @@ namespace UMAPAlgo {
 
 	using namespace ML;
 
+    template<int TPB_X, typename T>
+	__global__ void init_transform(int *indices, T *weights, int n,
+	                    T *embeddings, int embeddings_n, int n_components,
+	                    T *result, int n_neighbors) {
+
+        // row-based matrix 1 thread per row
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+        int i = row * n_neighbors; // each thread processes one row of the dist matrix
+
+        if(row < n) {
+            for(int j = 0; j < n_neighbors; j++) {
+                for(int d = 0; d < n_components; d++) {
+                    result[row*n_components+d] += weights[i+j] * embeddings[indices[i+j]*n_components+d];
+                }
+            }
+        }
+	}
+
+
 	template<typename T>
 	size_t _fit(const T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
-	            UMAPParams *params) {
+	            UMAPParams *params,
+	            T *embeddings) {
 
 		/**
 		 * Allocate workspace for kNN graph
@@ -109,6 +129,113 @@ namespace UMAPAlgo {
 
 		return 0;
 	}
+
+	template<typename T, int TPB_X>
+	size_t _transform(const T *X,
+	                  int n,
+	                  int d,
+	                  const T *embedding,
+	                  UMAPParams *params,
+	                  T *transformed) {
+
+        dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+        dim3 blk(TPB_X, 1, 1);
+
+	    /**
+	     * Perform kNN of X
+	     */
+        long *knn_indices;
+        T *knn_dists;
+
+        MLCommon::allocate(knn_indices, n*params->n_neighbors);
+        MLCommon::allocate(knn_dists, n*params->n_neighbors);
+
+        std::cout << "Running knnGraph" << std::endl;
+
+        kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+
+
+	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
+
+	    /**
+	     * Perform smooth_knn_dist
+	     */
+        T *sigmas;
+        T *rhos;
+        MLCommon::allocate(sigmas, n);
+        MLCommon::allocate(rhos, n);
+
+        // TODO: Expose this so it can be swapped out.
+        FuzzySimplSet::Naive::smooth_knn_dist(n, knn_indices, knn_dists,
+                rhos, sigmas, params
+        );
+
+        std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+        std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+
+        /**
+         * Compute graph of membership strengths
+         */
+
+        int *graph_rows, *graph_cols;
+        T *graph_vals;
+
+        /**
+         * Allocate workspace for fuzzy simplicial set.
+         */
+        MLCommon::allocate(graph_rows, n*params->n_neighbors);
+        MLCommon::allocate(graph_cols, n*params->n_neighbors);
+        MLCommon::allocate(graph_vals, n*params->n_neighbors);
+
+
+        //TODO: Expose this so it can be swapped out
+        FuzzySimplSet::Naive::compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
+                knn_dists, sigmas, rhos, graph_vals, graph_rows, graph_cols, n,
+                params->n_neighbors);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+	    /**
+	     * Init_transform()
+	     *
+	     *         # This was a very specially constructed graph with constant degree.
+                    # That lets us do fancy unpacking by reshaping the csr matrix indices
+                    # and data. Doing so relies on the constant degree assumption!
+                    csr_graph = normalize(graph.tocsr(), norm="l1")
+                    inds = csr_graph.indices.reshape(X.shape[0], self._n_neighbors)
+                    weights = csr_graph.data.reshape(X.shape[0], self._n_neighbors)
+                    embedding = init_transform(inds, weights, self.embedding_)
+	     */
+
+
+//        graph.data[graph.data < (graph.data.max() / float(n_epochs))] = 0.0
+//        graph.eliminate_zeros()
+//
+//        epochs_per_sample = make_epochs_per_sample(graph.data, n_epochs)
+//
+//        head = graph.row
+//        tail = graph.col
+//
+//        embedding = optimize_layout(
+//            embedding,
+//            self.embedding_,
+//            head,
+//            tail,
+//            n_epochs,
+//            graph.shape[1],
+//            epochs_per_sample,
+//            self._a,
+//            self._b,
+//            rng_state,
+//            self.repulsion_strength,
+//            self._initial_alpha,
+//            self.negative_sample_rate,
+//            verbose=self.verbose,
+//        )
+
+	}
+
 
 	void find_ab(UMAPParams *params) {
 	    Optimize::find_params_ab(params);

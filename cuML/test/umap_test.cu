@@ -54,7 +54,9 @@ protected:
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
 
-		UMAPAlgo::_fit(X_d, n, d, umap_params);
+		float *embeddings = (float*)malloc(n*d*sizeof(float));
+
+		UMAPAlgo::_fit<float>(X_d, n, d, umap_params, embeddings);
 	}
 
 	void SetUp() override {

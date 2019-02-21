@@ -41,7 +41,7 @@ namespace ML {
          */
         float a, b;
 
-        float gamma;
+        float gamma = 1.0;
 
         int target_n_neighbors = -1;
         float target_weight = 0.5;

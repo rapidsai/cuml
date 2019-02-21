@@ -39,6 +39,8 @@ namespace UMAPAlgo {
 	    template<typename T>
 	    float rdist(const T *X, const T *Y, int n) {
 	        float result = 0.0;
+
+	        //TODO: Parallelize
 	        for(int i = 0; i < n; i++)
 	            result += pow(X[i]-Y[i], 2);
 	        return result;
@@ -59,15 +61,22 @@ namespace UMAPAlgo {
 	     * @param n_epochs: the total number of epochs we want to train for
 	     * @returns an array of number of epochs per sample, one for each 1-simplex
 	     */
+
+	    /**
+	     * This could be parallelized
+	     */
 	    template<typename T>
 	    void make_epochs_per_sample(const T *weights, int weights_n, int n_epochs, T *result) {
 	        T weights_max = -1.0;
+
+	        // TODO: Parallelize
 	        for(int i = 0; i < weights_n; i++)  {
 	            if(weights[i] > weights_max)
 	                weights_max = weights[i];
                 result[i] = -1;
 	        }
 
+	        // TODO: Parallelize
 	        for(int i = 0; i < weights_n; i++) {
                 T v = weights[i] / weights_max;
                 if(v*n_epochs > 0)
@@ -78,7 +87,6 @@ namespace UMAPAlgo {
 
 	    template<typename T>
 	    T clip(T val, T lb, T ub) {
-
 	        if(val > ub)
 	            return ub;
 	        else if(val < lb)
@@ -105,24 +113,36 @@ namespace UMAPAlgo {
 	            UMAPParams *params) {
 
 	        int dim = params->n_components;
-
 	        bool move_other = head_n == tail_n;
 
             T alpha = params->initial_alpha;
 	        T *epochs_per_negative_sample = (T*)malloc(nnz * sizeof(T));
+
+	        print_arr(epochs_per_negative_sample, nnz, "epochs_per_negative_sample");
+
+	        //TODO: Parallelize
 	        for(int i = 0; i < nnz; i++)
-	            epochs_per_sample[i] /= params->negative_sample_rate;
+	            epochs_per_negative_sample[i] = epochs_per_sample[i] / params->negative_sample_rate;
+
+            print_arr(epochs_per_sample, nnz, "epochs_per_sample");
+
 
 	        T *epoch_of_next_negative_sample = (T*)malloc(nnz*sizeof(T));
 	        memcpy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
 
+	        print_arr(epoch_of_next_negative_sample, nnz, "epoch_of_next_negative_sample");
+
 	        T *epoch_of_next_sample = (T*)malloc(nnz*sizeof(T));
 	        memcpy(epoch_of_next_sample, epochs_per_sample, nnz);
 
+            print_arr(epoch_of_next_sample, nnz, "epoch_of_next_sample");
+
 	        for(int n = 0; n < params->n_epochs; n++) {
 
+	            /**
+	             * TODO: Should be able to do each of these iterations on GPU
+	             */
 	            for(int i = 0; i < nnz; i++) {
-
 	                if(epoch_of_next_sample[i] <= n) {
 
 	                    int j = head[i];
@@ -144,7 +164,7 @@ namespace UMAPAlgo {
 	                        float grad_d = clip(grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
 	                        current[d] += grad_d * alpha;
 	                        if(move_other)
-	                            other[d] += grad_d * alpha;
+	                            other[d] += -grad_d * alpha;
 	                    }
 
 	                    epoch_of_next_sample[i] += epochs_per_sample[i];
@@ -173,11 +193,10 @@ namespace UMAPAlgo {
 
 	                        for(int d = 0; d < dim; d++) {
 	                            T grad_d = 0.0;
-	                            if(grad_coeff > 0.0) {
+	                            if(grad_coeff > 0.0)
 	                                grad_d = clip(grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
-	                            } else {
+	                            else
 	                                grad_d = 4.0;
-	                            }
 
 	                            current[d] += grad_d * alpha;
 	                        }
@@ -212,6 +231,7 @@ namespace UMAPAlgo {
 
             dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
+            srand(50);
 
 	        /**
 	         * Find vals.max()

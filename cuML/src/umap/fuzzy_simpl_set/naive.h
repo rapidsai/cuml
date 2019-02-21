@@ -69,7 +69,7 @@ namespace UMAPAlgo {
              *
              */
             template<int TPB_X, typename T>
-            __global__ void smooth_knn_dist(
+            __global__ void smooth_knn_dist_kernel(
                     const T *knn_dists, int n,
                     float mean_dist, T *sigmas,
                     T *rhos,			// Size of n, iniitalized to zeros
@@ -191,7 +191,7 @@ namespace UMAPAlgo {
              * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
              */
             template<int TPB_X, typename T>
-            __global__ void compute_membership_strength(const long *knn_indices,
+            __global__ void compute_membership_strength_kernel(const long *knn_indices,
                     const float *knn_dists,  // nn outputs
                     const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
                     T *vals, int *rows, int *cols,  // result coo
@@ -303,29 +303,12 @@ namespace UMAPAlgo {
                 std::cout << msg << std::endl;
             }
 
-            /**
-             * Given a set of X, a neighborhood size, and a measure of distance, compute
-             * the fuzzy simplicial set (here represented as a fuzzy graph in the form of
-             * a sparse coo matrix) associated to the data. This is done by locally
-             * approximating geodesic (manifold surface) distance at each point, creating
-             * a fuzzy simplicial set for each such point, and then combining all the local
-             * fuzzy simplicial sets into a global one via a fuzzy union.
-             */
-            template<int TPB_X, typename T>
-            void launcher(int n, const long *knn_indices, const float *knn_dists,
-                   int *rows, int *cols, T *vals, int *nnz, UMAPParams *params) {
+            template< int TPB_X, typename T>
+            void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
+                    T *rhos, T *sigmas, UMAPParams *params) {
 
-                /**
-                 * All of the kernels in this algorithm are row-based and
-                 * upper-bounded by k. Prefer 1-row per thread, scheduled
-                 * as a single dimension.
-                 */
                 dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
-
-                /**
-                 * Calculate mean distance through a parallel reduction
-                 */
 
                 T *dist_means_dev;
                 MLCommon::allocate(dist_means_dev, params->n_neighbors);
@@ -349,28 +332,57 @@ namespace UMAPAlgo {
                 delete dist_means_host;
                 CUDA_CHECK(cudaFree(dist_means_dev));
 
-                T *sigmas;
-                T *rhos;
-
-                MLCommon::allocate(sigmas, n);
-                MLCommon::allocate(rhos, n);
-
                 /**
                  * Smooth kNN distances to be continuous
                  */
-                smooth_knn_dist<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
+                smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+            }
+
+
+            /**
+             * Given a set of X, a neighborhood size, and a measure of distance, compute
+             * the fuzzy simplicial set (here represented as a fuzzy graph in the form of
+             * a sparse coo matrix) associated to the data. This is done by locally
+             * approximating geodesic (manifold surface) distance at each point, creating
+             * a fuzzy simplicial set for each such point, and then combining all the local
+             * fuzzy simplicial sets into a global one via a fuzzy union.
+             */
+            template<int TPB_X, typename T>
+            void launcher(int n, const long *knn_indices, const float *knn_dists,
+                   int *rows, int *cols, T *vals, int *nnz, UMAPParams *params) {
 
                 int k = params->n_neighbors;
 
                 /**
+                 * All of the kernels in this algorithm are row-based and
+                 * upper-bounded by k. Prefer 1-row per thread, scheduled
+                 * as a single dimension.
+                 */
+                dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+                dim3 blk(TPB_X, 1, 1);
+
+                /**
+                 * Calculate mean distance through a parallel reduction
+                 */
+                T *sigmas;
+                T *rhos;
+                MLCommon::allocate(sigmas, n);
+                MLCommon::allocate(rhos, n);
+
+                smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
+                        rhos, sigmas, params
+                );
+
+                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+
+                /**
                  * Compute graph of membership strengths
                  */
-                compute_membership_strength<TPB_X><<<grid, blk>>>(knn_indices,
+                compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
                 CUDA_CHECK(cudaPeekAtLastError());
