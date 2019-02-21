@@ -36,9 +36,9 @@ struct SquaredLoss1 : GLMBase<T, SquaredLoss1<T>> {
     return diff * diff * 0.5;
   }
 
-  inline void eval_dl(const T *y, T *eta) {
+  inline void eval_dl(const T *y, T *eta, int N) {
     auto f = [] __device__(const T y, const T eta) { return (eta - y); };
-    MLCommon::LinAlg::binaryOp(eta, y, eta, Super::N, f);
+    MLCommon::LinAlg::binaryOp(eta, y, eta, N, f);
   }
 };
 

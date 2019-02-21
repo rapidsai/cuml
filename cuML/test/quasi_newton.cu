@@ -206,15 +206,14 @@ TEST_F(QuasiNewtonTest, QN_Lasso_Test_DesignMatrix_10_2_and_alpha_eq_half) {
 }
 
 template <typename T, class LossFunction>
-T run(LossFunction & loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2, T *w,
-               SimpleVec<T> &z) {
+T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
+      T *w, SimpleVec<T> &z, int verbosity=0) {
 
   int max_iter = 100;
   T grad_tol = 1e-8;
   T value_rel_tol = 1e-5;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
-  int verbosity = 0;
   int num_iters = 0;
 
   T fx;
@@ -247,7 +246,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   in.n_row = 10;
   in.n_col = 2;
   double alpha = 0.01;
-  
+
   LogisticLoss1<double> loss_b(in.n_col, true);
   LogisticLoss1<double> loss_no_b(in.n_col, false);
 
@@ -273,7 +272,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   double obj_l2_b = 0.4378085369889721;
 
   fx = run(loss_b, devUpload, in, 0.0, alpha, w0.data, z);
-  
+
   w0.print();
   printf("Ref=%f, %f\n", obj_l2_b, fx);
 
@@ -292,7 +291,6 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   fx = run(loss_no_b, devUpload, in, 0.0, alpha, w0.data, z);
   w0.print();
   printf("Ref=%f, %f\n", obj_l2_no_b, fx);
-
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
@@ -321,8 +319,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   SimpleMat<double> z(C, in.n_row);
   SimpleVec<double> w0(C * (in.n_col + 1));
 
-  Softmax<double> loss_b(in.n_col, C,  true);
-  Softmax<double> loss_no_b(in.n_col,C, false);
+  Softmax<double> loss_b(in.n_col, C, true);
+  Softmax<double> loss_no_b(in.n_col, C, false);
 
   l1 = alpha;
   l2 = 0.0;
@@ -378,6 +376,75 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                             {-1.0254072271788255, -0.2669184218645556},
                             {0.0652240557765584, 1.2805929708763277}};
   double obj_l2_no_b = 0.6597171282106854;
+
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l2_no_b, fx);
+  w0.print();
+}
+
+TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
+  double X[10][2] = {{-0.2047076594847130, 0.4789433380575482},
+                     {-0.5194387150567381, -0.5557303043474900},
+                     {1.9657805725027142, 1.3934058329729904},
+                     {0.0929078767437177, 0.2817461528302025},
+                     {0.7690225676118387, 1.2464347363862822},
+                     {1.0071893575830049, -1.2962211091122635},
+                     {0.2749916334321240, 0.2289128789353159},
+                     {1.3529168351654497, 0.8864293405915888},
+                     {-2.0016373096603974, -0.3718425371402544},
+                     {1.6690253095248706, -0.4385697358355719}};
+  double y[10] = {0.2675836026202781,  -0.0678277759663704, -0.6334027174275105,
+                  -0.1018336189077367, 0.0933815935886932,  -1.1058853496996381,
+                  -0.1658298189619160, -0.2954290675648911, 0.7966520536712608,
+                  -1.0767450516284769};
+  InputSpec in;
+  in.n_row = 10;
+  in.n_col = 2;
+  double fx, l1, l2;
+  double alpha = 0.01;
+
+  DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
+  SimpleVec<double> w0(in.n_col + 1);
+  SimpleVec<double> z(in.n_row);
+  SquaredLoss1<double> loss_b(in.n_col, true);
+  SquaredLoss1<double> loss_no_b(in.n_col, false);
+
+  in.fit_intercept = true;
+  l1 = alpha;
+  l2 = 0.0;
+  double w_l1_b[2] = {-0.4952397281519840, 0.3813315300180231};
+  double b_l1_b = -0.08140861819001188;
+  double obj_l1_b=0.011136986298775138;
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l1_b, fx);
+  w0.print();
+
+  in.fit_intercept = true;
+  l1 = 0.0;
+  l2 = alpha;
+  double w_l2_b[2] = {-0.5077686639114126, 0.4016402760929909};
+  double b_l2_b = -0.0796525493999091;
+double obj_l2_b=0.004268621967866347;
+  
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l2_b, fx);
+  w0.print();
+
+  in.fit_intercept = false;
+  l1 = alpha;
+  l2 = 0.0;
+  double w_l1_no_b[2] = {-0.5175178128147135, 0.3720844589831813};
+  double obj_l1_no_b = 0.013981355746112447;
+
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l1_no_b, fx);
+  w0.print();
+
+  in.fit_intercept = false;
+  l1 = 0.0;
+  l2 = alpha;
+  double w_l2_no_b[2] = {-0.5295526023453346, 0.3925980845025058};
+  double obj_l2_no_b=0.007061261366969662;
 
   fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
   printf("Ref: %f, %f\n", obj_l2_no_b, fx);
