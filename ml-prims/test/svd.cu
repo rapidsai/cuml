@@ -48,7 +48,7 @@ protected:
     CUBLAS_CHECK(cublasCreate(&cublasH));
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
 
     allocate(data, len);

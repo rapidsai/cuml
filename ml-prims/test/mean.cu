@@ -43,7 +43,7 @@ class MeanTest : public ::testing::TestWithParam<MeanInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
 
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
