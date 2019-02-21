@@ -38,7 +38,7 @@ namespace UMAPAlgo {
 
     template<int TPB_X, typename T>
 	__global__ void init_transform(int *indices, T *weights, int n,
-	                    T *embeddings, int embeddings_n, int n_components,
+	                    const T *embeddings, int embeddings_n, int n_components,
 	                    T *result, int n_neighbors) {
 
         // row-based matrix 1 thread per row
@@ -139,7 +139,7 @@ namespace UMAPAlgo {
 	size_t _transform(const T *X,
 	                  int n,
 	                  int d,
-	                  const T *embedding,
+	                  T *embedding,
 	                  int embedding_n,
 	                  UMAPParams *params,
 	                  T *transformed) {
@@ -172,7 +172,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(rhos, n);
 
         // TODO: Expose this so it can be swapped out.
-        FuzzySimplSet::Naive::smooth_knn_dist(n, knn_indices, knn_dists,
+        FuzzySimplSet::Naive::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                 rhos, sigmas, params
         );
 
@@ -208,6 +208,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ia, n, true);
 
         // TODO: Need prim to build the ex_scan row array for csr (from coo)
+
         // MLCommon::csr_row_normalize_l1(ia, graph_vals, nnz, n, graph_vals);
 
         /**
@@ -219,9 +220,9 @@ namespace UMAPAlgo {
         T *result;
         MLCommon::allocate(result, n*params->n_components);
 
-        init_transform(graph_cols, graph_vals, n,
+        init_transform<TPB_X, T><<<grid,blk>>>(graph_cols, graph_vals, n,
                 embedding, embedding_n, params->n_components,
-                result);
+                result, params->n_neighbors);
 
         /**
          * Find max of data
@@ -242,16 +243,17 @@ namespace UMAPAlgo {
 
         MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz, adjust_vals_op);
 
-
         /**
          * Remove zeros from vals
          */
 
 
-        int *epochs_per_sample = make_epochs_per_sample(graph_vals, params->n_epochs);
 
-        int *head = graph_rows;
-        int *tail = graph_cols;
+        T *epochs_per_sample = (T*)malloc(nnz*sizeof(T));
+        SimplSetEmbed::Algo::make_epochs_per_sample(graph_vals, nnz, params->n_epochs, epochs_per_sample);
+
+        const int *head = graph_rows;
+        const int *tail = graph_cols;
 
         SimplSetEmbed::Algo::optimize_layout(
             result, embedding_n,
@@ -261,6 +263,8 @@ namespace UMAPAlgo {
             n,
             params
         );
+
+        return 0;
 
 	}
 

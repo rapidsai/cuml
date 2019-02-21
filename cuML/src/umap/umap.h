@@ -28,9 +28,11 @@ namespace ML {
 
             UMAP(UMAPParams *params): params(params){}
 
-            void fit(float *X, int n, int d);
+            void fit(const float *X, int n, int d, float *embeddings);
 
-            void transform(float *X);
+            void transform(const float *X, int n, int d,
+                    float *embedding, int embedding_n,
+                    float *out);
 
             UMAPParams* get_params();
     };

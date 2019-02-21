@@ -20,11 +20,18 @@
 
 namespace ML {
 
-    void UMAP::fit(float *X, int n, int d) {
-//		UMAPAlgo::_fit(X, n, d, get_params());
+    void UMAP::fit(const float *X, int n, int d,
+            float *embeddings) {
+		UMAPAlgo::_fit(X, n, d, get_params(), embeddings);
 	}
 
-	void UMAP::transform(float *x) {}
+	void UMAP::transform(const float *X, int n, int d,
+	        float *embedding, int embedding_n,
+	        float *out) {
+	    UMAPAlgo::_transform<float, 256>(X, n, d,
+	            embedding, embedding_n,
+	            get_params(), out);
+	}
 
 	UMAPParams* UMAP::get_params() { return this->params; }
 
