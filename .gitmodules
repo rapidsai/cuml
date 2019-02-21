@@ -16,3 +16,6 @@
 [submodule "thirdparty/h2o4gpu"]
 	path = thirdparty/h2o4gpu
 	url = https://github.com/h2oai/h2o4gpu
+[submodule "thirdparty/cuml/magma"]
+	path = thirdparty/cuml/magma
+	url = https://github.com/CEED/MAGMA.git
