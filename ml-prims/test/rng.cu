@@ -82,7 +82,7 @@ protected:
   void SetUp() override {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
-    num_sigma = 4;
+    num_sigma = 10;
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
     allocate(data, params.len);
@@ -363,7 +363,7 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
   // experiments computing the mean, giving us a distribution of the mean
   // itself. The mean error is simply the standard deviation of this
   // distribution (the standard deviation of the mean).
-  TEST(Rng, Normal) {
+  TEST(Rng, MeanError) {
 
     timeb time_struct;
     ftime(&time_struct);
@@ -380,7 +380,7 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
     allocate(std_result, num_experiments);
 
 
-    for(auto rtype : {Random::GenPhilox, Random::GenKiss99, Random::GenTaps}) {
+    for(auto rtype : {Random::GenPhilox, Random::GenKiss99 /*, Random::GenTaps */}) {
       Random::Rng<float> r(seed, rtype);
       r.normal(data, len, 3.3, 0.23);
       // r.uniform(data, len, -1.0, 2.0);
