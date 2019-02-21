@@ -15,7 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "kmeans/reduce_rows_by_key.h"
+#include "linalg/reduce_rows_by_key.h"
 #include "random/rng.h"
 #include "test_utils.h"
 #include <iostream>
