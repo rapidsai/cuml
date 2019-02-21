@@ -43,7 +43,7 @@ void __global__ convert_array_kernel(T1 *dst, T2 *src, int n) {
 }
 
 template<typename T1, typename T2>
-void convert_array(cudaStream_t st, T1 *dst, T2 *src, int n) {
+void convert_array(T1 *dst, T2 *src, int n, cudaStream_t st) {
     dim3 grid, block;
     block.x = 256;
 
@@ -85,9 +85,7 @@ struct quadSum
 //
 
 //
-// Reduce by keys - small number of keys
-// We could easily extend this kernel to support nkeys <= 32
-// For now, nkeys <= 4
+// Reduce by keys - for keys <= 4
 //
 
 #define SUM_ROWS_SMALL_K_DIMX 256
@@ -153,7 +151,7 @@ __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda,
 
 
 template <typename DataType>
-void sum_rows_by_key_small_nkeys(cudaStream_t st, const DataType *d_A, int lda, char *d_keys, int nrows, int ncols, int nkeys, DataType *d_sums) {
+void sum_rows_by_key_small_nkeys(const DataType *d_A, int lda, char *d_keys, int nrows, int ncols, int nkeys, DataType *d_sums, cudaStream_t st) {
         dim3 grid,block;
         block.x = SUM_ROWS_SMALL_K_DIMX;
         block.y = 1; // Necessary
@@ -215,7 +213,9 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(const DataType *d_A,
 }
 
 template <typename DataType, typename KeyType>
-void sum_rows_by_key_large_nkeys_colmajor(cudaStream_t st, const DataType *d_A, int lda, KeyType *d_keys, int nrows, int ncols, int key_offset, int nkeys, DataType *d_sums) {
+void sum_rows_by_key_large_nkeys_colmajor(const DataType *d_A, int lda, 
+                    KeyType *d_keys, int nrows, int ncols, int key_offset, 
+                    int nkeys, DataType *d_sums, cudaStream_t st) {
         dim3 grid,block;
         block.x = SUM_ROWS_SMALL_K_DIMX;
         block.y = 1; // Necessary
@@ -272,7 +272,9 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataType *d_A,
 }
 
 template <typename DataType, typename KeyType>
-void sum_rows_by_key_large_nkeys_rowmajor(cudaStream_t st, const DataType *d_A, int lda, KeyType *d_keys, int nrows, int ncols, int key_offset, int nkeys, DataType *d_sums) {
+void sum_rows_by_key_large_nkeys_rowmajor( const DataType *d_A, int lda, 
+                    KeyType *d_keys, int nrows, int ncols, int key_offset, 
+                    int nkeys, DataType *d_sums, cudaStream_t st)  {
         // x-dim refers to the column in the input data
         // y-dim refers to the key
         // z-dim refers to a partitioning of the rows among the threadblocks
@@ -296,7 +298,6 @@ void sum_rows_by_key_large_nkeys_rowmajor(cudaStream_t st, const DataType *d_A, 
  * @brief Computes the reduction of matrix rows for each given key 
  * @tparam Greater whether to apply greater or lesser than comparison
  * @tparam T data type
- * @param[in] st CUDA stream
  * @param[in] d_A Input data array (lda x nrows)
  * @param[in] lda Real row size for input data, d_A
  * @param[in] d_keys Keys for each row (1 x nrows)
@@ -305,27 +306,30 @@ void sum_rows_by_key_large_nkeys_rowmajor(cudaStream_t st, const DataType *d_A, 
  * @param[in] ncols Number of data columns in d_A
  * @param[in] nkeys Number of unique keys in d_keys 
  * @param[out] d_sums Row sums by key (ncols x d_keys)
+ * @param[in] stream CUDA stream
  */
 //TODO template for reduction type
 template <typename DataType, typename KeyType>
-void reduce_rows_by_key(cudaStream_t st, const DataType *d_A, int lda, KeyType *d_keys, char *d_keys_char, int nrows, int ncols, int nkeys, DataType *d_sums) {
+void reduce_rows_by_key(const DataType *d_A, int lda, KeyType *d_keys, 
+                        char *d_keys_char, int nrows, int ncols, int nkeys, 
+                        DataType *d_sums, cudaStream_t stream = 0) {
     // Following kernel needs memset
-    cudaMemsetAsync(d_sums, 0, ncols * nkeys * sizeof(int), st);
+    cudaMemsetAsync(d_sums, 0, ncols * nkeys * sizeof(int), stream);
    
 
     if(nkeys <= SUM_ROWS_BY_KEY_SMALL_K_MAX_K) {
         // sum_rows_by_key_small_k is BW bounded. d_keys is loaded ncols time - avoiding wasting BW
         // with doubles we have ~20% speed up - with floats we can hope something around 2x
         // Converting d_keys to char
-        convert_array(st, d_keys_char, d_keys, nrows);
-        sum_rows_by_key_small_nkeys(st, d_A, lda, d_keys_char, nrows, ncols, nkeys, d_sums);
-        convert_array(st, d_keys, d_keys_char, nrows);
+        convert_array(d_keys_char, d_keys, nrows, stream);
+        sum_rows_by_key_small_nkeys(d_A, lda, d_keys_char, nrows, ncols, nkeys, d_sums, stream);
+        convert_array(d_keys, d_keys_char, nrows, stream);
     } else {
         for(KeyType key_offset = 0;
                 key_offset < nkeys;
                 key_offset += SUM_ROWS_BY_KEY_LARGE_K_MAX_K) {
             KeyType this_call_nkeys = std::min(SUM_ROWS_BY_KEY_LARGE_K_MAX_K, nkeys);
-            sum_rows_by_key_large_nkeys_rowmajor(st, d_A, lda, d_keys, nrows, ncols, key_offset, this_call_nkeys, d_sums);
+            sum_rows_by_key_large_nkeys_rowmajor(d_A, lda, d_keys, nrows, ncols, key_offset, this_call_nkeys, d_sums, stream);
         }
     }
     
