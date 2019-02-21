@@ -106,6 +106,9 @@ private:
   } while (0)
 
 
+///@todo: add a similar CUDA_CHECK_NO_THROW
+/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+
 /**
  * @defgroup Copy Copy methods
  * @{
