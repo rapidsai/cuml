@@ -53,7 +53,7 @@ private:
   std::string msg;
 
   /** append call stack info to this exception's message for ease of debug */
-  // Courtesy: 
+  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
   void collectCallStack() throw() {
 #ifdef __GNUC__
     const int MaxStackDepth = 64;
