@@ -381,8 +381,8 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
 
     for(auto rtype : {Random::GenPhilox, Random::GenKiss99 /*, Random::GenTaps */}) {
-      Random::Rng<float> r(seed, rtype);
-      r.normal(data, len, 3.3, 0.23);
+      Random::Rng r(seed, rtype);
+      r.normal(data, len, 3.3f, 0.23f);
       // r.uniform(data, len, -1.0, 2.0);
       Stats::mean(mean_result, data, num_samples, num_experiments, false, false);
       Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false, false);
