@@ -70,7 +70,7 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<T>> {
 public:
   void SetUp() override {
     params = ::testing::TestWithParam<DistanceAdjInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
     int k = params.k;

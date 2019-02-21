@@ -40,7 +40,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
     allocate(in1, len);
     allocate(in2, len);
