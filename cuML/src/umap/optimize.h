@@ -157,7 +157,7 @@ namespace UMAPAlgo {
 
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-8, int max_epochs = 25000) {
+                T *coef, UMAPParams *params, float tolerance = 1e-6, int max_epochs = 25000) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
@@ -228,6 +228,9 @@ namespace UMAPAlgo {
 
             MLCommon::updateHost(&(params->a), coeffs, 1);
             MLCommon::updateHost(&(params->b), coeffs+1, 1);
+
+            std::cout << "a=" << params->a << ", " << params->b << std::endl;
+
         }
     }
 }

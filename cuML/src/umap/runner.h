@@ -21,18 +21,21 @@
 #include "fuzzy_simpl_set/runner.h"
 #include "knn_graph/runner.h"
 #include "simpl_set_embed/runner.h"
+#include "init_embed/runner.h"
 
 #include "cuda_utils.h"
 
 #include <iostream>
 #include <cuda_runtime.h>
 
+#pragma once
+
 namespace UMAPAlgo {
 
 	using namespace ML;
 
 	template<typename T>
-	size_t _fit(T *X,       // input matrix
+	size_t _fit(const T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
 	            UMAPParams *params) {
@@ -87,6 +90,10 @@ namespace UMAPAlgo {
 
 		T *embedding;
 		MLCommon::allocate(embedding, n * params->n_components);
+
+		InitEmbed::run(X, n, d,
+		        knn_indices, knn_dists,
+		        params, embedding);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation

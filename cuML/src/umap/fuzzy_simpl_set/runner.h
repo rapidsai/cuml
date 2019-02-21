@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "umap/umap.h"
 #include "umap/umapparams.h"
 #include "naive.h"
 

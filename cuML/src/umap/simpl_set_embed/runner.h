@@ -20,13 +20,12 @@
 
 namespace UMAPAlgo {
 
-
 	namespace SimplSetEmbed {
 
 	    using namespace ML;
 
 	    template<typename T, int TPB_X>
-		void run(T *X, int m, int n,
+		void run(const T *X, int m, int n,
 		        int *rows, int *cols, T *vals, int nnz,
 		        UMAPParams *params, T *embedding,
 		        int algorithm = 0) {

@@ -21,7 +21,6 @@
 #include "solver/learning_rate.h"
 #include "functions/penalty.h"
 #include "functions/linearReg.h"
-#include "random/rng.h"
 
 #include <thrust/extrema.h>
 #include <thrust/device_ptr.h>
@@ -46,7 +45,6 @@ namespace UMAPAlgo {
 	    }
 
 	    inline void fast_srand(int seed) { g_seed = seed; }
-
 	    inline int fastrand() {
 	      g_seed = (214013*g_seed+2531011);
 	      return (g_seed>>16)&0x7FFF;
@@ -106,16 +104,11 @@ namespace UMAPAlgo {
 	            int n_vertices,
 	            UMAPParams *params) {
 
-	        std::cout << "Inside optimize_layout" << std::endl;
-
 	        int dim = params->n_components;
 
 	        bool move_other = head_n == tail_n;
 
-            print_arr(epochs_per_sample, nnz, "epochs_per_sample");
-
             T alpha = params->initial_alpha;
-
 	        T *epochs_per_negative_sample = (T*)malloc(nnz * sizeof(T));
 	        for(int i = 0; i < nnz; i++)
 	            epochs_per_sample[i] /= params->negative_sample_rate;
@@ -128,32 +121,17 @@ namespace UMAPAlgo {
 
 	        for(int n = 0; n < params->n_epochs; n++) {
 
-	            std::cout << "Running epoch: " << (n+1) << std::endl;
-
 	            for(int i = 0; i < nnz; i++) {
-
-	                std::cout << "Iterating graph: " << (i+1) << std::endl;
 
 	                if(epoch_of_next_sample[i] <= n) {
 
-	                    print_arr(head, nnz, "head");
-	                    print_arr(tail, nnz, "tail");
-
-	                    int j = head[i]-1;
-	                    int k = tail[i]-1;
-
-                        std::cout << "i=" << i << ", j=" << j << ", k=" << k << std::endl;
-
-	                    std::cout << "Setting current and other" << std::endl;
+	                    int j = head[i];
+	                    int k = tail[i];
 
 	                    T *current = head_embedding+(j*params->n_components);
 	                    T *other = tail_embedding+(k*params->n_components);
 
-	                    std::cout << "Calculating MSE" << std::endl;
 	                    float dist_squared = rdist(current, other, params->n_components);
-
-                        std::cout << "dist_squared=" << dist_squared <<  std::endl;
-                        std::cout << "Calculating gradient coefficient" << std::endl;
 
                         float grad_coeff = 0.0;
 	                    if(dist_squared > 0.0) {
@@ -162,36 +140,27 @@ namespace UMAPAlgo {
 	                        grad_coeff /= params->a * pow(dist_squared, params->b) + 1.0;
 	                    }
 
-                        std::cout << "Updating weights" << std::endl;
 	                    for(int d = 0; d < dim; d++) {
 	                        float grad_d = clip(grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
 	                        current[d] += grad_d * alpha;
 	                        if(move_other)
 	                            other[d] += grad_d * alpha;
-
-	                        std::cout << "update=" << grad_d * alpha << std::endl;
 	                    }
 
 	                    epoch_of_next_sample[i] += epochs_per_sample[i];
 
-                        std::cout << "Prep negative sampling" << std::endl;
 	                    int n_neg_samples = int(
 	                        (n - epoch_of_next_negative_sample[i]) /
 	                        epochs_per_negative_sample[i]
 	                    );
 
-	                    std::cout << "Perform Negative sampling" << std::endl;
 	                    for(int p = 0; p < n_neg_samples; p++) {
 
-	                        std::cout << "Creating rand..." << std::endl;
 	                        int rand = fastrand() % n_vertices;
 
 	                        other = tail_embedding+(rand*params->n_components);
-
-	                        std::cout << "Calc MSE of tail embedding" << std::endl;
 	                        dist_squared = rdist(current, other, params->n_components);
 
-	                        std::cout << "Build gradient coefficient" << std::endl;
 	                        if(dist_squared > 0.0) {
 	                            grad_coeff = 2.0 * params->gamma * params->b;
 	                            grad_coeff /= (0.001 + dist_squared) * (
@@ -202,7 +171,6 @@ namespace UMAPAlgo {
 	                        else
 	                            grad_coeff = 0.0;
 
-	                        std::cout << "Apply gradient update to each component" << std::endl;
 	                        for(int d = 0; d < dim; d++) {
 	                            T grad_d = 0.0;
 	                            if(grad_coeff > 0.0) {
@@ -248,13 +216,11 @@ namespace UMAPAlgo {
 	        /**
 	         * Find vals.max()
 	         */
-            std::cout << "Getting max element..." << std::endl;
-
             thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(vals);
 	        T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
 
 	        /**
-	         * Go thorugh data and set everything that's less than
+	         * Go thorugh COO values and set everything that's less than
 	         * vals.max() / params->n_epochs to 0.0
 	         */
 	        auto adjust_vals_op = [] __device__(T input, T scalar) {
@@ -263,38 +229,15 @@ namespace UMAPAlgo {
 	            else
 	                return input;
 	        };
-
-            std::cout << "Adjusting vals for max..." << std::endl;
-
-            if(nnz > 0) {
-                MLCommon::LinAlg::unaryOp<T>(vals, vals, (max / params->n_epochs), nnz, adjust_vals_op);
-            }
-
-            CUDA_CHECK(cudaDeviceSynchronize());
-
-            std::cout << "Allocating epochs per sample..." << std::endl;
+            MLCommon::LinAlg::unaryOp<T>(vals, vals, (max / params->n_epochs), nnz, adjust_vals_op);
 
             T *vals_h = (T*)malloc(nnz * sizeof(T));
             MLCommon::updateHost(vals_h, vals, nnz);
 
-            print_arr(vals_h, nnz, "vals");
-
             std::cout << "nnz=" << nnz << std::endl;
 
 	        T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
-            std::cout << "Making epochs per sample..." << std::endl;
             make_epochs_per_sample(vals_h, nnz, params->n_epochs, epochs_per_sample);
-
-
-            std::cout << "Initializing initial embeddings..." << std::endl;
-
-            // Doing a random initialization for now
-            MLCommon::Random::Rng<T> r(1000);
-	        r.uniform(embedding, m*params->n_components, -10, 10);
-
-            CUDA_CHECK(cudaDeviceSynchronize());
-
-            std::cout << "Calling optimize_layout..." << std::endl;
 
             int *head_h = (int*)malloc(nnz * sizeof(int));
             int *tail_h = (int*)malloc(nnz * sizeof(int));
@@ -305,12 +248,10 @@ namespace UMAPAlgo {
             T *embedding_h = (T*)malloc(m*params->n_components);
             MLCommon::updateHost(embedding_h, embedding, m*params->n_components);
 
-            CUDA_CHECK(cudaDeviceSynchronize());
-
             optimize_layout(embedding_h, m, embedding_h, m,
                             head_h, tail_h, nnz,
 	                        epochs_per_sample,
-	                        params->n_neighbors,
+	                        m,
 	                        params);
 
             print_arr(embedding_h, m*params->n_components, "embeddings");

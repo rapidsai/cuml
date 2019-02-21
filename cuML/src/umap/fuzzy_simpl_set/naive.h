@@ -15,7 +15,6 @@
  */
 
 #include "knn/knn.h"
-#include "umap/umap.h"
 #include "umap/umapparams.h"
 
 #include "cuda_utils.h"

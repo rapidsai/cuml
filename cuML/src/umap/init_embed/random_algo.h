@@ -14,18 +14,27 @@
  * limitations under the License.
  */
 
-#include "umap.h"
 #include "umap/umapparams.h"
-#include "umap/runner.h"
+#include "random/rng.h"
 
-namespace ML {
+#pragma once
 
-    void UMAP::fit(float *X, int n, int d) {
-//		UMAPAlgo::_fit(X, n, d, get_params());
-	}
+namespace UMAPAlgo {
 
-	void UMAP::transform(float *x) {}
+    namespace InitEmbed {
 
-	UMAPParams* UMAP::get_params() { return this->params; }
+        namespace RandomInit {
 
+            using namespace ML;
+
+            template<typename T>
+            void launcher(const T *X, int n, int d,
+                          const long *knn_indices, const T *knn_dists,
+                          UMAPParams *params, T *embedding) {
+
+                MLCommon::Random::Rng<T> r(1000);
+                r.uniform(embedding, n*params->n_components, -10, 10);
+            }
+        }
+    }
 };

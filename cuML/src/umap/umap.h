@@ -26,7 +26,7 @@ namespace ML {
 
         public:
 
-            UMAP(UMAPParams *params);
+            UMAP(UMAPParams *params): params(params){}
 
             void fit(float *X, int n, int d);
 
