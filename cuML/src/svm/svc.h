@@ -70,7 +70,7 @@ void svcFit(math_t *input,
     
     int *idx;
     
-    smo.Solve(input, n_rows, n_cols, labels, &coef, &idx);
+    smo.Solve(input, n_rows, n_cols, labels, &coef, &idx, cublas_handle);
  
     // get output support vectors and return them, return nonzero alpha coefficients.
     
