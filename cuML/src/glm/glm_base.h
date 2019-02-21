@@ -45,8 +45,8 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T, Storage> &X,
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
     // - Z <- W * X + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
-    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.m, Z.n, false,
-                                     true, set_bias);
+    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
+                                     false, set_bias);
 
     Z.assign_gemmBT(1, weights, X, 1, cublas);
   } else {

@@ -77,7 +77,7 @@ template <typename T> T run(InputSpec &in, DevUpload<T> &devUpload, T l1) {
   T value_rel_tol = 1e-5;
   int linesearch_max_iter = 40;
   int lbfgs_memory = 2;
-  int verbosity = 1;
+  int verbosity = 0;
   int num_iters = 0;
   T lassoObjective = 0;
   fit_dispatch<T, SquaredLoss<T, ROW_MAJOR>>(
@@ -205,8 +205,8 @@ TEST_F(QuasiNewtonTest, QN_Lasso_Test_DesignMatrix_10_2_and_alpha_eq_half) {
   }
 }
 
-template <typename T>
-T run_logistic(DevUpload<T> &devUpload, InputSpec &in, T l1, T l2, T *w,
+template <typename T, class LossFunction>
+T run(LossFunction & loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2, T *w,
                SimpleVec<T> &z) {
 
   int max_iter = 100;
@@ -218,10 +218,9 @@ T run_logistic(DevUpload<T> &devUpload, InputSpec &in, T l1, T l2, T *w,
   int num_iters = 0;
 
   T fx;
-  LogisticLoss1<T> loss(in.n_col, in.fit_intercept);
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LogisticLoss1<T>, ROW_MAJOR>(
+  qn_fit<T, LossFunction, ROW_MAJOR>(
       &loss, devUpload.devX.data, devUpload.devY.data, z.data, in.n_row,
       loss.fit_intercept, l1, l2, max_iter, grad_tol, value_rel_tol,
       linesearch_max_iter, lbfgs_memory, verbosity, w0.data, &fx, &num_iters);
@@ -248,6 +247,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   in.n_row = 10;
   in.n_col = 2;
   double alpha = 0.01;
+  
+  LogisticLoss1<double> loss_b(in.n_col, true);
+  LogisticLoss1<double> loss_no_b(in.n_col, false);
 
   SimpleVec<double> w0(in.n_col + 1);
   SimpleVec<double> z(in.n_row);
@@ -260,7 +262,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   double b_l1_b = 0.8057670813749118;
   double obj_l1_b = 0.44295941481024703;
 
-  fx = run_logistic(devUpload, in, alpha, 0.0, w0.data, z);
+  fx = run(loss_b, devUpload, in, alpha, 0.0, w0.data, z);
 
   w0.print();
   printf("Ref=%f, %f\n", obj_l1_b, fx);
@@ -270,7 +272,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   double b_l2_b = 0.806087868102401;
   double obj_l2_b = 0.4378085369889721;
 
-  fx = run_logistic(devUpload, in, 0.0, alpha, w0.data, z);
+  fx = run(loss_b, devUpload, in, 0.0, alpha, w0.data, z);
+  
   w0.print();
   printf("Ref=%f, %f\n", obj_l2_b, fx);
 
@@ -278,7 +281,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   double w_l1_no_b[2] = {-1.6215035298864591, 2.3650868394981086};
   double obj_l1_no_b = 0.4769896009200278;
 
-  fx = run_logistic(devUpload, in, alpha, 0.0, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, alpha, 0.0, w0.data, z);
   w0.print();
   printf("Ref=%f, %f\n", obj_l1_no_b, fx);
 
@@ -286,48 +289,10 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   double w_l2_no_b[2] = {-1.3931049893764620, 2.0140103094119621};
   double obj_l2_no_b = 0.47502098062114273;
 
-  fx = run_logistic(devUpload, in, 0.0, alpha, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, 0.0, alpha, w0.data, z);
   w0.print();
   printf("Ref=%f, %f\n", obj_l2_no_b, fx);
 
-  int max_iter = 100;
-  double grad_tol = 1e-8;
-  double value_rel_tol = 1e-5;
-  int linesearch_max_iter = 50;
-  int lbfgs_memory = 5;
-  int verbosity = 0;
-  int num_iters = 0;
-
-  LBFGSParam<double> opt_param;
-  opt_param.epsilon = grad_tol;
-  opt_param.delta = value_rel_tol;
-  opt_param.max_iterations = max_iter;
-  opt_param.m = lbfgs_memory;
-  opt_param.max_linesearch = linesearch_max_iter;
-
-  int C = 4, N = 10, D = 2;
-  SimpleMat<double> Z(C, N);
-  SimpleVec<double> wsm(C * D);
-  wsm.fill(0);
-  SimpleVec<double> gsm(C * D);
-
-  Softmax<double> test(D, C, false);
-
-  GLMWithData<double, Softmax<double>, ROW_MAJOR> lossWith(
-      &test, devUpload.devX.data, devUpload.devY.data, Z.data, N);
-  double sm = lossWith(wsm, gsm);
-
-  qn_minimize(wsm, &fx, &num_iters, lossWith, 0.0, opt_param, 1);
-
-  wsm.print();
-
-  wsm.fill(0);
-
-  qn_fit<double, Softmax<double>, ROW_MAJOR>(
-      &test, devUpload.devX.data, devUpload.devY.data, Z.data, N, false, 0.0,
-      0.0, max_iter, grad_tol, value_rel_tol, linesearch_max_iter, lbfgs_memory,
-      1, wsm.data, &fx, &num_iters);
-  wsm.print();
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
@@ -343,6 +308,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                      {-2.0016373096603974, -0.3718425371402544},
                      {1.6690253095248706, -0.4385697358355719}};
   double y[10] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
+
   double fx, l1, l2;
   int C = 4;
 
@@ -351,6 +317,13 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   in.n_row = 10;
   in.n_col = 2;
 
+  DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
+  SimpleMat<double> z(C, in.n_row);
+  SimpleVec<double> w0(C * (in.n_col + 1));
+
+  Softmax<double> loss_b(in.n_col, C,  true);
+  Softmax<double> loss_no_b(in.n_col,C, false);
+
   l1 = alpha;
   l2 = 0.0;
   in.fit_intercept = true;
@@ -358,9 +331,15 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                          {-3.7551336243760520, 0.0000000000000000},
                          {-0.6886909668072230, 0.0000000000000000},
                          {0.3792242108750957, 2.4624384286450480}};
+
   double b_l1_b[4] = {0.7851541424088259, -2.6136987260467763,
                       1.3190817692894303, 0.5094628143485446};
+
   double obj_l1_b = 0.5407911382311313;
+
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l1_b, fx);
+  w0.print();
 
   l1 = 0.0;
   l2 = alpha;
@@ -373,6 +352,11 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                       0.8362821450827741, 0.2667474512464403};
   double obj_l2_b = 0.5721784062720949;
 
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l2_b, fx);
+
+  w0.print();
+
   l1 = alpha;
   l2 = 0.0;
   in.fit_intercept = false;
@@ -382,6 +366,10 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                             {0.0000000000000000, 2.2011363623861611}};
   double obj_l1_no_b = 0.6606929813245878;
 
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l1_no_b, fx);
+
+  w0.print();
   l1 = 0.0;
   l2 = alpha;
   in.fit_intercept = false;
@@ -390,6 +378,10 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
                             {-1.0254072271788255, -0.2669184218645556},
                             {0.0652240557765584, 1.2805929708763277}};
   double obj_l2_no_b = 0.6597171282106854;
+
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  printf("Ref: %f, %f\n", obj_l2_no_b, fx);
+  w0.print();
 }
 
 } // namespace GLM
