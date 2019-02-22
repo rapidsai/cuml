@@ -20,7 +20,6 @@
 #include "cuda_utils.h"
 #include "linalg/unary_op.h"
 #include <type_traits>
-#include "coalesced_reduction.h"
 
 
 namespace MLCommon {
@@ -113,7 +112,7 @@ __global__ void stridedReductionKernel(OutType *dots, const InType *data, int D,
  * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*ReduceLambda)(OutType);</pre>
+ * <pre>OutType (*FinalLambda)(OutType);</pre>
  * @param dots the output reduction vector
  * @param data the input matrix
  * @param D leading dimension of data
@@ -126,12 +125,12 @@ __global__ void stridedReductionKernel(OutType *dots, const InType *data, int D,
  * @param stream cuda stream where to launch work
  */
 template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = MainNop<InType, IdxType>,
+          typename MainLambda = Nop<InType, IdxType>,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
 void stridedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
                       bool inplace = false, cudaStream_t stream = 0,
-                      MainLambda main_op = MainNop<InType, IdxType>(),
+                      MainLambda main_op = Nop<InType, IdxType>(),
                       ReduceLambda reduce_op = Sum<OutType>(),
                       FinalLambda final_op = Nop<OutType>()) {
   ///@todo: this extra should go away once we have eliminated the need

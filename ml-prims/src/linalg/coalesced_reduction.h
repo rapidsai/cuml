@@ -24,17 +24,6 @@ namespace MLCommon {
 namespace LinAlg {
 
 
-template <typename Type, typename IdxType>
-struct MainNop {
-  HDI Type operator()(Type in, IdxType i) { return in; }
-};
-
-template <typename Type>
-struct Sum {
-  HDI Type operator()(Type a, Type b) { return a + b; }
-};
-
-
 // Kernel (based on norm.h) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
 // for column major layout. Kernel does an inplace reduction adding to original
@@ -80,7 +69,7 @@ __global__ void coalescedReductionKernel(OutType *dots, const InType *data, int 
  * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
  * It must be a 'callable' supporting the following input and output:
- * <pre>OutType (*ReduceLambda)(OutType);</pre>
+ * <pre>OutType (*FinalLambda)(OutType);</pre>
  * @param dots the output reduction vector
  * @param data the input matrix
  * @param D leading dimension of data
@@ -93,13 +82,13 @@ __global__ void coalescedReductionKernel(OutType *dots, const InType *data, int 
  * @param stream cuda stream where to launch work
  */
 template <typename InType, typename OutType = InType, typename IdxType = int,
-          typename MainLambda = MainNop<InType, IdxType>,
+          typename MainLambda = Nop<InType, IdxType>,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
 void coalescedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
                         bool inplace = false,
                         cudaStream_t stream = 0,
-                        MainLambda main_op = MainNop<InType, IdxType>(),
+                        MainLambda main_op = Nop<InType, IdxType>(),
                         ReduceLambda reduce_op = Sum<OutType>(),
                         FinalLambda final_op = Nop<OutType>()) {
   // One block per reduction
