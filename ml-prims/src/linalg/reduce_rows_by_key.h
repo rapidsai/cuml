@@ -297,7 +297,6 @@ void sum_rows_by_key_large_nkeys_rowmajor( const DataType *d_A, int lda,
 /**
  * @brief Computes the reduction of matrix rows for each given key 
  * @tparam Greater whether to apply greater or lesser than comparison
- * @tparam T data type
  * @param[in] d_A Input data array (lda x nrows)
  * @param[in] lda Real row size for input data, d_A
  * @param[in] d_keys Keys for each row (1 x nrows)
