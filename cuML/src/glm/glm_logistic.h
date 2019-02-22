@@ -25,10 +25,10 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-struct LogisticLoss1 : GLMBase<T, LogisticLoss1<T>> {
-  typedef GLMBase<T, LogisticLoss1<T>> Super;
+struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
+  typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  LogisticLoss1(int D, bool has_bias, cudaStream_t stream = 0)
+  LogisticLoss(int D, bool has_bias, cudaStream_t stream = 0)
       : Super(D, 1, has_bias, stream) {}
 
   inline __device__ T log_sigmoid(T x) const {
