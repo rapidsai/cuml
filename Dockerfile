@@ -1,27 +1,24 @@
 # From: https://github.com/rapidsai/cudf/blob/master/Dockerfile
 FROM cudf
 
-RUN apt install -y zlib1g-dev
+ENV CONDA_ENV=cudf
 
-ARG CUDA_MAJOR=9
-ARG CUDA_MINOR=2
-RUN source activate cudf && conda install -c pytorch faiss-gpu cuda${CUDA_MAJOR}${CUDA_MINOR}
-RUN source activate cudf && conda install -c anaconda cython
-
+ADD thirdparty /cuml/thirdparty
 ADD ml-prims /cuml/ml-prims
 ADD cuML /cuml/cuML
 WORKDIR /cuml/cuML
-RUN source activate cudf && \
+RUN source activate ${CONDA_ENV} && \
     mkdir build && \
     cd build && \
-    cmake .. && \
+    cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX && \
     make -j && \
     make install
 
 ADD python /cuml/python
 WORKDIR /cuml/python
-RUN source activate cudf && \
+RUN source activate ${CONDA_ENV} && \
     python setup.py build_ext --inplace && \
     python setup.py install
 
 ADD docs /cuml/docs
+WORKDIR /cuml

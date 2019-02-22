@@ -51,7 +51,7 @@ class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int N = params.rows, D = params.cols;
     int len = N * D;
     allocate(in, len);
