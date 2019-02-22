@@ -28,10 +28,19 @@ using MLCommon::myExp;
 using MLCommon::myLog;
 using MLCommon::myMax;
 
+//Input: matrix Z (dims: CxN)
+//Computes softmax cross entropy loss across columns, i.e. normalization column-wise.
+//
+//This kernel performs best for small number of classes C.
+//It's much faster than implementation based on ml-prims (up to ~2x - ~10x for small C <= BX).
+//More importantly, it does not require another CxN scratch space.
+//In that case the block covers the whole column and warp reduce is fast
+//TODO for very large C, there should be maybe rather something along the lines of
+//     coalesced reduce, i.e. blocks should take care of columns
+//TODO split into two kernels for small and large case?
 template <typename T, int BX = 32, int BY = 8>
-__global__ void logsoftmaxKernel2(T *out, T *dZ, const T *in, const T *labels,
-                                  int C, int N, bool getDerivative = true,
-                                  T *diag = 0) {
+__global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
+                                 int C, int N, bool getDerivative = true) {
   typedef cub::WarpReduce<T, BX> WarpRed;
   typedef cub::BlockReduce<T, BX, cub::BLOCK_REDUCE_WARP_REDUCTIONS, BY>
       BlockRed;
@@ -153,22 +162,22 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
-    logsoftmaxKernel2<T, 4, 64>
+    logSoftmaxKernel<T, 4, 64>
         <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 8) {
     dim3 bs(8, 32);
     dim3 gs(ceildiv(N, 32));
-    logsoftmaxKernel2<T, 8, 32>
+    logSoftmaxKernel<T, 8, 32>
         <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else if (C <= 16) {
     dim3 bs(16, 16);
     dim3 gs(ceildiv(N, 16));
-    logsoftmaxKernel2<T, 16, 16>
+    logSoftmaxKernel<T, 16, 16>
         <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   } else {
     dim3 bs(32, 8);
     dim3 gs(ceildiv(N, 8));
-    logsoftmaxKernel2<T, 32, 8>
+    logSoftmaxKernel<T, 32, 8>
         <<<gs, bs, 0, stream>>>(loss_val, dldZ, Z, labels, C, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
