@@ -23,28 +23,38 @@
 namespace MLCommon {
 namespace LinAlg {
 
+
+template <typename Type, typename IdxType>
+struct MainNop {
+  HDI Type operator()(Type in, IdxType i) { return in; }
+};
+
+template <typename Type>
+struct Sum {
+  HDI Type operator()(Type a, Type b) { return a + b; }
+};
+
+
 // Kernel (based on norm.h) to perform reductions along the coalesced dimension
 // of the matrix, i.e. reduce along rows for row major or reduce along columns
 // for column major layout. Kernel does an inplace reduction adding to original
 // values of dots.
-template <typename Type, int TPB,
-          typename MainLambda = Nop<Type>, 
-          typename ReduceLambda = Sum<Type>,
-          typename FinalLambda = Nop<Type>>
-__global__ void coalescedReductionKernel(Type *dots, const Type *data, int D, int N, Type init, 
-                                         MainLambda main_op = Nop<Type>(),
-                                         ReduceLambda reduce_op = Sum<Type>(),
-                                         FinalLambda final_op = Nop<Type>(),
+template <typename InType, typename OutType, typename IdxType, int TPB,
+          typename MainLambda, typename ReduceLambda, typename FinalLambda>
+__global__ void coalescedReductionKernel(OutType *dots, const InType *data, int D, int N, OutType init, 
+                                         MainLambda main_op,
+                                         ReduceLambda reduce_op,
+                                         FinalLambda final_op,
                                          bool inplace = false) {
-  typedef cub::BlockReduce<Type, TPB> BlockReduce;
+  typedef cub::BlockReduce<OutType, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  Type thread_data = Type(init);
-  int rowStart = blockIdx.x * D;
-  for (int i = threadIdx.x; i < D; i += TPB) {
-    int idx = rowStart + i;
-    thread_data = reduce_op( thread_data, main_op(data[idx]) );
+  OutType thread_data = init;
+  IdxType rowStart = blockIdx.x * D;
+  for (IdxType i = threadIdx.x; i < D; i += TPB) {
+    IdxType idx = rowStart + i;
+    thread_data = reduce_op( thread_data, main_op(data[idx], i) );
   }
-  Type acc = BlockReduce(temp_storage).Reduce(thread_data, reduce_op);
+  OutType acc = BlockReduce(temp_storage).Reduce(thread_data, reduce_op);
   if (threadIdx.x == 0) {
     if(inplace) {
       dots[blockIdx.x] = final_op( reduce_op( dots[blockIdx.x], acc ) );
@@ -58,10 +68,19 @@ __global__ void coalescedReductionKernel(Type *dots, const Type *data, int D, in
 /**
  * @brief Compute reduction of the input matrix along the leading dimension
  *
- * @tparam Type the data type
+ * @tparam InType the data type of the input
+ * @tparam OutType the data type of the output (as well as the data type for
+ *  which reduction is performed)
+ * @tparam IdxType data type of the indices of the array
  * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
  * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @param dots the output reduction vector
  * @param data the input matrix
  * @param D leading dimension of data
@@ -73,29 +92,33 @@ __global__ void coalescedReductionKernel(Type *dots, const Type *data, int D, in
  * @param inplace reduction result added inplace or overwrites old values?
  * @param stream cuda stream where to launch work
  */
-template <typename Type,
-          typename MainLambda = Nop<Type>,
-          typename ReduceLambda = Sum<Type>,
-          typename FinalLambda = Nop<Type>>
-void coalescedReduction(Type *dots, const Type *data, int D, int N, Type init,
+template <typename InType, typename OutType = InType, typename IdxType = int,
+          typename MainLambda = MainNop<InType, IdxType>,
+          typename ReduceLambda = Sum<OutType>,
+          typename FinalLambda = Nop<OutType>>
+void coalescedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
                         bool inplace = false,
                         cudaStream_t stream = 0,
-                        MainLambda main_op = Nop<Type>(),
-                        ReduceLambda reduce_op = Sum<Type>(),
-                        FinalLambda final_op = Nop<Type>() ) {
+                        MainLambda main_op = MainNop<InType, IdxType>(),
+                        ReduceLambda reduce_op = Sum<OutType>(),
+                        FinalLambda final_op = Nop<OutType>()) {
   // One block per reduction
   // Efficient only for large leading dimensions
   if (D <= 32) {
-    coalescedReductionKernel<Type,  32><<<N,  32, 0, stream>>>
+    coalescedReductionKernel<InType, OutType, IdxType, 32>
+      <<<N,  32, 0, stream>>>
       (dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else if (D <= 64) {
-    coalescedReductionKernel<Type,  64><<<N,  64, 0, stream>>>
+    coalescedReductionKernel<InType, OutType, IdxType, 64>
+      <<<N,  64, 0, stream>>>
       (dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else if (D <= 128) {
-    coalescedReductionKernel<Type, 128><<<N, 128, 0, stream>>>
+    coalescedReductionKernel<InType, OutType, IdxType, 128>
+      <<<N, 128, 0, stream>>>
       (dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   } else {
-    coalescedReductionKernel<Type, 256><<<N, 256, 0, stream>>>
+    coalescedReductionKernel<InType, OutType, IdxType, 256>
+      <<<N, 256, 0, stream>>>
       (dots, data, D, N, init, main_op, reduce_op, final_op, inplace);
   }
   CUDA_CHECK(cudaPeekAtLastError());

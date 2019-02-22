@@ -44,12 +44,12 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in) { return myAbs(in); });
+                                 [] __device__(Type in, int i) { return myAbs(in); });
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in) { return in * in; });
+                                 [] __device__(Type in, int i) { return in * in; });
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -80,13 +80,13 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in) { return myAbs(in); }, 
+                                 [] __device__(Type in, int i) { return myAbs(in); }, 
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in) { return in * in; },
+                                 [] __device__(Type in, int i) { return in * in; },
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     default:
@@ -112,12 +112,12 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v) { return myAbs(v); });
+                               [] __device__(Type v, int i) { return myAbs(v); });
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v) { return v * v; });
+                               [] __device__(Type v, int i) { return v * v; });
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -142,14 +142,14 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v) { return myAbs(v); },
+                               [] __device__(Type v, int i) { return myAbs(v); },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v) { return v * v; },
+                               [] __device__(Type v, int i) { return v * v; },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);
       break;
