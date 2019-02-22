@@ -165,11 +165,9 @@ cdef class KNN:
                     X = X.astype(np.float32)
                     if len(X[X == np.inf]) > 0:
                         raise Exception("Downcast to single-precision resulted in data loss.")
-
                 else:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
-
 
             X = cuda.to_device(X)
         else:
@@ -205,7 +203,7 @@ cdef class KNN:
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
-    def fit_mg(self, n_dims, alloc_info):
+    def _fit_mg(self, n_dims, alloc_info):
         """
         Fits a model using multiple GPUs. This method takes in a list of dict objects
         representing the distribution of the underlying device pointers. The device
@@ -238,7 +236,7 @@ cdef class KNN:
 
     def query(self, X, k):
         """
-        Query the KNN index for the k nearest neighbors of column vectors in X.
+        Query the KNN index for the k nearest neighbors of row vectors in X.
 
         Parameters
         ----------
@@ -263,31 +261,60 @@ cdef class KNN:
         N = len(X)
 
         # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order = "F"))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order = "F"))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-        self.k.search(<float*>X_ctype,
-                      <int> N,
-                      <long*>I_ptr,
-                      <float*>D_ptr,
-                      <int> k)
 
-        I_ndarr = I_ndarr.reshape((N, k)).transpose()
-        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+        self._query(X_ctype, N, k, I_ptr, D_ptr)
+
+        I_ndarr = I_ndarr.reshape((N, k))
+        D_ndarr = D_ndarr.reshape((N, k))
 
         I = cudf.DataFrame()
-        for i in range(0, I_ndarr.shape[0]):
-            I[str(i)] = I_ndarr[i,:]
+        for i in range(0, I_ndarr.shape[1]):
+            I[str(i)] = I_ndarr[:,i]
 
         D = cudf.DataFrame()
-        for i in range(0, D_ndarr.shape[0]):
-            D[str(i)] = D_ndarr[i,:]
+        for i in range(0, D_ndarr.shape[1]):
+            D[str(i)] = D_ndarr[:,i]
 
         if isinstance(X, np.ndarray):
             I = np.asarray(I.as_gpu_matrix())
             D = np.asarray(D.as_gpu_matrix())
 
         return D, I
+
+
+    def _query(self, X_ctype, N, k, I_ptr, D_ptr):
+        """
+        Query the KNN index for the k nearest neighbors of column vectors in X.
+
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+        k: Integer
+           The number of neighbors
+
+        Returns
+        ----------
+        distances: cuDF DataFrame or numpy ndarray
+            The distances of the k-nearest neighbors for each column vector in X
+
+        indices: cuDF DataFrame of numpy ndarray
+            The indices of the k-nearest neighbors for each column vector in X
+        """
+
+        cdef uintptr_t I = I_ptr
+        cdef uintptr_t D = D_ptr
+        cdef uintptr_t X = X_ctype
+
+        self.k.search(<float*>X,
+                      <int> N,
+                      <long*>I,
+                      <float*>D,
+                      <int> k)
