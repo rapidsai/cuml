@@ -20,6 +20,7 @@
 #include "cuda_utils.h"
 #include "linalg/unary_op.h"
 #include <type_traits>
+#include "coalesced_reduction.h"
 
 
 namespace MLCommon {
@@ -39,7 +40,7 @@ __global__ void stridedSummationKernel(Type *dots, const Type *data, int D, int 
     int stride = blockDim.y * gridDim.y;
     for (int j = rowStart; j < N; j += stride) {
       int idx = colStart + j*D;
-      thread_data += main_op(data[idx]);
+      thread_data += main_op(data[idx], j);
     }
   }
 
@@ -63,24 +64,25 @@ __global__ void stridedSummationKernel(Type *dots, const Type *data, int D, int 
 // Kernel to perform reductions along the strided dimension
 // of the matrix, i.e. reduce along columns for row major or reduce along rows
 // for column major layout
-template <typename Type, typename MainLambda, typename ReduceLambda>
-__global__ void stridedReductionKernel(Type *dots, const Type *data, int D, int N, Type init,
+template <typename InType, typename OutType, typename IdxType,
+          typename MainLambda, typename ReduceLambda>
+__global__ void stridedReductionKernel(OutType *dots, const InType *data, int D, int N, OutType init,
                                        MainLambda main_op, ReduceLambda reduce_op) {
   // Thread reduction
-  Type thread_data = Type(init);
-  int colStart = blockIdx.x * blockDim.x + threadIdx.x;
+  OutType thread_data = init;
+  IdxType colStart = blockIdx.x * blockDim.x + threadIdx.x;
   if (colStart < D) {
-    int rowStart = blockIdx.y * blockDim.y + threadIdx.y;
-    int stride = blockDim.y * gridDim.y;
-    for (int j = rowStart; j < N; j += stride) {
-      int idx = colStart + j*D;
-      thread_data = reduce_op(thread_data, main_op(data[idx]));
+    IdxType rowStart = blockIdx.y * blockDim.y + threadIdx.y;
+    IdxType stride = blockDim.y * gridDim.y;
+    for (IdxType j = rowStart; j < N; j += stride) {
+      IdxType idx = colStart + j*D;
+      thread_data = reduce_op(thread_data, main_op(data[idx], j));
     }
   }
 
   // Block reduction
   extern __shared__ char tmp[]; // One element per thread in block
-  Type *temp = (Type *)tmp; // Cast to desired type
+  auto *temp = (OutType *)tmp; // Cast to desired type
   int myidx = threadIdx.x + blockDim.x * threadIdx.y;
   temp[myidx] = thread_data;
   __syncthreads();
@@ -99,10 +101,19 @@ __global__ void stridedReductionKernel(Type *dots, const Type *data, int D, int 
 /**
  * @brief Compute reduction of the input matrix along the strided dimension
  *
- * @tparam Type the data type
+ * @tparam InType the data type of the input
+ * @tparam OutType the data type of the output (as well as the data type for
+ *  which reduction is performed)
+ * @tparam IdxType data type of the indices of the array
  * @tparam MainLambda Unary lambda applied while acculumation (eg: L1 or L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*MainLambda)(InType, IdxType);</pre>
  * @tparam ReduceLambda Binary lambda applied for reduction (eg: addition(+) for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @tparam FinalLambda the final lambda applied before STG (eg: Sqrt for L2 norm)
+ * It must be a 'callable' supporting the following input and output:
+ * <pre>OutType (*ReduceLambda)(OutType);</pre>
  * @param dots the output reduction vector
  * @param data the input matrix
  * @param D leading dimension of data
@@ -114,33 +125,41 @@ __global__ void stridedReductionKernel(Type *dots, const Type *data, int D, int 
  * @param inplace reduction result added inplace or overwrites old values?
  * @param stream cuda stream where to launch work
  */
-template <typename Type,
-          typename MainLambda = Nop<Type>,
-          typename ReduceLambda = Sum<Type>,
-          typename FinalLambda = Nop<Type>>
-void stridedReduction(Type *dots, const Type *data, int D, int N, Type init,
+template <typename InType, typename OutType = InType, typename IdxType = int,
+          typename MainLambda = MainNop<InType, IdxType>,
+          typename ReduceLambda = Sum<OutType>,
+          typename FinalLambda = Nop<OutType>>
+void stridedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
                       bool inplace = false, cudaStream_t stream = 0,
-                      MainLambda main_op = Nop<Type>(),
-                      ReduceLambda reduce_op = Sum<Type>(),
-                      FinalLambda final_op = Nop<Type>()) {
+                      MainLambda main_op = MainNop<InType, IdxType>(),
+                      ReduceLambda reduce_op = Sum<OutType>(),
+                      FinalLambda final_op = Nop<OutType>()) {
+  ///@todo: this extra should go away once we have eliminated the need
+  /// for atomics in stridedKernel (redesign for this is already underway)
   if (!inplace)
     unaryOp(dots, dots, D,
-        [init] __device__ (Type a) { return init; }, stream);
+            [init] __device__ (OutType a) { return init; }, stream);
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);
   int elemsPerThread = ceildiv(N, (int)thrds.y);
   elemsPerThread = (elemsPerThread > 8) ? 8 : elemsPerThread;
   const dim3 nblks(ceildiv(D, (int)thrds.x), ceildiv(N, (int)thrds.y * elemsPerThread));
-  const int shmemSize = sizeof(Type) * thrds.x * thrds.y;
+  const int shmemSize = sizeof(OutType) * thrds.x * thrds.y;
 
-  if (std::is_same<ReduceLambda, Sum<Type>>::value)
-    stridedSummationKernel<Type><<<nblks,  thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
+  ///@todo: this complication should go away once we have eliminated the need
+  /// for atomics in stridedKernel (redesign for this is already underway)
+  if (std::is_same<ReduceLambda, Sum<OutType>>::value &&
+      std::is_same<InType, OutType>::value)
+    stridedSummationKernel<InType><<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op);
   else
-    stridedReductionKernel<Type><<<nblks,  thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op, reduce_op);
+    stridedReductionKernel<InType, OutType, IdxType>
+      <<<nblks, thrds, shmemSize, stream>>>(dots, data, D, N, init, main_op, reduce_op);
 
+  ///@todo: this complication should go away once we have eliminated the need
+  /// for atomics in stridedKernel (redesign for this is already underway)
   // Perform final op on output data
-  if (!std::is_same<FinalLambda, Nop<Type>>::value)
+  if (!std::is_same<FinalLambda, Nop<OutType>>::value)
     unaryOp(dots, dots, D, final_op, stream);
 }
 
