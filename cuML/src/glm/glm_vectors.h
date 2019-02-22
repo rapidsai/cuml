@@ -31,7 +31,8 @@ template <typename T, STORAGE_ORDER Storage> struct gemv_helper {
                     const T beta, cublasHandle_t &cublas) {}
 };
 
-template <typename T,STORAGE_ORDER StorageC, STORAGE_ORDER StorageA, STORAGE_ORDER StorageB>
+template <typename T, STORAGE_ORDER StorageC, STORAGE_ORDER StorageA,
+          STORAGE_ORDER StorageB>
 struct gemm_helper {
   static void gemm(SimpleMat<T, COL_MAJOR> &C, const T alpha,
                    const SimpleMat<T, COL_MAJOR> &A,
@@ -215,13 +216,18 @@ struct SimpleMat : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   int m, n;
 
-  SimpleMat():Super(){}
+  SimpleMat() : Super() {}
   SimpleMat(T *data, int m, int n) : Super(data, m * n), m(m), n(n) {}
   SimpleMat(T *data, int m, int n, const T val)
       : Super(data, m * n, val), m(m), n(n) {}
 
   SimpleMat(int m, int n, const T val = 0) : Super(m * n, val), m(m), n(n) {}
 
+  void reset(int m_, int n_) {
+    m = m_;
+    n = n_;
+    Super::reset(m * n);
+  }
   void reset(T *data_, int m_, int n_) {
     m = m_;
     n = n_;
@@ -234,14 +240,15 @@ struct SimpleMat : SimpleVec<T> {
   void assign_gemm(const T alpha, const SimpleMat<T> &A,
                    const SimpleMat<T, StorageB> &B, const T beta,
                    cublasHandle_t &cublas) {
-    gemm_helper<T,Storage, COL_MAJOR, StorageB>::gemm((*this), alpha, A, B, beta, cublas);
+    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemm((*this), alpha, A, B,
+                                                       beta, cublas);
   }
   template <STORAGE_ORDER StorageB>
   void assign_gemmBT(const T alpha, const SimpleMat<T> &A,
                      const SimpleMat<T, StorageB> &B, const T beta,
                      cublasHandle_t &cublas) {
-    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemmBT((*this), alpha, A, B, beta,
-                                              cublas);
+    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemmBT((*this), alpha, A, B,
+                                                         beta, cublas);
   }
 };
 
@@ -252,22 +259,23 @@ inline void col_ref(const SimpleMat<T, COL_MAJOR> &mat, SimpleVec<T> &mask_vec,
   mask_vec.reset(tmp, mat.m);
 }
 
-template<typename T>
-inline void col_slice(const SimpleMat<T, COL_MAJOR>  & mat, SimpleMat<T, COL_MAJOR> & mask_mat, int c_from, int c_to){
-    ASSERT(c_from >= 0 && c_from < mat.n, "col_slice: invalid from");
-    ASSERT(c_to >= 0 && c_to <= mat.n, "col_slice: invalid to");
+template <typename T>
+inline void col_slice(const SimpleMat<T, COL_MAJOR> &mat,
+                      SimpleMat<T, COL_MAJOR> &mask_mat, int c_from, int c_to) {
+  ASSERT(c_from >= 0 && c_from < mat.n, "col_slice: invalid from");
+  ASSERT(c_to >= 0 && c_to <= mat.n, "col_slice: invalid to");
 
   T *tmp = &mat.data[mat.m * c_from];
   mask_mat.reset(tmp, mat.m, c_to - c_from);
 }
 
-template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
+template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, COL_MAJOR> {
   static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
                    const SimpleMat<T> &B, const T beta,
                    cublasHandle_t &cublas) {
-      ASSERT(A.n == B.m, "GEMM invalid dims");
-      ASSERT(A.m == C.m, "GEMM invalid dims");
-      ASSERT(B.n == C.n, "GEMM invalid dims");
+    ASSERT(A.n == B.m, "GEMM invalid dims");
+    ASSERT(A.m == C.m, "GEMM invalid dims");
+    ASSERT(B.n == C.n, "GEMM invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N,
                                  CUBLAS_OP_N,   // transA, transB
                                  C.m, C.n, A.n, // dimensions m,n,k
@@ -281,9 +289,9 @@ template <typename T> struct gemm_helper<T,COL_MAJOR, COL_MAJOR, COL_MAJOR> {
   static void gemmBT(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
                      const SimpleMat<T> &B, const T beta,
                      cublasHandle_t &cublas) {
-      ASSERT(A.n == B.n, "GEMM BT invalid dims");
-      ASSERT(A.m == C.m, "GEMM BT invalid dims");
-      ASSERT(B.m == C.n, "GEMM BT invalid dims");
+    ASSERT(A.n == B.n, "GEMM BT invalid dims");
+    ASSERT(A.m == C.m, "GEMM BT invalid dims");
+    ASSERT(B.m == C.n, "GEMM BT invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N, // transA
                                  CUBLAS_OP_T,         // transB
                                  C.m, C.n, A.n,       // dimensions m,n,k
@@ -299,9 +307,9 @@ template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, ROW_MAJOR> {
                    const SimpleMat<T, ROW_MAJOR> &B, const T beta,
                    cublasHandle_t &cublas) {
 
-      ASSERT(A.n == B.m, "GEMM RM invalid dims");
-      ASSERT(A.m == C.m, "GEMM RM invalid dims");
-      ASSERT(B.n == C.n, "GEMM RM invalid dims");
+    ASSERT(A.n == B.m, "GEMM RM invalid dims");
+    ASSERT(A.m == C.m, "GEMM RM invalid dims");
+    ASSERT(B.n == C.n, "GEMM RM invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas,
                                  CUBLAS_OP_N,   // tranA
                                  CUBLAS_OP_T,   // transB
@@ -315,9 +323,9 @@ template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, ROW_MAJOR> {
                      const SimpleMat<T, ROW_MAJOR> &B, const T beta,
                      cublasHandle_t &cublas) {
 
-      ASSERT(A.n == B.n, "GEMM RM BT invalid dims");
-      ASSERT(A.m == C.m, "GEMM RM BT invalid dims");
-      ASSERT(B.m == C.n, "GEMM RM BT invalid dims");
+    ASSERT(A.n == B.n, "GEMM RM BT invalid dims");
+    ASSERT(A.m == C.m, "GEMM RM BT invalid dims");
+    ASSERT(B.m == C.n, "GEMM RM BT invalid dims");
     MLCommon::LinAlg::cublasgemm(cublas,
                                  CUBLAS_OP_N,   // tranA
                                  CUBLAS_OP_N,   // transB
