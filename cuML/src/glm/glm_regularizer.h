@@ -33,28 +33,28 @@ template <typename T> struct Tikhonov {
   HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
 
   inline void loss_grad(T *reg_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                        const bool has_bias, cudaStream_t stream=0) const {
+                        const bool has_bias, cudaStream_t stream = 0) const {
 
+    // NOTE: scikit generally does not penalize biases
     SimpleMat<T> Gweights;
     SimpleMat<T> Wweights;
     col_slice(G, Gweights, 0, G.n - has_bias);
     col_slice(W, Wweights, 0, G.n - has_bias);
     Gweights.ax(l2_penalty, Wweights);
 
-    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream, Wweights.data);
+    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
+                                       Wweights.data);
   }
 };
 
-template <typename T, class Loss, class Reg>
-struct RegularizedGLM :GLMDims {
+template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
   Reg *reg;
   Loss *loss;
 
-  RegularizedGLM(Loss *loss, Reg *reg) : reg(reg), loss(loss), GLMDims(
-loss->C, loss->D, loss->fit_intercept
-          ) {}
-  
-  template<typename XMat>
+  RegularizedGLM(Loss *loss, Reg *reg)
+      : reg(reg), loss(loss), GLMDims(loss->C, loss->D, loss->fit_intercept) {}
+
+  template <typename XMat>
   inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
                         const XMat &Xb, const SimpleVec<T> &yb,
                         SimpleMat<T> &Zb, bool initGradZero = true) {
