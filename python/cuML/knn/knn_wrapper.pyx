@@ -267,7 +267,6 @@ cdef class KNN:
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-
         self._query(X_ctype, N, k, I_ptr, D_ptr)
 
         I_ndarr = I_ndarr.reshape((N, k))

@@ -178,6 +178,7 @@ DI int laneId() {
   return id;
 }
 
+
 /** Device function to have atomic add support for older archs */
 #if __CUDA_ARCH__ < 600
 template <typename Type>
