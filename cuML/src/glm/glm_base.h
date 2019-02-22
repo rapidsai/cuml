@@ -177,7 +177,7 @@ __global__ void modKernel(T *w, const int tidx, const T h) {
 
 template <typename T, class Loss>
 void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
-                  T *grad_w_host, T *loss_val, T *eta, const T h = 1e-4) {
+                  T *grad_w_host, T *loss_val, const T h = 1e-4) {
   int len = loss.n_param;
   SimpleVec<T> w_mod(len), grad(len);
 
