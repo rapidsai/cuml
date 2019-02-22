@@ -119,6 +119,9 @@ cdef class KNN:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
+    def __dealloc__(self):
+        del self.k
+        del self.input
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -201,6 +204,36 @@ cdef class KNN:
 
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
+
+    def fit_mg(self, n_dims, alloc_info):
+        """
+        Fits a model using multiple GPUs. This method takes in a list of dict objects
+        representing the distribution of the underlying device pointers. The device
+        information can be extracted from the pointers.
+
+        :param n_dims
+            the number of features for each vector
+        :param alloc_info
+            a list of __cuda_array_interface__ dicts
+        :return:
+        """
+        self.k = new kNN(n_dims)
+
+        del self.input
+        self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
+
+        cdef uintptr_t input_ptr
+        for i in range(len(alloc_info)):
+            params = new kNNParams()
+            params.N = < int > alloc_info[i]["shape"][0]
+
+            input_ptr = alloc_info[i]["data"][0]
+            params.ptr = < float * > input_ptr
+
+            self.input[i] = deref(params)
+
+        self.k.fit( < kNNParams * > self.input,
+                    < int > len(alloc_info))
 
 
     def query(self, X, k):
