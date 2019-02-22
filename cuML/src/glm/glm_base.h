@@ -167,5 +167,39 @@ struct GLMWithData : GLMDims {
 };
 
 
+template <typename T>
+__global__ void modKernel(T *w, const int tidx, const T h) {
+  int idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx == tidx) {
+    w[idx] += h;
+  }
+}
+
+template <typename T, class Loss>
+void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
+                  T *grad_w_host, T *loss_val, T *eta, const T h = 1e-4) {
+  int len = loss.n_param;
+  SimpleVec<T> w_mod(len), grad(len);
+
+  T lph = 0, lmh = 0;
+
+  for (int d = 0; d < len; d++) {
+    CUDA_CHECK(
+        cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
+
+    modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, h);
+    cudaThreadSynchronize();
+
+    lph = loss(w_mod, grad);
+
+    modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, -2 * h);
+    cudaThreadSynchronize();
+    lmh = loss(w_mod, grad);
+    grad_w_host[d] = (lph - lmh) / (2 * h);
+  }
+}
+
+
+
 }; // namespace GLM
 }; // namespace ML

@@ -119,8 +119,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   in.n_col = 2;
   double alpha = 0.01;
 
-  LogisticLoss1<double> loss_b(in.n_col, true);
-  LogisticLoss1<double> loss_no_b(in.n_col, false);
+  LogisticLoss<double> loss_b(in.n_col, true);
+  LogisticLoss<double> loss_no_b(in.n_col, false);
 
   SimpleVec<double> w0(in.n_col + 1);
   SimpleVec<double> z(in.n_row);
@@ -177,6 +177,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
+  // The data seems to small for the objective to be strongly convex
+  // leaving out exact param checks
 
   CompareApprox<double> compApprox(tol);
   double y[10] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
@@ -246,8 +248,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
   SimpleVec<double> w0(in.n_col + 1);
   SimpleVec<double> z(in.n_row);
-  SquaredLoss1<double> loss_b(in.n_col, true);
-  SquaredLoss1<double> loss_no_b(in.n_col, false);
+  SquaredLoss<double> loss_b(in.n_col, true);
+  SquaredLoss<double> loss_no_b(in.n_col, false);
 
   in.fit_intercept = true;
   l1 = alpha;

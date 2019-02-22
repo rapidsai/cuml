@@ -25,7 +25,7 @@ void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D, bool has_bias,
                              int lbfgs_memory, int verbosity,
                              float *w0, // initial value and result
                              float *f,  // function value
-                             int *num_iters);
+                             int *num_iters, bool X_col_major);
 
 void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
                              double l1, double l2, int max_iter,
@@ -33,14 +33,14 @@ void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
                              int linesearch_max_iter, int lbfgs_memory,
                              int verbosity,
                              double *w0, // initial value and result
-                             double *f, int *num_iters);
+                             double *f, int *num_iters, bool X_col_major);
 
 void cuml_glm_linreg_fit_sqn(float *X, float *y, int N, int D, bool has_bias,
                              float l1, float l2, int max_iter, float grad_tol,
                              float value_rel_tol, int linesearch_max_iter,
                              int lbfgs_memory, int verbosity,
                              float *w0, // initial value and result
-                             float *f, int *num_iters);
+                             float *f, int *num_iters, bool X_col_major);
 
 void cuml_glm_linreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
                              double l1, double l2, int max_iter,
@@ -48,5 +48,5 @@ void cuml_glm_linreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
                              int linesearch_max_iter, int lbfgs_memory,
                              int verbosity,
                              double *w0, // initial value and result
-                             double *f, int *num_iters);
+                             double *f, int *num_iters, bool X_col_major);
 }

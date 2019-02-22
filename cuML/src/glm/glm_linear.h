@@ -25,10 +25,10 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-struct SquaredLoss1 : GLMBase<T, SquaredLoss1<T>> {
-  typedef GLMBase<T, SquaredLoss1<T>> Super;
+struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
+  typedef GLMBase<T, SquaredLoss<T>> Super;
 
-  SquaredLoss1(int D, bool has_bias, cudaStream_t stream = 0)
+  SquaredLoss(int D, bool has_bias, cudaStream_t stream = 0)
       : Super(D, 1, has_bias, stream) {}
 
   inline __device__ T eval_l(const T y, const T eta) const {
