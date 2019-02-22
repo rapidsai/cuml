@@ -36,17 +36,15 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
     return -MLCommon::myLog(MLCommon::myExp(-m) + MLCommon::myExp(-x - m)) - m;
   }
 
-  inline __device__ T eval_l(const T y, const T eta) const {
+  inline __device__ T lz(const T y, const T z) const {
     T ytil = 2 * y - 1;
-    return -log_sigmoid(ytil * eta);
+    return -log_sigmoid(ytil * z);
   }
 
-  inline void eval_dl(const T *y, T *eta, const int N) {
-    auto f = [] __device__(const T y, const T eta) {
-      return T(1.0) / (T(1.0) + MLCommon::myExp(-eta)) - y;
-    };
-    MLCommon::LinAlg::binaryOp(eta, y, eta, N, f);
+  inline __device__ T dlz(const T y, const T z) const {
+    return T(1.0) / (T(1.0) + MLCommon::myExp(-z)) - y;
   }
+
 };
 }; // namespace GLM
 }; // namespace ML

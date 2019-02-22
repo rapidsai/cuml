@@ -31,15 +31,15 @@ struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   SquaredLoss(int D, bool has_bias, cudaStream_t stream = 0)
       : Super(D, 1, has_bias, stream) {}
 
-  inline __device__ T eval_l(const T y, const T eta) const {
-    T diff = y - eta;
+  inline __device__ T lz(const T y, const T z) const {
+    T diff = y - z;
     return diff * diff * 0.5;
   }
 
-  inline void eval_dl(const T *y, T *eta, int N) {
-    auto f = [] __device__(const T y, const T eta) { return (eta - y); };
-    MLCommon::LinAlg::binaryOp(eta, y, eta, N, f);
+  inline __device__ T dlz(const T y, const T z) const {
+    return z - y;
   }
+
 };
 
 }; // namespace GLM

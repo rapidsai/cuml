@@ -118,22 +118,27 @@ struct GLMBase : GLMDims {
     T invN = 1.0 / y.len;
 
     auto f_l = [=] __device__(const T y, const T z) {
-      return loss->eval_l(y, z) * invN;
+      return loss->lz(y, z) * invN;
     };
 
     // TODO would be nice to have a kernel that fuses these two steps
+    // This would be easy, if mapThenSumReduce allowed outputing the result of
+    // map (supporting inplace)
     MLCommon::LinAlg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
                                        Z.data);
 
-    loss->eval_dl(y.data, Z.data, y.len);
+    auto f_dl = [=] __device__(const T y, const T z) {
+      return loss->dlz(y, z);
+    };
+    MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl);
   }
 
   template<typename XMat>
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
                         const XMat &Xb, const Vec &yb, Mat &Zb,
                         bool initGradZero = true) {
-    // reshape data
-    Loss *loss = static_cast<Loss *>(this); // polymorphism
+    Loss *loss = static_cast<Loss *>(this); // static polymorphism
+
     linearFwd(Zb, Xb, W, cublas, stream);   // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb);   // loss specific part
     linearBwd(G, Xb, Zb, initGradZero, cublas,
@@ -156,10 +161,10 @@ struct GLMWithData : GLMDims {
       : objective(obj), X(Xptr, N, obj->D), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
         GLMDims(obj->C,obj->D, obj->fit_intercept){}
 
+  // interface exposed to typical non-linear optimizers
   inline T operator()(const Vec &wFlat, Vec &gradFlat) {
     Mat W(wFlat.data, C, dims);
     Mat G(gradFlat.data, C, dims);
-    // optimizers often operate on vectors
     objective->loss_grad(lossVal.data, G, W, X, y, Z);
 
     return lossVal[0];
