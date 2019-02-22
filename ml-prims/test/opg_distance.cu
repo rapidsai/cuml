@@ -315,7 +315,7 @@ void assignTasks(std::vector<Worker<T>*>& workers, int n_gpu,
         allocate(task->d_X, x_len);
         allocate(task->d_Y, y_len);
         allocate(task->dist, dist_len);
-        Random::Rng<T> r(seed);
+        Random::Rng r(seed);
         r.uniform(task->d_X, x_len, T(-1.0), T(1.0));
         r.uniform(task->d_Y, y_len, T(-1.0), T(1.0));
 				worker->enqueue(task);

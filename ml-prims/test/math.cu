@@ -113,7 +113,7 @@ class MathTest : public ::testing::TestWithParam<MathInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MathInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
 
     allocate(in_power, len);

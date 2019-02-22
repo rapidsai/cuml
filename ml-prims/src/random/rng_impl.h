@@ -25,61 +25,52 @@ namespace MLCommon {
 namespace Random {
 namespace detail {
 
-/**
- * @defgroup PhiloxGenerator Philox-based random number generator
- * @{
- */
+/** Philox-based random number generator */
 // Courtesy: Jakub Szuppe
-/** base class for philox based RNG's */
-struct PhiloxGeneratorBase {
+struct PhiloxGenerator {
   /**
    * @brief ctor. Initializes the state for RNG
    * @param seed random seed (can be same across all threads)
    * @param subsequence as found in curand docs
    * @param offset as found in curand docs
    */
-  DI PhiloxGeneratorBase(uint64_t seed, uint64_t subsequence, uint64_t offset) {
+  DI PhiloxGenerator(uint64_t seed, uint64_t subsequence, uint64_t offset) {
     curand_init(seed, subsequence, offset, &state);
   }
 
-protected:
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  DI void next(float& ret) { ret = curand_uniform(&(this->state)); }
+  DI void next(double& ret) { ret = curand_uniform_double(&(this->state)); }
+  DI void next(uint32_t& ret) { ret = curand(&(this->state)); }
+  DI void next(uint64_t& ret) {
+    uint32_t a, b;
+    next(a);
+    next(b);
+    ret = (uint64_t)a | ((uint64_t)b << 32);
+  }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
+
+private:
   /** the state for RNG */
   curandStatePhilox4_32_10_t state;
 };
 
-template <class T>
-struct PhiloxGenerator;
 
-template <>
-struct PhiloxGenerator<float> : public PhiloxGeneratorBase {
-  using PhiloxGeneratorBase::PhiloxGeneratorBase;
-
-  DI float next() { return curand_uniform(&(this->state)); }
-
-  typedef float MathType;
-};
-
-template <>
-struct PhiloxGenerator<double> : public PhiloxGeneratorBase {
-  using PhiloxGeneratorBase::PhiloxGeneratorBase;
-
-  DI double next() { return curand_uniform_double(&(this->state)); }
-
-  typedef double MathType;
-};
-/** @} */
-
-
-/**
- * @defgroup TapsGenerator Taps-based random number generator
- * @{
- */
+/** LFSR taps-filter for generating random numbers. */
 // Courtesy: Vinay Deshpande
-/**
- * @brief LFSR taps-filter for generating random numbers. This is SUPER-slow,
- * but in my experience, generates "better quality" random numbers.
- */
-template <typename Type>
 struct TapsGenerator {
   /**
    * @brief ctor. Initializes the state for RNG
@@ -96,33 +87,50 @@ struct TapsGenerator {
     state = seed + delta + 1;
   }
 
-  /** generate the next uniform random number between 0.0 and 1.0 */
-  DI Type next() {
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  template <typename Type>
+  DI void next(Type& ret) {
+    constexpr double ULL_LARGE = 1.8446744073709551614e19;
+    uint64_t val;
+    next(val);
+    ret = static_cast<Type>(val);
+    ret /= static_cast<Type>(ULL_LARGE);
+  }
+  DI void next(uint64_t& ret) {
     constexpr uint64_t TAPS = 0x8000100040002000ULL;
     constexpr int ROUNDS = 128;
-    constexpr double ULL_LARGE = 1.8446744073709551614e19;
     for (int i = 0; i < ROUNDS; i++)
       state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
-    Type res = static_cast<Type>(state);
-    res /= static_cast<Type>(ULL_LARGE);
-    return res;
+    ret = state;
   }
-
-  typedef Type MathType;
+  DI void next(uint32_t& ret) {
+    uint64_t val;
+    next(val);
+    ret = (uint32_t)val;
+  }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
 
 private:
   /** the state for RNG */
   uint64_t state;
 };
-/** @} */
 
 
-/**
- * @defgroup Kiss99Generator Kiss99-based random number generator
- * @{
- */
+/** Kiss99-based random number generator */
 // Courtesy: Vinay Deshpande
-template <typename Type>
 struct Kiss99Generator {
   /**
    * @brief ctor. Initializes the state for RNG
@@ -134,9 +142,19 @@ struct Kiss99Generator {
     initKiss99((uint32_t)seed);
   }
 
-  /** generate the next uniform random number between 0.0 and 1.0 */
-  DI Type next() {
+  /**
+   * @defgroup NextRand Generate the next random number
+   * @{
+   */
+  template <typename Type>
+  DI void next(Type& ret) {
     constexpr double U_LARGE = 4.294967295e9;
+    uint32_t val;
+    next(val);
+    ret = static_cast<Type>(val);
+    ret /= static_cast<Type>(U_LARGE);
+  }
+  DI void next(uint32_t& ret) {
     uint32_t MWC;
     z = 36969 * (z & 65535) + (z >> 16);
     w = 18000 * (w & 65535) + (w >> 16);
@@ -146,12 +164,25 @@ struct Kiss99Generator {
     jsr ^= (jsr << 5);
     jcong = 69069 * jcong + 1234567;
     MWC = ((MWC ^ jcong) + jsr);
-    Type res = static_cast<Type>(MWC);
-    res /= static_cast<Type>(U_LARGE);
-    return res;
+    ret = MWC;
   }
-
-  typedef Type MathType;
+  DI void next(uint64_t& ret) {
+    uint32_t a, b;
+    next(a);
+    next(b);
+    ret = (uint64_t)a | ((uint64_t)b << 32);
+  }
+  DI void next(int32_t& ret) {
+      uint32_t val;
+      next(val);
+      ret = int32_t(val & 0x7fffffff);
+  }
+  DI void next(int64_t& ret) {
+      uint64_t val;
+      next(val);
+      ret = int64_t(val & 0x7fffffffffffffff);
+  }
+  /** @} */
 
 private:
   /** one of the kiss99 states */
@@ -195,7 +226,6 @@ private:
     jcong = hash;
   }
 };
-/** @} */
 
 
 /**
@@ -204,12 +234,11 @@ private:
  */
 template <typename GenType>
 struct Generator {
-  typedef typename GenType::MathType MathType;
-
   DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
     : gen(seed, subsequence, offset) {}
 
-  DI MathType next() { return gen.next(); }
+  template <typename Type>
+  DI void next(Type& ret) { gen.next(ret); }
 
 private:
   /** the actual generator */
