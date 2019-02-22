@@ -63,7 +63,7 @@ class ScalarMultiplyTest
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
     allocate(in, len);
@@ -148,7 +148,7 @@ class EltwiseAddTest : public ::testing::TestWithParam<EltwiseAddInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<EltwiseAddInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
     allocate(in1, len);
     allocate(in2, len);

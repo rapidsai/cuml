@@ -56,7 +56,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     int len = params.len;
     allocate(in1, len);
     allocate(out_ref, len);

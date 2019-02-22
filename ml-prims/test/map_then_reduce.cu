@@ -68,7 +68,7 @@ class MapReduceTest : public ::testing::TestWithParam<MapReduceInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     auto len = params.len;
     allocate(in, len);
     allocate(out_ref, len);

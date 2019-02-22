@@ -78,7 +78,7 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
-    Random::Rng<T> r(params.seed);
+    Random::Rng r(params.seed);
     auto w = params.w;
     auto h = params.h;
     auto len = w * h;

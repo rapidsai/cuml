@@ -48,6 +48,7 @@ add_executable(mlcommon_test
   permute.cu
   power.cu
   rng.cu
+  rng_int.cu
   rsvd.cu
   sqrt.cu
   stddev.cu
