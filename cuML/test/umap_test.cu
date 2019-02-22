@@ -40,6 +40,7 @@ protected:
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
 
+		kNN *knn = new kNN(d);
 
 		UMAPAlgo::find_ab(umap_params);
 
@@ -54,9 +55,23 @@ protected:
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
 
-		float *embeddings = (float*)malloc(n*d*sizeof(float));
+		float *embeddings = (float*)malloc(n*k*sizeof(float));
 
-		UMAPAlgo::_fit<float>(X_d, n, d, umap_params, embeddings);
+		std::cout << "Fitting UMAP..." << std::endl;
+
+		UMAPAlgo::_fit<float>(X_d, n, d, knn, umap_params, embeddings);
+
+		std::cout << "Done." << std::endl;
+
+		float *result = (float*)malloc(n*k*sizeof(float));
+
+        std::cout << "Transforming UMAP..." << std::endl;
+
+
+		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, result);
+
+        std::cout << "Done." << std::endl;
+
 	}
 
 	void SetUp() override {

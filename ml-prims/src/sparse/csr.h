@@ -15,7 +15,6 @@ namespace MLCommon {
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
         // sum all vals for row and divide each val by sum
-
         if(row < m) {
             int start_idx = ia[row];
             int stop_idx = 0;

@@ -23,9 +23,12 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
+#include <thrust/count.h>
 
 #include "sparse/csr.h"
 #include "sparse/coo.h"
+
+#include "knn/knn.h"
 
 #include "cuda_utils.h"
 
@@ -35,6 +38,10 @@
 #pragma once
 
 namespace UMAPAlgo {
+
+    // Swap this as impls change for now.
+    namespace FuzzySimplSetImpl = FuzzySimplSet::Naive;
+    namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 
 	using namespace ML;
 
@@ -74,6 +81,7 @@ namespace UMAPAlgo {
 	size_t _fit(const T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
+	            kNN *knn,
 	            UMAPParams *params,
 	            T *embeddings) {
 
@@ -88,7 +96,7 @@ namespace UMAPAlgo {
 
         std::cout << "Running knnGraph" << std::endl;
 
-        kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
+        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
 		CUDA_CHECK(cudaPeekAtLastError());
 
 		std::cout << MLCommon::arr2Str(knn_indices, n*params->n_neighbors, "knn_indices");
@@ -117,9 +125,11 @@ namespace UMAPAlgo {
 						   graph_cols,
 						   graph_vals,
 						   params, &nnz,0);
+        CUDA_CHECK(cudaDeviceSynchronize());
 
         std::cout << "ROWS=" << MLCommon::arr2Str<int>(graph_rows, nnz, "rows") << std::endl;
         std::cout << "COLS=" << MLCommon::arr2Str<int>(graph_cols, nnz, "cols") << std::endl;
+        std::cout << "VALS=" << MLCommon::arr2Str<float>(graph_vals, nnz, "vals") << std::endl;
 
 
 		CUDA_CHECK(cudaPeekAtLastError());
@@ -131,6 +141,7 @@ namespace UMAPAlgo {
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
 		        params, embedding);
+		CUDA_CHECK(cudaDeviceSynchronize());
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
@@ -144,36 +155,51 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
 		std::cout << "Finished SimplSetEmbed" << std::endl;
 
+		CUDA_CHECK(cudaFree(knn_dists));
+        CUDA_CHECK(cudaFree(knn_indices));
+        CUDA_CHECK(cudaFree(graph_rows));
+        CUDA_CHECK(cudaFree(graph_cols));
+        CUDA_CHECK(cudaFree(graph_vals));
+
 		return 0;
 	}
 
-
-
 	template<typename T, int TPB_X>
-	size_t _transform(const T *X,
+	size_t _transform(const float *X,
 	                  int n,
 	                  int d,
 	                  T *embedding,
 	                  int embedding_n,
+                      kNN *knn,
 	                  UMAPParams *params,
 	                  T *transformed) {
 
         dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
+        std::cout << "Inside transform" << std::endl;
+
 	    /**
 	     * Perform kNN of X
 	     */
         long *knn_indices;
-        T *knn_dists;
-
-        MLCommon::allocate(knn_indices, n*params->n_neighbors);
+        float *knn_dists;
+        MLCommon::allocate<long>(knn_indices, n*params->n_neighbors);
         MLCommon::allocate(knn_dists, n*params->n_neighbors);
 
         std::cout << "Running knnGraph" << std::endl;
 
-        kNNGraph::run(X, n, d, knn_indices, knn_dists, params);
+
+        /**
+         * TODO: Need to use the knn indices created during fit()
+         */
+        knn->search(X, n, knn_indices, knn_dists, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
+
+        auto sqrt_vals_op = [] __device__(T input, T scalar) {
+            return sqrt(input);
+        };
+        MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, n*params->n_neighbors, sqrt_vals_op);
 
 	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
 
@@ -185,10 +211,10 @@ namespace UMAPAlgo {
         MLCommon::allocate(sigmas, n);
         MLCommon::allocate(rhos, n);
 
-        // TODO: Expose this so it can be swapped out.
-        FuzzySimplSet::Naive::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
+        FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                 rhos, sigmas, params
         );
+        CUDA_CHECK(cudaDeviceSynchronize());
 
         std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
         std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
@@ -206,44 +232,33 @@ namespace UMAPAlgo {
         MLCommon::allocate(graph_cols, n*params->n_neighbors);
         MLCommon::allocate(graph_vals, n*params->n_neighbors);
 
+        std::cout << "Running fuzzySimplSetImpl." << std::endl;
 
-        //TODO: Expose this so it can be swapped out easily
-        FuzzySimplSet::Naive::compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
-                knn_dists, sigmas, rhos, graph_vals, graph_rows, graph_cols, n,
+        FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(
+                knn_indices, knn_dists,
+                sigmas, rhos,
+                graph_vals, graph_rows, graph_cols, n,
                 params->n_neighbors);
-
-
-        int nnz = 0; // TODO: Set this!
-
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
 
-        int *ia;
+        std::cout << "FuzzySimplSetImpl done." << std::endl;
+
+        int nnz = n*params->n_neighbors;
+
+        int *ia, *ex_scan;
         MLCommon::allocate(ia, n, true);
-
-        int *ex_scan;
         MLCommon::allocate(ex_scan, n, true);
 
-
-        // COO should be sorted by row- we get the counts and then normalize
+        // COO should be sorted by row at this point- we get the counts and then normalize
         coo_row_counts<TPB_X, T><<<grid, blk>>>(graph_rows, graph_vals, nnz, ia, n);
-
-        int *crows, *ccols;
-        T *cvals;
-        MLCommon::allocate(crows, nnz, true);
-        MLCommon::allocate(ccols, nnz, true);
-        MLCommon::allocate(cvals, nnz, true);
-
-        MLCommon::coo_remove_zeros<TPB_X, T>(nnz,
-                graph_rows, graph_cols, graph_vals,
-                crows, ccols, cvals,
-                ia, n);
 
         thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
         thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
         exclusive_scan(dev_ia, dev_ia + n, dev_ex_scan);
 
-         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(dev_ex_scan.get(), cvals, nnz,
-                 n, params->n_neighbors, cvals);
+         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(dev_ex_scan.get(), graph_vals, nnz,
+                 n, params->n_neighbors, graph_vals);
 
         /**
          * Init_transform()
@@ -254,14 +269,14 @@ namespace UMAPAlgo {
         T *result;
         MLCommon::allocate(result, n*params->n_components);
 
-        init_transform<TPB_X, T><<<grid,blk>>>(ccols, cvals, n,
+        init_transform<TPB_X, T><<<grid,blk>>>(graph_cols, graph_vals, n,
                 embedding, embedding_n, params->n_components,
                 result, params->n_neighbors);
 
         /**
          * Find max of data
          */
-        thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(cvals);
+        thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(graph_vals);
         T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
 
         /**
@@ -275,15 +290,35 @@ namespace UMAPAlgo {
                 return input;
         };
 
-        MLCommon::LinAlg::unaryOp<T>(cvals, cvals, (max / params->n_epochs), nnz, adjust_vals_op);
+        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz, adjust_vals_op);
+
+        thrust::device_ptr<T> dev_gvals = thrust::device_pointer_cast(graph_vals);
+        int non_zero_vals = nnz-thrust::count(dev_gvals, dev_gvals+nnz, 0.0);
+
+        /**
+         * Remove zeros
+         */
+        int *crows, *ccols;
+        T *cvals;
+        MLCommon::allocate(crows, non_zero_vals, true);
+        MLCommon::allocate(ccols, non_zero_vals, true);
+        MLCommon::allocate(cvals, non_zero_vals, true);
+
+        MLCommon::coo_remove_zeros<TPB_X, T>(nnz,
+                graph_rows, graph_cols, graph_vals,
+                crows, ccols, cvals,
+                ia, n);
 
         T *epochs_per_sample = (T*)malloc(nnz*sizeof(T));
-        SimplSetEmbed::Algo::make_epochs_per_sample(cvals, nnz, params->n_epochs, epochs_per_sample);
+        T *cvals_h = (T*)malloc(non_zero_vals*sizeof(T));
+        MLCommon::updateHost(cvals_h, cvals, non_zero_vals);
+
+        SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
 
         const int *head = crows;
         const int *tail = ccols;
 
-        SimplSetEmbed::Algo::optimize_layout(
+        SimplSetEmbedImpl::optimize_layout(
             result, embedding_n,
             embedding, n,
             head, tail, nnz,

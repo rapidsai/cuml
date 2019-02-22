@@ -33,28 +33,24 @@ namespace kNNGraph {
 		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
 		template<typename T>
-		void launcher(const float *X, int n, int d,
+		void launcher(
+		              const float *X, int x_n, int d,
 					  long *knn_indices, T *knn_dists,
+					  kNN *knn,
 					  UMAPParams *params) {
 
-		    std::cout << "Creating knn" << std::endl;
-
-		    kNN knn(d);
-			kNNParams *p = new kNNParams[1];
+		    kNNParams *p = new kNNParams[1];
 			p[0].ptr = X;
-			p[0].N = n;
+			p[0].N = x_n;
 
-            std::cout << "Calling fit..." << std::endl;
-			knn.fit(p, 1);
-
-			std::cout << "Calling search..." << std::endl;
-			knn.search(X, n, knn_indices, knn_dists, params->n_neighbors);
+			knn->fit(p, 1);
+			knn->search(X, x_n, knn_indices, knn_dists, params->n_neighbors);
 
             auto adjust_vals_op = [] __device__(T input, T scalar) {
-                    return sqrt(input);
+                return sqrt(input);
             };
 
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, n*params->n_neighbors, adjust_vals_op);
+            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, x_n*params->n_neighbors, adjust_vals_op);
 
 			delete p;
 		}

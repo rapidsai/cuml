@@ -49,21 +49,21 @@ namespace UMAPAlgo {
              * TODO: Optimize for coalesced reads
              *
              * @param knn_dists: Distances to nearest neighbors for each sample. Each row should
-             * 					 be a sorted list of distances to a given sample's nearest neighbors.
+             *                   be a sorted list of distances to a given sample's nearest neighbors.
              *
              * @param n: The number of samples
              * @param k: The number of neighbors
              *
              * @param local_connectivity: The local connectivity required -- i.e. the number of nearest
-             * 							  neighbors that should be assumed to be connected at a local
-             * 							  level. The higher this value the more connecte the manifold
-             * 							  becomes locally. In practice, this should not be more than the
-             * 							  local intrinsic dimension of the manifold.
+             *                            neighbors that should be assumed to be connected at a local
+             *                            level. The higher this value the more connecte the manifold
+             *                            becomes locally. In practice, this should not be more than the
+             *                            local intrinsic dimension of the manifold.
              *
              * @param sigmas: An array of size n representing the distance to the kth nearest neighbor,
-             * 				  as suitably approximated.
+             *                as suitably approximated.
              * @parasm rhos:  An array of size n representing the distance to the 1st nearest neighbor
-             * 				  for each point.
+             *                for each point.
              *
              * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
              *
@@ -72,9 +72,9 @@ namespace UMAPAlgo {
             __global__ void smooth_knn_dist_kernel(
                     const T *knn_dists, int n,
                     float mean_dist, T *sigmas,
-                    T *rhos,			// Size of n, iniitalized to zeros
+                    T *rhos,            // Size of n, iniitalized to zeros
                     int n_neighbors,
-                    float local_connectivity,
+                    float local_connectivity = 1.0,
                     int n_iter = 64,
                     float bandwidth = 1.0) {
 
@@ -94,7 +94,7 @@ namespace UMAPAlgo {
 
                     int total_nonzero = 0;
                     int max_nonzero = -1;
-                    float sum = 0;
+                    float sum = 0.0;
 
                     for (int idx = 0; idx < n_neighbors; idx++) {
 
@@ -185,8 +185,8 @@ namespace UMAPAlgo {
              * @param rhos: array of size n representing distance to the first nearest neighbor
              *
              * @return rows: long array of size n
-             * 		   cols: long array of size k
-             * 		   vals: T array of size n*k
+             *         cols: long array of size k
+             *         vals: T array of size n*k
              *
              * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
              */
@@ -195,11 +195,11 @@ namespace UMAPAlgo {
                     const float *knn_dists,  // nn outputs
                     const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
                     T *vals, int *rows, int *cols,  // result coo
-                    int n, int n_neighbors) {	 // model params
+                    int n, int n_neighbors) {    // model params
 
                 // row-based matrix is best
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
-                int i = row * n_neighbors; //	one row per thread
+                int i = row * n_neighbors; //   one row per thread
 
                 if (row < n) {
 
@@ -213,9 +213,10 @@ namespace UMAPAlgo {
                         long cur_knn_ind = knn_indices[idx];
                         T cur_knn_dist = knn_dists[idx];
 
-                        T val = 0.0;
                         if (cur_knn_ind == -1)
                             continue;
+
+                        T val = 0.0;
                         if (cur_knn_ind == row)
                             val = 0.0;
                         else if (cur_knn_dist - cur_rho <= 0.0)
@@ -235,11 +236,10 @@ namespace UMAPAlgo {
             __global__ void compute_result(
                     int *rows, int *cols, T *vals,
                     int *orows, int *ocols, T *ovals, int *rnnz, int n,
-                    int n_neighbors, float set_op_mix_ratio) {
+                    int n_neighbors, float set_op_mix_ratio = 1.0) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
                 int i = row * n_neighbors; // each thread processes one row
-                // Grab the n_neighbors from our transposed matrix,
 
                 if (row < n) {
 
@@ -249,30 +249,27 @@ namespace UMAPAlgo {
                         int idx = i + j;
                         int out_idx = i * 2;
 
-//                        int row_lookup = cols[idx];
-//                        int t_start = row_lookup * n_neighbors; // Start at
+                        int row_lookup = cols[idx];
+                        int t_start = row_lookup * n_neighbors; // Start at
 
                         T transpose = 0.0;
-//                        bool found_match = false;
-//                        for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
-//
-//                            int f_idx = t_idx + t_start;
-//                            // If we find a match, let's get out of the loop
-//                            if (cols[f_idx] == rows[idx]
-//                                    && rows[f_idx] == cols[idx]
-//                                    && vals[f_idx] != 0.0) {
-//
-//                                printf("Match found! row=%d, col=%d\n", row, cols[idx]);
-//                                transpose = vals[f_idx];
-//                                found_match = true;
-//                                break;
-//                            }
-//                        }
+                        bool found_match = false;
+                        for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
+
+                            int f_idx = t_idx + t_start;
+                            // If we find a match, let's get out of the loop
+                            if (cols[f_idx] == rows[idx]
+                                    && rows[f_idx] == cols[idx]
+                                    && vals[f_idx] != 0.0) {
+                                transpose = vals[f_idx];
+                                found_match = true;
+                                break;
+                            }
+                        }
 
                         // if we didn't find an exact match, we still need to add
                         // the transposed value into our current matrix.
-//                        if (!found_match && vals[idx] != 0.0) {
-                          if (vals[idx] != 0.0) {
+                          if (!found_match && vals[idx] != 0.0) {
                             orows[out_idx + nnz] = cols[idx];
                             ocols[out_idx + nnz] = rows[idx];
                             ovals[out_idx + nnz] = vals[idx];
@@ -283,13 +280,13 @@ namespace UMAPAlgo {
                         T prod_matrix = result * transpose;
 
                         T res = set_op_mix_ratio
-                                * (result - transpose - prod_matrix)
-                                + (1.0 - set_op_mix_ratio) + prod_matrix;
+                                * (result + transpose - prod_matrix)
+                                + (1.0 - set_op_mix_ratio) * prod_matrix;
 
                         if (res != 0.0) {
                             orows[out_idx + nnz] = rows[idx];
                             ocols[out_idx + nnz] = cols[idx];
-                            ovals[out_idx + nnz] = res;
+                            ovals[out_idx + nnz] = float(res);
                             ++nnz;
                         }
                     }
@@ -326,6 +323,8 @@ namespace UMAPAlgo {
 
                 float mean_dist = sum / params->n_neighbors;
 
+                std::cout << "mean_dist=" << mean_dist << std::endl;
+
                 /**
                  * Clean up memory for subsequent algorithms
                  */
@@ -338,7 +337,6 @@ namespace UMAPAlgo {
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
-
             }
 
 
@@ -428,6 +426,21 @@ namespace UMAPAlgo {
                 MLCommon::coo_sort(n, k, cur_coo_len, crows, ccols, cvals);
 
                 nnz[0] = cur_coo_len;
+
+                // TODO: There's a better way to do this than overallocation
+                MLCommon::copy(rows, crows, cur_coo_len);
+                MLCommon::copy(cols, ccols, cur_coo_len);
+                MLCommon::copy(vals, cvals, cur_coo_len);
+
+                CUDA_CHECK(cudaFree(rhos));
+                CUDA_CHECK(cudaFree(sigmas));
+                CUDA_CHECK(cudaFree(orows));
+                CUDA_CHECK(cudaFree(ocols));
+                CUDA_CHECK(cudaFree(ovals));
+                CUDA_CHECK(cudaFree(rnnz));
+                CUDA_CHECK(cudaFree(crows));
+                CUDA_CHECK(cudaFree(ccols));
+                CUDA_CHECK(cudaFree(cvals));
             }
         }
     }

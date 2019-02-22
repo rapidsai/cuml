@@ -129,7 +129,6 @@ namespace UMAPAlgo {
 
 	            print_arr(epochs_per_sample, nnz, "epochs_per_sample");
 
-
 	            T *epoch_of_next_negative_sample = (T*)malloc(nnz*sizeof(T));
 	            memcpy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
 
@@ -143,7 +142,13 @@ namespace UMAPAlgo {
 	            for(int n = 0; n < params->n_epochs; n++) {
 
 	                /**
-	                 * TODO: Should be able to do each of these iterations on GPU
+	                 * TODO: Do this on GPU with the following SGD design:
+	                 * 1) A pluggable batching strategy that is able to sample embeddings based on
+	                 *    a set of weights.
+	                 * 2) A pluggable strategy for providing coefficients to the loss function
+	                 *    (in UMAP, the embeddings themselves ARE the parameters)
+	                 * 3) A negative sampling strategy, also making use of possible weighted
+	                 *    sampling.
 	                 */
 	                for(int i = 0; i < nnz; i++) {
 	                    if(epoch_of_next_sample[i] <= n) {
@@ -213,13 +218,11 @@ namespace UMAPAlgo {
 	                    alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	                }
 	            }
+
+	            delete epochs_per_negative_sample;
+	            delete epoch_of_next_negative_sample;
+	            delete epoch_of_next_sample;
 	        }
-
-	        template<typename T, int TPB_X>
-	        __device__ void sum_duplicates(int *rows, int *cols, T *vals, int nnz) {
-
-	        }
-
 
 	        /**
 	         * Perform a fuzzy simplicial set embedding, using a specified
@@ -279,6 +282,10 @@ namespace UMAPAlgo {
 	                            params);
 
 	            print_arr(embedding_h, m*params->n_components, "embeddings");
+
+	            delete head_h;
+	            delete tail_h;
+	            delete vals_h;
 	        }
 		}
 	}

@@ -15,12 +15,15 @@
  */
 
 #include "umapparams.h"
+#include "knn/knn.h"
 
 #pragma once
 
 namespace ML {
 
+
     class UMAP {
+
 
         UMAPParams *params;
 
@@ -28,10 +31,11 @@ namespace ML {
 
             UMAP(UMAPParams *params): params(params){}
 
-            void fit(const float *X, int n, int d, float *embeddings);
+            void fit(const float *X, int n, int d, kNN *knn, float *embeddings);
 
             void transform(const float *X, int n, int d,
                     float *embedding, int embedding_n,
+                    kNN *knn,
                     float *out);
 
             UMAPParams* get_params();

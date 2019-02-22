@@ -15,7 +15,6 @@
  */
 
 #include "umap/umap.h"
-#include "umap/umapparams.h"
 #include "algo.h"
 
 namespace UMAPAlgo {
@@ -27,6 +26,7 @@ namespace kNNGraph {
 	template<typename T>
 	void run(const T *X, int n, int d,
 			 long *knn_indices, T *knn_dists,
+			 kNN *knn,
 			 UMAPParams *params,
 			 int algo = 0) {
 		switch(algo) {
@@ -35,7 +35,7 @@ namespace kNNGraph {
 		 * Initial algo uses FAISS indices
 		 */
 		case 0:
-			Algo::launcher(X, n, d, knn_indices, knn_dists, params);
+			Algo::launcher(X, n, d, knn_indices, knn_dists, knn, params);
 			break;
 		}
 	}

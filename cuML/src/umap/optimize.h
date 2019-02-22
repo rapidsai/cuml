@@ -38,6 +38,11 @@ namespace UMAPAlgo {
     namespace Optimize {
 
         using namespace ML;
+
+
+
+
+
         /**
          * Calculate the gradients for training the embeddings in UMAP.
          * The difference in this gradient descent is that
@@ -115,12 +120,11 @@ namespace UMAPAlgo {
             /**
              * Gradient w/ respect to a
              */
-
-            auto ag =  []__device__ __host__ (T x, T a, T b) {
+            auto ag = []__device__ __host__ (T x, T a, T b) {
                 return -(pow(x, 2.0*b)) / pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
             };
 
-            auto bg =    []__device__ __host__ (T x, T a, T b) {
+            auto bg = []__device__ __host__ (T x, T a, T b) {
                 return -(2.0 * a * pow(x, 2.0 * b) * log(x)) / pow(1 + a * pow(x, 2.0 * b), 2.0);
             };
 
@@ -153,6 +157,11 @@ namespace UMAPAlgo {
             MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false);
 
             CUDA_CHECK(cudaPeekAtLastError());
+
+            CUDA_CHECK(cudaFree(residuals));
+            CUDA_CHECK(cudaFree(a_deriv));
+            CUDA_CHECK(cudaFree(b_deriv));
+
         }
 
         template<typename T, int TPB_X>
@@ -166,7 +175,6 @@ namespace UMAPAlgo {
             int num_iters = 0;
             int tol_grads = 0;
             do {
-
                 tol_grads = 0;
                 T *grads;
                 MLCommon::allocate(grads, 2, true);
@@ -184,6 +192,9 @@ namespace UMAPAlgo {
                 }
 
                 num_iters += 1;
+
+                CUDA_CHECK(cudaFree(grads));
+                delete grads_h;
 
             } while(tol_grads < 2 && num_iters < max_epochs);
 
@@ -230,6 +241,12 @@ namespace UMAPAlgo {
             MLCommon::updateHost(&(params->b), coeffs+1, 1);
 
             std::cout << "a=" << params->a << ", " << params->b << std::endl;
+
+            CUDA_CHECK(cudaFree(X_d));
+            CUDA_CHECK(cudaFree(y_d));
+            CUDA_CHECK(cudaFree(coeffs));
+
+            delete coeffs_h;
 
         }
     }

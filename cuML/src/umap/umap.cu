@@ -18,18 +18,20 @@
 #include "umap/umapparams.h"
 #include "umap/runner.h"
 
+#include "knn/knn.h"
+
 namespace ML {
 
     void UMAP::fit(const float *X, int n, int d,
-            float *embeddings) {
-		UMAPAlgo::_fit(X, n, d, get_params(), embeddings);
+            kNN *knn, float *embeddings) {
+		UMAPAlgo::_fit(X, n, d, knn, get_params(), embeddings);
 	}
 
 	void UMAP::transform(const float *X, int n, int d,
-	        float *embedding, int embedding_n,
+	        float *embedding, int embedding_n, kNN *knn,
 	        float *out) {
 	    UMAPAlgo::_transform<float, 256>(X, n, d,
-	            embedding, embedding_n,
+	            embedding, embedding_n, knn,
 	            get_params(), out);
 	}
 

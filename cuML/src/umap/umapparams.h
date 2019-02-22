@@ -34,7 +34,6 @@ namespace ML {
         int negative_sample_rate = 5;
         float transform_queue_size = 4.0;
 
-
         /**
          * Parameters of differentiable approx
          * of right adjoint functor.

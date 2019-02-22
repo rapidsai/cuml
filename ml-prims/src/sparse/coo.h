@@ -18,7 +18,6 @@
 
 namespace MLCommon {
 
-
     template<typename T>
     void coo_sort(int m, int n, int nnz,
                   int *rows, int *cols, T *vals) {
@@ -139,8 +138,8 @@ namespace MLCommon {
      * @param crows: compressed array of rows
      * @param ccols: compressed array of cols
      * @param cvals: compressed array of vals
-     * @param rnnz: array of non-zero counts per chunk
-     * @param rnnz_n: size of rnnz array
+     * @param cnnz: array of non-zero counts per chunk
+     * @param cnnz_n: size of cnnz array (eg. num chunks)
      */
     template<int TPB_X, typename T>
     void coo_remove_zeros(int nnz,
@@ -167,8 +166,7 @@ namespace MLCommon {
                 crows, ccols, cvals, dev_ex_scan.get(), cnnz_n);
         cudaDeviceSynchronize();
 
+        CUDA_CHECK(cudaFree(ex_scan));
         CUDA_CHECK(cudaPeekAtLastError());
     }
-
-
 }
