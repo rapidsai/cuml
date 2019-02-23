@@ -18,6 +18,7 @@
 - PR #209: Simplify README.md, move build instructions to BUILD.md
 - PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
+- PR #230: Refactored the cuda_utils header
 
 
 ## Bug Fixes
