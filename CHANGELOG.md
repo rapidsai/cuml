@@ -19,6 +19,7 @@
 - PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
 - PR #230: Refactored the cuda_utils header
+- PR #236: Refactored cuml python package structure to be more sklearn like
 
 
 ## Bug Fixes
