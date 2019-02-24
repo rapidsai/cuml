@@ -1,4 +1,5 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +14,91 @@
 # limitations under the License.
 #
 
-cimport c_pca
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
-import ctypes
-from libc.stdint cimport uintptr_t
-from c_pca cimport *
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
+import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
+from libcpp cimport bool
+from libc.stdint cimport uintptr_t
+
+from cuml.decomposition.utils cimport *
+
+cdef extern from "pca/pca_c.h" namespace "ML":
+
+    cdef void pcaFit(float *input,
+                     float *components,
+                     float *explained_var,
+                     float *explained_var_ratio,
+                     float *singular_vals,
+                     float *mu,
+                     float *noise_vars,
+                     paramsPCA prms)
+
+    cdef void pcaFit(double *input,
+                     double *components,
+                     double *explained_var,
+                     double *explained_var_ratio,
+                     double *singular_vals,
+                     double *mu,
+                     double *noise_vars,
+                     paramsPCA prms)
+
+    cdef void pcaFitTransform(float *input,
+                              float *trans_input,
+                              float *components,
+                              float *explained_var,
+                              float *explained_var_ratio,
+                              float *singular_vals,
+                              float *mu,
+                              float *noise_vars,
+                              paramsPCA prms)
+
+    cdef void pcaFitTransform(double *input,
+                              double *trans_input,
+                              double *components,
+                              double *explained_var,
+                              double *explained_var_ratio,
+                              double *singular_vals,
+                              double *mu,
+                              double *noise_vars,
+                              paramsPCA prms)
+
+    cdef void pcaInverseTransform(float *trans_input,
+                                  float *components,
+                                  float *singular_vals,
+                                  float *mu,
+                                  float *input,
+                                  paramsPCA prms)
+
+    cdef void pcaInverseTransform(double *trans_input,
+                                  double *components,
+                                  double *singular_vals,
+                                  double *mu,
+                                  double *input,
+                                  paramsPCA prms)
+
+    cdef void pcaTransform(float *input,
+                           float *components,
+                           float *trans_input,
+                           float *singular_vals,
+                           float *mu,
+                           paramsPCA prms)
+
+    cdef void pcaTransform(double *input,
+                           double *components,
+                           double *trans_input,
+                           double *singular_vals,
+                           double *mu,
+                           paramsPCA prms)
 
 class PCAparams:
     def __init__(self, n_components, copy, whiten, tol, iterated_power,
@@ -214,7 +291,7 @@ class PCA:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_pca.paramsPCA params
+        cpdef paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = self.params.n_rows
         params.n_cols = self.params.n_cols
@@ -241,7 +318,7 @@ class PCA:
 
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                c_pca.pcaFit(<float*> input_ptr,
+                pcaFit(<float*> input_ptr,
                              <float*> components_ptr,
                              <float*> explained_var_ptr,
                              <float*> explained_var_ratio_ptr,
@@ -250,7 +327,7 @@ class PCA:
                              <float*> noise_vars_ptr,
                              params)
             else:
-                c_pca.pcaFit(<double*> input_ptr,
+                pcaFit(<double*> input_ptr,
                              <double*> components_ptr,
                              <double*> explained_var_ptr,
                              <double*> explained_var_ratio_ptr,
@@ -261,7 +338,7 @@ class PCA:
         else:
 
             if self.gdf_datatype.type == np.float32:
-                c_pca.pcaFitTransform(<float*> input_ptr,
+                pcaFitTransform(<float*> input_ptr,
                                       <float*> trans_input_ptr,
                                       <float*> components_ptr,
                                       <float*> explained_var_ptr,
@@ -271,7 +348,7 @@ class PCA:
                                       <float*> noise_vars_ptr,
                                       params)
             else:
-                c_pca.pcaFitTransform(<double*> input_ptr,
+                pcaFitTransform(<double*> input_ptr,
                                       <double*> trans_input_ptr,
                                       <double*> components_ptr,
                                       <double*> explained_var_ptr,
@@ -349,7 +426,7 @@ class PCA:
 
         trans_input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_pca.paramsPCA params
+        cpdef paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = len(X)
         params.n_cols = self.params.n_cols
@@ -365,14 +442,14 @@ class PCA:
         cdef uintptr_t mean_ptr = self.mean_ptr
 
         if gdf_datatype.type == np.float32:
-            c_pca.pcaInverseTransform(<float*> trans_input_ptr,
+            pcaInverseTransform(<float*> trans_input_ptr,
                                       <float*> components_ptr,
                                       <float*> singular_vals_ptr,
                                       <float*> mean_ptr,
                                       <float*> input_ptr,
                                       params)
         else:
-            c_pca.pcaInverseTransform(<double*> trans_input_ptr,
+            pcaInverseTransform(<double*> trans_input_ptr,
                                       <double*> components_ptr,
                                       <double*> singular_vals_ptr,
                                       <double*> mean_ptr,
@@ -424,7 +501,7 @@ class PCA:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_pca.paramsPCA params
+        cpdef paramsPCA params
         params.n_components = self.params.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
@@ -440,14 +517,14 @@ class PCA:
         cdef uintptr_t mean_ptr = self.mean_ptr
 
         if gdf_datatype.type == np.float32:
-            c_pca.pcaTransform(<float*> input_ptr,
+            pcaTransform(<float*> input_ptr,
                                <float*> components_ptr,
                                <float*> trans_input_ptr,
                                <float*> singular_vals_ptr,
                                <float*> mean_ptr,
                                params)
         else:
-            c_pca.pcaTransform(<double*> input_ptr,
+            pcaTransform(<double*> input_ptr,
                                <double*> components_ptr,
                                <double*> trans_input_ptr,
                                <double*> singular_vals_ptr,

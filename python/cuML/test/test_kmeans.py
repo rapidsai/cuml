@@ -22,7 +22,7 @@ import cuml
 from sklearn import cluster
 from sklearn.preprocessing import StandardScaler
 
-from utils import fit_predict, get_pattern, clusters_equal
+from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles']
 

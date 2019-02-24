@@ -1,27 +1,82 @@
- # Copyright (c) 2018, NVIDIA CORPORATION.
- #
- # Licensed under the Apache License, Version 2.0 (the "License");
- # you may not use this file except in compliance with the License.
- # You may obtain a copy of the License at
- #
- #     http://www.apache.org/licenses/LICENSE-2.0
- #
- # Unless required by applicable law or agreed to in writing, software
- # distributed under the License is distributed on an "AS IS" BASIS,
- # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- # See the License for the specific language governing permissions and
- # limitations under the License.
- #
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 
-cimport c_tsvd
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import ctypes
-from libc.stdint cimport uintptr_t
-from c_tsvd cimport *
+import cudf
+import numpy as np
 
+from numba import cuda
+
+from libcpp cimport bool
+from libc.stdint cimport uintptr_t
+
+from cuml.decomposition.utils cimport *
+
+cdef extern from "tsvd/tsvd_c.h" namespace "ML":
+
+    cdef void tsvdFit(float *input,
+                      float *components,
+                      float *singular_vals,
+                      paramsTSVD prms)
+
+    cdef void tsvdFit(double *input,
+                      double *components,
+                      double *singular_vals,
+                      paramsTSVD prms)
+
+    cdef void tsvdFitTransform(float *input,
+                               float *trans_input,
+                               float *components,
+                               float *explained_var,
+                               float *explained_var_ratio,
+                               float *singular_vals,
+                               paramsTSVD prms)
+
+    cdef void tsvdFitTransform(double *input,
+                               double *trans_input,
+                               double *components,
+                               double *explained_var,
+                               double *explained_var_ratio,
+                               double *singular_vals,
+                               paramsTSVD prms)
+
+    cdef void tsvdInverseTransform(float *trans_input,
+                                   float *components,
+                                   float *input,
+                                   paramsTSVD prms)
+
+    cdef void tsvdInverseTransform(double *trans_input,
+                                   double *components,
+                                   double *input,
+                                   paramsTSVD prms)
+
+    cdef void tsvdTransform(float *input,
+                            float *components,
+                            float *trans_input,
+                            paramsTSVD prms)
+
+    cdef void tsvdTransform(double *input,
+                            double *components,
+                            double *trans_input,
+                            paramsTSVD prms)
 
 class TSVDparams:
     def __init__(self,n_components,tol,iterated_power,random_state,svd_solver):
@@ -183,7 +238,7 @@ class TruncatedSVD:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_tsvd.paramsTSVD params
+        cpdef paramsTSVD params
         params.n_components = self.params.n_components
         params.n_rows = self.params.n_rows
         params.n_cols = self.params.n_cols
@@ -206,18 +261,18 @@ class TruncatedSVD:
 
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                c_tsvd.tsvdFit(<float*> input_ptr,
+                tsvdFit(<float*> input_ptr,
                                <float*> components_ptr,
                                <float*> singular_vals_ptr,
                                params)
             else:
-                c_tsvd.tsvdFit(<double*> input_ptr,
+                tsvdFit(<double*> input_ptr,
                                <double*> components_ptr,
                                <double*> singular_vals_ptr,
                                params)
         else:
             if self.gdf_datatype.type == np.float32:
-                c_tsvd.tsvdFitTransform(<float*> input_ptr,
+                tsvdFitTransform(<float*> input_ptr,
                                         <float*> trans_input_ptr,
                                         <float*> components_ptr,
                                         <float*> explained_var_ptr,
@@ -225,7 +280,7 @@ class TruncatedSVD:
                                         <float*> singular_vals_ptr,
                                         params)
             else:
-                c_tsvd.tsvdFitTransform(<double*> input_ptr,
+                tsvdFitTransform(<double*> input_ptr,
                                         <double*> trans_input_ptr,
                                         <double*> components_ptr,
                                         <double*> explained_var_ptr,
@@ -302,7 +357,7 @@ class TruncatedSVD:
 
         trans_input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_tsvd.paramsTSVD params
+        cpdef paramsTSVD params
         params.n_components = self.params.n_components
         params.n_rows = len(X)
         params.n_cols = self.params.n_cols
@@ -314,12 +369,12 @@ class TruncatedSVD:
         cdef uintptr_t components_ptr = self.components_ptr
 
         if gdf_datatype.type == np.float32:
-            c_tsvd.tsvdInverseTransform(<float*> trans_input_ptr,
+            tsvdInverseTransform(<float*> trans_input_ptr,
                                         <float*> components_ptr,
                                         <float*> input_ptr,
                                         params)
         else:
-            c_tsvd.tsvdInverseTransform(<double*> trans_input_ptr,
+            tsvdInverseTransform(<double*> trans_input_ptr,
                                         <double*> components_ptr,
                                         <double*> input_ptr,
                                         params)
@@ -367,7 +422,7 @@ class TruncatedSVD:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        cpdef c_tsvd.paramsTSVD params
+        cpdef paramsTSVD params
         params.n_components = self.params.n_components
         params.n_rows = len(X)
         params.n_cols = self.params.n_cols
@@ -380,12 +435,12 @@ class TruncatedSVD:
         cdef uintptr_t components_ptr = self.components_ptr
 
         if gdf_datatype.type == np.float32:
-            c_tsvd.tsvdTransform(<float*> input_ptr,
+            tsvdTransform(<float*> input_ptr,
                                  <float*> components_ptr,
                                  <float*> trans_input_ptr,
                                  params)
         else:
-            c_tsvd.tsvdTransform(<double*> input_ptr,
+            tsvdTransform(<double*> input_ptr,
                                  <double*> components_ptr,
                                  <double*> trans_input_ptr,
                                  params)

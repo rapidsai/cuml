@@ -18,7 +18,7 @@ from cuml import LinearRegression as cuLinearRegression
 from cuml import Ridge as cuRidge
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
-from utils import array_equal
+from cuml.test.utils import array_equal
 import cudf
 import numpy as np
 

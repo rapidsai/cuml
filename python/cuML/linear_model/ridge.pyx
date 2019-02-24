@@ -1,4 +1,5 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,61 @@
 # limitations under the License.
 #
 
-cimport ridge
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
+
+
+cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+
+    cdef void ridgeFit(float *input,
+                       int n_rows,
+                       int n_cols,
+                       float *labels,
+                       float *alpha,
+                       int n_alpha,
+                       float *coef,
+                       float *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo)
+
+    cdef void ridgeFit(double *input,
+                       int n_rows,
+                       int n_cols,
+                       double *labels,
+                       double *alpha,
+                       int n_alpha,
+                       double *coef,
+                       double *intercept,
+                       bool fit_intercept,
+                       bool normalize,
+                       int algo)
+
+    cdef void ridgePredict(const float *input,
+                           int n_rows,
+                           int n_cols,
+                           const float *coef,
+                           float intercept,
+                           float *preds)
+
+    cdef void ridgePredict(const double *input,
+                           int n_rows,
+                           int n_cols,
+                           const double *coef,
+                           double intercept,
+                           double *preds)
 
 
 class Ridge:
@@ -29,61 +78,52 @@ class Ridge:
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml import Ridge as cumlRidge
+    import numpy as np
+    import cudf
+    from cuml import linear_model as cumlOLS
 
-        fit_intercept = True
-        normalize = False
-        alpha = np.array([1.0])
-        # eig: eigen decomposition based method, 
-        # svd: singular value decomposition based method,
-        # cd: coordinate descend.
-        solver = "eig"
+    lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
 
-        ridge = cumlRidge(alpha=alpha, fit_intercept=fit_intercept, normalize=normalize, solver=solver)
+    X = cudf.DataFrame()
+    X['col1']=np.array([1,1,2,2],dtype=np.float32)
+    X['col2']=np.array([1,2,2,3],dtype=np.float32)
 
-        X = cudf.DataFrame()
-        X['col1']=np.array([1,1,2,2],dtype=np.float32)
-        X['col2']=np.array([1,2,2,3],dtype=np.float32)
+    y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
-        y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
+    reg = lr.fit(X,y)
+    print("Coefficients:")
+    print(reg.coef_)
+    print("intercept:")
+    print(reg.intercept_)
 
-        result_ridge = ridge.fit(X_cudf, y_cudf)
-        print("Coefficients:")
-        print(result_ridge.coef_)
-        print("intercept:")
-        print(result_ridge.intercept_)
+    X_new = cudf.DataFrame()
+    X_new['col1']=np.array([3,2],dtype=np.float32)
+    X_new['col2']=np.array([5,5],dtype=np.float32)
+    preds = lr.predict(X_new)
 
-        X_new = cudf.DataFrame()
-        X_new['col1']=np.array([3,2],dtype=np.float32)
-        X_new['col2']=np.array([5,5],dtype=np.float32)
-        preds = result_ridge.predict(X_new)
-
-        print(preds)
+    print(preds)
 
     Output:
 
     .. code-block:: python
 
-        Coefficients:
+    Coefficients:
 
-                    0 1.0000001
-                    1 1.9999998
+                  0 1.0000001
+                  1 1.9999998
 
-        Intercept:
-                    3.0
+    Intercept:
+                  3.0
 
-        Preds:
+    Preds:
 
-                    0 15.999999
-                    1 14.999999
+                  0 15.999999
+                  1 14.999999
 
 
-    For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_. For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
+    For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_. For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
     """
-
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
 
@@ -116,7 +156,7 @@ class Ridge:
         for el in alpha:
             if el <= 0.0:
                 msg = "alpha values have to be positive"
-                raise TypeError(msg.format(solver))
+                raise TypeError(msg.format(alpha))
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -188,7 +228,7 @@ class Ridge:
         cdef double c_alpha2
         if self.gdf_datatype.type == np.float32:
             c_alpha1 = self.alpha
-            ridge.ridgeFit(<float*>X_ptr,
+            ridgeFit(<float*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <float*>y_ptr,
@@ -203,7 +243,7 @@ class Ridge:
             self.intercept_ = c_intercept1
         else:
             c_alpha2 = self.alpha
-            ridge.ridgeFit(<double*>X_ptr,
+            ridgeFit(<double*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <double*>y_ptr,
@@ -259,14 +299,14 @@ class Ridge:
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
-            ridge.ridgePredict(<float*>X_ptr,
+            ridgePredict(<float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
                            <float>self.intercept_,
                            <float*>preds_ptr)
         else:
-            ridge.ridgePredict(<double*>X_ptr,
+            ridgePredict(<double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,

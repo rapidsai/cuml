@@ -43,7 +43,7 @@ def get_config():
     cfg.style = "pep440"
     cfg.tag_prefix = "v"
     cfg.parentdir_prefix = "cuml-"
-    cfg.versionfile_source = "cuML/_version.py"
+    cfg.versionfile_source = "cuml/_version.py"
     cfg.verbose = False
     return cfg
 

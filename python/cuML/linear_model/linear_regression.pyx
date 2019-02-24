@@ -1,4 +1,5 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +14,55 @@
 # limitations under the License.
 #
 
-cimport ols
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
+
+
+cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+
+    cdef void olsFit(float *input,
+                     int n_rows,
+                     int n_cols,
+                     float *labels,
+                     float *coef,
+                     float *intercept,
+                     bool fit_intercept,
+                     bool normalize, int algo)
+
+    cdef void olsFit(double *input,
+                     int n_rows,
+                     int n_cols,
+                     double *labels,
+                     double *coef,
+                     double *intercept,
+                     bool fit_intercept,
+                     bool normalize, int algo)
+
+    cdef void olsPredict(const float *input,
+                         int n_rows,
+                         int n_cols,
+                         const float *coef,
+                         float intercept,
+                         float *preds)
+
+    cdef void olsPredict(const double *input,
+                         int n_rows,
+                         int n_cols,
+                         const double *coef,
+                         double intercept,
+                         double *preds)
 
 
 class LinearRegression:
@@ -29,47 +72,47 @@ class LinearRegression:
 
     .. code-block:: python
 
-        import numpy as np
-        import cudf
-        from cuml import linear_model as cumlOLS
+    import numpy as np
+    import cudf
+    from cuml import linear_model as cumlOLS
 
-        lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
+    lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
 
-        X = cudf.DataFrame()
-        X['col1']=np.array([1,1,2,2],dtype=np.float32)
-        X['col2']=np.array([1,2,2,3],dtype=np.float32)
+    X = cudf.DataFrame()
+    X['col1']=np.array([1,1,2,2],dtype=np.float32)
+    X['col2']=np.array([1,2,2,3],dtype=np.float32)
 
-        y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
+    y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
-        reg = lr.fit(X,y)
-        print("Coefficients:")
-        print(reg.coef_)
-        print("intercept:")
-        print(reg.intercept_)
+    reg = lr.fit(X,y)
+    print("Coefficients:")
+    print(reg.coef_)
+    print("intercept:")
+    print(reg.intercept_)
 
-        X_new = cudf.DataFrame()
-        X_new['col1']=np.array([3,2],dtype=np.float32)
-        X_new['col2']=np.array([5,5],dtype=np.float32)
-        preds = lr.predict(X_new)
+    X_new = cudf.DataFrame()
+    X_new['col1']=np.array([3,2],dtype=np.float32)
+    X_new['col2']=np.array([5,5],dtype=np.float32)
+    preds = lr.predict(X_new)
 
-        print(preds)
+    print(preds)
 
     Output:
 
     .. code-block:: python
 
-        Coefficients:
+    Coefficients:
 
-                    0 1.0000001
-                    1 1.9999998
+                  0 1.0000001
+                  1 1.9999998
 
-        Intercept:
-                    3.0
+    Intercept:
+                  3.0
 
-        Preds:
+    Preds:
 
-                    0 15.999999
-                    1 14.999999
+                  0 15.999999
+                  1 14.999999
 
 
     For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_. For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
@@ -165,7 +208,7 @@ class LinearRegression:
         cdef double c_intercept2
         if self.gdf_datatype.type == np.float32:
 
-            ols.olsFit(<float*>X_ptr,
+            olsFit(<float*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <float*>y_ptr,
@@ -177,7 +220,7 @@ class LinearRegression:
 
             self.intercept_ = c_intercept1
         else:
-            ols.olsFit(<double*>X_ptr,
+            olsFit(<double*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <double*>y_ptr,
@@ -231,14 +274,14 @@ class LinearRegression:
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
-            ols.olsPredict(<float*>X_ptr,
+            olsPredict(<float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
                            <float>self.intercept_,
                            <float*>preds_ptr)
         else:
-            ols.olsPredict(<double*>X_ptr,
+            olsPredict(<double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,

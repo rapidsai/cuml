@@ -18,7 +18,7 @@ import pandas as pd
 from copy import deepcopy
 
 from numbers import Number
-
+from numba import cuda
 from sklearn import datasets
 
 import cudf
@@ -86,7 +86,7 @@ def get_pattern(name, n_samples):
 def np_to_cudf(X):
     df = cudf.DataFrame()
     for i in range(X.shape[1]):
-        df['fea%d' % i] = np.ascontiguousarray(X[:, i])
+        df['fea%d' % i] = cuda.to_device(np.ascontiguousarray(X[:, i]))
     return df
 
 
