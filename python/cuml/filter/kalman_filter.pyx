@@ -115,26 +115,29 @@ class KalmanFilter:
     not give you a functional filter.
     After construction the filter will have default matrices created for you,
     but you must specify the values for each.
+
     Examples
     --------
+
     .. code::
-        from cuML import KalmanFilter
+
+        from cuml import KalmanFilter
         f = KalmanFilter(dim_x=2, dim_z=1)
         f.x = np.array([[2.],    # position
                         [0.]])   # velocity
-        f.F = np.array([[1.,1.],
-                            [0.,1.]])
+        f.F = np.array([[1.,1.], [0.,1.]])
         f.H = np.array([[1.,0.]])
-        f.P = np.array([[1000.,    0.],
-                        [   0., 1000.] ])
+        f.P = np.array([[1000., 0.], [   0., 1000.] ])
         f.R = 5
 
     Now just perform the standard predict/update loop:
-    while some_condition_is_true:
+
     .. code::
-        z = numba.cuda.to_device(np.array([i])
-        f.predict()
-        f.update(z)
+
+        while some_condition_is_true:
+            z = numba.cuda.to_device(np.array([i])
+            f.predict()
+            f.update(z)
 
     Parameters
     ----------

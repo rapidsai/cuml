@@ -72,47 +72,47 @@ class LinearRegression:
 
     .. code-block:: python
 
-    import numpy as np
-    import cudf
-    from cuml import linear_model as cumlOLS
+        import numpy as np
+        import cudf
+        from cuml import linear_model as cumlOLS
 
-    lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
+        lr = cumlOLS.LinearRegression(fit_intercept=True, normalize = False, algorithm = 'eig')
 
-    X = cudf.DataFrame()
-    X['col1']=np.array([1,1,2,2],dtype=np.float32)
-    X['col2']=np.array([1,2,2,3],dtype=np.float32)
+        X = cudf.DataFrame()
+        X['col1']=np.array([1,1,2,2],dtype=np.float32)
+        X['col2']=np.array([1,2,2,3],dtype=np.float32)
 
-    y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
+        y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
-    reg = lr.fit(X,y)
-    print("Coefficients:")
-    print(reg.coef_)
-    print("intercept:")
-    print(reg.intercept_)
+        reg = lr.fit(X,y)
+        print("Coefficients:")
+        print(reg.coef_)
+        print("intercept:")
+        print(reg.intercept_)
 
-    X_new = cudf.DataFrame()
-    X_new['col1']=np.array([3,2],dtype=np.float32)
-    X_new['col2']=np.array([5,5],dtype=np.float32)
-    preds = lr.predict(X_new)
+        X_new = cudf.DataFrame()
+        X_new['col1']=np.array([3,2],dtype=np.float32)
+        X_new['col2']=np.array([5,5],dtype=np.float32)
+        preds = lr.predict(X_new)
 
-    print(preds)
+        print(preds)
 
     Output:
 
     .. code-block:: python
 
-    Coefficients:
+        Coefficients:
 
-                  0 1.0000001
-                  1 1.9999998
+                    0 1.0000001
+                    1 1.9999998
 
-    Intercept:
-                  3.0
+        Intercept:
+                    3.0
 
-    Preds:
+        Preds:
 
-                  0 15.999999
-                  1 14.999999
+                    0 15.999999
+                    1 14.999999
 
 
     For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_. For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
@@ -122,7 +122,7 @@ class LinearRegression:
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
 
         """
-        Initializes the liner regression class.
+        Initializes the linear regression class.
 
         Parameters
         ----------
