@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+25# Copyright (c) 2018, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,9 +71,9 @@ def test_linear_kalman_filter_base(precision):
     assert sqrt(rmse_v/n) < 0.1
 
 
-@pytest.mark.parametrize('dim_x', [2, 10, 100])
-@pytest.mark.parametrize('dim_z', [1, 2, 10, 100])
-@pytest.mark.parametrize('precision', ['single'])
+@pytest.mark.parametrize('dim_x', [2, 10, 25])
+@pytest.mark.parametrize('dim_z', [1, 2, 10, 25])
+@pytest.mark.parametrize('precision', ['single', 'double'])
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf'])
 def test_linear_kalman_filter(precision, dim_x, dim_z, input_type):
     f = KalmanFilter(dim_x=dim_x, dim_z=dim_z, precision=precision)
@@ -114,9 +114,9 @@ def test_linear_kalman_filter(precision, dim_x, dim_z, input_type):
     rmse_x = 0
     rmse_v = 0
 
-    n = 100
+    n = 10
 
-    for i in range(100):
+    for i in range(n):
         f.predict()
 
         z = i*np.ones(dim_z, dtype=dt)

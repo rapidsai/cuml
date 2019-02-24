@@ -22,7 +22,7 @@ import numpy as np
 from sklearn import cluster, datasets
 from sklearn.preprocessing import StandardScaler
 
-from utils import fit_predict, get_pattern, clusters_equal
+from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
                  'no_structure']
@@ -74,6 +74,7 @@ def test_dbscan_predict_numpy(datatype):
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
+@pytest.mark.stress
 def test_dbscan_sklearn_comparison(name):
 
     # Skipping datasets of known discrepancies in PR83 while they are corrected

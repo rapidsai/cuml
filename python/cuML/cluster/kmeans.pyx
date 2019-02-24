@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,15 +14,75 @@
 # limitations under the License.
 #
 
-cimport c_kmeans
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
-import ctypes
-from libc.stdint cimport uintptr_t
-from c_kmeans cimport *
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
+import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+
+from libcpp cimport bool
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
+
+cdef extern from "kmeans/kmeans_c.h" namespace "ML":
+
+    cdef void make_ptr_kmeans(
+        int dopredict,
+        int verbose,
+        int seed,
+        int gpu_id,
+        int n_gpu,
+        size_t mTrain,
+        size_t n,
+        const char ord,
+        int k,
+        int k_max,
+        int max_iterations,
+        int init_from_data,
+        float threshold,
+        const float *srcdata,
+        const float *centroids,
+        float *pred_centroids,
+        int *pred_labels
+    )
+
+    cdef void make_ptr_kmeans(
+        int dopredict,
+        int verbose,
+        int seed,
+        int gpu_id,
+        int n_gpu,
+        size_t mTrain,
+        size_t n,
+        const char ord,
+        int k,
+        int k_max,
+        int max_iterations,
+        int init_from_data,
+        double threshold,
+        const double *srcdata,
+        const double *centroids,
+        double *pred_centroids,
+        int *pred_labels
+    )
+
+
+    cdef void kmeans_transform(int verbose,
+                             int gpu_id, int n_gpu,
+                             size_t m, size_t n, const char ord, int k,
+                             const float *src_data, const float *centroids,
+                             float *preds)
+
+    cdef void kmeans_transform(int verbose,
+                              int gpu_id, int n_gpu,
+                              size_t m, size_t n, const char ord, int k,
+                              const double *src_data, const double *centroids,
+                              double *preds)
 
 class KMeans:
 
@@ -159,7 +219,7 @@ class KMeans:
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
 
         if self.gdf_datatype.type == np.float32:
-            c_kmeans.make_ptr_kmeans(
+            make_ptr_kmeans(
                 <int> 0,                    # dopredict
                 <int> self.verbose,         # verbose
                 <int> self.random_state,    # seed
@@ -167,7 +227,7 @@ class KMeans:
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <int> self.n_clusters,       # k_max
                 <int> self.max_iter,         # max_iterations
@@ -180,7 +240,7 @@ class KMeans:
                 #<float*> 0, # pred_centroids
                 <int*> labels_ptr)          # pred_labels
         else:
-            c_kmeans.make_ptr_kmeans(
+            make_ptr_kmeans(
                 <int> 0,                    # dopredict
                 <int> self.verbose,         # verbose
                 <int> self.random_state,    # seed
@@ -188,7 +248,7 @@ class KMeans:
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <int> self.n_clusters,       # k_max
                 <int> self.max_iter,         # max_iterations
@@ -257,7 +317,7 @@ class KMeans:
         cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
-            c_kmeans.make_ptr_kmeans(
+            make_ptr_kmeans(
                 <int> 1,                    # dopredict
                 <int> self.verbose,                    # verbose
                 <int> self.random_state,                    # seed
@@ -265,7 +325,7 @@ class KMeans:
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <int> self.n_clusters,       # k_max
                 <int> self.max_iter,         # max_iterations
@@ -278,7 +338,7 @@ class KMeans:
                 <float*> 0, # pred_centroids
                 <int*> labels_ptr)          # pred_labels
         else:
-            c_kmeans.make_ptr_kmeans(
+            make_ptr_kmeans(
                 <int> 1,                    # dopredict
                 <int> self.verbose,                    # verbose
                 <int> self.random_state,                    # seed
@@ -286,7 +346,7 @@ class KMeans:
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <int> self.n_clusters,       # k_max
                 <int> self.max_iter,         # max_iterations
@@ -340,25 +400,25 @@ class KMeans:
         cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
 
         if self.gdf_datatype.type == np.float32:
-            c_kmeans.kmeans_transform(
+            kmeans_transform(
                 <int> self.verbose,                    # verbose
                 <int> self.gpu_id,                    # gpu_id
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <float*> input_ptr,    # srcdata
                 <float*> cluster_centers_ptr,    # centroids
                 <float*> preds_ptr)          # preds
         else:
-            c_kmeans.kmeans_transform(
+            kmeans_transform(
                 <int> self.verbose,                    # verbose
                 <int> self.gpu_id,                    # gpu_id
                 <int> self.n_gpu,                    # n_gpu
                 <size_t> self.n_rows,       # mTrain (rows)
                 <size_t> self.n_cols,       # n (cols)
-                <char> 'r',            # ord
+                <char> b'r',            # ord
                 <int> self.n_clusters,       # k
                 <double*> input_ptr,    # srcdata
                 <double*> cluster_centers_ptr,    # centroids

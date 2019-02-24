@@ -1,4 +1,5 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,13 @@
 # limitations under the License.
 #
 
-cimport knn
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
+from cuml.neighbors.knn cimport *
+
 import numpy as np
 import pandas as pd
 import cudf
@@ -23,7 +30,9 @@ from librmm_cffi import librmm as rmm
 from libc.stdlib cimport malloc, free
 from cython.operator cimport dereference as deref
 from numba import cuda
-from knn cimport *
+
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
 
 class KNNparams:
     def __init__(self, n_gpus):

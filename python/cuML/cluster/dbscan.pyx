@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,37 @@
 # limitations under the License.
 #
 
-cimport c_dbscan
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+from cuml import numba_utils
+
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
-from c_dbscan cimport *
-# temporary import for numba_utils
-from cuML import numba_utils
+from libc.stdlib cimport calloc, malloc, free
+
+cdef extern from "dbscan/dbscan_c.h" namespace "ML":
+
+    cdef void dbscanFit(float *input,
+                   int n_rows,
+                   int n_cols,
+                   float eps,
+                   int min_pts,
+                   int *labels)
+
+    cdef void dbscanFit(double *input,
+                   int n_rows,
+                   int n_cols,
+                   double eps,
+                   int min_pts,
+                   int *labels)
 
 
 class DBSCAN:
@@ -115,14 +136,14 @@ class DBSCAN:
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
         print(hex(labels_ptr))
         if self.gdf_datatype.type == np.float32:
-            c_dbscan.dbscanFit(<float*>input_ptr,
+            dbscanFit(<float*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
 		               <int*> labels_ptr)
         else:
-            c_dbscan.dbscanFit(<double*>input_ptr,
+            dbscanFit(<double*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <double> self.eps,
