@@ -142,7 +142,6 @@ public:
     
     cub::DeviceRadixSort::SortPairs((void*) cub_temp_storage, cub_temp_storage_bytes, f, f_sorted, f_idx, f_idx_sorted, n_rows);
     
-    
     int n_selected;
     cub::DeviceSelect::If(cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, f_idx_tmp, d_num_selected, n_rows, 
                           [alpha, y, C]__device__(int idx) { return in_upper(alpha[idx], y[idx], C); });

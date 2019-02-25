@@ -90,6 +90,58 @@ TEST(SmoSolverTestF, SelectWorkingSetTest) {
   delete ws;
 }
 
+TEST(SmoSolverTest, KernelCacheTest) {
+    int n_rows = 4;
+    int n_cols = 2;
+    int n_ws = n_rows;
+    
+    float *x_dev;
+    allocate(x_dev, n_rows*n_cols);
+    int *ws_idx_dev;
+    allocate(ws_idx_dev, n_ws);
+    
+    float x_host[] = {1, 2, 1, 2, 1, 2, 3, 4};
+    updateDevice(x_dev, x_host, n_rows*n_cols);
+    
+    int ws_idx_host[] = {0, 1, 2, 3};
+    updateDevice(ws_idx_dev, ws_idx_host, n_ws);
+    
+    float tile_host[16];
+    float tile_host_expected[] = {
+      2,  4,  4,  6,
+      4,  8,  8, 12,
+      4,  8, 10, 14,
+      6, 12, 14, 20
+    };
+    
+    cublasHandle_t cublas_handle;
+    CUBLAS_CHECK(cublasCreate(&cublas_handle));
+    
+    KernelCache<float> *cache = new KernelCache<float>(x_dev, n_rows, n_cols, n_ws, cublas_handle);
+    float *tile_dev = cache->GetTile(ws_idx_dev);
+    updateHost(tile_host, tile_dev, n_ws*n_ws);
+    
+    for (int i=0; i<n_ws*n_ws; i++) {
+      EXPECT_EQ(tile_host[i], tile_host_expected[i]);
+    }
+    
+    delete cache;
+    n_ws = 2;
+    cache = new KernelCache<float>(x_dev, n_rows, n_cols, n_ws, cublas_handle);
+    ws_idx_host[1] = 3; // i.e. ws_idx_host[] = {0,3}
+    updateDevice(ws_idx_dev, ws_idx_host, n_ws);
+    tile_dev = cache->GetTile(ws_idx_dev);
+    updateHost(tile_host, tile_dev, n_ws*n_ws);
+    float tile_expected2[] = {2, 6, 6, 20};
+    for (int i=0; i<n_ws*n_ws; i++) {
+      EXPECT_EQ(tile_host[i], tile_expected2[i]) << i;
+    }
+    delete cache; 
+    CUBLAS_CHECK(cublasDestroy(cublas_handle));
+    CUDA_CHECK(cudaFree(x_dev));
+    CUDA_CHECK(cudaFree(ws_idx_dev));
+}
+
 /*TEST_F(SmoSolverTestF, SelectWorkingSetTest) {
   ASSERT_LT(1, 2);
 }*/
