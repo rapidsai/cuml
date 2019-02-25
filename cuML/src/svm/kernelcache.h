@@ -47,12 +47,14 @@ public:
     CUDA_CHECK(cudaFree(tile));
   };
   math_t* GetTile(int *ws_idx) {
-    // calculate kernel function values for indices in ws_idx
-    /*linalg::gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
-          math_t *c, int n_rows_c, int n_cols_c, cublasOperation_t trans_a,
-          cublasOperation_t trans_b, math_t alpha, math_t beta,
-          cublas_handle) ;
-    */return tile;
+    // implementing only linear kernel so far
+    // we need to gather ws_idx rows
+    // lets assume that it is collected into
+    math_t *x_ws = x; // //CollectRows(ws_idx);
+    //calculate kernel function values for indices in ws_idx
+    LinAlg::gemm(x, n_ws, n_cols, x, tile, n_ws, n_ws, CUBLAS_OP_N,
+          CUBLAS_OP_T, math_t(1.0), math_t(0.0), cublas_handle) ;
+    return tile;
   }
 };
 
