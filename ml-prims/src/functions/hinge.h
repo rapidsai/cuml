@@ -38,19 +38,20 @@ namespace Functions {
 template <typename math_t>
 void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2, int n_row, int n_col) {
 
-	LinAlg::matrixVectorOp(data, vec1, vec2, n_col, n_row, false,
+	LinAlg::matrixVectorVectorOp(data, vec1, vec2, n_col, n_row, false, false,
 		        		       [] __device__ (math_t a, math_t b, math_t c) {
 		                              if (c < math_t(1))
 		        		                  return -a * b;
 		                              else
 		                            	  return math_t(0);
 		        		          });
+
 }
 
 template <typename math_t>
 void hingeLossSubtract(math_t* out, const math_t* in, math_t scalar, int len) {
 
-	LinAlg::unaryOp(out, in, math_t(1), len, [] __device__ (math_t in, math_t scalar) {
+	LinAlg::unaryScalarOp(out, in, math_t(1), len, [] __device__ (math_t in, math_t scalar) {
 		                                            if (in < scalar)
 		                                            	return math_t(1) - in;
 		                                            else
@@ -66,8 +67,8 @@ void hingeH(const math_t *input, int n_rows, int n_cols,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, false,
-				false, alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
+				CUBLAS_OP_N, alpha, beta, cublas_handle);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);

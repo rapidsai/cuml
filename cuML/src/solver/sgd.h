@@ -242,14 +242,14 @@ void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const ma
 	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss, cublas_handle);
 
 	if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-		LinAlg::unaryOp(preds, preds, math_t(1), n_rows, [] __device__ (math_t in, math_t scalar) {
+		LinAlg::unaryOp(preds, preds, n_rows, [] __device__ (math_t in) {
 		                                                  	  if (in >= math_t(0.5))
 		                                                  		  return math_t(1);
 		                                                  	  else
 		                                                  		  return math_t(0);
 	                                                    	});
 	} else if (loss == ML::loss_funct::HINGE) {
-		LinAlg::unaryOp(preds, preds, math_t(1), n_rows, [] __device__ (math_t in, math_t scalar) {
+		LinAlg::unaryOp(preds, preds, n_rows, [] __device__ (math_t in) {
 				                                              if (in >= math_t(0.0))
 				                                                  return math_t(1);
 				                                              else

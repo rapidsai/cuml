@@ -69,7 +69,7 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 
 	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
 	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
-	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false);
+	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, false);
 	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false);

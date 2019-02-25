@@ -113,6 +113,6 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, int D,
                                              bcastAlongRows, op, stream);
   }
 }
-  
+
 }; // end namespace LinAlg
 }; // end namespace MLCommon

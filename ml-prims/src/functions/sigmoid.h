@@ -28,18 +28,16 @@ void sigmoid(T *out, T *in, int len);
 template <>
 inline void sigmoid(float *out, float *in, int len) {
 	float scalar = float(1);
-	LinAlg::unaryOp(out, in, scalar, len, [] __device__ (float in, float scalar) {
+	LinAlg::unaryScalarOp(out, in, scalar, len, [] __device__ (float in, float scalar) {
 		                                         return 1.0 / (1.0 + expf(-in));
 		                                   });
 
-    // unaryOp(math_t *out, const math_t *in, int len, Lambda op,
-    //          cudaStream_t stream = 0)
 }
 
 template <>
 inline void sigmoid(double *out, double *in, int len) {
 	double scalar = double(1);
-	LinAlg::unaryOp(out, in, scalar, len, [] __device__ (double in, double scalar) {
+	LinAlg::unaryScalarOp(out, in, scalar, len, [] __device__ (double in, double scalar) {
 		                                         return 1.0 / (1.0 + exp(-in));
 		                                   });
 }

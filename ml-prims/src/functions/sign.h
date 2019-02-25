@@ -24,7 +24,7 @@ namespace Functions {
 template<typename math_t>
 void sign(math_t *out, const math_t *in, const math_t scalar, const int len) {
 
-    LinAlg::unaryOp(out, in, scalar, len, [] __device__ (math_t in, math_t scalar) {
+    LinAlg::unaryScalarOp(out, in, scalar, len, [] __device__ (math_t in, math_t scalar) {
                                             if (in < math_t(0))
                                             	return (math_t(-1) * scalar);
                                             else if (in > math_t(0))
