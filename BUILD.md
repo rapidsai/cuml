@@ -24,6 +24,7 @@ $ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 $ cd cuML
 $ mkdir build
 $ cd build
+$ export CUDA_BIN_PATH=$CUDA_HOME # (optional CUDA_HOME=/path/to/cuda/)
 $ cmake ..
 ```
 
@@ -39,7 +40,7 @@ Cannot generate a safe runtime search path for target ml_test because files
 in some directories may conflict with libraries in implicit directories:
 ```
 
-The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version. 
+The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
 
 
 3. Build `libcuml`:
