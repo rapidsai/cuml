@@ -37,9 +37,26 @@ namespace ML {
 	 */
 	kNN::kNN(int D): D(D), total_n(0), indices(0){}
 	kNN::~kNN() {
-		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) { delete idx; }
+		for(faiss::gpu::GpuIndex* idx : sub_indices) { delete idx; }
 		for(faiss::gpu::GpuResources *r : res) { delete r; }
 	}
+
+
+
+	void create_flat_index(std::vector<faiss::gpu::GpuIndex*> *sub_indices,
+	                      faiss::gpu::GpuResources *res,
+	                      kNNParams *params, int device, int D) {
+
+        faiss::gpu::GpuIndexFlatConfig config;
+        config.device = device;
+        config.useFloat16 = false;
+        config.storeTransposed = false;
+
+        sub_indices->emplace_back(
+                new faiss::gpu::GpuIndexFlatL2(res, D, config)
+        );
+	}
+
 
 	/**
 	 * Fit a kNN model by creating separate indices for multiple given
@@ -65,15 +82,7 @@ namespace ML {
 				this->indices += 1;
 
 				res.emplace_back(new faiss::gpu::StandardGpuResources());
-
-				faiss::gpu::GpuIndexFlatConfig config;
-				config.device = att.device;
-				config.useFloat16 = false;
-				config.storeTransposed = false;
-
-				sub_indices.emplace_back(
-						new faiss::gpu::GpuIndexFlatL2(res[i], D, config)
-				);
+                create_flat_index(&sub_indices, res[i], params, att.device, D);
 
 				// It's only necessary to maintain our set of shards because
 				// the GpuIndexFlat class does not support add_with_ids(),

@@ -10,6 +10,8 @@
 #define _KNN_H
 namespace ML {
 
+    enum IndexType { flat, ivfpq };
+
 	class kNNParams {
 	public:
 		const float *ptr;
@@ -25,7 +27,7 @@ namespace ML {
 		std::vector<long> id_ranges;
 
 		std::vector<faiss::gpu::GpuResources* > res;
-		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+		std::vector<faiss::gpu::GpuIndex* > sub_indices;
 
 		int total_n;
 		int indices;
