@@ -167,6 +167,8 @@ namespace UMAPAlgo {
                             sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
 
+                    __syncthreads();
+
                 }
 
             }
@@ -228,7 +230,11 @@ namespace UMAPAlgo {
                         rows[idx] = row;
                         cols[idx] = cur_knn_ind;
                         vals[idx] = val;
+
+
                     }
+
+                    __syncthreads();
                 }
             }
 
@@ -292,6 +298,8 @@ namespace UMAPAlgo {
                     }
                     rnnz[row] = nnz;
                     atomicAdd(rnnz + n, nnz);
+
+                    __syncthreads();
                 }
             }
 
@@ -328,7 +336,7 @@ namespace UMAPAlgo {
                 /**
                  * Clean up memory for subsequent algorithms
                  */
-                delete dist_means_host;
+                free(dist_means_host);
                 CUDA_CHECK(cudaFree(dist_means_dev));
 
                 /**

@@ -107,6 +107,38 @@ namespace UMAPAlgo {
 	        }
 
 	        template<typename T>
+	        T repulsive_grad(T dist_squared, UMAPParams *params) {
+                T grad_coeff = 2.0 * params->gamma * params->b;
+                grad_coeff /= (0.001 + dist_squared) * (
+                    params->a * pow(dist_squared, params->b) + 1
+                );
+                return grad_coeff;
+	        }
+
+	        template<typename T>
+	        T attractive_grad(T dist_squared, UMAPParams *params) {
+                T grad_coeff = -2.0 * params->a * params->b *
+                        pow(dist_squared, params->b - 1.0);
+                grad_coeff /= params->a * pow(dist_squared, params->b) + 1.0;
+                return grad_coeff;
+	        }
+
+	        /**
+	         * Runs a stochastic gradient descent using sampling weights defined on
+	         * both the attraction and repulsion vectors.
+	         *
+	         * The python version is not mini-batched, but this would be ideal
+	         * in order to improve the parallelism.
+	         *
+	         * In this SGD implementation, the weights being tuned are actually the
+	         * embeddings themselves, as the objective function is attracting
+	         * positive weights (neighbors in the 1-skeleton) and repelling
+	         * negative weights (non-neighbors in the 1-skeleton). It's important
+	         * to think through the implications of this in the batching, as
+	         * it means threads will need to be synchronized when updating
+	         * the same embeddings.
+	         */
+	        template<typename T>
 	        void optimize_layout(
 	                T *head_embedding, int head_n,
 	                T *tail_embedding, int tail_n,
@@ -115,7 +147,7 @@ namespace UMAPAlgo {
 	                int n_vertices,
 	                UMAPParams *params) {
 
-	            int dim = params->n_components;
+	            // unsupervised training?
 	            bool move_other = head_n == tail_n;
 
 	            T alpha = params->initial_alpha;
@@ -139,6 +171,12 @@ namespace UMAPAlgo {
 
 	            print_arr(epoch_of_next_sample, nnz, "epoch_of_next_sample");
 
+	            // TODO: Need to think about this so that it can be done in parallel because
+	            // Leland wrote this in a way where sequential iterations are required.
+	            // There are better ways we could guarantee certain neighbors in the 1-skeleton
+	            // are chosen some pre-determined number of times without the need for a
+	            // dependence across iterations.
+
 	            for(int n = 0; n < params->n_epochs; n++) {
 
 	                /**
@@ -151,6 +189,10 @@ namespace UMAPAlgo {
 	                 *    sampling.
 	                 */
 	                for(int i = 0; i < nnz; i++) {
+
+	                    /**
+	                     * Positive sample stage (attractive forces)
+	                     */
 	                    if(epoch_of_next_sample[i] <= n) {
 
 	                        int j = head[i];
@@ -161,57 +203,69 @@ namespace UMAPAlgo {
 
 	                        float dist_squared = rdist(current, other, params->n_components);
 
-	                        float grad_coeff = 0.0;
+                            // Aatractive force between the two vertices
+	                        T attractive_grad_coeff = 0.0;
 	                        if(dist_squared > 0.0) {
-	                            grad_coeff = -2.0 * params->a * params->b *
-	                                    pow(dist_squared, params->b - 1.0);
-	                            grad_coeff /= params->a * pow(dist_squared, params->b) + 1.0;
+	                            attractive_grad_coeff = attractive_grad(dist_squared, params);
 	                        }
 
-	                        for(int d = 0; d < dim; d++) {
-	                            float grad_d = clip(grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
+	                        /**
+	                         * Apply attractive force between `current` and `other`
+	                         * by updating their 'weights' to put them closer in
+	                         * Euclidean space.
+	                         * (update other embedding only if we are
+	                         * performing unsupervised training).
+	                         */
+	                        for(int d = 0; d < params->n_components; d++) {
+	                            T grad_d = clip(attractive_grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
 	                            current[d] += grad_d * alpha;
+
+	                            // happens only during unsupervised training
 	                            if(move_other)
 	                                other[d] += -grad_d * alpha;
 	                        }
 
 	                        epoch_of_next_sample[i] += epochs_per_sample[i];
 
+	                        // choose negative samples
 	                        int n_neg_samples = int(
 	                            (n - epoch_of_next_negative_sample[i]) /
 	                            epochs_per_negative_sample[i]
 	                        );
 
+	                        /**
+	                         * Negative sampling stage (repulsive forces)
+	                         */
 	                        for(int p = 0; p < n_neg_samples; p++) {
 
 	                            int rand = fastrand() % n_vertices;
 
-	                            other = tail_embedding+(rand*params->n_components);
-	                            dist_squared = rdist(current, other, params->n_components);
+	                            T *negative_sample = tail_embedding+(rand*params->n_components);
+	                            dist_squared = rdist(current, negative_sample, params->n_components);
 
+	                            // repulsive force between two vertices
+	                            T repulsive_grad_coeff = 0.0;
 	                            if(dist_squared > 0.0) {
-	                                grad_coeff = 2.0 * params->gamma * params->b;
-	                                grad_coeff /= (0.001 + dist_squared) * (
-	                                    params->a * pow(dist_squared, params->b) + 1
-	                                );
+	                                repulsive_grad_coeff = repulsive_grad(dist_squared, params);
 	                            } else if(j == rand)
 	                                continue;
-	                            else
-	                                grad_coeff = 0.0;
 
-	                            for(int d = 0; d < dim; d++) {
+	                            /**
+	                             * Apply repulsive force between `current` and `other`
+	                             * (which is has been negatively sampled) by updating
+	                             * their 'weights' to push them farther in Euclidean space.
+	                             */
+	                            for(int d = 0; d < params->n_components; d++) {
 	                                T grad_d = 0.0;
-	                                if(grad_coeff > 0.0)
-	                                    grad_d = clip(grad_coeff * (current[d] - other[d]), -4.0f, 4.0f);
+	                                if(repulsive_grad_coeff > 0.0)
+	                                    grad_d = clip(repulsive_grad_coeff * (current[d] - negative_sample[d]), -4.0f, 4.0f);
 	                                else
 	                                    grad_d = 4.0;
-
 	                                current[d] += grad_d * alpha;
 	                            }
 
-	                            epoch_of_next_negative_sample[i] += (
-	                                n_neg_samples * epochs_per_negative_sample[i]
-	                            );
+	                            epoch_of_next_negative_sample[i] +=
+	                                n_neg_samples * epochs_per_negative_sample[i];
 	                        }
 	                    }
 
@@ -219,9 +273,9 @@ namespace UMAPAlgo {
 	                }
 	            }
 
-	            delete epochs_per_negative_sample;
-	            delete epoch_of_next_negative_sample;
-	            delete epoch_of_next_sample;
+	            free(epochs_per_negative_sample);
+	            free(epoch_of_next_negative_sample);
+	            free(epoch_of_next_sample);
 	        }
 
 	        /**
@@ -272,20 +326,31 @@ namespace UMAPAlgo {
 	            MLCommon::updateHost(head_h, rows, nnz);
 	            MLCommon::updateHost(tail_h, cols, nnz);
 
-	            T *embedding_h = (T*)malloc(m*params->n_components);
+	            T *embedding_h = (T*)malloc(m*params->n_components*sizeof(T));
 	            MLCommon::updateHost(embedding_h, embedding, m*params->n_components);
 
-	            optimize_layout(embedding_h, m, embedding_h, m,
+	            std::cout << "Calling optimize layout" << std::endl;
+
+	            optimize_layout(embedding_h, m,
+	                            embedding_h, m,
 	                            head_h, tail_h, nnz,
 	                            epochs_per_sample,
 	                            m,
 	                            params);
 
-	            print_arr(embedding_h, m*params->n_components, "embeddings");
+	            MLCommon::updateDevice(embedding, embedding_h, m*params->n_components);
 
-	            delete head_h;
-	            delete tail_h;
-	            delete vals_h;
+                print_arr(embedding_h, m*params->n_components, "embeddings");
+
+                std::cout << "Freeing vecs" << std::endl;
+	            free(head_h);
+	            free(tail_h);
+	            free(vals_h);
+
+                free(epochs_per_sample);
+
+                std::cout << "Freeing embedding_h" << std::endl;
+                free(embedding_h);
 	        }
 		}
 	}

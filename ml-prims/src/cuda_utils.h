@@ -292,7 +292,7 @@ std::string arr2Str(const T *arr, int size, std::string name) {
 	}
 	ss << " ]" << std::endl;
 
-	delete arr_h;
+	free(arr_h);
 
 	return ss.str();
 }
