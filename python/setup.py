@@ -19,6 +19,7 @@ from setuptools.extension import Extension
 from Cython.Build import cythonize
 import versioneer
 from distutils.sysconfig import get_python_lib
+import os
 
 
 install_requires = [
@@ -27,6 +28,11 @@ install_requires = [
 ]
 
 cython_files = ['cuML/cuml.pyx']
+
+cuda_lib_dir = '/usr/local/cuda/include'
+
+if os.environ.get('CUDA_HOME', False):
+    cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
 
 extensions = [
     Extension("cuml",
@@ -37,7 +43,7 @@ extensions = [
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
                             '../cuML/external/ml-prims/external/cub',
-                            '/usr/local/cuda/include'],
+                            cuda_lib_dir],
               library_dirs=[get_python_lib()],
               libraries=['cuda', 'cuml'],
               language='c++',
