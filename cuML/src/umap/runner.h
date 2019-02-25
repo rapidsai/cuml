@@ -98,9 +98,6 @@ namespace UMAPAlgo {
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
 		CUDA_CHECK(cudaPeekAtLastError());
 
-		std::cout << MLCommon::arr2Str(knn_indices, n*params->n_neighbors, "knn_indices");
-        std::cout << MLCommon::arr2Str(knn_dists, n*params->n_neighbors, "knn_dists");
-
 		int *graph_rows, *graph_cols;
 		T *graph_vals;
 
@@ -222,8 +219,6 @@ namespace UMAPAlgo {
         int *ia, *ex_scan;
         MLCommon::allocate(ia, n, true);
         MLCommon::allocate(ex_scan, n, true);
-
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
 
         // COO should be sorted by row at this point- we get the counts and then normalize
         coo_row_counts<TPB_X, T><<<grid, blk>>>(graph_rows, graph_vals, nnz, ia, n);
