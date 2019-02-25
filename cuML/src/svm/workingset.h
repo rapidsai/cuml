@@ -85,6 +85,7 @@ public:
   int *f_idx_tmp = nullptr;  
   math_t *f_sorted = nullptr;
   math_t *f_masked = nullptr;
+  int *d_num_selected = nullptr;
   
   // Buffers for the working set [n_ws]
   
@@ -100,6 +101,7 @@ public:
       allocate(idx, n_ws);
       allocate(f_sorted, n_rows); 
       allocate(f_masked, n_rows); 
+      allocate(d_num_selected, 1);
       // Determine temporary device storage requirements for cub
       cub_temp_storage = NULL;
       cub_temp_storage_bytes = 0;
@@ -124,31 +126,35 @@ public:
     if (idx) CUDA_CHECK(cudaFree(idx));
     if (f_masked) CUDA_CHECK(cudaFree(f_masked));
     if (f_sorted) CUDA_CHECK(cudaFree(f_sorted));
+    if (d_num_selected) CUDA_CHECK(cudaFree(d_num_selected));
     f_idx = nullptr;
     f_idx_sorted = nullptr;
     cub_temp_storage = nullptr;
     idx = nullptr;
     f_masked = nullptr;
     f_sorted = nullptr;
+    d_num_selected = nullptr;
   }
   
   void Select(math_t *f, math_t *alpha, math_t *y, math_t C) {
     
     //Selection::warpTopKtemplate<false, false>(f_sorted, f_idx_sorted, f_masked, 512, n_rows, 1);    
     
-    cub::DeviceRadixSort::SortPairs((void*) cub_temp_storage, cub_temp_storage_bytes, f_idx, f_idx_sorted, f, f_sorted, n_rows);
+    cub::DeviceRadixSort::SortPairs((void*) cub_temp_storage, cub_temp_storage_bytes, f, f_sorted, f_idx, f_idx_sorted, n_rows);
     
     
     int n_selected;
-    cub::DeviceSelect::If(cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, f_idx_tmp, &n_selected, n_rows, 
+    cub::DeviceSelect::If(cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, f_idx_tmp, d_num_selected, n_rows, 
                           [alpha, y, C]__device__(int idx) { return in_upper(alpha[idx], y[idx], C); });
   
+    updateHost(&n_selected, d_num_selected, 1);
     int n_copy1 = n_selected> n_ws/2 ? n_ws/2 : n_selected;
     copy(idx, f_idx_tmp, n_copy1);
       
-    cub::DeviceSelect::If((void*)cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, f_idx_tmp, &n_selected, n_rows, 
+    cub::DeviceSelect::If((void*)cub_temp_storage, cub_temp_storage_bytes, f_idx_sorted, f_idx_tmp, d_num_selected, n_rows, 
         [alpha, y, C]__device__(int idx) { return in_lower(alpha[idx], y[idx], C); }
     );
+    updateHost(&n_selected, d_num_selected, 1);
     int n_copy2 = n_selected > n_ws/2 ? n_ws/2 : n_selected;
     copy(idx + n_copy1, f_idx_tmp+n_selected-n_copy2, n_copy2); 
     
