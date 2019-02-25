@@ -43,8 +43,8 @@ void logisticRegH(const math_t *input, int n_rows, int n_cols,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, false,
-				false, alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
+				CUBLAS_OP_N, alpha, beta, cublas_handle);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);

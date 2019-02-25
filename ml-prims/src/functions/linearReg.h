@@ -42,8 +42,8 @@ void linearRegH(const math_t *input, int n_rows, int n_cols,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, false,
-				false, alpha, beta, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
+				CUBLAS_OP_N, alpha, beta, cublas_handle);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows);
@@ -67,7 +67,11 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 
 	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
 	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
-	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false);
+	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, false);
+
+// matrixVectorBinaryMult(Type *data, const Type *vec, int n_row, int n_col,
+//                             bool rowMajor, bool bcastAlongRows)
+
 	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false);
@@ -111,8 +115,8 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	math_t alpha_gemm = math_t(1);
 	math_t beta_gemm = math_t(0);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, false,
-			false, alpha_gemm, beta_gemm, cublas_handle);
+	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
+			CUBLAS_OP_N, alpha_gemm, beta_gemm, cublas_handle);
 
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
 
