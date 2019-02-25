@@ -58,8 +58,6 @@ namespace UMAPAlgo {
         if(row < n) {
             for(int j = 0; j < n_neighbors; j++) {
                 for(int d = 0; d < n_components; d++) {
-
-                    printf("INDICES: %d\n", indices[i+j]);
                     result[row*n_components+d] += weights[i+j] * embeddings[indices[i+j]*n_components+d];
                 }
             }
@@ -97,15 +95,11 @@ namespace UMAPAlgo {
         MLCommon::allocate(knn_indices, n*params->n_neighbors);
 		MLCommon::allocate(knn_dists, n*params->n_neighbors);
 
-        std::cout << "Running knnGraph" << std::endl;
-
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
 		CUDA_CHECK(cudaPeekAtLastError());
 
 		std::cout << MLCommon::arr2Str(knn_indices, n*params->n_neighbors, "knn_indices");
         std::cout << MLCommon::arr2Str(knn_dists, n*params->n_neighbors, "knn_dists");
-
-		std::cout << "Finished knnGraph" << std::endl;
 
 		int *graph_rows, *graph_cols;
 		T *graph_vals;
@@ -120,7 +114,6 @@ namespace UMAPAlgo {
 		/**
 		 * Run Fuzzy simplicial set
 		 */
-        std::cout << "Running FuzzySimplSet knnGraph" << std::endl;
 		int nnz = 0;
 
 		FuzzySimplSet::run(n, knn_indices, knn_dists,
@@ -128,15 +121,7 @@ namespace UMAPAlgo {
 						   graph_cols,
 						   graph_vals,
 						   params, &nnz,0);
-        CUDA_CHECK(cudaDeviceSynchronize());
-
-        std::cout << "ROWS=" << MLCommon::arr2Str<int>(graph_rows, nnz, "rows") << std::endl;
-        std::cout << "COLS=" << MLCommon::arr2Str<int>(graph_cols, nnz, "cols") << std::endl;
-        std::cout << "VALS=" << MLCommon::arr2Str<float>(graph_vals, nnz, "vals") << std::endl;
-
-
 		CUDA_CHECK(cudaPeekAtLastError());
-        std::cout << "Finished FuzzySimplSet" << std::endl;
 
 		T *embedding;
 		MLCommon::allocate(embedding, n * params->n_components);
@@ -144,19 +129,16 @@ namespace UMAPAlgo {
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
 		        params, embedding);
-		CUDA_CHECK(cudaDeviceSynchronize());
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
-        std::cout << "Running SimplSetEmbed" << std::endl;
 		SimplSetEmbed::run<T, 256>(
 		        X, n, d,
 		        graph_rows, graph_cols, graph_vals, nnz,
 		        params, embedding);
 
         CUDA_CHECK(cudaPeekAtLastError());
-		std::cout << "Finished SimplSetEmbed" << std::endl;
 
 		MLCommon::updateHost(embeddings, embedding, n*params->n_components);
 
@@ -183,8 +165,6 @@ namespace UMAPAlgo {
         dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
-        std::cout << "Inside transform" << std::endl;
-
 	    /**
 	     * Perform kNN of X
 	     */
@@ -192,9 +172,6 @@ namespace UMAPAlgo {
         float *knn_dists;
         MLCommon::allocate(knn_indices, n*params->n_neighbors);
         MLCommon::allocate(knn_dists, n*params->n_neighbors);
-
-        std::cout << "Running knnGraph" << std::endl;
-
 
         knn->search(X, n, knn_indices, knn_dists, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
@@ -219,9 +196,6 @@ namespace UMAPAlgo {
         );
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-        std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
-
         /**
          * Compute graph of membership strengths
          */
@@ -237,8 +211,6 @@ namespace UMAPAlgo {
         MLCommon::allocate(graph_cols, nnz);
         MLCommon::allocate(graph_vals, nnz);
 
-        std::cout << "Running fuzzySimplSetImpl." << std::endl;
-
         FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(
                 knn_indices, knn_dists,
                 sigmas, rhos,
@@ -247,42 +219,21 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
         CUDA_CHECK(cudaDeviceSynchronize());
 
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
-
-        std::cout << "FuzzySimplSetImpl done." << std::endl;
-
         int *ia, *ex_scan;
         MLCommon::allocate(ia, n, true);
         MLCommon::allocate(ex_scan, n, true);
 
         std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
 
-        std::cout << "Runing coo_row_counts" << std::endl;
-
         // COO should be sorted by row at this point- we get the counts and then normalize
         coo_row_counts<TPB_X, T><<<grid, blk>>>(graph_rows, graph_vals, nnz, ia, n);
-
-        std::cout << "Done." << std::endl;
-
-        std::cout << "Runing ex_scan" << std::endl;
 
         thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
         thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
         exclusive_scan(dev_ia, dev_ia + n, dev_ex_scan);
 
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
-
-
-        std::cout << "Done." << std::endl;
-
-        std::cout << "Runing csr_row_normalize_l1" << std::endl;
-
          MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid, blk>>>(dev_ex_scan.get(), graph_vals, nnz,
                  n, params->n_neighbors, graph_vals);
-
-         std::cout << "Done." << std::endl;
-         std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
-
 
         /**
          * Init_transform()
@@ -290,9 +241,6 @@ namespace UMAPAlgo {
          */
         // cols.shape = (X.shape[0], self._n_neighbors)
         // vas.shape = (X.shape[0], self._n_neighbors)
-
-        std::cout << "Runing init_transform" << std::endl;
-
         T *embeddings_d;
         MLCommon::allocate(embeddings_d, n*params->n_components);
 
@@ -304,29 +252,11 @@ namespace UMAPAlgo {
                 result, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        std::cout << "Done." << std::endl;
-
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
-
-
-
-        std::cout << "Finding max" << std::endl;
-
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_cals") << std::endl;
-
         /**
          * Find max of data
          */
         thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(graph_vals);
-
-        std::cout << "Wrapped" << std::endl;
-
         T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
-
-        std::cout << "Done." << std::endl;
-
-
-        std::cout << "Runing unary_op" << std::endl;
 
         /**
          * Go through COO values and set everything that's less than
@@ -343,17 +273,9 @@ namespace UMAPAlgo {
 
         CUDA_CHECK(cudaPeekAtLastError());
 
-        std::cout << "Done." << std::endl;
-
-        std::cout << "Runing count" << std::endl;
-
         thrust::device_ptr<T> dev_gvals = thrust::device_pointer_cast(graph_vals);
         int non_zero_vals = nnz-thrust::count(dev_gvals, dev_gvals+nnz, 0.0);
         CUDA_CHECK(cudaPeekAtLastError());
-
-        std::cout << "Done." << std::endl;
-
-        std::cout << "Runing coo_remove_zeros" << std::endl;
 
         /**
          * Remove zeros
@@ -370,20 +292,11 @@ namespace UMAPAlgo {
                 ia, n);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        std::cout << "Done." << std::endl;
-
         T *epochs_per_sample;
         MLCommon::allocate(epochs_per_sample, nnz);
 
-        std::cout << "Runing make_epochs_per_sample" << std::endl;
-
         SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
         CUDA_CHECK(cudaPeekAtLastError());
-
-        std::cout << "Done." << std::endl;
-
-        std::cout << "Runing optimize_layout" << std::endl;
-
 
         SimplSetEmbedImpl::optimize_layout<T, TPB_X>(
             result, embedding_n,
@@ -395,8 +308,7 @@ namespace UMAPAlgo {
         );
         CUDA_CHECK(cudaPeekAtLastError());
 
-        std::cout << "Done." << std::endl;
-
+        std::cout << MLCommon::arr2Str(result, n*params->n_components, "embeddings") << std::endl;
 
         CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));

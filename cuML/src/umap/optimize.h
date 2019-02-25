@@ -113,6 +113,7 @@ namespace UMAPAlgo {
              */
             T *residuals;
             MLCommon::allocate(residuals, n_rows);
+
             f<T, TPB_X>(input, n_rows, coef, residuals);
             MLCommon::LinAlg::subtract(residuals, residuals, labels, n_rows);
             CUDA_CHECK(cudaPeekAtLastError());
