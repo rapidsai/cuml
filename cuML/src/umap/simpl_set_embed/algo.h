@@ -17,10 +17,7 @@
 #include "umap/umap.h"
 #include "umap/umapparams.h"
 
-#include "solver/solver_c.h"
-#include "solver/learning_rate.h"
-#include "functions/penalty.h"
-#include "functions/linearReg.h"
+#include "random/rng.h"
 
 #include <thrust/extrema.h>
 #include <thrust/device_ptr.h>
@@ -37,22 +34,13 @@ namespace UMAPAlgo {
 
 	        using namespace ML;
 
-	        static unsigned int g_seed;
-
 	        template<typename T>
-	        float rdist(const T *X, const T *Y, int n) {
+	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
 	            float result = 0.0;
-
 	            //TODO: Parallelize
 	            for(int i = 0; i < n; i++)
 	                result += pow(X[i]-Y[i], 2);
 	            return result;
-	        }
-
-	        inline void fast_srand(int seed) { g_seed = seed; }
-	        inline int fastrand() {
-	          g_seed = (214013*g_seed+2531011);
-	          return (g_seed>>16)&0x7FFF;
 	        }
 
 	        /**
@@ -69,27 +57,23 @@ namespace UMAPAlgo {
 	         * This could be parallelized
 	         */
 	        template<typename T>
-	        void make_epochs_per_sample(const T *weights, int weights_n, int n_epochs, T *result) {
-	            T weights_max = -1.0;
+	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result) {
+	            thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
+	            T weights_max = *(thrust::max_element(d_weights, d_weights+weights_n));
 
-	            // TODO: Parallelize
-	            for(int i = 0; i < weights_n; i++)  {
-	                if(weights[i] > weights_max)
-	                    weights_max = weights[i];
-	                result[i] = -1;
-	            }
-
-	            // TODO: Parallelize
-	            for(int i = 0; i < weights_n; i++) {
-	                T v = weights[i] / weights_max;
-	                if(v*n_epochs > 0)
-	                    result[i] = v;
-
-	            }
+                MLCommon::LinAlg::unaryOp<T>(result, weights, weights_max, weights_n,
+                    [n_epochs] __device__(T input, T scalar) {
+                        T v = input / scalar;
+                        if(v*n_epochs > 0)
+                            return v;
+                        else
+                            return T(-1.0);
+                    }
+                );
 	        }
 
 	        template<typename T>
-	        T clip(T val, T lb, T ub) {
+	        __device__ __host__ T clip(T val, T lb, T ub) {
 	            if(val > ub)
 	                return ub;
 	            else if(val < lb)
@@ -107,20 +91,124 @@ namespace UMAPAlgo {
 	        }
 
 	        template<typename T>
-	        T repulsive_grad(T dist_squared, UMAPParams *params) {
-                T grad_coeff = 2.0 * params->gamma * params->b;
+	        __device__ __host__ T repulsive_grad(T dist_squared, UMAPParams params) {
+                T grad_coeff = 2.0 * params.gamma * params.b;
                 grad_coeff /= (0.001 + dist_squared) * (
-                    params->a * pow(dist_squared, params->b) + 1
+                    params.a * pow(dist_squared, params.b) + 1
                 );
                 return grad_coeff;
 	        }
 
 	        template<typename T>
-	        T attractive_grad(T dist_squared, UMAPParams *params) {
-                T grad_coeff = -2.0 * params->a * params->b *
-                        pow(dist_squared, params->b - 1.0);
-                grad_coeff /= params->a * pow(dist_squared, params->b) + 1.0;
+	        __device__ __host__ T attractive_grad(T dist_squared, UMAPParams params) {
+                T grad_coeff = -2.0 * params.a * params.b *
+                        pow(dist_squared, params.b - 1.0);
+                grad_coeff /= params.a * pow(dist_squared, params.b) + 1.0;
                 return grad_coeff;
+	        }
+
+	        template <typename T, int TPB_X>
+	        __global__ void optimize_batch_kernel(
+                    T *head_embedding, int head_n,
+                    T *tail_embedding, int tail_n,
+                    const int *head, const int *tail, int nnz,
+                    T *epochs_per_sample,
+                    int n_vertices,
+                    bool move_other,
+                    T *epochs_per_negative_sample,
+                    T *epoch_of_next_negative_sample,
+                    T *epoch_of_next_sample,
+                    float alpha,
+                    int epoch,
+                    UMAPParams params) {
+
+                int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+                if(row < nnz) {
+                    /**
+                     * Positive sample stage (attractive forces)
+                     */
+                    if(epoch_of_next_sample[row] <= epoch) {
+
+                        int j = head[row];
+                        int k = tail[row];
+
+                        T *current = head_embedding+(j*params.n_components);
+                        T *other = tail_embedding+(k*params.n_components);
+
+                        float dist_squared = rdist(current, other, params.n_components);
+
+                        // Aatractive force between the two vertices
+                        T attractive_grad_coeff = 0.0;
+                        if(dist_squared > 0.0) {
+                            attractive_grad_coeff = attractive_grad(dist_squared, params);
+                        }
+
+                        /**
+                         * Apply attractive force between `current` and `other`
+                         * by updating their 'weights' to put them closer in
+                         * Euclidean space.
+                         * (update other embedding only if we are
+                         * performing unsupervised training).
+                         */
+                        for(int d = 0; d < params.n_components; d++) {
+                            T grad_d = clip(attractive_grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
+                            atomicAdd(current+d, grad_d * alpha);
+
+                            // happens only during unsupervised training
+                            if(move_other)
+                                atomicAdd(other+d, -grad_d * alpha);
+                        }
+
+                        epoch_of_next_sample[row] += epochs_per_sample[row];
+
+                        // choose negative samples
+                        int n_neg_samples = int(
+                            (epoch - epoch_of_next_negative_sample[row]) /
+                            epochs_per_negative_sample[row]
+                        );
+
+                        /**
+                         * Negative sampling stage (repulsive forces)
+                         */
+
+                        int *rands = new int[n_neg_samples];
+//                        MLCommon::Random::Rng<int> r(row);
+//                        r.uniform(rands, n_neg_samples, 0, n_vertices);
+
+                        for(int p = 0; p < n_neg_samples; p++) {
+
+                            int rand = rands[p];
+
+                            T *negative_sample = tail_embedding+(rand*params.n_components);
+                            dist_squared = rdist(current, negative_sample, params.n_components);
+
+                            // repulsive force between two vertices
+                            T repulsive_grad_coeff = 0.0;
+                            if(dist_squared > 0.0) {
+                                repulsive_grad_coeff = repulsive_grad(dist_squared, params);
+                            } else if(j == rand)
+                                continue;
+
+                            /**
+                             * Apply repulsive force between `current` and `other`
+                             * (which is has been negatively sampled) by updating
+                             * their 'weights' to push them farther in Euclidean space.
+                             */
+                            for(int d = 0; d < params.n_components; d++) {
+                                T grad_d = 0.0;
+                                if(repulsive_grad_coeff > 0.0)
+                                    grad_d = clip(repulsive_grad_coeff * (current[d] - negative_sample[d]), -4.0f, 4.0f);
+                                else
+                                    grad_d = 4.0;
+                                atomicAdd(current+d, grad_d * alpha);
+                            }
+
+                            epoch_of_next_negative_sample[row] +=
+                                n_neg_samples * epochs_per_negative_sample[row];
+                        }
+                    }
+                }
 	        }
 
 	        /**
@@ -138,7 +226,7 @@ namespace UMAPAlgo {
 	         * it means threads will need to be synchronized when updating
 	         * the same embeddings.
 	         */
-	        template<typename T>
+	        template<typename T, int TPB_X>
 	        void optimize_layout(
 	                T *head_embedding, int head_n,
 	                T *tail_embedding, int tail_n,
@@ -147,135 +235,53 @@ namespace UMAPAlgo {
 	                int n_vertices,
 	                UMAPParams *params) {
 
-	            // unsupervised training?
+	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
 
 	            T alpha = params->initial_alpha;
-	            T *epochs_per_negative_sample = (T*)malloc(nnz * sizeof(T));
 
-	            print_arr(epochs_per_negative_sample, nnz, "epochs_per_negative_sample");
+	            T *epochs_per_negative_sample;
+	            MLCommon::allocate(epochs_per_negative_sample, nnz);
 
-	            //TODO: Parallelize
-	            for(int i = 0; i < nnz; i++)
-	                epochs_per_negative_sample[i] = epochs_per_sample[i] / params->negative_sample_rate;
+	            MLCommon::LinAlg::unaryOp<T>(epochs_per_negative_sample, epochs_per_sample,
+	                    params->negative_sample_rate, nnz,
+	                    [] __device__(T input, T scalar) { return input / scalar; }
+	            );
 
-	            print_arr(epochs_per_sample, nnz, "epochs_per_sample");
+	            T *epoch_of_next_negative_sample;
+                MLCommon::allocate(epoch_of_next_negative_sample, nnz);
+                MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
 
-	            T *epoch_of_next_negative_sample = (T*)malloc(nnz*sizeof(T));
-	            memcpy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
+	            T *epoch_of_next_sample;
+                MLCommon::allocate(epoch_of_next_sample, nnz);
+                MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
-	            print_arr(epoch_of_next_negative_sample, nnz, "epoch_of_next_negative_sample");
-
-	            T *epoch_of_next_sample = (T*)malloc(nnz*sizeof(T));
-	            memcpy(epoch_of_next_sample, epochs_per_sample, nnz);
-
-	            print_arr(epoch_of_next_sample, nnz, "epoch_of_next_sample");
-
-	            // TODO: Need to think about this so that it can be done in parallel because
-	            // Leland wrote this in a way where sequential iterations are required.
-	            // There are better ways we could guarantee certain neighbors in the 1-skeleton
-	            // are chosen some pre-determined number of times without the need for a
-	            // dependence across iterations.
-
+                dim3 grid(MLCommon::ceildiv(head_n, TPB_X), 1, 1);
+                dim3 blk(TPB_X, 1, 1);
 	            for(int n = 0; n < params->n_epochs; n++) {
 
-	                /**
-	                 * TODO: Do this on GPU with the following SGD design:
-	                 * 1) A pluggable batching strategy that is able to sample embeddings based on
-	                 *    a set of weights.
-	                 * 2) A pluggable strategy for providing coefficients to the loss function
-	                 *    (in UMAP, the embeddings themselves ARE the parameters)
-	                 * 3) A negative sampling strategy, also making use of possible weighted
-	                 *    sampling.
-	                 */
-	                for(int i = 0; i < nnz; i++) {
+	                // TODO: Might need to batch this further when nnz > TPB * N_BLOCKS
+	                optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
+	                    head_embedding, head_n,
+	                    tail_embedding, tail_n,
+	                    head, tail, nnz,
+	                    epochs_per_sample,
+	                    n_vertices,
+	                    move_other,
+	                    epochs_per_negative_sample,
+	                    epoch_of_next_negative_sample,
+	                    epoch_of_next_sample,
+	                    alpha,
+	                    n,
+	                    *params
+	                );
 
-	                    /**
-	                     * Positive sample stage (attractive forces)
-	                     */
-	                    if(epoch_of_next_sample[i] <= n) {
-
-	                        int j = head[i];
-	                        int k = tail[i];
-
-	                        T *current = head_embedding+(j*params->n_components);
-	                        T *other = tail_embedding+(k*params->n_components);
-
-	                        float dist_squared = rdist(current, other, params->n_components);
-
-                            // Aatractive force between the two vertices
-	                        T attractive_grad_coeff = 0.0;
-	                        if(dist_squared > 0.0) {
-	                            attractive_grad_coeff = attractive_grad(dist_squared, params);
-	                        }
-
-	                        /**
-	                         * Apply attractive force between `current` and `other`
-	                         * by updating their 'weights' to put them closer in
-	                         * Euclidean space.
-	                         * (update other embedding only if we are
-	                         * performing unsupervised training).
-	                         */
-	                        for(int d = 0; d < params->n_components; d++) {
-	                            T grad_d = clip(attractive_grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
-	                            current[d] += grad_d * alpha;
-
-	                            // happens only during unsupervised training
-	                            if(move_other)
-	                                other[d] += -grad_d * alpha;
-	                        }
-
-	                        epoch_of_next_sample[i] += epochs_per_sample[i];
-
-	                        // choose negative samples
-	                        int n_neg_samples = int(
-	                            (n - epoch_of_next_negative_sample[i]) /
-	                            epochs_per_negative_sample[i]
-	                        );
-
-	                        /**
-	                         * Negative sampling stage (repulsive forces)
-	                         */
-	                        for(int p = 0; p < n_neg_samples; p++) {
-
-	                            int rand = fastrand() % n_vertices;
-
-	                            T *negative_sample = tail_embedding+(rand*params->n_components);
-	                            dist_squared = rdist(current, negative_sample, params->n_components);
-
-	                            // repulsive force between two vertices
-	                            T repulsive_grad_coeff = 0.0;
-	                            if(dist_squared > 0.0) {
-	                                repulsive_grad_coeff = repulsive_grad(dist_squared, params);
-	                            } else if(j == rand)
-	                                continue;
-
-	                            /**
-	                             * Apply repulsive force between `current` and `other`
-	                             * (which is has been negatively sampled) by updating
-	                             * their 'weights' to push them farther in Euclidean space.
-	                             */
-	                            for(int d = 0; d < params->n_components; d++) {
-	                                T grad_d = 0.0;
-	                                if(repulsive_grad_coeff > 0.0)
-	                                    grad_d = clip(repulsive_grad_coeff * (current[d] - negative_sample[d]), -4.0f, 4.0f);
-	                                else
-	                                    grad_d = 4.0;
-	                                current[d] += grad_d * alpha;
-	                            }
-
-	                            epoch_of_next_negative_sample[i] +=
-	                                n_neg_samples * epochs_per_negative_sample[i];
-	                        }
-	                    }
-
-	                    alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
-	                }
+                    alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
 
-	            free(epochs_per_negative_sample);
-	            free(epoch_of_next_negative_sample);
-	            free(epoch_of_next_sample);
+	            cudaFree(epochs_per_negative_sample);
+	            cudaFree(epoch_of_next_negative_sample);
+	            cudaFree(epoch_of_next_sample);
 	        }
 
 	        /**
@@ -303,54 +309,32 @@ namespace UMAPAlgo {
 	             * Go through COO values and set everything that's less than
 	             * vals.max() / params->n_epochs to 0.0
 	             */
-	            auto adjust_vals_op = [] __device__(T input, T scalar) {
-	                if (input < scalar)
-	                    return 0.0f;
-	                else
-	                    return input;
-	            };
+                MLCommon::LinAlg::unaryOp<T>(vals, vals, (max / params->n_epochs), nnz,
+                    [] __device__(T input, T scalar) {
+                        if (input < scalar)
+                            return 0.0f;
+                        else
+                            return input;
+                    }
+                );
 
-	            MLCommon::LinAlg::unaryOp<T>(vals, vals, (max / params->n_epochs), nnz, adjust_vals_op);
+	            T *epochs_per_sample;
+	            MLCommon::allocate(epochs_per_sample, nnz);
 
-	            T *vals_h = (T*)malloc(nnz * sizeof(T));
-	            MLCommon::updateHost(vals_h, vals, nnz);
-
-	            std::cout << "nnz=" << nnz << std::endl;
-
-	            T *epochs_per_sample = (T*)malloc(nnz * sizeof(T));
-	            make_epochs_per_sample(vals_h, nnz, params->n_epochs, epochs_per_sample);
-
-	            int *head_h = (int*)malloc(nnz * sizeof(int));
-	            int *tail_h = (int*)malloc(nnz * sizeof(int));
-
-	            MLCommon::updateHost(head_h, rows, nnz);
-	            MLCommon::updateHost(tail_h, cols, nnz);
-
-	            T *embedding_h = (T*)malloc(m*params->n_components*sizeof(T));
-	            MLCommon::updateHost(embedding_h, embedding, m*params->n_components);
+	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
 
 	            std::cout << "Calling optimize layout" << std::endl;
 
-	            optimize_layout(embedding_h, m,
-	                            embedding_h, m,
-	                            head_h, tail_h, nnz,
+	            optimize_layout<T, TPB_X>(embedding, m,
+	                            embedding, m,
+	                            rows, cols, nnz,
 	                            epochs_per_sample,
 	                            m,
 	                            params);
 
-	            MLCommon::updateDevice(embedding, embedding_h, m*params->n_components);
+                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
 
-                print_arr(embedding_h, m*params->n_components, "embeddings");
-
-                std::cout << "Freeing vecs" << std::endl;
-	            free(head_h);
-	            free(tail_h);
-	            free(vals_h);
-
-                free(epochs_per_sample);
-
-                std::cout << "Freeing embedding_h" << std::endl;
-                free(embedding_h);
+                CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }
 		}
 	}

@@ -332,14 +332,15 @@ namespace UMAPAlgo {
          * Go through COO values and set everything that's less than
          * vals.max() / params->n_epochs to 0.0
          */
-        auto adjust_vals_op = [] __device__(T input, T scalar) {
-            if (input < scalar)
-                return 0.0f;
-            else
-                return input;
-        };
+        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz,
+            [] __device__(T input, T scalar) {
+                if (input < scalar)
+                    return 0.0f;
+                else
+                    return input;
+            }
+        );
 
-        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz, adjust_vals_op);
         CUDA_CHECK(cudaPeekAtLastError());
 
         std::cout << "Done." << std::endl;
@@ -371,42 +372,28 @@ namespace UMAPAlgo {
 
         std::cout << "Done." << std::endl;
 
-        T *epochs_per_sample = (T*)malloc(nnz*sizeof(T));
-        T *cvals_h = (T*)malloc(non_zero_vals*sizeof(T));
-        MLCommon::updateHost(cvals_h, cvals, non_zero_vals);
+        T *epochs_per_sample;
+        MLCommon::allocate(epochs_per_sample, nnz);
 
         std::cout << "Runing make_epochs_per_sample" << std::endl;
 
-        SimplSetEmbedImpl::make_epochs_per_sample(cvals_h, non_zero_vals, params->n_epochs, epochs_per_sample);
+        SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
         CUDA_CHECK(cudaPeekAtLastError());
 
         std::cout << "Done." << std::endl;
 
         std::cout << "Runing optimize_layout" << std::endl;
 
-        int *head = (int*)malloc(non_zero_vals*sizeof(int));
-        int *tail = (int*)malloc(non_zero_vals*sizeof(int));
 
-        MLCommon::updateHost(head, crows, non_zero_vals);
-        MLCommon::updateHost(tail, ccols, non_zero_vals);
-        MLCommon::updateHost(embedding, embeddings_d, n*params->n_components);
-
-        T *result_h = (T*)malloc(n*params->n_components*sizeof(T));
-        MLCommon::updateHost(result_h, result, n*params->n_components);
-
-        SimplSetEmbedImpl::print_arr(result_h, n*params->n_components, "embedding");
-
-        SimplSetEmbedImpl::optimize_layout(
-            result_h, embedding_n,
-            embedding, n,
-            head, tail, non_zero_vals,
+        SimplSetEmbedImpl::optimize_layout<T, TPB_X>(
+            result, embedding_n,
+            embeddings_d, n,
+            crows, ccols, non_zero_vals,
             epochs_per_sample,
             n,
             params
         );
         CUDA_CHECK(cudaPeekAtLastError());
-
-        SimplSetEmbedImpl::print_arr(embedding, n*params->n_components, "embedding");
 
         std::cout << "Done." << std::endl;
 
@@ -427,14 +414,9 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(ex_scan));
 
         CUDA_CHECK(cudaFree(result));
-
-
-        free(epochs_per_sample);
-        free(cvals_h);
-
+        CUDA_CHECK(cudaFree(epochs_per_sample));
         CUDA_CHECK(cudaFree(crows));
         CUDA_CHECK(cudaFree(ccols));
-        CUDA_CHECK(cudaFree(cvals));
 
         return 0;
 
