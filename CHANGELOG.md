@@ -14,9 +14,12 @@
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #224: Improve doc strings for readable rendering with readthedocs
 - PR #209: Simplify README.md, move build instructions to BUILD.md
 - PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
+- PR #230: Refactored the cuda_utils header
+
 
 ## Bug Fixes
 
