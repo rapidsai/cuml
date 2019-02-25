@@ -69,18 +69,18 @@ struct KVPair {
   }
 
   /** equality comparison */
-  DI bool operator==(const Pair &other) {
+  DI bool operator==(const Pair &other) const {
     return val == other.val && key == other.key;
   }
 
   /** greater than operator */
-  DI bool operator>(const Pair &other) {
+  DI bool operator>(const Pair &other) const {
     ///@todo: should we also consider the key when values are the same?
     return val > other.val;
   }
 
   /** lesser than operator */
-  DI bool operator<(const Pair &other) {
+  DI bool operator<(const Pair &other) const {
     ///@todo: should we also consider the key when values are the same?
     return val < other.val;
   }
