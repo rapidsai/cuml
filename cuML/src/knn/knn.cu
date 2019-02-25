@@ -15,6 +15,7 @@
  */
 
 #include "cuda_utils.h"
+#include "ml_cuda_utils.h"
 #include "knn.h"
 #include <cuda_runtime.h>
 #include <faiss/gpu/StandardGpuResources.h>
@@ -105,6 +106,8 @@ namespace ML {
 	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
 
+	    MLCommon::myPrintDevVector("X", search_items, n*D, std::cout);
+
 		float *result_D = new float[k*n];
 		long *result_I = new long[k*n];
 
@@ -115,11 +118,25 @@ namespace ML {
 			this->sub_indices[i]->search(n, search_items, k,
 					all_D+(i*k*n), all_I+(i*k*n));
 
+        std::cout << "Search complete. Merging GPU data" << std::endl;
+
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
 
+		std::cout << "Updating output distance matrix" << std::endl;
 		MLCommon::updateDevice(res_D, result_D, k*n, 0);
-		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+
+		MLCommon::myPrintHostVector("dists", result_D, n*k, std::cout);
+        MLCommon::myPrintHostVector("inds", result_I, n*k, std::cout);
+
+        std::cout << "Done." << std::endl;
+
+        CUDA_CHECK(cudaPeekAtLastError());
+
+		std::cout << "Updating output index matrix" << std::endl;
+//		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+
+		std::cout << "Done. Cleaning memory" << std::endl;
 
 		delete all_D;
 		delete all_I;
