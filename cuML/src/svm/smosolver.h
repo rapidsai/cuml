@@ -22,6 +22,7 @@
 #include "workingset.h"
 #include "kernelcache.h"
 #include "smoblocksolve.h"
+#include "linalg/gemv.h"
 
 namespace ML {
 namespace SVM {
@@ -112,14 +113,20 @@ public:
       
       SmoBlockSolve<math_t, 1024><<<1, n_ws>>>(y, n_ws, alpha, delta_alpha, f, cacheTile,
                                   ws.idx, C, tol, return_buff);
-      //updateHost(host_return_buff, return_buff, 2);
+      updateHost(host_return_buff, return_buff, 2);
         
-      // updateF();
+      UpdateF(f, n_rows, delta_alpha, n_ws, cacheTile, cublas_handle);
       // check stopping condition
+      math_t diff = host_return_buff[0];
       n_iter++;
     }    
     
     FreeBuffers(); 
+  }
+  
+  void UpdateF(math_t *f, const int n_rows, const math_t *delta_alpha, int n_ws, const math_t *cacheTile, cublasHandle_t cublas_handle) {
+    // check sign here too.
+    LinAlg::gemv(cacheTile, n_ws, n_rows, delta_alpha, 1, f, 1, true, math_t(-1.0), math_t(1.0), cublas_handle);
   }
 };
 
