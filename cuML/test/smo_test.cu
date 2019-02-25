@@ -70,8 +70,7 @@ TEST(SmoSolverTestF, SelectWorkingSetTest) {
   float alpha_host[10] = {0, 0, 0.1, 0.2, 1.5, 0, 0.2, 0.4, 1.5, 1.5 };
   float *alpha_dev;  //   l  l  l/u  l/u    u  u  l/u  l/u  l    l
     
-  int expected_idx[4] = {4, 7, 2, 8};
-  //int expected_idx[4] = {2, 5, 0, 1};
+  int expected_idx[4] = {4, 3, 8, 2};
   allocate(f_dev, 10);
   allocate(y_dev, 10);
   allocate(alpha_dev, 10);
