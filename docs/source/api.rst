@@ -7,6 +7,18 @@ Linear Regression
 .. autoclass:: cuml.LinearRegression
     :members:
 
+Ridge Regression
+-----------------
+
+.. autoclass:: cuml.RidgeRegression
+    :members:
+
+Kalman Filter
+-------------
+
+.. autoclass:: cuml.KalmanFilter
+    :members:
+
 .. currentmodule:: cuml.DBSCAN
 
 K-Nearest Neighbors
