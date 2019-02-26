@@ -293,11 +293,20 @@ cdef class KNN:
 
         Parameters
         ----------
-        X : cuDF DataFrame or numpy ndarray
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X_ctype : Ctypes pointer (row-major)
+            Pointer to input data
+
+        N: Intetger
+            The number of rows in X
 
         k: Integer
-           The number of neighbors
+            Number of neighbors to search
+
+        I_ptr: Ctypes pointer (row-major)
+            Pointer to N*k array for output indices
+
+        D_ptr: Ctypes pointer (row-major)
+            Pointer to N*k array for output distances
 
         Returns
         ----------
