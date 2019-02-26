@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -40,11 +40,11 @@ install_requires = [
 ]
 
 
-cython_files = ['python/cuML/cuml.pyx']
+cython_files = ['python/cuml/*/*.pyx']
 
 extensions = [
     CMakeExtension('cuml', 'cuML'),
-    Extension("cuml",
+    Extension("*",
               sources=cython_files,
               include_dirs=['cuML/src',
                             'cuML/external/ml-prims/src',
@@ -75,7 +75,7 @@ setup(name=name,
       ],
       packages=find_packages(where='python'),
       package_dir={
-          'cuML': 'python/cuML'
+          'cuML': 'python/cuml'
       },
       author="NVIDIA Corporation",
       license='Apache 2.0',
