@@ -320,7 +320,7 @@ struct LineSearch {
 template <typename T>
 struct LBFGSSolver {
   typedef SimpleVec<T> Vector;
-  typedef SimpleMat<T, COL_MAJOR> Matrix;
+  typedef SimpleMat<T> Matrix;
 
   const LBFGSParam<T> &m_param; // Parameters to control the LBFGS algorithm
   Matrix m_s;                   // History of the s vectors
