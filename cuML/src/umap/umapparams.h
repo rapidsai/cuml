@@ -29,7 +29,7 @@ namespace ML {
         float spread = 1.0;
         float set_op_mix_ratio = 1.0;
 
-        int local_connectivity = 1;
+        float local_connectivity = 1.0;
         float repulsion_strength = 1.0;
         int negative_sample_rate = 5;
         float transform_queue_size = 4.0;

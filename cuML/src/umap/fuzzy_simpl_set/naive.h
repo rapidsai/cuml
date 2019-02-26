@@ -99,7 +99,6 @@ namespace UMAPAlgo {
                     for (int idx = 0; idx < n_neighbors; idx++) {
 
                         ith_distances[idx] = knn_dists[i + idx];
-
                         sum += ith_distances[idx];
 
                         if (ith_distances[idx] != 0.0) {
@@ -111,24 +110,23 @@ namespace UMAPAlgo {
                             max_nonzero = ith_distances[idx];
                     }
 
-                    float ith_distances_mean = sum / n_neighbors;
-
-                    if (total_nonzero > local_connectivity) {
-                        int index = int(local_connectivity);
+                    float ith_distances_mean = sum / float(n_neighbors);
+                    if (total_nonzero >= local_connectivity) {
+                        int index = int(floor(local_connectivity));
                         float interpolation = local_connectivity - index;
 
                         if (index > 0) {
                             rhos[row] = non_zero_dists[index - 1];
-                            if (interpolation > SMOOTH_K_TOLERANCE)
+
+                            if (interpolation > SMOOTH_K_TOLERANCE) {
                                 rhos[row] += interpolation
                                         * (non_zero_dists[index]
                                                 - non_zero_dists[index - 1]);
-                            else
-                                rhos[row] = interpolation * non_zero_dists[0];
-
-                        } else if (total_nonzero > 0)
-                            rhos[row] = max_nonzero;
-                    }
+                            }
+                        } else
+                            rhos[row] = interpolation * non_zero_dists[0];
+                    } else if (total_nonzero > 0)
+                        rhos[row] = max_nonzero;
 
                     for (int iter = 0; iter < n_iter; iter++) {
 
@@ -150,7 +148,7 @@ namespace UMAPAlgo {
                             mid = (lo + hi) / 2.0;
                         } else {
                             lo = mid;
-                            if (hi == MAX_FLOAT)
+                            if (hi == MAX_FLOAT)  // MAX_FLOAT might not be the choice here- perhaps there's a reasonable threshold.
                                 mid *= 2;
                             else
                                 mid = (lo + hi) / 2.0;
@@ -166,9 +164,6 @@ namespace UMAPAlgo {
                         if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist)
                             sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
-
-                    __syncthreads();
-
                 }
 
             }
@@ -193,7 +188,8 @@ namespace UMAPAlgo {
              * Descriptions adapted from: https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
              */
             template<int TPB_X, typename T>
-            __global__ void compute_membership_strength_kernel(const long *knn_indices,
+            __global__ void compute_membership_strength_kernel(
+                    const long *knn_indices,
                     const float *knn_dists,  // nn outputs
                     const T *sigmas, const T *rhos, // continuous dists to nearest neighbors
                     T *vals, int *rows, int *cols,  // result coo
@@ -230,11 +226,7 @@ namespace UMAPAlgo {
                         rows[idx] = row;
                         cols[idx] = cur_knn_ind;
                         vals[idx] = val;
-
-
                     }
-
-                    __syncthreads();
                 }
             }
 
@@ -292,14 +284,12 @@ namespace UMAPAlgo {
                         if (res != 0.0) {
                             orows[out_idx + nnz] = rows[idx];
                             ocols[out_idx + nnz] = cols[idx];
-                            ovals[out_idx + nnz] = float(res);
+                            ovals[out_idx + nnz] = T(res);
                             ++nnz;
                         }
                     }
                     rnnz[row] = nnz;
                     atomicAdd(rnnz + n, nnz);
-
-                    __syncthreads();
                 }
             }
 
@@ -329,7 +319,7 @@ namespace UMAPAlgo {
                 for (int i = 0; i < params->n_neighbors; i++)
                     sum += dist_means_host[i];
 
-                float mean_dist = sum / params->n_neighbors;
+                T mean_dist = sum / params->n_neighbors;
 
                 std::cout << "mean_dist=" << mean_dist << std::endl;
 
@@ -413,6 +403,9 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
+                std::cout << MLCommon::arr2Str(orows, n*k*2, "compute_result_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(ocols, n*k*2, "compute_result_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(ovals, n*k*2, "compute_result_vals") << std::endl;
 
                 int cur_coo_len = 0;
                 MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
@@ -439,6 +432,11 @@ namespace UMAPAlgo {
                 MLCommon::copy(rows, crows, cur_coo_len);
                 MLCommon::copy(cols, ccols, cur_coo_len);
                 MLCommon::copy(vals, cvals, cur_coo_len);
+
+                std::cout << MLCommon::arr2Str(rows, cur_coo_len, "comp_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(cols, cur_coo_len, "comp_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(vals, cur_coo_len, "comp_vals") << std::endl;
+
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
