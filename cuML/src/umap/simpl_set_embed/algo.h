@@ -19,6 +19,9 @@
 
 #include "random/rng.h"
 
+#include <cstdlib>
+
+
 #include <thrust/extrema.h>
 #include <thrust/device_ptr.h>
 
@@ -31,8 +34,25 @@ namespace UMAPAlgo {
 
 	    namespace Algo {
 
+            using namespace ML;
 
-	        using namespace ML;
+            unsigned long long nextSeed() {
+	            unsigned long long t1 = (unsigned long long) (rand() + rand());
+	            unsigned long long t2 = (unsigned long long) (rand() + rand());
+	            return ((t2 << 32) | t1);
+	        }
+
+	        template <typename Type>
+	        DI Type randVal(unsigned long long& state) {
+	            Type res;
+	            for (int i=0;i<128;i++)
+	                state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
+	            res = static_cast<Type>(state);
+	            res /= static_cast<Type>(1.8446744073709551614e19);
+	            return res;
+	        }
+
+
 
 	        template<typename T>
 	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
@@ -90,9 +110,10 @@ namespace UMAPAlgo {
 	            std::cout << "]" << std::endl;
 	        }
 
+
 	        template<typename T>
-	        __device__ __host__ T repulsive_grad(T dist_squared, UMAPParams params) {
-                T grad_coeff = 2.0 * params.gamma * params.b;
+	        __device__ __host__ T repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
+                T grad_coeff = 2.0 * gamma * params.b;
                 grad_coeff /= (0.001 + dist_squared) * (
                     params.a * pow(dist_squared, params.b) + 1
                 );
@@ -120,9 +141,12 @@ namespace UMAPAlgo {
                     T *epoch_of_next_sample,
                     float alpha,
                     int epoch,
+                    float gamma,
+                    unsigned long long seed,
                     UMAPParams params) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
+                unsigned long long state = seed + row + 1;
 
                 if(row < nnz) {
                     /**
@@ -168,26 +192,18 @@ namespace UMAPAlgo {
                             epochs_per_negative_sample[row]
                         );
 
-                        /**
-                         * Negative sampling stage (repulsive forces)
-                         */
-
-                        int *rands = new int[n_neg_samples];
-//                        MLCommon::Random::Rng<int> r(row);
-//                        r.uniform(rands, n_neg_samples, 0, n_vertices);
-
                         for(int p = 0; p < n_neg_samples; p++) {
 
-                            int rand = rands[p];
+                            int t = int(randVal<float>(state) * tail_n);
 
-                            T *negative_sample = tail_embedding+(rand*params.n_components);
+                            T *negative_sample = tail_embedding+(t*params.n_components);
                             dist_squared = rdist(current, negative_sample, params.n_components);
 
                             // repulsive force between two vertices
                             T repulsive_grad_coeff = 0.0;
                             if(dist_squared > 0.0) {
-                                repulsive_grad_coeff = repulsive_grad(dist_squared, params);
-                            } else if(j == rand)
+                                repulsive_grad_coeff = repulsive_grad(dist_squared, gamma, params);
+                            } else if(j == t)
                                 continue;
 
                             /**
@@ -233,6 +249,7 @@ namespace UMAPAlgo {
 	                const int *head, const int *tail, int nnz,
 	                T *epochs_per_sample,
 	                int n_vertices,
+	                float gamma,
 	                UMAPParams *params) {
 
 	            // have we been given y-values?
@@ -273,6 +290,8 @@ namespace UMAPAlgo {
 	                    epoch_of_next_sample,
 	                    alpha,
 	                    n,
+	                    gamma,
+	                    nextSeed(),
 	                    *params
 	                );
 
@@ -330,6 +349,7 @@ namespace UMAPAlgo {
 	                            rows, cols, nnz,
 	                            epochs_per_sample,
 	                            m,
+	                            params->gamma,
 	                            params);
 
                 std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;

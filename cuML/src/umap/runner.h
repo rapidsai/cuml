@@ -46,6 +46,7 @@ namespace UMAPAlgo {
 
 	using namespace ML;
 
+
     template<int TPB_X, typename T>
 	__global__ void init_transform(int *indices, T *weights, int n,
 	                    const T *embeddings, int embeddings_n, int n_components,
@@ -173,6 +174,7 @@ namespace UMAPAlgo {
         dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
+
 	    /**
 	     * Perform kNN of X
 	     */
@@ -238,7 +240,6 @@ namespace UMAPAlgo {
         exclusive_scan(dev_ia, dev_ia + n, dev_ex_scan);
 
         std::cout << MLCommon::arr2Str(ex_scan, n, "ex_scan") << std::endl;
-
 
         std::cout << MLCommon::arr2Str(graph_rows, nnz, "graph_rows") << std::endl;
         std::cout << MLCommon::arr2Str(graph_cols, nnz, "graph_cols") << std::endl;
@@ -322,6 +323,7 @@ namespace UMAPAlgo {
             crows, ccols, non_zero_vals,
             epochs_per_sample,
             n,
+            params->repulsion_strength,
             params
         );
         CUDA_CHECK(cudaPeekAtLastError());

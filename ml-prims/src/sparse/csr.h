@@ -36,5 +36,4 @@ namespace MLCommon {
                     vals[j] = 0.0;
         }
     }
-
 }
