@@ -174,8 +174,7 @@ template <typename T> struct SimpleVec {
   }
 };
 
-template <typename T>
-struct SimpleMat : SimpleVec<T> {
+template <typename T> struct SimpleMat : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   int m, n;
 
@@ -202,9 +201,8 @@ struct SimpleMat : SimpleVec<T> {
 
   void print() const { std::cout << (*this) << std::endl; }
 
-  void assign_gemm(const T alpha, const SimpleMat<T> &A,
-                   const SimpleMat<T> &B, const T beta,
-                   cublasHandle_t &cublas) {
+  void assign_gemm(const T alpha, const SimpleMat<T> &A, const SimpleMat<T> &B,
+                   const T beta, cublasHandle_t &cublas) {
 
     ASSERT(A.n == B.m, "GEMM invalid dims");
     ASSERT(A.m == this->m, "GEMM invalid dims");
@@ -268,21 +266,21 @@ struct SimpleMat : SimpleVec<T> {
 };
 
 template <typename T>
-inline void col_ref(const SimpleMat<T> &mat, SimpleVec<T> &mask_vec,
-                    int c) {
-    ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
+inline void col_ref(const SimpleMat<T> &mat, SimpleVec<T> &mask_vec, int c) {
+  ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
   T *tmp = &mat.data[mat.m * c];
   mask_vec.reset(tmp, mat.m);
 }
 
 template <typename T>
-inline void col_slice(const SimpleMat<T> &mat,
-                      SimpleMat<T> &mask_mat, int c_from, int c_to) {
+inline void col_slice(const SimpleMat<T> &mat, SimpleMat<T> &mask_mat,
+                      int c_from, int c_to) {
   ASSERT(c_from >= 0 && c_from < mat.n, "col_slice: invalid from");
   ASSERT(c_to >= 0 && c_to <= mat.n, "col_slice: invalid to");
 
-    ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
-    ASSERT(mask_mat.ord == COL_MAJOR, "col_ref only available for column major mask");
+  ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
+  ASSERT(mask_mat.ord == COL_MAJOR,
+         "col_ref only available for column major mask");
   T *tmp = &mat.data[mat.m * c_from];
   mask_mat.reset(tmp, mat.m, c_to - c_from);
 }
@@ -370,26 +368,24 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   std::vector<T> out(mat.len);
   MLCommon::updateHost(&out[0], mat.data, mat.len);
-  if(mat.ord == COL_MAJOR){
-  for (int r = 0; r < mat.m; r++) {
-    int idx = r;
-    for (int c = 0; c < mat.n - 1; c++) {
-      os << out[idx] << ",";
-      idx += mat.m;
+  if (mat.ord == COL_MAJOR) {
+    for (int r = 0; r < mat.m; r++) {
+      int idx = r;
+      for (int c = 0; c < mat.n - 1; c++) {
+        os << out[idx] << ",";
+        idx += mat.m;
+      }
+      os << out[idx] << std::endl;
     }
-    os << out[idx] << std::endl;
-  }
-  }else{
-for (int c = 0; c < mat.m; c++) {
-    int idx = c * mat.n;
-    for (int r = 0; r < mat.n - 1; r++) {
-      os << out[idx] << ",";
-      idx += 1;
+  } else {
+    for (int c = 0; c < mat.m; c++) {
+      int idx = c * mat.n;
+      for (int r = 0; r < mat.n - 1; r++) {
+        os << out[idx] << ",";
+        idx += 1;
+      }
+      os << out[idx] << std::endl;
     }
-    os << out[idx] << std::endl;
-  }
-
-
   }
 
   return os;
