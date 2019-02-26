@@ -15,7 +15,6 @@
  */
 
 #include "cuda_utils.h"
-#include "ml_cuda_utils.h"
 #include "knn.h"
 #include <cuda_runtime.h>
 #include <faiss/gpu/StandardGpuResources.h>
