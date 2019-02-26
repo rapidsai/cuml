@@ -32,7 +32,7 @@ int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
   SimpleVec<T> w(w0, loss->n_param);
 
   if (l2 == 0) {
-    GLMWithData<T, LossFunction, Storage> lossWith(loss, Xptr, yptr, zptr, N);
+    GLMWithData<T, LossFunction> lossWith(loss, Xptr, yptr, zptr, N, Storage);
 
     return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity);
 
@@ -40,7 +40,7 @@ int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
 
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(loss, &reg);
-    GLMWithData<T, decltype(obj), Storage> lossWith(&obj, Xptr, yptr, zptr, N);
+    GLMWithData<T, decltype(obj)> lossWith(&obj, Xptr, yptr, zptr, N, Storage);
 
     return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity);
   }

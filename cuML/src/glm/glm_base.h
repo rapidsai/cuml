@@ -133,9 +133,8 @@ struct GLMBase : GLMDims {
     MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl);
   }
 
-  template<typename XMat>
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
-                        const XMat &Xb, const Vec &yb, Mat &Zb,
+                        const SimpleMat<T> &Xb, const Vec &yb, Mat &Zb,
                         bool initGradZero = true) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
@@ -146,7 +145,7 @@ struct GLMBase : GLMDims {
   }
 };
 
-template <typename T, class GLMObjective, STORAGE_ORDER Storage = COL_MAJOR>
+template <typename T, class GLMObjective>
 struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
@@ -157,8 +156,8 @@ struct GLMWithData : GLMDims {
   SimpleVec<T> lossVal;
   GLMObjective *objective;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N)
-      : objective(obj), X(Xptr, N, obj->D, Storage), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
+  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, STORAGE_ORDER ordX)
+      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
         GLMDims(obj->C,obj->D, obj->fit_intercept){}
 
   // interface exposed to typical non-linear optimizers
