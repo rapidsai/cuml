@@ -13,9 +13,6 @@
 # limitations under the License.
 #
 
-import numpy as np
-import pandas as pd
-import cudf
 import numba
 from librmm_cffi import librmm as rmm
 from numba.cuda.cudadrv.driver import driver
@@ -30,8 +27,8 @@ def row_matrix(df):
     http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/
 
     :param a: an `np.ndarray` or a `DeviceNDArrayBase` subclass. If already on
-        the device its stream will be used to perform the transpose (and to copy
-        `b` to the device if necessary).
+        the device its stream will be used to perform the transpose (and to
+        copy `b` to the device if necessary).
 
     Adapted from numba:
     https://github.com/numba/numba/blob/master/numba/cuda/kernels/transpose.py
@@ -74,7 +71,8 @@ def row_matrix(df):
             output[y, x] = tile[tx, ty]
 
     # one block per tile, plus one for remainders
-    blocks = int((b.shape[1]) / tile_height + 1), int((b.shape[0]) / tile_width + 1)
+    blocks = int((b.shape[1]) / tile_height + 1), int((b.shape[0]) /
+                                                      tile_width + 1)
     # one thread per tile element
     threads = tile_height, tile_width
     kernel[blocks, threads](a, b)

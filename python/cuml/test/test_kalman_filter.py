@@ -1,4 +1,4 @@
-25# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
 #
 
 import pytest
-from cuml import KalmanFilter
 import cudf
 import numpy as np
+
 from numba import cuda
-from numpy.random import randn
 from math import sqrt
+from cuml import KalmanFilter
 
 
 def np_to_dataframe(df):

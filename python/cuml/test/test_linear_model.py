@@ -22,6 +22,7 @@ from cuml.test.utils import array_equal
 import cudf
 import numpy as np
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('y_type', ['series', 'ndarray'])
