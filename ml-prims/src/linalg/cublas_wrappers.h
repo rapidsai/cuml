@@ -57,6 +57,9 @@ namespace LinAlg {
     }                                                                          \
   }
 
+///@todo: add a similar CUBLAS_CHECK_NO_THROW
+/// (Ref: https://github.com/rapidsai/cuml/issues/229)
+
 /**
  * @defgroup Axpy cublas ax+y operations
  * @{

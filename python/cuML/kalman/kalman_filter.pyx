@@ -105,26 +105,29 @@ class KalmanFilter:
     not give you a functional filter.
     After construction the filter will have default matrices created for you,
     but you must specify the values for each.
+    
     Examples
     --------
+
     .. code::
+        
         from cuML import KalmanFilter
         f = KalmanFilter(dim_x=2, dim_z=1)
         f.x = np.array([[2.],    # position
                         [0.]])   # velocity
-        f.F = np.array([[1.,1.],
-                            [0.,1.]])
+        f.F = np.array([[1.,1.], [0.,1.]])
         f.H = np.array([[1.,0.]])
-        f.P = np.array([[1000.,    0.],
-                        [   0., 1000.] ])
+        f.P = np.array([[1000., 0.], [   0., 1000.] ])
         f.R = 5
 
     Now just perform the standard predict/update loop:
-    while some_condition_is_true:
+    
     .. code::
-        z = numba.cuda.to_device(np.array([i])
-        f.predict()
-        f.update(z)
+        
+        while some_condition_is_true:
+            z = numba.cuda.to_device(np.array([i])
+            f.predict()
+            f.update(z)
 
     Parameters
     ----------
@@ -270,6 +273,7 @@ class KalmanFilter:
         """
         Predict next state (prior) using the Kalman filter state propagation
         equations.
+        
         Parameters
         ----------
         u : np.array
@@ -284,6 +288,7 @@ class KalmanFilter:
         Q : np.array(dim_x, dim_x), scalar, or None
             Optional process noise matrix; a value of None will cause the
             filter to use `self.Q`.
+            
         """
 
         cdef uintptr_t _Phi_ptr = self.F.device_ctypes_pointer.value
@@ -391,6 +396,7 @@ class KalmanFilter:
         Add a new measurement (z) to the Kalman filter.
         If z is None, nothing is computed. However, x_post and P_post are
         updated with the prior (x_prior, P_prior), and self.z is set to None.
+        
         Parameters
         ----------
         z : (dim_z, 1): array_like
@@ -402,6 +408,7 @@ class KalmanFilter:
         H : np.array, or None
             Optionally provide H to override the measurement function for this
             one call, otherwise self.H will be used.
+
         """
 
         cdef uintptr_t _Phi_ptr = self.F.device_ctypes_pointer.value
