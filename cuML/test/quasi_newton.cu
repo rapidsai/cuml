@@ -10,11 +10,11 @@
 using namespace ML;
 using namespace ML::GLM;
 
-template <typename T, typename LossFunction, STORAGE_ORDER Storage = COL_MAJOR>
+template <typename T, typename LossFunction>
 int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N, bool has_bias,
            T l1, T l2, int max_iter, T grad_tol, T value_rel_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
-           T *fx, int *num_iters);
+           T *fx, int *num_iters, STORAGE_ORDER ordX);
 
 namespace ML {
 namespace GLM {
@@ -101,10 +101,10 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction, ROW_MAJOR>(
+  qn_fit<T, LossFunction>(
       &loss, devUpload.devX.data, devUpload.devY.data, z.data, in.n_row,
       loss.fit_intercept, l1, l2, max_iter, grad_tol, value_rel_tol,
-      linesearch_max_iter, lbfgs_memory, verbosity, w0.data, &fx, &num_iters);
+      linesearch_max_iter, lbfgs_memory, verbosity, w0.data, &fx, &num_iters, ROW_MAJOR);
 
   return fx;
 }
