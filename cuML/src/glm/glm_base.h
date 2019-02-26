@@ -29,8 +29,8 @@
 namespace ML {
 namespace GLM {
 
-template <typename T, STORAGE_ORDER Storage>
-inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T, Storage> &X,
+template <typename T>
+inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
                       const SimpleMat<T> &W, cublasHandle_t &cublas,
                       cudaStream_t stream = 0) {
   // Forward pass:  compute Z <- W * X.T + bias
@@ -54,8 +54,8 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T, Storage> &X,
   }
 }
 
-template <typename T, STORAGE_ORDER Storage>
-inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T, Storage> &X,
+template <typename T>
+inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
                       const SimpleMat<T> &dZ, bool setZero,
                       cublasHandle_t &cublas, cudaStream_t stream = 0) {
   // Backward pass:
@@ -92,7 +92,7 @@ struct GLMDims {
 template <typename T, class Loss>
 struct GLMBase : GLMDims {
 
-  typedef SimpleMat<T, COL_MAJOR> Mat;
+  typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
   cublasHandle_t cublas;
@@ -151,14 +151,14 @@ struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  SimpleMat<T, Storage> X;
+  SimpleMat<T> X;
   Mat Z;
   Vec y;
   SimpleVec<T> lossVal;
   GLMObjective *objective;
 
   GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N)
-      : objective(obj), X(Xptr, N, obj->D), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
+      : objective(obj), X(Xptr, N, obj->D, Storage), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
         GLMDims(obj->C,obj->D, obj->fit_intercept){}
 
   // interface exposed to typical non-linear optimizers

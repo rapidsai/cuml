@@ -18,31 +18,7 @@ namespace ML {
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
-template <typename T> struct SimpleVec;
-
-template <typename T, STORAGE_ORDER> struct SimpleMat;
-
-template <typename T, STORAGE_ORDER Storage> struct gemv_helper {
-  static void gemv(SimpleVec<T> &v, const T alpha,
-                   const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
-                   const T beta, cublasHandle_t &cublas) {}
-  static void gemvT(SimpleVec<T> &v, const T alpha,
-                    const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
-                    const T beta, cublasHandle_t &cublas) {}
-};
-
-template <typename T, STORAGE_ORDER StorageC, STORAGE_ORDER StorageA,
-          STORAGE_ORDER StorageB>
-struct gemm_helper {
-  static void gemm(SimpleMat<T, COL_MAJOR> &C, const T alpha,
-                   const SimpleMat<T, COL_MAJOR> &A,
-                   const SimpleMat<T, COL_MAJOR> &B, const T beta,
-                   cublasHandle_t &cublas) {}
-  static void gemvBT(SimpleMat<T, COL_MAJOR> &C, const T alpha,
-                     const SimpleMat<T, COL_MAJOR> &A,
-                     const SimpleMat<T, COL_MAJOR> &B, const T beta,
-                     cublasHandle_t &cublas) {}
-};
+template <typename T> struct SimpleMat;
 
 template <typename T> struct SimpleVec {
   typedef thrust::device_ptr<T> Ptr;
@@ -164,64 +140,54 @@ template <typename T> struct SimpleVec {
 
   inline void print() const { std::cout << (*this) << std::endl; }
 
-  template <STORAGE_ORDER Storage>
-  inline void assign_gemv(const T alpha, const SimpleMat<T, Storage> &A,
+  inline void assign_gemv(const T alpha, const SimpleMat<T> &A,
                           const SimpleVec<T> &x, const T beta,
                           cublasHandle_t &cublas) {
     // this <- alpha * A * x + beta * this
-    gemv_helper<T, Storage>::gemv(*this, alpha, A, x, beta, cublas);
+    if (A.ord == COL_MAJOR) {
+
+      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.m, A.n, &alpha,
+                                   A.data, A.m, x.data, 1, &beta, this->data,
+                                   1);
+    } else {
+
+      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.n, A.m, &alpha,
+                                   A.data, A.n, x.data, 1, &beta, this->data,
+                                   1);
+    }
   }
 
-  template <STORAGE_ORDER Storage>
-  inline void assign_gemvT(const T alpha, const SimpleMat<T, Storage> &A,
+  inline void assign_gemvT(const T alpha, const SimpleMat<T> &A,
                            const SimpleVec<T> &x, const T beta,
                            cublasHandle_t &cublas) {
     // this <- alpha * A * x + beta * this
-    gemv_helper<T, Storage>::gemvT(*this, alpha, A, x, beta, cublas);
+    if (A.ord == COL_MAJOR) {
+      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.m, A.n, &alpha,
+                                   A.data, A.m, x.data, 1, &beta, this->data,
+                                   1);
+
+    } else {
+      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.n, A.m, &alpha,
+                                   A.data, A.n, x.data, 1, &beta, this->data,
+                                   1);
+    }
   }
 };
 
-template <typename T> struct gemv_helper<T, COL_MAJOR> {
-  static void gemv(SimpleVec<T> &v, const T alpha,
-                   const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
-                   const T beta, cublasHandle_t &cublas) {
-    MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.m, A.n, &alpha, A.data,
-                                 A.m, x.data, 1, &beta, v.data, 1);
-  }
-  static void gemvT(SimpleVec<T> &v, const T alpha,
-                    const SimpleMat<T, COL_MAJOR> &A, const SimpleVec<T> &x,
-                    const T beta, cublasHandle_t &cublas) {
-    MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.m, A.n, &alpha, A.data,
-                                 A.m, x.data, 1, &beta, v.data, 1);
-  }
-};
-
-template <typename T> struct gemv_helper<T, ROW_MAJOR> {
-  static void gemv(SimpleVec<T> &v, const T alpha,
-                   const SimpleMat<T, ROW_MAJOR> &A, const SimpleVec<T> &x,
-                   const T beta, cublasHandle_t &cublas) {
-    MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.n, A.m, &alpha, A.data,
-                                 A.n, x.data, 1, &beta, v.data, 1);
-  }
-  static void gemvT(SimpleVec<T> &v, const T alpha,
-                    const SimpleMat<T, ROW_MAJOR> &A, const SimpleVec<T> &x,
-                    const T beta, cublasHandle_t &cublas) {
-    MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.n, A.m, &alpha, A.data,
-                                 A.n, x.data, 1, &beta, v.data, 1);
-  }
-};
-
-template <typename T, STORAGE_ORDER Storage = COL_MAJOR>
+template <typename T>
 struct SimpleMat : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   int m, n;
 
-  SimpleMat() : Super() {}
-  SimpleMat(T *data, int m, int n) : Super(data, m * n), m(m), n(n) {}
-  SimpleMat(T *data, int m, int n, const T val)
-      : Super(data, m * n, val), m(m), n(n) {}
+  STORAGE_ORDER ord; // storage order: runtime param for compile time sake
 
-  SimpleMat(int m, int n, const T val = 0) : Super(m * n, val), m(m), n(n) {}
+  SimpleMat(STORAGE_ORDER order = COL_MAJOR) : Super(), ord(order) {}
+
+  SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
+      : Super(data, m * n), m(m), n(n), ord(order) {}
+
+  SimpleMat(int m, int n, STORAGE_ORDER order = COL_MAJOR, const T val = 0)
+      : Super(m * n, val), m(m), n(n), ord(order) {}
 
   void reset(int m_, int n_) {
     m = m_;
@@ -236,106 +202,90 @@ struct SimpleMat : SimpleVec<T> {
 
   void print() const { std::cout << (*this) << std::endl; }
 
-  template <STORAGE_ORDER StorageB>
   void assign_gemm(const T alpha, const SimpleMat<T> &A,
-                   const SimpleMat<T, StorageB> &B, const T beta,
+                   const SimpleMat<T> &B, const T beta,
                    cublasHandle_t &cublas) {
-    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemm((*this), alpha, A, B,
-                                                       beta, cublas);
+
+    ASSERT(A.n == B.m, "GEMM invalid dims");
+    ASSERT(A.m == this->m, "GEMM invalid dims");
+    ASSERT(B.n == this->n, "GEMM invalid dims");
+
+    ASSERT(ord == COL_MAJOR, "GEMM for row-major C not implemented");
+    ASSERT(A.ord == COL_MAJOR, "GEMM for row-major A not implemented");
+
+    if (B.ord == COL_MAJOR) {
+      MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N,
+                                   CUBLAS_OP_N,           // transA, transB
+                                   this->m, this->n, A.n, // dimensions m,n,k
+                                   &alpha, A.data,
+                                   A.m,         // lda
+                                   B.data, B.m, // ldb
+                                   &beta, this->data,
+                                   this->m // ldc
+      );
+
+    } else {
+      MLCommon::LinAlg::cublasgemm(cublas,
+                                   CUBLAS_OP_N,           // tranA
+                                   CUBLAS_OP_T,           // transB
+                                   this->m, this->n, A.n, // dimensions m,n,k
+                                   &alpha, A.data,
+                                   A.m,         // lda
+                                   B.data, B.n, // ldb
+                                   &beta, this->data, this->m);
+    }
   }
-  template <STORAGE_ORDER StorageB>
   void assign_gemmBT(const T alpha, const SimpleMat<T> &A,
-                     const SimpleMat<T, StorageB> &B, const T beta,
+                     const SimpleMat<T> &B, const T beta,
                      cublasHandle_t &cublas) {
-    gemm_helper<T, Storage, COL_MAJOR, StorageB>::gemmBT((*this), alpha, A, B,
-                                                         beta, cublas);
+
+    ASSERT(A.n == B.n, "GEMM BT invalid dims");
+    ASSERT(A.m == this->m, "GEMM BT invalid dims");
+    ASSERT(B.m == this->n, "GEMM BT invalid dims");
+
+    ASSERT(ord == COL_MAJOR, "GEMM BT for row-major C not implemented");
+    ASSERT(A.ord == COL_MAJOR, "GEMM BT for row-major A not implemented");
+    if (B.ord == COL_MAJOR) {
+      MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N,   // transA
+                                   CUBLAS_OP_T,           // transB
+                                   this->m, this->n, A.n, // dimensions m,n,k
+                                   &alpha, A.data,
+                                   A.m,         // lda
+                                   B.data, B.m, // ldb
+                                   &beta, this->data, this->m);
+
+    } else {
+      MLCommon::LinAlg::cublasgemm(cublas,
+                                   CUBLAS_OP_N,           // tranA
+                                   CUBLAS_OP_N,           // transB
+                                   this->m, this->n, A.n, // dimensions m,n,k
+                                   &alpha, A.data,
+                                   A.m,         // lda
+                                   B.data, B.n, // ldb
+                                   &beta, this->data, this->m);
+    }
   }
 };
 
 template <typename T>
-inline void col_ref(const SimpleMat<T, COL_MAJOR> &mat, SimpleVec<T> &mask_vec,
+inline void col_ref(const SimpleMat<T> &mat, SimpleVec<T> &mask_vec,
                     int c) {
+    ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
   T *tmp = &mat.data[mat.m * c];
   mask_vec.reset(tmp, mat.m);
 }
 
 template <typename T>
-inline void col_slice(const SimpleMat<T, COL_MAJOR> &mat,
-                      SimpleMat<T, COL_MAJOR> &mask_mat, int c_from, int c_to) {
+inline void col_slice(const SimpleMat<T> &mat,
+                      SimpleMat<T> &mask_mat, int c_from, int c_to) {
   ASSERT(c_from >= 0 && c_from < mat.n, "col_slice: invalid from");
   ASSERT(c_to >= 0 && c_to <= mat.n, "col_slice: invalid to");
 
+    ASSERT(mat.ord == COL_MAJOR, "col_ref only available for column major mats");
+    ASSERT(mask_mat.ord == COL_MAJOR, "col_ref only available for column major mask");
   T *tmp = &mat.data[mat.m * c_from];
   mask_mat.reset(tmp, mat.m, c_to - c_from);
 }
-
-template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, COL_MAJOR> {
-  static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
-                   const SimpleMat<T> &B, const T beta,
-                   cublasHandle_t &cublas) {
-    ASSERT(A.n == B.m, "GEMM invalid dims");
-    ASSERT(A.m == C.m, "GEMM invalid dims");
-    ASSERT(B.n == C.n, "GEMM invalid dims");
-    MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N,
-                                 CUBLAS_OP_N,   // transA, transB
-                                 C.m, C.n, A.n, // dimensions m,n,k
-                                 &alpha, A.data,
-                                 A.m,         // lda
-                                 B.data, B.m, // ldb
-                                 &beta, C.data,
-                                 C.m // ldc
-    );
-  }
-  static void gemmBT(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
-                     const SimpleMat<T> &B, const T beta,
-                     cublasHandle_t &cublas) {
-    ASSERT(A.n == B.n, "GEMM BT invalid dims");
-    ASSERT(A.m == C.m, "GEMM BT invalid dims");
-    ASSERT(B.m == C.n, "GEMM BT invalid dims");
-    MLCommon::LinAlg::cublasgemm(cublas, CUBLAS_OP_N, // transA
-                                 CUBLAS_OP_T,         // transB
-                                 C.m, C.n, A.n,       // dimensions m,n,k
-                                 &alpha, A.data,
-                                 A.m,         // lda
-                                 B.data, B.m, // ldb
-                                 &beta, C.data, C.m);
-  }
-};
-
-template <typename T> struct gemm_helper<T, COL_MAJOR, COL_MAJOR, ROW_MAJOR> {
-  static void gemm(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
-                   const SimpleMat<T, ROW_MAJOR> &B, const T beta,
-                   cublasHandle_t &cublas) {
-
-    ASSERT(A.n == B.m, "GEMM RM invalid dims");
-    ASSERT(A.m == C.m, "GEMM RM invalid dims");
-    ASSERT(B.n == C.n, "GEMM RM invalid dims");
-    MLCommon::LinAlg::cublasgemm(cublas,
-                                 CUBLAS_OP_N,   // tranA
-                                 CUBLAS_OP_T,   // transB
-                                 C.m, C.n, A.n, // dimensions m,n,k
-                                 &alpha, A.data,
-                                 A.m,         // lda
-                                 B.data, B.n, // ldb
-                                 &beta, C.data, C.m);
-  }
-  static void gemmBT(SimpleMat<T> &C, const T alpha, const SimpleMat<T> &A,
-                     const SimpleMat<T, ROW_MAJOR> &B, const T beta,
-                     cublasHandle_t &cublas) {
-
-    ASSERT(A.n == B.n, "GEMM RM BT invalid dims");
-    ASSERT(A.m == C.m, "GEMM RM BT invalid dims");
-    ASSERT(B.m == C.n, "GEMM RM BT invalid dims");
-    MLCommon::LinAlg::cublasgemm(cublas,
-                                 CUBLAS_OP_N,   // tranA
-                                 CUBLAS_OP_N,   // transB
-                                 C.m, C.n, A.n, // dimensions m,n,k
-                                 &alpha, A.data,
-                                 A.m,         // lda
-                                 B.data, B.n, // ldb
-                                 &beta, C.data, C.m);
-  }
-};
 
 // Reductions such as dot or norm require an additional location in dev mem
 // to hold the result. We don't want to deal with this in the SimpleVec class
@@ -417,9 +367,10 @@ std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
 }
 
 template <typename T>
-std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
+std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   std::vector<T> out(mat.len);
   MLCommon::updateHost(&out[0], mat.data, mat.len);
+  if(mat.ord == COL_MAJOR){
   for (int r = 0; r < mat.m; r++) {
     int idx = r;
     for (int c = 0; c < mat.n - 1; c++) {
@@ -428,21 +379,17 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T, COL_MAJOR> &mat) {
     }
     os << out[idx] << std::endl;
   }
-
-  return os;
-}
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const SimpleMat<T, ROW_MAJOR> &mat) {
-  std::vector<T> out(mat.len);
-  MLCommon::updateHost(&out[0], mat.data, mat.len);
-  for (int c = 0; c < mat.m; c++) {
+  }else{
+for (int c = 0; c < mat.m; c++) {
     int idx = c * mat.n;
     for (int r = 0; r < mat.n - 1; r++) {
       os << out[idx] << ",";
       idx += 1;
     }
     os << out[idx] << std::endl;
+  }
+
+
   }
 
   return os;
