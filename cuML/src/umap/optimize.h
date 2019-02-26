@@ -39,31 +39,6 @@ namespace UMAPAlgo {
 
         using namespace ML;
 
-
-
-
-
-        /**
-         * Calculate the gradients for training the embeddings in UMAP.
-         * The difference in this gradient descent is that
-         * the parameters being updated are the embeddings themselves.
-         *
-         * Will need to think of a good way to incorporate this into
-         * our SGD prim.
-         */
-        template<typename T>
-        void umapEmbeddingLossGrads(T *input, int n_rows, int n_cols,
-                const T *labels, const T *coef) {
-
-            // For the standard sampling:
-            // Gradient is: -2.0 * a * b * pow(dist_squared, b - 1.0) / (a * pow(dist_squared, b) + 1.0)
-            // For each d in the current: current_d += grad_d * learning_rate
-            // if move_other: other_d += -grad_d * learning_rate
-
-            // For the negative sampling:
-            // gradient is: (2.0 * gamma * b) / ((0.001 + dist_squared) * (a * pow(dist_squared, b) + 1))
-        }
-
         template<typename T, int TPB_X, typename Lambda>
         __global__ void map_kernel(T *output, T* X, int n_rows, T *coef, Lambda grad) {
             int row = (blockIdx.x * TPB_X) + threadIdx.x;

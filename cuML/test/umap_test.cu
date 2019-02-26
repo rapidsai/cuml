@@ -55,7 +55,8 @@ protected:
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
 
-		float *embeddings = (float*)malloc(n*k*sizeof(float));
+		float *embeddings;
+		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
 		std::cout << "Fitting UMAP..." << std::endl;
 
@@ -63,12 +64,13 @@ protected:
 
 		std::cout << "Done." << std::endl;
 
-		float *result = (float*)malloc(n*k*sizeof(float));
+		float *xformed;
+		MLCommon::allocate(xformed, n*umap_params->n_components);
 
         std::cout << "Transforming UMAP..." << std::endl;
 
 
-		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, result);
+		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
 
         std::cout << "Done." << std::endl;
 
