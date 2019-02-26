@@ -56,11 +56,6 @@ def test_knn_search(input_type, should_downcast):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    print(str(D_sk))
-    print(str(D_cuml_arr))
-    print(str(I_cuml_arr))
-
-
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
 

@@ -308,10 +308,6 @@ cdef class KNN:
             The indices of the k-nearest neighbors for each column vector in X
         """
 
-        print("X_ctype=" + str(X_ctype))
-        print("I_ptr=" + str(I_ptr))
-        print("D_ptr=" + str(D_ptr))
-
         cdef uintptr_t I = I_ptr
         cdef uintptr_t D = D_ptr
         cdef uintptr_t X = X_ctype
