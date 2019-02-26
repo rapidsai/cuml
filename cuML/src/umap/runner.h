@@ -104,6 +104,10 @@ namespace UMAPAlgo {
 	            UMAPParams *params,
 	            T *embeddings) {
 
+
+	    // TODO: Allocate workspace up front
+
+
 		/**
 		 * Allocate workspace for kNN graph
 		 */
@@ -170,6 +174,9 @@ namespace UMAPAlgo {
                       kNN *knn,
 	                  UMAPParams *params,
 	                  T *transformed) {
+
+
+	    // TODO: Allocate workspace up front.
 
         dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
@@ -253,7 +260,7 @@ namespace UMAPAlgo {
 
          std::cout << MLCommon::arr2Str(ia, n, "ia") << std::endl;
 
-        init_transform<TPB_X, T><<<grid,blk>>>(graph_rows, graph_vals, n,
+        init_transform<TPB_X, T><<<grid,blk>>>(graph_cols, graph_vals, n,
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
