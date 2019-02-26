@@ -7,19 +7,30 @@
 ## Improvements
 
 - PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+- PR #168: Add /ci/gpu/build.sh file to cuML
 - PR #167: Integrating full-n-final ml-prims repo inside cuml
 - PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
 - PR #194: Added new ml-prims for supporting LASSO regression.
 - PR #114: Building faiss C++ api into libcuml
 - PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
 - PR #216: Add pytest stress fixture and dbscan stress test
+- PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #224: Improve doc strings for readable rendering with readthedocs
+- PR #209: Simplify README.md, move build instructions to BUILD.md
+- PR #218: Fix RNG to use given seed and adjust RNG test tolerances.
+- PR #225: Support for generating random integers
+- PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
+- PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
+- PR #230: Refactored the cuda_utils header
 
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
+- PR #211: Fixing inconsistent use of proper batch size calculation in DBSCAN
 - PR #202: Adding back ability for users to define their own BLAS
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
+- PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 
 
 # cuML 0.5.1 (05 Feb 2019)
