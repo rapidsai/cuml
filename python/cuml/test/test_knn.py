@@ -27,9 +27,10 @@ def test_knn_search(input_type, should_downcast):
 
     dtype = np.float32 if not should_downcast else np.float64
 
-    X = np.array([[1.0], [50.0], [51.0]], dtype=dtype) # For now, FAISS only seems to support single precision
+    # For now, FAISS based knn only supports single precision
+    X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
 
-    knn_sk = skKNN(X, metric = "l2")
+    knn_sk = skKNN(X, metric="l2")
     D_sk, I_sk = knn_sk.query(X, len(X))
 
     knn_cu = cuKNN(should_downcast=should_downcast)
@@ -60,9 +61,9 @@ def test_knn_search(input_type, should_downcast):
     print(str(D_cuml_arr))
     print(str(I_cuml_arr))
 
-
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
+
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_knn_downcast_fails(input_type):
@@ -75,7 +76,7 @@ def test_knn_downcast_fails(input_type):
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
     with pytest.raises(Exception):
-        knn_cu.fit(X, should_downcast = False)
+        knn_cu.fit(X, should_downcast=False)
 
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
@@ -85,9 +86,4 @@ def test_knn_downcast_fails(input_type):
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
     with pytest.raises(Exception):
-        knn_cu.fit(X, should_downcast = True)
-
-
-
-
-
+        knn_cu.fit(X, should_downcast=True)

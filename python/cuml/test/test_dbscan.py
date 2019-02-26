@@ -19,7 +19,6 @@ from sklearn.cluster import DBSCAN as skDBSCAN
 import cudf
 import numpy as np
 
-from sklearn import cluster, datasets
 from sklearn.preprocessing import StandardScaler
 
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
