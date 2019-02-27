@@ -23,17 +23,19 @@
 namespace ML {
 
 /**
- * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus allocation and
+ * RAII object owning a contigous typed host buffer. The passed in allocator supports asynchronus allocation and
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
- * void foo( cumlHandle* handle, .., cudaStream_t stream )
+ * template<typename T>
+ * void foo( cumlHandle* handle, const T* in_d , T* out_d, ..., cudaStream_t stream )
  * {
  *     ...
  *     host_buffer<T> temp( handle->getHostAllocator(), 0 )
  *     
  *     temp.resize(n, stream);
- *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
- *     kernelB<<<grid,block,0,stream>>>(...,temp.data(),...);
+ *     cudaMemcpyAsync( temp.data(), in_d, temp.size()*sizeof(T), cudaMemcpyDeviceToHost );
+ *     ...
+ *     cudaMemcpyAsync( out_d, temp.data(), temp.size()*sizeof(T), cudaMemcpyHostToDevice );
  *     temp.release(stream);
  * }
  * @endcode
@@ -56,7 +58,7 @@ public:
     host_buffer& operator=(const host_buffer& other) = delete;
 
     host_buffer(std::shared_ptr<hostAllocator> allocator, size_type n = 0)
-        : _allocator(allocator), _size(n), _capacity(n), _data(0)
+        : _allocator(allocator), _size(n), _capacity(n), _data(nullptr)
     {
         if ( _capacity > 0 )
         {
@@ -67,7 +69,7 @@ public:
 
     ~host_buffer()
     {
-        if ( 0 != _data ) 
+        if ( nullptr != _data ) 
         {
             _allocator->deallocate( _data, _capacity*sizeof(value_type), 0 );
         }
@@ -106,7 +108,7 @@ public:
             if ( _size > 0 ) {
                 CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyHostToHost, stream ) );
             }
-            if ( 0 != _data ) {
+            if ( nullptr != _data ) {
                 _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
             }
             _data = new_data;
@@ -122,10 +124,10 @@ public:
     
     void release( cudaStream_t stream )
     {
-        if ( 0 != _data ) {
+        if ( nullptr != _data ) {
             _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
         }
-        _data = 0;
+        _data = nullptr;
         _capacity = 0;
         _size = 0;
     }

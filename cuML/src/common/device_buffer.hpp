@@ -26,10 +26,11 @@ namespace ML {
  * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus allocation and
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
+ * template<typename T>
  * void foo( cumlHandle* handle, .., cudaStream_t stream )
  * {
  *     ...
- *     device_buffer<T> temp( handle->getHostAllocator(), 0 )
+ *     device_buffer<T> temp( handle->getDeviceAllocator(), 0 )
  *     
  *     temp.resize(n, stream);
  *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
@@ -56,7 +57,7 @@ public:
     device_buffer& operator=(const device_buffer& other) = delete;
 
     device_buffer(std::shared_ptr<deviceAllocator> allocator, size_type n = 0)
-        : _allocator(allocator), _size(n), _capacity(n), _data(0)
+        : _allocator(allocator), _size(n), _capacity(n), _data(nullptr)
     {
         if ( n > 0 )
         {
@@ -67,7 +68,7 @@ public:
 
     ~device_buffer()
     {
-        if ( 0 != _data ) 
+        if ( nullptr != _data ) 
         {
             _allocator->deallocate( _data, _capacity*sizeof(value_type), 0 );
         }
@@ -96,7 +97,7 @@ public:
             if ( _size > 0 ) {
                 CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyDeviceToDevice, stream ) );
             }
-            if ( 0 != _data ) {
+            if ( nullptr != _data ) {
                 _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
             }
             _data = new_data;
@@ -112,10 +113,10 @@ public:
     
     void release( cudaStream_t stream )
     {
-        if ( 0 != _data ) {
+        if ( nullptr != _data ) {
             _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
         }
-        _data = 0;
+        _data = nullptr;
         _capacity = 0;
         _size = 0;
     }
