@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2018, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 /*
@@ -34,18 +50,18 @@ namespace GLM {
 
 using MLCommon::alignTo;
 
-//TODO better way to deal with alignment? Smaller aligne possible?
+// TODO better way to deal with alignment? Smaller aligne possible?
 constexpr size_t qn_align = 256;
 
 template <typename T>
-inline int lbfgs_workspace_size(const LBFGSParam<T> &param, const int n) {
+inline size_t lbfgs_workspace_size(const LBFGSParam<T> &param, const int n) {
   size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
   return 2 * mat_size + 4 * vec_size + qn_align;
 }
 
 template <typename T>
-inline int owlqn_workspace_size(const LBFGSParam<T> &param, const int n) {
+inline size_t owlqn_workspace_size(const LBFGSParam<T> &param, const int n) {
   size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
   return lbfgs_workspace_size(param, n) + vec_size;
 }
@@ -63,11 +79,10 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   const int workspace_size = lbfgs_workspace_size(param, n);
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
 
+  // SETUP WORKSPACE
   size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
-
   T *p_ws = workspace.data;
-  // SETUP WORKSPACE
   SimpleMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleMat<T> Y(p_ws, n, param.m);
@@ -180,10 +195,10 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   ASSERT(pg_limit <= n && pg_limit > 0,
          "OWL-QN: Invalid pseudo grad limit parameter");
 
+  // SETUP WORKSPACE
   size_t mat_size = alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  // SETUP WORKSPACE
   SimpleMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleMat<T> Y(p_ws, n, param.m);
@@ -298,11 +313,11 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  */
 template <typename T, typename LossFunction>
 inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
-                        LossFunction &loss, const T l1,
-                        const LBFGSParam<T> &opt_param,
-                        const int verbosity = 0) {
+                       LossFunction &loss, const T l1,
+                       const LBFGSParam<T> &opt_param,
+                       const int verbosity = 0) {
 
-    //TODO the workspace allocation should benefit from planned memory pooling
+  // TODO the workspace allocation should benefit from planned memory pooling
   OPT_RETCODE ret;
   if (l1 == 0.0) {
     SimpleVec<T> workspace(lbfgs_workspace_size(opt_param, x.len));
