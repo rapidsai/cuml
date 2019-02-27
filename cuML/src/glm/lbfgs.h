@@ -184,10 +184,11 @@ struct LineSearch {
   typedef SimpleVec<T> Vector;
   T dec, inc;
   const LBFGSParam<T> &param;
-  inner_product<T> dot;
+  //inner_product<T> dot;
+  SimpleVec<T> dev_scalar;
 
   LineSearch(const LBFGSParam<T> &param_, T dec_ = 0.5, T inc_ = 2.1)
-    : dec(dec_), inc(inc_), param(param_) {}
+    : dec(dec_), inc(inc_), param(param_), dev_scalar(1) {}
 
   bool is_success(const T fx_init, const T dg_init, const T fx, const T dg_test,
                   const T step, const Vector &grad, const Vector &drt,
@@ -199,7 +200,7 @@ struct LineSearch {
       if (param.linesearch == LBFGS_LS_BT_ARMIJO)
         return true;
 
-      const T dg = dot(grad, drt);
+      const T dg = dot(grad, drt, dev_scalar.data);
       if (dg < param.wolfe * dg_init) {
         *width = inc;
       } else {
@@ -236,6 +237,7 @@ struct LineSearch {
   template <typename Function>
   LINE_SEARCH_RETCODE backtrack(Function &f, T &fx, Vector &x, Vector &grad,
                                 T &step, const Vector &drt, const Vector &xp) {
+      T* dptr = dev_scalar.data;
     // Check the value of step
     if (step <= T(0))
       return LS_INVALID_STEP;
@@ -243,7 +245,7 @@ struct LineSearch {
     // Save the function value at the current x
     const T fx_init = fx;
     // Projection of gradient on the search direction
-    const T dg_init = dot(grad, drt);
+    const T dg_init = dot(grad, drt, dptr);
     // Make sure d points to a descent direction
     if (dg_init > 0)
       return LS_INVALID_DIR;
@@ -277,6 +279,7 @@ struct LineSearch {
     backtrack_projected(Function &f, T &fx, Vector &x, Vector &grad,
                         const Vector &pseudo_grad, T &step, const Vector &drt,
                         const Vector &xp, T l1_penalty) {
+        T* dptr = dev_scalar.data;
     LSProjectedStep<T> lsstep;
 
     // Check the value of step
@@ -286,7 +289,7 @@ struct LineSearch {
     // Save the function value at the current x
     const T fx_init = fx;
     // Projection of gradient on the search direction
-    const T dg_init = dot(pseudo_grad, drt);
+    const T dg_init = dot(pseudo_grad, drt, dptr);
     // Make sure d points to a descent direction
     if (dg_init > 0)
       return LS_INVALID_DIR;
@@ -334,9 +337,12 @@ struct LBFGSSolver {
   std::vector<T> m_fx;          // History of the objective function values
   Vector svec, yvec, yj, sj;    // helper mask vectors
 
+  Vector dev_scalar; // device scalar for reduction results
+
   LineSearch<T> linesearch;
-  norm2<T> l2norm;
-  inner_product<T> dot;
+
+  //norm2<T> l2norm;
+  //inner_product<T> dot;
 
   /*
    * Ctor. Allocates workspace
@@ -344,7 +350,7 @@ struct LBFGSSolver {
   LBFGSSolver(const LBFGSParam<T> &param, const int n)
     : m_param(param), m_s(n, param.m), m_y(n, param.m), m_xp(n), m_grad(n),
       m_gradp(n), m_drt(n), m_ys(param.m), m_alpha(param.m),
-      m_fx(param.past > 0 ? param.past : 0), linesearch(param) {}
+      m_fx(param.past > 0 ? param.past : 0), linesearch(param), dev_scalar(1) {}
 
   /*
    * Ctor with user-allocated workspace. Use workspace_size.
@@ -359,15 +365,17 @@ struct LBFGSSolver {
       m_grad(n, workspace + (2 * param.m + 1) * n),
       m_gradp(n, workspace + (2 * param.m + 2) * n),
       m_drt(n, workspace + (2 * param.m + 3) * n), m_ys(param.m),
+      dev_scalar(1),
       m_alpha(param.m), m_fx(param.past > 0 ? param.past : 0) {}
 
   static int workspace_size(const LBFGSParam<T> &param, int n) {
-    return (4 + 2 * param.m) * n;
+    return (4 + 2 * param.m) * n + 1;
   }
 
   template <typename Function>
   inline OPT_RETCODE minimize(Function &f, Vector &x, T &fx, int *k,
-                              int verbosity = 0) {
+                              int verbosity = 0, cudaStream_t stream = 0) {
+    T* dptr = dev_scalar.data;
     *k = 0;
     if (verbosity > 0) {
       printf("Running L-BFGS\n");
@@ -375,8 +383,8 @@ struct LBFGSSolver {
 
     // Evaluate function and compute gradient
     fx = f(x, m_grad);
-    T xnorm = l2norm(x);
-    T gnorm = l2norm(m_grad);
+    T xnorm = nrm2(x, dptr);
+    T gnorm = nrm2(m_grad, dptr);
 
     if (m_param.past > 0)
       m_fx[0] = fx;
@@ -393,7 +401,7 @@ struct LBFGSSolver {
     m_drt.ax(-1.0, m_grad);
 
     // Initial step
-    T step = T(1.0) / l2norm(m_drt);
+    T step = T(1.0) / nrm2(m_drt, dptr);
 
     *k = 1;
     int end = 0;
@@ -427,9 +435,10 @@ struct LBFGSSolver {
 
   bool check_convergence(const int k, const T fx, Vector &x, Vector &grad,
                          const int verbosity) {
+    T * dptr = dev_scalar.data;
     // New x norm and gradient norm
-    T xnorm = l2norm(x);
-    T gnorm = l2norm(grad);
+    T xnorm = nrm2(x, dptr);
+    T gnorm = nrm2(grad, dptr);
 
     if (verbosity > 0) {
       printf("%04d: f(x)=%.6f conv.crit=%.6f (gnorm=%.6f, xnorm=%.6f)\n", k, fx,
@@ -473,9 +482,10 @@ struct LBFGSSolver {
    * where H is the approximate inverse Hessian
    */
   int update_search_dir(const int k, int end, const Vector &g) {
+      T* dptr = dev_scalar.data;
     // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
-    T ys = dot(svec, yvec);
-    T yy = dot(yvec, yvec);
+    T ys = dot(svec, yvec, dptr);
+    T yy = dot(yvec, yvec, dptr);
     if (ys == 0 || yy == 0) {
       printf("WARNING: zero detected\n");
     }
@@ -490,7 +500,7 @@ struct LBFGSSolver {
       j = (j + m_param.m - 1) % m_param.m;
       col_ref(m_s,sj, j);
       col_ref(m_y,yj, j);
-      m_alpha[j] = dot(sj, m_drt) / m_ys[j];
+      m_alpha[j] = dot(sj, m_drt, dptr) / m_ys[j];
       m_drt.axpy(-m_alpha[j], yj, m_drt);
     }
 
@@ -499,7 +509,7 @@ struct LBFGSSolver {
     for (int i = 0; i < bound; i++) {
       col_ref(m_s,sj, j);
       col_ref(m_y,yj, j);
-      T beta = dot(yj, m_drt) / m_ys[j];
+      T beta = dot(yj, m_drt, dptr) / m_ys[j];
       m_drt.axpy((m_alpha[j] - beta), sj, m_drt);
       j = (j + 1) % m_param.m;
     }
@@ -531,8 +541,9 @@ struct OWLQNSolver : LBFGSSolver<T> {
   using Super::yj;
   using Super::yvec;
 
-  using Super::l2norm;
+  //using Super::l2norm;
   using Super::linesearch;
+  using Super::dev_scalar;
 
   int pg_limit; //
 
@@ -540,7 +551,7 @@ struct OWLQNSolver : LBFGSSolver<T> {
   // op to project a vector onto the orthant of the neg of another vector
   op_project<T> project_neg;
 
-  norm1<T> l1norm;
+  //norm1<T> l1norm;
 
   OWLQNSolver(const LBFGSParam<T> &param, const int n, const int pg_limit)
       : Super(param, n), m_pseudo(n), project_neg(T(-1.0)) , pg_limit(pg_limit){
@@ -572,10 +583,11 @@ struct OWLQNSolver : LBFGSSolver<T> {
   inline OPT_RETCODE minimize(Function &f, const T l1_penalty, Vector &x, T &fx,
                               int *k, const int verbosity = 0) {
 
-    auto f_wrap = [&f, &l1_penalty, this](SimpleVec<T> &x, SimpleVec<T> &grad) {
+      T * dptr = dev_scalar.data;
+    auto f_wrap = [&f, &l1_penalty, &dptr, this](SimpleVec<T> &x, SimpleVec<T> &grad) {
       T tmp = f(x, grad);
       SimpleVec<T> mask(x.data, pg_limit);
-      return tmp + l1_penalty * this->l1norm(mask);
+      return tmp + l1_penalty * nrm1(mask, dptr);
     };
 
     *k = 0;
@@ -592,8 +604,8 @@ struct OWLQNSolver : LBFGSSolver<T> {
     //m_pseudo.assign_binary(x, m_grad, pseudo_grad);
     update_pseudo(x, pseudo_grad);
 
-    T xnorm = l2norm(x);
-    T gnorm = l2norm(m_pseudo);
+    T xnorm = nrm2(x, dptr);
+    T gnorm = nrm2(m_pseudo, dptr);
 
     if (m_param.past > 0)
       m_fx[0] = fx;
@@ -612,7 +624,7 @@ struct OWLQNSolver : LBFGSSolver<T> {
     // m_drt.assign_k_ary(project, m_pseudo, x);
 
     // Initial step
-    T step = T(1.0) / std::max(T(1), l2norm(m_drt));
+    T step = T(1.0) / std::max(T(1), nrm2(m_drt,dptr));
 
     int end = 0;
     for ((*k) = 1; (*k) <= m_param.max_iterations; (*k)++) {

@@ -290,6 +290,41 @@ inline void col_slice(const SimpleMat<T> &mat, SimpleMat<T> &mask_mat,
 // as it  impedes thread safety and constness
 
 template <typename T>
+inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
+             cudaStream_t stream = 0) {
+  auto f = [] __device__(const T x, const T y) { return x * y; };
+  MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
+  T tmp_host;
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1);
+  return tmp_host;
+}
+
+template <typename T>
+inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev,
+             cudaStream_t stream = 0) {
+    return dot(u, u, tmp_dev, stream);
+}
+
+template <typename T>
+inline T nrm2(const SimpleVec<T> &u, T *tmp_dev,
+             cudaStream_t stream = 0) {
+    return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
+}
+
+template <typename T>
+inline T nrm1(const SimpleVec<T> &u, T *tmp_dev,
+             cudaStream_t stream = 0) {
+  auto f = [] __device__(const T x) { return MLCommon::myAbs<T>(x); };
+  MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data);
+  T tmp_host;
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1);
+  return tmp_host;
+}
+
+
+
+/*
+template <typename T>
 inline void dot(T *out_dev, const SimpleVec<T> &u, const SimpleVec<T> &v,
                 cudaStream_t stream = 0) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
@@ -350,6 +385,7 @@ template <typename T> struct norm0 : norm<T, norm0<T>> {
     MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
   }
 };
+*/
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
