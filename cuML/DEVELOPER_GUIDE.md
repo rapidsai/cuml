@@ -19,9 +19,9 @@ To enable `libcuml.so` users to control how memory for temporary data is allocat
 template<typename T>
 void foo(ML::cumlHandle* handle, cudaStream_t stream, ... )
 {
-    T* temp_h = handle->setDeviceAllocator()->allocate(n*sizeof(T), stream);
+    T* temp_h = handle->getDeviceAllocator()->allocate(n*sizeof(T), stream);
     ...
-    handle->setDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
+    handle->getDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
 the same rule applies to larger amounts of host heap memory:
@@ -42,7 +42,7 @@ template<typename T>
 void foo( ML::cumlHandle* handle, .., cudaStream_t stream )
 {
     ...
-    ML::device_buffer<T> temp( handle->getHostAllocator(), 0 )
+    ML::device_buffer<T> temp( handle->getDeviceAllocator(), 0 )
     
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
