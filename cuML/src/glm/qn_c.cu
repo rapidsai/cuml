@@ -4,8 +4,8 @@
 #include <glm/glm_logistic.h>
 #include <glm/glm_regularizer.h>
 #include <glm/glm_softmax.h>
-#include <glm/lbfgs.h>
 #include <glm/qn_c.h>
+#include <glm/qn_solvers.h>
 
 /*
  * Implementation of the quasi newton C api
