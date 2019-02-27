@@ -1,5 +1,9 @@
 #pragma once
 
+namespace ML{
+namespace GLM{
+
+
 
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO = 1,
@@ -99,4 +103,42 @@ public:
   }
 };
 
+template <typename T>
+HDI T project_orth(T x, T y) {
+  return x * y <= T(0) ? T(0) : x;
+}
 
+template <typename T>
+inline bool check_convergence(const LBFGSParam<T> &param, const int k, const T fx,
+                       SimpleVec<T> &x, SimpleVec<T> &grad, std::vector<T> & fx_hist, const int verbosity,
+                       T *dev_scalar, cudaStream_t stream = 0) {
+  // New x norm and gradient norm
+  T xnorm = nrm2(x, dev_scalar, stream);
+  T gnorm = nrm2(grad, dev_scalar, stream);
+
+  if (verbosity > 0) {
+    printf("%04d: f(x)=%.6f conv.crit=%.6f (gnorm=%.6f, xnorm=%.6f)\n", k, fx,
+           gnorm / std::max(T(1), xnorm), gnorm, xnorm);
+  }
+  // Convergence test -- gradient
+  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+    if (verbosity > 0)
+      printf("Converged after %d iterations: f(x)=%.6f\n", k, fx);
+    return true;
+  }
+  // Convergence test -- objective function value
+  if (param.past > 0) {
+    if (k >= param.past &&
+        std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
+      if (verbosity > 0)
+        printf("Insufficient change in objective value\n");
+      return true;
+    }
+
+    fx_hist[k % param.past] = fx;
+  }
+  return false;
+}
+
+}; // namespace GLM
+}; // namespace ML

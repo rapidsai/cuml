@@ -29,11 +29,6 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-HDI T project_orth(T x, T y) {
-  return x * y <= T(0) ? T(0) : x;
-}
-
-template <typename T>
 HDI T get_pseudo_grad(T x, T dlossx, T C) {
   if (x != 0) {
     return dlossx + MLCommon::sgn(x) * C;
@@ -67,6 +62,55 @@ struct op_pseudo_grad {
   }
 };
 
+/*
+ * Computes new search direction
+ * d = - H * g,
+ * where H is the approximate inverse Hessian
+ */
+template <typename T>
+inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
+                            const int end_prev, const SimpleMat<T> &S,
+                            const SimpleMat<T> &Y, const SimpleVec<T> &g,
+                            const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
+                            SimpleVec<T> &drt, std::vector<T> &yhist,
+                            std::vector<T> &alpha, T *dev_scalar,
+                            cudaStream_t stream = 0) {
+  SimpleVec<T> sj, yj; // mask vectors
+  int end = end_prev;
+  // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
+  T ys = dot(svec, yvec, dev_scalar, stream);
+  T yy = dot(yvec, yvec, dev_scalar, stream);
+  if (ys == 0 || yy == 0) {
+    printf("WARNING: zero detected\n");
+  }
+  yhist[end] = ys;
+
+  // Recursive formula to compute d = -H * g
+  drt.ax(-1.0, g);
+  int bound = std::min(param.m, k);
+  end = (end + 1) % param.m;
+  int j = end;
+  for (int i = 0; i < bound; i++) {
+    j = (j + param.m - 1) % param.m;
+    col_ref(S, sj, j);
+    col_ref(Y, yj, j);
+    alpha[j] = dot(sj, drt, dev_scalar, stream) / yhist[j];
+    drt.axpy(-alpha[j], yj, drt);
+  }
+
+  drt.ax(ys / yy, drt);
+
+  for (int i = 0; i < bound; i++) {
+    col_ref(S, sj, j);
+    col_ref(Y, yj, j);
+    T beta = dot(yj, drt, dev_scalar, stream) / yhist[j];
+    drt.axpy((alpha[j] - beta), sj, drt);
+    j = (j + 1) % param.m;
+  }
+
+  return end;
+}
+
 template <typename T> struct LBFGSSolver {
   typedef SimpleVec<T> Vector;
   typedef SimpleMat<T> Matrix;
@@ -91,8 +135,7 @@ template <typename T> struct LBFGSSolver {
   LBFGSSolver(const LBFGSParam<T> &param, const int n)
       : m_param(param), m_s(n, param.m), m_y(n, param.m), m_xp(n), m_grad(n),
         m_gradp(n), m_drt(n), m_ys(param.m), m_alpha(param.m),
-        m_fx(param.past > 0 ? param.past : 0), 
-        dev_scalar(1) {}
+        m_fx(param.past > 0 ? param.past : 0), dev_scalar(1) {}
 
   /*
    * Ctor with user-allocated workspace. Use workspace_size.
@@ -125,8 +168,8 @@ template <typename T> struct LBFGSSolver {
 
     // Evaluate function and compute gradient
     fx = f(x, m_grad);
-    T xnorm = nrm2(x, dptr);
-    T gnorm = nrm2(m_grad, dptr);
+    T xnorm = nrm2(x, dptr, stream);
+    T gnorm = nrm2(m_grad, dptr, stream);
 
     if (m_param.past > 0)
       m_fx[0] = fx;
@@ -143,7 +186,7 @@ template <typename T> struct LBFGSSolver {
     m_drt.ax(-1.0, m_grad);
 
     // Initial step
-    T step = T(1.0) / nrm2(m_drt, dptr);
+    T step = T(1.0) / nrm2(m_drt, dptr, stream);
 
     *k = 1;
     int end = 0;
@@ -156,56 +199,35 @@ template <typename T> struct LBFGSSolver {
       m_gradp = m_grad;
 
       // Line search to update x, fx and gradient
-      LINE_SEARCH_RETCODE lsret =
-          ls_backtrack(m_param, f, fx, x, m_grad, step, m_drt, m_xp, dptr, stream);
+      LINE_SEARCH_RETCODE lsret = ls_backtrack(m_param, f, fx, x, m_grad, step,
+                                               m_drt, m_xp, dptr, stream);
       if (lsret != LS_SUCCESS)
         return OPT_LS_FAILED;
 
-      if (check_convergence(*k, fx, x, m_grad, verbosity)) {
+      if (check_convergence(m_param, *k, fx, x, m_grad, m_fx, verbosity, dptr,
+                            stream)) {
         return OPT_SUCCESS;
       }
 
       // Update s and y
       update_state(end, x);
       // m_drt <- -H * g
-      end = update_search_dir(*k, end, m_grad);
+      //
+      ///end = update_search_dir(*k, end, m_grad);
+
+      end = lbfgs_search_dir(m_param, *k,
+                            end, m_s,
+                            m_y, m_grad,
+                            svec, yvec,
+                            m_drt, m_ys,
+                            m_alpha, dev_scalar.data,
+                            stream) ;
+
       // step = 1.0 as initial guess
       step = T(1.0);
     }
     return OPT_MAX_ITERS_REACHED;
   }
-
-  bool check_convergence(const int k, const T fx, Vector &x, Vector &grad,
-                         const int verbosity) {
-    T *dptr = dev_scalar.data;
-    // New x norm and gradient norm
-    T xnorm = nrm2(x, dptr);
-    T gnorm = nrm2(grad, dptr);
-
-    if (verbosity > 0) {
-      printf("%04d: f(x)=%.6f conv.crit=%.6f (gnorm=%.6f, xnorm=%.6f)\n", k, fx,
-             gnorm / std::max(T(1), xnorm), gnorm, xnorm);
-    }
-    // Convergence test -- gradient
-    if (gnorm <= m_param.epsilon * std::max(xnorm, T(1.0))) {
-      if (verbosity > 0)
-        printf("Converged after %d iterations: f(x)=%.6f\n", k, fx);
-      return true;
-    }
-    // Convergence test -- objective function value
-    if (m_param.past > 0) {
-      if (k >= m_param.past &&
-          std::abs((m_fx[k % m_param.past] - fx) / fx) < m_param.delta) {
-        if (verbosity > 0)
-          printf("Insufficient change in objective value\n");
-        return true;
-      }
-
-      m_fx[k % m_param.past] = fx;
-    }
-    return false;
-  }
-
   /*
    * Updates memory
    * s_{k+1} = x_{k+1} - x_k
@@ -222,7 +244,6 @@ template <typename T> struct LBFGSSolver {
    * Computes new search direction
    * d = - H * g,
    * where H is the approximate inverse Hessian
-   */
   int update_search_dir(const int k, int end, const Vector &g) {
     T *dptr = dev_scalar.data;
     // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
@@ -258,6 +279,7 @@ template <typename T> struct LBFGSSolver {
 
     return end;
   }
+   */
 };
 
 template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
@@ -323,14 +345,15 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
 
   template <typename Function>
   inline OPT_RETCODE minimize(Function &f, const T l1_penalty, Vector &x, T &fx,
-                              int *k, const int verbosity = 0, cudaStream_t stream = 0) {
+                              int *k, const int verbosity = 0,
+                              cudaStream_t stream = 0) {
 
     T *dptr = dev_scalar.data;
-    auto f_wrap = [&f, &l1_penalty, &dptr, this](SimpleVec<T> &x,
+    auto f_wrap = [&f, &l1_penalty, &dptr, this, &stream](SimpleVec<T> &x,
                                                  SimpleVec<T> &grad) {
       T tmp = f(x, grad);
       SimpleVec<T> mask(x.data, pg_limit);
-      return tmp + l1_penalty * nrm1(mask, dptr);
+      return tmp + l1_penalty * nrm1(mask, dptr, stream);
     };
 
     *k = 0;
@@ -347,8 +370,8 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
     // m_pseudo.assign_binary(x, m_grad, pseudo_grad);
     update_pseudo(x, pseudo_grad);
 
-    T xnorm = nrm2(x, dptr);
-    T gnorm = nrm2(m_pseudo, dptr);
+    T xnorm = nrm2(x, dptr, stream);
+    T gnorm = nrm2(m_pseudo, dptr, stream);
 
     if (m_param.past > 0)
       m_fx[0] = fx;
@@ -367,7 +390,7 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
     // m_drt.assign_k_ary(project, m_pseudo, x);
 
     // Initial step
-    T step = T(1.0) / std::max(T(1), nrm2(m_drt, dptr));
+    T step = T(1.0) / std::max(T(1), nrm2(m_drt, dptr, stream));
 
     int end = 0;
     for ((*k) = 1; (*k) <= m_param.max_iterations; (*k)++) {
@@ -379,8 +402,9 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
       m_gradp = m_grad;
 
       // Projected line search to update x, fx and gradient
-      LINE_SEARCH_RETCODE lsret = 
-          ls_backtrack_projected(m_param, f_wrap, fx, x, m_grad, m_pseudo, step, m_drt, m_xp, l1_penalty, dptr, stream);
+      LINE_SEARCH_RETCODE lsret =
+          ls_backtrack_projected(m_param, f_wrap, fx, x, m_grad, m_pseudo, step,
+                                 m_drt, m_xp, l1_penalty, dptr, stream);
 
       if (lsret != LS_SUCCESS)
         return OPT_LS_FAILED;
@@ -388,14 +412,16 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
       //  m_pseudo.assign_binary(x, m_grad, pseudo_grad);
       update_pseudo(x, pseudo_grad);
 
-      if (Super::check_convergence(*k, fx, x, m_pseudo, verbosity)) {
+      if (check_convergence(m_param, *k, fx, x, m_pseudo, m_fx, verbosity, dptr,
+                            stream)) {
         return OPT_SUCCESS;
       }
 
       // Update s and y
       Super::update_state(end, x);
-      // m_drt <- -H * g
-      end = Super::update_search_dir(*k, end, m_pseudo);
+      // m_drt <- -H * -> pseudo grad <-
+      end = lbfgs_search_dir(m_param, *k, end, m_s, m_y, m_pseudo, svec, yvec,
+                             m_drt, m_ys, m_alpha, dev_scalar.data, stream);
 
       // Project m_drt onto orthant of -pseudog
       m_drt.assign_binary(m_drt, m_pseudo, project_neg);
