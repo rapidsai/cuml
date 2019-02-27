@@ -23,6 +23,7 @@
 - PR #230: Refactored the cuda_utils header
 - PR #236: Refactored cuml python package structure to be more sklearn like
 - PR #246: Support for 2 vectors in the matrix vector operator
+- PR #244: Fix for single GPU OLS and Ridge to support one column training data
 
 ## Bug Fixes
 
