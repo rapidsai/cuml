@@ -29,6 +29,17 @@ void allocate_pointer_array(T **&dA_array, magma_int_t n, magma_int_t batchCount
 }
 
 template <typename T>
+void free_pointer_array(T **&dA_array, magma_int_t batchCount){
+        T **A_array;
+        A_array = (T **)malloc(sizeof(T*) * batchCount);
+        updateHost(A_array, dA_array, batchCount);
+        for(int i = 0; i < batchCount; i++) {
+                CUDA_CHECK(cudaFree(A_array[i]));
+        }
+        CUDA_CHECK(cudaFree(dA_array));
+}
+
+template <typename T>
 void print_matrix_host(magma_int_t m, magma_int_t n, T *A, magma_int_t lda,
                        const std::string& msg){
 
@@ -122,20 +133,6 @@ void fill_matrix_gpu_batched(
         }
         free(A_array);
 }
-
-template <typename T>
-void free_pointer_array(T **&dA_array, magma_int_t batchCount){
-        T **A_array;
-        A_array = (T **)malloc(sizeof(T*) * batchCount);
-        updateHost(A_array, dA_array, batchCount);
-        for(int i = 0; i < batchCount; i++) {
-                CUDA_CHECK(cudaFree(A_array[i]));
-        }
-        CUDA_CHECK(cudaFree(dA_array));
-}
-
-
-
 
 
 }
