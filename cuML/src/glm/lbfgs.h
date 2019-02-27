@@ -21,95 +21,12 @@
  *
  */
 
-#include <glm/qn_base.h>
+#include <glm/qn_util.h>
 #include <glm/qn_linesearch.h>
 #include <glm/glm_vectors.h>
 
 namespace ML {
 namespace GLM {
-
-template <typename T>
-HDI T get_pseudo_grad(T x, T dlossx, T C) {
-  if (x != 0) {
-    return dlossx + MLCommon::sgn(x) * C;
-  }
-  T dplus = dlossx + C;
-  T dmins = dlossx - C;
-  if (dmins > T(0))
-    return dmins;
-  if (dplus < T(0))
-    return dplus;
-  return T(0);
-}
-
-template <typename T>
-struct op_project {
-  T scal;
-  op_project(T s) : scal(s) {}
-
-  HDI T operator()(const T x, const T y) const {
-    return project_orth(x, scal * y);
-  }
-};
-
-template <typename T>
-struct op_pseudo_grad {
-  T l1;
-  op_pseudo_grad(const T lam) : l1(lam) {}
-
-  HDI T operator()(const T x, const T dlossx) const {
-    return get_pseudo_grad(x, dlossx, l1);
-  }
-};
-
-/*
- * Computes new search direction
- * d = - H * g,
- * where H is the approximate inverse Hessian
- */
-template <typename T>
-inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
-                            const int end_prev, const SimpleMat<T> &S,
-                            const SimpleMat<T> &Y, const SimpleVec<T> &g,
-                            const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
-                            SimpleVec<T> &drt, std::vector<T> &yhist,
-                            std::vector<T> &alpha, T *dev_scalar,
-                            cudaStream_t stream = 0) {
-  SimpleVec<T> sj, yj; // mask vectors
-  int end = end_prev;
-  // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
-  T ys = dot(svec, yvec, dev_scalar, stream);
-  T yy = dot(yvec, yvec, dev_scalar, stream);
-  if (ys == 0 || yy == 0) {
-    printf("WARNING: zero detected\n");
-  }
-  yhist[end] = ys;
-
-  // Recursive formula to compute d = -H * g
-  drt.ax(-1.0, g);
-  int bound = std::min(param.m, k);
-  end = (end + 1) % param.m;
-  int j = end;
-  for (int i = 0; i < bound; i++) {
-    j = (j + param.m - 1) % param.m;
-    col_ref(S, sj, j);
-    col_ref(Y, yj, j);
-    alpha[j] = dot(sj, drt, dev_scalar, stream) / yhist[j];
-    drt.axpy(-alpha[j], yj, drt);
-  }
-
-  drt.ax(ys / yy, drt);
-
-  for (int i = 0; i < bound; i++) {
-    col_ref(S, sj, j);
-    col_ref(Y, yj, j);
-    T beta = dot(yj, drt, dev_scalar, stream) / yhist[j];
-    drt.axpy((alpha[j] - beta), sj, drt);
-    j = (j + 1) % param.m;
-  }
-
-  return end;
-}
 
 template <typename T> struct LBFGSSolver {
   typedef SimpleVec<T> Vector;
@@ -240,46 +157,6 @@ template <typename T> struct LBFGSSolver {
     yvec.axpy(-1.0, m_gradp, m_grad);
   }
 
-  /*
-   * Computes new search direction
-   * d = - H * g,
-   * where H is the approximate inverse Hessian
-  int update_search_dir(const int k, int end, const Vector &g) {
-    T *dptr = dev_scalar.data;
-    // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
-    T ys = dot(svec, yvec, dptr);
-    T yy = dot(yvec, yvec, dptr);
-    if (ys == 0 || yy == 0) {
-      printf("WARNING: zero detected\n");
-    }
-    m_ys[end] = ys;
-
-    // Recursive formula to compute d = -H * g
-    m_drt.ax(-1.0, g);
-    int bound = std::min(m_param.m, k);
-    end = (end + 1) % m_param.m;
-    int j = end;
-    for (int i = 0; i < bound; i++) {
-      j = (j + m_param.m - 1) % m_param.m;
-      col_ref(m_s, sj, j);
-      col_ref(m_y, yj, j);
-      m_alpha[j] = dot(sj, m_drt, dptr) / m_ys[j];
-      m_drt.axpy(-m_alpha[j], yj, m_drt);
-    }
-
-    m_drt.ax(ys / yy, m_drt);
-
-    for (int i = 0; i < bound; i++) {
-      col_ref(m_s, sj, j);
-      col_ref(m_y, yj, j);
-      T beta = dot(yj, m_drt, dptr) / m_ys[j];
-      m_drt.axpy((m_alpha[j] - beta), sj, m_drt);
-      j = (j + 1) % m_param.m;
-    }
-
-    return end;
-  }
-   */
 };
 
 template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
@@ -317,7 +194,10 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
 
   OWLQNSolver(const LBFGSParam<T> &param, const int n, const int pg_limit)
       : Super(param, n), m_pseudo(n), project_neg(T(-1.0)), pg_limit(pg_limit) {
-    ASSERT(pg_limit <= n, "OWL-QN: Invalid pseuda grad limit parameter");
+          //This parameter is a crude way to apply l1 penalty only to the first part
+          //of the parameters, e.g. not to penalize the bias term in GLM,
+          //as implemented in scikit learn
+    ASSERT(pg_limit <= n, "OWL-QN: Invalid pseudo grad limit parameter");
   }
 
   OWLQNSolver(const LBFGSParam<T> &param, const int n, const int pg_limit,
@@ -325,7 +205,7 @@ template <typename T> struct OWLQNSolver : LBFGSSolver<T> {
       : Super(param, n, workspace), pg_limit(pg_limit),
         m_pseudo(n, workspace + Super::workspace_size(param, n)),
         project_neg(T(-1.0)) {
-    ASSERT(pg_limit <= n, "OWL-QN: Invalid pseuda grad limit parameter");
+    ASSERT(pg_limit <= n, "OWL-QN: Invalid pseudo grad limit parameter");
   }
 
   static int workspace_size(const LBFGSParam<T> &param, int n) {
