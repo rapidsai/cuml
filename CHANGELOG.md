@@ -16,9 +16,13 @@
 - PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
 - PR #224: Improve doc strings for readable rendering with readthedocs
 - PR #209: Simplify README.md, move build instructions to BUILD.md
+- PR #218: Fix RNG to use given seed and adjust RNG test tolerances.
 - PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
-
+- PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
+- PR #230: Refactored the cuda_utils header
+- PR #236: Refactored cuml python package structure to be more sklearn like
+- PR #246: Support for 2 vectors in the matrix vector operator
 
 ## Bug Fixes
 
