@@ -27,7 +27,7 @@ template <typename T>
 struct MatVecOpInputs {
   T tolerance;
   int rows, cols;
-  bool rowMajor, bcastAlongRows;
+  bool rowMajor, bcastAlongRows, useTwoVectors;
   unsigned long long int seed;
 };
 
@@ -40,10 +40,16 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void matrixVectorOpLaunch(T *out, const T *in, const T *vec, int D, int N,
-                          bool rowMajor, bool bcastAlongRows) {
-  matrixVectorOp(out, in, vec, D, N, rowMajor, bcastAlongRows,
-                 [] __device__(T a, T b) { return a + b; });
+void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
+                          int D, int N, bool rowMajor, bool bcastAlongRows,
+                          bool useTwoVectors) {
+  if(useTwoVectors) {
+    matrixVectorOp(out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
+                   [] __device__(T a, T b, T c) { return a + b + c; });
+  } else {
+    matrixVectorOp(out, in, vec1, D, N, rowMajor, bcastAlongRows,
+                   [] __device__(T a, T b) { return a + b; });
+  }
 }
 
 template <typename T>
@@ -58,17 +64,25 @@ protected:
     allocate(out_ref, len);
     allocate(out, len);
     int vecLen = params.bcastAlongRows ? D : N;
-    allocate(vec, vecLen);
+    allocate(vec1, vecLen);
+    allocate(vec2, vecLen);
     r.uniform(in, len, (T)-1.0, (T)1.0);
-    r.uniform(vec, vecLen, (T)-1.0, (T)1.0);
-    naiveMatVec(out_ref, in, vec, D, N, params.rowMajor, params.bcastAlongRows,
-                (T)1.0);
-    matrixVectorOpLaunch(out, in, vec, D, N, params.rowMajor,
-                         params.bcastAlongRows);
+    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0);
+    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0);
+    if(params.useTwoVectors) {
+      naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
+                  params.bcastAlongRows, (T)1.0);
+    } else {
+      naiveMatVec(out_ref, in, vec1, D, N, params.rowMajor,
+                  params.bcastAlongRows, (T)1.0);
+    }
+    matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
+                         params.bcastAlongRows, params.useTwoVectors);
   }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(vec));
+    CUDA_CHECK(cudaFree(vec1));
+    CUDA_CHECK(cudaFree(vec2));
     CUDA_CHECK(cudaFree(out));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(in));
@@ -76,19 +90,28 @@ protected:
 
 protected:
   MatVecOpInputs<T> params;
-  T *in, *out, *out_ref, *vec;
+  T *in, *out, *out_ref, *vec1, *vec2;
 };
 
 
 const std::vector<MatVecOpInputs<float>> inputsf = {
-  {0.00001f, 1024, 32, true, true, 1234ULL},
-  {0.00001f, 1024, 64, true, true, 1234ULL},
-  {0.00001f, 1024, 32, true, false, 1234ULL},
-  {0.00001f, 1024, 64, true, false, 1234ULL},
-  {0.00001f, 1024, 32, false, true, 1234ULL},
-  {0.00001f, 1024, 64, false, true, 1234ULL},
-  {0.00001f, 1024, 32, false, false, 1234ULL},
-  {0.00001f, 1024, 64, false, false, 1234ULL}};
+  {0.00001f, 1024, 32, true, true, false, 1234ULL},
+  {0.00001f, 1024, 64, true, true, false, 1234ULL},
+  {0.00001f, 1024, 32, true, false, false, 1234ULL},
+  {0.00001f, 1024, 64, true, false, false, 1234ULL},
+  {0.00001f, 1024, 32, false, true, false, 1234ULL},
+  {0.00001f, 1024, 64, false, true, false, 1234ULL},
+  {0.00001f, 1024, 32, false, false, false, 1234ULL},
+  {0.00001f, 1024, 64, false, false, false, 1234ULL},
+
+  {0.00001f, 1024, 32, true, true, true, 1234ULL},
+  {0.00001f, 1024, 64, true, true, true, 1234ULL},
+  {0.00001f, 1024, 32, true, false, true, 1234ULL},
+  {0.00001f, 1024, 64, true, false, true, 1234ULL},
+  {0.00001f, 1024, 32, false, true, true, 1234ULL},
+  {0.00001f, 1024, 64, false, true, true, 1234ULL},
+  {0.00001f, 1024, 32, false, false, true, 1234ULL},
+  {0.00001f, 1024, 64, false, false, true, 1234ULL}};
 typedef MatVecOpTest<float> MatVecOpTestF;
 TEST_P(MatVecOpTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
@@ -99,14 +122,23 @@ INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF,
 
 
 const std::vector<MatVecOpInputs<double>> inputsd = {
-  {0.0000001, 1024, 32, true, true, 1234ULL},
-  {0.0000001, 1024, 64, true, true, 1234ULL},
-  {0.0000001, 1024, 32, true, false, 1234ULL},
-  {0.0000001, 1024, 64, true, false, 1234ULL},
-  {0.0000001, 1024, 32, false, true, 1234ULL},
-  {0.0000001, 1024, 64, false, true, 1234ULL},
-  {0.0000001, 1024, 32, false, false, 1234ULL},
-  {0.0000001, 1024, 64, false, false, 1234ULL}};
+  {0.0000001, 1024, 32, true, true, false, 1234ULL},
+  {0.0000001, 1024, 64, true, true, false, 1234ULL},
+  {0.0000001, 1024, 32, true, false, false, 1234ULL},
+  {0.0000001, 1024, 64, true, false, false, 1234ULL},
+  {0.0000001, 1024, 32, false, true, false, 1234ULL},
+  {0.0000001, 1024, 64, false, true, false, 1234ULL},
+  {0.0000001, 1024, 32, false, false, false, 1234ULL},
+  {0.0000001, 1024, 64, false, false, false, 1234ULL},
+
+  {0.0000001, 1024, 32, true, true, true, 1234ULL},
+  {0.0000001, 1024, 64, true, true, true, 1234ULL},
+  {0.0000001, 1024, 32, true, false, true, 1234ULL},
+  {0.0000001, 1024, 64, true, false, true, 1234ULL},
+  {0.0000001, 1024, 32, false, true, true, 1234ULL},
+  {0.0000001, 1024, 64, false, true, true, 1234ULL},
+  {0.0000001, 1024, 32, false, false, true, 1234ULL},
+  {0.0000001, 1024, 64, false, false, true, 1234ULL}};
 typedef MatVecOpTest<double> MatVecOpTestD;
 TEST_P(MatVecOpTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
