@@ -189,6 +189,17 @@ class LinearRegression:
             msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
             raise TypeError(msg)
 
+        if self.n_cols < 1:
+            msg = "X matrix must have at least a column"
+            raise TypeError(msg) 
+
+        if self.n_rows < 2:
+            msg = "X matrix must have at least two rows"
+            raise TypeError(msg)          
+
+        if self.n_cols == 1:
+            self.algo = 0 # eig based method doesn't work when there is only one column.
+
         X_ptr = self._get_ctype_ptr(X_m)
 
         cdef uintptr_t y_ptr
