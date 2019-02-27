@@ -18,6 +18,7 @@
 
 #include <cublas_v2.h>
 #include <cusolverDn.h>
+#include <cusparse.h>
 
 #include "../cuML.hpp"
 
@@ -36,6 +37,7 @@ public:
 
     cublasHandle_t getCublasHandle( int dev_idx = 0 ) const;
     cusolverDnHandle_t getcusolverDnHandle( int dev_idx = 0 ) const;
+    cusparseHandle_t getcusparseHandle( int dev_idx ) const;
 
     void waitOnUserStream() const;
     void waitOnInternalStreams() const;
@@ -51,6 +53,7 @@ private:
     std::vector<cudaStream_t>           _streams;
     std::vector<cublasHandle_t>         _cublas_handles;
     std::vector<cusolverDnHandle_t>     _cusolverDn_handles;
+    std::vector<cusparseHandle_t>       _cusparse_handles;
     std::shared_ptr<deviceAllocator>    _deviceAllocator;
     std::shared_ptr<hostAllocator>      _hostAllocator;
     cudaStream_t                        _userStream;
