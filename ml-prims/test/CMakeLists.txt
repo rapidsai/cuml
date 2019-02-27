@@ -29,7 +29,6 @@ add_executable(mlcommon_test
   cov.cu
   decoupled_lookback.cu
   distance.cu
-  # distance_adj.cu
   divide.cu
   eig.cu
   eltwise.cu
@@ -47,6 +46,7 @@ add_executable(mlcommon_test
   norm.cu
   permute.cu
   power.cu
+  reverse.cu
   rng.cu
   rng_int.cu
   rsvd.cu
