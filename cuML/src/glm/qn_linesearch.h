@@ -1,5 +1,5 @@
 #pragma once
-#include <glm/qn_base.h>
+#include <glm/qn_util.h>
 
 /*
  * Linesearch functions
