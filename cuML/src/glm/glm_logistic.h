@@ -28,8 +28,8 @@ template <typename T>
 struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  LogisticLoss(int D, bool has_bias, cudaStream_t stream = 0)
-      : Super(D, 1, has_bias, stream) {}
+  LogisticLoss(int D, bool has_bias)
+      : Super(D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
     T m = MLCommon::myMax<T>(T(0), x);

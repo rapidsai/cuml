@@ -186,13 +186,13 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
 template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
-  Softmax(int D, int C, bool has_bias, cudaStream_t stream = 0)
-      : Super(D, C, has_bias, stream) {}
+  Softmax(int D, int C, bool has_bias)
+      : Super(D, C, has_bias) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
-                           const SimpleVec<T> &y) {
+                           const SimpleVec<T> &y, cudaStream_t stream =0) {
 
-    launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n);
+    launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
 };
 
