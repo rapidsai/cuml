@@ -15,40 +15,54 @@
  */
 
 #pragma once
+#include "error_handler.h"
 
-template<typename T>
-struct Question
-{
-  int column;
-  T value;
-};
-
-struct TreeNode
-{
-  TreeNode *left = NULL;
-  TreeNode *right = NULL;
-  bool leaf = false;
-  Question<float> question;
-};
-
-class DecisionTreeClassifier
-{
-public:
-  TreeNode *root;
-  void fit(float *data,int ncols,int nrows,float colper,int *lables)
+namespace DecisionTree {
+  template<typename T>
+  struct Question
   {
-    root = grow_tree(data,ncols,nrows,colper,lables);
-  }
-
-  void plant(float *data,int ncols,int nrows,float colper,int *lables)
-  {
-    root = grow_tree(data,ncols,nrows,colper,lables);
-  }
-
-  TreeNode* grow_tree(float *data,int ncols,int nrows,float colper,int *lables)
-  {
-    TreeNode *node = new TreeNode();
-    return node;
-  }
+    int column;
+    T value;
+  };
   
-};
+  struct TreeNode
+  {
+    TreeNode *left = NULL;
+    TreeNode *right = NULL;
+    bool leaf = false;
+    Question<float> question;
+  };
+  
+  class DecisionTreeClassifier
+  {
+  public:
+    TreeNode *root = NULL;
+    void *tempstoragedata;
+    void *tempstoragelables;
+    
+    void fit(float *data,int ncols,int nrows,float colper,int *lables)
+    {
+      return plant(data,ncols,nrows,colper,lables);
+    }
+    
+    void plant(float *data,int ncols,int nrows,float colper,int *lables)
+    {
+      gpuErrchk(cudaMalloc(&tempstoragedata,nrows*ncols*sizeof(float)));
+      gpuErrchk(cudaMalloc(&tempstoragelables,nrows*sizeof(float)));
+      
+      root = grow_tree(data,ncols,nrows,colper,lables);
+      
+      gpuErrchk(cudaFree(tempstoragedata));
+      gpuErrchk(cudaFree(tempstoragelables));
+      return;
+    }
+    
+    TreeNode* grow_tree(float *data,int ncols,int nrows,float colper,int *lables)
+    {
+      TreeNode *node = new TreeNode();
+      return node;
+    }
+  
+  };
+
+} //End namespace DecisionTree
