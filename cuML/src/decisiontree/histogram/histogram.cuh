@@ -16,7 +16,7 @@
 
 #pragma once
 #include "cub/cub.cuh"
-#include "../error_handler.h"
+#include <utils.h>
 
 namespace DecisionTree {
   
@@ -26,13 +26,13 @@ namespace DecisionTree {
     size_t   temp_storage_bytes = 0;
     
     //first call to compute temp storage, no kernel launched
-    gpuErrchk(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+    CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
 						  d_samples, d_histogram, num_levels, lower_level, upper_level, num_samples));  
     // Allocate temporary storage
-    gpuErrchk(cudaMalloc((void**)&d_temp_storage, temp_storage_bytes));
-    gpuErrchk(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+    CUDA_CHECK(cudaMalloc((void**)&d_temp_storage, temp_storage_bytes));
+    CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
 						  d_samples, d_histogram, num_levels, lower_level, upper_level, num_samples));
-    gpuErrchk(cudaFree(d_temp_storage));
+    CUDA_CHECK(cudaFree(d_temp_storage));
     
   }
   

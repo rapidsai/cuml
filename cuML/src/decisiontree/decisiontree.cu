@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-#include "histogram/histogram.cuh"
-#include "error_handler.h"
+#include <utils.h>
 #include "tree.cuh"
 namespace ML {
   

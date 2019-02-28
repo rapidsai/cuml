@@ -15,54 +15,89 @@
  */
 
 #pragma once
-#include "error_handler.h"
+#include <utils.h>
+#include "histogram/histogram.cuh"
+#include "kernels/gini.cuh"
 
-namespace DecisionTree {
-  template<typename T>
-  struct Question
-  {
-    int column;
-    T value;
-  };
-  
-  struct TreeNode
-  {
-    TreeNode *left = NULL;
-    TreeNode *right = NULL;
-    bool leaf = false;
-    Question<float> question;
-  };
-  
-  class DecisionTreeClassifier
-  {
-  public:
-    TreeNode *root = NULL;
-    void *tempstoragedata;
-    void *tempstoragelables;
-    
-    void fit(float *data,int ncols,int nrows,float colper,int *lables)
-    {
-      return plant(data,ncols,nrows,colper,lables);
-    }
-    
-    void plant(float *data,int ncols,int nrows,float colper,int *lables)
-    {
-      gpuErrchk(cudaMalloc(&tempstoragedata,nrows*ncols*sizeof(float)));
-      gpuErrchk(cudaMalloc(&tempstoragelables,nrows*sizeof(float)));
-      
-      root = grow_tree(data,ncols,nrows,colper,lables);
-      
-      gpuErrchk(cudaFree(tempstoragedata));
-      gpuErrchk(cudaFree(tempstoragelables));
-      return;
-    }
-    
-    TreeNode* grow_tree(float *data,int ncols,int nrows,float colper,int *lables)
-    {
-      TreeNode *node = new TreeNode();
-      return node;
-    }
-  
-  };
+namespace ML {
+  namespace DecisionTree {
 
-} //End namespace DecisionTree
+    struct Question
+    {
+      int column;
+      float value;
+    };
+
+    struct LeafNode
+    {
+      int class_predict;
+    };
+    
+    struct TreeNode
+    {
+      TreeNode *left = NULL;
+      TreeNode *right = NULL;
+      LeafNode *leaf = NULL;  
+      Question question;
+    };
+    
+    class DecisionTreeClassifier
+    {
+    public:
+      TreeNode *root = NULL;
+      void *tempstoragedata;
+      void *tempstoragelabels;
+      
+      void fit(float *data,const int ncols,const int nrows,const float colper,int *labels)
+      {
+	return plant(data,ncols,nrows,colper,labels);
+      }
+      
+      void plant(float *data,const int ncols,const int nrows,const float colper,int *labels)
+      {
+	CUDA_CHECK(cudaMalloc(&tempstoragedata,nrows*ncols*sizeof(float)));
+	CUDA_CHECK(cudaMalloc(&tempstoragelabels,nrows*sizeof(int)));
+	
+	root = grow_tree(data,ncols,nrows,colper,labels,tempstoragedata,tempstoragelabels);
+	
+	CUDA_CHECK(cudaFree(tempstoragedata));
+	CUDA_CHECK(cudaFree(tempstoragelabels));
+	return;
+      }
+      
+      TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,void *tempstorage,void *templabels)
+      {
+	TreeNode *node = new TreeNode();
+	Question ques;
+	float gain = 0.0;
+	find_best_fruit(data,labels,ncols,nrows,colper,ques,gain);  //ques and gain are output here
+	if(gain == 0.0)
+	  {
+	    
+	  }
+	else
+	  {
+	    int nrowsleft,nrowsright;
+	    split_branch(data,labels,ques,nrows,ncols,tempstorage,templabels,nrowsleft,nrowsright);
+	  }
+	return node;
+      }
+
+      void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain)
+      {
+	float maxinfo = 0.0;
+	int splitcol;
+	float splitval;
+	float ginibefore = gini(labels,nrows);
+	std::cout << " Gini value before " << ginibefore << std::endl;
+      }
+      
+      void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,void *tempdata,void *templabels,int& nrowsleft,int& nrowsright)
+      {
+
+      }
+    };
+    
+  } //End namespace DecisionTree
+
+} //End namespace ML 
