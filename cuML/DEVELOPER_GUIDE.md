@@ -60,6 +60,15 @@ void foo( ML::cumlHandle* handle, .. )
     thrust::for_each(execution_policy, ... );
 }
 ```
+The header `allocatorAdapter.hpp` also provides a helper function to create an execution policy:
+```cpp
+void foo( ML::cumlHandle* handle, .. )
+{
+    auto execution_policy = ML::exec_policy(handle->getDeviceAllocator(),stream);
+    thrust::for_each(execution_policy->on(stream), ... );
+}
+```
+
 # Asynchronous operations and stream ordering
 All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). If an implementation only requires a single CUDA Stream the stream from `ML::cumlHandle` should be used:
 ```cpp

@@ -43,7 +43,7 @@ template<typename T>
 class device_buffer
 {
 public:
-    using size_type         = std::size_t
+    using size_type         = std::size_t;
     using value_type        = T;
     using iterator          = value_type*;
     using const_iterator    = const value_type*;
