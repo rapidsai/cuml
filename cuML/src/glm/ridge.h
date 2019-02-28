@@ -68,6 +68,11 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
               cublasHandle_t cublasH, DeviceAllocator &mgr) {
 
+	ASSERT(n_cols > 0,
+			"ridgeSVD: number of columns cannot be less than one");
+	ASSERT(n_rows > 1,
+			"ridgeSVD: number of rows cannot be less than two");
+
 	math_t *S, *V, *U;
 
 	int U_len = n_rows * n_rows;
@@ -93,6 +98,11 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
               cublasHandle_t cublasH, DeviceAllocator &mgr) {
 
+	ASSERT(n_cols > 1,
+			"ridgeEig: number of columns cannot be less than two");
+	ASSERT(n_rows > 1,
+			"ridgeEig: number of rows cannot be less than two");
+
 	math_t *S, *V, *U;
 
 	int U_len = n_rows * n_cols;
@@ -117,10 +127,10 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle, int algo = 0) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"ridgeFit: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
+			"ridgeFit: number of rows cannot be less than two");
 
 	math_t *mu_input, *norm2_input, *mu_labels;
 
@@ -137,7 +147,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 
         auto mgr = makeDefaultAllocator();
 
-	if (algo == 0) {
+	if (algo == 0 || n_cols == 1) {
 		ridgeSVD(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
                          cusolver_handle, cublas_handle, mgr);
 	} else if (algo == 1) {
@@ -176,8 +186,8 @@ void ridgePredict(const math_t *input, int n_rows, int n_cols,
 		const math_t *coef, math_t intercept, math_t *preds,
 		cublasHandle_t cublas_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 

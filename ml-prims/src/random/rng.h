@@ -111,7 +111,7 @@ void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
               cudaStream_t stream = 0) {
   if (len <= 0)
     return;
-  uint64_t seed = _nextSeed();
+  uint64_t seed;
   auto newOffset =
     _setupSeeds<false, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
   switch (type) {
@@ -141,7 +141,7 @@ void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
                cudaStream_t stream = 0) {
   if (len <= 0)
     return;
-  uint64_t seed = _nextSeed();
+  uint64_t seed;
   auto newOffset =
     _setupSeeds<true, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
   switch (type) {

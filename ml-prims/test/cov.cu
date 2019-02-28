@@ -43,7 +43,6 @@ protected:
   void SetUp() override {
     CUBLAS_CHECK(cublasCreate(&handle));
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
-    params.tolerance *= 2;
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;

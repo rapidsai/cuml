@@ -232,7 +232,7 @@ TEST_P(RsvdTestSquareMatrixNormF, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, params.tolerance, cublasH, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
 }
 
@@ -242,7 +242,7 @@ TEST_P(RsvdTestSquareMatrixNormD, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, params.tolerance, cublasH, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
 }
 
