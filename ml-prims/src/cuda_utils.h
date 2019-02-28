@@ -302,9 +302,10 @@ HDI double myPow(double x, double power) {
  * @defgroup Pow Power function
  * @{
  */
-template <typename Type>
+// IdxType mostly to be used for MainLambda in *Reduction kernels
+template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in) { return in; }
+  HDI Type operator()(Type in, IdxType i = 0) { return in; }
 };
 
 template <typename Type>
