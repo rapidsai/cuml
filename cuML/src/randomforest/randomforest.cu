@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,25 @@
  * limitations under the License.
  */
 
+#include "randomforest.h"
+
 
 namespace ML {
+
+
+	void rfClassifier::fit(float * input, int n_rows, int n_cols, int * labels, int n_trees, int max_features) {
+	}
+
+	
+	void rfClassifier::predict(const float * input, int n_rows, int n_cols, int * preds) {
+	}
+
+	void rfRegressor::fit(float * input, int n_rows, int n_cols, int * labels, int n_trees, int max_features) {
+	}
+
+	
+	void rfRegressor::predict(const float * input, int n_rows, int n_cols, int * preds) {
+	}
 
 
 };
