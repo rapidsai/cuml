@@ -35,8 +35,8 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
@@ -62,8 +62,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
