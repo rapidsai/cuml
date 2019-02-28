@@ -17,23 +17,27 @@
 #pragma once
 #include "cub/cub.cuh"
 #include <utils.h>
+#include <thrust/extrema.h>
+  
+void histogram(float *d_samples, int *d_histogram, int num_levels,int num_samples)
+{
+  void*    d_temp_storage = NULL;
+  size_t   temp_storage_bytes = 0;
+  float upper_level,lower_level;
+  
+  float *max_ptr = thrust::max_element(thrust::device,d_samples,d_samples + num_samples);
+  float *min_ptr = thrust::min_element(thrust::device,d_samples,d_samples + num_samples);
 
-namespace DecisionTree {
+  CUDA_CHECK(cudaMemcpy(&upper_level,max_ptr,sizeof(float),cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpy(&lower_level,min_ptr,sizeof(float),cudaMemcpyDeviceToHost));
   
-  void histogram(float *d_samples, int *d_histogram, int num_levels,float lower_level,float upper_level,int num_samples)
-  {
-    void*    d_temp_storage = NULL;
-    size_t   temp_storage_bytes = 0;
-    
-    //first call to compute temp storage, no kernel launched
-    CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
-						  d_samples, d_histogram, num_levels, lower_level, upper_level, num_samples));  
-    // Allocate temporary storage
-    CUDA_CHECK(cudaMalloc((void**)&d_temp_storage, temp_storage_bytes));
-    CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
-						  d_samples, d_histogram, num_levels, lower_level, upper_level, num_samples));
-    CUDA_CHECK(cudaFree(d_temp_storage));
-    
-  }
+  //first call to compute temp storage, no kernel launched
+  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+						 d_samples, d_histogram, num_levels+1, lower_level-0.1, upper_level+0.1, num_samples));  
+  // Allocate temporary storage
+  CUDA_CHECK(cudaMalloc((void**)&d_temp_storage, temp_storage_bytes));
+  CUDA_CHECK(cub::DeviceHistogram::HistogramEven(d_temp_storage, temp_storage_bytes,
+						 d_samples, d_histogram, num_levels+1, lower_level-0.1, upper_level+0.1, num_samples));
+  CUDA_CHECK(cudaFree(d_temp_storage));
   
-}// end namespace DecisionTree
+}
