@@ -317,7 +317,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                        const LBFGSParam<T> &opt_param,
                        const int verbosity = 0) {
 
-  // TODO the workspace allocation should benefit from planned memory pooling
+  // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
     SimpleVec<T> workspace(lbfgs_workspace_size(opt_param, x.len));
@@ -332,7 +332,14 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
 
     if (verbosity > 0)
       printf("L-BFGS Done\n");
-  } else {
+  } else { 
+      // There might not be a better way to deal with dispatching
+      // for the l1 case:
+      // The algorithm explicitely expects a differentiable 
+      // function f(x). It takes care of adding and
+      // handling the term l1norm(x) * l1_pen explicitely, i.e.
+      // it needs to evaluate f(x) and its gradient separately
+
     SimpleVec<T> workspace(owlqn_workspace_size(opt_param, x.len));
 
     ret = min_owlqn(opt_param,
