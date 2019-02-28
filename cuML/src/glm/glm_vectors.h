@@ -41,37 +41,13 @@ template <typename T> struct SimpleVec {
 
   T *data;
   int len;
-  bool free_data; // I am the owner of the data
   Ptr p;
 
-  SimpleVec() : data(nullptr), len(0), free_data(false) {}
+  SimpleVec() : data(nullptr), len(0) {}
 
   SimpleVec(T *data, int len) : SimpleVec() { reset(data, len); }
-  /*
-    SimpleVec(int len, const T val = 0) : SimpleVec() {
-      reset(len);
-      fill(val);
-    }
-
-    virtual ~SimpleVec() {
-      if (free_data) {
-        CUDA_CHECK(cudaFree(data));
-      }
-    }
-
-    inline void reset(int n) {
-      if (free_data)
-        CUDA_CHECK(cudaFree(data));
-
-      len = n;
-      MLCommon::allocate(data, len);
-      free_data = true;
-      p = thrust::device_pointer_cast(data);
-    }
-    */
 
   inline void reset(T *new_data, int n) {
-
     len = n;
     data = new_data;
     p = thrust::device_pointer_cast(data);
@@ -199,17 +175,6 @@ template <typename T> struct SimpleMat : SimpleVec<T> {
   SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
       : Super(data, m * n), m(m), n(n), ord(order) {}
 
-  /*
-  SimpleMat(int m, int n, STORAGE_ORDER order = COL_MAJOR, const T val = 0)
-      : Super(m * n, val), m(m), n(n), ord(order) {}
-
-  void reset(int m_, int n_) {
-    m = m_;
-    n = n_;
-    Super::reset(m * n);
-  }
-  */
-
   void reset(T *data_, int m_, int n_) {
     m = m_;
     n = n_;
@@ -336,7 +301,6 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
   return tmp_host;
 }
 
-
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
   std::vector<T> out(v.len);
@@ -352,8 +316,8 @@ std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
-    os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") <<"\n";
-std::vector<T> out(mat.len);
+  os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
+  std::vector<T> out(mat.len);
   MLCommon::updateHost(&out[0], mat.data, mat.len);
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
@@ -381,22 +345,18 @@ std::vector<T> out(mat.len);
 template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
 
-  SimpleVecOwning() :Super(){}
+  SimpleVecOwning() : Super() {}
 
-  SimpleVecOwning(int n) {
-      reset(n);
-  }
+  SimpleVecOwning(int n) { reset(n); }
 
   ~SimpleVecOwning() { CUDA_CHECK(cudaFree(Super::data)); }
 
-  void reset(int n){
+  void reset(int n) {
     MLCommon::allocate(Super::data, n);
     Super::reset(Super::data, n);
   }
 
-  void operator=(const SimpleVec<T> & other){
-      Super::operator=(other);
-  }
+  void operator=(const SimpleVec<T> &other) { Super::operator=(other); }
 };
 
 template <typename T> struct SimpleMatOwning : SimpleMat<T> {
@@ -407,12 +367,13 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
 
-  SimpleMatOwning(int m, int n, STORAGE_ORDER order = COL_MAJOR) : Super(order) {
-      reset(m,n);
+  SimpleMatOwning(int m, int n, STORAGE_ORDER order = COL_MAJOR)
+      : Super(order) {
+    reset(m, n);
   }
 
   ~SimpleMatOwning() { CUDA_CHECK(cudaFree(Super::data)); }
-  void reset(int m, int n){
+  void reset(int m, int n) {
     MLCommon::allocate(Super::data, m * n);
     Super::reset(Super::data, m, n);
   }
