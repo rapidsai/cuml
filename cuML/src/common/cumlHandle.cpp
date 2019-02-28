@@ -279,7 +279,7 @@ cudaStream_t cumlHandle_impl::getStream() const
 
 cudaStream_t cumlHandle_impl::getDeviceStream( int dev_idx ) const
 {
-    return _streams[dev_idx];
+    return _streams[dev_idx*_num_streams + 0];
 }
 
 void cumlHandle_impl::setDeviceAllocator( std::shared_ptr<deviceAllocator> allocator )
@@ -315,6 +315,16 @@ cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle( int dev_idx ) const
 cusparseHandle_t cumlHandle_impl::getcusparseHandle( int dev_idx ) const
 {
     return _cusparse_handles[dev_idx];
+}
+
+cudaStream_t cumlHandle_impl::getInternalStream( int sid ) const
+{
+    return _streams[sid];
+}
+
+int cumlHandle_impl::getNumInternalStreams() const
+{
+    return _num_streams;
 }
 
 void cumlHandle_impl::waitOnUserStream() const
@@ -362,6 +372,13 @@ void cumlHandle_impl::createResources()
         _cublas_handles.push_back( cublas_handle );
         _cusolverDn_handles.push_back( cusolverDn_handle );
         _cusparse_handles.push_back( cusparse_handle );
+        
+        for (int i = 1; i < _num_streams; ++i)
+        {
+            cudaStream_t stream;
+            CUDA_CHECK( cudaStreamCreate(&stream) );
+            _streams.push_back(stream);
+        }
     }
 }
 

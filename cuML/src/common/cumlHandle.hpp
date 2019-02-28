@@ -41,6 +41,9 @@ public:
     cusolverDnHandle_t getcusolverDnHandle( int dev_idx = 0 ) const;
     cusparseHandle_t getcusparseHandle( int dev_idx ) const;
 
+    cudaStream_t getInternalStream( int sid ) const;
+    int getNumInternalStreams() const;
+
     void waitOnUserStream() const;
     void waitOnInternalStreams() const;
 
@@ -51,6 +54,8 @@ public:
 
     cudaStream_t getDeviceStream( int dev_idx ) const;
 private:
+    //TODO: What is the right number?
+    static constexpr int                _num_streams = 3;
     std::vector<int>                    _dev_ids;
     std::vector<cudaStream_t>           _streams;
     std::vector<cublasHandle_t>         _cublas_handles;
