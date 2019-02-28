@@ -96,10 +96,9 @@ struct GLMBase : GLMDims {
   typedef SimpleVec<T> Vec;
 
   cublasHandle_t cublas;
-  cudaStream_t stream;
 
-  GLMBase(int D, int C, bool fit_intercept, cudaStream_t stream = 0)
-      : GLMDims(C, D, fit_intercept), stream(stream) {
+  GLMBase(int D, int C, bool fit_intercept)
+      : GLMDims(C, D, fit_intercept) {
     cublasCreate(&cublas);
   }
 
@@ -111,7 +110,7 @@ struct GLMBase : GLMDims {
    * Default: elementwise application of loss and its derivative
    */
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
-                           const SimpleVec<T> &y) {
+                           const SimpleVec<T> &y, cudaStream_t stream = 0) {
 
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
@@ -135,11 +134,11 @@ struct GLMBase : GLMDims {
 
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
                         const SimpleMat<T> &Xb, const Vec &yb, Mat &Zb,
-                        bool initGradZero = true) {
+                        bool initGradZero = true, cudaStream_t stream=0) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
     linearFwd(Zb, Xb, W, cublas, stream);   // linear part: forward pass
-    loss->getLossAndDZ(loss_val, Zb, yb);   // loss specific part
+    loss->getLossAndDZ(loss_val, Zb, yb, stream);   // loss specific part
     linearBwd(G, Xb, Zb, initGradZero, cublas,
               stream); // linear part: backward pass
   }
