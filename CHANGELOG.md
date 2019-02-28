@@ -1,7 +1,7 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
-
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
 
 
 ## Improvements
