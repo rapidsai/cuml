@@ -16,7 +16,7 @@
 
 #include "histogram/histogram.cuh"
 #include "error_handler.h"
-
+#include "tree.cuh"
 namespace ML {
 
   
