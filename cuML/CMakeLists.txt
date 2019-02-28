@@ -187,6 +187,7 @@ add_library(cuml SHARED
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
             src/randomforest/randomforest.cu
+	        src/decisiontree/decisiontree.cu
             )
 
 set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
