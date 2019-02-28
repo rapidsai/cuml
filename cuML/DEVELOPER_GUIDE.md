@@ -42,7 +42,7 @@ template<typename T>
 void foo( ML::cumlHandle* handle, .., cudaStream_t stream )
 {
     ...
-    ML::device_buffer<T> temp( handle->getDeviceAllocator(), 0 )
+    ML::device_buffer<T> temp( handle->getDeviceAllocator(), stream, 0 )
     
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
@@ -90,4 +90,3 @@ void foo( ML::cumlHandle* handle, ...)
     ...
 }
 ```
-

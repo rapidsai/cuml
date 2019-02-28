@@ -30,7 +30,7 @@ namespace ML {
  * void foo( cumlHandle* handle, .., cudaStream_t stream )
  * {
  *     ...
- *     device_buffer<T> temp( handle->getDeviceAllocator(), 0 )
+ *     device_buffer<T> temp( handle->getDeviceAllocator(), stream, 0 )
  *     
  *     temp.resize(n, stream);
  *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
@@ -56,13 +56,13 @@ public:
 
     device_buffer& operator=(const device_buffer& other) = delete;
 
-    device_buffer(std::shared_ptr<deviceAllocator> allocator, size_type n = 0)
-        : _allocator(allocator), _size(n), _capacity(n), _data(nullptr)
+    device_buffer(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream, size_type n = 0)
+        : _allocator(allocator), _size(n), _capacity(n), _data(nullptr), _stream(stream)
     {
-        if ( n > 0 )
+        if ( _size > 0 )
         {
-            _data = static_cast<value_type*>(_allocator->allocate( _capacity*sizeof(value_type), 0 ));
-            CUDA_CHECK( cudaStreamSynchronize( 0 ) );
+            _data = static_cast<value_type*>(_allocator->allocate( _capacity*sizeof(value_type), _stream ));
+            CUDA_CHECK( cudaStreamSynchronize( _stream ) );
         }
     }
 
@@ -70,7 +70,7 @@ public:
     {
         if ( nullptr != _data ) 
         {
-            _allocator->deallocate( _data, _capacity*sizeof(value_type), 0 );
+            _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
         }
     }
 
@@ -89,16 +89,34 @@ public:
         return _size;
     }
     
-    void resize(const size_type new_size, cudaStream_t stream )
+    void reserve( const size_type new_capacity, cudaStream_t stream )
     {
-        if ( _capacity < new_size )
+        _stream = stream;
+        if ( new_capacity > _capacity )
         {
-            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_size*sizeof(value_type), stream ));
+            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_capacity*sizeof(value_type), _stream ));
             if ( _size > 0 ) {
-                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyDeviceToDevice, stream ) );
+                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyDeviceToDevice, _stream ) );
             }
             if ( nullptr != _data ) {
-                _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
+                _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
+            }
+            _data = new_data;
+            _capacity = new_capacity;
+        }
+    }
+    
+    void resize(const size_type new_size, cudaStream_t stream )
+    {
+        _stream = stream;
+        if ( _capacity < new_size )
+        {
+            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_size*sizeof(value_type), _stream ));
+            if ( _size > 0 ) {
+                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyDeviceToDevice, _stream ) );
+            }
+            if ( nullptr != _data ) {
+                _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
             }
             _data = new_data;
             _capacity = new_size;
@@ -113,8 +131,9 @@ public:
     
     void release( cudaStream_t stream )
     {
+        _stream = stream;
         if ( nullptr != _data ) {
-            _allocator->deallocate( _data, _capacity*sizeof(value_type), stream );
+            _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
         }
         _data = nullptr;
         _capacity = 0;
@@ -151,6 +170,7 @@ private:
     size_type                           _size;
     size_type                           _capacity;
     value_type*                         _data;
+    cudaStream_t                        _stream;
 };
 
 } // end namespace ML
