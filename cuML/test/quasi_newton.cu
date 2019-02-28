@@ -59,7 +59,7 @@ checkParamsEqual(const T *host_weights, const T *host_bias, const T *w,
       w_ref_cm[idx++] = host_weights[c * D + d];
     }
 
-  SimpleVec<T> w_ref(C * (D + fit_intercept));
+  SimpleVecOwning<T> w_ref(C * (D + fit_intercept));
   updateDevice(w_ref.data, &w_ref_cm[0], C * D);
   if (fit_intercept) {
     updateDevice(&w_ref.data[C * D], host_bias, C);
@@ -74,13 +74,13 @@ struct InputSpec {
 };
 
 template <class T> struct DevUpload {
-  SimpleMat<T> devX;
-  SimpleVec<T> devY;
+  SimpleMatOwning<T> devX;
+  SimpleVecOwning<T> devY;
   DevUpload(const InputSpec &inSpec, const T *x, const T *y,
             cublasHandle_t &cublas)
       : devX(inSpec.n_row, inSpec.n_col), devY(inSpec.n_row) {
 
-    SimpleMat<T> devXtmp(inSpec.n_row, inSpec.n_col);
+    SimpleMatOwning<T> devXtmp(inSpec.n_row, inSpec.n_col);
 
     updateDevice(devX.data, x, inSpec.n_row * inSpec.n_col);
     updateDevice(devY.data, y, inSpec.n_row);
@@ -122,8 +122,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   LogisticLoss<double> loss_b(in.n_col, true);
   LogisticLoss<double> loss_no_b(in.n_col, false);
 
-  SimpleVec<double> w0(in.n_col + 1);
-  SimpleVec<double> z(in.n_row);
+  SimpleVecOwning<double> w0(in.n_col + 1);
+  SimpleVecOwning<double> z(in.n_row);
 
   DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
   double l1, l2, fx;
@@ -192,8 +192,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   in.n_col = 2;
 
   DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
-  SimpleMat<double> z(C, in.n_row);
-  SimpleVec<double> w0(C * (in.n_col + 1));
+  SimpleMatOwning<double> z(C, in.n_row);
+  SimpleVecOwning<double> w0(C * (in.n_col + 1));
 
   Softmax<double> loss_b(in.n_col, C, true);
   Softmax<double> loss_no_b(in.n_col, C, false);
@@ -246,8 +246,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double alpha = 0.01;
 
   DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
-  SimpleVec<double> w0(in.n_col + 1);
-  SimpleVec<double> z(in.n_row);
+  SimpleVecOwning<double> w0(in.n_col + 1);
+  SimpleVecOwning<double> z(in.n_row);
   SquaredLoss<double> loss_b(in.n_col, true);
   SquaredLoss<double> loss_no_b(in.n_col, false);
 

@@ -110,7 +110,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   }
 
   // Evaluate function and compute gradient
-  fx = f(x, grad);
+  fx = f(x, grad, dev_scalar, stream);
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
 
@@ -223,9 +223,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, dev_scalar, &pg_limit,
-                 &stream](SimpleVec<T> &x, SimpleVec<T> &grad) {
-    T tmp = f(x, grad);
+  auto f_wrap = [&f, &l1_penalty, &pg_limit,
+                 &stream](SimpleVec<T> &x, SimpleVec<T> &grad, T * dev_scalar, cudaStream_t stream = 0) {
+    T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
   };
@@ -238,7 +238,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   // op to compute the pseudo gradients
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
 
-  fx = f_wrap(x, grad); // fx is loss+regularizer, grad is grad of loss only
+  fx = f_wrap(x, grad, dev_scalar, stream); // fx is loss+regularizer, grad is grad of loss only
 
   // compute pseudo grad, but don't overwrite grad: used to build H
   // pseudo.assign_binary(x, grad, pseudo_grad);
@@ -320,7 +320,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    SimpleVec<T> workspace(lbfgs_workspace_size(opt_param, x.len));
+    SimpleVecOwning<T> workspace(lbfgs_workspace_size(opt_param, x.len));
 
     ret = min_lbfgs(opt_param,
                     loss,      // function to minimize
@@ -340,7 +340,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
       // handling the term l1norm(x) * l1_pen explicitely, i.e.
       // it needs to evaluate f(x) and its gradient separately
 
-    SimpleVec<T> workspace(owlqn_workspace_size(opt_param, x.len));
+    SimpleVecOwning<T> workspace(owlqn_workspace_size(opt_param, x.len));
 
     ret = min_owlqn(opt_param,
                     loss, // function to minimize

@@ -116,7 +116,7 @@ ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
     // x_{k+1} = x_k + step * d_k
     x.axpy(step, drt, xp);
     // Evaluate this candidate
-    fx = f(x, grad);
+    fx = f(x, grad, dev_scalar, stream);
 
     // if (is_success(fx_init, dg_init, fx, dg_test, step, grad, drt, &width))
     if (ls_success(param, fx_init, dg_init, fx, dg_test, step, grad, drt,
@@ -163,7 +163,7 @@ ls_backtrack_projected(const LBFGSParam<T> &param, Function &f, T &fx,
     // x_{k+1} = proj_orth(x_k + step * d_k)
     lsstep(step, x, drt, xp, pseudo_grad);
     // evaluates fx with l1 term, but only grad of the loss term
-    fx = f(x, grad);
+    fx = f(x, grad, dev_scalar, stream);
 
     // if (is_success(fx_init, dg_init, fx, dg_test, step, pseudo_grad, drt,
     // &width))
