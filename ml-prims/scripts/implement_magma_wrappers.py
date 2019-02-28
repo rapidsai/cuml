@@ -11,13 +11,37 @@ class MagmaParser :
         for line in file :
             curr_block = []
 
+            while line is "\n":
+                line = file.readline()
+
             while ';' not in line and line:
                 curr_block.append(line)
                 line = file.readline()
             curr_block.append(line)
             yield curr_block
 
-    def replace_types(self, curr_block):
+    def reformat(self, curr_block):
+
+        def reformat_def(block, typename):
+            line = "".join(block)
+            line = line.replace("*", "").replace('\n', " ")
+            line = line.replace(" )", ")")
+            fname = line[line.find(" "):line.find("(")]
+
+            if typename is "float" :
+                fname = fname.replace('z', "s")
+            if typename is "double":
+                fname = fname.replace('z', "d")
+
+            inside = line[line.find("("):line.find(")") + 1]
+            words = inside.split()
+
+            # Keep only words with comma
+            words = [" " + word for word in words if "," in word or ')' in word]
+            words[-1] = words[-1].replace(",", "")
+            words = ["{\n","return", fname, "("] + words + [";\n}\n"]
+            new_line = "".join(words)
+            return new_line
 
         def replace_to_type(typename):
             new_block = []
@@ -25,25 +49,26 @@ class MagmaParser :
                 for mapping in self.type_maps[typename] :
                     line = line.replace(mapping[0], mapping[1])
                 new_block.append(line)
+            if typename in ["float", "double"]:
+                new_block[-1] = new_block[-1].replace(';', "")
             return new_block
 
-        full_block = []
-        for typename in ["template", "float", "double"] :
-            if typename is "template" :
-                new_block = ["template <typename T>"]
-            else :
-                new_block = ["template <>"]
-            new_block += replace_to_type(typename)
+        new_block = []
+        new_block.append("template <typename T>\n")
+        new_block += replace_to_type("template")
 
-            line_two = "inline " + new_block[2]
-            new_block[2] = line_two
-            new_block.append("\n")
+        new_block += ["\n", "template <>", "\n", "inline "]
+        new_block += replace_to_type("float")
+        new_block += ["\n"]
+        new_block += reformat_def(curr_block, 'float')
 
-            full_block =  full_block + new_block
-        return full_block
+        new_block += ["\n", "template <>", "\n", "inline "]
+        new_block += replace_to_type("double")
+        new_block += ["\n"]
+        new_block += reformat_def(curr_block, 'double')
+        new_block += ["\n"]
 
-    def merge_fun_defs(self):
-        pass
+        return new_block
 
     @staticmethod
     def write_to_file(new_header, filename):
@@ -57,22 +82,24 @@ class MagmaParser :
             fun_generator = self.file_iterator(file)
             new_header = []
 
-            for fun_str in fun_generator :
-                new_block = self.replace_types(fun_str)
-                new_header = new_header + new_block
+            for curr_block in fun_generator :
+                new_block = self.reformat(curr_block)
+                new_header += new_block
 
         self.write_to_file(new_header, filename_out)
 
 
 if __name__ == "__main__":
 
-    type_maps = {"template" : [["DoubleComplex", 'T'],
+    type_maps = {"template" : [["magmaDoubleComplex", 'T'],
                                ["z", '']],
-                 "float": [["DoubleComplex", 'Float'],
-                              ["z", 's']],
-                 "double": [["DoubleComplex", 'Double'],
-                           ["z", 'd']]
+                 "float": [["magmaDoubleComplex", 'float'],
+                              ["z", '']],
+                 "double": [["magmaDoubleComplex", 'double'],
+                           ["z", '']]
                  }
+
+    print("Please remove the commented lines from the header file")
     parser = MagmaParser(type_maps)
-    parser.run(filename_in="temp/sample_header.h",
-               filename_out="temp/new_header.h")
+    parser.run(filename_in="temp/new_header.h",
+               filename_out="temp/new_full_batched.h")
