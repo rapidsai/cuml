@@ -4,6 +4,7 @@
 #include <magma_v2.h>
 
 #include "cuda_utils.h"
+#include "linalg/mean_squared_error.h"
 
 #define IDX(i,j,lda) ((i)+(j)*(lda))
 #define RUP_SIZE 32
@@ -22,13 +23,7 @@ void allocate_pointer_array(T **&dA_array, magma_int_t n, magma_int_t batchCount
 
         allocate(dA_array, batchCount);
         updateDevice(dA_array, A_array, batchCount);
-        if (dA_array == NULL) {
-                printf("noneee 0 \n");
-        }
         free(A_array);
-        if (dA_array == NULL) {
-                printf("noneee 1 \n");
-        }
 }
 
 template <typename T>
@@ -71,7 +66,9 @@ void print_matrix_device(magma_int_t m, magma_int_t n, T *dA, magma_int_t lda, c
 }
 
 template <typename T>
-void print_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount, T **dA_array, magma_int_t lda, const std::string& msg){
+void print_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount, T **&dA_array, magma_int_t lda, const std::string& msg){
+
+        printf("%s\n", msg.c_str());
 
         T **A_array;
         A_array = (T **)malloc(sizeof(T*) * batchCount);
@@ -136,6 +133,71 @@ void fill_matrix_gpu_batched(
         }
         free(A_array);
 }
+
+
+template <typename T>
+T array_mse_batched(
+        magma_int_t m, magma_int_t n, magma_int_t batchCount, T **&dA_array, magma_int_t ldda, T **&dB_array, magma_int_t lddb)
+{
+        // ASSERT(ldda == lldb, "the two arrays much have the same leading dimensions");
+
+        T **A_array;
+        A_array = (T **)malloc(sizeof(T*) * batchCount);
+        updateHost(A_array, dA_array, batchCount);
+
+        T **B_array;
+        B_array = (T **)malloc(sizeof(T*) * batchCount);
+        updateHost(B_array, dB_array, batchCount);
+
+        T error_h=0, *error_d, error=0;
+        allocate(error_d, 1);
+
+        for (size_t bId = 0; bId < batchCount; bId++) {
+                // print_matrix_device(m, n, A_array[bId], ldda, 'a');
+                MLCommon::LinAlg::meanSquaredError(error_d, A_array[bId], B_array[bId], m * ldda);
+                updateHost(&error_h, error_d, 1);
+                error += error_h;
+        }
+        error /= batchCount;
+
+        free(A_array);
+        free(B_array);
+
+        return error;
+
+}
+
+template <typename T>
+void fill_pointer_array(magma_int_t batchCount, T **&dA_array, T *dB){
+        T **A_array;
+        A_array = (T **)malloc(sizeof(T*) * batchCount);
+        updateHost(A_array, dA_array, batchCount);
+        for (size_t bId = 0; bId < batchCount; bId++) {
+                A_array[bId] = dB;
+        }
+        updateDevice(dA_array, A_array, batchCount);
+        free(A_array);
+}
+
+template <typename T>
+void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
+                  size_t len){
+        T **A_dest_array, **A_src_array;
+
+        A_src_array = (T **)malloc(sizeof(T*) * batchCount);
+        A_dest_array = (T **)malloc(sizeof(T*) * batchCount);
+
+        updateHost(A_src_array, dA_src_array, batchCount);
+        updateHost(A_dest_array, dA_dest_array, batchCount);
+
+        for (size_t bId = 0; bId < batchCount; bId++) {
+                copy(A_dest_array[bId], A_src_array[bId], len);
+        }
+
+        free(A_src_array);
+        free(A_dest_array);
+}
+
 
 void assert_batched(int batchCount, int *d_info_array){
         int *h_info_array;
