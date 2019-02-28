@@ -1,39 +1,9 @@
-// #include "magma/bilinear.h"
+#include <gtest/gtest.h>
 
-#include "magma/magma_test_utils.h"
-#include "magma/magma_batched_wrappers.h"
+#include "hmm/magma/inverse.h"
 
 using namespace MLCommon;
-using namespace MLCommon::LinAlg;
 
-// TODO : ADD batched cublas
-// Using cublas for large batch sizes and magma otherwise
-// https://github.com/pytorch/pytorch/issues/13546
-
-
-
-template <typename T>
-__global__ void ID_kernel (int n, T *A, int ldda) {
-        int j = threadIdx.x + blockDim.x * blockIdx.x;
-        int i = threadIdx.y + blockDim.y * blockIdx.y;
-        if (i < n && j < n)
-        {
-                if (i == j)
-                        A[IDX(i, j, ldda)] = 1.0;
-                else
-                        A[IDX(i, j, ldda)] = 0.0;
-        }
-}
-
-
-template <typename T>
-void make_ID_matrix(int n, T *A, int ldda) {
-        dim3 block(32,32);
-        dim3 grid(ceildiv(n, (int)block.x), ceildiv(n, (int)block.y));
-        ID_kernel<T> <<< grid, block >>>(n, A, ldda);
-        cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
-}
 
 template <typename T>
 T test_inverse(magma_int_t n, T** dA_array, magma_int_t ldda, T** dinvA_array, magma_int_t batchCount, magma_queue_t queue){
@@ -66,58 +36,25 @@ T test_inverse(magma_int_t n, T** dA_array, magma_int_t ldda, T** dinvA_array, m
 }
 
 template <typename T>
-void inverse_batched_magma(magma_int_t n, T** dA_array, magma_int_t ldda,
-                           T**& dinvA_array, magma_int_t batchCount,
-                           magma_queue_t queue){
-
-        int **dipiv_array, *info_array;
-        T **dA_array_cpy;
-        allocate_pointer_array(dipiv_array, n, batchCount);
-        allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
-        allocate(info_array, batchCount);
-        copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
-
-        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
-                            batchCount, queue);
-        assert_batched(batchCount, info_array);
-
-        magma_getri_outofplace_batched(n, dA_array_cpy, ldda, dipiv_array,
-                                       dinvA_array, ldda, info_array,
-                                       batchCount, queue);
-        assert_batched(batchCount, info_array);
-
-        free_pointer_array(dipiv_array, batchCount);
-        free_pointer_array(dA_array_cpy, batchCount);
-        CUDA_CHECK(cudaFree(info_array));
-}
-
-template <typename T>
-void inverse_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
-                     T** dinvA_array, magma_int_t batchCount, magma_queue_t queue){
-        inverse_batched_magma(n, dA_array, ldda, dinvA_array, batchCount, queue);
-
-}
-
-template <typename T>
-void run(magma_int_t n, magma_int_t batchCount)
+T run(magma_int_t n, magma_int_t batchCount)
 {
-// declaration:
+        // declaration:
         T **dA_array=NULL, **dinvA_array=NULL;
-        magma_int_t ldda = magma_roundup(n, RUP_SIZE); // round up to multiple of 32 for best GPU performance
+        magma_int_t ldda = magma_roundup(n, RUP_SIZE);   // round up to multiple of 32 for best GPU performance
         T error;
 
-// allocation:
+        // allocation:
         allocate_pointer_array(dA_array, ldda * n, batchCount);
         allocate_pointer_array(dinvA_array, ldda * n, batchCount);
 
-        int device = 0;  // CUDA device ID
+        int device = 0;    // CUDA device ID
         magma_queue_t queue;
         magma_queue_create(device, &queue);
 
-// filling:
+        // filling:
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda );
 
-// computation:
+        // computation:
         // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
 
         inverse_batched(n, dA_array, ldda, dinvA_array, batchCount, queue);
@@ -125,25 +62,66 @@ void run(magma_int_t n, magma_int_t batchCount)
         // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
         // print_matrix_batched(n, n, batchCount, dinvA_array, ldda, "invA array");
 
-// Error
+        // Error
         error = test_inverse(n, dA_array, ldda, dinvA_array, batchCount, queue);
-        printf("Error : %f\n", (float) error);
 
-// cleanup:
+        // cleanup:
         free_pointer_array(dA_array, batchCount);
         free_pointer_array(dinvA_array, batchCount);
+        // printf("%f\n", (float) error );
+        return error;
 }
 
 
-int main( int argc, char** argv )
-{
+template <typename T>
+struct BatchedInverseInputs {
+        T tolerance;
+        magma_int_t n, batchCount;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const BatchedInverseInputs<T>& dims) {
+        return os;
+}
+
+template <typename T>
+class BatchedInverseTest : public ::testing::TestWithParam<BatchedInverseInputs<T> > {
+protected:
+void SetUp() override {
+        params = ::testing::TestWithParam<BatchedInverseInputs<T> >::GetParam();
+        tolerance = params.tolerance;
+
         magma_init();
-
-        magma_int_t n = 25;
-        magma_int_t batchCount = 10;
-
-        run<double>(n, batchCount);
-
+        error = run<T>(params.n, params.batchCount);
         magma_finalize();
-        return 0;
 }
+
+protected:
+BatchedInverseInputs<T> params;
+T error, tolerance;
+};
+
+const std::vector<BatchedInverseInputs<float> > BatchedInverseInputsf2 = {
+        {0.000001f, 2, 4}
+};
+
+const std::vector<BatchedInverseInputs<double> > BatchedInverseInputsd2 = {
+        {0.000001, 2, 4}
+};
+
+
+typedef BatchedInverseTest<float> BatchedInverseTestF;
+TEST_P(BatchedInverseTestF, Result){
+        EXPECT_LT(error, tolerance) << " error out of tol.";
+}
+
+typedef BatchedInverseTest<double> BatchedInverseTestD;
+TEST_P(BatchedInverseTestD, Result){
+        EXPECT_LT(error, tolerance) << " error out of tol.";
+}
+
+INSTANTIATE_TEST_CASE_P(BatchedInverseTests, BatchedInverseTestF,
+                        ::testing::ValuesIn(BatchedInverseInputsf2));
+
+INSTANTIATE_TEST_CASE_P(BatchedInverseTests, BatchedInverseTestD,
+                        ::testing::ValuesIn(BatchedInverseInputsd2));
