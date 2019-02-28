@@ -27,6 +27,8 @@ from cuml.linear_model.ridge import Ridge
 
 from cuml.neighbors.knn import KNN
 
+from cuml.solvers.sgd import SGD
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
