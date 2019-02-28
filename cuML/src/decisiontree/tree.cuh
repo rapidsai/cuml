@@ -18,6 +18,9 @@
 #include <utils.h>
 #include "histogram/histogram.cuh"
 #include "kernels/gini.cuh"
+#include <vector>
+#include <algorithm>
+#include <numeric>
 
 namespace ML {
   namespace DecisionTree {
@@ -47,6 +50,7 @@ namespace ML {
       TreeNode *root = NULL;
       void *tempstoragedata;
       void *tempstoragelabels;
+      const int nbins = 8;
       
       void fit(float *data,const int ncols,const int nrows,const float colper,int *labels)
       {
@@ -89,7 +93,20 @@ namespace ML {
 	int splitcol;
 	float splitval;
 	float ginibefore = gini(labels,nrows);
-	std::cout << " Gini value before " << ginibefore << std::endl;
+
+	// Bootstrap columns
+	std::vector<int> colselector(ncols);
+	std::iota(colselector.begin(),colselector.end(),0);
+	std::random_shuffle(colselector.begin(),colselector.end());
+	colselector.resize((int)(colper*ncols));
+
+	int* d_histogram;
+	CUDA_CHECK(cudaMalloc((void**)&d_histogram,sizeof(int)*nbins));
+	for(int i=0;i<colselector.size();i++)
+	  {
+	    histogram(&data[nrows*colselector[i]],d_histogram,nbins,nrows);
+	  }
+	
       }
       
       void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,void *tempdata,void *templabels,int& nrowsleft,int& nrowsright)
