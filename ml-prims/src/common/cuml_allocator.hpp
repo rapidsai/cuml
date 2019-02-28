@@ -16,29 +16,20 @@
 
 #pragma once
 
-#include <memory>
-
 #include <cuda_runtime.h>
-
-#include <common/cuml_allocator.hpp>
 
 namespace ML {
 
-class cumlHandle_impl;
-
-class cumlHandle {
+class deviceAllocator {
 public:
-    cumlHandle();
-    ~cumlHandle();
-    void setStream( cudaStream_t stream );
-    cudaStream_t getStream() const;
-    void setDeviceAllocator( std::shared_ptr<deviceAllocator> allocator );
-    std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
-    void setHostAllocator( std::shared_ptr<hostAllocator> allocator );
-    std::shared_ptr<hostAllocator> getHostAllocator() const;
-    const cumlHandle_impl* getImpl() const;
-private:
-    std::unique_ptr<cumlHandle_impl> _impl;
+    virtual void* allocate( std::size_t n, cudaStream_t stream ) = 0;
+    virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+};
+
+class hostAllocator {
+public:
+    virtual void* allocate( std::size_t n, cudaStream_t stream ) = 0;
+    virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
 };
 
 } // end namespace ML
