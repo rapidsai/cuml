@@ -43,12 +43,12 @@ template<typename T>
 class device_buffer
 {
 public:
-    typedef std::size_t         size_type;
-    typedef T                   value_type;
-    typedef value_type*         iterator;
-    typedef const value_type*   const_iterator;
-    typedef T&                  reference;
-    typedef const T&            const_reference;
+    using size_type         = std::size_t
+    using value_type        = T;
+    using iterator          = value_type*;
+    using const_iterator    = const value_type*;
+    using reference         = T&;
+    using const_reference   = const T&;
 
     device_buffer() = delete;
 
