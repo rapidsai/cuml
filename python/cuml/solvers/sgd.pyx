@@ -13,14 +13,91 @@
 # limitations under the License.
 #
 
-cimport sgd
-import numpy as np
-from numba import cuda
-import cudf
-from libcpp cimport bool
-import ctypes
-from libc.stdint cimport uintptr_t
 
+import ctypes
+import cudf
+import numpy as np
+
+from numba import cuda
+
+from libcpp cimport bool
+from libc.stdint cimport uintptr_t
+from libc.stdlib cimport calloc, malloc, free
+
+cdef extern from "solver/solver_c.h" namespace "ML::Solver":
+
+    cdef void sgdFit(float *input,
+	                 int n_rows,
+	                 int n_cols,
+	                 float *labels,
+	                 float *coef,
+	                 float *intercept,
+	                 bool fit_intercept,
+	                 int batch_size,
+	                 int epochs,
+	                 int lr_type,
+	                 float eta0,
+	                 float power_t,
+	                 int loss,
+	                 int penalty,
+	                 float alpha,
+	                 float l1_ratio,
+	                 bool shuffle,
+	                 float tol,
+	                 int n_iter_no_change)
+
+    
+    cdef void sgdFit(double *input,
+	                 int n_rows,
+	                 int n_cols,
+	                 double *labels,
+	                 double *coef,
+	                 double *intercept,
+	                 bool fit_intercept,
+	                 int batch_size,
+	                 int epochs,
+	                 int lr_type,
+	                 double eta0,
+	                 double power_t,
+	                 int loss,
+	                 int penalty,
+	                 double alpha,
+	                 double l1_ratio,
+	                 bool shuffle,
+	                 double tol,
+	                 int n_iter_no_change)
+	                 
+    cdef void sgdPredict(const float *input, 
+                         int n_rows, 
+                         int n_cols, 
+                         const float *coef,
+                         float intercept, 
+                         float *preds,
+                         int loss)
+
+    cdef void sgdPredict(const double *input, 
+                         int n_rows, 
+                         int n_cols,
+                         const double *coef, 
+                         double intercept, 
+                         double *preds,
+                         int loss)
+                         
+    cdef void sgdPredictBinaryClass(const float *input, 
+                         int n_rows, 
+                         int n_cols, 
+                         const float *coef,
+                         float intercept, 
+                         float *preds,
+                         int loss)
+
+    cdef void sgdPredictBinaryClass(const double *input, 
+                         int n_rows, 
+                         int n_cols,
+                         const double *coef, 
+                         double intercept, 
+                         double *preds,
+                         int loss)
 
 class SGD:
 
@@ -175,7 +252,7 @@ class SGD:
         cdef double c_intercept2
         
         if self.gdf_datatype.type == np.float32:
-            sgd.sgdFit(<float*>X_ptr, 
+            sgdFit(<float*>X_ptr, 
                        <int>self.n_rows, 
                        <int>self.n_cols, 
                        <float*>y_ptr, 
@@ -197,7 +274,7 @@ class SGD:
 
             self.intercept_ = c_intercept1
         else:
-            sgd.sgdFit(<double*>X_ptr, 
+            sgdFit(<double*>X_ptr, 
                        <int>self.n_rows, 
                        <int>self.n_cols, 
                        <double*>y_ptr, 
@@ -261,7 +338,7 @@ class SGD:
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
-            sgd.sgdPredict(<float*>X_ptr,
+            sgdPredict(<float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
@@ -269,7 +346,7 @@ class SGD:
                            <float*>preds_ptr,
                            <int>self.loss)
         else:
-            sgd.sgdPredict(<double*>X_ptr,
+            sgdPredict(<double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,
@@ -321,7 +398,7 @@ class SGD:
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
-            sgd.sgdPredictBinaryClass(<float*>X_ptr,
+            sgdPredictBinaryClass(<float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
@@ -329,7 +406,7 @@ class SGD:
                            <float*>preds_ptr,
                            <int>self.loss)
         else:
-            sgd.sgdPredictBinaryClass(<double*>X_ptr,
+            sgdPredictBinaryClass(<double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,
