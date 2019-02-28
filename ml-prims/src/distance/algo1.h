@@ -75,10 +75,10 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    LinAlg::norm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
-    LinAlg::norm(row_vec, pB, k, n, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, norm_op, stream);
   } else {
-    LinAlg::norm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
   }
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
