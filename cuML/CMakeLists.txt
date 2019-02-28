@@ -192,7 +192,7 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
-file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/bilinear.cu")
+file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/inverse.cu")
 
 # ###################################################################################################
 # # - build libcuml shared library ------------------------------------------------------------------

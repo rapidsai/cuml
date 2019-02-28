@@ -3,10 +3,6 @@
 using namespace MLCommon;
 
 
-
-// ------------------------------------------------------------
-// Solve dA * dX = dB, where dA and dX are stored in GPU device memory.
-// Internally, MAGMA uses a hybrid CPU + GPU algorithm.
 template <typename T>
 void run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
 {
@@ -36,16 +32,17 @@ void run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
         print_matrix_batched(m, 1, batchCount, dX_array, lddx, "dX matrix");
         print_matrix_batched(n, 1, batchCount, dY_array, lddy, "dY matrix");
 
-        naive_bilinear(m, n, dX_array, dA_array, ldda, dY_array, dO, batchCount);
+        naive_bilinear_batched(m, n, dX_array, dA_array, ldda, dY_array, dO, batchCount);
         print_matrix_device(batchCount, 1, dO, batchCount, "dO matrix");
 
-        bilinear(m, n, dX_array, dA_array, ldda, dY_array, dO, batchCount, queue);
+        bilinear_batched(m, n, dX_array, dA_array, ldda, dY_array, dO, batchCount, queue);
         print_matrix_device(batchCount, 1, dO, batchCount, "dO matrix");
 
 // cleanup:
         free_pointer_array(dA_array, batchCount);
         free_pointer_array(dX_array, batchCount);
         free_pointer_array(dY_array, batchCount);
+        CUDA_CHECK(cudaFree(dO));
 }
 
 

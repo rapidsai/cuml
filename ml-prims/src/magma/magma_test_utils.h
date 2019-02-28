@@ -5,6 +5,9 @@
 
 #include "cuda_utils.h"
 
+#define IDX(i,j,lda) ((i)+(j)*(lda))
+#define RUP_SIZE 32
+
 namespace MLCommon {
 
 
@@ -134,5 +137,14 @@ void fill_matrix_gpu_batched(
         free(A_array);
 }
 
+void assert_batched(int batchCount, int *d_info_array){
+        int *h_info_array;
+        h_info_array = (int *)malloc(sizeof(int) * batchCount);
+        updateHost(h_info_array, d_info_array, batchCount);
+        for (size_t i = 0; i < batchCount; i++) {
+                ASSERT(h_info_array[i] == 0, "info returned val=%d", h_info_array[i]);
+        }
+        free(h_info_array);
+}
 
 }

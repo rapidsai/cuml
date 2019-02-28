@@ -5,9 +5,6 @@
 #include "magma/magma_test_utils.h"
 // #include "cuda_utils.h"
 
-#define IDX(i,j,lda) ((i)+(j)*(lda))
-#define RUP_SIZE 32
-
 namespace MLCommon {
 
 template <typename T>
@@ -44,7 +41,7 @@ void dot_batched(int n, T **dX_array, T **dY_array, T *dO,
 
 template <typename T>
 __host__ __device__
-T bilinear(int m, int n, T* x, T* y, T* A, magma_int_t lda){
+T bilinear_naive(int m, int n, T* x, T* y, T* A, magma_int_t lda){
         T res = 0;
         for (size_t j = 0; j < m; j++) {
                 for (size_t i = 0; i < n; i++) {
@@ -64,14 +61,14 @@ void bilinear_batched_kernel(magma_int_t m, magma_int_t n,
                              int numThreads){
         int idxThread = threadIdx.x + blockDim.x * blockIdx.x;
         for (size_t i = idxThread; i < batchCount; i+=numThreads) {
-                dO[i] = bilinear(m, n, dX_array[i], dY_array[i], dA_array[i], ldda);
+                dO[i] = bilinear_naive(m, n, dX_array[i], dY_array[i], dA_array[i], ldda);
         }
 }
 
 template <typename T>
-void naive_bilinear(magma_int_t m, magma_int_t n,
-                    T **dX_array, T** dA_array, magma_int_t ldda,
-                    T **dY_array, T *dO, magma_int_t batchCount){
+void naive_bilinear_batched(magma_int_t m, magma_int_t n,
+                            T **dX_array, T** dA_array, magma_int_t ldda,
+                            T **dY_array, T *dO, magma_int_t batchCount){
         dim3 block(32, 1, 1);
         dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
         int numThreads = grid.x * block.x;
@@ -84,9 +81,9 @@ void naive_bilinear(magma_int_t m, magma_int_t n,
 
 
 template <typename T>
-void bilinear(magma_int_t m, magma_int_t n,
-              T **dX_array, T** dA_array, magma_int_t ldda,
-              T **dY_array, T *dO, magma_int_t batchCount,  magma_queue_t queue)
+void bilinear_batched(magma_int_t m, magma_int_t n,
+                      T **dX_array, T** dA_array, magma_int_t ldda,
+                      T **dY_array, T *dO, magma_int_t batchCount,  magma_queue_t queue)
 {
         // // Allocate temporary memory
         T **dT_array;

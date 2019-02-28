@@ -101,5 +101,5 @@ if __name__ == "__main__":
 
     print("Please remove the commented lines from the header file")
     parser = MagmaParser(type_maps)
-    parser.run(filename_in="temp/new_header.h",
-               filename_out="temp/new_full_batched.h")
+    parser.run(filename_in="temp/header.h",
+               filename_out="temp/wrapped.h")
