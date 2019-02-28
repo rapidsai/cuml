@@ -90,3 +90,10 @@ void foo( ML::cumlHandle* handle, ...)
     ...
 }
 ```
+
+# Multi GPU
+ 
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any dependencies to any communication library. A multi GPU implementation can assume the following:;
+* The user of cuML has initialized MPI and created a communicator that can be used by the ML algorithm.
+* All processes in the MPI communicator call into the ML algorithm cooperatively.
+* The used MPI is CUDA-aware, i.e. it is possible to directly pass device pointers to MPI
