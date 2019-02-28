@@ -36,7 +36,7 @@ namespace ML {
 class thrustAllocatorAdapter
 {
 public:
-    typedef char value_type;
+    using value_type = char;
 
     thrustAllocatorAdapter() = delete;
 
