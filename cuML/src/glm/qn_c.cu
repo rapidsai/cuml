@@ -75,7 +75,7 @@ void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D,
   typedef LogisticLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
-  SimpleVec<Real> z(N); // TODO this allocation somewhere else?
+  SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
 
   if (X_col_major) {
     qn_fit<Real, LossFunction>(
@@ -102,7 +102,7 @@ void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D,
   typedef LogisticLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
-  SimpleVec<Real> z(N); // TODO this allocation somewhere else?
+  SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
 
   if (X_col_major) {
     qn_fit<Real, LossFunction>(
@@ -128,7 +128,7 @@ void cuml_glm_linreg_fit_dqn(double *X, double *y, int N, int D,
   typedef SquaredLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
-  SimpleVec<Real> z(N); // TODO this allocation somewhere else?
+  SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
 
   if (X_col_major) {
     qn_fit<Real, LossFunction>(
@@ -154,7 +154,7 @@ void cuml_glm_linreg_fit_sqn(float *X, float *y, int N, int D,
   typedef SquaredLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
-  SimpleVec<Real> z(N); // TODO this allocation somewhere else?
+  SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
 
   if (X_col_major) {
     qn_fit<Real, LossFunction>(

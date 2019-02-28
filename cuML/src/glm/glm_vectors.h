@@ -47,33 +47,31 @@ template <typename T> struct SimpleVec {
   SimpleVec() : data(nullptr), len(0), free_data(false) {}
 
   SimpleVec(T *data, int len) : SimpleVec() { reset(data, len); }
-
-  SimpleVec(int len, const T val = 0) : SimpleVec() {
-    reset(len);
-    fill(val);
-  }
-
-  virtual ~SimpleVec() {
-    if (free_data) {
-      CUDA_CHECK(cudaFree(data));
+  /*
+    SimpleVec(int len, const T val = 0) : SimpleVec() {
+      reset(len);
+      fill(val);
     }
-  }
 
-  inline void reset(int n) {
-    if (free_data)
-      CUDA_CHECK(cudaFree(data));
+    virtual ~SimpleVec() {
+      if (free_data) {
+        CUDA_CHECK(cudaFree(data));
+      }
+    }
 
-    len = n;
-    MLCommon::allocate(data, len);
-    free_data = true;
-    p = thrust::device_pointer_cast(data);
-  }
+    inline void reset(int n) {
+      if (free_data)
+        CUDA_CHECK(cudaFree(data));
+
+      len = n;
+      MLCommon::allocate(data, len);
+      free_data = true;
+      p = thrust::device_pointer_cast(data);
+    }
+    */
 
   inline void reset(T *new_data, int n) {
-    if (free_data)
-      CUDA_CHECK(cudaFree(data));
 
-    free_data = false;
     len = n;
     data = new_data;
     p = thrust::device_pointer_cast(data);
@@ -201,6 +199,7 @@ template <typename T> struct SimpleMat : SimpleVec<T> {
   SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
       : Super(data, m * n), m(m), n(n), ord(order) {}
 
+  /*
   SimpleMat(int m, int n, STORAGE_ORDER order = COL_MAJOR, const T val = 0)
       : Super(m * n, val), m(m), n(n), ord(order) {}
 
@@ -209,6 +208,8 @@ template <typename T> struct SimpleMat : SimpleVec<T> {
     n = n_;
     Super::reset(m * n);
   }
+  */
+
   void reset(T *data_, int m_, int n_) {
     m = m_;
     n = n_;
@@ -317,19 +318,17 @@ inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
 
 template <typename T>
 inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev,
-             cudaStream_t stream = 0) {
-    return dot(u, u, tmp_dev, stream);
+                     cudaStream_t stream = 0) {
+  return dot(u, u, tmp_dev, stream);
 }
 
 template <typename T>
-inline T nrm2(const SimpleVec<T> &u, T *tmp_dev,
-             cudaStream_t stream = 0) {
-    return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
+inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
+  return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
 }
 
 template <typename T>
-inline T nrm1(const SimpleVec<T> &u, T *tmp_dev,
-             cudaStream_t stream = 0) {
+inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
   auto f = [] __device__(const T x) { return MLCommon::myAbs<T>(x); };
   MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data);
   T tmp_host;
@@ -337,71 +336,6 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev,
   return tmp_host;
 }
 
-
-
-/*
-template <typename T>
-inline void dot(T *out_dev, const SimpleVec<T> &u, const SimpleVec<T> &v,
-                cudaStream_t stream = 0) {
-  auto f = [] __device__(const T x, const T y) { return x * y; };
-  MLCommon::LinAlg::mapThenSumReduce(out_dev, u.len, f, stream, u.data, v.data);
-}
-
-template <typename T>
-inline void squaredNorm(T *out_dev, const SimpleVec<T> &v,
-                        cudaStream_t stream = 0) {
-  auto f = [] __device__(const T x) { return x * x; };
-  MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
-}
-template <typename T> struct inner_product {
-  SimpleVec<T> out;
-
-  inner_product() : out(1) {}
-  inner_product(T *data) : out(data, 1) {}
-
-  inline T operator()(const SimpleVec<T> &u, const SimpleVec<T> &v,
-                      cudaStream_t stream = 0) {
-    dot(out.data, u, v, stream);
-    return out[0];
-  }
-};
-
-template <typename T, class I> struct norm {
-  SimpleVec<T> out;
-
-  norm() : out(1) {}
-  norm(T *data) : out(data, 1) {}
-
-  inline T operator()(const SimpleVec<T> &u, cudaStream_t stream = 0) {
-    static_cast<I *>(this)->get(out.data, u, stream);
-    T ret = 0;
-    MLCommon::updateHost(&ret, out.data, 1);
-    return ret;
-  }
-};
-
-template <typename T> struct norm2 : norm<T, norm2<T>> {
-  inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
-    squaredNorm(out_dev, v, stream);
-    auto f = [] __device__(const T x) { return MLCommon::mySqrt<T>(x); };
-    MLCommon::LinAlg::unaryOp(out_dev, out_dev, 1, f, stream);
-  }
-};
-
-template <typename T> struct norm1 : norm<T, norm1<T>> {
-  inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
-    auto f = [] __device__(const T x) { return abs(x); };
-    MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
-  }
-};
-
-template <typename T> struct norm0 : norm<T, norm0<T>> {
-  inline void get(T *out_dev, const SimpleVec<T> &v, cudaStream_t stream = 0) {
-    auto f = [] __device__(const T x) { return x == T(0); };
-    MLCommon::LinAlg::mapThenSumReduce(out_dev, v.len, f, stream, v.data);
-  }
-};
-*/
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
@@ -418,7 +352,8 @@ std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
-  std::vector<T> out(mat.len);
+    os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") <<"\n";
+std::vector<T> out(mat.len);
   MLCommon::updateHost(&out[0], mat.data, mat.len);
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
@@ -442,5 +377,45 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
 
   return os;
 }
+
+template <typename T> struct SimpleVecOwning : SimpleVec<T> {
+  typedef SimpleVec<T> Super;
+
+  SimpleVecOwning() :Super(){}
+
+  SimpleVecOwning(int n) {
+      reset(n);
+  }
+
+  ~SimpleVecOwning() { CUDA_CHECK(cudaFree(Super::data)); }
+
+  void reset(int n){
+    MLCommon::allocate(Super::data, n);
+    Super::reset(Super::data, n);
+  }
+
+  void operator=(const SimpleVec<T> & other){
+      Super::operator=(other);
+  }
+};
+
+template <typename T> struct SimpleMatOwning : SimpleMat<T> {
+  typedef SimpleMat<T> Super;
+  using Super::m;
+  using Super::n;
+  using Super::ord;
+
+  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
+
+  SimpleMatOwning(int m, int n, STORAGE_ORDER order = COL_MAJOR) : Super(order) {
+      reset(m,n);
+  }
+
+  ~SimpleMatOwning() { CUDA_CHECK(cudaFree(Super::data)); }
+  void reset(int m, int n){
+    MLCommon::allocate(Super::data, m * n);
+    Super::reset(Super::data, m, n);
+  }
+};
 
 }; // namespace ML

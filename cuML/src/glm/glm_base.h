@@ -153,19 +153,19 @@ struct GLMWithData : GLMDims {
   SimpleMat<T> X;
   Mat Z;
   Vec y;
-  SimpleVec<T> lossVal;
   GLMObjective *objective;
+  Vec lossVal;
 
   GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, STORAGE_ORDER ordX)
-      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N), Z(Zptr, obj->C, N), lossVal(1),
+      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N), Z(Zptr, obj->C, N), 
         GLMDims(obj->C,obj->D, obj->fit_intercept){}
 
   // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat) {
+  inline T operator()(const Vec &wFlat, Vec &gradFlat, T * dev_scalar, cudaStream_t stream = 0) {
     Mat W(wFlat.data, C, dims);
     Mat G(gradFlat.data, C, dims);
-    objective->loss_grad(lossVal.data, G, W, X, y, Z);
-
+    objective->loss_grad(dev_scalar, G, W, X, y, Z);
+lossVal.reset(dev_scalar, 1);
     return lossVal[0];
   }
 };
@@ -183,7 +183,7 @@ template <typename T, class Loss>
 void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
                   T *grad_w_host, T *loss_val, const T h = 1e-4) {
   int len = loss.n_param;
-  SimpleVec<T> w_mod(len), grad(len);
+  SimpleVecOwning<T> w_mod(len), grad(len), lossVal(1);
 
   T lph = 0, lmh = 0;
 
@@ -194,11 +194,11 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
     modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, h);
     cudaThreadSynchronize();
 
-    lph = loss(w_mod, grad);
+    lph = loss(w_mod, grad, lossVal.data);
 
     modKernel<<<MLCommon::ceildiv(len, 256), 256>>>(w_mod.data, d, -2 * h);
     cudaThreadSynchronize();
-    lmh = loss(w_mod, grad);
+    lmh = loss(w_mod, grad, lossVal.data);
     grad_w_host[d] = (lph - lmh) / (2 * h);
   }
 }
