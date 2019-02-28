@@ -140,10 +140,12 @@ __global__ void sum_rows_by_key_small_nkeys_kernel(const DataType *d_A, int lda,
             if(threadIdx.x < 32) {
                 // We only need 4
                 thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
-                if(threadIdx.x == 0)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.x);
-                if(threadIdx.x == 1)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.y);
-                if(threadIdx.x == 2)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.z);
-                if(threadIdx.x == 3)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.w);
+                if (threadIdx.x < nkeys) {
+                   if(threadIdx.x == 0)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.x);
+                   if(threadIdx.x == 1)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.y);
+                   if(threadIdx.x == 2)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.z);
+                   if(threadIdx.x == 3)    myAtomicAdd(&d_sums[threadIdx.x*ncols + idim], thread_sums.w);
+                }
             }
         }
 
