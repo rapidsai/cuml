@@ -47,9 +47,8 @@ float gini(int *labels,const int nrows)
   int num_unique;
   CUDA_CHECK(cudaMemcpy(&num_unique,d_num_runs_out,sizeof(int),cudaMemcpyDeviceToHost));
 
-  //int *h_unique_out = (int*)malloc(num_unique*sizeof(int));
   int *h_counts_out = (int*)malloc(num_unique*sizeof(int));
-  //CUDA_CHECK(cudaMemcpy(h_unique_out,d_unique_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
+
   CUDA_CHECK(cudaMemcpy(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
   
   for(int i=0;i<num_unique;i++)
@@ -63,7 +62,6 @@ float gini(int *labels,const int nrows)
   CUDA_CHECK(cudaFree(d_counts_out));
   CUDA_CHECK(cudaFree(d_num_runs_out));
   free(h_counts_out);
-  //free(h_unique_out);
     
   return gval;
 }
