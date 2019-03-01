@@ -39,13 +39,13 @@ void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
 ```
 Small host memory heap allocations, e.g. as internally done by STL containers, are fine, e.g. an `std::vector` managing only a handful of integers.
 Both the Host and the Device Allocators might allow asynchronous stream ordered allocation and deallocation. This can provide significant performance benefits so a stream always needs to be specified when allocating or deallocating (see [Asynchronous operations and stream ordering](# Asynchronous operations and stream ordering)).
-There are two simple container classes compatible with the allocator interface `ML::device_buffer` available in `cuML/src/common/device_buffer.hpp` and `ML::host_buffer` available in `cuML/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
+There are two simple container classes compatible with the allocator interface `MLCommon::device_buffer` available in `ml-prims/src/common/device_buffer.hpp` and `MLCommon::host_buffer` available in `ml-prims/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
 ```cpp
 template<typename T>
 void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
 {
     ...
-    ML::device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
+    MLCommon::device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
     
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
