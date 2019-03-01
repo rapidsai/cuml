@@ -17,40 +17,9 @@
 #pragma once
 
 #include <stdint.h>
-#include <cstdio>
-#include <stdexcept>
-#include <string>
-#include <iostream>
+#include "utils.h"
 
 namespace MLCommon {
-
-/** macro to throw a c++ std::runtime_error */
-#define THROW(fmt, ...)                                                        \
-  do {                                                                         \
-    std::string msg;                                                           \
-    char errMsg[2048];                                                         \
-    std::sprintf(errMsg, "Exception occured! file=%s line=%d: ", __FILE__,     \
-                 __LINE__);                                                    \
-    msg += errMsg;                                                             \
-    std::sprintf(errMsg, fmt, ##__VA_ARGS__);                                  \
-    msg += errMsg;                                                             \
-    throw std::runtime_error(msg);                                             \
-  } while (0)
-
-/** macro to check for a conditional and assert on failure */
-#define ASSERT(check, fmt, ...)                                                \
-  do {                                                                         \
-    if (!(check))                                                              \
-      THROW(fmt, ##__VA_ARGS__);                                               \
-  } while (0)
-
-/** check for cuda runtime API errors and assert accordingly */
-#define CUDA_CHECK(call)                                                       \
-  do {                                                                         \
-    cudaError_t status = call;                                                 \
-    ASSERT(status == cudaSuccess, "FAIL: call='%s'. Reason:%s\n", #call,       \
-           cudaGetErrorString(status));                                        \
-  } while (0)
 
 /** helper macro for device inlined functions */
 #define DI inline __device__
@@ -100,60 +69,6 @@ constexpr HDI bool isPo2(IntType num) {
 template <typename IntType>
 constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
   return num <= IntType(1) ? ret : log2(num >> IntType(1), ++ret);
-}
-
-/** cuda malloc */
-template <typename Type>
-void allocate(Type *&ptr, size_t len, bool setZero = false) {
-  CUDA_CHECK(cudaMalloc((void **)&ptr, sizeof(Type) * len));
-  if (setZero)
-    CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
-}
-
-/** Helper function to calculate need memory for allocate to store dense matrix.
-* @param rows number of rows in matrix
-* @param columns number of columns in matrix
-* @return need number of items to allocate via allocate()
-* @sa allocate()
-*/
-inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
-    return rows * columns;
-}
-
-/** performs a host to device copy */
-template <typename Type>
-void updateDevice(Type *dPtr, const Type *hPtr, size_t len,
-                  cudaStream_t stream = 0) {
-  CUDA_CHECK(
-    cudaMemcpy(dPtr, hPtr, len * sizeof(Type), cudaMemcpyHostToDevice));
-}
-
-template <typename Type>
-void updateDeviceAsync(Type *dPtr, const Type *hPtr, size_t len,
-                       cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(dPtr, hPtr, len * sizeof(Type),
-                             cudaMemcpyHostToDevice, stream));
-}
-
-/** performs a device to host copy */
-template <typename Type>
-void updateHost(Type *hPtr, const Type *dPtr, size_t len,
-                cudaStream_t stream = 0) {
-  CUDA_CHECK(
-    cudaMemcpy(hPtr, dPtr, len * sizeof(Type), cudaMemcpyDeviceToHost));
-}
-
-template <typename Type>
-void updateHostAsync(Type *hPtr, const Type *dPtr, size_t len,
-                     cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(hPtr, dPtr, len * sizeof(Type),
-                             cudaMemcpyDeviceToHost, stream));
-}
-
-template <typename Type>
-void copy(Type* dPtr1, const Type* dPtr2, size_t len) {
-    CUDA_CHECK(cudaMemcpy(dPtr1, dPtr2, len*sizeof(Type),
-                          cudaMemcpyDeviceToDevice));
 }
 
 /** Device function to apply the input lambda across threads in the grid */
@@ -348,9 +263,10 @@ HDI double myPow(double x, double power) {
  * @defgroup Pow Power function
  * @{
  */
-template <typename Type>
+// IdxType mostly to be used for MainLambda in *Reduction kernels
+template <typename Type, typename IdxType = int>
 struct Nop {
-  HDI Type operator()(Type in) { return in; }
+  HDI Type operator()(Type in, IdxType i = 0) { return in; }
 };
 
 template <typename Type>
@@ -478,47 +394,5 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
   return __shfl_xor(val, laneMask, width);
 #endif
 }
-
-
-/**
- * @defgroup Debug utils for debug device code
- * @{
- */
-template<class T, class OutStream>
-void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount, OutStream& out)
-{
-    out << variableName << "=[";
-    for (size_t i = 0; i < componentsCount; ++i)
-    {
-        if (i != 0)
-            out << ",";
-        out << hostMem[i];
-    }
-    out << "];\n";
-}
-
-template<class T>
-void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount)
-{
-    myPrintHostVector(variableName, hostMem, componentsCount, std::cout);
-    std::cout.flush();
-}
-
-template<class T, class OutStream>
-void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount, OutStream& out)
-{
-    T* hostMem = new T[componentsCount];
-    CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
-    myPrintHostVector(variableName, hostMem, componentsCount, out);
-    delete []hostMem;
-}
-
-template<class T>
-void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount)
-{
-    myPrintDevVector(variableName, devMem, componentsCount, std::cout);
-    std::cout.flush();
-}
-/** @} */
 
 } // namespace MLCommon

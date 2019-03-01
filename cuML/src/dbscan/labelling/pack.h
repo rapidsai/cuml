@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "utils.h"
+
 namespace Dbscan {
 namespace Label {
 

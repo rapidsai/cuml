@@ -37,6 +37,11 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
               DeviceAllocator &mgr) {
 
+	ASSERT(n_cols > 0,
+			"lstsq: number of columns cannot be less than one");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
+
 	math_t *S, *V, *U;
 	math_t *UT_b;
 
@@ -67,6 +72,11 @@ template<typename math_t>
 void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
     DeviceAllocator &mgr) {
+
+	ASSERT(n_cols > 1,
+			"lstsq: number of columns cannot be less than two");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
 
 	math_t *S, *V, *U;
 
