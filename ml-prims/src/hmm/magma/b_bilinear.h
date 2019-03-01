@@ -1,8 +1,10 @@
+#pragma once
+
 #include "cublas_v2.h"     // if you need CUBLAS v2, include before magma.h
 // #include "magma.h"
 // #include "magma_lapack.h"  // if you need BLAS & LAPACK
 
-#include "magma/magma_test_utils.h"
+#include "hmm/magma/magma_test_utils.h"
 // #include "cuda_utils.h"
 
 namespace MLCommon {

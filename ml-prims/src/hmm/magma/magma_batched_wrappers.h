@@ -1,3 +1,5 @@
+#pragma once
+
 #include <magma_v2.h>
 
 namespace MLCommon {

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -220,6 +222,18 @@ void fill_pointer_array(magma_int_t batchCount, T **&dA_array, T *dB){
 }
 
 template <typename T>
+void split_to_batches(magma_int_t n, T **&dA_array, T *&dA, magma_int_t ldda){
+        T **A_array;
+        A_array = (T **)malloc(sizeof(T*) * n);
+        for (size_t bId = 0; bId < n; bId++) {
+                A_array[bId] = dA + IDX(0, bId, ldda);
+        }
+
+        updateDevice(dA_array, A_array, n);
+        free(A_array);
+}
+
+template <typename T>
 void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
                   size_t len){
         T **A_dest_array, **A_src_array;
@@ -239,14 +253,16 @@ void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
 }
 
 
-void assert_batched(int batchCount, int *d_info_array){
-        int *h_info_array;
-        h_info_array = (int *)malloc(sizeof(int) * batchCount);
-        updateHost(h_info_array, d_info_array, batchCount);
-        for (size_t i = 0; i < batchCount; i++) {
-                ASSERT(h_info_array[i] == 0, "info returned val=%d", h_info_array[i]);
-        }
-        free(h_info_array);
-}
+// void assert_batched(int batchCount, int *d_info_array){
+//         int *h_info_array;
+//         h_info_array = (int *)malloc(sizeof(int) * batchCount);
+//         updateHost(h_info_array, d_info_array, batchCount);
+//         for (size_t i = 0; i < batchCount; i++) {
+//                 ASSERT(h_info_array[i] == 0, "info returned val=%d", h_info_array[i]);
+//         }
+//         free(h_info_array);
+// }
+
+
 
 }

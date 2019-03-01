@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "hmm/magma/inverse.h"
+#include "hmm/magma/b_inverse.h"
 
 using namespace MLCommon;
 

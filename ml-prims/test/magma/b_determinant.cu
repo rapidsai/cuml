@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "hmm/determinant.h"
+#include "hmm/cuda/determinant.h"
 #include "hmm/magma/b_determinant.h"
 
 using namespace MLCommon;
@@ -19,7 +19,7 @@ void run_cuda_det(int n, int batchCount, T** dA_array, int ldda,
         updateHost(A_array, dA_array, batchCount);
 
         for(int bId = 0; bId < batchCount; bId++) {
-                print_matrix_device(n, n, A_array[bId], ldda, "A array bId");
+                // print_matrix_device(n, n, A_array[bId], ldda, "A array bId");
                 Det_cusolver[bId] = Det.compute(A_array[bId]);
         }
 
@@ -53,11 +53,11 @@ T run(magma_int_t n, magma_int_t batchCount, bool is_hermitian)
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda);
 
 // computation magma :
-        print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
+        // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
 
         det_batched(n, dA_array, ldda, dDet_magma, batchCount, queue);
 
-        print_matrix_device(batchCount, 1, dDet_magma, n, "det array");
+        // print_matrix_device(batchCount, 1, dDet_magma, n, "det array");
 
 // computation cusolver :
         run_cuda_det(n, batchCount, dA_array, ldda, dDet_cusolver, is_hermitian);

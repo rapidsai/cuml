@@ -28,14 +28,6 @@ using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 using MLCommon::Random::matVecAdd;
 
-template <typename T>
-void weighted_means(T* weights, T* data, T* means, T* ps, int dim, int n_samples, int n_classes, cublasHandle_t handle){
-        T alfa = (T)1.0 / n_samples, beta = (T)0.0;
-        CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, dim,
-                                n_classes, n_samples, &alfa, data, dim, weights, n_samples, &beta, means, dim));
-        CUBLAS_CHECK(cublasdgmm(handle, CUBLAS_SIDE_RIGHT, dim, n_classes, means, dim, ps, 1, means, dim));
-}
-
 
 
 template <typename T>

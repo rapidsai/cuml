@@ -1,3 +1,5 @@
+#pragma once
+
 #include "hmm/magma/magma_test_utils.h"
 #include "hmm/magma/magma_batched_wrappers.h"
 
@@ -47,12 +49,12 @@ void inverse_batched_magma(magma_int_t n, T** dA_array, magma_int_t ldda,
 
         magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
                             batchCount, queue);
-        assert_batched(batchCount, info_array);
+        // assert_batched(batchCount, info_array);
 
         magma_getri_outofplace_batched(n, dA_array_cpy, ldda, dipiv_array,
                                        dinvA_array, ldda, info_array,
                                        batchCount, queue);
-        assert_batched(batchCount, info_array);
+        // assert_batched(batchCount, info_array);
 
         free_pointer_array(dipiv_array, batchCount);
         free_pointer_array(dA_array_cpy, batchCount);

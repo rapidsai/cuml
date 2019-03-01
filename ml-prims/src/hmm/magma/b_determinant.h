@@ -1,3 +1,5 @@
+#pragma once
+
 #include "hmm/magma/magma_test_utils.h"
 #include "hmm/magma/magma_batched_wrappers.h"
 
@@ -45,7 +47,7 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
 
         magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
                             batchCount, queue);
-        assert_batched(batchCount, info_array);
+        // assert_batched(batchCount, info_array);
 
         diag_product_batched(n, dA_array_cpy, ldda, dDet_array, batchCount);
 
