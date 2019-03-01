@@ -192,7 +192,7 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
-file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/inverse.cu")
+file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/determinant.cu")
 
 # ###################################################################################################
 # # - build libcuml shared library ------------------------------------------------------------------
@@ -274,6 +274,7 @@ add_executable(magma_test ${magma_test_sources})
 link_directories(/home/mehdia/miniconda3/envs/cuml-0128/lib /usr/local/cuda-10.0/lib64)
 
 target_link_libraries(magma_test
+                      ${GTEST_LIBNAME}
                       ${CONDA_ENV_DIR}/lib/libmagma.a
                       ${CUDA_cublas_LIBRARY}
                       cusparse
