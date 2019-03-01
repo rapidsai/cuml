@@ -24,6 +24,9 @@
 
 namespace ML {
 
+using MLCommon::deviceAllocator;
+using MLCommon::hostAllocator;
+
 class cumlHandle_impl;
 
 class cumlHandle {

@@ -18,7 +18,7 @@
 
 #include <cuda_runtime.h>
 
-namespace ML {
+namespace MLCommon {
 
 class deviceAllocator {
 public:
