@@ -91,6 +91,8 @@ using namespace MLCommon;
 
 	
 	void rfClassifier::predict(const float * input, int n_rows, int n_cols, int * preds) {
+		ASSERT(trees, "Cannot predict! No trees in the forest.");
+
 	}
 
 	void rfRegressor::fit(float * input, int n_rows, int n_cols, int * labels, int n_trees, float max_features, float rows_sample) {
