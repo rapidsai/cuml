@@ -36,7 +36,6 @@ namespace UMAPAlgo {
 
             static const float MAX_FLOAT = std::numeric_limits<float>::max();
 
-
             static const float SMOOTH_K_TOLERANCE = 1e-5;
             static const float MIN_K_DIST_SCALE = 1e-3;
 
@@ -103,12 +102,14 @@ namespace UMAPAlgo {
 
                         if (ith_distances[idx] != 0.0) {
                             non_zero_dists[total_nonzero] = ith_distances[idx];
+
                             ++total_nonzero;
                         }
 
                         if (ith_distances[idx] > max_nonzero)
                             max_nonzero = ith_distances[idx];
                     }
+
 
                     float ith_distances_mean = sum / float(n_neighbors);
                     if (total_nonzero >= local_connectivity) {
@@ -128,20 +129,25 @@ namespace UMAPAlgo {
                     } else if (total_nonzero > 0)
                         rhos[row] = max_nonzero;
 
+
+
                     for (int iter = 0; iter < n_iter; iter++) {
 
                         float psum = 0.0;
 
-                        for (int j = 0; j < n_neighbors; j++) {
+                        for (int j = 1; j < n_neighbors; j++) {
                             float d = knn_dists[i + j] - rhos[row];
+                            printf("distance=%0.5f, knn_dist=%0.5f, rhos=%0.5f\n", d, knn_dists[i+j], rhos[row]);
                             if (d > 0)
                                 psum += exp(-(d / mid));
                             else
                                 psum += 1.0;
                         }
 
-                        if (fabsf(psum - target) < SMOOTH_K_TOLERANCE)
+                        if (fabsf(psum - target) < SMOOTH_K_TOLERANCE) {
+                            printf("psum=%0.4f, target=%0.4f\n", psum, target);
                             break;
+                        }
 
                         if (psum > target) {
                             hi = mid;
@@ -156,6 +162,8 @@ namespace UMAPAlgo {
                     }
 
                     sigmas[row] = mid;
+
+                    printf("hi=%f, mid=%f, low=%f\n", hi, mid, lo);
 
                     if (rhos[row] > 0.0) {
                         if (sigmas[row] < MIN_K_DIST_SCALE * ith_distances_mean)
@@ -365,8 +373,8 @@ namespace UMAPAlgo {
                  */
                 T *sigmas;
                 T *rhos;
-                MLCommon::allocate(sigmas, n);
-                MLCommon::allocate(rhos, n);
+                MLCommon::allocate(sigmas, n, true);
+                MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                         rhos, sigmas, params

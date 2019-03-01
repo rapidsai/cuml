@@ -91,7 +91,7 @@ protected:
 
 	int d = 3;
 	int n = 4;
-	int k = 2;
+	int k = 3;
 
 	float *dists_d;
 	long *inds_d;
