@@ -2,6 +2,7 @@
 This document summarizes rules and best practices for contributions to C++ component cuML of RAPIDS/cuml.
 
 # General
+Please start by reading [CONTRIBUTING.md](https://github.com/rapidsai/cuml/blob/master/CONTRIBUTING.md).
 
 # Thread safety
 cuML should be thread safe and its functions can be called from multiple host threads if they use different handles.
@@ -11,7 +12,7 @@ The implementation of cuML should be single threaded.
 # Coding style
 
 # Error handling
-All calls to CUDA APIs should be done via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. Those macros take care of checking the return values of the used API calls and generate an exception in case the command was no successful. In case an exception needs to be avoided, e.g. when implementing a destructor, `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229) should be used. Those macros will only log the error but do not throw an exception.
+All calls to CUDA APIs should be done via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. Those macros take care of checking the return values of the used API calls and generate an exception in case the command was not successful. In case an exception needs to be avoided, e.g. when implementing a destructor, `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229) should be used. Those macros will only log the error but do not throw an exception.
 
 # Logging
 Add once https://github.com/rapidsai/cuml/issues/100 is addressed.
