@@ -1,79 +1,44 @@
-// #include "magma/bilinear.h"
+#include <gtest/gtest.h>
 
-#include "magma/magma_test_utils.h"
-#include "magma/magma_batched_wrappers.h"
-
-using namespace MLCommon;
-using namespace MLCommon::LinAlg;
+#include "hmm/determinant.h"
+#include "hmm/magma/determinant.h"
 
 
 template <typename T>
-T test_det(){
-}
+void run_cuda_det(int batchCount, T** dA_array, T* dDet_cusolver, bool is_hermitian){
+        T **A_array, *Det_cusolver;
+        A_array = (T **)malloc(sizeof(T*) * batchCount);
+        Det_cusolver = (T *)malloc(sizeof(T) * batchCount);
 
+        CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
+        Det = Determinant<T>(nDim, &cusolverHandle);
 
-template <typename T>
-__global__
-void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
-                         T* dDet_array, magma_int_t batchCount, int numThreads){
-        int idxThread = threadIdx.x + blockDim.x * blockIdx.x;
-        for (size_t i = idxThread; i < batchCount; i+=numThreads) {
-                dDet_array[i] = 1;
-                for (size_t j = 0; j < n; j++) {
-                        dDet_array[i] *= dU_array[i][IDX(j, j, lddu)];
-                }
+        updateHost(A_array, dA_array, batchCount);
+
+        for(int bId = 0; bId < batchCount; bId++) {
+                Det_cusolver[bId] = Det.compute(A_array[bId], is_hermitian);
         }
+
+        updateDevice(dDet_cusolver, Det_cusolver, batchCount)
+
+        CUDA_CHECK(cudaFree(A_array));
+        CUDA_CHECK(cudaFree(Det_cusolver));
+        CUSOLVER_CHECK(cusolverDnDestroy(cusolverHandle));
+        Det->TearDown();
 }
 
 template <typename T>
-void diag_product_batched(magma_int_t n, T** dU_array, magma_int_t lddu,
-                          T*& dDet_array, magma_int_t batchCount){
-        dim3 block(32, 1, 1);
-        dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
-        int numThreads = grid.x * block.x;
-
-        diag_batched_kernel<T> <<< grid, block >>>(n, dU_array, lddu,
-                                                   dDet_array, batchCount,
-                                                   numThreads);
-        cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
-}
-
-
-template <typename T>
-void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
-                 T*& dDet_array, magma_int_t batchCount, magma_queue_t queue){
-
-        int **dipiv_array, *info_array;
-        T **dA_array_cpy; // U and L are stored here after getrf
-        allocate_pointer_array(dipiv_array, n, batchCount);
-        allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
-        allocate(info_array, batchCount);
-        copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
-
-        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
-                            batchCount, queue);
-        assert_batched(batchCount, info_array);
-
-        diag_product_batched(n, dA_array_cpy, ldda, dDet_array, batchCount);
-
-
-        free_pointer_array(dipiv_array, batchCount);
-        free_pointer_array(dA_array_cpy, batchCount);
-        CUDA_CHECK(cudaFree(info_array));
-}
-
-template <typename T>
-void run(magma_int_t n, magma_int_t batchCount)
+T run(magma_int_t n, magma_int_t batchCount)
 {
 // declaration:
-        T **dA_array=NULL, *dDet_array=NULL;
+        T **dA_array=NULL, *dDet_cusolver=NULL, *dDet_magma=NULL;
         magma_int_t ldda = magma_roundup(n, RUP_SIZE); // round up to multiple of 32 for best GPU performance
-        // T error;
+        T *error_d, error = 0;
 
 // allocation:
         allocate_pointer_array(dA_array, ldda * n, batchCount);
-        allocate(dDet_array, batchCount);
+        allocate(dDet_magma, batchCount);
+        allocate(error, 1);
 
         int device = 0;  // CUDA device ID
         magma_queue_t queue;
@@ -82,32 +47,80 @@ void run(magma_int_t n, magma_int_t batchCount)
 // filling:
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda);
 
-// computation:
+// computation magma :
         print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
 
-        det_batched(n, dA_array, ldda, dDet_array, batchCount, queue);
+        det_batched(n, dA_array, ldda, dDet_magma, batchCount, queue);
 
-        print_matrix_device(n, 1, dDet_array, n, "det array");
+        print_matrix_device(n, 1, dDet_magma, n, "det array");
+
+// computation cusolver :
+        run_cuda_det(batchCount, dA_array, dDet_magma, is_hermitian);
 
 // Error
-        // error = test_inverse(n, dA_array, ldda, dinvA_array, batchCount, queue);
-        // printf("Error : %f\n", (float) error);
+        meanSquaredError(error_d, dDet_cusolver, dDet_magma, batchCount);
+        updateHost(&error, error_d, 1);
 
 // cleanup:
         free_pointer_array(dA_array, batchCount);
-        CUDA_CHECK(cudaFree(dDet_array));
+        CUDA_CHECK(cudaFree(dDet_magma));
+        CUDA_CHECK(cudaFree(dDet_cusolver));
+        CUDA_CHECK(cudaFree(error_d));
+
+        return error;
 }
 
 
-int main( int argc, char** argv )
-{
+template <typename T>
+struct DeterminantInputs {
+        T tolerance;
+        bool is_hermitian;
+        magma_int_t n, batchCount;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const DeterminantInputs<T>& dims) {
+        return os;
+}
+
+template <typename T>
+class DeterminantTest : public ::testing::TestWithParam<DeterminantInputs<T> > {
+protected:
+void SetUp() override {
+        params = ::testing::TestWithParam<DeterminantInputs<T> >::GetParam();
+        tolerance = params.tolerance;
+
         magma_init();
-
-        magma_int_t n = 2;
-        magma_int_t batchCount = 4;
-
-        run<double>(n, batchCount);
-
+        error = run<T>(params.n, params.batchCount);
         magma_finalize();
-        return 0;
 }
+
+protected:
+DeterminantInputs<T> params;
+T error, tolerance;
+};
+
+const std::vector<DeterminantInputs<float> > DeterminantInputsf2 = {
+        {0.000001f, true, 2, 4}
+};
+
+const std::vector<DeterminantInputs<double> > DeterminantInputsd2 = {
+        {0.000001, true, 2, 4}
+};
+
+
+typedef DeterminantTest<float> DeterminantTestF;
+TEST_P(DeterminantTestF, Result){
+        EXPECT_LT(error, tolerance) << " error out of tol.";
+}
+
+typedef DeterminantTest<double> DeterminantTestD;
+TEST_P(DeterminantTestD, Result){
+        EXPECT_LT(error, tolerance) << " error out of tol.";
+}
+
+INSTANTIATE_TEST_CASE_P(DeterminantTests, DeterminantTestF,
+                        ::testing::ValuesIn(DeterminantInputsf2));
+
+INSTANTIATE_TEST_CASE_P(DeterminantTests, DeterminantTestD,
+                        ::testing::ValuesIn(DeterminantInputsd2));
