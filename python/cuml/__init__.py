@@ -25,7 +25,7 @@ from cuml.filter.kalman_filter import KalmanFilter
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.ridge import Ridge
 
-from cuml.neighbors.knn import KNN
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from ._version import get_versions
 __version__ = get_versions()['version']

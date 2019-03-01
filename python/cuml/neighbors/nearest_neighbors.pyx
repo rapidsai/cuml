@@ -188,14 +188,14 @@ cdef class NearestNeighbors:
 
             if dtype != np.float32:
                 if self._should_downcast:
-                    X = X.astype(np.float32)
+                    X = np.ascontiguousarray(X.astype(np.float32))
                     if len(X[X == np.inf]) > 0:
                         raise Exception("Downcast to single-precision resulted in data loss.")
                 else:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = cuda.to_device(X, order = "C")
+            X = cuda.to_device(X)
         else:
             raise Exception("Received unsupported input type " % type(X))
 

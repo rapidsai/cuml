@@ -23,14 +23,16 @@ import numpy as np
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_search(input_type, should_downcast):
+def test_nn_search(input_type, should_downcast):
 
     dtype = np.float32 if not should_downcast else np.float64
 
     # For now, FAISS based knn only supports single precision
     X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
 
-    knn_sk = skKNN(X, metric="l2")
+    knn_sk = skKNN(metric="l2")
+    knn_sk.fit(X)
+
     D_sk, I_sk = knn_sk.kneighbors(X, len(X))
 
     knn_cu = cuKNN(should_downcast=should_downcast)
@@ -62,7 +64,7 @@ def test_knn_search(input_type, should_downcast):
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_downcast_fails(input_type):
+def test_nn_downcast_fails(input_type):
 
     X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
 
