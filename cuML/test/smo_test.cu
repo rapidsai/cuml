@@ -142,6 +142,71 @@ TEST(SmoSolverTest, KernelCacheTest) {
     CUDA_CHECK(cudaFree(ws_idx_dev));
 }
 
+TEST(SmoSolverTest, SmoBlockSolveTest) {
+  int n_rows = 6;
+  int n_cols = 2;
+  int n_ws = n_rows;
+    
+  float *x_dev;
+  allocate(x_dev, n_rows*n_cols);
+  int *ws_idx_dev;
+  allocate(ws_idx_dev, n_ws);
+  float *y_dev;
+  allocate(y_dev, n_rows);
+  float *f_dev;
+  allocate(f_dev, n_rows);
+  float *alpha_dev;
+  allocate(alpha_dev, n_rows, true);
+  float *delta_alpha_dev;
+  allocate(delta_alpha_dev, n_ws, true);
+  float *kernel_dev;
+  allocate(kernel_dev, n_ws*n_rows);
+  float *return_buff_dev;
+  allocate(return_buff_dev, 2);
+  
+  float x_host[] = {1, 2, 1, 2, 1, 2, 1, 2, 3, 4, 4, 1};
+  updateDevice(x_dev, x_host, n_rows*n_cols);
+    
+  int ws_idx_host[] = {0, 1, 2, 3, 4, 5};
+  updateDevice(ws_idx_dev, ws_idx_host, n_ws);
+  
+  float y_host[] = {1, 1, 1, -1, -1, -1};
+  updateDevice(y_dev, y_host, n_rows);
+
+  float f_host[] = {-1, -1, -1, 1, 1, 1};
+  updateDevice(f_dev, f_host, n_rows);
+
+  
+  float kernel_host[] = {
+    2,  4,  4,  6,  5, 3,
+    4,  8,  8, 12, 10, 6,
+    4,  8, 10, 14, 35, 5,
+    6, 12, 14, 20, 18, 8,
+    5, 10, 13, 18, 17, 6,
+    3,  6,  5,  8,  6, 5
+  };
+  
+  updateDevice(kernel_dev, kernel_host, n_ws*n_rows);
+
+  SmoBlockSolve<float, 1024><<<1, n_ws>>>(y_dev, n_ws, alpha_dev, 
+      delta_alpha_dev, f_dev, kernel_dev, ws_idx_dev,
+      1.5f, 1e-3f, return_buff_dev);
+  
+  CUDA_CHECK(cudaPeekAtLastError());
+  float return_buff[2];
+  updateHost(return_buff, return_buff_dev, 2);
+  EXPECT_LT(return_buff[0], 1e-3f) << return_buff[0];
+  EXPECT_LT(return_buff[1], 100) << return_buff[1];
+  
+  CUDA_CHECK(cudaFree(x_dev));
+  CUDA_CHECK(cudaFree(y_dev));
+  CUDA_CHECK(cudaFree(f_dev));
+  CUDA_CHECK(cudaFree(ws_idx_dev));
+  CUDA_CHECK(cudaFree(alpha_dev));
+  CUDA_CHECK(cudaFree(delta_alpha_dev));
+  CUDA_CHECK(cudaFree(kernel_dev));
+  CUDA_CHECK(cudaFree(return_buff_dev));
+}
 /*TEST_F(SmoSolverTestF, SelectWorkingSetTest) {
   ASSERT_LT(1, 2);
 }*/
