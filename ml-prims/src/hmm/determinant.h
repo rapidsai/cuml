@@ -8,73 +8,112 @@
 #include "linalg/cusolver_wrappers.h"
 
 
+#include <thrust/transform.h>
+#include <thrust/reduce.h>
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/iterator/transform_iterator.h>
+
 namespace MLCommon {
+
+template <typename T>
+struct StrideFunctor
+{
+        int stride;
+        T* array;
+        StrideFunctor(int _stride, T* _array){
+                stride = _stride;
+                array = _array;
+        }
+
+        __host__ __device__
+        T operator() (int idx)
+        {
+                return *(array + idx * stride);
+        }
+};
+
+template <typename T>
+T diag_product(T* array, int n, int ldda){
+        thrust::counting_iterator<int> first(0);
+        thrust::counting_iterator<int> last = first + n;
+        StrideFunctor<T> strideFn(ldda + 1, array);
+        return thrust::reduce(thrust::make_transform_iterator(first, strideFn),
+                              thrust::make_transform_iterator(last, strideFn),
+                              (T) 1., thrust::multiplies<T>());
+}
 
 template <typename T>
 struct Determinant
 {
-        int nDim, lda;
+        int n, ldda;
         T *tempM;
         bool is_hermitian;
 
         int *devIpiv;
 
         int *info, info_h;
-        cusolverDnHandle_t *cusolverHandle;
+        cusolverDnHandle_t *handle;
         cublasFillMode_t uplo = CUBLAS_FILL_MODE_LOWER;
-        int cholWsSize;
-        T *cholWs = NULL;
+        int WsSize;
+        T *Ws = NULL;
 
-        Determinant(int _nDim, int _lda, cusolverDnHandle_t *_cusolverHandle,
+        Determinant(int _n, int _ldda, cusolverDnHandle_t *_handle,
                     bool _is_hermitian){
-                nDim = _nDim;
-                lda = _lda;
+                n = _n;
+                ldda = _ldda;
                 is_hermitian = _is_hermitian;
-                cusolverHandle = _cusolverHandle;
-                CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(*cusolverHandle, uplo, nDim, tempM, nDim, &cholWsSize));
+                handle = _handle;
 
-                allocate(cholWs, cholWsSize);
-                allocate(info, 1);
-                allocate(tempM, nDim * nDim);
+
                 if (is_hermitian) {
-                        allocate(devIpiv, nDim);
+                        CUSOLVER_CHECK(LinAlg::cusolverDnpotrf_bufferSize(*handle, uplo, n, tempM, ldda, &WsSize));
+
                 }
+                else
+                {
+                        CUSOLVER_CHECK(LinAlg::cusolverDngetrf_bufferSize(*handle,  n, n, tempM, ldda, &WsSize));
+                        allocate(devIpiv, n);
+                }
+
+                allocate(Ws, WsSize);
+                allocate(info, 1);
+                allocate(tempM, ldda * n);
         }
 
         T compute(T* M){
-                copy(tempM, M, nDim * nDim);
+                copy(tempM, M, ldda * n);
 
                 if(is_hermitian) {
-                        CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(*cusolverHandle,
+                        CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(*handle,
                                                                uplo,
-                                                               nDim,
+                                                               n,
                                                                tempM,
-                                                               nDim,
-                                                               cholWs,
-                                                               cholWsSize,
+                                                               ldda,
+                                                               Ws,
+                                                               WsSize,
                                                                info));
                 }
                 else{
-                        CUSOLVER_CHECK(LinAlg::cusolverDngetrf(*cusolverHandle,
-                                                               _nDim,
-                                                               _nDim,
+                        CUSOLVER_CHECK(LinAlg::cusolverDngetrf(*handle,
+                                                               n,
+                                                               n,
                                                                tempM,
-                                                               lda,
-                                                               cholWs,
+                                                               ldda,
+                                                               Ws,
                                                                devIpiv,
                                                                info));
 
                 }
                 updateHost(&info_h, info, 1);
                 ASSERT(info_h == 0,
-                       "sigma: error in potrf, info=%d | expected=0", info_h);
+                       "sigma: error in determinant, info=%d | expected=0", info_h);
 
-                T prod = diag_product(tempM, nDim);
-                return prod * prod;
+                T prod = diag_product(tempM, n, ldda);
+                return prod;
         }
 
         void TearDown() {
-                CUDA_CHECK(cudaFree(cholWs));
+                CUDA_CHECK(cudaFree(Ws));
                 CUDA_CHECK(cudaFree(tempM));
                 CUDA_CHECK(cudaFree(info));
 
