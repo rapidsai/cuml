@@ -441,6 +441,8 @@ namespace UMAPAlgo {
                 std::cout << MLCommon::arr2Str(cols, cur_coo_len, "comp_cols") << std::endl;
                 std::cout << MLCommon::arr2Str(vals, cur_coo_len, "comp_vals") << std::endl;
 
+                std::cout << "cur_coo_len=" << cur_coo_len << std::endl;
+
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));

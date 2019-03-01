@@ -142,6 +142,8 @@ namespace UMAPAlgo {
 						   params, &nnz,0);
 		CUDA_CHECK(cudaPeekAtLastError());
 
+		std::cout << "nnz=" << nnz << std::endl;
+
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
 		        graph_rows, graph_cols, graph_vals,

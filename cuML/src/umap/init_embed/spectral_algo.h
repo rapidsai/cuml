@@ -17,7 +17,7 @@
 #include "umap/umapparams.h"
 
 #include <nvgraph.h>
-#include <cusparse_v2.h>
+#include <iostream>
 
 #pragma once
 
@@ -49,6 +49,8 @@ namespace UMAPAlgo {
                 cudaDataType_t edge_dimT = CUDA_R_32F;
                 check(nvgraphCreate (&handle));
 
+                std::cout << "nnz=" << nnz << std::endl;
+
                 /**
                  * First convert COO to CSR
                  */
@@ -58,15 +60,20 @@ namespace UMAPAlgo {
                 MLCommon::allocate(src_offsets, n+1);
                 MLCommon::allocate(dst_indices, nnz);
 
-                float *dst_vals;
-                MLCommon::allocate(dst_vals, n);
+                nvgraphCOOTopology32I_st *COO_input = new nvgraphCOOTopology32I_st();
+                COO_input->nedges = nnz;
+                COO_input->nvertices = n;
+                COO_input->source_indices = rows;
+                COO_input->destination_indices = cols;
 
-                nvgraphCOOTopology32I_st COO_input = {n, nnz, rows, cols, NVGRAPH_SORTED_BY_SOURCE};
-                nvgraphCSRTopology32I_st CSR_input = {n, nnz, src_offsets, dst_indices};
+                nvgraphCSRTopology32I_st *CSR_input = new nvgraphCSRTopology32I_st();
+                CSR_input->destination_indices = dst_indices;
+                CSR_input->nedges = nnz;
+                CSR_input->nvertices = n;
+                CSR_input->source_offsets = src_offsets;
 
-                check(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)&COO_input, (void*)vals,
-                        &edge_dimT, NVGRAPH_CSR_32, (void*)&CSR_input, (void*)dst_vals));
-
+                check(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
+                        &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
                 /**
                  * Calculate the eigenvectors (ordered by eigenvalue)
@@ -91,20 +98,29 @@ namespace UMAPAlgo {
                 clustering_params.kmean_max_iter = 0;
 
                 nvgraphGraphDescr_t graph;
-
-
                 check(nvgraphCreateGraphDescr(handle, &graph));
-                check(nvgraphSetGraphStructure(handle, graph, (void*)&CSR_input, NVGRAPH_COO_32));
+                check(nvgraphSetGraphStructure(handle, graph, (void*)CSR_input, NVGRAPH_CSR_32));
                 check(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
                 check(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
                 check(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, clustering, eigVals, embedding));
 
+                check(nvgraphDestroyGraphDescr(handle, graph));
+                check(nvgraphDestroy(handle));
+
+
+                std::cout << MLCommon::arr2Str(src_offsets, n+1, "rows") << std::endl;
+                std::cout << MLCommon::arr2Str(dst_indices, nnz, "cols") << std::endl;
+
+                std::cout << MLCommon::arr2Str(embedding, n*params->n_components, "spectral_eigenvecs") << std::endl;
+
                 CUDA_CHECK(cudaFree(src_offsets));
                 CUDA_CHECK(cudaFree(dst_indices));
 
+                free(COO_input);
+                free(CSR_input);
+
                 CUDA_CHECK(cudaFree(clustering));
-                CUDA_CHECK(cudaFree(src_offsets));
                 CUDA_CHECK(cudaFree(eigVals));
             }
         }
