@@ -14,21 +14,17 @@
 # limitations under the License.
 #
 
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.kmeans import KMeans
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
-from cuml.decomposition.pca import PCA
-from cuml.decomposition.tsvd import TruncatedSVD
+from libc.stdint cimport uintptr_t
 
-from cuml.filter.kalman_filter import KalmanFilter
 
-from cuml.linear_model.linear_regression import LinearRegression
-from cuml.linear_model.ridge import Ridge
+cdef extern from "ml_cuda_utils.h" namespace "ML":
+   cdef int get_device(void *ptr)
 
-from cuml.neighbors.nearest_neighbors import NearestNeighbors
-
-from cuml.utils.pointer_utils import device_of_gpu_matrix
-
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
+def device_of_gpu_matrix(g):
+   cdef uintptr_t cptr = g.device_ctypes_pointer.value
+   return get_device( <void*> cptr)

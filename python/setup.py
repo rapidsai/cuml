@@ -27,7 +27,6 @@ install_requires = [
     'cython'
 ]
 
-
 cuda_include_dir = '/usr/local/cuda/include'
 cuda_lib_dir = "/usr/local/cuda/lib"
 
