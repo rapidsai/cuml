@@ -72,6 +72,7 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
+option(MEMCHECK "Enable cudamemcheck function symbol backtrace in nvcc" ON)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
 option(DEBUG "Get a debug build" ON)
 
@@ -90,6 +91,9 @@ if(CMAKE_CXX_STANDARD STREQUAL "11")
 endif()
 if(LINEINFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
+endif()
+if(MEMCHECK)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -rdynamic")
 endif()
 if(KERNELINFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
@@ -175,7 +179,6 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DADD_")
 # //add_dependencies(magma ${CUDA_cublas_LIBRARY})
 
 include_directories(src
-	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
 	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
         ${GTEST_DIR}/include
         ${MLPRIMS_DIR}/src
