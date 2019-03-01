@@ -30,6 +30,8 @@ namespace UMAPAlgo {
         template<typename T>
         void run(const T *X, int n, int d,
                  const long *knn_indices, const T *knn_dists,
+                 int *rows, int *cols, float *vals,
+                 int nnz,
                  UMAPParams *params, T* embedding,
                  int algo = 0) {
             switch(algo) {
@@ -42,7 +44,11 @@ namespace UMAPAlgo {
                 break;
 
             case 1:
-                SpectralInit::launcher(X, n, d, knn_indices, knn_dists, params, embedding);
+                SpectralInit::launcher(X, n, d,
+                        knn_indices, knn_dists,
+                        rows, cols, vals,
+                        nnz,
+                        params, embedding);
             }
         }
     }

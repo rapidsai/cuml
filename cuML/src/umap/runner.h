@@ -144,7 +144,9 @@ namespace UMAPAlgo {
 
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
-		        params, embeddings);
+		        graph_rows, graph_cols, graph_vals,
+		        nnz,
+		        params, embeddings, 1);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
