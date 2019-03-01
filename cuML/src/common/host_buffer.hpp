@@ -119,19 +119,7 @@ public:
     
     void resize(const size_type new_size, cudaStream_t stream )
     {
-        _stream = stream;
-        if ( _capacity < new_size )
-        {
-            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_size*sizeof(value_type), _stream ));
-            if ( _size > 0 ) {
-                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyHostToHost, _stream ) );
-            }
-            if ( nullptr != _data ) {
-                _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
-            }
-            _data = new_data;
-            _capacity = new_size;
-        }
+        reserve( new_size, stream );
         _size = new_size;
     }
     
