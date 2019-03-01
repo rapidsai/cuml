@@ -23,6 +23,7 @@
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
 
+#include <iostream>
 #include <vector>
 #include <sstream>
 

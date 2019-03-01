@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <string>
 
+#pragma once
+
 namespace UMAPAlgo {
     namespace FuzzySimplSet {
         namespace Naive {

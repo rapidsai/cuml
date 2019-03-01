@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include "umap/umap.h"
 #include "umap/umapparams.h"
 #include "algo.h"
+
+#pragma once
 
 namespace UMAPAlgo {
 

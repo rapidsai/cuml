@@ -15,16 +15,16 @@
  */
 
 #include <gtest/gtest.h>
+
+#include "umap/umapparams.h"
+#include "knn/knn.h"
+#include "umap/runner.h"
+
 #include "random/rng.h"
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
-#include "umap/umap.h"
-#include "umap/umapparams.h"
-#include "umap/runner.h"
-
-#include <linalg/cublas_wrappers.h>
-#include <sparse/coo.h>
+//#include "umap/runner.h"
 
 #include <vector>
 
@@ -33,7 +33,7 @@
 using namespace ML;
 using namespace std;
 
-class UMAPFuzzySimplSetTest: public ::testing::Test {
+class UMAPTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
@@ -42,7 +42,7 @@ protected:
 
 		kNN *knn = new kNN(d);
 
-		UMAPAlgo::find_ab(umap_params);
+//		UMAPAlgo::find_ab(umap_params);
 
 		std::vector<float> X = {
 			1.0, 1.0, 34.0,
@@ -69,9 +69,12 @@ protected:
 
         std::cout << "Transforming UMAP..." << std::endl;
 
+//        UMAP *umap = new ML::UMAP(umap_params);
+//        umap->fit(X_d, n, d, embeddings);
+
 
 		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
-
+//
         std::cout << "Done." << std::endl;
 
 	}
@@ -98,7 +101,7 @@ protected:
 };
 
 
-typedef UMAPFuzzySimplSetTest UMAPFuzzySimplSetTestF;
+typedef UMAPTest UMAPFuzzySimplSetTestF;
 TEST_F(UMAPFuzzySimplSetTestF, Result) {
 //	ASSERT_TRUE(
 //			devArrMatch(labels, labels_ref, params.n_row,

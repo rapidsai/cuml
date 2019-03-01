@@ -180,9 +180,9 @@ add_library(cuml SHARED
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
             src/glm/glm.cu
+            src/umap/umap.cu
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
-            src/umap/umap.cu
             src/solver/solver.cu
             )
 

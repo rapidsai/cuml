@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "umap/umap.h"
 #include "umap/umapparams.h"
 
 #include "random/rng.h"
@@ -27,6 +26,8 @@
 
 #include <math.h>
 #include <string>
+
+#pragma once
 
 namespace UMAPAlgo {
 

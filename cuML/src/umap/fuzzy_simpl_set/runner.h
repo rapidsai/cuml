@@ -17,6 +17,8 @@
 #include "umap/umapparams.h"
 #include "naive.h"
 
+#pragma once
+
 namespace UMAPAlgo {
 
 namespace FuzzySimplSet {

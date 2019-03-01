@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#include "umap/umap.h"
 #include "umap/umapparams.h"
 #include "knn/knn.h"
 #include "linalg/unary_op.h"
 #include <iostream>
+
+#pragma once
 
 namespace UMAPAlgo {
 

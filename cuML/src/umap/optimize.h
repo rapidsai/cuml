@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "umap.h"
 #include "umap/umapparams.h"
 
 
@@ -29,8 +28,9 @@
 #include "matrix/math.h"
 #include "stats/mean.h"
 
-
 #include <cuda_runtime.h>
+
+#pragma once
 
 namespace UMAPAlgo {
 

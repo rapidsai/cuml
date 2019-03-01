@@ -16,6 +16,7 @@
 
 #include "umapparams.h"
 #include "knn/knn.h"
+#include "umap/runner.h"
 
 #pragma once
 
@@ -24,12 +25,14 @@ namespace ML {
 
     class UMAP {
 
-
         UMAPParams *params;
+        kNN *knn;
 
         public:
 
-            UMAP(UMAPParams *params): params(params){}
+            UMAP(UMAPParams *params): params(params){
+                knn = nullptr;
+            };
 
             void fit(const float *X, int n, int d, kNN *knn, float *embeddings);
 

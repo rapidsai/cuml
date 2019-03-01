@@ -1,13 +1,10 @@
 
-#include <sstream>
-#include <iostream>
-
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 
-#ifndef _KNN_H
-#define _KNN_H
+#pragma once
+
 namespace ML {
 
     enum IndexType { flat, ivfpq };
@@ -50,4 +47,3 @@ namespace ML {
     };
 }
 
-#endif
