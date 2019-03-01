@@ -74,20 +74,20 @@ namespace detail {
 
 class streamSyncer {
 public:
-    streamSyncer( cumlHandle* handle )
+    streamSyncer( const cumlHandle_impl& handle )
         : _handle( handle )
     {
-        _handle->getImpl()->waitOnUserStream();
+        _handle.waitOnUserStream();
     }
     ~streamSyncer()
     {
-        _handle->getImpl()->waitOnInternalStreams();
+        _handle.waitOnInternalStreams();
     }
 
     streamSyncer(const streamSyncer& other) = delete;
     streamSyncer& operator=(const streamSyncer& other) = delete;
 private:
-    cumlHandle* _handle;
+    const cumlHandle_impl& _handle;
 };
 
 } // end namespace detail

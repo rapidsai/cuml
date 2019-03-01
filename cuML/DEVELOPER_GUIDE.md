@@ -17,32 +17,32 @@ Add once https://github.com/rapidsai/cuml/issues/100 is addressed.
 To enable `libcuml.so` users to control how memory for temporary data is allocated device memory should only be allocated via the allocator provided:
 ```cpp
 template<typename T>
-void foo(ML::cumlHandle* handle, cudaStream_t stream, ... )
+void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
 {
-    T* temp_h = handle->getDeviceAllocator()->allocate(n*sizeof(T), stream);
+    T* temp_h = h.getDeviceAllocator()->allocate(n*sizeof(T), stream);
     ...
-    handle->getDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
+    h.getDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
 the same rule applies to larger amounts of host heap memory:
 ```cpp
 template<typename T>
-void foo(ML::cumlHandle* handle, cudaStream_t stream, ... )
+void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
 {
-    T* temp_h = handle->getHostAllocator()->allocate(n*sizeof(T), stream);
+    T* temp_h = h.getHostAllocator()->allocate(n*sizeof(T), stream);
     ...
-    handle->getHostAllocator()->deallocate(temp_h, n*sizeof(T), stream);
+    h.getHostAllocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
 Small host memory heap allocations, e.g. as internally done by STL containers, are fine, e.g. an `std::vector` managing only a handful of integers.
 Both the Host and the Device Allocators might allow asynchronous stream ordered allocation and deallocation. This can provide significant performance benefits so a stream always needs to be specified when allocating or deallocating (see [Asynchronous operations and stream ordering](# Asynchronous operations and stream ordering)).
-There are two simple container classes compatible with the `ML::cumlHandle` allocator interface `ML::device_buffer` available in ` cuML/src/common/device_buffer.hpp` and `ML::host_buffer` available in ` cuML/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
+There are two simple container classes compatible with the allocator interface `ML::device_buffer` available in `cuML/src/common/device_buffer.hpp` and `ML::host_buffer` available in `cuML/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
 ```cpp
 template<typename T>
-void foo( ML::cumlHandle* handle, .., cudaStream_t stream )
+void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
 {
     ...
-    ML::device_buffer<T> temp( handle->getDeviceAllocator(), stream, 0 )
+    ML::device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
     
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
@@ -53,33 +53,33 @@ void foo( ML::cumlHandle* handle, .., cudaStream_t stream )
 ## Using thrust
 To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator the `ML::thrustAllocatorAdapter` available in `allocatorAdapter.hpp` should be used with the `thrust::cuda::par` execution policy:
 ```cpp
-void foo( ML::cumlHandle* handle, .. )
+void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
 {
-    ML::thrustAllocatorAdapter alloc( handle->getDeviceAllocator(), handle->getStream() );
-    auto execution_policy = thrust::cuda::par(alloc).on(handle->getStream());
+    ML::thrustAllocatorAdapter alloc( h.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
     thrust::for_each(execution_policy, ... );
 }
 ```
 The header `allocatorAdapter.hpp` also provides a helper function to create an execution policy:
 ```cpp
-void foo( ML::cumlHandle* handle, .. )
+void foo(const ML::cumlHandle_impl& h, ... , cudaStream_t stream )
 {
-    auto execution_policy = ML::exec_policy(handle->getDeviceAllocator(),stream);
+    auto execution_policy = ML::exec_policy(h.getDeviceAllocator(),stream);
     thrust::for_each(execution_policy->on(stream), ... );
 }
 ```
 
 # Asynchronous operations and stream ordering
-All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). If an implementation only requires a single CUDA Stream the stream from `ML::cumlHandle` should be used:
+All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). If an implementation only requires a single CUDA Stream the stream from `ML::cumlHandle_impl` should be used:
 ```cpp
-void foo( ML::cumlHandle* handle, ...)
+void foo(const ML::cumlHandle_impl& h, ...)
 {
-    cudaStream_t stream = handle->getStream();
+    cudaStream_t stream = h.getStream();
 }
 ```
 In case multiple streams are needed, e.g. to manage a pipeline, the internal streams available in `ML::cumlHandle_impl` should be used (see [CUDA Resources](# CUDA Resources)). If multiple streams are used all operations still need to be ordered according to `ML::cumlHandle::getStream()`, i.e. before any operation in any of the internal CUDA streams is started all previous work in `ML::cumlHandle: getStream()` needs to have completed and any work enqueued in `ML::cumlHandle::getStream()` after an cuML function returns should not start before all work enqueued in the internal stream has complete. This can be ensured by introducing inter stream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience  the header `cumlHandle.hpp` provide the class `ML::detail::streamSyncer` which lets all `ML::cumlHandle_impl` internal CUDA streams wait on `ML::cumlHandle::getStream()` in its constructor and in its destructor and lets `ML::cumlHandle::getStream()` wait on all work enqueued in the `ML::cumlHandle_impl` internal CUDA streams. E.g. a usage like this:
 ```cpp
-void cumlAlgo( ML::cumlHandle* handle, ...)
+void cumlAlgo(const ML::cumlHandle_impl& h, ...)
 {
     ML::detail::streamSyncer _(handle);
 }
@@ -93,9 +93,12 @@ To ensure that thrust algorithms are executed in the intended stream the `thrust
 Implementations of ML algorithms should not create reusable resources themselves. Instead they should use the existing one in `ML::cumlHandle_impl `. This allows to avoid constant creating and recreation of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request in case a resource handle is missing in `ML::cumlHandle_impl `.
 The resources can be obtained like this
 ```cpp
-void foo( ML::cumlHandle* handle, ...)
+void foo(const ML::cumlHandle_impl& h, ...)
 {
-    cublasHandle_t cublasHandle = handle->getImpl()->getCublasHandle();
+    cublasHandle_t cublasHandle = h.getCublasHandle();
+    const int num_streams       = h.getNumInternalStreams();
+    const int stream_idx        = ...
+    cudaStream_t stream         = h.getInternalStream(stream_idx);
     ...
 }
 ```

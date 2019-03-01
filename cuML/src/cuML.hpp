@@ -39,7 +39,7 @@ public:
     std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
     void setHostAllocator( std::shared_ptr<hostAllocator> allocator );
     std::shared_ptr<hostAllocator> getHostAllocator() const;
-    const cumlHandle_impl* getImpl() const;
+    const cumlHandle_impl& getImpl() const;
 private:
     std::unique_ptr<cumlHandle_impl> _impl;
 };
