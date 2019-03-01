@@ -169,9 +169,9 @@ std::shared_ptr<hostAllocator> cumlHandle::getHostAllocator() const
     return _impl->getHostAllocator();
 }
 
-const cumlHandle_impl* cumlHandle::getImpl() const
+const cumlHandle_impl& cumlHandle::getImpl() const
 {
-    return _impl.get();
+    return *_impl.get();
 }
 
 class cudaDeviceScope {

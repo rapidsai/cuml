@@ -27,10 +27,10 @@ namespace ML {
  * deallocation so this can be used for temporary memory 
  * @code{.cpp}
  * template<typename T>
- * void foo( cumlHandle* handle, .., cudaStream_t stream )
+ * void foo( const cumlHandle_impl& h, ..., cudaStream_t stream )
  * {
  *     ...
- *     device_buffer<T> temp( handle->getDeviceAllocator(), stream, 0 )
+ *     device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
  *     
  *     temp.resize(n, stream);
  *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);

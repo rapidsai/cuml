@@ -24,9 +24,9 @@ namespace ML {
 
 /**
  * @code{.cpp}
- * void foo( cumlHandle* handle, .. )
+ * void foo( const cumlHandle_impl& h, ... , cudaStream_t stream )
  * {
- *     auto execution_policy = ML::exec_policy(handle->getDeviceAllocator(),stream);
+ *     auto execution_policy = ML::exec_policy(h.getDeviceAllocator(),stream);
  *     thrust::for_each(execution_policy->on(stream), ... );
  * }
  * @endcode
