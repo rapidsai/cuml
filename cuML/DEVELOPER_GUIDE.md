@@ -4,6 +4,9 @@ This document summarizes rules and best practices for contributions to C++ compo
 # General
 
 # Thread safety
+cuML should be thread safe and its functions can be called from multiple host threads if they use different handles.
+
+The implementation of cuML should be single threaded.
 
 # Coding style
 
