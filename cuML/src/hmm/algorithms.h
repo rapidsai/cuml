@@ -1,31 +1,33 @@
 #pragma once
 
 #include <hmm/structs.h>
-#include <hmm/likelihood.h>
-#include <hmm/stats.h>
+#include <hmm/magma/likelihood.h>
+#include <hmm/magma/stats.h>
 
 #include <hmm/utils.h>
+#include <stats/sum.h>
 
 namespace ML {
 namespace HMM {
 
 template <typename T>
-void compute_ps(T* rhos, T* ps, int n_rows, int n_cols, cublasHandle_t *cublasHandle){
-        // initializations
-        T *ones;
-        cudaMalloc(&ones, n_rows * sizeof(T));
-
-        thrust::device_ptr<T> ones_th(ones);
-
-        const T alpha = (T) 1 / n_rows;
-        const T beta = (T) 0;
-
-        thrust::fill(ones_th, ones_th + n_rows, (T) 1);
-
-        CUBLAS_CHECK(cublasgemv(*cublasHandle, CUBLAS_OP_T, n_rows, n_cols, &alpha, rhos, n_rows, ones, 1, &beta, ps, 1));
+void compute_ps(T* ps, T* rhos, int m, int n){
+        sum(ps, rhos, n, m, true);
 }
 
+template <typename T>
+void weighted_mus(int nDim, int nObs, int nCl,
+                  T* dW, int lddw, T* dX, int lddx,
+                  T* mus, int lddmu, T* ps, int lddp,
+                  cublasHandle_t handle){
+        T alfa = (T)1.0 / nObs, beta = (T)0.0;
+        CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nDim,
+                                nCl, nObs, &alfa, dX, lddx, dW, lddw, &beta, mus, lddmu));
 
+// TODO : Check the 1 in the next call !!!!!!!!!!!!!!!!
+
+        CUBLAS_CHECK(cublasdgmm(handle, CUBLAS_SIDE_RIGHT, nDim, nCl, mus, lddmu, ps, 1, mus, lddmu));
+}
 
 template <typename T>
 void _em(GMM<T>& gmm){
@@ -36,12 +38,8 @@ void _em(GMM<T>& gmm){
                                 gmm.nCl, gmm.nDim, gmm.nObs, isLog,
                                 gmm.cublasHandle, gmm.cusolverHandle);
 
-        // MLCommon::HMM::gen_trans_matrix(gmm.rhos, gmm.nObs, gmm.nCl,
-        //                                 gmm.paramsRd, true);
         MLCommon::HMM::gen_trans_matrix(gmm.ps, 1, gmm.nCl,
                                         gmm.paramsRd, true);
-        // compute_ps(gmm.rhos, gmm.ps, gmm.nObs, gmm.nCl, gmm.cublasHandle);
-
 
         MLCommon::HMM::gen_array(gmm.mus, gmm.nDim * gmm.nCl, gmm.paramsRd);
 

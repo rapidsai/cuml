@@ -2,7 +2,6 @@
 
 #include <cublas_v2.h>
 
-#include "utils.h"
 #include "cuda_utils.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
@@ -84,14 +83,15 @@ struct Determinant
                 copy(tempM, M, ldda * n);
 
                 if(is_hermitian) {
-                        CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(*handle,
-                                                               uplo,
-                                                               n,
-                                                               tempM,
-                                                               ldda,
-                                                               Ws,
-                                                               WsSize,
-                                                               info));
+                        // CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(*handle,
+                        //                                        uplo,
+                        //                                        n,
+                        //                                        tempM,
+                        //                                        ldda,
+                        //                                        Ws,
+                        //                                        WsSize,
+                        //                                        info));
+                        printf("Hermitian determinant still requires testing\n");
                 }
                 else{
                         CUSOLVER_CHECK(LinAlg::cusolverDngetrf(*handle,

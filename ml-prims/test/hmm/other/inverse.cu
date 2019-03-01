@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#include "hmm/inverse.h"
+#include "hmm/b_inverse.h"
 // #include "hmm/utils.h"
 
 #include "linalg/mean_squared_error.h"
