@@ -1,16 +1,8 @@
-// #include "magma/bilinear.h"
-
-#include "magma/magma_test_utils.h"
-#include "magma/magma_batched_wrappers.h"
+#include "hmm/magma/magma_test_utils.h"
+#include "hmm/magma/magma_batched_wrappers.h"
 
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
-
-
-template <typename T>
-T test_det(){
-}
-
 
 template <typename T>
 __global__

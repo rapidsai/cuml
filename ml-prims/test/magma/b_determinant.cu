@@ -1,34 +1,38 @@
 #include <gtest/gtest.h>
 
 #include "hmm/determinant.h"
-#include "hmm/magma/determinant.h"
+#include "hmm/magma/b_determinant.h"
 
+using namespace MLCommon;
 
 template <typename T>
-void run_cuda_det(int batchCount, T** dA_array, T* dDet_cusolver, bool is_hermitian){
+void run_cuda_det(int n, int batchCount, T** dA_array, int ldda,
+                  T* dDet_cusolver, bool is_hermitian){
         T **A_array, *Det_cusolver;
         A_array = (T **)malloc(sizeof(T*) * batchCount);
         Det_cusolver = (T *)malloc(sizeof(T) * batchCount);
 
+        cusolverDnHandle_t cusolverHandle;
         CUSOLVER_CHECK(cusolverDnCreate(&cusolverHandle));
-        Det = Determinant<T>(nDim, &cusolverHandle);
+        Determinant<T> Det = Determinant<T>(n, ldda, &cusolverHandle, is_hermitian);
 
         updateHost(A_array, dA_array, batchCount);
 
         for(int bId = 0; bId < batchCount; bId++) {
-                Det_cusolver[bId] = Det.compute(A_array[bId], is_hermitian);
+                print_matrix_device(n, n, A_array[bId], ldda, "A array bId");
+                Det_cusolver[bId] = Det.compute(A_array[bId]);
         }
 
-        updateDevice(dDet_cusolver, Det_cusolver, batchCount)
+        updateDevice(dDet_cusolver, Det_cusolver, batchCount);
 
-        CUDA_CHECK(cudaFree(A_array));
-        CUDA_CHECK(cudaFree(Det_cusolver));
+        free(A_array);
+        free(Det_cusolver);
         CUSOLVER_CHECK(cusolverDnDestroy(cusolverHandle));
-        Det->TearDown();
+        Det.TearDown();
 }
 
 template <typename T>
-T run(magma_int_t n, magma_int_t batchCount)
+T run(magma_int_t n, magma_int_t batchCount, bool is_hermitian)
 {
 // declaration:
         T **dA_array=NULL, *dDet_cusolver=NULL, *dDet_magma=NULL;
@@ -38,7 +42,8 @@ T run(magma_int_t n, magma_int_t batchCount)
 // allocation:
         allocate_pointer_array(dA_array, ldda * n, batchCount);
         allocate(dDet_magma, batchCount);
-        allocate(error, 1);
+        allocate(dDet_cusolver, batchCount);
+        allocate(error_d, 1);
 
         int device = 0;  // CUDA device ID
         magma_queue_t queue;
@@ -52,10 +57,10 @@ T run(magma_int_t n, magma_int_t batchCount)
 
         det_batched(n, dA_array, ldda, dDet_magma, batchCount, queue);
 
-        print_matrix_device(n, 1, dDet_magma, n, "det array");
+        print_matrix_device(batchCount, 1, dDet_magma, n, "det array");
 
 // computation cusolver :
-        run_cuda_det(batchCount, dA_array, dDet_magma, is_hermitian);
+        run_cuda_det(n, batchCount, dA_array, ldda, dDet_cusolver, is_hermitian);
 
 // Error
         meanSquaredError(error_d, dDet_cusolver, dDet_magma, batchCount);
@@ -91,7 +96,7 @@ void SetUp() override {
         tolerance = params.tolerance;
 
         magma_init();
-        error = run<T>(params.n, params.batchCount);
+        error = run<T>(params.n, params.batchCount, params.is_hermitian);
         magma_finalize();
 }
 
@@ -101,11 +106,11 @@ T error, tolerance;
 };
 
 const std::vector<DeterminantInputs<float> > DeterminantInputsf2 = {
-        {0.000001f, true, 2, 4}
+        {0.000001f, false, 2, 4}
 };
 
 const std::vector<DeterminantInputs<double> > DeterminantInputsd2 = {
-        {0.000001, true, 2, 4}
+        {0.000001, false, 2, 4}
 };
 
 

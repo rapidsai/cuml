@@ -1,4 +1,4 @@
-#include "magma/bilinear.h"
+#include "magma/b_bilinear.h"
 
 using namespace MLCommon;
 
