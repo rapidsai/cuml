@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "../../../ml-prims/src/utils.h"
+#include "../utils.h"
 
-#include "../cuML.hpp"
+#include "cuml_allocator.hpp"
 
-namespace ML {
+namespace MLCommon {
 
 /**
  * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus allocation and
