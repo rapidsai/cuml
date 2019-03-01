@@ -65,7 +65,7 @@ void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
                               bool inplace = false) {
   coalescedReduction(dots, data, cols, rows, (T)0,
                      inplace, 0,
-                     [] __device__(T in) { return in * in; });
+                     [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>
