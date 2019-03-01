@@ -25,6 +25,8 @@ from cython.operator cimport dereference as deref
 from numba import cuda
 from knn cimport *
 
+from cuml import numba_utils
+
 class KNNparams:
     def __init__(self, n_gpus):
         self.n_gpus = n_gpus
@@ -103,8 +105,6 @@ cdef class KNN:
 
     cpdef kNNParams *input
 
-
-
     def __cinit__(self, should_downcast = False):
         """
         Construct the kNN object for training and querying.
@@ -156,7 +156,8 @@ cdef class KNN:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = X.as_gpu_matrix(order="C")
+            X = numba_utils.row_matrix(X)
+
         elif isinstance(X, np.ndarray):
             dtype = X.dtype
 
@@ -169,7 +170,7 @@ cdef class KNN:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = cuda.to_device(X)
+            X = cuda.to_device(X, order = "C")
         else:
             raise Exception("Received unsupported input type " % type(X))
 
@@ -261,8 +262,8 @@ cdef class KNN:
         N = len(X)
 
         # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order = "F"))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order = "F"))
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order = "C"))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order = "C"))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)

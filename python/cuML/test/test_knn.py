@@ -59,6 +59,11 @@ def test_knn_search(input_type, should_downcast):
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
 
+    print(str(I_cuml_arr))
+    print(str(I_sk))
+
+    assert(0==1)
+
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_knn_downcast_fails(input_type):
 
