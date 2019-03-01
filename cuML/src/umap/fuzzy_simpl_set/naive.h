@@ -137,7 +137,6 @@ namespace UMAPAlgo {
 
                         for (int j = 1; j < n_neighbors; j++) {
                             float d = knn_dists[i + j] - rhos[row];
-                            printf("distance=%0.5f, knn_dist=%0.5f, rhos=%0.5f\n", d, knn_dists[i+j], rhos[row]);
                             if (d > 0)
                                 psum += exp(-(d / mid));
                             else
@@ -145,7 +144,6 @@ namespace UMAPAlgo {
                         }
 
                         if (fabsf(psum - target) < SMOOTH_K_TOLERANCE) {
-                            printf("psum=%0.4f, target=%0.4f\n", psum, target);
                             break;
                         }
 
@@ -162,8 +160,6 @@ namespace UMAPAlgo {
                     }
 
                     sigmas[row] = mid;
-
-                    printf("hi=%f, mid=%f, low=%f\n", hi, mid, lo);
 
                     if (rhos[row] > 0.0) {
                         if (sigmas[row] < MIN_K_DIST_SCALE * ith_distances_mean)
