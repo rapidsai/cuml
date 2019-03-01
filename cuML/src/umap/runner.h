@@ -96,6 +96,9 @@ namespace UMAPAlgo {
     }
 
 
+    /**
+     *
+     */
 	template<typename T>
 	size_t _fit(const T *X,       // input matrix
 	            int n,      // rows
@@ -169,6 +172,9 @@ namespace UMAPAlgo {
 		return 0;
 	}
 
+	/**
+	 *
+	 */
 	template<typename T, int TPB_X>
 	size_t _transform(const float *X,
 	                  int n,
