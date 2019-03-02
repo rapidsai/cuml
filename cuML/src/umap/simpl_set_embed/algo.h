@@ -27,6 +27,7 @@
 
 #include <math.h>
 #include <string>
+#include <sys/time.h>
 
 #pragma once
 
@@ -38,10 +39,10 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
-            __global__ void init_stuff(curandState *state, int n) {
+            __global__ void init_stuff(curandState *state, int n, long long seed) {
                  int idx = blockIdx.x * blockDim.x + threadIdx.x;
                  if(idx < n)
-                     curand_init(1337, idx, 0, &state[idx]);
+                     curand_init(seed, idx, 0, &state[idx]);
             }
 
 	        template<typename T>
@@ -281,11 +282,14 @@ namespace UMAPAlgo {
                 curandState *d_state;
                 MLCommon::allocate(d_state, TPB_X * head_n);
 
+
                 for(int n = 0; n < params->n_epochs; n++) {
 
-	                // TODO: Might need to batch this further when nnz > TPB * N_BLOCKS
+                    struct timeval tp;
+                    gettimeofday(&tp, NULL);
+                    long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-	                init_stuff<<<grid, blk>>>(d_state, TPB_X*head_n);
+	                init_stuff<<<grid, blk>>>(d_state, TPB_X*head_n, seed);
 	                optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
 	                    head_embedding, head_n,
 	                    tail_embedding, tail_n,
