@@ -20,6 +20,7 @@
 
 #include <cstdlib>
 
+#include <curand.h>
 
 #include <thrust/extrema.h>
 #include <thrust/device_ptr.h>
@@ -37,20 +38,10 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
-            __constant__ unsigned int shift1[4] = {6, 2, 13, 3};
-            __constant__ unsigned int shift2[4] = {13, 27, 21, 12};
-            __constant__ unsigned int shift3[4] = {18, 2, 7, 13};
-            __constant__ unsigned int offset[4] = {4294967294, 4294967288, 4294967280, 4294967168};
-
-            __shared__ unsigned int randStates[32];
-            __device__ unsigned int TausStep(unsigned int &z, int S1, int S2, int S3, unsigned int M) {
-                unsigned int b = (((z << S1) ^ z) >> S2);
-                return z = (((z &M) << S3) ^ b);
-            }
-
-            __device__ unsigned int randInt() {
-                TausStep(randStates[threadIdx.x&31], shift1[threadIdx.x&3], shift2[threadIdx.x&3],shift3[threadIdx.x&3],offset[threadIdx.x&3]);
-                return (randStates[(threadIdx.x)&31]^randStates[(threadIdx.x+1)&31]^randStates[(threadIdx.x+2)&31]^randStates[(threadIdx.x+3)&31]);
+            __global__ void init_stuff(curandState *state, int n) {
+                 int idx = blockIdx.x * blockDim.x + threadIdx.x;
+                 if(idx < n)
+                     curand_init(1337, idx, 0, &state[idx]);
             }
 
 	        template<typename T>
@@ -140,6 +131,7 @@ namespace UMAPAlgo {
                     float alpha,
                     int epoch,
                     float gamma,
+                    curandState *d_state,
                     UMAPParams params) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -190,7 +182,8 @@ namespace UMAPAlgo {
 
                         for(int p = 0; p < n_neg_samples; p++) {
 
-                            int t = 1;//int(randVal<float>(state) * tail_n);
+                            float r = curand_uniform(&d_state[row]);
+                            int t = r*tail_n;//int(randVal<float>(state) * tail_n);
 
                             T *negative_sample = tail_embedding+(t*params.n_components);
                             dist_squared = rdist(current, negative_sample, params.n_components);
@@ -285,9 +278,14 @@ namespace UMAPAlgo {
 
                 std::cout << "Starting optimization..." << std::endl;
 
-	            for(int n = 0; n < params->n_epochs; n++) {
+                curandState *d_state;
+                MLCommon::allocate(d_state, TPB_X * head_n);
+
+                for(int n = 0; n < params->n_epochs; n++) {
 
 	                // TODO: Might need to batch this further when nnz > TPB * N_BLOCKS
+
+	                init_stuff<<<grid, blk>>>(d_state, TPB_X*head_n);
 	                optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
 	                    head_embedding, head_n,
 	                    tail_embedding, tail_n,
@@ -301,6 +299,7 @@ namespace UMAPAlgo {
 	                    alpha,
 	                    n,
 	                    gamma,
+	                    d_state,
 	                    *params
 	                );
 
