@@ -148,28 +148,28 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DADD_")
 # - include paths ---------------------------------------------`------------------------------------
 
 
-include (ExternalProject)
-ExternalProject_Add(faiss
-  SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
-  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
-  BUILD_COMMAND $(MAKE)
-  INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
-  BUILD_IN_SOURCE 1
-  BUILD_ALWAYS 0
-  PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
-)
-
-ExternalProject_Get_Property(faiss install_dir)
-
-add_library(faisslib STATIC IMPORTED)
-add_library(gpufaisslib STATIC IMPORTED)
-
-add_dependencies(faisslib faiss)
-add_dependencies(gpufaisslib faiss)
-
-set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
-set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
+# include (ExternalProject)
+# ExternalProject_Add(faiss
+#   SOURCE_DIR ${FAISS_DIR}
+#   CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+#   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
+#   BUILD_COMMAND $(MAKE)
+#   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
+#   BUILD_IN_SOURCE 1
+#   BUILD_ALWAYS 0
+#   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
+# )
+#
+# ExternalProject_Get_Property(faiss install_dir)
+#
+# add_library(faisslib STATIC IMPORTED)
+# add_library(gpufaisslib STATIC IMPORTED)
+#
+# add_dependencies(faisslib faiss)
+# add_dependencies(gpufaisslib faiss)
+#
+# set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
+# set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 
 include_directories(src
@@ -191,7 +191,8 @@ file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
-file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/b_likelihood.cu")
+# file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/b_likelihood.cu")
+file(GLOB_RECURSE magma_debug_sources "test/gmm.cu")
 file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 
 # ###################################################################################################
@@ -259,7 +260,7 @@ file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
-# 
+#
 # install(TARGETS cuml
 #         DESTINATION lib)
 

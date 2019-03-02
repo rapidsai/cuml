@@ -9,6 +9,7 @@
 #include "linalg/mean_squared_error.h"
 
 #define IDX(i,j,lda) ((i)+(j)*(lda))
+#define IDX2(i,j,k,lda,la) ((i)+(j)*(lda) + (k)*(la))
 #define RUP_SIZE 32
 
 namespace MLCommon {
@@ -282,5 +283,81 @@ void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
 // }
 
 
+template <typename T>
+__global__
+void atomicRandom(T* x){
+
+}
+
+template <typename T>
+__global__
+void randomMatrixBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
+                               T* dA, magma_int_t ldda,
+                               bool isSpd, int nThreads_x, int nThreads_y, int nThreads_z){
+
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+        int k_start = threadIdx.z + blockDim.z * blockIdx.z;
+
+        int idxA;
+        int la = ldda * n;
+
+        for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
+                for (size_t j = j_start; j < n; j+=nThreads_x) {
+                        for (size_t i = i_start; i < ldda; i+=nThreads_y) {
+                                idxA = IDX2(i, j, bId, ldda, la);
+                                if (i < m ) {
+                                        dA[idxA] = (T) (std::rand() / ((T) RAND_MAX));
+
+                                }
+                                else{
+                                        dA[idxA] = (T) 0;
+                                }
+                        }
+                }
+        }
+        if (isSpd) {
+                T temp;
+                for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
+                        for (size_t j = j_start; j < n; j+=nThreads_x) {
+                                for (size_t i = i_start; i <= j; i+=nThreads_y) {
+                                        if (i == j) {
+                                                idxA = IDX2(i, j, bId, ldda, la);
+                                                dA[idxA] += m;
+                                        }
+                                        else{
+                                                temp = (dA[IDX2(i, j, bId, ldda, la)] + dA[IDX2(i, j, bId, ldda, la)]) / 2;
+                                                dA[IDX2(i, j, bId, ldda, la)] = temp;
+                                                dA[IDX2(j, i, bId, ldda, la)] = temp;
+                                        }
+                                }
+                        }
+                }
+
+        }
+}
+
+template <typename T>
+void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
+                           T* dA, magma_int_t ldda, bool isSpd){
+        if (isSpd) {
+                assert(m == n && "The matrix should be square");
+        }
+
+        dim3 block(32, 32, 1);
+        dim3 grid(ceildiv((int)n, (int)block.y),
+                  ceildiv((int)m, (int)block.z),
+                  1);
+
+        int nThreads_x = grid.x * block.x;
+        int nThreads_y = grid.y * block.y;
+        int nThreads_z = grid.z * block.z;
+
+        randomMatrixBatchedKernel<T> <<< grid, block >>>(m, n, batchCount,
+                                                         dA, ldda, isSpd,
+                                                         nThreads_x, nThreads_y, nThreads_z);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+}
 
 }

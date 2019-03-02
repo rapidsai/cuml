@@ -13,12 +13,14 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <linalg/cublas_wrappers.h>
+#include <stats/sum.h>
 #include <random/rng.h>
-#include <hmm/cublas_wrappers.h>
+#include <hmm/cuda/cublas_wrappers.h>
 
 
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
+using namespace MLCommon::Stats;
 
 namespace MLCommon {
 namespace HMM {
@@ -43,22 +45,12 @@ struct Inv_functor
 };
 
 
-
-
-template <typename T>
-void gen_matrix(int m, int n, T* dA, int ldda, paramsRandom<T> *paramsRd){
-        MLCommon::Random::Rng<T> rng(paramsRd->seed);
-        rng.uniform(dA, ldda * n, paramsRd->start, paramsRd->end);
-        // TODO : Fill with zeros
-}
-
-
 template <typename T>
 void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
         // cublas handles
         cublasHandle_t cublas_handle;
         cublasCreate(&cublas_handle);
-        T *sums, *ones;
+        T *ones;
 
 
         if(colwise) {
@@ -77,7 +69,7 @@ void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
                 thrust::fill(ones_th, ones_th + n, alpha);
 
                 // Compute the sum of each row
-                sum(sums, dA, n, llda, false);
+                sum(sums, dA, n, ldda, false);
 
                 // Inverse the sums
                 thrust::transform(sums_th, sums_th + m, sums_th, Inv_functor<T>());
@@ -111,12 +103,6 @@ void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
 
         }
 
-}
-
-template <typename T>
-void gen_trans_matrix(int m, int n, T* dA,  paramsRandom<T> *paramsRd, bool colwise){
-        gen_A(m, n, dA, ldda, paramsRd);
-        normalize_A(m, n, dA, ldda, colwise);
 }
 
 }

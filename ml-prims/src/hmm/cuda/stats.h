@@ -15,8 +15,7 @@
 #include <linalg/sqrt.h>
 #include <linalg/transpose.h>
 
-#include <hmm/cublas_wrappers.h>
-#include <hmm/utils.h>
+#include <hmm/cuda/cublas_wrappers.h>
 
 // #include "cuda_utils.h"
 // #include "utils.h"

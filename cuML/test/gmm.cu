@@ -1,7 +1,7 @@
 #include "hmm/gmm.h"
 
 template <typename T>
-void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs)
+void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 {
 // declaration:
         T *dX=NULL;
@@ -11,17 +11,19 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs)
 
         // allocation:
         allocate(dX, lddx * nObs);
-
         allocate(dX_array, nObs);
 
 // filling:
         fill_matrix_gpu(nDim, nObs, dX, lddx);
 
+        print_matrix_device(nDim, nObs, dX, lddx, "dX");
+
 // Batching
         split_to_batches(nObs, dX_array, dX, lddx);
 
 // // computation:
-
+        GMM<T> gmm = GMM<T>(nCl, nDim, nObs);
+        gmm.initialize();
 
 // cleanup:
         CUDA_CHECK(cudaFree(dX));
@@ -37,9 +39,9 @@ int main( int argc, char** argv )
         magma_int_t nCl = 2;
         magma_int_t nDim = 3;
         magma_int_t nObs = 5;
-        int isLog = false;
+        int n_iter = 10;
 
-        run<double>(nCl, nDim, nObs);
+        run<double>(nCl, nDim, nObs, n_iter);
 
         magma_finalize();
         return 0;
