@@ -28,6 +28,19 @@ using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 using MLCommon::Random::matVecAdd;
 
+template <typename T>
+void weighted_mus(int nDim, int nObs, int nCl,
+                  T* dW, int lddw, T* dX, int lddx,
+                  T* mus, int lddmu, T* ps, int lddp,
+                  cublasHandle_t handle){
+        T alfa = (T)1.0 / nObs, beta = (T)0.0;
+        CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, nDim,
+                                nCl, nObs, &alfa, dX, lddx, dW, lddw, &beta, mus, lddmu));
+
+// TODO : Check the 1 in the next call !!!!!!!!!!!!!!!!
+
+        CUBLAS_CHECK(cublasdgmm(handle, CUBLAS_SIDE_RIGHT, nDim, nCl, mus, lddmu, ps, 1, mus, lddmu));
+}
 
 
 template <typename T>

@@ -23,29 +23,7 @@ struct paramsEM {
         }
 };
 
-template <typename T>
-struct GMM {
-        T *z, *x;
-        T *mus, *sigmas, *ps;
-        T *rhos;
 
-        int nCl;
-        int nDim;
-        int nObs;
-
-        // EM parameters
-        paramsEM *paramsEm;
-
-        // // Random parameters
-        paramsRandom<T> *paramsRd;
-
-        // all the workspace related pointers
-        int *info;
-        bool initialized=false;
-
-        cusolverDnHandle_t *cusolverHandle;
-        cublasHandle_t *cublasHandle;
-};
 
 }
 }

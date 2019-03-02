@@ -114,7 +114,7 @@ template <typename T>
 __global__
 void LogLikelihoodKernel(int nObs, int nCl, int nDim,
                          T* dDet_array, T* dBil_batches,
-                         T* dLlhd, int lddLlhd,
+                         T* dLlhd, int lddLlhd, bool isLog,
                          int nThreads_x, int nThreads_y){
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
@@ -126,6 +126,9 @@ void LogLikelihoodKernel(int nObs, int nCl, int nDim,
                         dLlhd[idx] = lol_llhd_atomic(dDet_array[clId],
                                                      dBil_batches[idx],
                                                      nDim);
+                        if (!isLog) {
+                                dLlhd[idx] = std::exp(dLlhd[idx]);
+                        }
                 }
         }
 }
@@ -134,7 +137,7 @@ void LogLikelihoodKernel(int nObs, int nCl, int nDim,
 template <typename T>
 void _likelihood_batched(int nObs, int nCl, int nDim,
                          T* dDet_array, T* dBil_batches,
-                         T* dLlhd, int lddLlhd){
+                         T* dLlhd, int lddLlhd, bool isLog){
         dim3 block(32, 32, 1);
         dim3 grid(ceildiv(nCl, (int)block.x),
                   ceildiv(nObs, (int)block.y),
@@ -145,7 +148,7 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
 
         LogLikelihoodKernel<T> <<< grid, block >>>(nObs, nCl, nDim,
                                                    dDet_array, dBil_batches,
-                                                   dLlhd, lddLlhd,
+                                                   dLlhd, lddLlhd, isLog,
                                                    nThreads_x, nThreads_y);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
@@ -158,7 +161,8 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         T** &dX_array, int lddx,
                         T** &dmu_array, int lddmu,
                         T** &dsigma_array, int lddsigma_full, int lddsigma,
-                        T* dLlhd, int lddLlhd){
+                        T* dLlhd, int lddLlhd,
+                        bool isLog){
 
 // Allocate
         T **dInvSigma_array=NULL, *dDet_array=NULL;
@@ -184,7 +188,7 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         magma_queue_create(device, &queue);
 
 // Compute sigma inverses
-        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix 3");
+        print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix 3");
 
         // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array before");
 
@@ -225,7 +229,8 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
 
 
         // Compute log likelihoods
-        _likelihood_batched(nObs, nCl, nDim, dDet_array, dBil_batches, dLlhd, lddLlhd);
+        _likelihood_batched(nObs, nCl, nDim,
+                            dDet_array, dBil_batches, dLlhd, lddLlhd, isLog);
         print_matrix_device(nCl, nObs, dLlhd, lddLlhd, "dLlhd");
 
 // free

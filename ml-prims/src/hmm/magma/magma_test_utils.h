@@ -86,7 +86,7 @@ void print_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount, 
 }
 
 template <typename T>
-void fill_matrix(magma_int_t m, magma_int_t n, T *A, magma_int_t lda)
+void fill_matrix(magma_int_t m, magma_int_t n, T *A, magma_int_t lda, bool isSpd)
 {
       #define A(i_, j_) A[ (i_) + (j_)*lda ]
 
@@ -101,13 +101,31 @@ void fill_matrix(magma_int_t m, magma_int_t n, T *A, magma_int_t lda)
                 }
         }
 
+        if (isSpd) {
+                assert(m == n && "the matrix should be square");
+                T temp;
+                for (size_t i = 0; i < m; i++) {
+                        for (size_t j = 0; j <= i; j++) {
+                                if (i == j) {
+                                        A(i, j) = A(i, j) + m;
+                                }
+                                else{
+                                        temp = (A(i, j) + A(j, i)) / 2;
+                                        A(i, j) = temp;
+                                        A(j, i) = temp;
+                                }
+                        }
+                        /* code */
+                }
+        }
+
       #undef A
 }
 
-
+// isSpd : Symetric Positive Definite
 template <typename T>
 void fill_matrix_gpu(
-        magma_int_t m, magma_int_t n, T *dA, magma_int_t ldda)
+        magma_int_t m, magma_int_t n, T *dA, magma_int_t ldda, bool isSpd=false)
 {
         T *A;
         int lda = ldda;
@@ -119,7 +137,7 @@ void fill_matrix_gpu(
                 return;
         }
 
-        fill_matrix(m, n, A, lda);
+        fill_matrix(m, n, A, lda, isSpd);
 
         updateDevice(dA, A, n * lda);
 
@@ -130,13 +148,13 @@ void fill_matrix_gpu(
 
 template <typename T>
 void fill_matrix_gpu_batched(
-        magma_int_t m, magma_int_t n, magma_int_t batchCount, T **&dA_array, magma_int_t ldda)
+        magma_int_t m, magma_int_t n, magma_int_t batchCount, T **&dA_array, magma_int_t ldda, bool isSpd=false)
 {
         T **A_array;
         A_array = (T **)malloc(sizeof(T*) * batchCount);
         updateHost(A_array, dA_array, batchCount);
         for (size_t i = 0; i < batchCount; i++) {
-                fill_matrix_gpu(m, n, A_array[i], ldda);
+                fill_matrix_gpu(m, n, A_array[i], ldda, isSpd);
         }
         free(A_array);
 }
