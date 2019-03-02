@@ -4,12 +4,12 @@
 namespace ML {
 
 
-    void UMAP::fit(const float *X, int n, int d, kNN *knn, float *embeddings) {
+    void UMAP::fit(float *X, int n, int d, kNN *knn, float *embeddings) {
         this->knn = knn;
         UMAPAlgo::_fit(X, n, d, knn, get_params(), embeddings);
     }
 
-    void UMAP::transform(const float *X, int n, int d,
+    void UMAP::transform(float *X, int n, int d,
             float *embedding, int embedding_n,
             kNN *knn,
             float *out) {

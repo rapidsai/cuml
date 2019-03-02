@@ -100,7 +100,7 @@ namespace UMAPAlgo {
      *
      */
 	template<typename T>
-	size_t _fit(const T *X,       // input matrix
+	size_t _fit(T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
 	            kNN *knn,
@@ -153,6 +153,8 @@ namespace UMAPAlgo {
 		        nnz,
 		        params, embeddings, 1);
 
+		std::cout << "Running simplsetembed" << std::endl;
+
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
@@ -160,6 +162,8 @@ namespace UMAPAlgo {
 		        X, n, d,
 		        graph_rows, graph_cols, graph_vals, nnz,
 		        params, embeddings);
+
+        std::cout << "Running simplsetembed" << std::endl;
 
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -203,8 +207,8 @@ namespace UMAPAlgo {
         knn->search(X, n, knn_indices, knn_dists, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, n*params->n_neighbors,
-            [] __device__(T input, T scalar) { return sqrt(input); }
+        MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, n*params->n_neighbors,
+            [] __device__(T input) { return sqrt(input); }
         );
 
 	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
@@ -287,9 +291,11 @@ namespace UMAPAlgo {
          * Go through COO values and set everything that's less than
          * vals.max() / params->n_epochs to 0.0
          */
-        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, (max / params->n_epochs), nnz,
-            [] __device__(T input, T scalar) {
-                if (input < scalar)
+
+        int n_epochs = params->n_epochs;
+        MLCommon::LinAlg::unaryOp<T>(graph_vals, graph_vals, nnz,
+            [=] __device__(T input) {
+                if (input < (max / n_epochs))
                     return 0.0f;
                 else
                     return input;
