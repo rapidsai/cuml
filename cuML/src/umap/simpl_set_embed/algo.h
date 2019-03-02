@@ -37,23 +37,21 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
-            unsigned long long nextSeed() {
-	            unsigned long long t1 = (unsigned long long) (rand() + rand());
-	            unsigned long long t2 = (unsigned long long) (rand() + rand());
-	            return ((t2 << 32) | t1);
-	        }
+            __constant__ unsigned int shift1[4] = {6, 2, 13, 3};
+            __constant__ unsigned int shift2[4] = {13, 27, 21, 12};
+            __constant__ unsigned int shift3[4] = {18, 2, 7, 13};
+            __constant__ unsigned int offset[4] = {4294967294, 4294967288, 4294967280, 4294967168};
 
-	        template <typename Type>
-	        DI Type randVal(unsigned long long& state) {
-	            Type res;
-	            for (int i=0;i<128;i++)
-	                state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
-	            res = static_cast<Type>(state);
-	            res /= static_cast<Type>(1.8446744073709551614e19);
-	            return res;
-	        }
+            __shared__ unsigned int randStates[32];
+            __device__ unsigned int TausStep(unsigned int &z, int S1, int S2, int S3, unsigned int M) {
+                unsigned int b = (((z << S1) ^ z) >> S2);
+                return z = (((z &M) << S3) ^ b);
+            }
 
-
+            __device__ unsigned int randInt() {
+                TausStep(randStates[threadIdx.x&31], shift1[threadIdx.x&3], shift2[threadIdx.x&3],shift3[threadIdx.x&3],offset[threadIdx.x&3]);
+                return (randStates[(threadIdx.x)&31]^randStates[(threadIdx.x+1)&31]^randStates[(threadIdx.x+2)&31]^randStates[(threadIdx.x+3)&31]);
+            }
 
 	        template<typename T>
 	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
@@ -81,10 +79,9 @@ namespace UMAPAlgo {
 	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result) {
 	            thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
 	            T weights_max = *(thrust::max_element(d_weights, d_weights+weights_n));
-
-                MLCommon::LinAlg::unaryOp<T>(result, weights, weights_max, weights_n,
-                    [n_epochs] __device__(T input, T scalar) {
-                        T v = input / scalar;
+                MLCommon::LinAlg::unaryOp<T>(result, weights, weights_n,
+                    [=] __device__(T input) {
+                        T v = input / weights_max;
                         if(v*n_epochs > 0)
                             return v;
                         else
@@ -143,11 +140,9 @@ namespace UMAPAlgo {
                     float alpha,
                     int epoch,
                     float gamma,
-                    unsigned long long seed,
                     UMAPParams params) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
-                unsigned long long state = seed + row + 1;
 
                 if(row < nnz) {
                     /**
@@ -195,7 +190,7 @@ namespace UMAPAlgo {
 
                         for(int p = 0; p < n_neg_samples; p++) {
 
-                            int t = int(randVal<float>(state) * tail_n);
+                            int t = 1;//int(randVal<float>(state) * tail_n);
 
                             T *negative_sample = tail_embedding+(t*params.n_components);
                             dist_squared = rdist(current, negative_sample, params.n_components);
@@ -253,6 +248,8 @@ namespace UMAPAlgo {
 	                float gamma,
 	                UMAPParams *params) {
 
+	            std::cout << "Inside optimize layout" << std::endl;
+
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
 
@@ -261,21 +258,33 @@ namespace UMAPAlgo {
 	            T *epochs_per_negative_sample;
 	            MLCommon::allocate(epochs_per_negative_sample, nnz);
 
+                std::cout << "Caling func" << std::endl;
+
+                int nsr = params->negative_sample_rate;
 	            MLCommon::LinAlg::unaryOp<T>(epochs_per_negative_sample, epochs_per_sample,
-	                    params->negative_sample_rate, nnz,
-	                    [] __device__(T input, T scalar) { return input / scalar; }
+	                     nnz,
+	                    [=] __device__(T input) { return input / nsr; }
 	            );
+
+                std::cout << MLCommon::arr2Str(epochs_per_negative_sample, nnz, "epochs_per_neg_sample") << std::endl;
 
 	            T *epoch_of_next_negative_sample;
                 MLCommon::allocate(epoch_of_next_negative_sample, nnz);
                 MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
 
+                std::cout << MLCommon::arr2Str(epoch_of_next_negative_sample, nnz, "epoch_of_next_negative_sample") << std::endl;
+
 	            T *epoch_of_next_sample;
                 MLCommon::allocate(epoch_of_next_sample, nnz);
                 MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
+                std::cout << MLCommon::arr2Str(epoch_of_next_sample, nnz, "epoch_of_next_sample") << std::endl;
+
                 dim3 grid(MLCommon::ceildiv(head_n, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
+
+                std::cout << "Starting optimization..." << std::endl;
+
 	            for(int n = 0; n < params->n_epochs; n++) {
 
 	                // TODO: Might need to batch this further when nnz > TPB * N_BLOCKS
@@ -292,7 +301,6 @@ namespace UMAPAlgo {
 	                    alpha,
 	                    n,
 	                    gamma,
-	                    nextSeed(),
 	                    *params
 	                );
 
@@ -319,27 +327,39 @@ namespace UMAPAlgo {
 	            dim3 blk(TPB_X, 1, 1);
 	            srand(50);
 
+
+	            std::cout << "Finding max" << std::endl;
 	            /**
 	             * Find vals.max()
 	             */
 	            thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(vals);
 	            T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
 
+                std::cout << "Filtering vals" << std::endl;
+
+
 	            /**
 	             * Go through COO values and set everything that's less than
 	             * vals.max() / params->n_epochs to 0.0
 	             */
-                MLCommon::LinAlg::unaryOp<T>(vals, vals, (max / params->n_epochs), nnz,
-                    [] __device__(T input, T scalar) {
-                        if (input < scalar)
+
+                int n_epochs = params->n_epochs;
+
+                MLCommon::LinAlg::unaryOp<T>(vals, vals, nnz,
+                    [=] __device__(T input) {
+                        if (input < (max / n_epochs))
                             return 0.0f;
                         else
                             return input;
                     }
                 );
 
+                std::cout << MLCommon::arr2Str(vals, nnz, "vals") << std::endl;
+
+
 	            T *epochs_per_sample;
 	            MLCommon::allocate(epochs_per_sample, nnz);
+                std::cout << "Making epochs per sample" << std::endl;
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
 
@@ -352,6 +372,9 @@ namespace UMAPAlgo {
 	                            m,
 	                            params->gamma,
 	                            params);
+	            CUDA_CHECK(cudaPeekAtLastError());
+
+	            std::cout << "DONE!" << std::endl;
 
                 std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
 

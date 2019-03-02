@@ -25,7 +25,7 @@ namespace kNNGraph {
 	using namespace ML;
 
 	template<typename T>
-	void run(const T *X, int n, int d,
+	void run(T *X, int n, int d,
 			 long *knn_indices, T *knn_dists,
 			 kNN *knn,
 			 UMAPParams *params,

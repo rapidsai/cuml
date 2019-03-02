@@ -34,9 +34,9 @@ namespace ML {
                 knn = nullptr;
             };
 
-            void fit(const float *X, int n, int d, kNN *knn, float *embeddings);
+            void fit(float *X, int n, int d, kNN *knn, float *embeddings);
 
-            void transform(const float *X, int n, int d,
+            void transform(float *X, int n, int d,
                     float *embedding, int embedding_n,
                     kNN *knn,
                     float *out);

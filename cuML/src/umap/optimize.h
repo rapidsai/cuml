@@ -17,8 +17,6 @@
 #include "umap/umapparams.h"
 
 
-#include "solver/solver_c.h"
-#include "functions/linearReg.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/unary_op.h"
@@ -90,7 +88,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(residuals, n_rows);
 
             f<T, TPB_X>(input, n_rows, coef, residuals);
-            MLCommon::LinAlg::subtract(residuals, residuals, labels, n_rows);
+            MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -158,7 +156,7 @@ namespace UMAPAlgo {
                 abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params);
 
                 MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2);
-                MLCommon::LinAlg::subtract(coef, coef, grads, 2);
+                MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2);
 
                 T * grads_h = (T*)malloc(2 * sizeof(T));
                 MLCommon::updateHost(grads_h, grads, 2);

@@ -60,6 +60,8 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
+set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
+  "Path to nvGraph lib")
   
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -186,9 +188,10 @@ add_library(cuml SHARED
             src/glm/glm.cu
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
+            src/umap/umap.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${CUDA_cusparse_LIBRARY} ${CUDA_nvgraph_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -206,6 +209,8 @@ target_link_libraries(ml_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
+                      ${CUDA_nvgraph_LIBRARY}
 		              gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
@@ -225,6 +230,8 @@ target_link_libraries(ml_mg_test
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
+                      ${CUDA_nvgraph_LIBRARY}
                       gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}

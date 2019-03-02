@@ -32,8 +32,8 @@ namespace UMAPAlgo {
                           const long *knn_indices, const T *knn_dists,
                           UMAPParams *params, T *embedding) {
 
-                MLCommon::Random::Rng<T> r(1000);
-                r.uniform(embedding, n*params->n_components, -10, 10);
+                MLCommon::Random::Rng r(1000);
+                r.uniform<T>(embedding, n*params->n_components, -10, 10);
             }
         }
     }

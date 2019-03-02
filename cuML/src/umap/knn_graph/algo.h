@@ -35,7 +35,7 @@ namespace kNNGraph {
 		 */
 		template<typename T>
 		void launcher(
-		              const float *X, int x_n, int d,
+		              float *X, int x_n, int d,
 					  long *knn_indices, T *knn_dists,
 					  kNN *knn,
 					  UMAPParams *params) {
@@ -47,11 +47,11 @@ namespace kNNGraph {
 			knn->fit(p, 1);
 			knn->search(X, x_n, knn_indices, knn_dists, params->n_neighbors);
 
-            auto adjust_vals_op = [] __device__(T input, T scalar) {
+            auto adjust_vals_op = [] __device__(T input) {
                 return sqrt(input);
             };
 
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, 1.0, x_n*params->n_neighbors, adjust_vals_op);
+            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*params->n_neighbors, adjust_vals_op);
 
 			delete p;
 		}
