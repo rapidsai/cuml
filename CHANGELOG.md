@@ -25,6 +25,7 @@
 - PR #232: Added reduce_rows_by_key
 - PR #246: Support for 2 vectors in the matrix vector operator
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
+- PR #261: Add initial UMAP implementation
 
 ## Bug Fixes
 
