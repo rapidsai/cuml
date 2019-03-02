@@ -1,9 +1,7 @@
-# pragma once
-
 #include "hmm/magma/b_likelihood.h"
 
 template <typename T>
-void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs)
+void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, bool isLog)
 {
 // declaration:
         T *dX=NULL, *dmu=NULL, *dsigma=NULL, *dLlhd=NULL;
@@ -21,32 +19,30 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs)
         allocate(dsigma, lddsigma_full * nCl);
         allocate(dLlhd, lddLlhd * nObs);
 
-        allocate(dX_array, lddx * nObs);
-        allocate(dmu_array, lddmu * nCl);
-        allocate(dsigma_array, lddsigma_full * nCl);
+        allocate(dX_array, nObs);
+        allocate_pointer_array(dmu_array, lddmu, nCl);
+        allocate_pointer_array(dsigma_array, lddsigma_full, nCl);
 
 // filling:
         fill_matrix_gpu(nDim, nObs, dX, lddx);
         fill_matrix_gpu(nDim, nCl, dmu, lddmu);
-        fill_matrix_gpu(lddsigma_full, nCl, dsigma, lddsigma_full);
+        // fill_matrix_gpu(nDim, nCl, dmu, lddmu);
+        fill_matrix_gpu_batched(nDim, nDim, nCl, dsigma_array, lddsigma, true);
         // TODO : zero out
 
-        // print_matrix_device(lddsigma, nDim, dsigma, lddsigma, "dSigma matrix");
 
 // Batching
         split_to_batches(nObs, dX_array, dX, lddx);
         split_to_batches(nCl, dmu_array, dmu, lddmu);
-        split_to_batches(nCl, dsigma_array, dsigma, lddsigma_full);
+        // split_to_batches(nCl, dsigma_array, dsigma, lddsigma_full);
 
-        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix2");
-
-
-// computation:
+// // computation:
         likelihood_batched(nCl, nDim, nObs,
                            dX_array, lddx,
                            dmu_array, lddmu,
                            dsigma_array, lddsigma_full, lddsigma,
-                           dLlhd, lddLlhd);
+                           dLlhd, lddLlhd,
+                           isLog);
 
 // cleanup:
         CUDA_CHECK(cudaFree(dX));
@@ -63,8 +59,9 @@ int main( int argc, char** argv )
         magma_int_t nCl = 2;
         magma_int_t nDim = 3;
         magma_int_t nObs = 5;
+        int isLog = false;
 
-        run<double>(nCl, nDim, nObs);
+        run<double>(nCl, nDim, nObs, isLog);
 
         magma_finalize();
         return 0;

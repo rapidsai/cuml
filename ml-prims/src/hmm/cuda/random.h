@@ -42,6 +42,9 @@ struct Inv_functor
         }
 };
 
+
+
+
 template <typename T>
 void gen_matrix(int m, int n, T* dA, int ldda, paramsRandom<T> *paramsRd){
         MLCommon::Random::Rng<T> rng(paramsRd->seed);
@@ -51,7 +54,7 @@ void gen_matrix(int m, int n, T* dA, int ldda, paramsRandom<T> *paramsRd){
 
 
 template <typename T>
-void normalize_A(int m, int n, T* dA, int ldda, bool colwise){
+void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
         // cublas handles
         cublasHandle_t cublas_handle;
         cublasCreate(&cublas_handle);
@@ -111,7 +114,7 @@ void normalize_A(int m, int n, T* dA, int ldda, bool colwise){
 }
 
 template <typename T>
-void gen_trans_A(int m, int n, T* dA,  paramsRandom<T> *paramsRd, bool colwise){
+void gen_trans_matrix(int m, int n, T* dA,  paramsRandom<T> *paramsRd, bool colwise){
         gen_A(m, n, dA, ldda, paramsRd);
         normalize_A(m, n, dA, ldda, colwise);
 }
