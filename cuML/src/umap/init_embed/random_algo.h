@@ -16,6 +16,7 @@
 
 #include "umap/umapparams.h"
 #include "random/rng.h"
+#include "sys/time.h"
 
 #pragma once
 
@@ -32,7 +33,11 @@ namespace UMAPAlgo {
                           const long *knn_indices, const T *knn_dists,
                           UMAPParams *params, T *embedding) {
 
-                MLCommon::Random::Rng r(1000);
+                struct timeval tp;
+                gettimeofday(&tp, NULL);
+                long long seed = tp.tv_sec * 1000 + tp.tv_usec;
+
+                MLCommon::Random::Rng r(seed);
                 r.uniform<T>(embedding, n*params->n_components, -10, 10);
             }
         }
