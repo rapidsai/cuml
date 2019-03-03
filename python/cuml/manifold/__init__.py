@@ -14,21 +14,3 @@
 # limitations under the License.
 #
 
-from cuml.cluster.dbscan import DBSCAN
-from cuml.cluster.kmeans import KMeans
-
-from cuml.decomposition.pca import PCA
-from cuml.decomposition.tsvd import TruncatedSVD
-
-from cuml.filter.kalman_filter import KalmanFilter
-
-from cuml.linear_model.linear_regression import LinearRegression
-from cuml.linear_model.ridge import Ridge
-
-from cuml.neighbors.knn import KNN
-
-from cuml.manifold.umap import UMAP1
-
-from ._version import get_versions
-__version__ = get_versions()['version']
-del get_versions

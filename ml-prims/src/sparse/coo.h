@@ -155,8 +155,6 @@ namespace MLCommon {
         thrust::device_ptr<int> dev_ex_scan =
                 thrust::device_pointer_cast(ex_scan);
         thrust::exclusive_scan(dev_cnnz, dev_cnnz + cnnz_n, dev_ex_scan);
-        cudaDeviceSynchronize();
-
         CUDA_CHECK(cudaPeekAtLastError());
 
         dim3 grid(ceildiv(ceildiv(nnz, cnnz_n), TPB_X), 1, 1);
@@ -164,9 +162,8 @@ namespace MLCommon {
 
         coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(nnz, rows, cols, vals,
                 crows, ccols, cvals, dev_ex_scan.get(), cnnz_n);
-        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
 
         CUDA_CHECK(cudaFree(ex_scan));
-        CUDA_CHECK(cudaPeekAtLastError());
     }
 }

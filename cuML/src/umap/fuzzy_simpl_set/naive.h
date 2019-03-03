@@ -79,13 +79,14 @@ namespace UMAPAlgo {
                     int n_iter = 64,
                     float bandwidth = 1.0) {
 
-                float target = __log2f(n_neighbors) * bandwidth;
-
                 // row-based matrix 1 thread per row
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
                 int i = row * n_neighbors; // each thread processes one row of the dist matrix
 
                 if (row < n) {
+
+                    float target = __log2f(n_neighbors) * bandwidth;
+
                     float lo = 0.0;
                     float hi = MAX_FLOAT;
                     float mid = 1.0;
@@ -99,19 +100,18 @@ namespace UMAPAlgo {
 
                     for (int idx = 0; idx < n_neighbors; idx++) {
 
-                        ith_distances[idx] = knn_dists[i + idx];
+                        float cur_dist = knn_dists[i+idx];
+                        ith_distances[idx] = cur_dist;
                         sum += ith_distances[idx];
 
-                        if (ith_distances[idx] != 0.0) {
-                            non_zero_dists[total_nonzero] = ith_distances[idx];
-
-                            ++total_nonzero;
+                        if (cur_dist > 0.0) {
+                            non_zero_dists[total_nonzero] = cur_dist;
+                            total_nonzero++;
                         }
 
-                        if (ith_distances[idx] > max_nonzero)
-                            max_nonzero = ith_distances[idx];
+                        if (cur_dist > max_nonzero)
+                            max_nonzero = cur_dist;
                     }
-
 
                     float ith_distances_mean = sum / float(n_neighbors);
                     if (total_nonzero >= local_connectivity) {
@@ -130,8 +130,6 @@ namespace UMAPAlgo {
                             rhos[row] = interpolation * non_zero_dists[0];
                     } else if (total_nonzero > 0)
                         rhos[row] = max_nonzero;
-
-
 
                     for (int iter = 0; iter < n_iter; iter++) {
 
@@ -154,7 +152,7 @@ namespace UMAPAlgo {
                             mid = (lo + hi) / 2.0;
                         } else {
                             lo = mid;
-                            if (hi == MAX_FLOAT)  // MAX_FLOAT might not be the choice here- perhaps there's a reasonable threshold.
+                            if (hi == MAX_FLOAT)
                                 mid *= 2;
                             else
                                 mid = (lo + hi) / 2.0;
@@ -170,8 +168,10 @@ namespace UMAPAlgo {
                         if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist)
                             sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
-                }
 
+                    delete ith_distances;
+                    delete non_zero_dists;
+                }
             }
 
             /**
@@ -308,7 +308,11 @@ namespace UMAPAlgo {
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                     T *rhos, T *sigmas, UMAPParams *params) {
 
-                dim3 grid(MLCommon::ceildiv(n, TPB_X), 1, 1);
+
+                int blks = MLCommon::ceildiv(n, TPB_X);
+
+                std::cout << "Scheduling on " << blks << " blks" << std::endl;
+                dim3 grid(blks, 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
                 T *dist_means_dev;
@@ -320,6 +324,8 @@ namespace UMAPAlgo {
 
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
                 MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors);
+
+                CUDA_CHECK(cudaDeviceSynchronize());
 
                 float sum = 0.0;
                 for (int i = 0; i < params->n_neighbors; i++)
@@ -338,9 +344,14 @@ namespace UMAPAlgo {
                 /**
                  * Smooth kNN distances to be continuous
                  */
+
+
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
+                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
+
+                std::cout << "Done smooth_knn_dist" << std::endl;
             }
 
 
@@ -354,9 +365,13 @@ namespace UMAPAlgo {
              */
             template<int TPB_X, typename T>
             void launcher(int n, const long *knn_indices, const float *knn_dists,
-                   int *rows, int *cols, T *vals, int *nnz, UMAPParams *params) {
+                   int *rows, int *cols, T *vals,
+                   int *rrows, int *rcols, T *rvals,
+                   int *nnz, UMAPParams *params) {
 
                 int k = params->n_neighbors;
+
+                std::cout << "n=" << n << std::endl;
 
                 /**
                  * All of the kernels in this algorithm are row-based and
@@ -377,9 +392,10 @@ namespace UMAPAlgo {
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                         rhos, sigmas, params
                 );
-
-                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+                CUDA_CHECK(cudaDeviceSynchronize());
+//
+//                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+//                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
 
                 /**
                  * Compute graph of membership strengths
@@ -387,11 +403,10 @@ namespace UMAPAlgo {
                 compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
+
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << MLCommon::arr2Str(rows, n*k, "set_membership_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(cols, n*k, "set_membership_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(vals, n*k, "set_membership_vals") << std::endl;
+                std::cout << "Done compute membership strength" << std::endl;
 
                 int *orows, *ocols, *rnnz;
                 T *ovals;
@@ -409,12 +424,13 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << MLCommon::arr2Str(orows, n*k*2, "compute_result_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(ocols, n*k*2, "compute_result_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(ovals, n*k*2, "compute_result_vals") << std::endl;
+                std::cout << "Done compute result" << std::endl;
 
                 int cur_coo_len = 0;
                 MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
+
+                std::cout << "Done updating rnnz" << std::endl;
+
 
                 /**
                  * Remove resulting zeros from COO
@@ -430,28 +446,29 @@ namespace UMAPAlgo {
                         crows, ccols, cvals,
                         rnnz, n);
 
+                std::cout << "Done remove zeros" << std::endl;
+
                 MLCommon::coo_sort(n, k, cur_coo_len, crows, ccols, cvals);
+
+                std::cout << "Done coo sort" << std::endl;
 
                 nnz[0] = cur_coo_len;
 
-                // TODO: There's a better way to do this than overallocation
-                MLCommon::copy(rows, crows, cur_coo_len);
-                MLCommon::copy(cols, ccols, cur_coo_len);
-                MLCommon::copy(vals, cvals, cur_coo_len);
-
-                std::cout << MLCommon::arr2Str(rows, cur_coo_len, "comp_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(cols, cur_coo_len, "comp_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(vals, cur_coo_len, "comp_vals") << std::endl;
-
                 std::cout << "cur_coo_len=" << cur_coo_len << std::endl;
 
+                // TODO: Use thrust to resize?
+                MLCommon::copy(rrows, crows, cur_coo_len);
+                MLCommon::copy(rcols, ccols, cur_coo_len);
+                MLCommon::copy(rvals, cvals, cur_coo_len);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
+
                 CUDA_CHECK(cudaFree(orows));
                 CUDA_CHECK(cudaFree(ocols));
                 CUDA_CHECK(cudaFree(ovals));
                 CUDA_CHECK(cudaFree(rnnz));
+
                 CUDA_CHECK(cudaFree(crows));
                 CUDA_CHECK(cudaFree(ccols));
                 CUDA_CHECK(cudaFree(cvals));

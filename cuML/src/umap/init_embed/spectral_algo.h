@@ -49,7 +49,7 @@ namespace UMAPAlgo {
                 cudaDataType_t edge_dimT = CUDA_R_32F;
                 check(nvgraphCreate (&handle));
 
-                std::cout << "nnz=" << nnz << std::endl;
+                std::cout << "Running spectral initializer" << std::endl;
 
                 /**
                  * First convert COO to CSR
@@ -107,12 +107,6 @@ namespace UMAPAlgo {
 
                 check(nvgraphDestroyGraphDescr(handle, graph));
                 check(nvgraphDestroy(handle));
-
-
-                std::cout << MLCommon::arr2Str(src_offsets, n+1, "rows") << std::endl;
-                std::cout << MLCommon::arr2Str(dst_indices, nnz, "cols") << std::endl;
-
-                std::cout << MLCommon::arr2Str(embedding, n*params->n_components, "spectral_eigenvecs") << std::endl;
 
                 CUDA_CHECK(cudaFree(src_offsets));
                 CUDA_CHECK(cudaFree(dst_indices));

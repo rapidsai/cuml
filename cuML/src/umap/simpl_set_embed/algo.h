@@ -48,7 +48,6 @@ namespace UMAPAlgo {
 	        template<typename T>
 	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
 	            float result = 0.0;
-	            //TODO: Parallelize
 	            for(int i = 0; i < n; i++)
 	                result += pow(X[i]-Y[i], 2);
 	            return result;
@@ -62,10 +61,6 @@ namespace UMAPAlgo {
 	         * @param weights_n: the size of the weights array
 	         * @param n_epochs: the total number of epochs we want to train for
 	         * @returns an array of number of epochs per sample, one for each 1-simplex
-	         */
-
-	        /**
-	         * This could be parallelized
 	         */
 	        template<typename T>
 	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result) {
@@ -82,6 +77,9 @@ namespace UMAPAlgo {
                 );
 	        }
 
+	        /**
+	         * Clip a value to within a lower and upper bound
+	         */
 	        template<typename T>
 	        __device__ __host__ T clip(T val, T lb, T ub) {
 	            if(val > ub)
@@ -151,7 +149,8 @@ namespace UMAPAlgo {
 
                         float dist_squared = rdist(current, other, params.n_components);
 
-                        // Aatractive force between the two vertices
+                        // Attractive force between the two vertices, since they
+                        // are connected by an edge in the 1-skeleton.
                         T attractive_grad_coeff = 0.0;
                         if(dist_squared > 0.0) {
                             attractive_grad_coeff = attractive_grad(dist_squared, params);
@@ -160,8 +159,8 @@ namespace UMAPAlgo {
                         /**
                          * Apply attractive force between `current` and `other`
                          * by updating their 'weights' to put them closer in
-                         * Euclidean space.
-                         * (update other embedding only if we are
+                         * their local Euclidean space.
+                         * (update `other` embedding only if we are
                          * performing unsupervised training).
                          */
                         for(int d = 0; d < params.n_components; d++) {
@@ -175,16 +174,19 @@ namespace UMAPAlgo {
 
                         epoch_of_next_sample[row] += epochs_per_sample[row];
 
-                        // choose negative samples
+                        // number of negative samples to choose
                         int n_neg_samples = int(
                             (epoch - epoch_of_next_negative_sample[row]) /
                             epochs_per_negative_sample[row]
                         );
 
+                        /**
+                         * Negative sampling stage
+                         */
                         for(int p = 0; p < n_neg_samples; p++) {
 
                             float r = curand_uniform(&d_state[row]);
-                            int t = r*tail_n;//int(randVal<float>(state) * tail_n);
+                            int t = r*tail_n;
 
                             T *negative_sample = tail_embedding+(t*params.n_components);
                             dist_squared = rdist(current, negative_sample, params.n_components);
@@ -198,7 +200,7 @@ namespace UMAPAlgo {
 
                             /**
                              * Apply repulsive force between `current` and `other`
-                             * (which is has been negatively sampled) by updating
+                             * (which has been negatively sampled) by updating
                              * their 'weights' to push them farther in Euclidean space.
                              */
                             for(int d = 0; d < params.n_components; d++) {
@@ -242,8 +244,6 @@ namespace UMAPAlgo {
 	                float gamma,
 	                UMAPParams *params) {
 
-	            std::cout << "Inside optimize layout" << std::endl;
-
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
 
@@ -252,32 +252,22 @@ namespace UMAPAlgo {
 	            T *epochs_per_negative_sample;
 	            MLCommon::allocate(epochs_per_negative_sample, nnz);
 
-                std::cout << "Caling func" << std::endl;
-
                 int nsr = params->negative_sample_rate;
 	            MLCommon::LinAlg::unaryOp<T>(epochs_per_negative_sample, epochs_per_sample,
 	                     nnz,
 	                    [=] __device__(T input) { return input / nsr; }
 	            );
 
-                std::cout << MLCommon::arr2Str(epochs_per_negative_sample, nnz, "epochs_per_neg_sample") << std::endl;
-
 	            T *epoch_of_next_negative_sample;
                 MLCommon::allocate(epoch_of_next_negative_sample, nnz);
                 MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
-
-                std::cout << MLCommon::arr2Str(epoch_of_next_negative_sample, nnz, "epoch_of_next_negative_sample") << std::endl;
 
 	            T *epoch_of_next_sample;
                 MLCommon::allocate(epoch_of_next_sample, nnz);
                 MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
-                std::cout << MLCommon::arr2Str(epoch_of_next_sample, nnz, "epoch_of_next_sample") << std::endl;
-
                 dim3 grid(MLCommon::ceildiv(head_n, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
-
-                std::cout << "Starting optimization..." << std::endl;
 
                 curandState *d_state;
                 MLCommon::allocate(d_state, TPB_X * head_n);
@@ -316,10 +306,9 @@ namespace UMAPAlgo {
 	        }
 
 	        /**
-	         * Perform a fuzzy simplicial set embedding, using a specified
-	         * initialization method and then minimizing the fuzzy set
-	         * cross entropy between the 1-skeleton of the high and low
-	         * dimensional fuzzy simplicial sets.
+	         * Perform a fuzzy simplicial set embedding by minimizing
+	         * the fuzzy set cross entropy between the embeddings
+	         * and their 1-skeletons.
 	         */
 	        template<typename T, int TPB_X>
 	        void launcher(int m, int n,
@@ -330,24 +319,17 @@ namespace UMAPAlgo {
 	            dim3 blk(TPB_X, 1, 1);
 	            srand(50);
 
-
-	            std::cout << "Finding max" << std::endl;
 	            /**
 	             * Find vals.max()
 	             */
 	            thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(vals);
 	            T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
 
-                std::cout << "Filtering vals" << std::endl;
-
-
 	            /**
 	             * Go through COO values and set everything that's less than
 	             * vals.max() / params->n_epochs to 0.0
 	             */
-
-                int n_epochs = params->n_epochs;
-
+                float n_epochs = float(params->n_epochs);
                 MLCommon::LinAlg::unaryOp<T>(vals, vals, nnz,
                     [=] __device__(T input) {
                         if (input < (max / n_epochs))
@@ -357,30 +339,22 @@ namespace UMAPAlgo {
                     }
                 );
 
-                std::cout << MLCommon::arr2Str(vals, nnz, "vals") << std::endl;
-
-
 	            T *epochs_per_sample;
 	            MLCommon::allocate(epochs_per_sample, nnz);
-                std::cout << "Making epochs per sample" << std::endl;
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
-
-	            std::cout << "Calling optimize layout" << std::endl;
 
 	            optimize_layout<T, TPB_X>(embedding, m,
 	                            embedding, m,
 	                            rows, cols, nnz,
 	                            epochs_per_sample,
 	                            m,
-	                            params->gamma,
+	                            params->repulsion_strength,
 	                            params);
 	            CUDA_CHECK(cudaPeekAtLastError());
 
-	            std::cout << "DONE!" << std::endl;
-
-                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
-
+//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
+//
                 CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }
 		}
