@@ -49,6 +49,7 @@ namespace UMAPAlgo {
                         rows, cols, vals,
                         nnz,
                         params, embedding);
+                break;
             }
         }
     }

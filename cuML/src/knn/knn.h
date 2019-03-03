@@ -19,8 +19,8 @@
 #include <iostream>
 #include <faiss/gpu/GpuIndexFlat.h>
 
-#ifndef _KNN_H
-#define _KNN_H
+#pragma once
+
 namespace ML {
 
 	using namespace faiss;
@@ -67,4 +67,3 @@ namespace ML {
     };
 }
 
-#endif

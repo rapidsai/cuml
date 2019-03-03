@@ -23,8 +23,6 @@ namespace MLCommon {
                 stop_idx = ia[row+1];
             else
                 stop_idx = nnz;
-            printf("In row %d. start_idx=%d, stop_idx=%d\n", row, start_idx, stop_idx);
-
             T sum = 0.0;
             for(int j = start_idx; j < stop_idx; j++)
                 sum += vals[j];

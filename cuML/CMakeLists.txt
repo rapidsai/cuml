@@ -109,7 +109,7 @@ if(NOT "${GPU_ARCHS}")
   endif()
 endif()
 foreach(arch ${GPU_ARCHS})
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
 # Generate PTX (to be JIT'd at runtime) for the latest architecture
 # It is assumed that the last arch in the 'archs' is the latest!

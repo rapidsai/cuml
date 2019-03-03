@@ -44,12 +44,21 @@ protected:
 
 		UMAPAlgo::find_ab(umap_params);
 
-		std::vector<float> X = {
-			1.0, 1.0, 34.0,
-			76.0, 2.0, 29.0,
-			34.0, 3.0, 13.0,
-			23.0, 7.0, 80.0
-		};
+//		std::vector<float> X = {
+//			1.0, 1.0, 34.0,
+//			76.0, 2.0, 29.0,
+//			34.0, 3.0, 13.0,
+//			23.0, 7.0, 80.0
+//		};
+
+        std::vector<float> X = {
+            1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0,
+            0.0, 0.0, 1.0,
+            1.0, 0.0, 0.0
+        };
+
+
 
 		float* X_d;
 		MLCommon::allocate(X_d, n*d);
@@ -90,7 +99,7 @@ protected:
 
 	int d = 3;
 	int n = 4;
-	int k = 3;
+	int k = 2;
 
 	float *dists_d;
 	long *inds_d;

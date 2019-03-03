@@ -38,6 +38,7 @@ extensions = [
                             '../cuML/external/ml-prims/external/cub',
                             '/usr/local/cuda/include'],
               library_dirs=[get_python_lib()],
+              runtime_library_dirs=["/usr/local/cuda/lib64"],
               libraries=['cuda', 'cuml'],
               language='c++',
               extra_compile_args=['-std=c++11'])

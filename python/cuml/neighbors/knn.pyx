@@ -34,6 +34,7 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+
 class KNNparams:
     def __init__(self, n_gpus):
         self.n_gpus = n_gpus
@@ -111,8 +112,6 @@ cdef class KNN:
     cdef bool _should_downcast
 
     cpdef kNNParams *input
-
-
 
     def __cinit__(self, should_downcast = False):
         """

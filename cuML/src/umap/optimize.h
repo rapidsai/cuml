@@ -51,7 +51,7 @@ namespace UMAPAlgo {
         }
 
         /**
-         * This works on a single dimensional set of
+         * This works on a one-dimensional set of
          * x-values.
          */
         template<typename T, int TPB_X>
@@ -61,14 +61,10 @@ namespace UMAPAlgo {
             dim3 blk(TPB_X, 1, 1);
 
             // Function: 1/1+ax^(2b)
-            map_kernel<T, TPB_X><<<grid, blk>>>(preds, input, n_rows, coef, [] __device__ (T x, T a, T b) {
-               return 1.0 / (1 + a * pow(x, 2.0 * b));
-            });
-
-//            MLCommon::LinAlg::multiplyScalar(preds, input, a, n_rows);
-//            MLCommon::LinAlg::powerScalar<T>(preds, preds, 2.0*b, n_rows);
-//            MLCommon::LinAlg::addScalar(preds, preds, T(1.0), n_rows);
-//            MLCommon::Matrix::reciprocal(preds, n_rows);
+            map_kernel<T, TPB_X><<<grid, blk>>>(preds, input, n_rows, coef,
+                    [] __device__ (T x, T a, T b) {
+                       return 1.0 / (1 + a * pow(x, 2.0 * b));
+                    });
         }
 
         /**
@@ -94,18 +90,15 @@ namespace UMAPAlgo {
             /**
              * Gradient w/ respect to a
              */
-            auto ag = []__device__ __host__ (T x, T a, T b) {
-                return -(pow(x, 2.0*b)) / pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
-            };
-
-            auto bg = []__device__ __host__ (T x, T a, T b) {
-                return -(2.0 * a * pow(x, 2.0 * b) * log(x)) / pow(1 + a * pow(x, 2.0 * b), 2.0);
-            };
-
             T *a_deriv;
             MLCommon::allocate(a_deriv, n_rows);
             MLCommon::copy(a_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(a_deriv, a_deriv, n_rows, coef, ag);
+            map_kernel<T, TPB_X><<<grid, blk>>>(a_deriv, a_deriv, n_rows, coef,
+                    []__device__ __host__ (T x, T a, T b) {
+                        return -(pow(x, 2.0*b)) /
+                                pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
+                    }
+            );
 
             MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals , n_rows);
             CUDA_CHECK(cudaPeekAtLastError());
@@ -116,7 +109,12 @@ namespace UMAPAlgo {
             T *b_deriv;
             MLCommon::allocate(b_deriv, n_rows);
             MLCommon::copy(b_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(b_deriv, b_deriv, n_rows, coef, bg);
+            map_kernel<T, TPB_X><<<grid, blk>>>(b_deriv, b_deriv, n_rows, coef,
+                    []__device__ __host__ (T x, T a, T b) {
+                        return -(2.0 * a * pow(x, 2.0 * b) * log(x))
+                                / pow(1 + a * pow(x, 2.0 * b), 2.0);
+                    }
+            );
 
             /**
              * Multiply partial derivs by residuals
@@ -172,7 +170,6 @@ namespace UMAPAlgo {
 
             } while(tol_grads < 2 && num_iters < max_epochs);
 
-            std::cout << "Num iters: " << num_iters << std::endl;
         }
 
         void find_params_ab(UMAPParams *params) {
