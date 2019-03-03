@@ -291,9 +291,9 @@ void atomicRandom(T* x){
 
 template <typename T>
 __global__
-void randomMatrixBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                               T* dA, magma_int_t ldda,
-                               bool isSpd, int nThreads_x, int nThreads_y, int nThreads_z){
+void symetrizeBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
+                            T* dA, magma_int_t ldda,
+                            int nThreads_x, int nThreads_y, int nThreads_z){
 
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
@@ -302,34 +302,18 @@ void randomMatrixBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCo
         int idxA;
         int la = ldda * n;
 
+        T temp;
         for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
                 for (size_t j = j_start; j < n; j+=nThreads_x) {
-                        for (size_t i = i_start; i < ldda; i+=nThreads_y) {
-                                idxA = IDX2(i, j, bId, ldda, la);
-                                if (i < m ) {
-                                        dA[idxA] = (T) (std::rand() / ((T) RAND_MAX));
-
+                        for (size_t i = i_start; i <= j; i+=nThreads_y) {
+                                if (i == j) {
+                                        idxA = IDX2(i, j, bId, ldda, la);
+                                        dA[idxA] += m;
                                 }
                                 else{
-                                        dA[idxA] = (T) 0;
-                                }
-                        }
-                }
-        }
-        if (isSpd) {
-                T temp;
-                for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
-                        for (size_t j = j_start; j < n; j+=nThreads_x) {
-                                for (size_t i = i_start; i <= j; i+=nThreads_y) {
-                                        if (i == j) {
-                                                idxA = IDX2(i, j, bId, ldda, la);
-                                                dA[idxA] += m;
-                                        }
-                                        else{
-                                                temp = (dA[IDX2(i, j, bId, ldda, la)] + dA[IDX2(i, j, bId, ldda, la)]) / 2;
-                                                dA[IDX2(i, j, bId, ldda, la)] = temp;
-                                                dA[IDX2(j, i, bId, ldda, la)] = temp;
-                                        }
+                                        temp = (dA[IDX2(i, j, bId, ldda, la)] + dA[IDX2(i, j, bId, ldda, la)]) / 2;
+                                        dA[IDX2(i, j, bId, ldda, la)] = temp;
+                                        dA[IDX2(j, i, bId, ldda, la)] = temp;
                                 }
                         }
                 }
@@ -338,12 +322,9 @@ void randomMatrixBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCo
 }
 
 template <typename T>
-void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                           T* dA, magma_int_t ldda, bool isSpd){
-        if (isSpd) {
-                assert(m == n && "The matrix should be square");
-        }
-
+void symetrize_batched(magma_int_t m, magma_int_t batchCount,
+                       T* dA, magma_int_t ldda,){
+        // Symetrize
         dim3 block(32, 32, 1);
         dim3 grid(ceildiv((int)n, (int)block.y),
                   ceildiv((int)m, (int)block.z),
@@ -353,11 +334,34 @@ void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         int nThreads_y = grid.y * block.y;
         int nThreads_z = grid.z * block.z;
 
-        randomMatrixBatchedKernel<T> <<< grid, block >>>(m, n, batchCount,
-                                                         dA, ldda, isSpd,
-                                                         nThreads_x, nThreads_y, nThreads_z);
+        symetrizeBatchedKernel<T> <<< grid, block >>>(m, m, batchCount,
+                                                      dA, ldda,
+                                                      nThreads_x, nThreads_y, nThreads_z);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
+}
+
+template <typename T>
+void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
+                           T* dA, magma_int_t ldda, bool isSpd,
+                           uint64_t _seed, T start, T end){
+        if (isSpd) {
+                assert(m == n && "The matrix should be square");
+        }
+
+// Random generation
+        int dim = ldda * n * batchCount;
+        MLCommon::Random::Rng<T> rng(seed);
+        rng.uniform(dA, dim, start, end)
+
+// Symetrize
+        if (isSpd) {
+                symetrize_batched(m, batchCount, dA, ldda);
+        }
+
+// Fill out zeros regrding ldd
+        zeroOutValues(A, m, n, ldda);
+
 }
 
 }

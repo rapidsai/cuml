@@ -26,15 +26,6 @@ namespace MLCommon {
 namespace HMM {
 
 template <typename T>
-struct paramsRandom {
-        T start, end;
-        unsigned long long seed;
-        paramsRandom(T _start, T _end, unsigned long long _seed) : start(_start),
-                end(_end), seed(_seed){
-        };
-};
-
-template <typename T>
 struct Inv_functor
 {
         __host__ __device__
@@ -44,6 +35,8 @@ struct Inv_functor
         }
 };
 
+
+// TODO simplify normalize_matrix
 
 template <typename T>
 void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
@@ -102,7 +95,6 @@ void normalize_matrix(int m, int n, T* dA, int ldda, bool colwise){
                 CUBLAS_CHECK(cublasdgmm(cublas_handle, CUBLAS_SIDE_RIGHT, m, n, dA, m, sums, 1, dA, m));
 
         }
-
 }
 
 }
