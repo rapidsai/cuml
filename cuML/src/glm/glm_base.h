@@ -41,9 +41,9 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
     SimpleMat<T> weights;
     col_ref(W, bias, D);
     col_slice(W, weights, 0, D);
-    // We implement Z <- W * X + b by
+    // We implement Z <- W * X^T + b by
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
-    // - Z <- W * X + Z    : TODO can be fused in CUTLASS?
+    // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
     MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
                                      false, set_bias);
