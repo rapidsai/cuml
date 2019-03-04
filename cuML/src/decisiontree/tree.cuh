@@ -159,6 +159,25 @@ namespace ML {
 				
 				
 			}
+
+			/* Predict a label for single row for a given tree. */
+			int predict(const float * row) {
+				return classify(row, root);	
+			}
+
+
+			int classify(const float * row, TreeNode * node) {
+				if (node->left || node->right) {
+					if (row[node->question.column] <= node->question.value) { //FIXME confirm question is <= format
+						return classify(row, node->left);
+					} else  {
+						return classify(row, node->right);
+					}
+				} else {
+					//return node->class_predict; //FIXME however we decide to implement this 
+					return 0;
+				}
+			}
 			
 		};
 		

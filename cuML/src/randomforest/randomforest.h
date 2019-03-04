@@ -58,7 +58,7 @@ namespace ML {
 		rfClassifier(int n_trees, int max_depth, int max_leaves, int rf_type) : rf(n_trees, max_depth, max_leaves, RF_type::CLASSIFICATION) {}
         /** 
          * Fit an RF classification model on input data with n_rows samples and n_cols features.
-         * @param input			data array in FIXME row major format for now. 
+         * @param input			data array in FIXME row major format for now.
          * @param n_rows		number of training? data rows
          * @param n_cols		number of features (columns)
          * @param labels		list of target features
@@ -71,7 +71,12 @@ namespace ML {
 		void fit(float * input, int n_rows, int n_cols, int * labels,
                          int n_trees, float max_features, float rows_sample);
 
-		void predict(const float * input, int n_rows, int n_cols, int * preds);
+		/**
+		 * Populate preds predictions using RF for input data w/ n_rows rows and n_cols features.
+		 * Code currenlty only supports single class.
+		*/
+		//void predict(const float * input, int n_rows, int n_cols, int * preds);
+		int * predict(const float * input, int n_rows, int n_cols);
 	};
 
 
