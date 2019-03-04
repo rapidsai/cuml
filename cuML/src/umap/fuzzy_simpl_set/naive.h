@@ -91,21 +91,20 @@ namespace UMAPAlgo {
                     float hi = MAX_FLOAT;
                     float mid = 1.0;
 
-                    float *ith_distances = new float[n_neighbors];
-                    float *non_zero_dists = new float[n_neighbors];
-
                     int total_nonzero = 0;
                     int max_nonzero = -1;
+
+                    int start_nonzero = -1;
                     float sum = 0.0;
 
                     for (int idx = 0; idx < n_neighbors; idx++) {
 
                         float cur_dist = knn_dists[i+idx];
-                        ith_distances[idx] = cur_dist;
-                        sum += ith_distances[idx];
+                        sum += cur_dist;
 
                         if (cur_dist > 0.0) {
-                            non_zero_dists[total_nonzero] = cur_dist;
+                            if (start_nonzero == -1)
+                                start_nonzero = idx;
                             total_nonzero++;
                         }
 
@@ -119,15 +118,19 @@ namespace UMAPAlgo {
                         float interpolation = local_connectivity - index;
 
                         if (index > 0) {
-                            rhos[row] = non_zero_dists[index - 1];
+                            rhos[row] = knn_dists[i+start_nonzero+(index-1)];
+//                            rhos[row] = non_zero_dists[index - 1];
 
                             if (interpolation > SMOOTH_K_TOLERANCE) {
                                 rhos[row] += interpolation
-                                        * (non_zero_dists[index]
-                                                - non_zero_dists[index - 1]);
+                                        * (knn_dists[i+start_nonzero+index]
+                                                  - knn_dists[i+start_nonzero+(index-1)]);
+//                                        * (non_zero_dists[index]
+//                                                - non_zero_dists[index - 1]);
                             }
                         } else
-                            rhos[row] = interpolation * non_zero_dists[0];
+                            rhos[row] = interpolation * knn_dists[i+start_nonzero];
+//                            rhos[row] = interpolation * non_zero_dists[0];
                     } else if (total_nonzero > 0)
                         rhos[row] = max_nonzero;
 
@@ -169,8 +172,6 @@ namespace UMAPAlgo {
                             sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
 
-                    delete ith_distances;
-                    delete non_zero_dists;
                 }
             }
 
