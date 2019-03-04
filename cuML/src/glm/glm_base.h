@@ -48,9 +48,9 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
     MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
                                      false, set_bias);
 
-    Z.assign_gemmBT(1, weights, X, 1, cublas);
+    Z.assign_gemm(1, weights, false, X, true, 1, cublas);
   } else {
-    Z.assign_gemmBT(1, W, X, 0, cublas);
+    Z.assign_gemm(1, W,false, X, true, 0, cublas);
   }
 }
 
@@ -72,10 +72,10 @@ inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
     col_slice(G, Gweights, 0, D);
 
     //TODO can this be fused somehow?
-    Gweights.assign_gemm(1.0 / X.m, dZ, X, beta, cublas);
+    Gweights.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cublas);
     MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
-    G.assign_gemm(1.0 / X.m, dZ, X, beta, cublas);
+    G.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cublas);
   }
 }
 
