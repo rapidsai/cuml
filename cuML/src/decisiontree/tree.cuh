@@ -50,37 +50,38 @@ namespace ML {
     {
     public:
       TreeNode *root = NULL;
-      void *tempstoragedata;
-      void *tempstoragelabels;
-      unsigned int *mask;
+      unsigned long long *mask;
       const int nbins = 8;
       
-      void fit(float *data,const int ncols,const int nrows,const float colper,int *labels)
+      void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long* mask = NULL)
       {
-	return plant(data,ncols,nrows,colper,labels);
+	return plant(data,ncols,nrows,colper,labels,mask);
       }
       
-      void plant(float *data,const int ncols,const int nrows,const float colper,int *labels)
+      void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long* mask = NULL)
       {
-	CUDA_CHECK(cudaMalloc(&tempstoragedata,nrows*ncols*sizeof(float)));
-	CUDA_CHECK(cudaMalloc(&tempstoragelabels,nrows*sizeof(int)));
-	CUDA_CHECK(cudaMalloc((void**)&mask,nrows*sizeof(unsigned int)));
-	CUDA_CHECK(cudaMemset(mask,0,nrows*sizeof(unsigned int)));
+	bool allocmaskflag = False;
+	if(mask == NULL)
+	  {
+	    CUDA_CHECK(cudaMalloc((void**)&mask,nrows*sizeof(unsigned long long)));
+	    CUDA_CHECK(cudaMemset(mask,0,nrows*sizeof(unsigned int)));
+	    allocmaskflag = True;
+	  }
 	
-	root = grow_tree(data,ncols,nrows,colper,labels,tempstoragedata,tempstoragelabels,mask);
+	root = grow_tree(data,ncols,nrows,colper,labels,mask,0);
 	
-	CUDA_CHECK(cudaFree(tempstoragedata));
-	CUDA_CHECK(cudaFree(tempstoragelabels));
-	CUDA_CHECK(cudaFree(mask));
+	if(allocmaskflag)
+	  CUDA_CHECK(cudaFree(mask));
 	
 	return;
       }
       
-      TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,void *tempstorage,void *templabels,unsigned int *mask)
+      TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long *mask,int depth)
       {
 	TreeNode *node = new TreeNode();
 	Question ques;
 	float gain = 0.0;
+	
 	find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,mask);  //ques and gain are output here
 	if(gain == 0.0)
 	  {
@@ -89,12 +90,12 @@ namespace ML {
 	else
 	  {
 	    int nrowsleft,nrowsright;
-	    split_branch(data,labels,ques,nrows,ncols,tempstorage,templabels,nrowsleft,nrowsright);
+	    split_branch(data,labels,ques,nrows,ncols,nrowsleft,nrowsright,mask,depth);
 	  }
 	return node;
       }
 
-      void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned int* mask)
+      void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned long long* mask)
       {
 	float maxinfo = 0.0;
 	int splitcol;
@@ -160,10 +161,13 @@ namespace ML {
 	float impurity = (lnrows/nrows) * ginileft + (rnrows/nrows) * giniright;
 	return (ginibefore - impurity);
       }
-      void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,void *tempdata,void *templabels,int& nrowsleft,int& nrowsright)
+      
+      void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,int& nrowsleft,int& nrowsright,unsigned long long* mask,int depth)
       {
+	unsigned int masker = 1 << depth;
 	
       }
+      
     };
     
   } //End namespace DecisionTree
