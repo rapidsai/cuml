@@ -45,10 +45,10 @@ using namespace cub;
 //Dummy Operator. Always return true. It's the transformation we care about.
 struct Match
 {
-    __host__ __device__ __forceinline__ Match() {}
-
-    __host__ __device__ __forceinline__
-    bool operator()(const unsigned long long &a) const {
+	__host__ __device__ __forceinline__ Match() {}
+	
+	__host__ __device__ __forceinline__
+	bool operator()(const unsigned long long &a) const {
 		return true;
 	}
 };
@@ -59,9 +59,9 @@ struct RowMatch {
 	unsigned long long node_mask;
 	int depth;
 	
-    __host__ __device__ __forceinline__
-    RowMatch(unsigned long long node_mask, int depth) : node_mask(node_mask), depth(depth) {}
-
+	__host__ __device__ __forceinline__
+	RowMatch(unsigned long long node_mask, int depth) : node_mask(node_mask), depth(depth) {}
+	
 	__host__ __device__ __forceinline__
 	bool operator()(const unsigned long long & row_mask) const {
 		return (((row_mask ^ node_mask) & ((1 << depth)-1)) == 0);
@@ -70,13 +70,13 @@ struct RowMatch {
 
 
 void col_condenser(float * input_data, int * labels, unsigned long long * row_masks, int col_id, 
-				   const int n_rows, const int n_cols, int cur_tree_depth, 
-				   unsigned long long node_mask, float * condensed_col, int * condensed_labels) {
-
+		   const int n_rows, const int n_cols, int cur_tree_depth, 
+		   unsigned long long node_mask, float * condensed_col, int * condensed_labels) {
+	
 	/* First step: generate flags memory array using a TransformInputIterator.
 	   All rows will be selected, and the flags elements will only be set for the rows that matter. 
 	*/
-
+	
 	bool * flags;
 	int * n_selected_rows;
 	cudaMalloc((void**)&flags, n_rows * sizeof(bool));
@@ -86,61 +86,59 @@ void col_condenser(float * input_data, int * labels, unsigned long long * row_ma
 	
 	Match select_op;
 	RowMatch conversion_op(node_mask, cur_tree_depth); 
-
+	
 	// Assumption: row_masks is a device pointer. 
 	cub::TransformInputIterator<bool, RowMatch, unsigned long long *> itr(row_masks, conversion_op);
-
-    void * tmp_storage = NULL;
-    size_t tmp_storage_bytes = 0;
-
-    CubDebugExit(DeviceSelect::If(tmp_storage, tmp_storage_bytes, itr, flags, n_selected_rows, n_rows, select_op)); //n_selected_rows will be n_rows
-
+	
+	void * tmp_storage = NULL;
+	size_t tmp_storage_bytes = 0;
+	
+	CubDebugExit(DeviceSelect::If(tmp_storage, tmp_storage_bytes, itr, flags, n_selected_rows, n_rows, select_op)); //n_selected_rows will be n_rows
+	
 	cudaMalloc(&tmp_storage, tmp_storage_bytes);
-
-    CubDebugExit(DeviceSelect::If(tmp_storage, tmp_storage_bytes, itr,
-                 flags, n_selected_rows, n_rows, select_op));
+	
+	CubDebugExit(DeviceSelect::If(tmp_storage, tmp_storage_bytes, itr,
+				      flags, n_selected_rows, n_rows, select_op));
 	cudaFree(tmp_storage);
 
 
 	/* Second step: use the previously generated flags array to condense the col_id column.
 	   of input_data.
 	*/
-
+	
 	tmp_storage = NULL;
 	tmp_storage_bytes = 0;
-
-
-    CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, &input_data[col_id * n_rows], 
-				flags, condensed_col, n_selected_rows, n_rows));
-
+	
+	
+	CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, &input_data[col_id * n_rows], 
+					   flags, condensed_col, n_selected_rows, n_rows));
+	
 	cudaMalloc(&tmp_storage, tmp_storage_bytes);
-
-    CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, &input_data[col_id * n_rows], 
-				flags, condensed_col, n_selected_rows, n_rows));
-
-
-
-
+	
+	CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, &input_data[col_id * n_rows], 
+					   flags, condensed_col, n_selected_rows, n_rows));
+	
+	
+	
+	
 	/* Final step: Select labels */	
-
+	
 	tmp_storage = NULL;
 	tmp_storage_bytes = 0;
-
-    CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, labels,
-				flags, condensed_labels, n_selected_rows, n_rows));
-
+	
+	CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, labels,
+					   flags, condensed_labels, n_selected_rows, n_rows));
+	
 	cudaMalloc(&tmp_storage, tmp_storage_bytes);
-
-    CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, labels,
-				flags,  condensed_labels, n_selected_rows, n_rows));
-
-
-
+	
+	CubDebugExit(DeviceSelect::Flagged(tmp_storage, tmp_storage_bytes, labels,
+					   flags,  condensed_labels, n_selected_rows, n_rows));
+	
+       
 	// Cleanup
 	cudaFree(tmp_storage);
 	cudaFree(flags);
-	cudaFree(n_selected_rows);
-
+	cudaFree(n_selected_rows);	
 
 }
 
