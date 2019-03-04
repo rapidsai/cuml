@@ -16,6 +16,7 @@
 
 #pragma once
 #include "cub/cub.cuh"
+#include <thrust/sort.h>
 
 /* 
 
@@ -141,4 +142,20 @@ void col_condenser(float * input_data, int * labels, unsigned long long * row_ma
 	cudaFree(n_selected_rows);	
 
 }
-
+__global__ void get_sampled_column_kernel(const float *column,float *outcolumn,unsigned int* rowids,const int N)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	if(tid < N)
+		{
+			int index = rowids[tid];
+			outcolumn[tid] = column[index];
+		}
+	return;
+}
+void get_sampled_column(const float *column,float *outcolumn,unsigned int* rowids,const int n_sampled_rows)
+{
+	thrust::sort(thrust::device,rowids,rowids + n_sampled_rows);
+	get_sampled_column_kernel<<<(int)(n_sampled_rows / 128) + 1,128>>>(column,outcolumn,rowids,n_sampled_rows);
+	CUDA_CHECK(cudaDeviceSynchronize());
+	return;
+}
