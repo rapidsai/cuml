@@ -50,39 +50,26 @@ namespace ML {
 		{
 		public:
 			TreeNode *root = NULL;
-			unsigned long long *mask;
 			const int nbins = 8;
 			
-			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long* mask = NULL)
+			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids)
 			{
-				return plant(data,ncols,nrows,colper,labels,mask);
+				return plant(data,ncols,nrows,colper,labels,rowids);
 			}
 			
-			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long* mask = NULL)
+			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids)
 			{
-				bool allocmaskflag = False;
-				if(mask == NULL)
-					{
-						CUDA_CHECK(cudaMalloc((void**)&mask,nrows*sizeof(unsigned long long)));
-						CUDA_CHECK(cudaMemset(mask,0,nrows*sizeof(unsigned int)));
-						allocmaskflag = True;
-					}
-				
-				root = grow_tree(data,ncols,nrows,colper,labels,mask,0);
-				
-				if(allocmaskflag)
-					CUDA_CHECK(cudaFree(mask));
-				
+				root = grow_tree(data,ncols,nrows,colper,labels,0,rowids);
 				return;
 			}
 			
-			TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned long long *mask,int depth)
+			TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,int depth,unsigned int* rowids)
 			{
 				TreeNode *node = new TreeNode();
 				Question ques;
 				float gain = 0.0;
 				
-				find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,mask);  //ques and gain are output here
+				find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,rowids);  //ques and gain are output here
 				if(gain == 0.0)
 					{
 						
@@ -90,17 +77,18 @@ namespace ML {
 				else
 					{
 						int nrowsleft,nrowsright;
-						split_branch(data,labels,ques,nrows,ncols,nrowsleft,nrowsright,mask,depth);
+						split_branch(data,labels,ques,nrows,ncols,nrowsleft,nrowsright,rowids);
 					}
 				return node;
 			}
 			
-			void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned long long* mask)
+			void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned int* rowids)
 			{
 				float maxinfo = 0.0;
 				int splitcol;
 				float splitval;
 				float ginibefore = gini(labels,nrows);
+				float *sampledcolumn;
 				
 				// Bootstrap columns
 				std::vector<int> colselector(ncols);
@@ -111,6 +99,7 @@ namespace ML {
 				int *leftlabels, *rightlabels;
 				CUDA_CHECK(cudaMalloc((void**)&leftlabels,nrows*sizeof(int)));
 				CUDA_CHECK(cudaMalloc((void**)&rightlabels,nrows*sizeof(int)));
+				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,nrows*sizeof(float)));
 				
 				for(int i=0;i<colselector.size();i++)
 					{
@@ -140,7 +129,8 @@ namespace ML {
 				ques.column = splitcol;
 				ques.value = splitval;
 				gain = maxinfo;
-				
+
+				CUDA_CHECK(cudaFree(sampledcolumn));
 				CUDA_CHECK(cudaFree(leftlabels));
 				CUDA_CHECK(cudaFree(rightlabels));
 				
@@ -162,9 +152,9 @@ namespace ML {
 				return (ginibefore - impurity);
 			}
 			
-			void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,int& nrowsleft,int& nrowsright,unsigned long long* mask,int depth)
+			void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,int& nrowsleft,int& nrowsright,unsigned int* rowids)
 			{
-				unsigned int masker = 1 << depth;
+				
 				
 			}
 			
