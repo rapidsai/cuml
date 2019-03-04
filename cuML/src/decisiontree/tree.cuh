@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <numeric>
 
+
 namespace ML {
 	namespace DecisionTree {
 		
@@ -34,25 +35,27 @@ namespace ML {
 			float value;
 		};
 		
-		struct LeafNode
-		{
-			int class_predict;
-		};
-		
 		struct TreeNode
 		{
 			TreeNode *left = NULL;
 			TreeNode *right = NULL;
-			LeafNode *leaf = NULL;  
+			int class_predict;  
 			Question question;
 		};
 
+		struct DataInfo
+		{
+			unsigned int NLocalrows;
+			unsigned int NGlobalrows;
+			unsigned int Ncols;
+		};
+		
 		class DecisionTreeClassifier
 		{
 		public:
 			TreeNode *root = NULL;
 			const int nbins = 8;
-			
+			DataInfo dinfo;
 			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
 			{
 				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows);
@@ -60,79 +63,87 @@ namespace ML {
 			
 			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
 			{
-				root = grow_tree(data,ncols,nrows,colper,labels,0,rowids,n_sampled_rows);
+				dinfo.NLocalrows = nrows;
+				dinfo.NGlobalrows = nrows;
+				dinfo.Ncols = ncols;
+				
+				root = grow_tree(data,colper,labels,0,rowids,n_sampled_rows);
 				return;
 			}
 			
-			TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,int depth,unsigned int* rowids,const int n_sampled_rows)
+			TreeNode* grow_tree(float *data,const float colper,int *labels,int depth,unsigned int* rowids,const int n_sampled_rows)
 			{
 				TreeNode *node = new TreeNode();
 				Question ques;
 				float gain = 0.0;
 				
-				find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,rowids,n_sampled_rows);  //ques and gain are output here
+				find_best_fruit(data,labels,colper,ques,gain,rowids,n_sampled_rows);  //ques and gain are output here
 				if(gain == 0.0)
 					{
-						
+						node->class_predict = get_class(labels);
 					}
 				else
 					{
 						int nrowsleft,nrowsright;
-						split_branch(data,labels,ques,nrows,ncols,nrowsleft,nrowsright,rowids);
+						split_branch(data,ques,n_sampled_rows,nrowsleft,nrowsright,rowids);
+						node->left = grow_tree(data,colper,&labels[0],depth+1,&rowids[0],nrowsleft);
+						node->right = grow_tree(data,colper,&labels[nrowsleft],depth+1,&rowids[nrowsleft],nrowsright);
 					}
 				return node;
 			}
 			
-			void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned int* rowids,const int n_sampled_rows)
+			void find_best_fruit(float *data,int *labels,const float colper,Question& ques,float& gain,unsigned int* rowids,const int n_sampled_rows)
 			{
-				float maxinfo = 0.0;
-				int splitcol;
-				float splitval;
-				float ginibefore = gini(labels,nrows);
+				gain = 0.0;
 				float *sampledcolumn;
+				int *sampledlabels;
 				
 				// Bootstrap columns
-				std::vector<int> colselector(ncols);
+				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(),colselector.end(),0);
 				std::random_shuffle(colselector.begin(),colselector.end());
-				colselector.resize((int)(colper*ncols));
+				colselector.resize((int)(colper * dinfo.Ncols ));
 				
 				int *leftlabels, *rightlabels;
-				CUDA_CHECK(cudaMalloc((void**)&leftlabels,nrows*sizeof(int)));
-				CUDA_CHECK(cudaMalloc((void**)&rightlabels,nrows*sizeof(int)));
+				CUDA_CHECK(cudaMalloc((void**)&leftlabels,n_sampled_rows*sizeof(int)));
+				CUDA_CHECK(cudaMalloc((void**)&rightlabels,n_sampled_rows*sizeof(int)));
 				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,n_sampled_rows*sizeof(float)));
+				CUDA_CHECK(cudaMalloc((void**)&sampledlabels,n_sampled_rows*sizeof(int)));
+				
+				get_sampled_labels(labels,sampledlabels,rowids,n_sampled_rows);
+				int *labelptr = sampledlabels;
+				float ginibefore = gini(labelptr,n_sampled_rows);
+				
 				
 				for(int i=0;i<colselector.size();i++)
 					{
 						
-						get_sampled_column(&data[nrows*colselector[i]],sampledcolumn,rowids,n_sampled_rows);
+						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]],sampledcolumn,rowids,n_sampled_rows);
 						float *colptr = sampledcolumn;
-						float min = minimum(colptr,nrows);
-						float max = maximum(colptr,nrows);
+						float min = minimum(colptr,n_sampled_rows);
+						float max = maximum(colptr,n_sampled_rows);
 						float delta = (max - min)/ nbins ;
 						
 						for(int j=1;j<nbins;j++)
 							{
 								float quesval = min + delta*j;
-								float info_gain = evaluate_split(colptr,labels,leftlabels,rightlabels,ginibefore,quesval,nrows);
-								if(info_gain == -1)
+								float info_gain = evaluate_split(colptr,labelptr,leftlabels,rightlabels,ginibefore,quesval,n_sampled_rows);
+								if(info_gain == -1.0)
 									continue;
 								
-								if(info_gain > maxinfo)
+								if(info_gain > gain)
 									{
-										maxinfo = info_gain;
-										splitval = quesval;
-										splitcol = colselector[i];
+										gain = info_gain;
+										ques.value = quesval;
+										ques.column = colselector[i];
 									}
 							}
 						
 					}
 				
-				ques.column = splitcol;
-				ques.value = splitval;
-				gain = maxinfo;
 
 				CUDA_CHECK(cudaFree(sampledcolumn));
+				CUDA_CHECK(cudaFree(sampledlabels));
 				CUDA_CHECK(cudaFree(leftlabels));
 				CUDA_CHECK(cudaFree(rightlabels));
 				
@@ -145,19 +156,28 @@ namespace ML {
 				split_labels(column,labels,leftlabels,rightlabels,nrows,lnrows,rnrows,quesval);
 				
 				if(lnrows == 0 || rnrows == 0)
-					return -1;
+					return -1.0;
 				
-				float ginileft = gini(leftlabels,lnrows);
+				float ginileft = gini(leftlabels,lnrows);       
 				float giniright = gini(rightlabels,rnrows);
 				
+				
 				float impurity = (lnrows/nrows) * ginileft + (rnrows/nrows) * giniright;
+				
 				return (ginibefore - impurity);
 			}
 			
-			void split_branch(float *data,int *labels,const Question ques,const int nrows,const int ncols,int& nrowsleft,int& nrowsright,unsigned int* rowids)
+			void split_branch(float *data,const Question ques,const int n_sampled_rows,int& nrowsleft,int& nrowsright,unsigned int* rowids)
 			{
+				float *colptr = &data[dinfo.NLocalrows * ques.column];
+				float *sampledcolumn;
 				
+				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,n_sampled_rows*sizeof(float)));
+				get_sampled_column(colptr,sampledcolumn,rowids,n_sampled_rows);
 				
+				make_split(sampledcolumn,ques.value,n_sampled_rows,nrowsleft,nrowsright,rowids);
+				CUDA_CHECK(cudaFree(sampledcolumn));
+				return;
 			}
 			
 		};

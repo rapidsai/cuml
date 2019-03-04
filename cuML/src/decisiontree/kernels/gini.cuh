@@ -19,9 +19,13 @@
 #include "cub/cub.cuh"
 #include <thrust/sort.h>
 
-float gini(int *labels,const int nrows)
+float gini(int *labels_in,const int nrows)
 {
   float gval = 1.0;
+  int *labels;
+  CUDA_CHECK(cudaMalloc((void**)&labels,nrows*sizeof(int)));
+  CUDA_CHECK(cudaMemcpy(labels,labels_in,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
+  
   thrust::sort(thrust::device,labels,labels + nrows);
   
   // Declare, allocate, and initialize device-accessible pointers for input and output
@@ -50,6 +54,7 @@ float gini(int *labels,const int nrows)
   int *h_counts_out = (int*)malloc(num_unique*sizeof(int));
 
   CUDA_CHECK(cudaMemcpy(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaDeviceSynchronize());
   
   for(int i=0;i<num_unique;i++)
     {
@@ -62,7 +67,8 @@ float gini(int *labels,const int nrows)
   CUDA_CHECK(cudaFree(d_counts_out));
   CUDA_CHECK(cudaFree(d_num_runs_out));
   free(h_counts_out);
-    
+  CUDA_CHECK(cudaFree(labels));
+  
   return gval;
 }
   

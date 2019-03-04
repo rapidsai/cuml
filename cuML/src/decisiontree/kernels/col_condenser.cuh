@@ -142,7 +142,10 @@ void col_condenser(float * input_data, int * labels, unsigned long long * row_ma
 	cudaFree(n_selected_rows);	
 
 }
-__global__ void get_sampled_column_kernel(const float *column,float *outcolumn,unsigned int* rowids,const int N)
+
+
+template <class type>
+__global__ void get_sampled_column_kernel(const type *column,type *outcolumn,unsigned int* rowids,const int N)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid < N)
@@ -154,8 +157,13 @@ __global__ void get_sampled_column_kernel(const float *column,float *outcolumn,u
 }
 void get_sampled_column(const float *column,float *outcolumn,unsigned int* rowids,const int n_sampled_rows)
 {
-	thrust::sort(thrust::device,rowids,rowids + n_sampled_rows);
-	get_sampled_column_kernel<<<(int)(n_sampled_rows / 128) + 1,128>>>(column,outcolumn,rowids,n_sampled_rows);
+	get_sampled_column_kernel<float><<<(int)(n_sampled_rows / 128) + 1,128>>>(column,outcolumn,rowids,n_sampled_rows);
+	CUDA_CHECK(cudaDeviceSynchronize());
+	return;
+}
+void get_sampled_labels(const int *labels,int *outlabels,unsigned int* rowids,const int n_sampled_rows)
+{
+	get_sampled_column_kernel<int><<<(int)(n_sampled_rows / 128) + 1,128>>>(labels,outlabels,rowids,n_sampled_rows);
 	CUDA_CHECK(cudaDeviceSynchronize());
 	return;
 }

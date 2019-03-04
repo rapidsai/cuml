@@ -20,60 +20,109 @@
 
 __global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float quesval,const int nrows)
 {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if(tid < nrows)
-    {
-      char lflag,rflag;
-      float data = column[tid];
-      if(data <= quesval)
-	{
-	  lflag = 1;
-	  rflag = 0;
-	}
-      else
-	{
-	  lflag = 0;
-	  rflag = 1;
-	}
-      leftflag[tid] = lflag;
-      rightflag[tid] = rflag;
-      
-    }
-  return;
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	if(tid < nrows)
+		{
+			char lflag,rflag;
+			float data = column[tid];
+			if(data <= quesval)
+				{
+					lflag = 1;
+					rflag = 0;
+				}
+			else
+				{
+					lflag = 0;
+					rflag = 1;
+				}
+			leftflag[tid] = lflag;
+			rightflag[tid] = rflag;
+			
+		}
+	return;
 }
 
+int get_class(int *labels)
+{
+	int classval;
+	CUDA_CHECK(cudaMemcpy(&classval,&labels[0],sizeof(int),cudaMemcpyDeviceToHost));
+	
+	return classval;
+}
 void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,const int nrows,int& leftnrows,int& rightnrows,float quesval)
 {
+	
+	char *d_flags_left;
+	char *d_flags_right;
+	
+	CUDA_CHECK(cudaMalloc(&d_flags_left,nrows*sizeof(char)));
+	CUDA_CHECK(cudaMalloc(&d_flags_right,nrows*sizeof(char)));
+	
+	flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
+	CUDA_CHECK(cudaGetLastError());
+	CUDA_CHECK(cudaDeviceSynchronize());
+	
+	void *d_temp_storage = NULL;
+	size_t temp_storage_bytes = 0;
+	
+	int *d_num_selected_out;
+	CUDA_CHECK(cudaMalloc(&d_num_selected_out,sizeof(int)));
+	CUDA_CHECK(cudaMemset(d_num_selected_out,0,sizeof(int)));
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows);
+	CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows);
+	CUDA_CHECK(cudaMemcpy(&leftnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
 
-  char *d_flags_left;
-  char *d_flags_right;
+	
+	CUDA_CHECK(cudaMemset(d_num_selected_out,0,sizeof(int)));
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows);
+	CUDA_CHECK(cudaFree(d_temp_storage));
+	CUDA_CHECK(cudaMemcpy(&rightnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	
+	CUDA_CHECK(cudaFree(d_num_selected_out));
+	
+	return;
+}
 
-  CUDA_CHECK(cudaMalloc(&d_flags_left,sizeof(char)));
-  CUDA_CHECK(cudaMalloc(&d_flags_right,sizeof(char)));
+void make_split(float *column,const float quesval,const int nrows,int& nrowsleft,int& nrowsright,unsigned int* rowids)
+{
+	
+	char *d_flags_left;
+	char *d_flags_right;
+	int *temprowids;
+	
+	CUDA_CHECK(cudaMalloc(&d_flags_left,nrows*sizeof(char)));
+	CUDA_CHECK(cudaMalloc(&d_flags_right,nrows*sizeof(char)));
+	CUDA_CHECK(cudaMalloc(&temprowids,nrows*sizeof(int)));
+	
+	
+	flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
+	CUDA_CHECK(cudaGetLastError());
+	CUDA_CHECK(cudaDeviceSynchronize());
+	
 
-  flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
-  CUDA_CHECK(cudaDeviceSynchronize());
-  
-  void *d_temp_storage = NULL;
-  size_t temp_storage_bytes = 0;
+	void *d_temp_storage = NULL;
+	size_t temp_storage_bytes = 0;
+	
+	int *d_num_selected_out;
+	CUDA_CHECK(cudaMalloc(&d_num_selected_out,sizeof(int)));
+	CUDA_CHECK(cudaMemset(d_num_selected_out,0,sizeof(int)));
 
-  int *d_num_selected_out;
-  CUDA_CHECK(cudaMalloc(&d_num_selected_out,sizeof(int)));
-  
-  cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows);
-  CUDA_CHECK(cudaFree(d_temp_storage));
-  CUDA_CHECK(cudaMemcpy(&leftnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids,d_num_selected_out, nrows);
+	CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids,d_num_selected_out, nrows);
+	
+	CUDA_CHECK(cudaMemcpy(&nrowsleft,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	
+	CUDA_CHECK(cudaMemset(d_num_selected_out,0,sizeof(int)));
+	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft],d_num_selected_out, nrows);
+	CUDA_CHECK(cudaFree(d_temp_storage));
+	CUDA_CHECK(cudaMemcpy(&nrowsright,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
 
+	CUDA_CHECK(cudaMemcpy(rowids,temprowids,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
 
-  cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-  cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows);
-  CUDA_CHECK(cudaFree(d_temp_storage));
-  CUDA_CHECK(cudaMemcpy(&rightnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
-
-  CUDA_CHECK(cudaFree(d_num_selected_out));
-  
-  return;
+	CUDA_CHECK(cudaFree(temprowids));
+	CUDA_CHECK(cudaFree(d_num_selected_out));
+	return;
 }
