@@ -19,6 +19,8 @@
 #include <utils.h>
 #include "random/rng.h"
 #include "linalg/cublas_wrappers.h"
+#include <map>
+
 
 namespace ML {
 
@@ -46,11 +48,11 @@ using namespace MLCommon;
 		for (int i = 0; i < n_trees; i++) {
 			// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 
-			int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement). 
-			CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(int)));
+			unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement). 
+			CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
 
 			Random::Rng r(i); //FIXME Ensure the seed for each tree is different and a meaningful one.
-			r.uniformInt(selected_rows, n_sampled_rows, 0, n_rows-1);
+			r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows-1);
 
 			/* Build individual tree in the forest.
 			   - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -67,13 +69,40 @@ using namespace MLCommon;
 	}
 
 
-	
-	void rfClassifier::predict(const float * input, int n_rows, int n_cols, int * preds) {
+	//FIXME Assuming input in row_major format. 
+	int * rfClassifier::predict(const float * input, int n_rows, int n_cols) {
 		ASSERT(trees, "Cannot predict! No trees in the forest.");
+		int * preds = new int[n_rows];
 
+		int row_size = n_cols * sizeof(float); //FIXME a lot of assumptions about data format.
+		for (int row_id = 0; row_id < n_rows; row_id++) {
+
+			std::map<int, int> prediction_to_cnt;
+			std::pair<std::map<int, int>::iterator, bool> ret;
+			int max_cnt_so_far = 0;
+			int majority_prediction = -1;
+
+			for (int i = 0; i < n_trees; i++) {
+				//Return prediction for one sample. 
+				int prediction = trees[i].predict(&input[row_id * row_size]);
+
+  				ret = prediction_to_cnt.insert ( std::pair<int, int>(prediction, 1));
+  				if (!(ret.second)) {
+					ret.first->second += 1;
+				}
+				if (max_cnt_so_far < ret.first->second) {
+					max_cnt_so_far = ret.first->second;
+					majority_prediction = ret.first->first; 
+				}
+			}
+
+			preds[row_id] = majority_prediction;
+		}
+
+		return preds;
 	}
 
-	void rfRegressor::fit(float * input, int n_rows, int n_cols, int * labels, int n_trees, float max_features, float rows_sample) {
+	void rfRegressor::fit(float * input, int n_rows, int n_cols, int * els, int n_trees, float max_features, float rows_sample) {
 	}
 
 	
