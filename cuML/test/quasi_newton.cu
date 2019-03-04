@@ -101,10 +101,11 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(
-      &loss, devUpload.devX.data, devUpload.devY.data, z.data, in.n_row,
-      loss.fit_intercept, l1, l2, max_iter, grad_tol, value_rel_tol,
-      linesearch_max_iter, lbfgs_memory, verbosity, w0.data, &fx, &num_iters, ROW_MAJOR);
+  qn_fit<T, LossFunction>(&loss, devUpload.devX.data, devUpload.devY.data,
+                          z.data, in.n_row, loss.fit_intercept, l1, l2,
+                          max_iter, grad_tol, value_rel_tol,
+                          linesearch_max_iter, lbfgs_memory, verbosity, w0.data,
+                          &fx, &num_iters, ROW_MAJOR);
 
   return fx;
 }

@@ -108,6 +108,7 @@ template <typename T> struct SimpleMat {
   // this = a*x
   inline void ax(const T a, const SimpleMat<T> &x) {
     ASSERT(ord == x.ord, "SimpleMat::ax: Storage orders must match");
+
     auto scale = [a] __device__(const T x) { return a * x; };
     MLCommon::LinAlg::unaryOp(data, x.data, len, scale);
   }
@@ -116,6 +117,7 @@ template <typename T> struct SimpleMat {
   inline void axpy(const T a, const SimpleMat<T> &x, const SimpleMat<T> &y) {
     ASSERT(ord == x.ord, "SimpleMat::axpy: Storage orders must match");
     ASSERT(ord == y.ord, "SimpleMat::axpy: Storage orders must match");
+
     auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
     MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy);
   }
@@ -124,6 +126,7 @@ template <typename T> struct SimpleMat {
   inline void assign_unary(const SimpleMat<T> &other, Lambda &f) {
     ASSERT(ord == other.ord,
            "SimpleMat::assign_unary: Storage orders must match");
+
     MLCommon::LinAlg::unaryOp(data, other.data, len, f);
   }
 
@@ -135,6 +138,7 @@ template <typename T> struct SimpleMat {
            "SimpleMat::assign_binary: Storage orders must match");
     ASSERT(ord == other2.ord,
            "SimpleMat::assign_binary: Storage orders must match");
+
     MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f);
   }
 
@@ -143,16 +147,18 @@ template <typename T> struct SimpleMat {
                              const SimpleMat<T> &other2,
                              const SimpleMat<T> &other3, Lambda &f) {
     ASSERT(ord == other1.ord,
-           "SimpleMat::assign_binary: Storage orders must match");
+           "SimpleMat::assign_ternary: Storage orders must match");
     ASSERT(ord == other2.ord,
-           "SimpleMat::assign_binary: Storage orders must match");
+           "SimpleMat::assign_ternary: Storage orders must match");
     ASSERT(ord == other3.ord,
-           "SimpleMat::assign_binary: Storage orders must match");
+           "SimpleMat::assign_ternary: Storage orders must match");
+
     MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data,
                                 len, f);
   }
 
   inline void fill(const T val) {
+    // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
     MLCommon::LinAlg::unaryOp(data, data, len, f);
   }
@@ -160,11 +166,11 @@ template <typename T> struct SimpleMat {
   inline void operator=(const SimpleMat<T> &other) {
 
     ASSERT(ord == other.ord, "SimpleMat::operator=: Storage orders must match");
+
     CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
                           cudaMemcpyDeviceToDevice));
   }
 };
-
 
 template <typename T> struct SimpleVec : SimpleMat<T> {
   typedef SimpleMat<T> Super;
@@ -187,7 +193,6 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
     return tmp;
   }
 };
-
 
 template <typename T>
 inline void col_ref(const SimpleMat<T> &mat, SimpleVec<T> &mask_vec, int c) {
@@ -284,6 +289,7 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   return os;
 }
 
+// TODO The following classes own their storage and are just for testing
 template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
 
