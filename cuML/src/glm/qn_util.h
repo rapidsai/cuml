@@ -180,7 +180,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   yhist[end] = ys;
 
   // Recursive formula to compute d = -H * g
-  drt.ax(-1.0, g);
+  drt.ax(-1.0, g, stream);
   int bound = std::min(param.m, k);
   end = (end + 1) % param.m;
   int j = end;
@@ -189,16 +189,16 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
     col_ref(S, sj, j);
     col_ref(Y, yj, j);
     alpha[j] = dot(sj, drt, dev_scalar, stream) / yhist[j];
-    drt.axpy(-alpha[j], yj, drt);
+    drt.axpy(-alpha[j], yj, drt, stream);
   }
 
-  drt.ax(ys / yy, drt);
+  drt.ax(ys / yy, drt, stream);
 
   for (int i = 0; i < bound; i++) {
     col_ref(S, sj, j);
     col_ref(Y, yj, j);
     T beta = dot(yj, drt, dev_scalar, stream) / yhist[j];
-    drt.axpy((alpha[j] - beta), sj, drt);
+    drt.axpy((alpha[j] - beta), sj, drt, stream);
     j = (j + 1) % param.m;
   }
 

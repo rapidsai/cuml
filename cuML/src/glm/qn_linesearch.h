@@ -37,9 +37,9 @@ template <typename T> struct LSProjectedStep {
   };
 
   void operator()(const T step, Vector &x, const Vector &drt, const Vector &xp,
-                  const Vector &pgrad) const {
+                  const Vector &pgrad, cudaStream_t stream) const {
     op_pstep pstep(step);
-    x.assign_ternary(xp, drt, pgrad, pstep);
+    x.assign_ternary(xp, drt, pgrad, pstep, stream);
   }
 };
 
@@ -114,7 +114,7 @@ ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
   int iter;
   for (iter = 0; iter < param.max_linesearch; iter++) {
     // x_{k+1} = x_k + step * d_k
-    x.axpy(step, drt, xp);
+    x.axpy(step, drt, xp, stream);
     // Evaluate this candidate
     fx = f(x, grad, dev_scalar, stream);
 
@@ -161,7 +161,7 @@ ls_backtrack_projected(const LBFGSParam<T> &param, Function &f, T &fx,
   int iter;
   for (iter = 0; iter < param.max_linesearch; iter++) {
     // x_{k+1} = proj_orth(x_k + step * d_k)
-    lsstep(step, x, drt, xp, pseudo_grad);
+    lsstep(step, x, drt, xp, pseudo_grad, stream);
     // evaluates fx with l1 term, but only grad of the loss term
     fx = f(x, grad, dev_scalar, stream);
 

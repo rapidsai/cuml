@@ -40,7 +40,7 @@ template <typename T> struct Tikhonov {
     SimpleMat<T> Wweights;
     col_slice(G, Gweights, 0, G.n - has_bias);
     col_slice(W, Wweights, 0, G.n - has_bias);
-    Gweights.ax(l2_penalty, Wweights);
+    Gweights.ax(l2_penalty, Wweights, stream);
 
     MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
                                        Wweights.data);

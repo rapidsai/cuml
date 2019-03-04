@@ -126,7 +126,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   }
 
   // Initial direction
-  drt.ax(-1.0, grad);
+  drt.ax(-1.0, grad, stream);
 
   // Initial step
   T step = T(1.0) / nrm2(drt, dev_scalar, stream);
@@ -157,8 +157,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     // y_{k+1} = g_{k+1} - g_k
     col_ref(S, svec, end);
     col_ref(Y, yvec, end);
-    svec.axpy(-1.0, xp, x);
-    yvec.axpy(-1.0, gradp, grad);
+    svec.axpy(-1.0, xp, x, stream);
+    yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * g
     end = lbfgs_search_dir(param, *k, end, S, Y, grad, svec, yvec, drt, ys,
                            alpha, dev_scalar, stream);
@@ -172,13 +172,13 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 template <typename T>
 inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
                           const op_pseudo_grad<T> &pseudo_grad,
-                          const int pg_limit, SimpleVec<T> &pseudo) {
+                          const int pg_limit, SimpleVec<T> &pseudo, cudaStream_t stream) {
   if (grad.len > pg_limit) {
     pseudo = grad;
     SimpleVec<T> mask(pseudo.data, pg_limit);
-    mask.assign_binary(x, grad, pseudo_grad);
+    mask.assign_binary(x, grad, pseudo_grad, stream);
   } else {
-    pseudo.assign_binary(x, grad, pseudo_grad);
+    pseudo.assign_binary(x, grad, pseudo_grad, stream);
   }
 }
 
@@ -242,7 +242,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // compute pseudo grad, but don't overwrite grad: used to build H
   // pseudo.assign_binary(x, grad, pseudo_grad);
-  update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo);
+  update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(pseudo, dev_scalar, stream);
@@ -259,7 +259,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   }
 
   // Initial direction
-  drt.ax(-1.0, pseudo); // using Pseudo gradient here
+  drt.ax(-1.0, pseudo, stream); // using Pseudo gradient here
   // below should be done for consistency but seems unnecessary
   // drt.assign_k_ary(project, pseudo, x);
 
@@ -284,7 +284,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
       return OPT_LS_FAILED;
     // recompute pseudo
     //  pseudo.assign_binary(x, grad, pseudo_grad);
-    update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo);
+    update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
     if (check_convergence(param, *k, fx, x, pseudo, fx_hist, verbosity,
                           dev_scalar, stream)) {
@@ -294,14 +294,14 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     // Update s and y
     col_ref(S, svec, end);
     col_ref(Y, yvec, end);
-    svec.axpy(-1.0, xp, x);
-    yvec.axpy(-1.0, gradp, grad);
+    svec.axpy(-1.0, xp, x, stream);
+    yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * -> pseudo grad <-
     end = lbfgs_search_dir(param, *k, end, S, Y, pseudo, svec, yvec, drt, ys,
                            alpha, dev_scalar, stream);
 
     // Project drt onto orthant of -pseudog
-    drt.assign_binary(drt, pseudo, project_neg);
+    drt.assign_binary(drt, pseudo, project_neg, stream);
 
     // step = 1.0 as initial guess
     step = T(1.0);
