@@ -20,6 +20,7 @@
 #include "kernels/gini.cuh"
 #include "kernels/minmax.cuh"
 #include "kernels/split_labels.cuh"
+#include "kernels/col_condenser.cuh"
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -103,8 +104,9 @@ namespace ML {
 				
 				for(int i=0;i<colselector.size();i++)
 					{
-						float *colptr = &data[nrows*colselector[i]];
 						
+						get_sampled_column(&data[nrows*colselector[i]],sampledcolumn,rowids,n_sampled_rows);
+						float *colptr = sampledcolumn;
 						float min = minimum(colptr,nrows);
 						float max = maximum(colptr,nrows);
 						float delta = (max - min)/ nbins ;
