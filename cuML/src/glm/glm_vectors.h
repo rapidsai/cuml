@@ -106,46 +106,49 @@ template <typename T> struct SimpleMat {
   }
 
   // this = a*x
-  inline void ax(const T a, const SimpleMat<T> &x) {
+  inline void ax(const T a, const SimpleMat<T> &x, cudaStream_t stream) {
     ASSERT(ord == x.ord, "SimpleMat::ax: Storage orders must match");
 
     auto scale = [a] __device__(const T x) { return a * x; };
-    MLCommon::LinAlg::unaryOp(data, x.data, len, scale);
+    MLCommon::LinAlg::unaryOp(data, x.data, len, scale, stream);
   }
 
   // this = a*x + y
-  inline void axpy(const T a, const SimpleMat<T> &x, const SimpleMat<T> &y) {
+  inline void axpy(const T a, const SimpleMat<T> &x, const SimpleMat<T> &y,
+                   cudaStream_t stream) {
     ASSERT(ord == x.ord, "SimpleMat::axpy: Storage orders must match");
     ASSERT(ord == y.ord, "SimpleMat::axpy: Storage orders must match");
 
     auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
-    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy);
+    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy, stream);
   }
 
   template <typename Lambda>
-  inline void assign_unary(const SimpleMat<T> &other, Lambda &f) {
+  inline void assign_unary(const SimpleMat<T> &other, Lambda &f,
+                           cudaStream_t stream) {
     ASSERT(ord == other.ord,
            "SimpleMat::assign_unary: Storage orders must match");
 
-    MLCommon::LinAlg::unaryOp(data, other.data, len, f);
+    MLCommon::LinAlg::unaryOp(data, other.data, len, f, stream);
   }
 
   template <typename Lambda>
   inline void assign_binary(const SimpleMat<T> &other1,
-                            const SimpleMat<T> &other2, Lambda &f) {
+                            const SimpleMat<T> &other2, Lambda &f,
+                            cudaStream_t stream) {
 
     ASSERT(ord == other1.ord,
            "SimpleMat::assign_binary: Storage orders must match");
     ASSERT(ord == other2.ord,
            "SimpleMat::assign_binary: Storage orders must match");
 
-    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f);
+    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f, stream);
   }
 
   template <typename Lambda>
-  inline void assign_ternary(const SimpleMat<T> &other1,
-                             const SimpleMat<T> &other2,
-                             const SimpleMat<T> &other3, Lambda &f) {
+  inline void
+  assign_ternary(const SimpleMat<T> &other1, const SimpleMat<T> &other2,
+                 const SimpleMat<T> &other3, Lambda &f, cudaStream_t stream) {
     ASSERT(ord == other1.ord,
            "SimpleMat::assign_ternary: Storage orders must match");
     ASSERT(ord == other2.ord,
@@ -154,13 +157,13 @@ template <typename T> struct SimpleMat {
            "SimpleMat::assign_ternary: Storage orders must match");
 
     MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data,
-                                len, f);
+                                len, f, stream);
   }
 
-  inline void fill(const T val) {
+  inline void fill(const T val, cudaStream_t stream=0) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
-    MLCommon::LinAlg::unaryOp(data, data, len, f);
+    MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
   }
 
   inline void operator=(const SimpleMat<T> &other) {
