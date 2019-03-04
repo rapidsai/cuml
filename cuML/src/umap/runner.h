@@ -163,6 +163,7 @@ namespace UMAPAlgo {
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
+
 		SimplSetEmbed::run<T, 32>(
 		        X, n, d,
 		        rgraph_rows, rgraph_cols, rgraph_vals, nnz,
