@@ -61,7 +61,7 @@ int main()
 	cudaMemcpy(rowids,h_rowids,N*sizeof(unsigned int),cudaMemcpyHostToDevice);
 
 	ML::DecisionTree::DecisionTreeClassifier model;
-	model.plant(d_data,4,N,1.0,d_labels,rowids);
+	model.plant(d_data,4,N,1.0,d_labels,rowids,N);
 	
 	
 	cudaFree(d_data);

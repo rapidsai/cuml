@@ -45,31 +45,31 @@ namespace ML {
 			LeafNode *leaf = NULL;  
 			Question question;
 		};
-		
+
 		class DecisionTreeClassifier
 		{
 		public:
 			TreeNode *root = NULL;
 			const int nbins = 8;
 			
-			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids)
+			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
 			{
-				return plant(data,ncols,nrows,colper,labels,rowids);
+				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows);
 			}
 			
-			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids)
+			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
 			{
-				root = grow_tree(data,ncols,nrows,colper,labels,0,rowids);
+				root = grow_tree(data,ncols,nrows,colper,labels,0,rowids,n_sampled_rows);
 				return;
 			}
 			
-			TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,int depth,unsigned int* rowids)
+			TreeNode* grow_tree(float *data,const int ncols,const int nrows,const float colper,int *labels,int depth,unsigned int* rowids,const int n_sampled_rows)
 			{
 				TreeNode *node = new TreeNode();
 				Question ques;
 				float gain = 0.0;
 				
-				find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,rowids);  //ques and gain are output here
+				find_best_fruit(data,labels,ncols,nrows,colper,ques,gain,rowids,n_sampled_rows);  //ques and gain are output here
 				if(gain == 0.0)
 					{
 						
@@ -82,7 +82,7 @@ namespace ML {
 				return node;
 			}
 			
-			void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned int* rowids)
+			void find_best_fruit(float *data,int *labels,const int ncols,const int nrows,const float colper,Question& ques,float& gain,unsigned int* rowids,const int n_sampled_rows)
 			{
 				float maxinfo = 0.0;
 				int splitcol;
@@ -99,7 +99,7 @@ namespace ML {
 				int *leftlabels, *rightlabels;
 				CUDA_CHECK(cudaMalloc((void**)&leftlabels,nrows*sizeof(int)));
 				CUDA_CHECK(cudaMalloc((void**)&rightlabels,nrows*sizeof(int)));
-				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,nrows*sizeof(float)));
+				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,n_sampled_rows*sizeof(float)));
 				
 				for(int i=0;i<colselector.size();i++)
 					{
