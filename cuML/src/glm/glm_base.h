@@ -50,7 +50,7 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
 
     Z.assign_gemm(1, weights, false, X, true, 1, cublas);
   } else {
-    Z.assign_gemm(1, W,false, X, true, 0, cublas);
+    Z.assign_gemm(1, W, false, X, true, 0, cublas);
   }
 }
 
@@ -71,7 +71,7 @@ inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
     col_ref(G, Gbias, D);
     col_slice(G, Gweights, 0, D);
 
-    //TODO can this be fused somehow?
+    // TODO can this be fused somehow?
     Gweights.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cublas);
     MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
@@ -83,22 +83,21 @@ struct GLMDims {
 
   bool fit_intercept;
   int C, D, dims, n_param;
-  GLMDims(int C, int D, bool fit_intercept) : C(C), D(D), fit_intercept(fit_intercept) {
+  GLMDims(int C, int D, bool fit_intercept)
+      : C(C), D(D), fit_intercept(fit_intercept) {
     dims = D + fit_intercept;
     n_param = dims * C;
   }
 };
 
-template <typename T, class Loss>
-struct GLMBase : GLMDims {
+template <typename T, class Loss> struct GLMBase : GLMDims {
 
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
   cublasHandle_t cublas;
 
-  GLMBase(int D, int C, bool fit_intercept)
-      : GLMDims(C, D, fit_intercept) {
+  GLMBase(int D, int C, bool fit_intercept) : GLMDims(C, D, fit_intercept) {
     cublasCreate(&cublas);
   }
 
@@ -109,8 +108,8 @@ struct GLMBase : GLMDims {
    *
    * Default: elementwise application of loss and its derivative
    */
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
-                           const SimpleVec<T> &y, cudaStream_t stream = 0) {
+  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
+                           cudaStream_t stream = 0) {
 
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
@@ -134,18 +133,17 @@ struct GLMBase : GLMDims {
 
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
                         const SimpleMat<T> &Xb, const Vec &yb, Mat &Zb,
-                        bool initGradZero = true, cudaStream_t stream=0) {
+                        bool initGradZero = true, cudaStream_t stream = 0) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
-    linearFwd(Zb, Xb, W, cublas, stream);   // linear part: forward pass
-    loss->getLossAndDZ(loss_val, Zb, yb, stream);   // loss specific part
+    linearFwd(Zb, Xb, W, cublas, stream);         // linear part: forward pass
+    loss->getLossAndDZ(loss_val, Zb, yb, stream); // loss specific part
     linearBwd(G, Xb, Zb, initGradZero, cublas,
               stream); // linear part: backward pass
   }
 };
 
-template <typename T, class GLMObjective>
-struct GLMWithData : GLMDims {
+template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
@@ -155,20 +153,21 @@ struct GLMWithData : GLMDims {
   GLMObjective *objective;
   Vec lossVal;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N, STORAGE_ORDER ordX)
-      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N), Z(Zptr, obj->C, N), 
-        GLMDims(obj->C,obj->D, obj->fit_intercept){}
+  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N,
+              STORAGE_ORDER ordX)
+      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N),
+        Z(Zptr, obj->C, N), GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 
   // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat, T * dev_scalar, cudaStream_t stream = 0) {
+  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
+                      cudaStream_t stream = 0) {
     Mat W(wFlat.data, C, dims);
     Mat G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, X, y, Z);
-lossVal.reset(dev_scalar, 1);
+    lossVal.reset(dev_scalar, 1);
     return lossVal[0];
   }
 };
-
 
 template <typename T>
 __global__ void modKernel(T *w, const int tidx, const T h) {
@@ -201,8 +200,6 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
     grad_w_host[d] = (lph - lmh) / (2 * h);
   }
 }
-
-
 
 }; // namespace GLM
 }; // namespace ML
