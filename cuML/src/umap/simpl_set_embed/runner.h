@@ -25,7 +25,7 @@ namespace UMAPAlgo {
 
 	    using namespace ML;
 
-	    template<typename T, int TPB_X>
+	    template<int TPB_X, typename T>
 		void run(const T *X, int m, int n,
 		        int *rows, int *cols, T *vals, int nnz,
 		        UMAPParams *params, T *embedding,
@@ -33,7 +33,7 @@ namespace UMAPAlgo {
 
 	        switch(algorithm) {
 	            case 0:
-	                SimplSetEmbed::Algo::launcher<T, TPB_X>(
+	                SimplSetEmbed::Algo::launcher<TPB_X, T>(
 	                        m, n,
 	                        rows, cols, vals, nnz,
 	                        params, embedding);

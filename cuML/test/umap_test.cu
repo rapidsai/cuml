@@ -69,7 +69,7 @@ protected:
 
 		std::cout << "Fitting UMAP..." << std::endl;
 
-		UMAPAlgo::_fit<float>(X_d, n, d, knn, umap_params, embeddings);
+		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings);
 
 		std::cout << "Done." << std::endl;
 

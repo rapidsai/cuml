@@ -45,6 +45,7 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         float learning_rate,
         float min_dist,
         float spread,
+        int init,
         float set_op_mix_ratio,
         float local_connectivity,
         float repulsion_strength,
@@ -109,7 +110,8 @@ cdef class UMAP1:
             local_connectivity = 1.0,
             repulsion_strength = 1.0,
             negative_sample_rate = 5,
-            transform_queue_size = 4.0):
+            transform_queue_size = 4.0,
+            init = "spectral"):
 
         if self.umap_params != NULL:
             del self.umap_params
@@ -136,8 +138,25 @@ cdef class UMAP1:
         print("kNN D=" + str(X_m.shape[1]))
 
         self.umap_params = new UMAPParams()
-        self.umap_params.n_neighbors = n_neighbors
-        self.umap_params.n_components = n_components
+        self.umap_params.n_neighbors = <int>n_neighbors
+        self.umap_params.n_components = <int>n_components
+        self.umap_params.n_epochs = <int>n_epochs
+
+        if(init == "spectral"):
+            self.umap_params.init = <int>1
+        elif(init == "random"):
+            self.umap_params.init = <int>0
+        else:
+            raise Exception("Initialization strategy not support: [init=%d]" % init)
+
+        self.umap_params.learning_rate = <float>learning_rate
+        self.umap_params.min_dist = <float>min_dist
+        self.umap_params.spread = <float>spread
+        self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
+        self.umap_params.local_connectivity = <float>local_connectivity
+        self.umap_params.repulsion_strength = <float>repulsion_strength
+        self.umap_params.negative_sample_rate = <int>negative_sample_rate
+        self.umap_params.transform_queue_size = <int>transform_queue_size
 
         self.umap = new UMAP(self.umap_params)
 
@@ -150,4 +169,5 @@ cdef class UMAP1:
         )
 
         del X_m
-        del arr_embed
+
+        return arr_embed

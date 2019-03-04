@@ -25,10 +25,6 @@ namespace FuzzySimplSet {
 
 	using namespace ML;
 
-    /** number of threads in a CTA along X dim */
-    static const int TPB_X = 32;
-
-
 	/**
 	 * Calculates a fuzzy simplicial set of the input X and kNN results
 	 * @param n: number of rows in X
@@ -38,7 +34,7 @@ namespace FuzzySimplSet {
 	 * @param rhos: output rho params
 	 * @param algorithm: the algorithm to use (allows easy comparisons)
 	 */
-	template<typename T>
+	template<int TPB_X, typename T>
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
 			 int *rows, int *cols, T *vals,
