@@ -29,121 +29,24 @@ namespace ML {
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
 
-template <typename T> struct SimpleMat;
-
-template <typename T> struct SimpleVec {
-
+template <typename T> struct SimpleMat {
+  int m, n;
   T *data;
   int len;
 
-  SimpleVec() : data(nullptr), len(0) {}
-
-  SimpleVec(T *data, int len) : SimpleVec() { reset(data, len); }
-
-  inline void reset(T *new_data, int n) {
-    len = n;
-    data = new_data;
-  }
-
-  inline void fill(const T val) {
-    auto f = [val] __device__(const T x) { return val; };
-    MLCommon::LinAlg::unaryOp(data, data, len, f);
-  }
-
-  inline void operator=(const SimpleVec<T> &other) {
-    CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
-                          cudaMemcpyDeviceToDevice));
-  }
-
-  inline T operator[](int pos) const {
-    T tmp;
-    MLCommon::updateHost(&tmp, &data[pos], 1);
-    return tmp;
-  }
-
-  // this = a*x
-  inline void ax(const T a, const SimpleVec<T> &x) {
-    auto scale = [a] __device__(const T x) { return a * x; };
-    MLCommon::LinAlg::unaryOp(data, x.data, len, scale);
-  }
-
-  // this = a*x + y
-  inline void axpy(const T a, const SimpleVec<T> &x, const SimpleVec<T> &y) {
-    auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
-    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy);
-  }
-
-  template <typename Lambda>
-  inline void assign_unary(const SimpleVec<T> &other, Lambda &f) {
-    MLCommon::LinAlg::unaryOp(data, other.data, len, f);
-  }
-
-  template <typename Lambda>
-  inline void assign_binary(const SimpleVec<T> &other1,
-                            const SimpleVec<T> &other2, Lambda &f) {
-    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f);
-  }
-
-  template <typename Lambda>
-  inline void assign_ternary(const SimpleVec<T> &other1,
-                             const SimpleVec<T> &other2,
-                             const SimpleVec<T> &other3, Lambda &f) {
-    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data,
-                                len, f);
-  }
-
-  inline void print() const { std::cout << (*this) << std::endl; }
-
-  inline void assign_gemv(const T alpha, const SimpleMat<T> &A,
-                          const SimpleVec<T> &x, const T beta,
-                          cublasHandle_t &cublas) {
-    // this <- alpha * A * x + beta * this
-    if (A.ord == COL_MAJOR) {
-
-      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.m, A.n, &alpha,
-                                   A.data, A.m, x.data, 1, &beta, this->data,
-                                   1);
-    } else {
-
-      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.n, A.m, &alpha,
-                                   A.data, A.n, x.data, 1, &beta, this->data,
-                                   1);
-    }
-  }
-
-  inline void assign_gemvT(const T alpha, const SimpleMat<T> &A,
-                           const SimpleVec<T> &x, const T beta,
-                           cublasHandle_t &cublas) {
-    // this <- alpha * A * x + beta * this
-    if (A.ord == COL_MAJOR) {
-      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_T, A.m, A.n, &alpha,
-                                   A.data, A.m, x.data, 1, &beta, this->data,
-                                   1);
-
-    } else {
-      MLCommon::LinAlg::cublasgemv(cublas, CUBLAS_OP_N, A.n, A.m, &alpha,
-                                   A.data, A.n, x.data, 1, &beta, this->data,
-                                   1);
-    }
-  }
-};
-
-template <typename T> struct SimpleMat : SimpleVec<T> {
-  typedef SimpleVec<T> Super;
-  int m, n;
-  using Super::data;
-
   STORAGE_ORDER ord; // storage order: runtime param for compile time sake
 
-  SimpleMat(STORAGE_ORDER order = COL_MAJOR) : Super(), ord(order) {}
+  SimpleMat(STORAGE_ORDER order = COL_MAJOR)
+      : data(nullptr), len(0), ord(order) {}
 
   SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
-      : Super(data, m * n), m(m), n(n), ord(order) {}
+      : data(data), len(m * n), m(m), n(n), ord(order) {}
 
   void reset(T *data_, int m_, int n_) {
     m = m_;
     n = n_;
-    Super::reset(data_, m * n);
+    data = data_;
+    len = m * n;
   }
 
   void print() const { std::cout << (*this) << std::endl; }
@@ -169,7 +72,6 @@ template <typename T> struct SimpleMat : SimpleVec<T> {
     } else {
       ASSERT(B.n == this->n, "GEMM invalid dims: n");
     }
-
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
@@ -203,7 +105,89 @@ template <typename T> struct SimpleMat : SimpleVec<T> {
     }
   }
 
+  // this = a*x
+  inline void ax(const T a, const SimpleMat<T> &x) {
+    ASSERT(ord == x.ord, "SimpleMat::ax: Storage orders must match");
+    auto scale = [a] __device__(const T x) { return a * x; };
+    MLCommon::LinAlg::unaryOp(data, x.data, len, scale);
+  }
+
+  // this = a*x + y
+  inline void axpy(const T a, const SimpleMat<T> &x, const SimpleMat<T> &y) {
+    ASSERT(ord == x.ord, "SimpleMat::axpy: Storage orders must match");
+    ASSERT(ord == y.ord, "SimpleMat::axpy: Storage orders must match");
+    auto axpy = [a] __device__(const T x, const T y) { return a * x + y; };
+    MLCommon::LinAlg::binaryOp(data, x.data, y.data, len, axpy);
+  }
+
+  template <typename Lambda>
+  inline void assign_unary(const SimpleMat<T> &other, Lambda &f) {
+    ASSERT(ord == other.ord,
+           "SimpleMat::assign_unary: Storage orders must match");
+    MLCommon::LinAlg::unaryOp(data, other.data, len, f);
+  }
+
+  template <typename Lambda>
+  inline void assign_binary(const SimpleMat<T> &other1,
+                            const SimpleMat<T> &other2, Lambda &f) {
+
+    ASSERT(ord == other1.ord,
+           "SimpleMat::assign_binary: Storage orders must match");
+    ASSERT(ord == other2.ord,
+           "SimpleMat::assign_binary: Storage orders must match");
+    MLCommon::LinAlg::binaryOp(data, other1.data, other2.data, len, f);
+  }
+
+  template <typename Lambda>
+  inline void assign_ternary(const SimpleMat<T> &other1,
+                             const SimpleMat<T> &other2,
+                             const SimpleMat<T> &other3, Lambda &f) {
+    ASSERT(ord == other1.ord,
+           "SimpleMat::assign_binary: Storage orders must match");
+    ASSERT(ord == other2.ord,
+           "SimpleMat::assign_binary: Storage orders must match");
+    ASSERT(ord == other3.ord,
+           "SimpleMat::assign_binary: Storage orders must match");
+    MLCommon::LinAlg::ternaryOp(data, other1.data, other2.data, other3.data,
+                                len, f);
+  }
+
+  inline void fill(const T val) {
+    auto f = [val] __device__(const T x) { return val; };
+    MLCommon::LinAlg::unaryOp(data, data, len, f);
+  }
+
+  inline void operator=(const SimpleMat<T> &other) {
+
+    ASSERT(ord == other.ord, "SimpleMat::operator=: Storage orders must match");
+    CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
+                          cudaMemcpyDeviceToDevice));
+  }
 };
+
+
+template <typename T> struct SimpleVec : SimpleMat<T> {
+  typedef SimpleMat<T> Super;
+
+  SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
+  // this = alpha * A * x + beta * this
+  void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA,
+                   const SimpleVec<T> &x, const T beta,
+                   cublasHandle_t &cublas) {
+    Super::assign_gemm(alpha, A, transA, x, false, beta, cublas);
+  }
+
+  SimpleVec() : Super(COL_MAJOR) {}
+
+  inline void reset(T *new_data, int n) { Super::reset(new_data, n, 1); }
+
+  inline T operator[](int pos) const {
+    T tmp;
+    MLCommon::updateHost(&tmp, &this->data[pos], 1);
+    return tmp;
+  }
+};
+
 
 template <typename T>
 inline void col_ref(const SimpleMat<T> &mat, SimpleVec<T> &mask_vec, int c) {
@@ -224,17 +208,6 @@ inline void col_slice(const SimpleMat<T> &mat, SimpleMat<T> &mask_mat,
   T *tmp = &mat.data[mat.m * c_from];
   mask_mat.reset(tmp, mat.m, c_to - c_from);
 }
-
-template <typename T> struct SimpleVec2 : SimpleMat<T> {
-  typedef SimpleMat<T> Super;
-
-  SimpleVec2(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
-  // this = alpha * A * x + beta * this
-  void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA, const SimpleVec2<T> &x,
-                   const T beta, cublasHandle_t &cublas) {
-      Super::assign_gemm(alpha, A, transA, x, false, beta, cublas);
-  }
-};
 
 // Reductions such as dot or norm require an additional location in dev mem
 // to hold the result. We don't want to deal with this in the SimpleVec class

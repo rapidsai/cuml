@@ -89,7 +89,7 @@ template <class T> struct DevUpload {
 
 template <typename T, class LossFunction>
 T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
-      T *w, SimpleVec<T> &z, int verbosity = 0) {
+      T *w, SimpleMat<T> &z, int verbosity = 0) {
 
   int max_iter = 100;
   T grad_tol = 1e-8;
