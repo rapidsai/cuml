@@ -101,10 +101,6 @@ class Ridge:
         y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
         result_ridge = ridge.fit(X_cudf, y_cudf)
-        print("Coefficients:")
-        print(result_ridge.coef_)
-        print("intercept:")
-        print(result_ridge.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1']=np.array([3,2],dtype=np.float32)
@@ -153,11 +149,6 @@ class Ridge:
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        print("***************************************")
-
-        print(solver)
-        print(self.alpha)
-        print("***************************************")
 
         if solver in ['svd', 'eig', 'cd']:
             self.algo = self._get_algorithm_int(solver)
@@ -202,9 +193,6 @@ class Ridge:
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        print("***************************************")
-        print(self.algo)
-        print(self.alpha)
         cdef uintptr_t X_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -351,8 +339,6 @@ class Ridge:
         for key in variables:
             var_value = getattr(self,key,None)
             params[key] = var_value   
-        print("params ",params)  
-        print("variables ",variables)
         return params
 
 
@@ -360,7 +346,6 @@ class Ridge:
         if not params:
             return self
         current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
-        print("current_params : ",current_params) 
         nested_params = defaultdict(dict)
         for key, value in params.items():
             if key not in current_params:
