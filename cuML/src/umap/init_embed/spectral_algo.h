@@ -66,6 +66,8 @@ namespace UMAPAlgo {
                 COO_input->source_indices = rows;
                 COO_input->destination_indices = cols;
 
+                std::cout << "converting to csr" << std::endl;
+
                 nvgraphCSRTopology32I_st *CSR_input = new nvgraphCSRTopology32I_st();
                 CSR_input->destination_indices = dst_indices;
                 CSR_input->nedges = nnz;
@@ -74,6 +76,8 @@ namespace UMAPAlgo {
 
                 check(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
                         &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
+
+                std::cout << "done." << std::endl;
 
                 /**
                  * Calculate the eigenvectors (ordered by eigenvalue)
@@ -95,7 +99,7 @@ namespace UMAPAlgo {
                 clustering_params.evs_tolerance = 0.0f;
                 clustering_params.evs_max_iter = 0;
                 clustering_params.kmean_tolerance = 0.0f;
-                clustering_params.kmean_max_iter = 0;
+                clustering_params.kmean_max_iter = 1;
 
                 nvgraphGraphDescr_t graph;
                 check(nvgraphCreateGraphDescr(handle, &graph));
@@ -116,6 +120,8 @@ namespace UMAPAlgo {
 
                 CUDA_CHECK(cudaFree(clustering));
                 CUDA_CHECK(cudaFree(eigVals));
+
+                std::cout << "Spectral embedding complete" << std::endl;
             }
         }
     }

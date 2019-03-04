@@ -234,7 +234,7 @@ namespace UMAPAlgo {
 	         * it means threads will need to be synchronized when updating
 	         * the same embeddings.
 	         */
-	        template<typename T, int TPB_X>
+	        template< int TPB_X, typename T>
 	        void optimize_layout(
 	                T *head_embedding, int head_n,
 	                T *tail_embedding, int tail_n,
@@ -273,6 +273,7 @@ namespace UMAPAlgo {
                 MLCommon::allocate(d_state, TPB_X * head_n);
 
 
+                std::cout << "Running final SGD w/ " << params->n_epochs << " epochs." << std::endl;
                 for(int n = 0; n < params->n_epochs; n++) {
 
                     struct timeval tp;
@@ -300,6 +301,10 @@ namespace UMAPAlgo {
                     alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
 
+                CUDA_CHECK(cudaDeviceSynchronize());
+
+                std::cout << "Done." << std::endl;
+
 	            cudaFree(epochs_per_negative_sample);
 	            cudaFree(epoch_of_next_negative_sample);
 	            cudaFree(epoch_of_next_sample);
@@ -310,7 +315,7 @@ namespace UMAPAlgo {
 	         * the fuzzy set cross entropy between the embeddings
 	         * and their 1-skeletons.
 	         */
-	        template<typename T, int TPB_X>
+	        template<int TPB_X, typename T>
 	        void launcher(int m, int n,
 	                const int *rows, const int *cols, T *vals, int nnz,
 	                UMAPParams *params, T* embedding) {
@@ -344,7 +349,7 @@ namespace UMAPAlgo {
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
 
-	            optimize_layout<T, TPB_X>(embedding, m,
+	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
 	                            rows, cols, nnz,
 	                            epochs_per_sample,

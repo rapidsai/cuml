@@ -886,7 +886,7 @@ static const char *__pyx_f[] = {
 /*--- Type declarations ---*/
 struct __pyx_obj_4cuml_8manifold_4umap_UMAP1;
 
-/* "cuml/manifold/umap.pyx":74
+/* "cuml/manifold/umap.pyx":75
  *                        float *out)
  * 
  * cdef class UMAP1:             # <<<<<<<<<<<<<<
@@ -1124,6 +1124,15 @@ static PyObject *__Pyx_GetItemInt_Generic(PyObject *o, PyObject* j);
 static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i,
                                                      int is_list, int wraparound, int boundscheck);
 
+/* IncludeStringH.proto */
+#include <string.h>
+
+/* BytesEquals.proto */
+static CYTHON_INLINE int __Pyx_PyBytes_Equals(PyObject* s1, PyObject* s2, int equals);
+
+/* UnicodeEquals.proto */
+static CYTHON_INLINE int __Pyx_PyUnicode_Equals(PyObject* s1, PyObject* s2, int equals);
+
 /* RaiseException.proto */
 static void __Pyx_Raise(PyObject *type, PyObject *value, PyObject *tb, PyObject *cause);
 
@@ -1277,6 +1286,7 @@ static const char __pyx_k_rmm[] = "rmm";
 static const char __pyx_k_cuda[] = "cuda";
 static const char __pyx_k_cudf[] = "cudf";
 static const char __pyx_k_cuml[] = "cuml";
+static const char __pyx_k_init[] = "init";
 static const char __pyx_k_main[] = "__main__";
 static const char __pyx_k_name[] = "__name__";
 static const char __pyx_k_test[] = "__test__";
@@ -1293,6 +1303,7 @@ static const char __pyx_k_ctypes[] = "ctypes";
 static const char __pyx_k_import[] = "__import__";
 static const char __pyx_k_librmm[] = "librmm";
 static const char __pyx_k_pandas[] = "pandas";
+static const char __pyx_k_random[] = "random";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_spread[] = "spread";
 static const char __pyx_k_DEALLOC[] = "DEALLOC!";
@@ -1300,6 +1311,7 @@ static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_min_dist[] = "min_dist";
 static const char __pyx_k_n_epochs[] = "n_epochs";
 static const char __pyx_k_setstate[] = "__setstate__";
+static const char __pyx_k_spectral[] = "spectral";
 static const char __pyx_k_TypeError[] = "TypeError";
 static const char __pyx_k_reduce_ex[] = "__reduce_ex__";
 static const char __pyx_k_to_device[] = "to_device";
@@ -1319,9 +1331,11 @@ static const char __pyx_k_negative_sample_rate[] = "negative_sample_rate";
 static const char __pyx_k_transform_queue_size[] = "transform_queue_size";
 static const char __pyx_k_device_ctypes_pointer[] = "device_ctypes_pointer";
 static const char __pyx_k_data_should_be_two_dimensional[] = "data should be two dimensional";
+static const char __pyx_k_Initialization_strategy_not_supp[] = "Initialization strategy not support: [init=%d]";
 static const char __pyx_k_no_default___reduce___due_to_non[] = "no default __reduce__ due to non-trivial __cinit__";
 static PyObject *__pyx_n_u_C;
 static PyObject *__pyx_kp_u_DEALLOC;
+static PyObject *__pyx_kp_u_Initialization_strategy_not_supp;
 static PyObject *__pyx_n_s_TypeError;
 static PyObject *__pyx_n_s_UMAP1;
 static PyObject *__pyx_n_s_X;
@@ -1334,6 +1348,7 @@ static PyObject *__pyx_kp_u_data_should_be_two_dimensional;
 static PyObject *__pyx_n_s_device_ctypes_pointer;
 static PyObject *__pyx_n_s_getstate;
 static PyObject *__pyx_n_s_import;
+static PyObject *__pyx_n_s_init;
 static PyObject *__pyx_kp_u_kNN_D;
 static PyObject *__pyx_n_s_learning_rate;
 static PyObject *__pyx_n_s_librmm;
@@ -1355,6 +1370,7 @@ static PyObject *__pyx_n_s_order;
 static PyObject *__pyx_n_s_pandas;
 static PyObject *__pyx_n_s_pd;
 static PyObject *__pyx_n_s_print;
+static PyObject *__pyx_n_u_random;
 static PyObject *__pyx_n_s_reduce;
 static PyObject *__pyx_n_s_reduce_cython;
 static PyObject *__pyx_n_s_reduce_ex;
@@ -1365,6 +1381,7 @@ static PyObject *__pyx_n_s_set_op_mix_ratio;
 static PyObject *__pyx_n_s_setstate;
 static PyObject *__pyx_n_s_setstate_cython;
 static PyObject *__pyx_n_s_shape;
+static PyObject *__pyx_n_u_spectral;
 static PyObject *__pyx_n_s_spread;
 static PyObject *__pyx_n_s_test;
 static PyObject *__pyx_n_s_to_device;
@@ -1373,7 +1390,7 @@ static PyObject *__pyx_n_s_value;
 static PyObject *__pyx_n_s_zeros;
 static int __pyx_pf_4cuml_8manifold_4umap_5UMAP1___cinit__(CYTHON_UNUSED struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self); /* proto */
 static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self); /* proto */
-static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self, PyObject *__pyx_v_X, PyObject *__pyx_v_n_neighbors, PyObject *__pyx_v_n_components, CYTHON_UNUSED PyObject *__pyx_v_n_epochs, CYTHON_UNUSED PyObject *__pyx_v_learning_rate, CYTHON_UNUSED PyObject *__pyx_v_min_dist, CYTHON_UNUSED PyObject *__pyx_v_spread, CYTHON_UNUSED PyObject *__pyx_v_set_op_mix_ratio, CYTHON_UNUSED PyObject *__pyx_v_local_connectivity, CYTHON_UNUSED PyObject *__pyx_v_repulsion_strength, CYTHON_UNUSED PyObject *__pyx_v_negative_sample_rate, CYTHON_UNUSED PyObject *__pyx_v_transform_queue_size); /* proto */
+static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self, PyObject *__pyx_v_X, PyObject *__pyx_v_n_neighbors, PyObject *__pyx_v_n_components, PyObject *__pyx_v_n_epochs, PyObject *__pyx_v_learning_rate, PyObject *__pyx_v_min_dist, PyObject *__pyx_v_spread, PyObject *__pyx_v_set_op_mix_ratio, PyObject *__pyx_v_local_connectivity, PyObject *__pyx_v_repulsion_strength, PyObject *__pyx_v_negative_sample_rate, PyObject *__pyx_v_transform_queue_size, PyObject *__pyx_v_init); /* proto */
 static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_6__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_8__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_4cuml_8manifold_4umap_UMAP1(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -1388,7 +1405,7 @@ static PyObject *__pyx_tuple__2;
 static PyObject *__pyx_tuple__3;
 /* Late includes */
 
-/* "cuml/manifold/umap.pyx":82
+/* "cuml/manifold/umap.pyx":83
  *     cdef uintptr_t raw_data
  * 
  *     def __cinit__(self):             # <<<<<<<<<<<<<<
@@ -1423,7 +1440,7 @@ static int __pyx_pf_4cuml_8manifold_4umap_5UMAP1___cinit__(CYTHON_UNUSED struct 
   return __pyx_r;
 }
 
-/* "cuml/manifold/umap.pyx":94
+/* "cuml/manifold/umap.pyx":95
  *         """
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -1447,18 +1464,18 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
   PyObject *__pyx_t_1 = NULL;
   __Pyx_RefNannySetupContext("__dealloc__", 0);
 
-  /* "cuml/manifold/umap.pyx":95
+  /* "cuml/manifold/umap.pyx":96
  * 
  *     def __dealloc__(self):
  *         print("DEALLOC!")             # <<<<<<<<<<<<<<
  *         del self.umap_params
  *         del self.umap
  */
-  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_Call(__pyx_builtin_print, __pyx_tuple_, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cuml/manifold/umap.pyx":96
+  /* "cuml/manifold/umap.pyx":97
  *     def __dealloc__(self):
  *         print("DEALLOC!")
  *         del self.umap_params             # <<<<<<<<<<<<<<
@@ -1467,7 +1484,7 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
  */
   delete __pyx_v_self->umap_params;
 
-  /* "cuml/manifold/umap.pyx":97
+  /* "cuml/manifold/umap.pyx":98
  *         print("DEALLOC!")
  *         del self.umap_params
  *         del self.umap             # <<<<<<<<<<<<<<
@@ -1476,7 +1493,7 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
  */
   delete __pyx_v_self->umap;
 
-  /* "cuml/manifold/umap.pyx":98
+  /* "cuml/manifold/umap.pyx":99
  *         del self.umap_params
  *         del self.umap
  *         del self.knn             # <<<<<<<<<<<<<<
@@ -1485,7 +1502,7 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
  */
   delete __pyx_v_self->knn;
 
-  /* "cuml/manifold/umap.pyx":94
+  /* "cuml/manifold/umap.pyx":95
  *         """
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -1502,7 +1519,7 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
   __Pyx_RefNannyFinishContext();
 }
 
-/* "cuml/manifold/umap.pyx":101
+/* "cuml/manifold/umap.pyx":102
  * 
  * 
  *     def fit(self, X,             # <<<<<<<<<<<<<<
@@ -1512,26 +1529,27 @@ static void __pyx_pf_4cuml_8manifold_4umap_5UMAP1_2__dealloc__(struct __pyx_obj_
 
 /* Python wrapper */
 static PyObject *__pyx_pw_4cuml_8manifold_4umap_5UMAP1_5fit(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
-static char __pyx_doc_4cuml_8manifold_4umap_5UMAP1_4fit[] = "UMAP1.fit(self, X, n_neighbors=2, n_components=2, n_epochs=500, learning_rate=1.0, min_dist=0.1, spread=1.0, set_op_mix_ratio=1.0, local_connectivity=1.0, repulsion_strength=1.0, negative_sample_rate=5, transform_queue_size=4.0)";
+static char __pyx_doc_4cuml_8manifold_4umap_5UMAP1_4fit[] = "UMAP1.fit(self, X, n_neighbors=2, n_components=2, n_epochs=500, learning_rate=1.0, min_dist=0.1, spread=1.0, set_op_mix_ratio=1.0, local_connectivity=1.0, repulsion_strength=1.0, negative_sample_rate=5, transform_queue_size=4.0, init=u'spectral')";
 static PyObject *__pyx_pw_4cuml_8manifold_4umap_5UMAP1_5fit(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
   PyObject *__pyx_v_X = 0;
   PyObject *__pyx_v_n_neighbors = 0;
   PyObject *__pyx_v_n_components = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_n_epochs = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_learning_rate = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_min_dist = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_spread = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_set_op_mix_ratio = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_local_connectivity = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_repulsion_strength = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_negative_sample_rate = 0;
-  CYTHON_UNUSED PyObject *__pyx_v_transform_queue_size = 0;
+  PyObject *__pyx_v_n_epochs = 0;
+  PyObject *__pyx_v_learning_rate = 0;
+  PyObject *__pyx_v_min_dist = 0;
+  PyObject *__pyx_v_spread = 0;
+  PyObject *__pyx_v_set_op_mix_ratio = 0;
+  PyObject *__pyx_v_local_connectivity = 0;
+  PyObject *__pyx_v_repulsion_strength = 0;
+  PyObject *__pyx_v_negative_sample_rate = 0;
+  PyObject *__pyx_v_transform_queue_size = 0;
+  PyObject *__pyx_v_init = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("fit (wrapper)", 0);
   {
-    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_X,&__pyx_n_s_n_neighbors,&__pyx_n_s_n_components,&__pyx_n_s_n_epochs,&__pyx_n_s_learning_rate,&__pyx_n_s_min_dist,&__pyx_n_s_spread,&__pyx_n_s_set_op_mix_ratio,&__pyx_n_s_local_connectivity,&__pyx_n_s_repulsion_strength,&__pyx_n_s_negative_sample_rate,&__pyx_n_s_transform_queue_size,0};
-    PyObject* values[12] = {0,0,0,0,0,0,0,0,0,0,0,0};
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_X,&__pyx_n_s_n_neighbors,&__pyx_n_s_n_components,&__pyx_n_s_n_epochs,&__pyx_n_s_learning_rate,&__pyx_n_s_min_dist,&__pyx_n_s_spread,&__pyx_n_s_set_op_mix_ratio,&__pyx_n_s_local_connectivity,&__pyx_n_s_repulsion_strength,&__pyx_n_s_negative_sample_rate,&__pyx_n_s_transform_queue_size,&__pyx_n_s_init,0};
+    PyObject* values[13] = {0,0,0,0,0,0,0,0,0,0,0,0,0};
     values[1] = ((PyObject *)__pyx_int_2);
     values[2] = ((PyObject *)__pyx_int_2);
     values[3] = ((PyObject *)__pyx_int_500);
@@ -1543,10 +1561,13 @@ static PyObject *__pyx_pw_4cuml_8manifold_4umap_5UMAP1_5fit(PyObject *__pyx_v_se
     values[9] = ((PyObject *)__pyx_float_1_0);
     values[10] = ((PyObject *)__pyx_int_5);
     values[11] = ((PyObject *)__pyx_float_4_0);
+    values[12] = ((PyObject *)__pyx_n_u_spectral);
     if (unlikely(__pyx_kwds)) {
       Py_ssize_t kw_args;
       const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
       switch (pos_args) {
+        case 13: values[12] = PyTuple_GET_ITEM(__pyx_args, 12);
+        CYTHON_FALLTHROUGH;
         case 12: values[11] = PyTuple_GET_ITEM(__pyx_args, 11);
         CYTHON_FALLTHROUGH;
         case 11: values[10] = PyTuple_GET_ITEM(__pyx_args, 10);
@@ -1645,12 +1666,20 @@ static PyObject *__pyx_pw_4cuml_8manifold_4umap_5UMAP1_5fit(PyObject *__pyx_v_se
           PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_transform_queue_size);
           if (value) { values[11] = value; kw_args--; }
         }
+        CYTHON_FALLTHROUGH;
+        case 12:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_init);
+          if (value) { values[12] = value; kw_args--; }
+        }
       }
       if (unlikely(kw_args > 0)) {
-        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "fit") < 0)) __PYX_ERR(0, 101, __pyx_L3_error)
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "fit") < 0)) __PYX_ERR(0, 102, __pyx_L3_error)
       }
     } else {
       switch (PyTuple_GET_SIZE(__pyx_args)) {
+        case 13: values[12] = PyTuple_GET_ITEM(__pyx_args, 12);
+        CYTHON_FALLTHROUGH;
         case 12: values[11] = PyTuple_GET_ITEM(__pyx_args, 11);
         CYTHON_FALLTHROUGH;
         case 11: values[10] = PyTuple_GET_ITEM(__pyx_args, 10);
@@ -1690,23 +1719,24 @@ static PyObject *__pyx_pw_4cuml_8manifold_4umap_5UMAP1_5fit(PyObject *__pyx_v_se
     __pyx_v_repulsion_strength = values[9];
     __pyx_v_negative_sample_rate = values[10];
     __pyx_v_transform_queue_size = values[11];
+    __pyx_v_init = values[12];
   }
   goto __pyx_L4_argument_unpacking_done;
   __pyx_L5_argtuple_error:;
-  __Pyx_RaiseArgtupleInvalid("fit", 0, 1, 12, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 101, __pyx_L3_error)
+  __Pyx_RaiseArgtupleInvalid("fit", 0, 1, 13, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 102, __pyx_L3_error)
   __pyx_L3_error:;
   __Pyx_AddTraceback("cuml.manifold.umap.UMAP1.fit", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __Pyx_RefNannyFinishContext();
   return NULL;
   __pyx_L4_argument_unpacking_done:;
-  __pyx_r = __pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(((struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *)__pyx_v_self), __pyx_v_X, __pyx_v_n_neighbors, __pyx_v_n_components, __pyx_v_n_epochs, __pyx_v_learning_rate, __pyx_v_min_dist, __pyx_v_spread, __pyx_v_set_op_mix_ratio, __pyx_v_local_connectivity, __pyx_v_repulsion_strength, __pyx_v_negative_sample_rate, __pyx_v_transform_queue_size);
+  __pyx_r = __pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(((struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *)__pyx_v_self), __pyx_v_X, __pyx_v_n_neighbors, __pyx_v_n_components, __pyx_v_n_epochs, __pyx_v_learning_rate, __pyx_v_min_dist, __pyx_v_spread, __pyx_v_set_op_mix_ratio, __pyx_v_local_connectivity, __pyx_v_repulsion_strength, __pyx_v_negative_sample_rate, __pyx_v_transform_queue_size, __pyx_v_init);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self, PyObject *__pyx_v_X, PyObject *__pyx_v_n_neighbors, PyObject *__pyx_v_n_components, CYTHON_UNUSED PyObject *__pyx_v_n_epochs, CYTHON_UNUSED PyObject *__pyx_v_learning_rate, CYTHON_UNUSED PyObject *__pyx_v_min_dist, CYTHON_UNUSED PyObject *__pyx_v_spread, CYTHON_UNUSED PyObject *__pyx_v_set_op_mix_ratio, CYTHON_UNUSED PyObject *__pyx_v_local_connectivity, CYTHON_UNUSED PyObject *__pyx_v_repulsion_strength, CYTHON_UNUSED PyObject *__pyx_v_negative_sample_rate, CYTHON_UNUSED PyObject *__pyx_v_transform_queue_size) {
+static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cuml_8manifold_4umap_UMAP1 *__pyx_v_self, PyObject *__pyx_v_X, PyObject *__pyx_v_n_neighbors, PyObject *__pyx_v_n_components, PyObject *__pyx_v_n_epochs, PyObject *__pyx_v_learning_rate, PyObject *__pyx_v_min_dist, PyObject *__pyx_v_spread, PyObject *__pyx_v_set_op_mix_ratio, PyObject *__pyx_v_local_connectivity, PyObject *__pyx_v_repulsion_strength, PyObject *__pyx_v_negative_sample_rate, PyObject *__pyx_v_transform_queue_size, PyObject *__pyx_v_init) {
   PyObject *__pyx_v_X_m = NULL;
   PyObject *__pyx_v_arr_embed = NULL;
   PyObject *__pyx_r = NULL;
@@ -1723,12 +1753,13 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   int __pyx_t_10;
   ML::kNN *__pyx_t_11;
   ML::UMAPParams *__pyx_t_12;
-  ML::UMAP *__pyx_t_13;
-  int __pyx_t_14;
+  float __pyx_t_13;
+  ML::UMAP *__pyx_t_14;
+  int __pyx_t_15;
   __Pyx_RefNannySetupContext("fit", 0);
 
-  /* "cuml/manifold/umap.pyx":114
- *             transform_queue_size = 4.0):
+  /* "cuml/manifold/umap.pyx":116
+ *             init = "spectral"):
  * 
  *         if self.umap_params != NULL:             # <<<<<<<<<<<<<<
  *             del self.umap_params
@@ -1737,7 +1768,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_1 = ((__pyx_v_self->umap_params != NULL) != 0);
   if (__pyx_t_1) {
 
-    /* "cuml/manifold/umap.pyx":115
+    /* "cuml/manifold/umap.pyx":117
  * 
  *         if self.umap_params != NULL:
  *             del self.umap_params             # <<<<<<<<<<<<<<
@@ -1746,8 +1777,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
     delete __pyx_v_self->umap_params;
 
-    /* "cuml/manifold/umap.pyx":114
- *             transform_queue_size = 4.0):
+    /* "cuml/manifold/umap.pyx":116
+ *             init = "spectral"):
  * 
  *         if self.umap_params != NULL:             # <<<<<<<<<<<<<<
  *             del self.umap_params
@@ -1755,7 +1786,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
   }
 
-  /* "cuml/manifold/umap.pyx":117
+  /* "cuml/manifold/umap.pyx":119
  *             del self.umap_params
  * 
  *         if self.umap != NULL:             # <<<<<<<<<<<<<<
@@ -1765,7 +1796,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_1 = ((__pyx_v_self->umap != NULL) != 0);
   if (__pyx_t_1) {
 
-    /* "cuml/manifold/umap.pyx":118
+    /* "cuml/manifold/umap.pyx":120
  * 
  *         if self.umap != NULL:
  *             del self.umap             # <<<<<<<<<<<<<<
@@ -1774,7 +1805,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
     delete __pyx_v_self->umap;
 
-    /* "cuml/manifold/umap.pyx":117
+    /* "cuml/manifold/umap.pyx":119
  *             del self.umap_params
  * 
  *         if self.umap != NULL:             # <<<<<<<<<<<<<<
@@ -1783,7 +1814,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
   }
 
-  /* "cuml/manifold/umap.pyx":120
+  /* "cuml/manifold/umap.pyx":122
  *             del self.umap
  * 
  *         if self.knn != NULL:             # <<<<<<<<<<<<<<
@@ -1793,7 +1824,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_1 = ((__pyx_v_self->knn != NULL) != 0);
   if (__pyx_t_1) {
 
-    /* "cuml/manifold/umap.pyx":121
+    /* "cuml/manifold/umap.pyx":123
  * 
  *         if self.knn != NULL:
  *             del self.knn             # <<<<<<<<<<<<<<
@@ -1802,7 +1833,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
     delete __pyx_v_self->knn;
 
-    /* "cuml/manifold/umap.pyx":120
+    /* "cuml/manifold/umap.pyx":122
  *             del self.umap
  * 
  *         if self.knn != NULL:             # <<<<<<<<<<<<<<
@@ -1811,7 +1842,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
   }
 
-  /* "cuml/manifold/umap.pyx":126
+  /* "cuml/manifold/umap.pyx":128
  *         Fit a UMAP model
  *         """
  *         assert len(X.shape) == 2, 'data should be two dimensional'             # <<<<<<<<<<<<<<
@@ -1820,27 +1851,27 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
   #ifndef CYTHON_WITHOUT_ASSERTIONS
   if (unlikely(!Py_OptimizeFlag)) {
-    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X, __pyx_n_s_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X, __pyx_n_s_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
-    __pyx_t_3 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 126, __pyx_L1_error)
+    __pyx_t_3 = PyObject_Length(__pyx_t_2); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(0, 128, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
     if (unlikely(!((__pyx_t_3 == 2) != 0))) {
       PyErr_SetObject(PyExc_AssertionError, __pyx_kp_u_data_should_be_two_dimensional);
-      __PYX_ERR(0, 126, __pyx_L1_error)
+      __PYX_ERR(0, 128, __pyx_L1_error)
     }
   }
   #endif
 
-  /* "cuml/manifold/umap.pyx":128
+  /* "cuml/manifold/umap.pyx":130
  *         assert len(X.shape) == 2, 'data should be two dimensional'
  * 
  *         X_m = numba_utils.row_matrix(X)             # <<<<<<<<<<<<<<
  *         self.raw_data = X_m.device_ctypes_pointer.value
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_numba_utils); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_4, __pyx_n_s_numba_utils); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_row_matrix); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 128, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_4, __pyx_n_s_row_matrix); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_t_4 = NULL;
@@ -1855,51 +1886,51 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   }
   __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_5, __pyx_t_4, __pyx_v_X) : __Pyx_PyObject_CallOneArg(__pyx_t_5, __pyx_v_X);
   __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
-  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 128, __pyx_L1_error)
+  if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 130, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_X_m = __pyx_t_2;
   __pyx_t_2 = 0;
 
-  /* "cuml/manifold/umap.pyx":129
+  /* "cuml/manifold/umap.pyx":131
  * 
  *         X_m = numba_utils.row_matrix(X)
  *         self.raw_data = X_m.device_ctypes_pointer.value             # <<<<<<<<<<<<<<
  * 
  *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))
  */
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_device_ctypes_pointer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_device_ctypes_pointer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_value); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_6 = __Pyx_PyInt_As_size_t(__pyx_t_5); if (unlikely((__pyx_t_6 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 129, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_As_size_t(__pyx_t_5); if (unlikely((__pyx_t_6 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   __pyx_v_self->raw_data = __pyx_t_6;
 
-  /* "cuml/manifold/umap.pyx":131
+  /* "cuml/manifold/umap.pyx":133
  *         self.raw_data = X_m.device_ctypes_pointer.value
  * 
  *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))             # <<<<<<<<<<<<<<
  *         self.embeddings = arr_embed.device_ctypes_pointer.value
  * 
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_cuda); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_cuda); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_to_device); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_to_device); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_2, __pyx_n_s_np); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_7 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_zeros); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_7);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_8 = __Pyx_GetItemInt(__pyx_t_2, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_GIVEREF(__pyx_t_8);
   PyTuple_SET_ITEM(__pyx_t_2, 0, __pyx_t_8);
@@ -1907,15 +1938,15 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __Pyx_GIVEREF(__pyx_v_n_components);
   PyTuple_SET_ITEM(__pyx_t_2, 1, __pyx_v_n_components);
   __pyx_t_8 = 0;
-  __pyx_t_8 = PyTuple_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_8 = PyTuple_New(1); if (unlikely(!__pyx_t_8)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_8);
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
-  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_order, __pyx_n_u_C) < 0) __PYX_ERR(0, 131, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_order, __pyx_n_u_C) < 0) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -1933,180 +1964,350 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_5 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_t_9) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_9);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
   __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
-  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 131, __pyx_L1_error)
+  if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_arr_embed = __pyx_t_5;
   __pyx_t_5 = 0;
 
-  /* "cuml/manifold/umap.pyx":132
+  /* "cuml/manifold/umap.pyx":134
  * 
  *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))
  *         self.embeddings = arr_embed.device_ctypes_pointer.value             # <<<<<<<<<<<<<<
  * 
  *         self.knn = new kNN(X_m.shape[1])
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr_embed, __pyx_n_s_device_ctypes_pointer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr_embed, __pyx_n_s_device_ctypes_pointer); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_5, __pyx_n_s_value); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_6 = __Pyx_PyInt_As_size_t(__pyx_t_4); if (unlikely((__pyx_t_6 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 132, __pyx_L1_error)
+  __pyx_t_6 = __Pyx_PyInt_As_size_t(__pyx_t_4); if (unlikely((__pyx_t_6 == ((uintptr_t)-1)) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __pyx_v_self->embeddings = __pyx_t_6;
 
-  /* "cuml/manifold/umap.pyx":134
+  /* "cuml/manifold/umap.pyx":136
  *         self.embeddings = arr_embed.device_ctypes_pointer.value
  * 
  *         self.knn = new kNN(X_m.shape[1])             # <<<<<<<<<<<<<<
  * 
  *         print("kNN D=" + str(X_m.shape[1]))
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 134, __pyx_L1_error)
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   try {
     __pyx_t_11 = new ML::kNN(__pyx_t_10);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 134, __pyx_L1_error)
+    __PYX_ERR(0, 136, __pyx_L1_error)
   }
   __pyx_v_self->knn = __pyx_t_11;
 
-  /* "cuml/manifold/umap.pyx":136
+  /* "cuml/manifold/umap.pyx":138
  *         self.knn = new kNN(X_m.shape[1])
  * 
  *         print("kNN D=" + str(X_m.shape[1]))             # <<<<<<<<<<<<<<
  * 
  *         self.umap_params = new UMAPParams()
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(((PyObject *)(&PyUnicode_Type)), __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_kNN_D, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyUnicode_Concat(__pyx_kp_u_kNN_D, __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_CallOneArg(__pyx_builtin_print, __pyx_t_4); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 138, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "cuml/manifold/umap.pyx":138
+  /* "cuml/manifold/umap.pyx":140
  *         print("kNN D=" + str(X_m.shape[1]))
  * 
  *         self.umap_params = new UMAPParams()             # <<<<<<<<<<<<<<
- *         self.umap_params.n_neighbors = n_neighbors
- *         self.umap_params.n_components = n_components
+ *         self.umap_params.n_neighbors = <int>n_neighbors
+ *         self.umap_params.n_components = <int>n_components
  */
   try {
     __pyx_t_12 = new ML::UMAPParams();
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 138, __pyx_L1_error)
+    __PYX_ERR(0, 140, __pyx_L1_error)
   }
   __pyx_v_self->umap_params = __pyx_t_12;
 
-  /* "cuml/manifold/umap.pyx":139
+  /* "cuml/manifold/umap.pyx":141
  * 
  *         self.umap_params = new UMAPParams()
- *         self.umap_params.n_neighbors = n_neighbors             # <<<<<<<<<<<<<<
- *         self.umap_params.n_components = n_components
+ *         self.umap_params.n_neighbors = <int>n_neighbors             # <<<<<<<<<<<<<<
+ *         self.umap_params.n_components = <int>n_components
+ *         self.umap_params.n_epochs = <int>n_epochs
+ */
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_neighbors); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_neighbors = ((int)__pyx_t_10);
+
+  /* "cuml/manifold/umap.pyx":142
+ *         self.umap_params = new UMAPParams()
+ *         self.umap_params.n_neighbors = <int>n_neighbors
+ *         self.umap_params.n_components = <int>n_components             # <<<<<<<<<<<<<<
+ *         self.umap_params.n_epochs = <int>n_epochs
  * 
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_neighbors); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 139, __pyx_L1_error)
-  __pyx_v_self->umap_params->n_neighbors = __pyx_t_10;
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_components); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_components = ((int)__pyx_t_10);
 
-  /* "cuml/manifold/umap.pyx":140
- *         self.umap_params = new UMAPParams()
- *         self.umap_params.n_neighbors = n_neighbors
- *         self.umap_params.n_components = n_components             # <<<<<<<<<<<<<<
+  /* "cuml/manifold/umap.pyx":143
+ *         self.umap_params.n_neighbors = <int>n_neighbors
+ *         self.umap_params.n_components = <int>n_components
+ *         self.umap_params.n_epochs = <int>n_epochs             # <<<<<<<<<<<<<<
+ * 
+ *         if(init == "spectral"):
+ */
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_epochs); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_epochs = ((int)__pyx_t_10);
+
+  /* "cuml/manifold/umap.pyx":145
+ *         self.umap_params.n_epochs = <int>n_epochs
+ * 
+ *         if(init == "spectral"):             # <<<<<<<<<<<<<<
+ *             self.umap_params.init = <int>1
+ *         elif(init == "random"):
+ */
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_init, __pyx_n_u_spectral, Py_EQ)); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 145, __pyx_L1_error)
+  if (__pyx_t_1) {
+
+    /* "cuml/manifold/umap.pyx":146
+ * 
+ *         if(init == "spectral"):
+ *             self.umap_params.init = <int>1             # <<<<<<<<<<<<<<
+ *         elif(init == "random"):
+ *             self.umap_params.init = <int>0
+ */
+    __pyx_v_self->umap_params->init = ((int)1);
+
+    /* "cuml/manifold/umap.pyx":145
+ *         self.umap_params.n_epochs = <int>n_epochs
+ * 
+ *         if(init == "spectral"):             # <<<<<<<<<<<<<<
+ *             self.umap_params.init = <int>1
+ *         elif(init == "random"):
+ */
+    goto __pyx_L6;
+  }
+
+  /* "cuml/manifold/umap.pyx":147
+ *         if(init == "spectral"):
+ *             self.umap_params.init = <int>1
+ *         elif(init == "random"):             # <<<<<<<<<<<<<<
+ *             self.umap_params.init = <int>0
+ *         else:
+ */
+  __pyx_t_1 = (__Pyx_PyUnicode_Equals(__pyx_v_init, __pyx_n_u_random, Py_EQ)); if (unlikely(__pyx_t_1 < 0)) __PYX_ERR(0, 147, __pyx_L1_error)
+  if (likely(__pyx_t_1)) {
+
+    /* "cuml/manifold/umap.pyx":148
+ *             self.umap_params.init = <int>1
+ *         elif(init == "random"):
+ *             self.umap_params.init = <int>0             # <<<<<<<<<<<<<<
+ *         else:
+ *             raise Exception("Initialization strategy not support: [init=%d]" % init)
+ */
+    __pyx_v_self->umap_params->init = ((int)0);
+
+    /* "cuml/manifold/umap.pyx":147
+ *         if(init == "spectral"):
+ *             self.umap_params.init = <int>1
+ *         elif(init == "random"):             # <<<<<<<<<<<<<<
+ *             self.umap_params.init = <int>0
+ *         else:
+ */
+    goto __pyx_L6;
+  }
+
+  /* "cuml/manifold/umap.pyx":150
+ *             self.umap_params.init = <int>0
+ *         else:
+ *             raise Exception("Initialization strategy not support: [init=%d]" % init)             # <<<<<<<<<<<<<<
+ * 
+ *         self.umap_params.learning_rate = <float>learning_rate
+ */
+  /*else*/ {
+    __pyx_t_5 = __Pyx_PyUnicode_FormatSafe(__pyx_kp_u_Initialization_strategy_not_supp, __pyx_v_init); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_5);
+    __pyx_t_4 = __Pyx_PyObject_CallOneArg(((PyObject *)(&((PyTypeObject*)PyExc_Exception)[0])), __pyx_t_5); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 150, __pyx_L1_error)
+    __Pyx_GOTREF(__pyx_t_4);
+    __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+    __Pyx_Raise(__pyx_t_4, 0, 0, 0);
+    __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+    __PYX_ERR(0, 150, __pyx_L1_error)
+  }
+  __pyx_L6:;
+
+  /* "cuml/manifold/umap.pyx":152
+ *             raise Exception("Initialization strategy not support: [init=%d]" % init)
+ * 
+ *         self.umap_params.learning_rate = <float>learning_rate             # <<<<<<<<<<<<<<
+ *         self.umap_params.min_dist = <float>min_dist
+ *         self.umap_params.spread = <float>spread
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_learning_rate); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_v_self->umap_params->learning_rate = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":153
+ * 
+ *         self.umap_params.learning_rate = <float>learning_rate
+ *         self.umap_params.min_dist = <float>min_dist             # <<<<<<<<<<<<<<
+ *         self.umap_params.spread = <float>spread
+ *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_min_dist); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_v_self->umap_params->min_dist = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":154
+ *         self.umap_params.learning_rate = <float>learning_rate
+ *         self.umap_params.min_dist = <float>min_dist
+ *         self.umap_params.spread = <float>spread             # <<<<<<<<<<<<<<
+ *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
+ *         self.umap_params.local_connectivity = <float>local_connectivity
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_spread); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_v_self->umap_params->spread = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":155
+ *         self.umap_params.min_dist = <float>min_dist
+ *         self.umap_params.spread = <float>spread
+ *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio             # <<<<<<<<<<<<<<
+ *         self.umap_params.local_connectivity = <float>local_connectivity
+ *         self.umap_params.repulsion_strength = <float>repulsion_strength
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_set_op_mix_ratio); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_v_self->umap_params->set_op_mix_ratio = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":156
+ *         self.umap_params.spread = <float>spread
+ *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
+ *         self.umap_params.local_connectivity = <float>local_connectivity             # <<<<<<<<<<<<<<
+ *         self.umap_params.repulsion_strength = <float>repulsion_strength
+ *         self.umap_params.negative_sample_rate = <int>negative_sample_rate
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_local_connectivity); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_v_self->umap_params->local_connectivity = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":157
+ *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
+ *         self.umap_params.local_connectivity = <float>local_connectivity
+ *         self.umap_params.repulsion_strength = <float>repulsion_strength             # <<<<<<<<<<<<<<
+ *         self.umap_params.negative_sample_rate = <int>negative_sample_rate
+ *         self.umap_params.transform_queue_size = <int>transform_queue_size
+ */
+  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_repulsion_strength); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_v_self->umap_params->repulsion_strength = ((float)__pyx_t_13);
+
+  /* "cuml/manifold/umap.pyx":158
+ *         self.umap_params.local_connectivity = <float>local_connectivity
+ *         self.umap_params.repulsion_strength = <float>repulsion_strength
+ *         self.umap_params.negative_sample_rate = <int>negative_sample_rate             # <<<<<<<<<<<<<<
+ *         self.umap_params.transform_queue_size = <int>transform_queue_size
+ * 
+ */
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_negative_sample_rate); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_v_self->umap_params->negative_sample_rate = ((int)__pyx_t_10);
+
+  /* "cuml/manifold/umap.pyx":159
+ *         self.umap_params.repulsion_strength = <float>repulsion_strength
+ *         self.umap_params.negative_sample_rate = <int>negative_sample_rate
+ *         self.umap_params.transform_queue_size = <int>transform_queue_size             # <<<<<<<<<<<<<<
  * 
  *         self.umap = new UMAP(self.umap_params)
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_components); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 140, __pyx_L1_error)
-  __pyx_v_self->umap_params->n_components = __pyx_t_10;
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_transform_queue_size); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_v_self->umap_params->transform_queue_size = ((int)__pyx_t_10);
 
-  /* "cuml/manifold/umap.pyx":142
- *         self.umap_params.n_components = n_components
+  /* "cuml/manifold/umap.pyx":161
+ *         self.umap_params.transform_queue_size = <int>transform_queue_size
  * 
  *         self.umap = new UMAP(self.umap_params)             # <<<<<<<<<<<<<<
  * 
  *         self.umap.fit(
  */
   try {
-    __pyx_t_13 = new ML::UMAP(__pyx_v_self->umap_params);
+    __pyx_t_14 = new ML::UMAP(__pyx_v_self->umap_params);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 142, __pyx_L1_error)
+    __PYX_ERR(0, 161, __pyx_L1_error)
   }
-  __pyx_v_self->umap = __pyx_t_13;
+  __pyx_v_self->umap = __pyx_t_14;
 
-  /* "cuml/manifold/umap.pyx":146
+  /* "cuml/manifold/umap.pyx":165
  *         self.umap.fit(
  *             <float*> self.raw_data,
  *             <int> X_m.shape[0],             # <<<<<<<<<<<<<<
  *             <int> X_m.shape[1],
  *             <kNN*> self.knn,
  */
-  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 146, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_5);
-  __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_5, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
-  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 146, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
+  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 165, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
-  /* "cuml/manifold/umap.pyx":147
+  /* "cuml/manifold/umap.pyx":166
  *             <float*> self.raw_data,
  *             <int> X_m.shape[0],
  *             <int> X_m.shape[1],             # <<<<<<<<<<<<<<
  *             <kNN*> self.knn,
  *             <float*>self.embeddings
  */
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 147, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_5 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_shape); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
-  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_14 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_14 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 147, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
+  __pyx_t_15 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_15 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
-  /* "cuml/manifold/umap.pyx":144
+  /* "cuml/manifold/umap.pyx":163
  *         self.umap = new UMAP(self.umap_params)
  * 
  *         self.umap.fit(             # <<<<<<<<<<<<<<
  *             <float*> self.raw_data,
  *             <int> X_m.shape[0],
  */
-  __pyx_v_self->umap->fit(((float *)__pyx_v_self->raw_data), ((int)__pyx_t_10), ((int)__pyx_t_14), ((ML::kNN *)__pyx_v_self->knn), ((float *)__pyx_v_self->embeddings));
+  __pyx_v_self->umap->fit(((float *)__pyx_v_self->raw_data), ((int)__pyx_t_10), ((int)__pyx_t_15), ((ML::kNN *)__pyx_v_self->knn), ((float *)__pyx_v_self->embeddings));
 
-  /* "cuml/manifold/umap.pyx":152
+  /* "cuml/manifold/umap.pyx":171
  *         )
  * 
  *         del X_m             # <<<<<<<<<<<<<<
- *         del arr_embed
+ * 
+ *         return arr_embed
  */
   __Pyx_DECREF(__pyx_v_X_m);
   __pyx_v_X_m = NULL;
 
-  /* "cuml/manifold/umap.pyx":153
- * 
+  /* "cuml/manifold/umap.pyx":173
  *         del X_m
- *         del arr_embed             # <<<<<<<<<<<<<<
+ * 
+ *         return arr_embed             # <<<<<<<<<<<<<<
  */
-  __Pyx_DECREF(__pyx_v_arr_embed);
-  __pyx_v_arr_embed = NULL;
+  __Pyx_XDECREF(__pyx_r);
+  __Pyx_INCREF(__pyx_v_arr_embed);
+  __pyx_r = __pyx_v_arr_embed;
+  goto __pyx_L0;
 
-  /* "cuml/manifold/umap.pyx":101
+  /* "cuml/manifold/umap.pyx":102
  * 
  * 
  *     def fit(self, X,             # <<<<<<<<<<<<<<
@@ -2115,8 +2316,6 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  */
 
   /* function exit code */
-  __pyx_r = Py_None; __Pyx_INCREF(Py_None);
-  goto __pyx_L0;
   __pyx_L1_error:;
   __Pyx_XDECREF(__pyx_t_2);
   __Pyx_XDECREF(__pyx_t_4);
@@ -2388,6 +2587,7 @@ static struct PyModuleDef __pyx_moduledef = {
 static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_u_C, __pyx_k_C, sizeof(__pyx_k_C), 0, 1, 0, 1},
   {&__pyx_kp_u_DEALLOC, __pyx_k_DEALLOC, sizeof(__pyx_k_DEALLOC), 0, 1, 0, 0},
+  {&__pyx_kp_u_Initialization_strategy_not_supp, __pyx_k_Initialization_strategy_not_supp, sizeof(__pyx_k_Initialization_strategy_not_supp), 0, 1, 0, 0},
   {&__pyx_n_s_TypeError, __pyx_k_TypeError, sizeof(__pyx_k_TypeError), 0, 0, 1, 1},
   {&__pyx_n_s_UMAP1, __pyx_k_UMAP1, sizeof(__pyx_k_UMAP1), 0, 0, 1, 1},
   {&__pyx_n_s_X, __pyx_k_X, sizeof(__pyx_k_X), 0, 0, 1, 1},
@@ -2400,6 +2600,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_device_ctypes_pointer, __pyx_k_device_ctypes_pointer, sizeof(__pyx_k_device_ctypes_pointer), 0, 0, 1, 1},
   {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
+  {&__pyx_n_s_init, __pyx_k_init, sizeof(__pyx_k_init), 0, 0, 1, 1},
   {&__pyx_kp_u_kNN_D, __pyx_k_kNN_D, sizeof(__pyx_k_kNN_D), 0, 1, 0, 0},
   {&__pyx_n_s_learning_rate, __pyx_k_learning_rate, sizeof(__pyx_k_learning_rate), 0, 0, 1, 1},
   {&__pyx_n_s_librmm, __pyx_k_librmm, sizeof(__pyx_k_librmm), 0, 0, 1, 1},
@@ -2421,6 +2622,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_pandas, __pyx_k_pandas, sizeof(__pyx_k_pandas), 0, 0, 1, 1},
   {&__pyx_n_s_pd, __pyx_k_pd, sizeof(__pyx_k_pd), 0, 0, 1, 1},
   {&__pyx_n_s_print, __pyx_k_print, sizeof(__pyx_k_print), 0, 0, 1, 1},
+  {&__pyx_n_u_random, __pyx_k_random, sizeof(__pyx_k_random), 0, 1, 0, 1},
   {&__pyx_n_s_reduce, __pyx_k_reduce, sizeof(__pyx_k_reduce), 0, 0, 1, 1},
   {&__pyx_n_s_reduce_cython, __pyx_k_reduce_cython, sizeof(__pyx_k_reduce_cython), 0, 0, 1, 1},
   {&__pyx_n_s_reduce_ex, __pyx_k_reduce_ex, sizeof(__pyx_k_reduce_ex), 0, 0, 1, 1},
@@ -2431,6 +2633,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_setstate, __pyx_k_setstate, sizeof(__pyx_k_setstate), 0, 0, 1, 1},
   {&__pyx_n_s_setstate_cython, __pyx_k_setstate_cython, sizeof(__pyx_k_setstate_cython), 0, 0, 1, 1},
   {&__pyx_n_s_shape, __pyx_k_shape, sizeof(__pyx_k_shape), 0, 0, 1, 1},
+  {&__pyx_n_u_spectral, __pyx_k_spectral, sizeof(__pyx_k_spectral), 0, 1, 0, 1},
   {&__pyx_n_s_spread, __pyx_k_spread, sizeof(__pyx_k_spread), 0, 0, 1, 1},
   {&__pyx_n_s_test, __pyx_k_test, sizeof(__pyx_k_test), 0, 0, 1, 1},
   {&__pyx_n_s_to_device, __pyx_k_to_device, sizeof(__pyx_k_to_device), 0, 0, 1, 1},
@@ -2440,7 +2643,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {0, 0, 0, 0, 0, 0, 0}
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
-  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_builtin_print = __Pyx_GetBuiltinName(__pyx_n_s_print); if (!__pyx_builtin_print) __PYX_ERR(0, 96, __pyx_L1_error)
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 2, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -2451,14 +2654,14 @@ static CYTHON_SMALL_CODE int __Pyx_InitCachedConstants(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_InitCachedConstants", 0);
 
-  /* "cuml/manifold/umap.pyx":95
+  /* "cuml/manifold/umap.pyx":96
  * 
  *     def __dealloc__(self):
  *         print("DEALLOC!")             # <<<<<<<<<<<<<<
  *         del self.umap_params
  *         del self.umap
  */
-  __pyx_tuple_ = PyTuple_Pack(1, __pyx_kp_u_DEALLOC); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 95, __pyx_L1_error)
+  __pyx_tuple_ = PyTuple_Pack(1, __pyx_kp_u_DEALLOC); if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 96, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_tuple_);
   __Pyx_GIVEREF(__pyx_tuple_);
 
@@ -2536,13 +2739,13 @@ static int __Pyx_modinit_type_init_code(void) {
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__Pyx_modinit_type_init_code", 0);
   /*--- Type init code ---*/
-  if (PyType_Ready(&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (PyType_Ready(&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
   __pyx_type_4cuml_8manifold_4umap_UMAP1.tp_print = 0;
   if ((CYTHON_USE_TYPE_SLOTS && CYTHON_USE_PYTYPE_LOOKUP) && likely(!__pyx_type_4cuml_8manifold_4umap_UMAP1.tp_dictoffset && __pyx_type_4cuml_8manifold_4umap_UMAP1.tp_getattro == PyObject_GenericGetAttr)) {
     __pyx_type_4cuml_8manifold_4umap_UMAP1.tp_getattro = __Pyx_PyObject_GenericGetAttr;
   }
-  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_UMAP1, (PyObject *)&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
-  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 74, __pyx_L1_error)
+  if (PyObject_SetAttr(__pyx_m, __pyx_n_s_UMAP1, (PyObject *)&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
+  if (__Pyx_setup_reduce((PyObject*)&__pyx_type_4cuml_8manifold_4umap_UMAP1) < 0) __PYX_ERR(0, 75, __pyx_L1_error)
   __pyx_ptype_4cuml_8manifold_4umap_UMAP1 = &__pyx_type_4cuml_8manifold_4umap_UMAP1;
   __Pyx_RefNannyFinishContext();
   return 0;
@@ -3585,6 +3788,155 @@ static CYTHON_INLINE PyObject *__Pyx_GetItemInt_Fast(PyObject *o, Py_ssize_t i, 
     }
 #endif
     return __Pyx_GetItemInt_Generic(o, PyInt_FromSsize_t(i));
+}
+
+/* BytesEquals */
+static CYTHON_INLINE int __Pyx_PyBytes_Equals(PyObject* s1, PyObject* s2, int equals) {
+#if CYTHON_COMPILING_IN_PYPY
+    return PyObject_RichCompareBool(s1, s2, equals);
+#else
+    if (s1 == s2) {
+        return (equals == Py_EQ);
+    } else if (PyBytes_CheckExact(s1) & PyBytes_CheckExact(s2)) {
+        const char *ps1, *ps2;
+        Py_ssize_t length = PyBytes_GET_SIZE(s1);
+        if (length != PyBytes_GET_SIZE(s2))
+            return (equals == Py_NE);
+        ps1 = PyBytes_AS_STRING(s1);
+        ps2 = PyBytes_AS_STRING(s2);
+        if (ps1[0] != ps2[0]) {
+            return (equals == Py_NE);
+        } else if (length == 1) {
+            return (equals == Py_EQ);
+        } else {
+            int result;
+#if CYTHON_USE_UNICODE_INTERNALS
+            Py_hash_t hash1, hash2;
+            hash1 = ((PyBytesObject*)s1)->ob_shash;
+            hash2 = ((PyBytesObject*)s2)->ob_shash;
+            if (hash1 != hash2 && hash1 != -1 && hash2 != -1) {
+                return (equals == Py_NE);
+            }
+#endif
+            result = memcmp(ps1, ps2, (size_t)length);
+            return (equals == Py_EQ) ? (result == 0) : (result != 0);
+        }
+    } else if ((s1 == Py_None) & PyBytes_CheckExact(s2)) {
+        return (equals == Py_NE);
+    } else if ((s2 == Py_None) & PyBytes_CheckExact(s1)) {
+        return (equals == Py_NE);
+    } else {
+        int result;
+        PyObject* py_result = PyObject_RichCompare(s1, s2, equals);
+        if (!py_result)
+            return -1;
+        result = __Pyx_PyObject_IsTrue(py_result);
+        Py_DECREF(py_result);
+        return result;
+    }
+#endif
+}
+
+/* UnicodeEquals */
+static CYTHON_INLINE int __Pyx_PyUnicode_Equals(PyObject* s1, PyObject* s2, int equals) {
+#if CYTHON_COMPILING_IN_PYPY
+    return PyObject_RichCompareBool(s1, s2, equals);
+#else
+#if PY_MAJOR_VERSION < 3
+    PyObject* owned_ref = NULL;
+#endif
+    int s1_is_unicode, s2_is_unicode;
+    if (s1 == s2) {
+        goto return_eq;
+    }
+    s1_is_unicode = PyUnicode_CheckExact(s1);
+    s2_is_unicode = PyUnicode_CheckExact(s2);
+#if PY_MAJOR_VERSION < 3
+    if ((s1_is_unicode & (!s2_is_unicode)) && PyString_CheckExact(s2)) {
+        owned_ref = PyUnicode_FromObject(s2);
+        if (unlikely(!owned_ref))
+            return -1;
+        s2 = owned_ref;
+        s2_is_unicode = 1;
+    } else if ((s2_is_unicode & (!s1_is_unicode)) && PyString_CheckExact(s1)) {
+        owned_ref = PyUnicode_FromObject(s1);
+        if (unlikely(!owned_ref))
+            return -1;
+        s1 = owned_ref;
+        s1_is_unicode = 1;
+    } else if (((!s2_is_unicode) & (!s1_is_unicode))) {
+        return __Pyx_PyBytes_Equals(s1, s2, equals);
+    }
+#endif
+    if (s1_is_unicode & s2_is_unicode) {
+        Py_ssize_t length;
+        int kind;
+        void *data1, *data2;
+        if (unlikely(__Pyx_PyUnicode_READY(s1) < 0) || unlikely(__Pyx_PyUnicode_READY(s2) < 0))
+            return -1;
+        length = __Pyx_PyUnicode_GET_LENGTH(s1);
+        if (length != __Pyx_PyUnicode_GET_LENGTH(s2)) {
+            goto return_ne;
+        }
+#if CYTHON_USE_UNICODE_INTERNALS
+        {
+            Py_hash_t hash1, hash2;
+        #if CYTHON_PEP393_ENABLED
+            hash1 = ((PyASCIIObject*)s1)->hash;
+            hash2 = ((PyASCIIObject*)s2)->hash;
+        #else
+            hash1 = ((PyUnicodeObject*)s1)->hash;
+            hash2 = ((PyUnicodeObject*)s2)->hash;
+        #endif
+            if (hash1 != hash2 && hash1 != -1 && hash2 != -1) {
+                goto return_ne;
+            }
+        }
+#endif
+        kind = __Pyx_PyUnicode_KIND(s1);
+        if (kind != __Pyx_PyUnicode_KIND(s2)) {
+            goto return_ne;
+        }
+        data1 = __Pyx_PyUnicode_DATA(s1);
+        data2 = __Pyx_PyUnicode_DATA(s2);
+        if (__Pyx_PyUnicode_READ(kind, data1, 0) != __Pyx_PyUnicode_READ(kind, data2, 0)) {
+            goto return_ne;
+        } else if (length == 1) {
+            goto return_eq;
+        } else {
+            int result = memcmp(data1, data2, (size_t)(length * kind));
+            #if PY_MAJOR_VERSION < 3
+            Py_XDECREF(owned_ref);
+            #endif
+            return (equals == Py_EQ) ? (result == 0) : (result != 0);
+        }
+    } else if ((s1 == Py_None) & s2_is_unicode) {
+        goto return_ne;
+    } else if ((s2 == Py_None) & s1_is_unicode) {
+        goto return_ne;
+    } else {
+        int result;
+        PyObject* py_result = PyObject_RichCompare(s1, s2, equals);
+        #if PY_MAJOR_VERSION < 3
+        Py_XDECREF(owned_ref);
+        #endif
+        if (!py_result)
+            return -1;
+        result = __Pyx_PyObject_IsTrue(py_result);
+        Py_DECREF(py_result);
+        return result;
+    }
+return_eq:
+    #if PY_MAJOR_VERSION < 3
+    Py_XDECREF(owned_ref);
+    #endif
+    return (equals == Py_EQ);
+return_ne:
+    #if PY_MAJOR_VERSION < 3
+    Py_XDECREF(owned_ref);
+    #endif
+    return (equals == Py_NE);
+#endif
 }
 
 /* RaiseException */

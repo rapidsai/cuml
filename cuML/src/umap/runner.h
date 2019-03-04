@@ -46,6 +46,9 @@ namespace UMAPAlgo {
 
 	using namespace ML;
 
+	__global__ void simplicial_set_intersection(
+
+	);
 
     template<int TPB_X, typename T>
 	__global__ void init_transform(int *indices, T *weights, int n,
@@ -94,11 +97,172 @@ namespace UMAPAlgo {
         Optimize::find_params_ab(params);
     }
 
+    template<typename T, int TPB_X>
+    size_t _fit(T *X,
+                T *y,
+                int n,
+                int d,
+                kNN *knn,
+                UMAPParams *params,
+                T *embeddings
+            ) {
+
+        find_ab(params);
+
+        if(params->target_n_neighbors == -1)
+            params->target_n_neighbors = params->n_neighbors;
+
+        /**
+         * Run fuzzy simplicial set algo on y data
+         *
+         *           target_graph = fuzzy_simplicial_set(
+                        y_[np.newaxis, :].T,
+                        target_n_neighbors,
+                        random_state,
+                        self.target_metric,
+                        self._target_metric_kwds,
+                        None,
+                        None,
+                        False,
+                        1.0,
+                        1.0,
+                        False,
+                    )
+         */
+
+        kNN *t_knn = new kNN(1);
+
+        long *t_knn_indices;
+        T *t_knn_dists;
+
+        MLCommon::allocate(t_knn_indices, n*params->n_neighbors);
+        MLCommon::allocate(t_knn_dists, n*params->n_neighbors);
+
+        kNNGraph::run(y, n, 1, t_knn_indices, t_knn_dists, t_knn, params); // TODO: need to set target_neighbors, etc... explicitly
+        CUDA_CHECK(cudaPeekAtLastError());
+
+
+        int *t_graph_rows, *t_graph_cols;
+        T *t_graph_vals;
+
+        int *t_rgraph_rows, *t_rgraph_cols;
+        T *t_rgraph_vals;
+
+        /**
+         * Allocate workspace for fuzzy simplicial set.
+         */
+        MLCommon::allocate(t_graph_rows, n*params->n_neighbors);
+        MLCommon::allocate(t_graph_cols, n*params->n_neighbors);
+        MLCommon::allocate(t_graph_vals, n*params->n_neighbors);
+
+        MLCommon::allocate(t_rgraph_rows, n*params->n_neighbors*2);
+        MLCommon::allocate(t_rgraph_cols, n*params->n_neighbors*2);
+        MLCommon::allocate(t_rgraph_vals, n*params->n_neighbors*2);
+
+
+        /**
+         * Run Fuzzy simplicial set on targets
+         */
+        int t_nnz = 0;
+
+        FuzzySimplSet::run<TPB_X, T>(n, t_knn_indices, t_knn_dists,
+                           t_graph_rows,
+                           t_graph_cols,
+                           t_graph_vals,
+                           t_rgraph_rows,
+                           t_rgraph_cols,
+                           t_rgraph_vals,
+                           params, &t_nnz, 0);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+
+
+
+
+
+
+
+
+        /**
+         * Allocate workspace for kNN graph
+         */
+        long *knn_indices;
+        T *knn_dists;
+
+        MLCommon::allocate(knn_indices, n*params->n_neighbors);
+        MLCommon::allocate(knn_dists, n*params->n_neighbors);
+
+        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        int *graph_rows, *graph_cols;
+        T *graph_vals;
+
+        int *rgraph_rows, *rgraph_cols;
+        T *rgraph_vals;
+
+        /**
+         * Allocate workspace for fuzzy simplicial set.
+         */
+        MLCommon::allocate(graph_rows, n*params->n_neighbors);
+        MLCommon::allocate(graph_cols, n*params->n_neighbors);
+        MLCommon::allocate(graph_vals, n*params->n_neighbors);
+
+        MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2);
+        MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
+        MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
+
+
+        /**
+         * Run Fuzzy simplicial set
+         */
+        int nnz = 0;
+
+        FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists,
+                           graph_rows,
+                           graph_cols,
+                           graph_vals,
+                           rgraph_rows,
+                           rgraph_cols,
+                           rgraph_vals,
+                           params, &nnz,0);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        InitEmbed::run(X, n, d,
+                knn_indices, knn_dists,
+                rgraph_rows, rgraph_cols, rgraph_vals,
+                nnz,
+                params, embeddings, params->init);
+
+        /**
+         * Run simplicial set embedding to approximate low-dimensional representation
+         */
+
+        SimplSetEmbed::run<TPB_X, T>(
+                X, n, d,
+                rgraph_rows, rgraph_cols, rgraph_vals, nnz,
+                params, embeddings);
+
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        CUDA_CHECK(cudaFree(knn_dists));
+        CUDA_CHECK(cudaFree(knn_indices));
+        CUDA_CHECK(cudaFree(graph_rows));
+        CUDA_CHECK(cudaFree(graph_cols));
+        CUDA_CHECK(cudaFree(graph_vals));
+        CUDA_CHECK(cudaFree(rgraph_rows));
+        CUDA_CHECK(cudaFree(rgraph_cols));
+        CUDA_CHECK(cudaFree(rgraph_vals));
+
+        return 0;
+
+
+    }
 
     /**
      *
      */
-	template<typename T>
+	template<typename T, int TPB_X>
 	size_t _fit(T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
@@ -144,7 +308,7 @@ namespace UMAPAlgo {
 		 */
 		int nnz = 0;
 
-		FuzzySimplSet::run(n, knn_indices, knn_dists,
+		FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists,
 						   graph_rows,
 						   graph_cols,
 						   graph_vals,
@@ -158,13 +322,13 @@ namespace UMAPAlgo {
 		        knn_indices, knn_dists,
 		        rgraph_rows, rgraph_cols, rgraph_vals,
 		        nnz,
-		        params, embeddings, 1);
+		        params, embeddings, params->init);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
 
-		SimplSetEmbed::run<T, 32>(
+		SimplSetEmbed::run<TPB_X, T>(
 		        X, n, d,
 		        rgraph_rows, rgraph_cols, rgraph_vals, nnz,
 		        params, embeddings);
@@ -330,7 +494,7 @@ namespace UMAPAlgo {
         SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        SimplSetEmbedImpl::optimize_layout<T, TPB_X>(
+        SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
             transformed, embedding_n,
             embedding, n,
             crows, ccols, non_zero_vals,

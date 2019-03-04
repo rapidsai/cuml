@@ -42,13 +42,26 @@ namespace ML {
 
         float gamma = 1.0;
 
-        int target_n_neighbors = -1;
-        float target_weight = 0.5;
 
         /**
          * Initial learning rate for SGD
          */
         float initial_alpha = 1.0;
+
+        /**
+         * Embedding initializer algorithm
+         * 0 = random layout
+         * 1 = spectral layout
+         */
+        int init = 1;
+
+
+        /**
+         * Target (supervised) params
+         */
+        int target_n_neighbors = -1;
+        float target_weight = 0.5;
+
     };
 
 }
