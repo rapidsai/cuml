@@ -17,31 +17,6 @@
 #pragma once
 #include <thrust/sort.h>
 
-
-/* 
-
-Assumptions: 
-	- There will be a 64-bit mask (row_mask)  associated with each row of a dataset per tree. This value can be changed atomically (as different nodes in that same tree are built in //).
-    - A 64-bit mask will allow us to go up to 64-levels deep which seems to be sufficient (good enough)  according to our SKL-rf-def experiments.
-
-Inputs:
-	- data points to entire dataset in col major format.
-	- cur_tree_depth: an int that tells us to look at the least significant (cur_tree_depth - 1) bits of the row_mask. 
-		=> So, if we're about to build a child of the root, we'll consider all rows in the bootstrapped sample.
-		=> If we're about to build a child of the left child of the root, we'll consider all rows with the least significant bit set to 0. 
-	- node_mask: the identifier of the parent node. We only care for rows where the first (cur_tree_depth - 1) bits of the node match with this node_mask identifier
-		
-	- n_rows the original number of rows in the dataset.
-	- col: the column we care about
-
-
-Output:
-	- condensed column to look up that includes only the relevant rows. 
-	- condensed labels 
-
-*/
-
-
 template <class type>
 __global__ void get_sampled_column_kernel(const type *column,type *outcolumn,unsigned int* rowids,const int N)
 {
