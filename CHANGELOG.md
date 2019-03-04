@@ -26,7 +26,7 @@
 - PR #246: Support for 2 vectors in the matrix vector operator
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
-- PR #243: Added get_params and set_params function for linear and ridge regression
+- PR #243: Added get_params and set_params functions for linear and ridge regression
 
 ## Bug Fixes
 
