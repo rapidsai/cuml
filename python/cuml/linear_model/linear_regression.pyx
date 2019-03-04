@@ -327,7 +327,6 @@ class LinearRegression:
         variables = ['algorithm','fit_intercept','normalize']
 
         current_params = {"algorithm" : self.algo,"fit_intercept" : self.fit_intercept,"normalize" : self.normalize}
-        nested_params = defaultdict(dict)
         for key, value in params.items():
             if key not in current_params:
                 raise ValueError('Invalid parameter %s for estimator')
