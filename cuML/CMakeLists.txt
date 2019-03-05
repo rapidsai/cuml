@@ -148,28 +148,28 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DADD_")
 # - include paths ---------------------------------------------`------------------------------------
 
 
-# include (ExternalProject)
-# ExternalProject_Add(faiss
-#   SOURCE_DIR ${FAISS_DIR}
-#   CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
-#   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
-#   BUILD_COMMAND $(MAKE)
-#   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
-#   BUILD_IN_SOURCE 1
-#   BUILD_ALWAYS 0
-#   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
-# )
-#
-# ExternalProject_Get_Property(faiss install_dir)
-#
-# add_library(faisslib STATIC IMPORTED)
-# add_library(gpufaisslib STATIC IMPORTED)
-#
-# add_dependencies(faisslib faiss)
-# add_dependencies(gpufaisslib faiss)
-#
-# set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
-# set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
+include (ExternalProject)
+ExternalProject_Add(faiss
+  SOURCE_DIR ${FAISS_DIR}
+  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
+  BUILD_COMMAND $(MAKE)
+  INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
+  BUILD_IN_SOURCE 1
+  BUILD_ALWAYS 0
+  PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
+)
+
+ExternalProject_Get_Property(faiss install_dir)
+
+add_library(faisslib STATIC IMPORTED)
+add_library(gpufaisslib STATIC IMPORTED)
+
+add_dependencies(faisslib faiss)
+add_dependencies(gpufaisslib faiss)
+
+set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
+set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 
 include_directories(src
@@ -195,25 +195,26 @@ file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 file(GLOB_RECURSE magma_debug_sources "test/gmm.cu")
 file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 
-# ###################################################################################################
-# # - build libcuml shared library ------------------------------------------------------------------
-# add_library(cuml SHARED
-#             src/pca/pca.cu
-#             src/tsvd/tsvd.cu
-#             src/dbscan/dbscan.cu
-#             src/kmeans/kmeans.cu
-#             src/glm/glm.cu
-#             src/knn/knn.cu
-#             src/kalman_filter/lkf_py.cu
-#             )
-#
-# set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
-# if(OPENMP_FOUND)
-#     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
-# endif(OPENMP_FOUND)
-#
-# target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
-#
+###################################################################################################
+# - build libcuml shared library ------------------------------------------------------------------
+add_library(cuml SHARED
+            src/pca/pca.cu
+            src/tsvd/tsvd.cu
+            src/dbscan/dbscan.cu
+            src/kmeans/kmeans.cu
+            src/glm/glm.cu
+            src/knn/knn.cu
+            src/kalman_filter/lkf_py.cu
+            src/hmm/gmm_py.cu
+            )
+
+set(CUML_LINK_LIBRARIES ${CONDA_ENV_DIR}/lib/libmagma.a ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
+if(OPENMP_FOUND)
+    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+endif(OPENMP_FOUND)
+
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
+
 # # ###################################################################################################
 # # # - build test executable -------------------------------------------------------------------------
 #
