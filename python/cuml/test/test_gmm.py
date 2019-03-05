@@ -19,7 +19,7 @@ import numpy as np
 
 from numba import cuda
 from math import sqrt
-from cuml import KalmanFilter
+from cuml import GMM
 
 
 def np_to_dataframe(df):
@@ -32,7 +32,7 @@ def np_to_dataframe(df):
 @pytest.mark.parametrize('precision', ['single', 'double'])
 def test_linear_kalman_filter_base(precision):
 
-    f = KalmanFilter(dim_x=2, dim_z=1, precision=precision)
+    f = GMM(nCl=2, nDim=3, nObs=100, n_iter=5, precision=precision)
 
     if precision == 'single':
         dt = np.float32
@@ -41,28 +41,8 @@ def test_linear_kalman_filter_base(precision):
 
     f.x = cuda.to_device(np.array([[0], [1]], dtype=dt))
 
-    f.F = cuda.to_device(np.array([[1., 0],
-                                   [1, 1.]], dtype=dt))
-
-    f.H = cuda.to_device(np.array([[1., 0.]], dtype=dt))
-    f.P = cuda.to_device(np.array([[1000, 0],
-                                   [0., 1000]], dtype=dt))
-    f.R = cuda.to_device(np.array([5.0], dtype=dt))
-    var = 0.001
-    f.Q = cuda.to_device(np.array([[.25 * var, .5 * var],
-                                   [0.5 * var, 1.1 * var]], dtype=dt))
-
-    rmse_x = 0
-    rmse_v = 0
-
-    n = 100
-
-    for i in range(100):
-        f.predict()
-
-        z = i
-
-        f.update(cuda.to_device(np.array([z], dtype=dt)))
+    for i in range(n_iter):
+        f.step(cuda.to_device(np.array([z], dtype=dt)))
         x = f.x.copy_to_host()
         rmse_x = rmse_x + ((x[0] - i)**2)
         rmse_v = rmse_v + ((x[1] - 1)**2)
@@ -76,7 +56,7 @@ def test_linear_kalman_filter_base(precision):
 @pytest.mark.parametrize('precision', ['single', 'double'])
 @pytest.mark.parametrize('input_type', ['numpy', 'cudf'])
 def test_linear_kalman_filter(precision, dim_x, dim_z, input_type):
-    f = KalmanFilter(dim_x=dim_x, dim_z=dim_z, precision=precision)
+    f = GMM(dim_x=dim_x, dim_z=dim_z, precision=precision)
 
     if precision == 'single':
         dt = np.float32
