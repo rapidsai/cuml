@@ -131,7 +131,7 @@ class Ridge:
 
     """
 
-    def __init__(self, alpha=1.0, solver='svd', fit_intercept=True, normalize=True):
+    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=True):
 
         """
         Initializes the linear ridge regression class.
