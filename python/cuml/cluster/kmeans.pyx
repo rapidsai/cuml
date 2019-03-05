@@ -193,7 +193,6 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            # X_m = X.as_gpu_matrix(order='C')
             X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
@@ -292,7 +291,6 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            # X_m = X.as_gpu_matrix(order='C')
             X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
@@ -309,7 +307,6 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        # clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
@@ -376,7 +373,6 @@ class KMeans:
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = numba_utils.row_matrix(X)
-            # X_m = X.as_gpu_matrix(order='C')
             X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
@@ -393,7 +389,6 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        # clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
