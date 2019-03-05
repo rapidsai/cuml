@@ -473,6 +473,5 @@ class TruncatedSVD:
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
-                #print(getattr(self.params,key,None))
                 setattr(self.params, key, value)
         return self
