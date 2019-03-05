@@ -73,16 +73,19 @@ protected:
     //host-side data
     thrust::host_vector<T> hin = din;
     thrust::host_vector<T> hweights = dweights;
-    thrust::host_vector<T> hact (rows);
+    thrust::host_vector<T> hexp (rows);
 
     //compute naive result & copy to GPU
-    naiveRowWeightedMean(hact.data(), hin.data(), hweights.data(), rows, cols,
+    naiveRowWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols,
         true);
-    dact = hact;
+    dexp = hexp;
 
     //compute ml-prims result
-    rowWeightedMean(dexp.data().get(), din.data().get(), dweights.data().get(),
+    rowWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(),
         cols, rows);
+
+    //adjust tolerance to account for round-off accumulation
+    params.tolerance *= params.N;
   }
 
   void TearDown() override {}
@@ -100,9 +103,9 @@ void naiveColWeightedMean(T* R, T* D, T* W, int M, int N, bool rowMajor){
   int istr = rowMajor ? 1 : M;
   int jstr = rowMajor ? N : 1;
 
-  for(int i=0; i<M; i++){
+  for(int i=0; i<N; i++){
     R[i] = (T)0;
-    for(int j=0; j<N; j++){
+    for(int j=0; j<M; j++){
       R[i] += (W[j]*D[i*istr + j*jstr] - R[i])/(T)(j+1);
     }
   }
@@ -128,16 +131,19 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     //host-side data
     thrust::host_vector<T> hin = din;
     thrust::host_vector<T> hweights = dweights;
-    thrust::host_vector<T> hact (cols);
+    thrust::host_vector<T> hexp (cols);
 
     //compute naive result & copy to GPU
-    naiveColWeightedMean(hact.data(), hin.data(), hweights.data(), rows, cols,
+    naiveColWeightedMean(hexp.data(), hin.data(), hweights.data(), rows, cols,
         true);
-    dact = hact;
+    dexp = hexp;
 
     //compute ml-prims result
-    colWeightedMean(dexp.data().get(), din.data().get(), dweights.data().get(),
+    colWeightedMean(dact.data().get(), din.data().get(), dweights.data().get(),
         cols, rows);
+
+    //adjust tolerance to account for round-off accumulation
+    params.tolerance *= params.M;
   }
 
   void TearDown() override {}
@@ -154,6 +160,7 @@ static const float tolF = 128*std::numeric_limits<float>::epsilon();
 static const double tolD = 128*std::numeric_limits<double>::epsilon();
 
 const std::vector<WeightedMeanInputs<float>> inputsf = {
+  {tolF, 4,  4, 1234},
   {tolF, 1024,  32, 1234},
   {tolF, 1024,  64, 1234},
   {tolF, 1024, 128, 1234},
@@ -195,7 +202,7 @@ INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestD,
 
 using ColWeightedMeanTestF = ColWeightedMeanTest<float>;
 TEST_P(ColWeightedMeanTestF, Result){
-  ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
+  ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
         CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
@@ -203,7 +210,7 @@ INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
 
 using ColWeightedMeanTestD = ColWeightedMeanTest<double>;
 TEST_P(ColWeightedMeanTestD, Result){
-  ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
+  ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
         CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestD,

@@ -39,7 +39,7 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int
     Type C = D;
     LinAlg::coalescedReduction(mu, data, D, N, (Type)0,
             false, stream,
-            [weights]__device__(Type v, int i){ return v-weights[i]; },
+            [weights]__device__(Type v, int i){ return v*weights[i]; },
             []__device__(Type a, Type b){ return a+b; },
             [C]__device__(Type v){ return v/C; });
 }
@@ -61,7 +61,7 @@ void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int
     Type C = N;
     LinAlg::stridedReduction(mu, data, D, N, (Type)0,
             false, stream,
-            [weights]__device__(Type v, int i){ return v-weights[i]; },
+            [weights]__device__(Type v, int i){ return v*weights[i]; },
             []__device__(Type a, Type b){ return a+b; },
             [C]__device__(Type v){ return v/C; });
 }
