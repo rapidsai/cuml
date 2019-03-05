@@ -21,6 +21,7 @@
 #include "kernels/minmax.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
+#include "memory.cuh"
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -72,6 +73,8 @@ namespace ML {
 			int depth_counter = 0;
 			int maxleaves;
 			int leaf_counter = 0;
+			TemporaryMemory *tempmem;
+			
 			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1)
 			{
 				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows,maxdepth);
@@ -84,7 +87,10 @@ namespace ML {
 				dinfo.Ncols = ncols;
 				treedepth = maxdepth;
 				maxleaves = max_leaf_nodes;
+				tempmem = new TemporaryMemory(n_sampled_rows);
+				
 				root = grow_tree(data,colper,labels,0,rowids,n_sampled_rows);
+				delete tempmem;
 				return;
 			}
 			
@@ -124,20 +130,16 @@ namespace ML {
 			void find_best_fruit(float *data,int *labels,const float colper,Question& ques,float& gain,unsigned int* rowids,const int n_sampled_rows)
 			{
 				gain = 0.0;
-				float *sampledcolumn;
-				int *sampledlabels;
+				float *sampledcolumn = tempmem->sampledcolumns;
+				int *sampledlabels = tempmem->sampledlabels;
+				int *leftlabels = tempmem->leftlabels;
+				int *rightlabels = tempmem->rightlabels;
 				
 				// Bootstrap columns
 				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(),colselector.end(),0);
 				std::random_shuffle(colselector.begin(),colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
-				
-				int *leftlabels, *rightlabels;
-				CUDA_CHECK(cudaMalloc((void**)&leftlabels,n_sampled_rows*sizeof(int)));
-				CUDA_CHECK(cudaMalloc((void**)&rightlabels,n_sampled_rows*sizeof(int)));
-				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,n_sampled_rows*sizeof(float)));
-				CUDA_CHECK(cudaMalloc((void**)&sampledlabels,n_sampled_rows*sizeof(int)));
 				
 				get_sampled_labels(labels,sampledlabels,rowids,n_sampled_rows);
 				int *labelptr = sampledlabels;
@@ -170,12 +172,6 @@ namespace ML {
 						
 					}
 				
-
-				CUDA_CHECK(cudaFree(sampledcolumn));
-				CUDA_CHECK(cudaFree(sampledlabels));
-				CUDA_CHECK(cudaFree(leftlabels));
-				CUDA_CHECK(cudaFree(rightlabels));
-				
 			}
 			
 			float evaluate_split(float *column,int* labels,int* leftlabels,int* rightlabels,float ginibefore,float quesval,const int nrows)
@@ -199,13 +195,11 @@ namespace ML {
 			void split_branch(float *data,const Question ques,const int n_sampled_rows,int& nrowsleft,int& nrowsright,unsigned int* rowids)
 			{
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
-				float *sampledcolumn;
+				float *sampledcolumn = tempmem->sampledcolumns;
 				
-				CUDA_CHECK(cudaMalloc((void**)&sampledcolumn,n_sampled_rows*sizeof(float)));
 				get_sampled_column(colptr,sampledcolumn,rowids,n_sampled_rows);
-				
 				make_split(sampledcolumn,ques.value,n_sampled_rows,nrowsleft,nrowsright,rowids);
-				CUDA_CHECK(cudaFree(sampledcolumn));
+				
 				return;
 			}
 
