@@ -5,7 +5,10 @@
 // #include "magma_lapack.h"  // if you need BLAS & LAPACK
 
 #include "hmm/magma/magma_test_utils.h"
+#include "hmm/magma/magma_batched_wrappers.h"
 // #include "cuda_utils.h"
+
+using namespace MLCommon::LinAlg;
 
 namespace MLCommon {
 
@@ -95,7 +98,7 @@ void bilinear_batched(magma_int_t m, magma_int_t n,
         magma_int_t incx = 1, incy = 1;
 
         // Batched gemv
-        magmablas_dgemv_batched(MagmaTrans, m, n, alpha, dA_array, ldda, dX_array, incx, beta, dT_array, incy, batchCount, queue);
+        magmablas_gemv_batched(MagmaTrans, m, n, alpha, dA_array, ldda, dX_array, incx, beta, dT_array, incy, batchCount, queue);
 
         // Batched dot
         dot_batched(n, dT_array, dY_array, dO, batchCount);

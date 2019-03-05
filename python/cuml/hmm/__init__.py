@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.hmm.gmm import GMM
+from cuml.hmm.gmm import GaussianMixture
