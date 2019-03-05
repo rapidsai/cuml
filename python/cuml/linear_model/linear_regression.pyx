@@ -129,7 +129,6 @@ class LinearRegression:
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
-        #self.params = self._get_param_names
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
             self.algo = self._get_algorithm_int(algorithm)
