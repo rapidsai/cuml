@@ -65,7 +65,7 @@ namespace ML {
 		
 		class DecisionTreeClassifier
 		{
-		public:
+		private:
 			TreeNode *root = NULL;
 			const int nbins = 8;
 			DataInfo dinfo;
@@ -74,13 +74,15 @@ namespace ML {
 			int maxleaves;
 			int leaf_counter = 0;
 			TemporaryMemory *tempmem;
-			
-			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1)
+		public:
+			// Expects column major float dataset, integer labels
+			void fit(float *data,const int ncols,const int nrows,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1,const float colper = 1.0)
 			{
-				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows,maxdepth);
+				return plant(data,ncols,nrows,labels,rowids,n_sampled_rows,maxdepth,colper);
 			}
 			
-			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1)
+			// Same as above fit, but planting is better for a tree then fitting.
+			void plant(float *data,const int ncols,const int nrows,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1,const float colper = 1.0)
 			{
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
@@ -94,6 +96,19 @@ namespace ML {
 				return;
 			}
 			
+			/* Predict a label for single row for a given tree. */
+			int predict(const float * row) {
+				ASSERT(root, "Cannot predict w/ empty tree!");
+				return classify(row, root);	
+			}
+			// Printing utility for debug and looking at nodes and leaves.
+			void print()
+			{
+				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl; 
+				print_node("",root,false);
+			}
+
+		private:
 			TreeNode* grow_tree(float *data,const float colper,int *labels,int depth,unsigned int* rowids,const int n_sampled_rows)
 			{
 				TreeNode *node = new TreeNode();
@@ -202,14 +217,8 @@ namespace ML {
 				
 				return;
 			}
-
-			/* Predict a label for single row for a given tree. */
-			int predict(const float * row) {
-				ASSERT(root, "Cannot predict w/ empty tree!");
-				return classify(row, root);	
-			}
-
-
+			
+			
 			int classify(const float * row, TreeNode * node) {
 				Question q = node->question;
 				if (node->left && (row[q.column] <= q.value)) {
@@ -240,13 +249,7 @@ namespace ML {
 						print_node( prefix + (isLeft ? "│   " : "    "), node->right, false);
 					}
 			}
-			
-			void print()
-			{
-				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl; 
-				print_node("",root,false);
-			}
-			
+						
 		};
 		
 	} //End namespace DecisionTree
