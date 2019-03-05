@@ -29,12 +29,11 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 
-cdef extern from "hmm/gmm.h" namespace "hmm::gmm":
+cdef extern from "hmm/hmm_variables.h" :
     cdef cppclass GMM[T]:
         pass
 
-
-cdef extern from "gmm/gmm_py.h" namespace "hmm::gmm" nogil:
+cdef extern from "hmm/gmm_py.h" nogil:
 
     cdef void init_f32(GMM[float]&,
                   float*, float*, float*, float*, float*,
@@ -46,7 +45,7 @@ cdef extern from "gmm/gmm_py.h" namespace "hmm::gmm" nogil:
     cdef void update_pis_f32(GMM[float]&)
 
 
-class GMM:
+class GaussianMixture:
 
     def _get_ctype_ptr(self, obj):
         return obj.device_ctypes_pointer.value
@@ -60,26 +59,10 @@ class GMM:
             'double': np.float64,
         }[precision]
 
-    def __init__(self, nCl, nDim, nObs, n_iter, precision='single', seed=False):
+    def __init__(self, precision='single', seed=False):
 
         self.precision = precision
         self.dtype = self._get_dtype(precision)
-
-        X = np.ones((dim_x, dim_x), dtype=self.dtype)
-        mus = np.ones((dim_x, dim_x), dtype=self.dtype)
-        sigmas = np.ones((dim_x, dim_x), dtype=self.dtype)
-        rhos = np.ones((dim_x, dim_x), dtype=self.dtype)
-        # pis = np.ones((dim_x, dim_x), dtype=self.dtype)
-
-        self.X = cuda.to_device(X)
-        self.mus = cuda.to_device(mus)
-        self.sigmas = cuda.to_device(sigmas)
-        self.rhos = cuda.to_device(rhos)
-
-        self.nCl = nObs
-        self.nDim = nDim
-        self.nObs = nCl
-
 
     def step(self):
 
@@ -136,8 +119,41 @@ class GMM:
               update_sigmas_f32(_dX_ptr, gmm)
               update_pis_f32(gmm)
 
+    def initialize():
+      def zero_out(A, m, n, ldda):
+          A[m:(ldda)] = 0.
+          return A
 
-    def fit(self):
+      def rand_x(nDim, nObs, lddx):
+          X = np.random.rand(lddx, nObs)
+          return zero_out(X, nDim, nObs, lddx)
+
+
+      def rand_mus(nDim, nObs, nCl, lddmu):
+          mus = np.random.rand(lddmu, nCl)
+          return zero_out(mus, nDim, lddmu)
+
+
+      def rand_sigmas(nDim, nCl, lddsigma):
+          s = np.random.rand(lddsigma * nDim, k)
+          s = s + s.T
+          return zero_out(s, nDim * lddsigma, lddsigma)
+
+
+      def rand_llhd(nCl, nObs, ldLlhd):
+          return np.random.rand(lddLlhd, nObs)
+
+      self.mus = cuda.to_device(mus)
+      self.sigmas = cuda.to_device(sigmas)
+      self.rhos = cuda.to_device(rhos)
+
+    def fit(self, X, nCl):
+      self.dX = cuda.to_device(X)
+
+      self.nCl = nCl
+      self.nDim = X.shape[0]
+      self.nObs = X.shape[1]
+
       for _ in range(self.n_iter) :
         self.step()
 

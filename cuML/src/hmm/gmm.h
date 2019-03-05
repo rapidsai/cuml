@@ -2,7 +2,7 @@
 
 // #include <hmm/structs.h>
 #include <hmm/magma/b_likelihood.h>
-// #include <hmm/cuda/stats.h>
+#include <hmm/hmm_variables.h>
 #include <hmm/cuda/random.h>
 
 #include <stats/sum.h>
@@ -127,15 +127,7 @@ void generate_trans_matrix(magma_int_t m, magma_int_t n, T* dA, magma_int_t lda,
         normalize_matrix(m, n, dA, lda, colwise);
 }
 
-template <typename T>
-struct GMM {
-        T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
-        T **dX_array=NULL, **dmu_array=NULL, **dsigma_array=NULL;
 
-        magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
-
-        int nCl, nDim, nObs;
-};
 
 template <typename T>
 void setup(GMM<T> &gmm) {
