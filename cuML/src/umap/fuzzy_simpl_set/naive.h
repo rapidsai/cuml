@@ -47,7 +47,9 @@ namespace UMAPAlgo {
              * rather than requiring an integral k. In essence, we are simply computing
              * the distance such that the cardinality of fuzzy set we generate is k.
              *
-             * TODO: Optimize for coalesced reads
+             * TODO: The data needs to be in column-major format (and the indices
+             * of knn_dists and knn_inds transposed) so that we can take advantage
+             * of read-coalescing within each block where possible.
              *
              * @param knn_dists: Distances to nearest neighbors for each sample. Each row should
              *                   be a sorted list of distances to a given sample's nearest neighbors.
@@ -403,6 +405,11 @@ namespace UMAPAlgo {
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
 
+//                std::cout << MLCommon::arr2Str(rows, n*k, "rows") << std::endl;
+//                std::cout << MLCommon::arr2Str(cols, n*k, "cols") << std::endl;
+//                std::cout << MLCommon::arr2Str(vals, n*k, "vals") << std::endl;
+//
+
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 std::cout << "Done compute membership strength" << std::endl;
@@ -439,14 +446,17 @@ namespace UMAPAlgo {
                 MLCommon::allocate(ccols, n_compressed_nonzeros, true);
                 MLCommon::allocate(cvals, n_compressed_nonzeros, true);
 
-//
                 MLCommon::coo_remove_zeros<TPB_X, T>(n*k*2,
                         orows, ocols, ovals,
                         crows, ccols, cvals,
                         rnnz, n);
 
+
                 MLCommon::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
 
+//                std::cout << MLCommon::arr2Str(crows, n_compressed_nonzeros, "rows") << std::endl;
+//                std::cout << MLCommon::arr2Str(ccols, n_compressed_nonzeros, "cols") << std::endl;
+//                std::cout << MLCommon::arr2Str(cvals, n_compressed_nonzeros, "vals") << std::endl;
 
                 std::cout << "Done remove zeros" << std::endl;
 

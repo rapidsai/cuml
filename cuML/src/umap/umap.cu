@@ -6,7 +6,7 @@
 
 namespace ML {
 
-    static const int TPB_X = 32;
+    static const int TPB_X = 64;
 
     UMAP::UMAP(UMAPParams *params): params(params){
         knn = nullptr;

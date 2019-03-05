@@ -158,7 +158,6 @@ namespace MLCommon {
         thrust::exclusive_scan(dev_cnnz, dev_cnnz + cnnz_n, dev_ex_scan);
         CUDA_CHECK(cudaPeekAtLastError());
 //
-        std::cout << MLCommon::arr2Str(dev_ex_scan.get(), cnnz_n, "ex_scan") << std::endl;
 
         dim3 grid(ceildiv(cnnz_n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);

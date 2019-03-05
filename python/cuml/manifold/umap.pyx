@@ -135,8 +135,6 @@ cdef class UMAP1:
 
         self.knn = new kNN(X_m.shape[1])
 
-        print("kNN D=" + str(X_m.shape[1]))
-
         self.umap_params = new UMAPParams()
         self.umap_params.n_neighbors = <int>n_neighbors
         self.umap_params.n_components = <int>n_components
