@@ -1,43 +1,40 @@
 template <typename T>
 void
-magmablas_gemm(
-        magma_trans_t transA, magma_trans_t transB,
-        magma_int_t m, magma_int_t n, magma_int_t k,
+magmablas_gemv_batched(
+        magma_trans_t trans, magma_int_t m, magma_int_t n,
         T alpha,
-        T_const_ptr dA, magma_int_t ldda,
-        T_const_ptr dB, magma_int_t lddb,
+        T** dA_array, magma_int_t ldda,
+        T** dx_array, magma_int_t incx,
         T beta,
-        T_ptr dC, magma_int_t lddc,
-        magma_queue_t queue );
+        T** dy_array, magma_int_t incy,
+        magma_int_t batchCount, magma_queue_t queue);
 
 template <>
 inline void
-magmablas_gemm(
-        magma_trans_t transA, magma_trans_t transB,
-        magma_int_t m, magma_int_t n, magma_int_t k,
+magmablas_gemv_batched(
+        magma_trans_t trans, magma_int_t m, magma_int_t n,
         float alpha,
-        float_const_ptr dA, magma_int_t ldda,
-        float_const_ptr dB, magma_int_t lddb,
+        float** dA_array, magma_int_t ldda,
+        float** dx_array, magma_int_t incx,
         float beta,
-        float_ptr dC, magma_int_t lddc,
-        magma_queue_t queue )
+        float** dy_array, magma_int_t incy,
+        magma_int_t batchCount, magma_queue_t queue)
 
 {
-        return magmablas_sgemm( transA, transB, m, n, k, alpha, dA, ldda, dB, lddb, beta, dC, lddc, queue);
+        return magmablas_sgemv_batched( trans, m, n, alpha, dA_array, ldda, dx_array, incx, beta, dy_array, incy, batchCount, queue);
 }
 
 template <>
 inline void
-magmablas_gemm(
-        magma_trans_t transA, magma_trans_t transB,
-        magma_int_t m, magma_int_t n, magma_int_t k,
+magmablas_gemv_batched(
+        magma_trans_t trans, magma_int_t m, magma_int_t n,
         double alpha,
-        double_const_ptr dA, magma_int_t ldda,
-        double_const_ptr dB, magma_int_t lddb,
+        double** dA_array, magma_int_t ldda,
+        double** dx_array, magma_int_t incx,
         double beta,
-        double_ptr dC, magma_int_t lddc,
-        magma_queue_t queue )
+        double** dy_array, magma_int_t incy,
+        magma_int_t batchCount, magma_queue_t queue)
 
 {
-        return magmablas_dgemm( transA, transB, m, n, k, alpha, dA, ldda, dB, lddb, beta, dC, lddc, queue);
+        return magmablas_dgemv_batched( trans, m, n, alpha, dA_array, ldda, dx_array, incx, beta, dy_array, incy, batchCount, queue);
 }
