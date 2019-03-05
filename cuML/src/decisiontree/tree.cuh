@@ -67,19 +67,23 @@ namespace ML {
 		public:
 			TreeNode *root = NULL;
 			const int nbins = 8;
-			int treedepth = 8;
 			DataInfo dinfo;
-			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = 8)
+			int treedepth;
+			int depth_counter = 0;
+			int maxleaves;
+			int leaf_counter = 0;
+			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1)
 			{
 				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows,maxdepth);
 			}
 			
-			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = 8)
+			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = -1,int max_leaf_nodes = -1)
 			{
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
 				dinfo.Ncols = ncols;
 				treedepth = maxdepth;
+				maxleaves = max_leaf_nodes;
 				root = grow_tree(data,colper,labels,0,rowids,n_sampled_rows);
 				return;
 			}
@@ -91,10 +95,20 @@ namespace ML {
 				float gain = 0.0;
 				
 				find_best_fruit(data,labels,colper,ques,gain,rowids,n_sampled_rows);  //ques and gain are output here
+				bool condition = (gain == 0.0);
 				
-				if(gain == 0.0 || depth == treedepth)
+				if(treedepth != -1)
+					condition = (condition || depth == treedepth);
+
+				if(maxleaves != -1)
+					condition = (condition || leaf_counter == maxleaves);
+				
+				if(condition)
 					{
 						node->class_predict = get_class(labels,n_sampled_rows);
+						leaf_counter++;
+						if(depth > depth_counter)
+							depth_counter = depth;
 					}
 				else
 					{
@@ -233,6 +247,7 @@ namespace ML {
 			
 			void print()
 			{
+				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl; 
 				print_node("",root,false);
 			}
 			
