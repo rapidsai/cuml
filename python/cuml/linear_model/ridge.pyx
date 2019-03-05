@@ -374,7 +374,6 @@ class Ridge:
         if not params:
             return self
         current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
-        nested_params = defaultdict(dict)
         for key, value in params.items():
             if key not in current_params:
                 raise ValueError('Invalid parameter %s for estimator')
