@@ -1,3 +1,18 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+...
+
+## Improvements
+
+...
+
+## Bug Fixes
+
+...
+
+
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
@@ -26,6 +41,7 @@
 - PR #246: Support for 2 vectors in the matrix vector operator
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
+- PR #269: LinearRegression, Ridge Python docs update and cleaning
 
 ## Bug Fixes
 
