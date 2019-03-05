@@ -5,6 +5,8 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 {
         T *dX;
 // declaration:
+        T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
+        magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
         lddx = magma_roundup(nDim, RUP_SIZE);
         lddmu = magma_roundup(nDim, RUP_SIZE);
         lddsigma = magma_roundup(nDim, RUP_SIZE);
@@ -13,9 +15,16 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
         lddPis = nObs;
 
         // Random parameters
-        start=0;
-        end = 1;
-        seed = 1234ULL;
+        T start=0;
+        T end = 1;
+        unsigned long long seed = 1234ULL;
+
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
 
         allocate(dX, lddx * nObs);
         allocate(dmu, lddmu * nCl);
@@ -36,12 +45,12 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 
 // // computation:
         GMM<T> gmm;
-        setup(gmm);
         init(gmm,
              dmu, dsigma, dPis, dPis_inv, dLlhd,
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              nCl, nDim, nObs);
-        fit(dX, 6, gmm);
+        setup(gmm);
+        fit(dX, 6, gmm, cublasHandle, queue);
 
 // cleanup:
         CUDA_CHECK(cudaFree(dX));

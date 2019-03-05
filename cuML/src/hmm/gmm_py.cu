@@ -14,28 +14,41 @@ void init_f32(GMM<T> &gmm,
 
 template <typename T>
 void update_rhos_f32(float* dX, GMM<float>& gmm){
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
-        update_rhos(dX, gmm, cublasHandle);
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_rhos(dX, gmm, cublasHandle, queue);
 }
 
 template <typename T>
 void update_mus_f32(float* dX, GMM<float>& gmm){
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
-        update_mus(dX, gmm, cublasHandle);
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_mus(dX, gmm, cublasHandle, queue);
 }
 
 template <typename T>
 void update_sigmas_f32(float* dX, GMM<float>& gmm){
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
-        update_sigmas(dX, gmm, cublasHandle);
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_sigmas(dX, gmm, cublasHandle, queue);
 }
 
 template <typename T>
 void update_pis_f32(GMM<float>& gmm){
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK(cublasCreate(&cublas_handle));
-        update_sigmas(gmm, cublasHandle);
+        update_pis(gmm);
 }
