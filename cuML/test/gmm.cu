@@ -24,6 +24,7 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 // // computation:
         GMM<T> gmm = GMM<T>(nCl, nDim, nObs);
         gmm.initialize();
+        gmm.fit(dX, 6);
 
 // cleanup:
         CUDA_CHECK(cudaFree(dX));

@@ -68,13 +68,14 @@ void subtractBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         int k_start = threadIdx.z + blockDim.z * blockIdx.z;
 
         int idxO, idxX, idxY;
+        // TODO : Check the difference
 
         for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
                 for (size_t j = j_start; j < n; j+=nThreads_x) {
                         for (size_t i = i_start; i < m; i+=nThreads_y) {
                                 idxO = IDX(i, j, lddO);
                                 idxX = IDX(i, j, lddx);
-                                idxY = IDX(i, j, lddy);
+                                idxY = IDX(i, 0, lddy);
                                 dO_array[bId][idxO] = dX_array[bId][idxX] - dY_array[bId][idxY];
                         }
                 }
@@ -119,10 +120,12 @@ void LogLikelihoodKernel(int nObs, int nCl, int nDim,
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
         int idx;
-
         for (size_t clId = i_start; clId < nCl; clId+=nThreads_x) {
                 for (size_t oId = j_start; oId < nObs; oId+=nThreads_y) {
                         idx = IDX(clId, oId, lddLlhd);
+                        // printf("%f \n", lol_llhd_atomic(dDet_array[clId],
+                        //                                 dBil_batches[idx],
+                        //                                 nDim));
                         dLlhd[idx] = lol_llhd_atomic(dDet_array[clId],
                                                      dBil_batches[idx],
                                                      nDim);
@@ -188,7 +191,7 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         magma_queue_create(device, &queue);
 
 // Compute sigma inverses
-        print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix 3");
+        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
 
         // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array before");
 
@@ -208,9 +211,9 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                             dX_array, dmu_array, dInvSigma_array);
 
         // print_matrix_batched(nDim, 1, nObs * nCl, dX_batches, lddx, "dX_batches");
-
-
-        print_matrix_batched(nDim, nDim, nCl*nObs, dInvSigma_batches, lddsigma, "dInvSigma_batches");
+        //
+        //
+        // print_matrix_batched(nDim, nDim, nCl*nObs, dInvSigma_batches, lddsigma, "dInvSigma_batches");
 
 
 // Compute diffs
@@ -224,14 +227,18 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                          dDiff_batches, dInvSigma_batches, lddsigma,
                          dDiff_batches, dBil_batches, batchCount, queue);
 
-        print_matrix_device(batchCount, 1, dBil_batches, batchCount, "dBil_batches");
-        print_matrix_device(nCl, 1, dDet_array, nCl, "dDet_array");
+        // print_matrix_device(batchCount, 1, dBil_batches, batchCount, "dBil_batches");
+        // print_matrix_device(nCl, 1, dDet_array, nCl, "dDet_array");
 
 
         // Compute log likelihoods
         _likelihood_batched(nObs, nCl, nDim,
                             dDet_array, dBil_batches, dLlhd, lddLlhd, isLog);
-        print_matrix_device(nCl, nObs, dLlhd, lddLlhd, "dLlhd");
+        // print_matrix_device(nCl, nObs, dLlhd, lddLlhd, "dLlhd");
+
+        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
+
+
 
 // free
         // free_pointer_array(dInvSigma_array);

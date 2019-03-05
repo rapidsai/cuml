@@ -1,8 +1,10 @@
-magma_int_t
-magma_zgetri_outofplace_batched(
-    magma_int_t n,
-    magmaDoubleComplex **dA_array, magma_int_t ldda,
-    magma_int_t **dipiv_array,
-    magmaDoubleComplex **dinvA_array, magma_int_t lddia,
-    magma_int_t *info_array,
-    magma_int_t batchCount, magma_queue_t queue);
+void
+magmablas_zgemm(
+        magma_trans_t transA, magma_trans_t transB,
+        magma_int_t m, magma_int_t n, magma_int_t k,
+        magmaDoubleComplex alpha,
+        magmaDoubleComplex_const_ptr dA, magma_int_t ldda,
+        magmaDoubleComplex_const_ptr dB, magma_int_t lddb,
+        magmaDoubleComplex beta,
+        magmaDoubleComplex_ptr dC, magma_int_t lddc,
+        magma_queue_t queue );

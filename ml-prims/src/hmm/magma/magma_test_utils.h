@@ -6,6 +6,7 @@
 #include <magma_v2.h>
 
 #include "cuda_utils.h"
+#include <random/rng.h>
 #include "linalg/mean_squared_error.h"
 
 #define IDX(i,j,lda) ((i)+(j)*(lda))
@@ -164,32 +165,41 @@ void fill_matrix_gpu_batched(
 
 template <typename T>
 __global__
-void zeroOutValuesKernel(T * A, size_t m, size_t n, size_t ldda, int numThreads_x, int numThreads_y){
+void zeroOutValuesKernel(T * A, size_t m, size_t n, size_t batchCount, size_t ldda, int numThreads_x, int numThreads_y, int numThreads_z){
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+        int k_start = threadIdx.z + blockDim.z * blockIdx.z;
 
-        for (size_t j = j_start; j < n; j+=numThreads_y) {
-                for (size_t i = i_start; i < ldda - m; i+=numThreads_x) {
-                        A[IDX(i + m, j, ldda)] = 0.;
+        int la = n * ldda;
+
+        for (size_t bId = k_start; bId < batchCount; bId+=numThreads_z) {
+                for (size_t j = j_start; j < n; j+=numThreads_y) {
+                        for (size_t i = i_start; i < ldda - m; i+=numThreads_x) {
+                                A[IDX2(i + m, j, bId, ldda, la)] = 0.;
+                        }
                 }
         }
 }
 
 template <typename T>
-void zeroOutValues(T * A, size_t m, size_t n, size_t ldda)
+void zeroOutValues(T * A, size_t m, size_t n, size_t N, size_t ldda)
 {
         dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int) (ldda - m), (int)block.x), ceildiv((int)n, (int)block.y), 1);
+        dim3 grid(ceildiv((int) (ldda - m), (int)block.x),
+                  ceildiv((int)n, (int)block.y),
+                  1);
 
         int numThreads_x = grid.x * block.x;
         int numThreads_y = grid.y * block.y;
+        int numThreads_z = grid.z * block.z;
 
-        zeroOutValuesKernel<T> <<< grid, block >>>(A, m, n, ldda,
-                                                   numThreads_x, numThreads_y);
+        zeroOutValuesKernel<T> <<< grid, block >>>(A, m, n, N, ldda,
+                                                   numThreads_x,
+                                                   numThreads_y,
+                                                   numThreads_z);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
-
 
 template <typename T>
 T array_mse_batched(
@@ -213,8 +223,8 @@ T array_mse_batched(
 
 
         for (size_t bId = 0; bId < batchCount; bId++) {
-                zeroOutValues(A_array[bId], m, n, ldda);
-                zeroOutValues(B_array[bId], m, n, lddb);
+                zeroOutValues(A_array[bId], m, n, 1, ldda);
+                zeroOutValues(B_array[bId], m, n, 1, lddb);
                 MLCommon::LinAlg::meanSquaredError(error_d, A_array[bId], B_array[bId], ldda * n);
                 updateHost(&error_h, error_d, 1);
                 error += error_h;
@@ -323,11 +333,11 @@ void symetrizeBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount
 
 template <typename T>
 void symetrize_batched(magma_int_t m, magma_int_t batchCount,
-                       T* dA, magma_int_t ldda,){
+                       T* dA, magma_int_t ldda){
         // Symetrize
         dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int)n, (int)block.y),
-                  ceildiv((int)m, (int)block.z),
+        dim3 grid(ceildiv((int)m, (int)block.x),
+                  ceildiv((int)m, (int)block.y),
                   1);
 
         int nThreads_x = grid.x * block.x;
@@ -344,15 +354,15 @@ void symetrize_batched(magma_int_t m, magma_int_t batchCount,
 template <typename T>
 void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                            T* dA, magma_int_t ldda, bool isSpd,
-                           uint64_t _seed, T start, T end){
+                           uint64_t seed, T start, T end){
         if (isSpd) {
                 assert(m == n && "The matrix should be square");
         }
 
 // Random generation
         int dim = ldda * n * batchCount;
-        MLCommon::Random::Rng<T> rng(seed);
-        rng.uniform(dA, dim, start, end)
+        MLCommon::Random::Rng rng(seed);
+        rng.uniform(dA, dim, start, end);
 
 // Symetrize
         if (isSpd) {
@@ -360,7 +370,7 @@ void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         }
 
 // Fill out zeros regrding ldd
-        zeroOutValues(A, m, n, ldda);
+        zeroOutValues(dA, m, n, batchCount, ldda);
 
 }
 
