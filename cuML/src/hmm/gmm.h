@@ -135,15 +135,13 @@ struct GMM {
         magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
 
         int nCl, nDim, nObs;
-
-        bool initialized=false;
 };
 
 template <typename T>
 void setup(GMM<T> &gmm) {
-        allocate(dX_array, nObs);
-        allocate_pointer_array(dmu_array, lddmu, nCl);
-        allocate_pointer_array(dsigma_array, lddsigma_full, nCl);
+        allocate(gmm.dX_array, gmm.nObs);
+        allocate_pointer_array(gmm.dmu_array, gmm.lddmu, gmm.nCl);
+        allocate_pointer_array(gmm.dsigma_array, gmm.lddsigma_full, gmm.nCl);
 }
 
 template <typename T>
@@ -168,7 +166,8 @@ void init(GMM<T> &gmm,
 }
 
 template <typename T>
-void update_rhos(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
+void update_rhos(T* dX, GMM<T>& gmm,
+                 cublasHandle_t cublasHandle, magma_queue_t queue){
         printf("*************** update rhos\n");
 
         bool isLog = false;
@@ -178,18 +177,18 @@ void update_rhos(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
         // print_matrix_device(gmm.nDim, 1, dPis, lddPis, "dPis");
         // print_matrix_device(gmm.nDim, 1, gmm.dmu, gmm.lddmu, "dmu matrix");
 
-        split_to_batches(gmm.nObs, dX_array, dX, gmm.lddx);
-        split_to_batches(gmm.nCl, dmu_array, gmm.dmu, gmm.lddmu);
-        split_to_batches(gmm.nCl, dsigma_array, gmm.dsigma, gmm.lddsigma_full);
+        split_to_batches(gmm.nObs, gmm.dX_array, dX, gmm.lddx);
+        split_to_batches(gmm.nCl, gmm.dmu_array, gmm.dmu, gmm.lddmu);
+        split_to_batches(gmm.nCl, gmm.dsigma_array, gmm.dsigma, gmm.lddsigma_full);
 
-        print_matrix_batched(gmm.nDim, 1, gmm.nObs, dX_array, gmm.lddx, "dx matrix");
-        print_matrix_batched(gmm.nDim, 1, gmm.nCl, dmu_array, gmm.lddmu, "dmu matrix");
-        print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_array, gmm.lddsigma, "dSigma matrix");
+        print_matrix_batched(gmm.nDim, 1, gmm.nObs, gmm.dX_array, gmm.lddx, "dx matrix");
+        print_matrix_batched(gmm.nDim, 1, gmm.nCl, gmm.dmu_array, gmm.lddmu, "dmu matrix");
+        print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, gmm.dsigma_array, gmm.lddsigma, "dSigma matrix");
 
         likelihood_batched(gmm.nCl, gmm.nDim, gmm.nObs,
-                           dX_array, gmm.lddx,
-                           dmu_array, gmm.lddmu,
-                           dsigma_array, gmm.lddsigma_full, gmm.lddsigma,
+                           gmm.dX_array, gmm.lddx,
+                           gmm.dmu_array, gmm.lddmu,
+                           gmm.dsigma_array, gmm.lddsigma_full, gmm.lddsigma,
                            gmm.dLlhd, gmm.lddLlhd,
                            isLog);
 
@@ -204,7 +203,8 @@ void update_rhos(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
 }
 
 template <typename T>
-void update_mus(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
+void update_mus(T* dX, GMM<T>& gmm,
+                cublasHandle_t cublasHandle, magma_queue_t queue){
         T alpha = (T)1.0 / gmm.nObs, beta = (T)0.0;
         // printf("  ********************** update mus\n");
 
@@ -235,11 +235,12 @@ void update_mus(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
 }
 
 template <typename T>
-void update_sigmas(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
+void update_sigmas(T* dX, GMM<T>& gmm,
+                   cublasHandle_t cublasHandle, magma_queue_t queue){
         T **dX_batches=NULL, **dmu_batches=NULL, **dsigma_batches=NULL,
         **dDiff_batches=NULL;
 
-        int batchCount=nCl;
+        int batchCount=gmm.nCl;
         int ldDiff= gmm.lddx;
 
         allocate(dX_batches, batchCount);
@@ -247,20 +248,20 @@ void update_sigmas(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
         allocate(dsigma_batches, batchCount);
         allocate_pointer_array(dDiff_batches, gmm.lddx, batchCount);
 
-        create_sigmas_batches(nCl,
+        create_sigmas_batches(gmm.nCl,
                               dX_batches, dmu_batches, dsigma_batches,
                               dX, gmm.lddx, gmm.dmu, gmm.lddmu, gmm.dsigma, gmm.lddsigma, gmm.lddsigma_full);
 
         // Compute diffs
         subtract_batched(gmm.nDim, 1, batchCount,
-                         dDiff_batches, gmm.ldDiff,
+                         dDiff_batches, ldDiff,
                          dX_batches, gmm.lddx,
                          dmu_batches, gmm.lddmu);
 
         // Compute sigmas
-        sqrt(dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
+        sqrt(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 
-        // // Split to batches
+        //
         dgmm_batched(gmm.nDim, gmm.nObs, gmm.nCl,
                      dsigma_batches, gmm.lddsigma,
                      dDiff_batches, gmm.lddx,
@@ -268,13 +269,13 @@ void update_sigmas(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
 
         // get the sum of all the covs
         T alpha = (T)1.0 / gmm.nObs, beta = (T)0.0;
-        magmablas_gemm_batched(MagmaNoTrans, MagmaNoTrans,
+        magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
                                gmm.nDim, gmm.nDim, gmm.nObs,
-                               alpha, dDiff_batches, gmm.ldDiff,
-                               dDiff_batches, gmm.ldDiff, beta,
+                               alpha, dDiff_batches, ldDiff,
+                               dDiff_batches, ldDiff, beta,
                                dsigma_batches, gmm.lddsigma, gmm.nCl, queue);
 
-        square(dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
+        square(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 }
 
 template <typename T>
@@ -284,25 +285,27 @@ void update_pis(GMM<T>& gmm){
 
 
 template <typename T>
-void em(T* dX, int n_iter, GMM<T>& gmm, cublasHandle_t cublasHandle){
+void em(T* dX, int n_iter, GMM<T>& gmm,
+        cublasHandle_t cublasHandle, magma_queue_t queue){
         // Run the EM algorithm
         for (int it = 0; it < n_iter; it++) {
                 printf("\n -------------------------- \n");
                 printf(" iteration %d\n", it);
 
                 // E step
-                update_rhos(dX, gmm, cublasHandle);
+                update_rhos(dX, gmm, cublasHandle, queue);
 
                 // M step
-                update_mus(dX, gmm, cublasHandle);
-                update_sigmas(dX, gmm, cublasHandle);
+                update_mus(dX, gmm, cublasHandle, queue);
+                update_sigmas(dX, gmm, cublasHandle, queue);
                 update_pis(gmm);
         }
 }
 
 template <typename T>
-void fit(T* dX, int n_iter, GMM<T>& gmm, cublasHandle_t cublasHandle) {
-        em(dX, n_iter, gmm, cublasHandle);
+void fit(T* dX, int n_iter, GMM<T>& gmm,
+         cublasHandle_t cublasHandle, magma_queue_t queue) {
+        em(dX, n_iter, gmm, cublasHandle, queue);
 }
 
 // void free(){
