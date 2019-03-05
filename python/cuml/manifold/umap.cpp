@@ -1291,6 +1291,7 @@ static const char __pyx_k_main[] = "__main__";
 static const char __pyx_k_name[] = "__name__";
 static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_UMAP1[] = "UMAP1";
+static const char __pyx_k_dtype[] = "dtype";
 static const char __pyx_k_kNN_D[] = "kNN D=";
 static const char __pyx_k_numba[] = "numba";
 static const char __pyx_k_numpy[] = "numpy";
@@ -1307,6 +1308,7 @@ static const char __pyx_k_random[] = "random";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_spread[] = "spread";
 static const char __pyx_k_DEALLOC[] = "DEALLOC!";
+static const char __pyx_k_float32[] = "float32";
 static const char __pyx_k_getstate[] = "__getstate__";
 static const char __pyx_k_min_dist[] = "min_dist";
 static const char __pyx_k_n_epochs[] = "n_epochs";
@@ -1346,6 +1348,8 @@ static PyObject *__pyx_n_s_cudf;
 static PyObject *__pyx_n_s_cuml;
 static PyObject *__pyx_kp_u_data_should_be_two_dimensional;
 static PyObject *__pyx_n_s_device_ctypes_pointer;
+static PyObject *__pyx_n_s_dtype;
+static PyObject *__pyx_n_s_float32;
 static PyObject *__pyx_n_s_getstate;
 static PyObject *__pyx_n_s_import;
 static PyObject *__pyx_n_s_init;
@@ -1750,12 +1754,13 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   PyObject *__pyx_t_7 = NULL;
   PyObject *__pyx_t_8 = NULL;
   PyObject *__pyx_t_9 = NULL;
-  int __pyx_t_10;
-  ML::kNN *__pyx_t_11;
-  ML::UMAPParams *__pyx_t_12;
-  float __pyx_t_13;
-  ML::UMAP *__pyx_t_14;
-  int __pyx_t_15;
+  PyObject *__pyx_t_10 = NULL;
+  int __pyx_t_11;
+  ML::kNN *__pyx_t_12;
+  ML::UMAPParams *__pyx_t_13;
+  float __pyx_t_14;
+  ML::UMAP *__pyx_t_15;
+  int __pyx_t_16;
   __Pyx_RefNannySetupContext("fit", 0);
 
   /* "cuml/manifold/umap.pyx":116
@@ -1897,7 +1902,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         X_m = numba_utils.row_matrix(X)
  *         self.raw_data = X_m.device_ctypes_pointer.value             # <<<<<<<<<<<<<<
  * 
- *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))
+ *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C", dtype=np.float32))
  */
   __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_v_X_m, __pyx_n_s_device_ctypes_pointer); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 131, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -1911,7 +1916,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   /* "cuml/manifold/umap.pyx":133
  *         self.raw_data = X_m.device_ctypes_pointer.value
  * 
- *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))             # <<<<<<<<<<<<<<
+ *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C", dtype=np.float32))             # <<<<<<<<<<<<<<
  *         self.embeddings = arr_embed.device_ctypes_pointer.value
  * 
  */
@@ -1943,11 +1948,18 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __Pyx_GIVEREF(__pyx_t_2);
   PyTuple_SET_ITEM(__pyx_t_8, 0, __pyx_t_2);
   __pyx_t_2 = 0;
-  __pyx_t_2 = __Pyx_PyDict_NewPresized(1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyDict_NewPresized(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
   if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_order, __pyx_n_u_C) < 0) __PYX_ERR(0, 133, __pyx_L1_error)
-  __pyx_t_9 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_9, __pyx_n_s_np); if (unlikely(!__pyx_t_9)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_9);
+  __pyx_t_10 = __Pyx_PyObject_GetAttrStr(__pyx_t_9, __pyx_n_s_float32); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
+  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  if (PyDict_SetItem(__pyx_t_2, __pyx_n_s_dtype, __pyx_t_10) < 0) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
+  __pyx_t_10 = __Pyx_PyObject_Call(__pyx_t_7, __pyx_t_8, __pyx_t_2); if (unlikely(!__pyx_t_10)) __PYX_ERR(0, 133, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_10);
   __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
   __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
@@ -1961,9 +1973,9 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
       __Pyx_DECREF_SET(__pyx_t_4, function);
     }
   }
-  __pyx_t_5 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_t_9) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_9);
+  __pyx_t_5 = (__pyx_t_2) ? __Pyx_PyObject_Call2Args(__pyx_t_4, __pyx_t_2, __pyx_t_10) : __Pyx_PyObject_CallOneArg(__pyx_t_4, __pyx_t_10);
   __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-  __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
+  __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
   if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 133, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
@@ -1972,7 +1984,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
 
   /* "cuml/manifold/umap.pyx":134
  * 
- *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))
+ *         arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C", dtype=np.float32))
  *         self.embeddings = arr_embed.device_ctypes_pointer.value             # <<<<<<<<<<<<<<
  * 
  *         self.knn = new kNN(X_m.shape[1])
@@ -1998,15 +2010,15 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 136, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
   try {
-    __pyx_t_11 = new ML::kNN(__pyx_t_10);
+    __pyx_t_12 = new ML::kNN(__pyx_t_11);
   } catch(...) {
     __Pyx_CppExn2PyErr();
     __PYX_ERR(0, 136, __pyx_L1_error)
   }
-  __pyx_v_self->knn = __pyx_t_11;
+  __pyx_v_self->knn = __pyx_t_12;
 
   /* "cuml/manifold/umap.pyx":138
  *         self.knn = new kNN(X_m.shape[1])
@@ -2039,12 +2051,12 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.n_components = <int>n_components
  */
   try {
-    __pyx_t_12 = new ML::UMAPParams();
+    __pyx_t_13 = new ML::UMAPParams();
   } catch(...) {
     __Pyx_CppExn2PyErr();
     __PYX_ERR(0, 140, __pyx_L1_error)
   }
-  __pyx_v_self->umap_params = __pyx_t_12;
+  __pyx_v_self->umap_params = __pyx_t_13;
 
   /* "cuml/manifold/umap.pyx":141
  * 
@@ -2053,8 +2065,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.n_components = <int>n_components
  *         self.umap_params.n_epochs = <int>n_epochs
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_neighbors); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
-  __pyx_v_self->umap_params->n_neighbors = ((int)__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_v_n_neighbors); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 141, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_neighbors = ((int)__pyx_t_11);
 
   /* "cuml/manifold/umap.pyx":142
  *         self.umap_params = new UMAPParams()
@@ -2063,8 +2075,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.n_epochs = <int>n_epochs
  * 
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_components); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L1_error)
-  __pyx_v_self->umap_params->n_components = ((int)__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_v_n_components); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 142, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_components = ((int)__pyx_t_11);
 
   /* "cuml/manifold/umap.pyx":143
  *         self.umap_params.n_neighbors = <int>n_neighbors
@@ -2073,8 +2085,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  * 
  *         if(init == "spectral"):
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_n_epochs); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 143, __pyx_L1_error)
-  __pyx_v_self->umap_params->n_epochs = ((int)__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_v_n_epochs); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 143, __pyx_L1_error)
+  __pyx_v_self->umap_params->n_epochs = ((int)__pyx_t_11);
 
   /* "cuml/manifold/umap.pyx":145
  *         self.umap_params.n_epochs = <int>n_epochs
@@ -2160,8 +2172,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.min_dist = <float>min_dist
  *         self.umap_params.spread = <float>spread
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_learning_rate); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
-  __pyx_v_self->umap_params->learning_rate = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_learning_rate); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 152, __pyx_L1_error)
+  __pyx_v_self->umap_params->learning_rate = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":153
  * 
@@ -2170,8 +2182,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.spread = <float>spread
  *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_min_dist); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
-  __pyx_v_self->umap_params->min_dist = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_min_dist); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 153, __pyx_L1_error)
+  __pyx_v_self->umap_params->min_dist = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":154
  *         self.umap_params.learning_rate = <float>learning_rate
@@ -2180,8 +2192,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
  *         self.umap_params.local_connectivity = <float>local_connectivity
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_spread); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
-  __pyx_v_self->umap_params->spread = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_spread); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 154, __pyx_L1_error)
+  __pyx_v_self->umap_params->spread = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":155
  *         self.umap_params.min_dist = <float>min_dist
@@ -2190,8 +2202,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.local_connectivity = <float>local_connectivity
  *         self.umap_params.repulsion_strength = <float>repulsion_strength
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_set_op_mix_ratio); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
-  __pyx_v_self->umap_params->set_op_mix_ratio = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_set_op_mix_ratio); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 155, __pyx_L1_error)
+  __pyx_v_self->umap_params->set_op_mix_ratio = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":156
  *         self.umap_params.spread = <float>spread
@@ -2200,8 +2212,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.repulsion_strength = <float>repulsion_strength
  *         self.umap_params.negative_sample_rate = <int>negative_sample_rate
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_local_connectivity); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
-  __pyx_v_self->umap_params->local_connectivity = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_local_connectivity); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 156, __pyx_L1_error)
+  __pyx_v_self->umap_params->local_connectivity = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":157
  *         self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
@@ -2210,8 +2222,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.negative_sample_rate = <int>negative_sample_rate
  *         self.umap_params.transform_queue_size = <int>transform_queue_size
  */
-  __pyx_t_13 = __pyx_PyFloat_AsFloat(__pyx_v_repulsion_strength); if (unlikely((__pyx_t_13 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
-  __pyx_v_self->umap_params->repulsion_strength = ((float)__pyx_t_13);
+  __pyx_t_14 = __pyx_PyFloat_AsFloat(__pyx_v_repulsion_strength); if (unlikely((__pyx_t_14 == (float)-1) && PyErr_Occurred())) __PYX_ERR(0, 157, __pyx_L1_error)
+  __pyx_v_self->umap_params->repulsion_strength = ((float)__pyx_t_14);
 
   /* "cuml/manifold/umap.pyx":158
  *         self.umap_params.local_connectivity = <float>local_connectivity
@@ -2220,8 +2232,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap_params.transform_queue_size = <int>transform_queue_size
  * 
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_negative_sample_rate); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
-  __pyx_v_self->umap_params->negative_sample_rate = ((int)__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_v_negative_sample_rate); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 158, __pyx_L1_error)
+  __pyx_v_self->umap_params->negative_sample_rate = ((int)__pyx_t_11);
 
   /* "cuml/manifold/umap.pyx":159
  *         self.umap_params.repulsion_strength = <float>repulsion_strength
@@ -2230,8 +2242,8 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  * 
  *         self.umap = new UMAP(self.umap_params)
  */
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_v_transform_queue_size); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L1_error)
-  __pyx_v_self->umap_params->transform_queue_size = ((int)__pyx_t_10);
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_v_transform_queue_size); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 159, __pyx_L1_error)
+  __pyx_v_self->umap_params->transform_queue_size = ((int)__pyx_t_11);
 
   /* "cuml/manifold/umap.pyx":161
  *         self.umap_params.transform_queue_size = <int>transform_queue_size
@@ -2241,12 +2253,12 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *         self.umap.fit(
  */
   try {
-    __pyx_t_14 = new ML::UMAP(__pyx_v_self->umap_params);
+    __pyx_t_15 = new ML::UMAP(__pyx_v_self->umap_params);
   } catch(...) {
     __Pyx_CppExn2PyErr();
     __PYX_ERR(0, 161, __pyx_L1_error)
   }
-  __pyx_v_self->umap = __pyx_t_14;
+  __pyx_v_self->umap = __pyx_t_15;
 
   /* "cuml/manifold/umap.pyx":165
  *         self.umap.fit(
@@ -2260,7 +2272,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_5 = __Pyx_GetItemInt(__pyx_t_4, 0, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_5)) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_5);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-  __pyx_t_10 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_10 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 165, __pyx_L1_error)
+  __pyx_t_11 = __Pyx_PyInt_As_int(__pyx_t_5); if (unlikely((__pyx_t_11 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 165, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
 
   /* "cuml/manifold/umap.pyx":166
@@ -2275,7 +2287,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __pyx_t_4 = __Pyx_GetItemInt(__pyx_t_5, 1, long, 1, __Pyx_PyInt_From_long, 0, 0, 1); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-  __pyx_t_15 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_15 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L1_error)
+  __pyx_t_16 = __Pyx_PyInt_As_int(__pyx_t_4); if (unlikely((__pyx_t_16 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 166, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "cuml/manifold/umap.pyx":163
@@ -2285,7 +2297,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
  *             <float*> self.raw_data,
  *             <int> X_m.shape[0],
  */
-  __pyx_v_self->umap->fit(((float *)__pyx_v_self->raw_data), ((int)__pyx_t_10), ((int)__pyx_t_15), ((ML::kNN *)__pyx_v_self->knn), ((float *)__pyx_v_self->embeddings));
+  __pyx_v_self->umap->fit(((float *)__pyx_v_self->raw_data), ((int)__pyx_t_11), ((int)__pyx_t_16), ((ML::kNN *)__pyx_v_self->knn), ((float *)__pyx_v_self->embeddings));
 
   /* "cuml/manifold/umap.pyx":171
  *         )
@@ -2323,6 +2335,7 @@ static PyObject *__pyx_pf_4cuml_8manifold_4umap_5UMAP1_4fit(struct __pyx_obj_4cu
   __Pyx_XDECREF(__pyx_t_7);
   __Pyx_XDECREF(__pyx_t_8);
   __Pyx_XDECREF(__pyx_t_9);
+  __Pyx_XDECREF(__pyx_t_10);
   __Pyx_AddTraceback("cuml.manifold.umap.UMAP1.fit", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
@@ -2598,6 +2611,8 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_cuml, __pyx_k_cuml, sizeof(__pyx_k_cuml), 0, 0, 1, 1},
   {&__pyx_kp_u_data_should_be_two_dimensional, __pyx_k_data_should_be_two_dimensional, sizeof(__pyx_k_data_should_be_two_dimensional), 0, 1, 0, 0},
   {&__pyx_n_s_device_ctypes_pointer, __pyx_k_device_ctypes_pointer, sizeof(__pyx_k_device_ctypes_pointer), 0, 0, 1, 1},
+  {&__pyx_n_s_dtype, __pyx_k_dtype, sizeof(__pyx_k_dtype), 0, 0, 1, 1},
+  {&__pyx_n_s_float32, __pyx_k_float32, sizeof(__pyx_k_float32), 0, 0, 1, 1},
   {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
   {&__pyx_n_s_init, __pyx_k_init, sizeof(__pyx_k_init), 0, 0, 1, 1},

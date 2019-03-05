@@ -136,6 +136,8 @@ namespace UMAPAlgo {
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
                 if(row < nnz) {
+
+
                     /**
                      * Positive sample stage (attractive forces)
                      */
@@ -148,6 +150,7 @@ namespace UMAPAlgo {
                         T *other = tail_embedding+(k*params.n_components);
 
                         float dist_squared = rdist(current, other, params.n_components);
+//                        printf("j=%d, k=%d, dist_squared=%0.5f\n", j, k, dist_squared);
 
                         // Attractive force between the two vertices, since they
                         // are connected by an edge in the 1-skeleton.
@@ -158,8 +161,8 @@ namespace UMAPAlgo {
 
                         /**
                          * Apply attractive force between `current` and `other`
-                         * by updating their 'weights' to put them closer in
-                         * their local Euclidean space.
+                         * by updating their 'weights' to please them relative
+                         * to their weight in the 1-skeleton.
                          * (update `other` embedding only if we are
                          * performing unsupervised training).
                          */
@@ -266,11 +269,11 @@ namespace UMAPAlgo {
                 MLCommon::allocate(epoch_of_next_sample, nnz);
                 MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
-                dim3 grid(MLCommon::ceildiv(head_n, TPB_X), 1, 1);
+                dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
                 curandState *d_state;
-                MLCommon::allocate(d_state, TPB_X * head_n);
+                MLCommon::allocate(d_state, TPB_X * nnz);
 
 
                 std::cout << "Running final SGD w/ " << params->n_epochs << " epochs." << std::endl;
@@ -322,7 +325,6 @@ namespace UMAPAlgo {
 
 	            dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
 	            dim3 blk(TPB_X, 1, 1);
-	            srand(50);
 
 	            /**
 	             * Find vals.max()
@@ -349,6 +351,8 @@ namespace UMAPAlgo {
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
 
+                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
+
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
 	                            rows, cols, nnz,
@@ -358,7 +362,7 @@ namespace UMAPAlgo {
 	                            params);
 	            CUDA_CHECK(cudaPeekAtLastError());
 
-//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
+                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
 //
                 CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }
