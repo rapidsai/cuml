@@ -85,17 +85,12 @@ class LinearRegression:
         y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
 
         reg = lr.fit(X,y)
-        print("Coefficients:")
-        print(reg.coef_)
-        print("intercept:")
-        print(reg.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1']=np.array([3,2],dtype=np.float32)
         X_new['col2']=np.array([5,5],dtype=np.float32)
         preds = lr.predict(X_new)
 
-        print(preds)
 
     Output:
 
@@ -172,8 +167,7 @@ class LinearRegression:
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        print("self.algo : ",self.algo)
-        print("self.fit_intercept : ",self.fit_intercept)
+
         cdef uintptr_t X_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -218,9 +212,7 @@ class LinearRegression:
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
 
         cdef float c_intercept1
-        print(c_intercept1)
         cdef double c_intercept2
-        print(c_intercept2)
 
         if self.gdf_datatype.type == np.float32:
 
@@ -316,8 +308,6 @@ class LinearRegression:
         for key in variables:
             var_value = getattr(self,key,None)
             params[key] = var_value   
-        print("params type ",type(params))  
-        print("variables ",variables)
         return params
 
 
