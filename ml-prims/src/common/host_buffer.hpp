@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "buffer_base.hpp"
+
 #include "../utils.h"
 
 #include "cuml_allocator.hpp"
@@ -41,15 +43,15 @@ namespace MLCommon {
  * @endcode
  */
 template<typename T>
-class host_buffer
+class host_buffer : public buffer_base<T>
 {
 public:
-    using size_type         = std::size_t;
-    using value_type        = T;
-    using iterator          = value_type*;
-    using const_iterator    = const value_type*;
-    using reference         = T&;
-    using const_reference   = const T&;
+    using size_type         = typename buffer_base<T>::size_type;
+    using value_type        = typename buffer_base<T>::value_type;
+    using iterator          = typename buffer_base<T>::iterator;
+    using const_iterator    = typename buffer_base<T>::const_iterator;
+    using reference         = typename buffer_base<T>::reference;
+    using const_reference   = typename buffer_base<T>::const_reference;
 
     host_buffer() = delete;
 
@@ -58,7 +60,7 @@ public:
     host_buffer& operator=(const host_buffer& other) = delete;
 
     host_buffer(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream, size_type n = 0)
-        : _allocator(allocator), _size(n), _capacity(n), _data(nullptr), _stream(stream)
+        : buffer_base<T>(stream,n), _allocator(allocator)
     {
         if ( _capacity > 0 )
         {
@@ -85,21 +87,6 @@ public:
         return _data[pos];
     }
 
-    value_type* data()
-    {
-        return _data;
-    }
-
-    const value_type* data() const
-    {
-        return _data;
-    }
-    
-    size_type size() const
-    {
-        return _size;
-    }
-    
     void reserve( const size_type new_capacity, cudaStream_t stream )
     {
         _stream = stream;
@@ -116,18 +103,13 @@ public:
             _capacity = new_capacity;
         }
     }
-    
+
     void resize(const size_type new_size, cudaStream_t stream )
     {
         reserve( new_size, stream );
         _size = new_size;
     }
-    
-    void clear()
-    {
-        _size = 0;
-    }
-    
+
     void release( cudaStream_t stream )
     {
         _stream = stream;
@@ -138,26 +120,6 @@ public:
         _capacity = 0;
         _size = 0;
     }
-    
-    iterator begin()
-    {
-        return _data;
-    }
-    
-    const_iterator begin() const
-    {
-        return _data;
-    }
-    
-    iterator end()
-    {
-        return _data+_size;
-    }
-    
-    const_iterator end() const
-    {
-        return _data+_size;
-    }
 
     std::shared_ptr<hostAllocator> getAllocator() const
     {
@@ -166,10 +128,10 @@ public:
 
 private:
     std::shared_ptr<hostAllocator>      _allocator;
-    size_type                           _size;
-    size_type                           _capacity;
-    value_type*                         _data;
-    cudaStream_t                        _stream;
+    using buffer_base<T>::_size;
+    using buffer_base<T>::_capacity;
+    using buffer_base<T>::_data;
+    using buffer_base<T>::_stream;
 };
 
 } // end namespace ML
