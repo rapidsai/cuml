@@ -22,6 +22,7 @@
 import ctypes
 import cudf
 import numpy as np
+import warnings # For DeprecationWarning
 
 from numba import cuda
 
@@ -165,7 +166,12 @@ class LinearRegression:
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        if algorithm in ['svd', 'eig']:
+
+        ## Algorithm will be changed to solver in 0.7
+        warnings.warn("Argument (algorithm) will be changed to (solver) in cuML 0.7", warnings.DeprecationWarning)
+        ##
+
+        if algorithm in ('svd', 'eig'):
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
