@@ -1,7 +1,7 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
-
+- PR #235: NearestNeighbors MG Support
 
 
 ## Improvements
@@ -19,7 +19,6 @@
 - PR #218: Fix RNG to use given seed and adjust RNG test tolerances.
 - PR #225: Support for generating random integers
 - PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
-- PR #235: NearestNeighbors MG Support
 - PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
 - PR #230: Refactored the cuda_utils header
 - PR #236: Refactored cuml python package structure to be more sklearn like
