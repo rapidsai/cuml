@@ -24,7 +24,7 @@ $ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
 $ cd cuML
 $ mkdir build
 $ cd build
-$ export CUDA_BIN_PATH=$CUDA_HOME # (optional CUDA_HOME=/path/to/cuda/)
+$ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not in the PATH. Default CUDA_HOME=/path/to/cuda/)
 $ cmake ..
 ```
 
