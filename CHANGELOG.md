@@ -27,6 +27,7 @@
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #274: Edited doc strings - import statements + docs
 
 ## Bug Fixes
 
