@@ -461,7 +461,7 @@ class KMeans:
             "random_state":self.random_state,"tol":self.tol, "verbose":self.verbose}
         for key, value in params.items():
             if key not in current_params:
-                raise ValueError('Invalid parameter %s for estimator')
+                raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
                 current_params[key] = value
