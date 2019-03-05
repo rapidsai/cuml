@@ -443,3 +443,26 @@ class KMeans:
 
         """
         return self.fit(input_gdf).transform(input_gdf)
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value   
+        return params
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        current_params = {"algorithm":self.algorithm,'copy_x':self.copy_x,'init':self.init,"max_iter":self.max_iter,
+            "n_clusters":self.n_clusters,"n_init":self.n_init,"n_jobs":self.n_jobs, "precompute_distances":self.precompute_distances,
+            "random_state":self.random_state,"tol":self.tol, "verbose":self.verbose}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        return self
