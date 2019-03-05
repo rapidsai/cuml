@@ -14,26 +14,96 @@
  * limitations under the License.
  */
 
+#include "randomforest/randomforest.h"
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
 #include <test_utils.h>
 #include "ml_utils.h"
-#include "randomforest/randomforest.h"
 
 namespace ML {
 
 using namespace MLCommon;
 
+template<typename T> // template useless for now.
+struct RfInputs {
+	int n_rows;
+	int n_cols;
+	int n_trees;
+	float max_features;
+	float rows_sample;
+	int n_inference_rows;
+	int max_depth;
+	int max_leaves;
+};
+
 template<typename T>
-class RFTest: public ::testing::Test {
+::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
+	return os;
+}
+
+template<typename T>
+class RfTest: public ::testing::TestWithParam<RfInputs<T> > {
 protected:
 	void basicTest() {
 
-		/* FIXME Placeholder
-		   - Allocate input data set (rows, cols)
-		   - Generate ref vals (somehow compare creted trees or predictions)?
-		   - etc.
-		*/
+		params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+
+		//--------------------------------------------------------
+		// Single tree predictor 
+		//--------------------------------------------------------
+		tree_cf = new DecisionTree::DecisionTreeClassifier();
+
+		int data_len = params.n_rows * params.n_cols;
+		allocate(data, data_len);
+		allocate(labels, params.n_rows);
+
+		// Populate data (assume Col major)
+		std::vector<T> data_h = {0.0f, 1.0f, 2.0f, 0.0f, 10.0f, 20.0f, 10.0f, 40.0f};
+		data_h.resize(data_len);
+	    updateDevice(data, data_h.data(), data_len);
+
+		// Populate labels
+		std::vector<int> labels_h = {0, 1, 0, 4};
+		labels_h.resize(params.n_rows);
+	    updateDevice(labels, labels_h.data(), params.n_rows);
+
+		// Set selected rows: all for single decision tree
+		unsigned int * selected_rows;
+		allocate(selected_rows, params.n_rows);
+		std::vector<unsigned int> selected_rows_h = {0, 1, 2, 3};
+		selected_rows_h.resize(params.n_rows);
+		updateDevice(selected_rows, selected_rows_h.data(), params.n_rows);
+
+		// Train single decision tree.
+		std::cout << "Config: " << params.n_cols << " " << params.n_rows << " " << params.max_depth << " " << params.max_leaves  << " " << params.max_features << std::endl;
+		tree_cf->fit(data, params.n_cols, params.n_rows, labels, selected_rows, params.n_rows, params.max_depth, params.max_leaves, params.max_features);
+		tree_cf->print();
+
+		int single_tree_inference_data_len = params.n_cols;
+		//std::vector<T> single_tree_inference_data_h = {1.0f, 20.0f};
+		std::vector<T> single_tree_inference_data_h = {30.0f, 20.0f};
+		single_tree_inference_data_h.resize(single_tree_inference_data_len);
+		int predicted_val = tree_cf->predict(single_tree_inference_data_h.data());
+	    std::cout << "Predicted " << predicted_val << std::endl;
+
+		//--------------------------------------------------------
+		// Random Forest
+		//--------------------------------------------------------
+		
+ 		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, 0, 0);
+		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, params.n_trees, params.max_features, params.rows_sample);
+
+		int inference_data_len = params.n_inference_rows * params.n_cols;
+		std::vector<T> inference_data_h = {0.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
+		inference_data_h.resize(inference_data_len);
+
+		predictions = rf_classifier->predict(inference_data_h.data(), params.n_inference_rows, params.n_cols, true);
+		for (int i = 0; i < params.n_inference_rows; i++) {
+			std::cout << "Random forest predicted " << predictions[i] << std::endl;
+		}
+
+
+		
     }
 
  	void SetUp() override {
@@ -41,26 +111,46 @@ protected:
 	}
 
 	void TearDown() override {
-		//FIXME free any cuda allocs
-		//CUDA_CHECK(cudaFree(d_ref_D));
+		CUDA_CHECK(cudaFree(labels));
+		CUDA_CHECK(cudaFree(data));
+		delete tree_cf;
+		delete predictions;
+		delete rf_classifier;
+
 	}
 
 protected:
 
    	//placeholder for any params?
-    int trees = 10;
-	float * data;
+	RfInputs<T> params;
+	T * data, * inference_data;
     int * labels, * predictions, * ref_predictions;
 
-    rfClassifier * rf_classifier = new rfClassifier(trees, 0, 0, RF_type::CLASSIFICATION);
+	
+	DecisionTree::DecisionTreeClassifier * tree_cf;
+    rfClassifier * rf_classifier;
+
 };
+
+/* NVM for now:
+   Rf configs:
+	- 10 rows, 4 features, 1 tree, 0.8 max features, 1.0 row sampling, 2 rows inf
+	- 10 rows, 4 features, 2 trees, 0.8 max features, 0.8 row sampling, 2 rows inf
+ */
+const std::vector<RfInputs<float> > inputsf2 = {
+		  //{ 4, 2, 1, 1.0f, 1.0f, 4}, //};
+		  //{ 4, 2, 3, 1.0f, 1.0f, 4, -1, -1} };
+		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1} };
 
 
 //FIXME Add tests for fit and predict. Identify what would make a comparison match (similar predictions?)
-typedef RFTest<float> RFTestF;
-TEST_F(RFTestF, Fit) {
+typedef RfTest<float> RfTestF;
+TEST_P(RfTestF, Fit) {
 	//ASSERT_TRUE(
 	//		devArrMatch(ref_predictions, predictions, /*some row cnt? */ , Compare<float>()));
 }
+
+INSTANTIATE_TEST_CASE_P(RfTests, RfTestF, ::testing::ValuesIn(inputsf2));
+
 
 } // end namespace ML

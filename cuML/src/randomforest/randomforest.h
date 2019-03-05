@@ -16,6 +16,11 @@
 
 #pragma once
 #include "decisiontree/tree.cuh"
+#include <iostream>
+#include <utils.h>
+#include "random/rng.h"
+#include "linalg/cublas_wrappers.h"
+#include <map>
 
 namespace ML {
 	
@@ -25,25 +30,31 @@ namespace ML {
 
 	class rf {
 		protected:
-		int n_trees; 
-		int max_depth; 
-	    int max_leaves; 	
-		int rf_type;
+			int n_trees; 
+			int max_depth; 
+	    	int max_leaves; 	
+			int rf_type;
 
-		DecisionTree::DecisionTreeClassifier * trees;
+			DecisionTree::DecisionTreeClassifier * trees;
 		
 		public:
-			rf(int n_trees, int max_depth=0, int max_leaves=0, int rf_type=RF_type::CLASSIFICATION) {
-				n_trees = n_trees;
-				max_depth = max_depth; //FIXME Set these during fit?
-				max_leaves = max_leaves;
-				trees = NULL; 
-				rf_type = rf_type;
+			rf(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) {
+					n_trees = cfg_n_trees;
+					max_depth = cfg_max_depth; //FIXME Set these during fit?
+					max_leaves = cfg_max_leaves;
+					trees = NULL; 
+					rf_type = cfg_rf_type;
 			}
 
 			~rf() {
-				delete trees;
+					delete trees;
 			}
+
+			int get_ntrees() {
+				std::cout << std::dec << n_trees << " " << max_depth << " " << max_leaves << " " << rf_type << "\n";
+				return n_trees;
+			}
+
 
     };
 
@@ -52,10 +63,11 @@ namespace ML {
 /*FIXME: there are many more hyperparameters to consider, as per SKL-RF. For example:
   - max_depth, max_leaves, criterion etc. */
 
-
 	class rfClassifier : public rf {
 		public:
-		rfClassifier(int n_trees, int max_depth, int max_leaves, int rf_type) : rf(n_trees, max_depth, max_leaves, RF_type::CLASSIFICATION) {}
+
+		rfClassifier(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) : rf::rf(cfg_n_trees, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+
         /** 
          * Fit an RF classification model on input data with n_rows samples and n_cols features.
          * @param input			data array in FIXME row major format for now.
@@ -67,27 +79,102 @@ namespace ML {
 	     * @param rows_sample	ratio of n_rows used per tree
         */
 		void fit(float * input, int n_rows, int n_cols, int * labels,
-                         int n_trees, float rows_sample);
-		void fit(float * input, int n_rows, int n_cols, int * labels,
-                         int n_trees, float max_features, float rows_sample);
+                         int cfg_n_trees, float max_features, float rows_sample, int cfg_max_depth=-1, int cfg_max_leaves=-1) {
+			ASSERT(!trees, "Cannot fit an existing forest.");
+			ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
+			ASSERT((max_features > 0) && (max_features <= 1.0), "max_features value %f outside permitted (0, 1] range", max_features);
+			ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+			ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+			ASSERT((cfg_n_trees > 0), "Invalid n_trees %d", cfg_n_trees);
 
-		/**
-		 * Populate preds predictions using RF for input data w/ n_rows rows and n_cols features.
-		 * Code currenlty only supports single class.
-		*/
-		//void predict(const float * input, int n_rows, int n_cols, int * preds);
-		int * predict(const float * input, int n_rows, int n_cols);
-	};
+			n_trees = cfg_n_trees;
+			max_depth = cfg_max_depth;
+			max_leaves = cfg_max_leaves;
+
+			rfClassifier::trees = new DecisionTree::DecisionTreeClassifier[n_trees];
+			int n_sampled_rows = rows_sample * n_rows;
+			
+			for (int i = 0; i < n_trees; i++) {
+				// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
+				unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement). 
+				CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
+
+				MLCommon::Random::Rng r(i); //FIXME Ensure the seed for each tree is different and a meaningful one.
+				r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows-1);
+
+				/* Build individual tree in the forest.
+				   - input is a pointer to orig data that have n_cols features and n_rows rows.
+				   - n_sampled_rows: # rows sampled for tree's bootstrap sample.
+				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.  
+					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
+				*/
+				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, max_depth, max_leaves, max_features);
+
+				//Cleanup
+				CUDA_CHECK(cudaFree(selected_rows));
+
+			}
+		}	
+
+
+		//Assuming input in row_major format. 
+		int * predict(const float * input, int n_rows, int n_cols, bool verbose=false) {
+			ASSERT(trees, "Cannot predict! No trees in the forest.");
+			int * preds = new int[n_rows];
+
+			int row_size = n_cols;
+
+			for (int row_id = 0; row_id < n_rows; row_id++) {
+				
+				if (verbose) {
+					std::cout << "\n\n";
+					std::cout << "Predict for sample: ";
+					for (int i = 0; i < n_cols; i++) std::cout << input[row_id*row_size + i] << ", ";
+					std::cout << std::endl;
+				}
+
+				std::map<int, int> prediction_to_cnt;
+				std::pair<std::map<int, int>::iterator, bool> ret;
+				int max_cnt_so_far = 0;
+				int majority_prediction = -1;
+
+				for (int i = 0; i < n_trees; i++) {
+					//Return prediction for one sample. 
+					if (verbose) {
+						std::cout << "Printing tree " << i << std::endl;
+						trees[i].print();
+					}
+					int prediction = trees[i].predict(&input[row_id * row_size], verbose);
+
+  					ret = prediction_to_cnt.insert ( std::pair<int, int>(prediction, 1));
+  					if (!(ret.second)) {
+						ret.first->second += 1;
+					}
+					if (max_cnt_so_far < ret.first->second) {
+						max_cnt_so_far = ret.first->second;
+						majority_prediction = ret.first->first; 
+					}	
+				}
+
+				preds[row_id] = majority_prediction;
+			}
+
+			return preds;
+		}
+
+};
 
 
 	class rfRegressor : public rf {
 	    public:
-		rfRegressor(int n_trees, int max_depth, int max_leaves, int rf_type) : rf(n_trees, max_depth, max_leaves, RF_type::REGRESSION) {}
-		void fit(float * input, int n_rows, int n_cols, int * labels,
-                         int n_trees, float max_features, float rows_sample);
 
-		void predict(const float * input, int n_rows, int n_cols, int * preds);
+		rfRegressor(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::REGRESSION) : rf::rf(cfg_n_trees, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+
+		void fit(float * input, int n_rows, int n_cols, int * labels,
+                         int n_trees, float max_features, float rows_sample) {};
+
+		void predict(const float * input, int n_rows, int n_cols, int * preds) {};
 	}; 
 
 
-}
+};

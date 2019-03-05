@@ -173,21 +173,22 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
-file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
-file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
+#file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
+file(GLOB_RECURSE cuml_test_cuda_sources "test/rf_test.cu")
+#file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
 add_library(cuml SHARED
-            src/pca/pca.cu
-            src/tsvd/tsvd.cu
-            src/dbscan/dbscan.cu
-            src/kmeans/kmeans.cu
-            src/glm/glm.cu
-            src/knn/knn.cu
-            src/kalman_filter/lkf_py.cu
-            src/randomforest/randomforest.cu
+            #src/pca/pca.cu
+            #src/tsvd/tsvd.cu
+            #src/dbscan/dbscan.cu
+            #src/kmeans/kmeans.cu
+            #src/glm/glm.cu
+            #src/knn/knn.cu
+            #src/kalman_filter/lkf_py.cu
 	        src/decisiontree/decisiontree.cu
+            src/randomforest/randomforest.cu
             )
 
 set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
@@ -237,9 +238,9 @@ target_link_libraries(ml_mg_test
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-    add_subdirectory(examples)
-endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+#if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+#    add_subdirectory(examples)
+#endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
