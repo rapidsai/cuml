@@ -27,7 +27,6 @@ install_requires = [
     'cython'
 ]
 
-cython_files = ['cuML/cuml.pyx']
 
 cuda_lib_dir = '/usr/local/cuda/include'
 
@@ -35,8 +34,8 @@ if os.environ.get('CUDA_HOME', False):
     cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
 
 extensions = [
-    Extension("cuml",
-              sources=cython_files,
+    Extension("*",
+              sources=['cuml/*/*.pyx'],
               include_dirs=['../cuML/src',
                             '../cuML/external',
                             '../cuML/external/ml-prims/src',
@@ -54,17 +53,15 @@ setup(name='cuml',
       description="cuML - RAPIDS ML Algorithms",
       version=versioneer.get_version(),
       classifiers=[
-        # "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        # "Operating System :: OS Independent",
         "Programming Language :: Python",
-        # "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7"
       ],
       author="NVIDIA Corporation",
       setup_requires=['cython'],
       ext_modules=cythonize(extensions),
-      packages=find_packages(include=['cuML', 'cuML.*']),
+      packages=find_packages(include=['cuml', 'cuml.*']),
       install_requires=install_requires,
       license="Apache",
       cmdclass=versioneer.get_cmdclass(),

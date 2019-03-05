@@ -42,10 +42,10 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
 		int algo = 0) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"olsFit: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
+			"olsFit: number of rows cannot be less than two");
 
 	math_t *mu_input, *norm2_input, *mu_labels;
 
@@ -62,7 +62,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 
         ///@todo: for perf reasons we should be using custom allocators!
         DeviceAllocator mgr = makeDefaultAllocator();
-	if (algo == 0) {
+	if (algo == 0 || n_cols == 1) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
                                  cublas_handle, mgr);
 	} else if (algo == 1) {
@@ -101,10 +101,10 @@ template<typename math_t>
 void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 		math_t intercept, math_t *preds, cublasHandle_t cublas_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
+	ASSERT(n_cols > 0,
+			"olsPredict: number of columns cannot be less than one");
+	ASSERT(n_rows > 0,
+			"olsPredict: number of rows cannot be less than one");
 
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
