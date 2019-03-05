@@ -259,6 +259,9 @@ class TruncatedSVD:
                                                 self.singular_values_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
+        if self.params.n_components> self.params.n_cols:
+            raise ValueError(' n_components must be < n_features')
+
         if not _transform:
             if self.gdf_datatype.type == np.float32:
                 tsvdFit(<float*> input_ptr,
@@ -452,3 +455,24 @@ class TruncatedSVD:
         del(X_m)
         return X_new
 
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver','n_cols','n_rows']
+        for key in variables:
+            var_value = getattr(self.params,key,None)
+            params[key] = var_value   
+        return params
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver']
+        for key, value in params.items():
+            if key not in variables:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                #print(getattr(self.params,key,None))
+                setattr(self.params, key, value)
+        return self
