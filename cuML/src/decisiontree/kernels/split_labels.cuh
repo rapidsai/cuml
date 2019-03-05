@@ -17,7 +17,7 @@
 #pragma once
 #include <utils.h>
 #include "cub/cub.cuh"
-
+#include <thrust/sort.h>
 __global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float quesval,const int nrows)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -42,10 +42,52 @@ __global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float q
 	return;
 }
 
-int get_class(int *labels)
+int get_class(int *labels,int nrows)
 {
-	int classval;
-	CUDA_CHECK(cudaMemcpy(&classval,&labels[0],sizeof(int),cudaMemcpyDeviceToHost));
+	int classval = -1;
+	  
+	thrust::sort(thrust::device,labels,labels + nrows);
+	void     *d_temp_storage = NULL;
+	size_t   temp_storage_bytes = 0;
+
+	int *d_unique_out, *d_counts_out, *d_num_runs_out;
+	CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
+	
+	// Allocate temporary storage
+	CUDA_CHECK(cudaMalloc((void**)(&d_unique_out),nrows*sizeof(int)));
+	CUDA_CHECK(cudaMalloc((void**)(&d_counts_out),nrows*sizeof(int)));
+	CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out),sizeof(int)));
+	CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+	
+	// Run encoding
+	CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
+
+	int num_unique;
+	CUDA_CHECK(cudaMemcpy(&num_unique,d_num_runs_out,sizeof(int),cudaMemcpyDeviceToHost));
+	
+	int *h_counts_out = (int*)malloc(num_unique*sizeof(int));
+	int *h_unique_out = (int*)malloc(num_unique*sizeof(int));
+	
+	CUDA_CHECK(cudaMemcpy(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_unique_out,d_unique_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaDeviceSynchronize());
+
+	int max = -1;
+	for(int i=0;i<num_unique;i++)
+		{
+			if(h_counts_out[i] > max)
+				{
+					max = h_counts_out[i];
+					classval = h_unique_out[i];
+				}
+		}
+
+	CUDA_CHECK(cudaFree(d_temp_storage));
+	CUDA_CHECK(cudaFree(d_unique_out));
+	CUDA_CHECK(cudaFree(d_counts_out));
+	CUDA_CHECK(cudaFree(d_num_runs_out));
+	free(h_counts_out);
+	free(h_unique_out);
 	
 	return classval;
 }

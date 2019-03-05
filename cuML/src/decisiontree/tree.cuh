@@ -41,8 +41,20 @@ namespace ML {
 			TreeNode *right = NULL;
 			int class_predict;  
 			Question question;
+			void print(std::ostream& os)
+			{
+				if(left == NULL && right == NULL)
+					os << "(leaf," << class_predict << ")" ;
+				else
+					os << "(" << question.column << "," << question.value << ")" ;
+				return;
+			}
 		};
-
+		std::ostream& operator<<(std::ostream& os,TreeNode* node)
+		{
+			node->print(os);
+			return os;
+		}
 		struct DataInfo
 		{
 			unsigned int NLocalrows;
@@ -55,18 +67,19 @@ namespace ML {
 		public:
 			TreeNode *root = NULL;
 			const int nbins = 8;
+			int treedepth = 8;
 			DataInfo dinfo;
-			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
+			void fit(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = 8)
 			{
-				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows);
+				return plant(data,ncols,nrows,colper,labels,rowids,n_sampled_rows,maxdepth);
 			}
 			
-			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows)
+			void plant(float *data,const int ncols,const int nrows,const float colper,int *labels,unsigned int *rowids,const int n_sampled_rows,int maxdepth = 8)
 			{
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
 				dinfo.Ncols = ncols;
-				
+				treedepth = maxdepth;
 				root = grow_tree(data,colper,labels,0,rowids,n_sampled_rows);
 				return;
 			}
@@ -78,14 +91,16 @@ namespace ML {
 				float gain = 0.0;
 				
 				find_best_fruit(data,labels,colper,ques,gain,rowids,n_sampled_rows);  //ques and gain are output here
-				if(gain == 0.0)
+				
+				if(gain == 0.0 || depth == treedepth)
 					{
-						node->class_predict = get_class(labels);
+						node->class_predict = get_class(labels,n_sampled_rows);
 					}
 				else
 					{
 						int nrowsleft,nrowsright;
 						split_branch(data,ques,n_sampled_rows,nrowsleft,nrowsright,rowids);
+						node->question = ques;
 						node->left = grow_tree(data,colper,&labels[0],depth+1,&rowids[0],nrowsleft);
 						node->right = grow_tree(data,colper,&labels[nrowsleft],depth+1,&rowids[nrowsleft],nrowsright);
 					}
@@ -197,6 +212,28 @@ namespace ML {
 					//return node->class_predict; //FIXME however we decide to implement this 
 					return 0;
 				}
+			}
+			
+			void print_node(const std::string& prefix,TreeNode* node, bool isLeft)
+			{
+				if( node != NULL )
+					{
+						std::cout << prefix;
+						
+						std::cout << (isLeft ? "├" : "└" );
+						
+						// print the value of the node
+						std::cout << node << std::endl;
+						
+						// enter the next tree level - left and right branch
+						print_node( prefix + (isLeft ? "│   " : "    "), node->left, true);
+						print_node( prefix + (isLeft ? "│   " : "    "), node->right, false);
+					}
+			}
+			
+			void print()
+			{
+				print_node("",root,false);
 			}
 			
 		};

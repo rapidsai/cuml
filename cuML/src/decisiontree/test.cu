@@ -62,7 +62,7 @@ int main()
 
 	ML::DecisionTree::DecisionTreeClassifier model;
 	model.plant(d_data,4,N,1.0,d_labels,rowids,N);
-	
+	model.print();
 	
 	cudaFree(d_data);
 	cudaFree(d_labels);
