@@ -39,10 +39,11 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
+            template<int TPB_X>
             __global__ void init_stuff(curandState *state, int n, long long seed) {
-                 int idx = blockIdx.x * blockDim.x + threadIdx.x;
+                 int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
                  if(idx < n)
-                     curand_init(seed, idx, 0, &state[idx]);
+                     curand_init((seed<<20)+idx, 0, 0, &state[idx]);
             }
 
 	        template<typename T>
@@ -98,7 +99,6 @@ namespace UMAPAlgo {
 	            std::cout << "]" << std::endl;
 	        }
 
-
 	        template<typename T>
 	        __device__ __host__ T repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
                 T grad_coeff = 2.0 * gamma * params.b;
@@ -134,9 +134,7 @@ namespace UMAPAlgo {
                     UMAPParams params) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
                 if(row < nnz) {
-
 
                     /**
                      * Positive sample stage (attractive forces)
@@ -150,7 +148,6 @@ namespace UMAPAlgo {
                         T *other = tail_embedding+(k*params.n_components);
 
                         float dist_squared = rdist(current, other, params.n_components);
-//                        printf("j=%d, k=%d, dist_squared=%0.5f\n", j, k, dist_squared);
 
                         // Attractive force between the two vertices, since they
                         // are connected by an edge in the 1-skeleton.
@@ -269,12 +266,12 @@ namespace UMAPAlgo {
                 MLCommon::allocate(epoch_of_next_sample, nnz);
                 MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
+
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
                 curandState *d_state;
-                MLCommon::allocate(d_state, TPB_X * nnz);
-
+                MLCommon::allocate(d_state, TPB_X*nnz);
 
                 std::cout << "Running final SGD w/ " << params->n_epochs << " epochs." << std::endl;
                 for(int n = 0; n < params->n_epochs; n++) {
@@ -283,7 +280,7 @@ namespace UMAPAlgo {
                     gettimeofday(&tp, NULL);
                     long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-	                init_stuff<<<grid, blk>>>(d_state, TPB_X*head_n, seed);
+	                init_stuff<TPB_X><<<grid, blk>>>(d_state, nnz, seed);
 	                optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
 	                    head_embedding, head_n,
 	                    tail_embedding, tail_n,
@@ -303,8 +300,6 @@ namespace UMAPAlgo {
 
                     alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
-
-                CUDA_CHECK(cudaDeviceSynchronize());
 
                 std::cout << "Done." << std::endl;
 
@@ -351,7 +346,7 @@ namespace UMAPAlgo {
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
 
-                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
+//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
 
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
@@ -362,7 +357,7 @@ namespace UMAPAlgo {
 	                            params);
 	            CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
+//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
 //
                 CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }
