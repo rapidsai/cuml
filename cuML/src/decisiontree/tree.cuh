@@ -205,20 +205,22 @@ namespace ML {
 
 			/* Predict a label for single row for a given tree. */
 			int predict(const float * row) {
+				ASSERT(root, "Cannot predict w/ empty tree!");
 				return classify(row, root);	
 			}
 
 
 			int classify(const float * row, TreeNode * node) {
-				if (node->left || node->right) {
-					if (row[node->question.column] <= node->question.value) { //FIXME confirm question is <= format
-						return classify(row, node->left);
-					} else  {
-						return classify(row, node->right);
-					}
+				Question q = node->question;
+				if (node->left && (row[q.column] <= q.value)) {
+					//std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
+					return classify(row, node->left);
+				} else if (node->right && (row[q.column] > q.value)) {
+					//std::cout << "Classifying Right @ node w/ column " << q.column << " and value " << q.value << std::endl;
+					return classify(row, node->right);
 				} else {
-					//return node->class_predict; //FIXME however we decide to implement this 
-					return 0;
+					//std::cout << "Leaf node. Predicting " << node->class_predict << std::endl;
+					return node->class_predict;
 				}
 			}
 			
