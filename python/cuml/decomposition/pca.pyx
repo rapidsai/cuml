@@ -246,9 +246,9 @@ class PCA:
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
 
-
-    For an additional example see `the PCA notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/pca_demo.ipynb>`_. For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
-
+    
+    For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_. 
+    For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,

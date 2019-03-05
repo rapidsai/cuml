@@ -190,7 +190,8 @@ class TruncatedSVD:
         The top K singular values. Remember all singular values >= 0
 
 
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_. 
+    For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,

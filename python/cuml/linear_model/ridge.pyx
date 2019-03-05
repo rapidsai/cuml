@@ -154,8 +154,13 @@ class Ridge:
         The independent term. If fit_intercept_ is False, will be 0.
 
 
-    For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_. For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
+    For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
+    
+
     """
+    # Link will work later
+    # For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_.
+    # New link : https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
 
