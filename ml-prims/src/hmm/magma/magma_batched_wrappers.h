@@ -156,6 +156,50 @@ magma_getri_outofplace_batched(
         return magma_dgetri_outofplace_batched( n, dA_array, ldda, dipiv_array, dinvA_array, lddia, info_array, batchCount, queue);
 }
 
+template <typename T>
+void
+magmablas_gemm(
+        magma_trans_t transA, magma_trans_t transB,
+        magma_int_t m, magma_int_t n, magma_int_t k,
+        T alpha,
+        T* dA, magma_int_t ldda,
+        T* dB, magma_int_t lddb,
+        T beta,
+        T* dC, magma_int_t lddc,
+        magma_queue_t queue );
+
+template <>
+inline void
+magmablas_gemm(
+        magma_trans_t transA, magma_trans_t transB,
+        magma_int_t m, magma_int_t n, magma_int_t k,
+        float alpha,
+        float* dA, magma_int_t ldda,
+        float* dB, magma_int_t lddb,
+        float beta,
+        float* dC, magma_int_t lddc,
+        magma_queue_t queue )
+
+{
+        return magmablas_sgemm( transA, transB, m, n, k, alpha, dA, ldda, dB, lddb, beta, dC, lddc, queue);
+}
+
+template <>
+inline void
+magmablas_gemm(
+        magma_trans_t transA, magma_trans_t transB,
+        magma_int_t m, magma_int_t n, magma_int_t k,
+        double alpha,
+        double* dA, magma_int_t ldda,
+        double* dB, magma_int_t lddb,
+        double beta,
+        double* dC, magma_int_t lddc,
+        magma_queue_t queue )
+
+{
+        return magmablas_dgemm( transA, transB, m, n, k, alpha, dA, ldda, dB, lddb, beta, dC, lddc, queue);
+}
+
 
 
 }
