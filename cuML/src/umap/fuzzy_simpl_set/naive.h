@@ -272,7 +272,7 @@ namespace UMAPAlgo {
                             }
                         }
 
-                        // if we didn't find an exact match, we still need to add
+                        // if we didn't find an exact match, we need to add
                         // the transposed value into our current matrix.
                           if (!found_match && vals[idx] != 0.0) {
                             orows[out_idx + nnz] = cols[idx];
@@ -345,8 +345,6 @@ namespace UMAPAlgo {
                 /**
                  * Smooth kNN distances to be continuous
                  */
-
-
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaDeviceSynchronize());
@@ -427,40 +425,47 @@ namespace UMAPAlgo {
 
                 std::cout << "Done compute result" << std::endl;
 
-                int cur_coo_len = 0;
-                MLCommon::updateHost(&cur_coo_len, rnnz + n, 1);
+                int n_compressed_nonzeros = 0;
+                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1);
 
                 std::cout << "Done updating rnnz" << std::endl;
-
 
                 /**
                  * Remove resulting zeros from COO
                  */
                 int *crows, *ccols;
                 T *cvals;
-                MLCommon::allocate(crows, cur_coo_len, true);
-                MLCommon::allocate(ccols, cur_coo_len, true);
-                MLCommon::allocate(cvals, cur_coo_len, true);
+                MLCommon::allocate(crows, n_compressed_nonzeros, true);
+                MLCommon::allocate(ccols, n_compressed_nonzeros, true);
+                MLCommon::allocate(cvals, n_compressed_nonzeros, true);
 
+//
                 MLCommon::coo_remove_zeros<TPB_X, T>(n*k*2,
                         orows, ocols, ovals,
                         crows, ccols, cvals,
                         rnnz, n);
 
+                MLCommon::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
+
+
                 std::cout << "Done remove zeros" << std::endl;
 
-                MLCommon::coo_sort(n, k, cur_coo_len, crows, ccols, cvals);
+//
+//                std::cout << MLCommon::arr2Str(crows, n_compressed_nonzeros, "crows") << std::endl;
+//                std::cout << MLCommon::arr2Str(ccols, n_compressed_nonzeros, "ccols") << std::endl;
+//
+//                std::cout << MLCommon::arr2Str(cvals, n_compressed_nonzeros, "cvals") << std::endl;
 
                 std::cout << "Done coo sort" << std::endl;
 
-                nnz[0] = cur_coo_len;
+                nnz[0] = n_compressed_nonzeros;
 
-                std::cout << "cur_coo_len=" << cur_coo_len << std::endl;
+                std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
                 // TODO: Use thrust to resize?
-                MLCommon::copy(rrows, crows, cur_coo_len);
-                MLCommon::copy(rcols, ccols, cur_coo_len);
-                MLCommon::copy(rvals, cvals, cur_coo_len);
+                MLCommon::copy(rrows, crows, n_compressed_nonzeros);
+                MLCommon::copy(rcols, ccols, n_compressed_nonzeros);
+                MLCommon::copy(rvals, cvals, n_compressed_nonzeros);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
@@ -469,7 +474,7 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaFree(ocols));
                 CUDA_CHECK(cudaFree(ovals));
                 CUDA_CHECK(cudaFree(rnnz));
-
+//
                 CUDA_CHECK(cudaFree(crows));
                 CUDA_CHECK(cudaFree(ccols));
                 CUDA_CHECK(cudaFree(cvals));

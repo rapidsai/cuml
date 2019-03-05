@@ -110,6 +110,7 @@ namespace MLCommon {
             int *ex_scan, int ex_scan_n) {
 
         int rows_per_chunk = int(nnz / ex_scan_n);
+
         int chunk = (blockIdx.x * TPB_X) + threadIdx.x;
         int i = chunk * rows_per_chunk; // 1 chunk per thread
 
@@ -156,12 +157,17 @@ namespace MLCommon {
                 thrust::device_pointer_cast(ex_scan);
         thrust::exclusive_scan(dev_cnnz, dev_cnnz + cnnz_n, dev_ex_scan);
         CUDA_CHECK(cudaPeekAtLastError());
+//
+        std::cout << MLCommon::arr2Str(dev_ex_scan.get(), cnnz_n, "ex_scan") << std::endl;
 
-        dim3 grid(ceildiv(ceildiv(nnz, cnnz_n), TPB_X), 1, 1);
+        dim3 grid(ceildiv(cnnz_n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
+
+        std::cout << "nnz=" << nnz << ", cnnz_n=" << cnnz_n << std::endl;
 
         coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(nnz, rows, cols, vals,
                 crows, ccols, cvals, dev_ex_scan.get(), cnnz_n);
+
         CUDA_CHECK(cudaPeekAtLastError());
 
         CUDA_CHECK(cudaFree(ex_scan));

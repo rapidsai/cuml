@@ -130,7 +130,7 @@ cdef class UMAP1:
         X_m = numba_utils.row_matrix(X)
         self.raw_data = X_m.device_ctypes_pointer.value
 
-        arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C"))
+        arr_embed = cuda.to_device(np.zeros((X_m.shape[0], n_components), order = "C", dtype=np.float32))
         self.embeddings = arr_embed.device_ctypes_pointer.value
 
         self.knn = new kNN(X_m.shape[1])
