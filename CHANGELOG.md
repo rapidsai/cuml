@@ -1,3 +1,18 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+...
+
+## Improvements
+
+...
+
+## Bug Fixes
+
+...
+
+
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
