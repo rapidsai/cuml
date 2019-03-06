@@ -24,6 +24,7 @@ import cudf
 import numpy as np
 
 from numba import cuda
+from cuml import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -178,10 +179,6 @@ class KMeans:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        c = gdf.as_gpu_matrix(order='C').shape
-        return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
-
     def fit(self, X):
         """
         Compute k-means clustering with X.
@@ -196,7 +193,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -294,7 +291,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -310,7 +307,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
@@ -375,7 +372,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -391,7 +388,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
