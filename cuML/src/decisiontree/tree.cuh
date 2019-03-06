@@ -151,13 +151,12 @@ namespace ML {
 				int *sampledlabels = tempmem->sampledlabels;
 				int *leftlabels = tempmem->leftlabels;
 				int *rightlabels = tempmem->rightlabels;
-				float *h_sampcol = (float*)malloc(n_sampled_rows*sizeof(float));
 				
 				// Bootstrap columns
 				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(), colselector.end(), 0);
-				//std::random_shuffle(colselector.begin(), colselector.end());
-				//colselector.resize((int)(colper * dinfo.Ncols ));
+				std::random_shuffle(colselector.begin(), colselector.end());
+				colselector.resize((int)(colper * dinfo.Ncols ));
 				
 				get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 				int *labelptr = sampledlabels;
@@ -171,13 +170,10 @@ namespace ML {
 						float min = minimum(colptr, n_sampled_rows);
 						float max = maximum(colptr, n_sampled_rows);
 						float delta = (max - min)/ nbins ;
-						CUDA_CHECK(cudaMemcpy(h_sampcol,sampledcolumn,n_sampled_rows*sizeof(float),cudaMemcpyDeviceToHost));
-						
-						//for (int j=1; j<nbins; j++)
-						for(int j=0;j<n_sampled_rows;j++)
+												
+						for (int j=1; j<nbins; j++)
 							{
-								//float quesval = min + delta*j;
-								float quesval = h_sampcol[j];
+								float quesval = min + delta*j;
 								float info_gain = evaluate_split(colptr, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows);
 								if (info_gain == -1.0)
 									continue;
@@ -191,9 +187,6 @@ namespace ML {
 							}
 						
 					}
-				
-				free(h_sampcol);
-				
 			}
 			
 			float evaluate_split(float *column, int* labels, int* leftlabels, int* rightlabels, float ginibefore, float quesval, const int nrows)
@@ -242,7 +235,6 @@ namespace ML {
 					return node->class_predict;
 				}
 			}
-			
 			
 			void print_node(const std::string& prefix, TreeNode* node, bool isLeft)
 			{

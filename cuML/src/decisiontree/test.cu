@@ -7,14 +7,14 @@
 #include <sstream>
 #include <string>
 
-#define N 4
-#define COLS 2
+#define N 150
+#define COLS 4
 #define depth -1
 using namespace std;
 int main()
 {
 	ifstream myfile;
-	myfile.open("data2.csv");
+	myfile.open("data.csv");
 	string line;
 	vector<float> data;
 	vector<int> labels;
