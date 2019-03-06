@@ -18,33 +18,26 @@
 #include <utils.h>
 #include "cub/cub.cuh"
 #include <thrust/sort.h>
+#include "../memory.cuh"
 
-float gini(int *labels_in,const int nrows)
+float gini(int *labels_in,const int nrows,const TemporaryMemory* tempmem)
 {
   float gval = 1.0;
-  int *labels;
-  CUDA_CHECK(cudaMalloc((void**)&labels,nrows*sizeof(int)));
+  int *labels = tempmem->ginilabels;
+  
   CUDA_CHECK(cudaMemcpy(labels,labels_in,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
   
   thrust::sort(thrust::device,labels,labels + nrows);
   
   // Declare, allocate, and initialize device-accessible pointers for input and output
-  int *d_unique_out;      
-  int *d_counts_out;      
-  int *d_num_runs_out;    
+  int *d_unique_out = tempmem->d_unique_out;      
+  int *d_counts_out = tempmem->d_counts_out;      
+  int *d_num_runs_out = tempmem->d_num_runs_out;    
   
   // Determine temporary device storage requirements
-  void     *d_temp_storage = NULL;
-  size_t   temp_storage_bytes = 0;
+  void     *d_temp_storage = tempmem->d_gini_temp_storage;
+  size_t temp_storage_bytes = tempmem->gini_temp_storage_bytes;
   
-  CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
-
-  // Allocate temporary storage
-  CUDA_CHECK(cudaMalloc((void**)(&d_unique_out),nrows*sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void**)(&d_counts_out),nrows*sizeof(int)));
-  CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out),sizeof(int)));
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
   // Run encoding
   CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
 
@@ -62,12 +55,9 @@ float gini(int *labels_in,const int nrows)
       gval -= prob*prob; 
     }
 
-  CUDA_CHECK(cudaFree(d_temp_storage));
-  CUDA_CHECK(cudaFree(d_unique_out));
-  CUDA_CHECK(cudaFree(d_counts_out));
-  CUDA_CHECK(cudaFree(d_num_runs_out));
+  
   free(h_counts_out);
-  CUDA_CHECK(cudaFree(labels));
+  
   
   return gval;
 }
