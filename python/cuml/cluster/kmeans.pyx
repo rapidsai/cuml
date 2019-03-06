@@ -373,7 +373,6 @@ class KMeans:
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = numba_utils.row_matrix(X)
-            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
