@@ -30,6 +30,9 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from sklearn.utils.fixes import signature
+from collections import defaultdict
+
 cdef extern from "dbscan/dbscan_c.h" namespace "ML":
 
     cdef void dbscanFit(float *input,
@@ -168,3 +171,25 @@ class DBSCAN:
         """
         self.fit(X)
         return self.labels_
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = [ 'eps','min_samples']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value   
+        return params
+
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        current_params = {"eps": self.eps,"min_samples":self.min_samples}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        return self
