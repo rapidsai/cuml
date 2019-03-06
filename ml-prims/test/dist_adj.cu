@@ -24,14 +24,14 @@
 namespace MLCommon {
 namespace Distance {
 
-template <typename Type>
-__global__ void naiveDistanceAdjKernel(bool *dist, const Type *x, const Type *y,
-                                       int m, int n, int k, Type eps) {
+template <typename DataType>
+__global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x, const DataType *y,
+                                       int m, int n, int k, DataType eps) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n)
     return;
-  Type acc = Type(0);
+  DataType acc = DataType(0);
   for (int i = 0; i < k; ++i) {
     auto diff = x[i + midx * k] - y[i + nidx * k];
     acc += diff * diff;
@@ -39,37 +39,32 @@ __global__ void naiveDistanceAdjKernel(bool *dist, const Type *x, const Type *y,
   dist[midx * n + nidx] = acc <= eps;
 }
 
-template <typename Type>
-void naiveDistanceAdj(bool *dist, const Type *x, const Type *y, int m, int n,
-                      int k, Type eps) {
+template <typename DataType>
+void naiveDistanceAdj(bool *dist, const DataType *x, const DataType *y, int m, int n,
+                      int k, DataType eps) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
-  naiveDistanceAdjKernel<Type><<<nblks, TPB>>>(dist, x, y, m, n, k, eps);
+  naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
+template <typename DataType>
 struct DistanceAdjInputs {
-  T eps;
+  DataType eps;
   int m, n, k;
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const DistanceAdjInputs<T> &dims) {
+template <typename DataType>
+::std::ostream &operator<<(::std::ostream &os, const DistanceAdjInputs<DataType> &dims) {
   return os;
 }
 
-template <typename T>
-struct InParams {
-  T threshold;
-};
-
-template <typename T>
-class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<T>> {
+template <typename DataType>
+class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataType>> {
 public:
   void SetUp() override {
-    params = ::testing::TestWithParam<DistanceAdjInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
     Random::Rng r(params.seed);
     int m = params.m;
     int n = params.n;
@@ -78,25 +73,27 @@ public:
     allocate(y, n * k);
     allocate(dist_ref, m * n);
     allocate(dist, m * n);
-    r.uniform(x, m * k, T(-1.0), T(1.0));
-    r.uniform(y, n * k, T(-1.0), T(1.0));
-    InParams<T> in_params = {params.eps};
-    naiveDistanceAdj(dist_ref, x, y, m, n, k, params.eps);
+    r.uniform(x, m * k, DataType(-1.0), DataType(1.0));
+    r.uniform(y, n * k, DataType(-1.0), DataType(1.0));
+
+    DataType threshold = params.eps;
+
+    naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold);
     char *workspace = nullptr;
-    size_t worksize = 0;
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-    distance<T, T, bool, InParams<T>, OutputTile_t>(
-      x, y, dist, m, n, k, in_params, EucExpandedL2, nullptr, worksize);
+    size_t worksize = getWorkspaceSize<EucExpandedL2, DataType, DataType, bool>(x, y, m, n, k);
     if (worksize != 0) {
       allocate(workspace, worksize);
     }
-    auto fin_op = [] __device__(T d_val, int g_d_idx,
-                                const InParams<T> &in_params) {
-      return d_val <= in_params.threshold;
+
+    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
+
+    auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
+      (d_val <= threshold) ? (d_val = 1.f) : (d_val = 0.f);
+      return d_val;
     };
-    distance<T, T, bool, InParams<T>, OutputTile_t>(
-      x, y, dist, m, n, k, in_params, EucExpandedL2, workspace, worksize,
-      fin_op);
+
+    distance<EucExpandedL2, DataType, DataType, bool, OutputTile_t>(
+      x, y, dist, m, n, k, workspace, worksize, fin_op);
     CUDA_CHECK(cudaFree(workspace));
   }
 
@@ -108,8 +105,8 @@ public:
   }
 
 protected:
-  DistanceAdjInputs<T> params;
-  T *x, *y;
+  DistanceAdjInputs<DataType> params;
+  DataType *x, *y;
   bool *dist_ref, *dist;
 };
 
