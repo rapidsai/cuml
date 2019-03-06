@@ -39,13 +39,6 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
-            template<int TPB_X>
-            __global__ void init_stuff(curandState *state, int n, long long seed) {
-                 int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
-                 if(idx < n)
-                     curand_init(seed+idx, 0, idx, &state[idx]);
-            }
-
 	        template<typename T>
 	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
 	            float result = 0.0;
@@ -263,9 +256,6 @@ namespace UMAPAlgo {
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
-                curandState *d_state;
-                MLCommon::allocate(d_state, nnz);
-
                 for(int n = 0; n < params->n_epochs; n++) {
 
                     struct timeval tp;
@@ -291,8 +281,6 @@ namespace UMAPAlgo {
 
                     alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
-
-                CUDA_CHECK(cudaFree(d_state));
 
 	            CUDA_CHECK(cudaFree(epochs_per_negative_sample));
 	            CUDA_CHECK(cudaFree(epoch_of_next_negative_sample));
@@ -343,6 +331,7 @@ namespace UMAPAlgo {
 	                            m,
 	                            params->repulsion_strength,
 	                            params);
+
 	            CUDA_CHECK(cudaPeekAtLastError());
                 CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }

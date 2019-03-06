@@ -323,8 +323,6 @@ namespace UMAPAlgo {
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
                 MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors);
 
-                CUDA_CHECK(cudaDeviceSynchronize());
-
                 float sum = 0.0;
                 for (int i = 0; i < params->n_neighbors; i++)
                     sum += dist_means_host[i];
@@ -342,7 +340,6 @@ namespace UMAPAlgo {
                  */
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, params->n_neighbors, params->local_connectivity);
-                CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
             }
 
@@ -382,7 +379,6 @@ namespace UMAPAlgo {
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                         rhos, sigmas, params
                 );
-                CUDA_CHECK(cudaDeviceSynchronize());
 
                 /**
                  * Compute graph of membership strengths
@@ -427,7 +423,6 @@ namespace UMAPAlgo {
                         crows, ccols, cvals,
                         rnnz, n);
 
-
                 MLCommon::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
 
                 nnz[0] = n_compressed_nonzeros;
@@ -435,7 +430,6 @@ namespace UMAPAlgo {
                 if(params->verbose)
                     std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
-                // TODO: Use thrust to resize?
                 MLCommon::copy(rrows, crows, n_compressed_nonzeros);
                 MLCommon::copy(rcols, ccols, n_compressed_nonzeros);
                 MLCommon::copy(rvals, cvals, n_compressed_nonzeros);
@@ -447,7 +441,7 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaFree(ocols));
                 CUDA_CHECK(cudaFree(ovals));
                 CUDA_CHECK(cudaFree(rnnz));
-//
+
                 CUDA_CHECK(cudaFree(crows));
                 CUDA_CHECK(cudaFree(ccols));
                 CUDA_CHECK(cudaFree(cvals));
