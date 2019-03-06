@@ -22,7 +22,6 @@
 import ctypes
 import cudf
 import numpy as np
-import warnings # For DeprecationWarning
 
 from numba import cuda
 
@@ -196,10 +195,6 @@ class TruncatedSVD:
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
                  algorithm='full'):
-
-        ## Algorithm will be changed to solver in 0.7
-        warnings.warn("Argument (algorithm) will be changed to (solver) in cuML 0.7", warnings.DeprecationWarning)
-        ##
 
         if algorithm in ('full', 'auto', 'jacobi'):
             c_algorithm = self._get_algorithm_c_name(algorithm)

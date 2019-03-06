@@ -96,7 +96,7 @@ class DBSCAN:
     Attributes
     ----------
     labels_ : array
-        Which cluster each datapoint belongs to. Noisy samples are provided with -1.
+        Which cluster each datapoint belongs to. Noisy samples are labeled as -1.
 
 
     For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
@@ -150,7 +150,7 @@ class DBSCAN:
 
 
         else:
-            msg = "X matrix format  not supported"
+            msg = "X matrix format not supported"
             raise TypeError(msg)
 
         print("n_rows: "+ str(self.n_rows))
