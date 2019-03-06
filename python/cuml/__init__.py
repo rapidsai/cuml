@@ -27,7 +27,7 @@ from cuml.linear_model.ridge import Ridge
 
 from cuml.neighbors.knn import KNN
 
-from cuml.manifold.umap import UMAP1
+from cuml.manifold.umap import UMAP
 
 from ._version import get_versions
 __version__ = get_versions()['version']

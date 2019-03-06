@@ -211,7 +211,8 @@ namespace UMAPAlgo {
             MLCommon::updateHost(&(params->a), coeffs, 1);
             MLCommon::updateHost(&(params->b), coeffs+1, 1);
 
-            std::cout << "a=" << params->a << ", " << params->b << std::endl;
+            if(params->verbose)
+                std::cout << "a=" << params->a << ", " << params->b << std::endl;
 
             CUDA_CHECK(cudaFree(X_d));
             CUDA_CHECK(cudaFree(y_d));
