@@ -176,11 +176,6 @@ namespace UMAPAlgo {
 						   params, &nnz,0);
 		CUDA_CHECK(cudaPeekAtLastError());
 
-//        std::cout << MLCommon::arr2Str(graph_rows, n*params->n_components, "graph_rows") << std::endl;
-//        std::cout << MLCommon::arr2Str(graph_cols, n*params->n_components, "graph_rcols") << std::endl;
-//        std::cout << MLCommon::arr2Str(graph_vals, n*params->n_components, "graph_rvals") << std::endl;
-//
-
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
 		        rgraph_rows, rgraph_cols, rgraph_vals,
@@ -190,11 +185,6 @@ namespace UMAPAlgo {
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
-
-//        std::cout << MLCommon::arr2Str(rgraph_rows, n*params->n_components, "rgraph_rows") << std::endl;
-//        std::cout << MLCommon::arr2Str(rgraph_cols, n*params->n_components, "rgraph_rcols") << std::endl;
-//        std::cout << MLCommon::arr2Str(rgraph_vals, n*params->n_components, "rgraph_rvals") << std::endl;
-
 
 		SimplSetEmbed::run<TPB_X, T>(
 		        X, n, d,
@@ -307,8 +297,6 @@ namespace UMAPAlgo {
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
-//
-//        std::cout << MLCommon::arr2Str(transformed, n*params->n_components, "transformed") << std::endl;
 
         /**
          * Find max of data
@@ -355,10 +343,6 @@ namespace UMAPAlgo {
         T *epochs_per_sample;
         MLCommon::allocate(epochs_per_sample, nnz);
 
-        std::cout << MLCommon::arr2Str(crows, non_zero_vals, "crows") << std::endl;
-        std::cout << MLCommon::arr2Str(ccols, non_zero_vals, "ccols") << std::endl;
-        std::cout << MLCommon::arr2Str(cvals, non_zero_vals, "cvals") << std::endl;
-
         SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -373,8 +357,6 @@ namespace UMAPAlgo {
         );
         CUDA_CHECK(cudaPeekAtLastError());
 
-//        std::cout << MLCommon::arr2Str(transformed, n*params->n_components, "embeddings") << std::endl;
-//
         CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
 

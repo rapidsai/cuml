@@ -157,18 +157,14 @@ namespace MLCommon {
                 thrust::device_pointer_cast(ex_scan);
         thrust::exclusive_scan(dev_cnnz, dev_cnnz + cnnz_n, dev_ex_scan);
         CUDA_CHECK(cudaPeekAtLastError());
-//
 
         dim3 grid(ceildiv(cnnz_n, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
-
-        std::cout << "nnz=" << nnz << ", cnnz_n=" << cnnz_n << std::endl;
 
         coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(nnz, rows, cols, vals,
                 crows, ccols, cvals, dev_ex_scan.get(), cnnz_n);
 
         CUDA_CHECK(cudaPeekAtLastError());
-
         CUDA_CHECK(cudaFree(ex_scan));
     }
 }

@@ -16,7 +16,7 @@
 
 #include "umap/umapparams.h"
 
-#include "random/rng.h"
+#include "random/rng_impl.h"
 
 #include <cstdlib>
 
@@ -43,7 +43,7 @@ namespace UMAPAlgo {
             __global__ void init_stuff(curandState *state, int n, long long seed) {
                  int idx = (blockIdx.x * blockDim.x) + threadIdx.x;
                  if(idx < n)
-                     curand_init((seed<<20)+idx, 0, 0, &state[idx]);
+                     curand_init(seed+idx, 0, idx, &state[idx]);
             }
 
 	        template<typename T>
@@ -92,14 +92,6 @@ namespace UMAPAlgo {
 	        }
 
 	        template<typename T>
-	        void print_arr(T *arr, int len, std::string name) {
-	            std::cout << name << " = [";
-	            for(int i = 0; i < len; i++)
-	                std::cout << arr[i] << " ";
-	            std::cout << "]" << std::endl;
-	        }
-
-	        template<typename T>
 	        __device__ __host__ T repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
                 T grad_coeff = 2.0 * gamma * params.b;
                 grad_coeff /= (0.001 + dist_squared) * (
@@ -130,7 +122,7 @@ namespace UMAPAlgo {
                     float alpha,
                     int epoch,
                     float gamma,
-                    curandState *d_state,
+                    uint64_t seed,
                     UMAPParams params) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -183,9 +175,11 @@ namespace UMAPAlgo {
                         /**
                          * Negative sampling stage
                          */
+                        MLCommon::Random::detail::TapsGenerator gen((uint64_t)seed, (uint64_t)row, 0);
                         for(int p = 0; p < n_neg_samples; p++) {
 
-                            float r = curand_uniform(&d_state[row]);
+                            float r;
+                            gen.next<float>(r);
                             int t = r*tail_n;
 
                             T *negative_sample = tail_embedding+(t*params.n_components);
@@ -266,22 +260,19 @@ namespace UMAPAlgo {
                 MLCommon::allocate(epoch_of_next_sample, nnz);
                 MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
 
-
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
                 curandState *d_state;
-                MLCommon::allocate(d_state, TPB_X*nnz);
+                MLCommon::allocate(d_state, nnz);
 
-                std::cout << "Running final SGD w/ " << params->n_epochs << " epochs." << std::endl;
                 for(int n = 0; n < params->n_epochs; n++) {
 
                     struct timeval tp;
                     gettimeofday(&tp, NULL);
                     long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-	                init_stuff<TPB_X><<<grid, blk>>>(d_state, nnz, seed);
-	                optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
+                    optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
 	                    head_embedding, head_n,
 	                    tail_embedding, tail_n,
 	                    head, tail, nnz,
@@ -294,18 +285,18 @@ namespace UMAPAlgo {
 	                    alpha,
 	                    n,
 	                    gamma,
-	                    d_state,
+	                    seed,
 	                    *params
 	                );
 
                     alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
 	            }
 
-                std::cout << "Done." << std::endl;
+                CUDA_CHECK(cudaFree(d_state));
 
-	            cudaFree(epochs_per_negative_sample);
-	            cudaFree(epoch_of_next_negative_sample);
-	            cudaFree(epoch_of_next_sample);
+	            CUDA_CHECK(cudaFree(epochs_per_negative_sample));
+	            CUDA_CHECK(cudaFree(epoch_of_next_negative_sample));
+	            CUDA_CHECK(cudaFree(epoch_of_next_sample));
 	        }
 
 	        /**
@@ -345,9 +336,6 @@ namespace UMAPAlgo {
 	            MLCommon::allocate(epochs_per_sample, nnz);
 
 	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
-
-//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
-
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
 	                            rows, cols, nnz,
@@ -356,9 +344,6 @@ namespace UMAPAlgo {
 	                            params->repulsion_strength,
 	                            params);
 	            CUDA_CHECK(cudaPeekAtLastError());
-
-//                std::cout << MLCommon::arr2Str(embedding, m*params->n_components, "embeddings") << std::endl;
-//
                 CUDA_CHECK(cudaFree(epochs_per_sample));
 	        }
 		}

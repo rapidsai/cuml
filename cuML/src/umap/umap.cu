@@ -6,20 +6,18 @@
 
 namespace ML {
 
-    static const int TPB_X = 64;
+    static const int TPB_X = 32;
 
-    UMAP::UMAP(UMAPParams *params): params(params){
+    UMAP_API::UMAP_API(UMAPParams *params): params(params){
         knn = nullptr;
     };
 
-    void UMAP::fit(float *X, int n, int d, kNN *knn, float *embeddings) {
+    void UMAP_API::fit(float *X, int n, int d, kNN *knn, float *embeddings) {
         this->knn = knn;
         UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings);
-
-        std::cout << "n_neighbors=" << this->params->n_neighbors << std::endl;
     }
 
-    void UMAP::transform(float *X, int n, int d,
+    void UMAP_API::transform(float *X, int n, int d,
             float *embedding, int embedding_n,
             kNN *knn,
             float *out) {
@@ -28,5 +26,5 @@ namespace ML {
                 get_params(), out);
     }
 
-    UMAPParams* UMAP::get_params()  { return this->params; }
+    UMAPParams* UMAP_API::get_params()  { return this->params; }
 }

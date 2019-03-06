@@ -37,6 +37,8 @@ namespace UMAPAlgo {
             }
 
 
+            // TODO: This should really be pulled out into its own algorithm
+
             template<typename T>
             void launcher(const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
@@ -48,8 +50,6 @@ namespace UMAPAlgo {
                 nvgraphHandle_t handle;
                 cudaDataType_t edge_dimT = CUDA_R_32F;
                 check(nvgraphCreate (&handle));
-
-                std::cout << "Running spectral initializer" << std::endl;
 
                 /**
                  * First convert COO to CSR
@@ -66,8 +66,6 @@ namespace UMAPAlgo {
                 COO_input->source_indices = rows;
                 COO_input->destination_indices = cols;
 
-                std::cout << "converting to csr" << std::endl;
-
                 nvgraphCSRTopology32I_st *CSR_input = new nvgraphCSRTopology32I_st();
                 CSR_input->destination_indices = dst_indices;
                 CSR_input->nedges = nnz;
@@ -76,8 +74,6 @@ namespace UMAPAlgo {
 
                 check(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
                         &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
-
-                std::cout << "done." << std::endl;
 
                 /**
                  * Calculate the eigenvectors (ordered by eigenvalue)
@@ -120,8 +116,6 @@ namespace UMAPAlgo {
 
                 CUDA_CHECK(cudaFree(clustering));
                 CUDA_CHECK(cudaFree(eigVals));
-
-                std::cout << "Spectral embedding complete" << std::endl;
             }
         }
     }

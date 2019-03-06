@@ -121,18 +121,14 @@ namespace UMAPAlgo {
 
                         if (index > 0) {
                             rhos[row] = knn_dists[i+start_nonzero+(index-1)];
-//                            rhos[row] = non_zero_dists[index - 1];
 
                             if (interpolation > SMOOTH_K_TOLERANCE) {
                                 rhos[row] += interpolation
                                         * (knn_dists[i+start_nonzero+index]
                                                   - knn_dists[i+start_nonzero+(index-1)]);
-//                                        * (non_zero_dists[index]
-//                                                - non_zero_dists[index - 1]);
                             }
                         } else
                             rhos[row] = interpolation * knn_dists[i+start_nonzero];
-//                            rhos[row] = interpolation * non_zero_dists[0];
                     } else if (total_nonzero > 0)
                         rhos[row] = max_nonzero;
 
@@ -314,7 +310,6 @@ namespace UMAPAlgo {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
 
-                std::cout << "Scheduling on " << blks << " blks" << std::endl;
                 dim3 grid(blks, 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
@@ -336,8 +331,6 @@ namespace UMAPAlgo {
 
                 T mean_dist = sum / params->n_neighbors;
 
-                std::cout << "mean_dist=" << mean_dist << std::endl;
-
                 /**
                  * Clean up memory for subsequent algorithms
                  */
@@ -351,8 +344,6 @@ namespace UMAPAlgo {
                         rhos, params->n_neighbors, params->local_connectivity);
                 CUDA_CHECK(cudaDeviceSynchronize());
                 CUDA_CHECK(cudaPeekAtLastError());
-
-                std::cout << "Done smooth_knn_dist" << std::endl;
             }
 
 
@@ -371,8 +362,6 @@ namespace UMAPAlgo {
                    int *nnz, UMAPParams *params) {
 
                 int k = params->n_neighbors;
-
-                std::cout << "n=" << n << std::endl;
 
                 /**
                  * All of the kernels in this algorithm are row-based and
@@ -394,9 +383,6 @@ namespace UMAPAlgo {
                         rhos, sigmas, params
                 );
                 CUDA_CHECK(cudaDeviceSynchronize());
-//
-//                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-//                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
 
                 /**
                  * Compute graph of membership strengths
@@ -405,14 +391,8 @@ namespace UMAPAlgo {
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         params->n_neighbors);
 
-//                std::cout << MLCommon::arr2Str(rows, n*k, "rows") << std::endl;
-//                std::cout << MLCommon::arr2Str(cols, n*k, "cols") << std::endl;
-//                std::cout << MLCommon::arr2Str(vals, n*k, "vals") << std::endl;
-//
 
                 CUDA_CHECK(cudaPeekAtLastError());
-
-                std::cout << "Done compute membership strength" << std::endl;
 
                 int *orows, *ocols, *rnnz;
                 T *ovals;
@@ -430,12 +410,8 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                std::cout << "Done compute result" << std::endl;
-
                 int n_compressed_nonzeros = 0;
                 MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1);
-
-                std::cout << "Done updating rnnz" << std::endl;
 
                 /**
                  * Remove resulting zeros from COO
@@ -454,23 +430,10 @@ namespace UMAPAlgo {
 
                 MLCommon::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
 
-//                std::cout << MLCommon::arr2Str(crows, n_compressed_nonzeros, "rows") << std::endl;
-//                std::cout << MLCommon::arr2Str(ccols, n_compressed_nonzeros, "cols") << std::endl;
-//                std::cout << MLCommon::arr2Str(cvals, n_compressed_nonzeros, "vals") << std::endl;
-
-                std::cout << "Done remove zeros" << std::endl;
-
-//
-//                std::cout << MLCommon::arr2Str(crows, n_compressed_nonzeros, "crows") << std::endl;
-//                std::cout << MLCommon::arr2Str(ccols, n_compressed_nonzeros, "ccols") << std::endl;
-//
-//                std::cout << MLCommon::arr2Str(cvals, n_compressed_nonzeros, "cvals") << std::endl;
-
-                std::cout << "Done coo sort" << std::endl;
-
                 nnz[0] = n_compressed_nonzeros;
 
-                std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
+                if(params->verbose)
+                    std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
                 // TODO: Use thrust to resize?
                 MLCommon::copy(rrows, crows, n_compressed_nonzeros);

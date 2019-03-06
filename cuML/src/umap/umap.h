@@ -22,14 +22,14 @@
 namespace ML {
 
 
-    class UMAP {
+    class UMAP_API {
 
         UMAPParams *params;
         kNN *knn;
 
         public:
 
-            UMAP(UMAPParams *params);
+        UMAP_API(UMAPParams *params);
 
             void fit(float *X, int n, int d, kNN *knn, float *embeddings);
 
