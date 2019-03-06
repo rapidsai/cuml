@@ -1,5 +1,7 @@
 #pragma once
 
+void init_test();
+
 void init_f32(GMM<float> &gmm,
               float *dmu,  float *dsigma,
               float *dPis,  float *dPis_inv,  float *dLlhd,
