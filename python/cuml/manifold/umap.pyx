@@ -212,3 +212,34 @@ cdef class UMAP:
     def fit_transform(self, X):
         self.fit(X)
         return self.arr_embed
+
+
+    def transform(self, X):
+
+        assert self.knn != NULL, "a model needs to be fit before transform can be called"
+
+        assert len(X.shape) == 2, 'data should be two dimensional'
+        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
+
+        X_m = self._downcast(X)
+
+        cdef uintptr_t x_ptr = X_m.device_ctypes_pointer.value
+
+        embedding = cuda.to_device(np.zeros((X_m.shape[0], self.umap_params.n_components),
+                                            order = "C", dtype=np.float32))
+        cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
+
+        self.umap.transform(
+                        <float*>x_ptr,
+                       <int>X_m.shape[0],
+                       <int>X_m.shape[1],
+                       <float*> embed_ptr,
+                       <int> embedding.shape[0],
+                       <kNN*> self.knn,
+                       <float*> embed_ptr)
+
+        ret = cudf.DataFrame()
+        for i in range(0, embedding.shape[0]):
+            ret[str(i)] = embedding[i,:]
+
+        return ret
