@@ -23,7 +23,17 @@
 #include <map>
 
 namespace ML {
-	
+
+	struct RF_metrics {
+		float accuracy;
+
+		RF_metrics(float cfg_accuracy) : accuracy(cfg_accuracy) {};
+
+		void print() {
+			std::cout << "Accuracy: " << accuracy << std::endl;
+		}
+	};	
+
 	enum RF_type {
 		CLASSIFICATION, REGRESSION,
 	};
@@ -136,7 +146,7 @@ namespace ML {
 		}	
 
 
-		//Assuming input in row_major format. 
+		//Assuming input in row_major format. input is a CPU ptr.
 		int * predict(const float * input, int n_rows, int n_cols, bool verbose=false) {
 			ASSERT(trees, "Cannot predict! No trees in the forest.");
 			int * preds = new int[n_rows];
@@ -179,6 +189,27 @@ namespace ML {
 			}
 
 			return preds;
+		}
+
+		
+		/* Predict input data and validate against ref_labels. input and ref_labels are both CPU ptrs. */
+		RF_metrics cross_validate(const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false) {
+
+			int * predictions = predict(input, n_rows, n_cols, verbose);
+
+			unsigned long long correctly_predicted = 0ULL;
+			for (int i = 0; i < n_rows; i++) {
+				correctly_predicted += (predictions[i] == ref_labels[i]);
+			}
+
+			float accuracy = correctly_predicted * 1.0f/n_rows;
+			RF_metrics stats(accuracy);
+			stats.print();
+
+			/* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
+			   For non binary classification problems (i.e., one target and  > 2 labels), need avg for each of these metrics */
+
+			return stats;
 		}
 
 };
