@@ -48,8 +48,6 @@ namespace kNNGraph {
 			knn->fit(p, 1);
 			knn->search(X, x_n, knn_indices, knn_dists, params->n_neighbors);
 
-			CUDA_CHECK(cudaDeviceSynchronize());
-
             auto adjust_vals_op = [] __device__(T input) {
                 return sqrt(input);
             };
