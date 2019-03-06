@@ -128,7 +128,7 @@ namespace ML {
 					{
 						int *sampledlabels = tempmem->sampledlabels;
 						get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
-						node->class_predict = get_class(sampledlabels, n_sampled_rows);
+						node->class_predict = get_class(sampledlabels, n_sampled_rows,tempmem);
 						leaf_counter++;
 						if (depth > depth_counter)
 							depth_counter = depth;
@@ -160,7 +160,7 @@ namespace ML {
 				
 				get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 				int *labelptr = sampledlabels;
-				float ginibefore = gini(labelptr, n_sampled_rows);
+				float ginibefore = gini(labelptr, n_sampled_rows, tempmem);
 				
 				for (int i=0; i<colselector.size(); i++)
 					{
@@ -193,13 +193,13 @@ namespace ML {
 			{
 				int lnrows, rnrows;
 				
-				split_labels(column, labels, leftlabels, rightlabels, nrows, lnrows, rnrows, quesval);
+				split_labels(column, labels, leftlabels, rightlabels, nrows, lnrows, rnrows, quesval, tempmem);
 				
 				if (lnrows == 0 || rnrows == 0)
 					return -1.0;
 				
-				float ginileft = gini(leftlabels, lnrows);       
-				float giniright = gini(rightlabels, rnrows);
+				float ginileft = gini(leftlabels, lnrows, tempmem);       
+				float giniright = gini(rightlabels, rnrows, tempmem);
 				
 				
 				float impurity = (lnrows/nrows) * ginileft + (rnrows/nrows) * giniright;
@@ -213,7 +213,7 @@ namespace ML {
 				float *sampledcolumn = tempmem->sampledcolumns;
 				
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
-				make_split(sampledcolumn, ques.value, n_sampled_rows, nrowsleft, nrowsright, rowids);
+				make_split(sampledcolumn, ques.value, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem);
 				
 				return;
 			}
