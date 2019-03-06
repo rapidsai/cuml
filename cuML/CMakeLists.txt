@@ -192,8 +192,8 @@ file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 # file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/b_likelihood.cu")
-file(GLOB_RECURSE magma_debug_sources "test/gmm.cu")
-file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
+file(GLOB_RECURSE magma_debug_sources "src/hmm/gmm.cu")
+# file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -208,7 +208,7 @@ add_library(cuml SHARED
             src/hmm/gmm_py.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CONDA_ENV_DIR}/lib/libmagma.a ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${CONDA_ENV_DIR}/lib/libmagma.a ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -217,22 +217,22 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
 # # ###################################################################################################
 # # # - build test executable -------------------------------------------------------------------------
-#
-# add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
-#
-# target_link_libraries(ml_test
-#                       ${GTEST_LIBNAME}
-#                       ${CUDA_cublas_LIBRARY}
-#                       ${CUDA_curand_LIBRARY}
-#                       ${CUDA_cusolver_LIBRARY}
-#                       ${CUDA_CUDART_LIBRARY}
-# 		              gpufaisslib
-#                       faisslib
-#                       ${BLAS_LIBRARIES}
-#                       cuml
-#                       pthread
-#                       z)
-#
+
+add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
+
+target_link_libraries(ml_test
+                      ${GTEST_LIBNAME}
+                      ${CUDA_cublas_LIBRARY}
+                      ${CUDA_curand_LIBRARY}
+                      ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_CUDART_LIBRARY}
+		              gpufaisslib
+                      faisslib
+                      ${BLAS_LIBRARIES}
+                      cuml
+                      pthread
+                      z)
+
 
 # ###################################################################################################
 # # - build test executable -------------------------------------------------------------------------
@@ -291,7 +291,7 @@ target_link_libraries(magma_debug
                      ${GTEST_LIBNAME}
                      ${CONDA_ENV_DIR}/lib/libmagma.a
                      ${CUDA_cublas_LIBRARY}
-                     cusparse
+                     ${CUDA_cusparse_LIBRARY}
                      ${CUDA_curand_LIBRARY}
                      ${CUDA_cusolver_LIBRARY}
                      ${CUDA_CUDART_LIBRARY}

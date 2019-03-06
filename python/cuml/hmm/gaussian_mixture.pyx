@@ -95,41 +95,40 @@ class GaussianMixture:
         cdef int lddsigma_full = self.lddsigma_full
         cdef int lddPis = self.lddPis
         cdef int lddLlhd =self.lddLlhd
-        # cdef int nCl = self.nCl
-        # cdef int nDim = self.nDim
-        # cdef int nObs = self.nObs
+        cdef int nCl = self.nCl
+        cdef int nDim = self.nDim
+        cdef int nObs = self.nObs
 
-        cdef int nCl = 2
-        cdef int nDim = 3
-        cdef int nObs = 4
-        init_test()
+        # cdef int nCl = 2
+        # cdef int nDim = 3
+        # cdef int nObs = 4
 
-        # cdef GMM[float] gmm
+        cdef GMM[float] gmm
 
-        # if self.precision == 'single':
-        #     with nogil:
+        if self.precision == 'single':
+            with nogil:
 
 
-            #   # TODO : Check pointers
-            #   init_f32(gmm,
-            #   <float*> _dmu_ptr,
-            #   <float*> _dsigma_ptr,
-            #   <float*> _dPis_ptr,
-            #   <float*> _dPis_inv_ptr,
-            #   <float*> _dLlhd_ptr,
-            #   <int> lddx,
-            #   <int> lddmu,
-            #   <int> lddsigma,
-            #   <int> lddsigma_full,
-            #   <int> lddPis,
-            #   <int> lddLlhd,
-            #   <int> nCl,
-            #   <int> nDim,
-            #   <int> nObs)
-            #   # update_rhos_f32(<float*>_dX_ptr, gmm)
-              # update_mus_f32(<float*>_dX_ptr, gmm)
-              # update_sigmas_f32(<float*>_dX_ptr, gmm)
-              # update_pis_f32(gmm)
+              # TODO : Check pointers
+              init_f32(gmm,
+              <float*> _dmu_ptr,
+              <float*> _dsigma_ptr,
+              <float*> _dPis_ptr,
+              <float*> _dPis_inv_ptr,
+              <float*> _dLlhd_ptr,
+              <int> lddx,
+              <int> lddmu,
+              <int> lddsigma,
+              <int> lddsigma_full,
+              <int> lddPis,
+              <int> lddLlhd,
+              <int> nCl,
+              <int> nDim,
+              <int> nObs)
+              update_rhos_f32(<float*>_dX_ptr, gmm)
+              update_mus_f32(<float*>_dX_ptr, gmm)
+              update_sigmas_f32(<float*>_dX_ptr, gmm)
+              update_pis_f32(gmm)
 
 
     def initialize(self):
