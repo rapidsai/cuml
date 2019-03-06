@@ -108,6 +108,7 @@ void subtract_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
 template <typename T>
 __host__ __device__
 T lol_llhd_atomic(T det, T bil, int nDim){
+        // T EPS = 1e-6;
         return -0.5 * (std::log(det) + nDim * std::log(2 * M_PI) + bil);
 }
 

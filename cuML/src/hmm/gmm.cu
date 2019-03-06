@@ -12,7 +12,7 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
         lddsigma = magma_roundup(nDim, RUP_SIZE);
         lddsigma_full = nDim * lddsigma;
         lddLlhd = magma_roundup(nCl, RUP_SIZE);
-        lddPis = nCl;
+        lddPis = lddLlhd;
 
         // Random parameters
         T start=0;
@@ -35,8 +35,8 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 
         random_matrix_batched(nDim, 1, nCl, dmu, lddmu, false, seed, start, end);
         random_matrix_batched(nDim, nDim, nCl, dsigma, lddsigma, true, seed, start, end);
-        generate_trans_matrix(nCl, nObs, dLlhd, lddLlhd, false);
-        generate_trans_matrix(nCl, 1, dPis, lddPis, false);
+        generate_trans_matrix(nCl, nObs, dLlhd, lddLlhd, true);
+        generate_trans_matrix(nCl, 1, dPis, lddPis, true);
 
 // filling:
         fill_matrix_gpu(nDim, nObs, dX, lddx);
@@ -50,7 +50,7 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              nCl, nDim, nObs);
         setup(gmm);
-        fit(dX, 6, gmm, cublasHandle, queue);
+        fit(dX, n_iter, gmm, cublasHandle, queue);
 
 // cleanup:
         CUDA_CHECK(cudaFree(dX));
@@ -60,9 +60,9 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 int main( int argc, char** argv )
 {
         magma_int_t nCl = 2;
-        magma_int_t nDim = 3;
-        magma_int_t nObs = 5;
-        int n_iter = 10;
+        magma_int_t nDim = 2;
+        magma_int_t nObs = 4;
+        int n_iter = 5;
 
         run<double>(nCl, nDim, nObs, n_iter);
 

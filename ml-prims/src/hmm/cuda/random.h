@@ -13,9 +13,9 @@
 #include <thrust/iterator/transform_iterator.h>
 
 #include <linalg/cublas_wrappers.h>
+#include <hmm/cuda/cublas_wrappers.h>
 #include <stats/sum.h>
 #include <random/rng.h>
-#include <hmm/cuda/cublas_wrappers.h>
 
 
 using namespace MLCommon::LinAlg;
