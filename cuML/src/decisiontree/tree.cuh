@@ -74,6 +74,7 @@ namespace ML {
 			int maxleaves;
 			int leaf_counter = 0;
 			TemporaryMemory *tempmem;
+			size_t total_temp_mem;
 		public:
 			// Expects column major float dataset, integer labels
 			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0)
@@ -90,7 +91,8 @@ namespace ML {
 				treedepth = maxdepth;
 				maxleaves = max_leaf_nodes;
 				tempmem = new TemporaryMemory(n_sampled_rows);
-				
+				total_temp_mem = tempmem->totalmem;
+			     
 				root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows);
 				delete tempmem;
 				return;
@@ -104,7 +106,8 @@ namespace ML {
 			// Printing utility for debug and looking at nodes and leaves.
 			void print()
 			{
-				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl; 
+				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
+				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;				
 				print_node("", root, false);
 			}
 
@@ -161,17 +164,18 @@ namespace ML {
 				get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 				int *labelptr = sampledlabels;
 				float ginibefore = gini(labelptr, n_sampled_rows, tempmem);
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 				
 				for (int i=0; i<colselector.size(); i++)
 					{
-						
+					     
 						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows);
 						float *colptr = sampledcolumn;
 						float min = minimum(colptr, n_sampled_rows);
 						float max = maximum(colptr, n_sampled_rows);
 						float delta = (max - min)/ nbins ;
 												
-						for (int j=1; j<nbins; j++)
+						for (int j=1; j<current_nbins; j++)
 							{
 								float quesval = min + delta*j;
 								float info_gain = evaluate_split(colptr, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows);

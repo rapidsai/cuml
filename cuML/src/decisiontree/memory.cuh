@@ -41,6 +41,9 @@ struct TemporaryMemory
 	size_t split_temp_storage_bytes = 0;
 	int *d_num_selected_out;
 	int *temprowids;
+
+	//Total temp mem
+	size_t totalmem = 0;
 	
 	TemporaryMemory(int N)
 	{
@@ -48,6 +51,8 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&rightlabels,N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns,N*sizeof(float)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels,N*sizeof(int)));
+
+		totalmem += 3*N*sizeof(int) + N*sizeof(float);
 
 		// Allocate temporary storage for gini		
 		CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_gini_temp_storage, gini_temp_storage_bytes, ginilabels, d_unique_out, d_counts_out, d_num_runs_out, N));
@@ -58,6 +63,8 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out),sizeof(int)));
 		CUDA_CHECK(cudaMalloc(&d_gini_temp_storage, gini_temp_storage_bytes));
 
+		totalmem += gini_temp_storage_bytes + sizeof(int) + 3*N*sizeof(int);
+		
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, ginilabels, d_flags_left, ginilabels,d_num_selected_out, N);
 		
@@ -66,9 +73,15 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc(&d_flags_left,N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc(&d_flags_right,N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc(&temprowids,N*sizeof(int)));
+
+		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char);
 	
 	}
-	
+	void print_info()
+	{
+		std::cout << " Total temporary memory usage--> "<< ((double)totalmem/ (1024*1024)) << "  MB" << std::endl;
+		return;
+	}
 	~TemporaryMemory()
 	{
 		cudaFree(ginilabels);
