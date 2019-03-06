@@ -46,10 +46,6 @@ namespace UMAPAlgo {
 
 	using namespace ML;
 
-	__global__ void simplicial_set_intersection(
-
-	);
-
     template<int TPB_X, typename T>
 	__global__ void init_transform(int *indices, T *weights, int n,
 	                    const T *embeddings, int embeddings_n, int n_components,

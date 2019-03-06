@@ -298,11 +298,6 @@ namespace UMAPAlgo {
                 }
             }
 
-
-            void print(std::string msg) {
-                std::cout << msg << std::endl;
-            }
-
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                     T *rhos, T *sigmas, UMAPParams *params) {
