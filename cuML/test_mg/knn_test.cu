@@ -54,6 +54,8 @@ protected:
         params[0] = { d_train_inputs_dev1, n };
         params[1] = { d_train_inputs_dev2, n };
 
+        cudaSetDevice(0);
+
         knn->fit(params, 2);
         knn->search(d_train_inputs_dev1, n, d_pred_I, d_pred_D, n);
     }

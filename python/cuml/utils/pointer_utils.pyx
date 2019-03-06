@@ -19,21 +19,12 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-import numpy as np
-from libcpp cimport bool
+from libc.stdint cimport uintptr_t
 
-cdef extern from "knn/knn.h" namespace "ML":
 
-    cdef cppclass kNNParams:
-        float *ptr,
-        int N
+cdef extern from "ml_cuda_utils.h" namespace "ML":
+   cdef int get_device(void *ptr)
 
-    cdef cppclass kNN:
-        kNN(int D) except +
-        void search(const float *search_items,
-                    int search_items_size,
-                    long *res_I,
-                    float *res_D,
-                    int k)
-        void fit(kNNParams *input,
-                 int N)
+def device_of_gpu_matrix(g):
+   cdef uintptr_t cptr = g.device_ctypes_pointer.value
+   return get_device( <void*> cptr)
