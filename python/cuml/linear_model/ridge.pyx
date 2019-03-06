@@ -22,12 +22,13 @@
 import ctypes
 import cudf
 import numpy as np
-
+from collections import defaultdict
 from numba import cuda
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from sklearn.utils.fixes import signature
 
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
@@ -74,29 +75,31 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 class Ridge:
 
     """
-    Create a DataFrame, fill it with data, and compute linear regression:
+    Ridge extends LinearRegression by providing L2 regularization on the coefficients when 
+    predicting response y with a linear combination of the predictors in X. It can reduce
+    the variance of the predictors, and improves the conditioning of the problem.
+
+    cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to 
+    fit a linear model. SVD is more stable, but Eig (default) is much more faster. CD uses
+    Coordinate Descent and can be faster if the data is large.
 
     .. code-block:: python
 
         import numpy as np
         import cudf
-        from cuml import Ridge as cumlRidge
 
-        fit_intercept = True
-        normalize = False
+        # Both import methods supported
+        from cuml import Ridge
+        from cuml.linear_model import Ridge
+
         alpha = np.array([1.0])
-        # eig: eigen decomposition based method,
-        # svd: singular value decomposition based method,
-        # cd: coordinate descend.
-        solver = "eig"
-
-        ridge = cumlRidge(alpha=alpha, fit_intercept=fit_intercept, normalize=normalize, solver=solver)
+        ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False, solver = "eig")
 
         X = cudf.DataFrame()
-        X['col1']=np.array([1,1,2,2],dtype=np.float32)
-        X['col2']=np.array([1,2,2,3],dtype=np.float32)
+        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
 
-        y = cudf.Series(np.array([6.0, 8.0, 9.0, 11.0], dtype=np.float32))
+        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
 
         result_ridge = ridge.fit(X_cudf, y_cudf)
         print("Coefficients:")
@@ -105,8 +108,8 @@ class Ridge:
         print(result_ridge.intercept_)
 
         X_new = cudf.DataFrame()
-        X_new['col1']=np.array([3,2],dtype=np.float32)
-        X_new['col2']=np.array([5,5],dtype=np.float32)
+        X_new['col1'] = np.array([3,2], dtype = np.float32)
+        X_new['col2'] = np.array([5,5], dtype = np.float32)
         preds = result_ridge.predict(X_new)
 
         print(preds)
@@ -128,9 +131,31 @@ class Ridge:
                     0 15.999999
                     1 14.999999
 
+    Parameters
+    ----------
+    alpha : float or double
+        Regularization strength - must be a positive float. Larger values specify 
+        stronger regularization. Array input will be supported later.
+    solver : 'eig' or 'svd' or 'cd' (default = 'eig')
+        Eig uses a eigendecomposition of the covariance matrix, and is much faster.
+        SVD is slower, but is guaranteed to be stable.
+        CD or Coordinate Descent is very fast and is suitable for large problems.
+    fit_intercept : boolean (default = True)
+        If True, Ridge tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
+    normalize : boolean (default = False)
+        If True, the predictors in X will be normalized by dividing by it's L2 norm.
+        If False, no scaling will be done.
+
+    Attributes
+    ----------
+    coef_ : array, shape (n_features)
+        The estimated coefficients for the linear regression model.
+    intercept_ : array
+        The independent term. If fit_intercept_ is False, will be 0.
+
 
     For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_. For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
-
     """
 
     def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
@@ -157,7 +182,6 @@ class Ridge:
         else:
             msg = "solver {!r} is not supported"
             raise TypeError(msg.format(solver))
-
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
@@ -182,6 +206,7 @@ class Ridge:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
+
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -195,7 +220,6 @@ class Ridge:
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-
         cdef uintptr_t X_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -335,3 +359,30 @@ class Ridge:
         del(X_m)
 
         return preds
+
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value   
+        return params
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        if params["solver"]=='eig':
+            self.algo=1
+        else:
+            self.algo = 0
+        return self
+

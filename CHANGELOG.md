@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
+- PR #235: NearestNeighbors MG Support
 
 
 ## Improvements
@@ -22,8 +23,13 @@
 - PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
 - PR #230: Refactored the cuda_utils header
 - PR #236: Refactored cuml python package structure to be more sklearn like
+- PR #232: Added reduce_rows_by_key
 - PR #246: Support for 2 vectors in the matrix vector operator
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
+- PR #271: Added get_params and set_params functions for linear and ridge regression
+- PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
+- PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #275: Kmeans use of faster gpu_matrix
 
 ## Bug Fixes
 
@@ -33,6 +39,7 @@
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
+- PR #279: Removing faiss-gpu references in README
 
 
 # cuML 0.5.1 (05 Feb 2019)

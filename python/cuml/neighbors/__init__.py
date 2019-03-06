@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-from cuml.neighbors.knn import KNN
+from cuml.neighbors.nearest_neighbors import NearestNeighbors
