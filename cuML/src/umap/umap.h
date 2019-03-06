@@ -30,14 +30,43 @@ namespace ML {
         public:
 
         UMAP_API(UMAPParams *params);
+        ~UMAP_API();
 
-            void fit(float *X, int n, int d, kNN *knn, float *embeddings);
+            /**
+             * Fits a UMAP model
+             * @param X
+             *        pointer to an array in row-major format (note: this will be col-major soon)
+             * @param n
+             *        n_samples in X
+             * @param d
+             *        d_features in X
+             * @param embeddings
+             *        an array to return the output embeddings of size (n_samples, n_components)
+             */
+            void fit(float *X, int n, int d, float *embeddings);
 
+            /**
+             * Project a set of X vectors into the embedding space.
+             * @param X
+             *        pointer to an array in row-major format (note: this will be col-major soon)
+             * @param n
+             *        n_samples in X
+             * @param d
+             *        d_features in X
+             * @param embedding
+             *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
+             * @param embedding_n
+             *        n_samples in embedding array
+             * @param out
+             *        pointer to array for storing output embeddings (n, n_components)
+             */
             void transform(float *X, int n, int d,
                     float *embedding, int embedding_n,
-                    kNN *knn,
                     float *out);
 
+            /**
+             * Get the UMAPParams instance
+             */
             UMAPParams* get_params();
     };
 }

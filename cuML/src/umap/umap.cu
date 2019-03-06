@@ -12,14 +12,19 @@ namespace ML {
         knn = nullptr;
     };
 
-    void UMAP_API::fit(float *X, int n, int d, kNN *knn, float *embeddings) {
-        this->knn = knn;
+    UMAP_API::~UMAP_API() {
+        delete knn;
+    }
+
+
+
+    void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
+        this->knn = new kNN(d);
         UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings);
     }
 
     void UMAP_API::transform(float *X, int n, int d,
             float *embedding, int embedding_n,
-            kNN *knn,
             float *out) {
         UMAPAlgo::_transform<float, TPB_X>(X, n, d,
                 embedding, embedding_n, knn,

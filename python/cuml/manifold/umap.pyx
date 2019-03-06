@@ -19,8 +19,6 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuml.neighbors.knn cimport *
-
 import numpy as np
 import pandas as pd
 import cudf
@@ -33,6 +31,7 @@ from librmm_cffi import librmm as rmm
 from cython.operator cimport dereference as deref
 from numba import cuda
 
+from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
@@ -65,7 +64,6 @@ cdef extern from "umap/umap.h" namespace "ML":
         void fit(float *X,
                  int n,
                  int d,
-                 kNN *knn,
                  float *embeddings)
 
         void transform(float *X,
@@ -73,7 +71,6 @@ cdef extern from "umap/umap.h" namespace "ML":
                        int d,
                        float *embedding,
                        int embedding_n,
-                       kNN *knn,
                        float *out)
 
 
@@ -159,7 +156,6 @@ cdef class UMAP:
 
     cpdef UMAPParams *umap_params
     cpdef UMAP_API *umap
-    cpdef kNN *knn
     cdef uintptr_t embeddings
     cdef uintptr_t raw_data
 
@@ -225,7 +221,6 @@ cdef class UMAP:
     def __dealloc__(self):
         del self.umap_params
         del self.umap
-        del self.knn
 
     def _downcast(self, X):
 
@@ -276,9 +271,6 @@ cdef class UMAP:
             X contains a sample per row.
         """
 
-        if self.knn != NULL:
-            del self.knn
-
         assert len(X.shape) == 2, 'data should be two dimensional'
         assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
 
@@ -295,13 +287,10 @@ cdef class UMAP:
                                             order = "C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-        self.knn = new kNN(X_m.shape[1])
-
         self.umap.fit(
             <float*> self.raw_data,
             <int> X_m.shape[0],
             <int> X_m.shape[1],
-            <kNN*> self.knn,
             <float*>self.embeddings
         )
 
@@ -320,12 +309,27 @@ cdef class UMAP:
             Embedding of the training data in low-dimensional space.
         """
         self.fit(X)
-        return self.arr_embed
+
+        if isinstance(X, cudf.DataFrame):
+            ret = cudf.DataFrame()
+            for i in range(0, self.arr_embed.shape[1]):
+                ret[str(i)] = self.arr_embed[:,i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(self.arr_embed)
+
+        return ret
 
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that
         transformed output.
+
+        Please refer to the reference UMAP implementation for information
+        on the differences between fit_transform() and running fit() transform().
+
+        Specifically, the transform() function is stochastic:
+        https://github.com/lmcinnes/umap/issues/158
+
         Parameters
         ----------
         X : array, shape (n_samples, n_features)
@@ -336,7 +340,6 @@ cdef class UMAP:
             Embedding of the new data in low-dimensional space.
         """
 
-        assert self.knn != NULL, "a model needs to be fit before transform can be called"
         assert len(X.shape) == 2, 'data should be two dimensional'
         assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
         assert X.shape[1] == self.n_dims, "n_features of X must match n_features of training data"
@@ -355,11 +358,15 @@ cdef class UMAP:
                        <int>X_m.shape[1],
                        <float*> embed_ptr,
                        <int> embedding.shape[0],
-                       <kNN*> self.knn,
                        <float*> embed_ptr)
 
-        ret = cudf.DataFrame()
-        for i in range(0, embedding.shape[0]):
-            ret[str(i)] = embedding[i,:]
+        if isinstance(X, cudf.DataFrame):
+            ret = cudf.DataFrame()
+            for i in range(0, embedding.shape[1]):
+                ret[str(i)] = embedding[:,i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(embedding)
+
+        del X_m
 
         return ret
