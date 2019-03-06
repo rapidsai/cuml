@@ -85,7 +85,13 @@ namespace ML {
 				// As a result, we need to add the ids ourselves
 				// and have the reducer/combiner re-label the indices
 				// based on the shards they came from.
+
+				std::cout << "Adding index " << i << "total_n=" << this->total_n << std::endl;
 				sub_indices[i]->add(params->N, params->ptr);
+
+
+
+
 			} else {
 				std::stringstream ss;
 				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
@@ -111,9 +117,15 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-        for(int i = 0; i < indices; i++)
-			this->sub_indices[i]->search(n, search_items, k,
-					all_D+(i*k*n), all_I+(i*k*n));
+        #pragma omp parallel
+		{
+            #pragma omp for
+		    for(int i = 0; i < indices; i++) {
+                std::cout << "Searching index " << i << std::endl;
+                this->sub_indices[i]->search(n, search_items, k,
+                        all_D+(i*k*n), all_I+(i*k*n));
+		    }
+		}
 
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());

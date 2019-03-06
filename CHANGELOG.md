@@ -1,7 +1,7 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
-
+- PR #235: NearestNeighbors MG Support
 
 
 ## Improvements
