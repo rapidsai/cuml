@@ -34,6 +34,7 @@ struct RfInputs {
 	int n_inference_rows;
 	int max_depth;
 	int max_leaves;
+	bool bootstrap;
 };
 
 template<typename T>
@@ -58,7 +59,7 @@ protected:
 		allocate(labels, params.n_rows);
 
 		// Populate data (assume Col major)
-		std::vector<T> data_h = {0.0f, 1.0f, 2.0f, 0.0f, 10.0f, 20.0f, 10.0f, 40.0f};
+		std::vector<T> data_h = {30.0f, 1.0f, 2.0f, 0.0f, 10.0f, 20.0f, 10.0f, 40.0f};
 		data_h.resize(data_len);
 	    updateDevice(data, data_h.data(), data_len);
 
@@ -75,7 +76,7 @@ protected:
 		updateDevice(selected_rows, selected_rows_h.data(), params.n_rows);
 
 		// Train single decision tree.
-		std::cout << "Config: " << params.n_cols << " " << params.n_rows << " " << params.max_depth << " " << params.max_leaves  << " " << params.max_features << std::endl;
+		std::cout << "Config: " << params.n_cols << " " << params.n_rows << " " << params.max_depth << " " << params.max_leaves  << " " << params.max_features << " " << params.bootstrap << std::endl;
 		tree_cf->fit(data, params.n_cols, params.n_rows, labels, selected_rows, params.n_rows, params.max_depth, params.max_leaves, params.max_features);
 		tree_cf->print();
 
@@ -90,14 +91,14 @@ protected:
 		// Random Forest
 		//--------------------------------------------------------
 		
- 		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, 0, 0);
+ 		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, 0, 0);
 		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, params.n_trees, params.max_features, params.rows_sample);
 
 		int inference_data_len = params.n_inference_rows * params.n_cols;
-		std::vector<T> inference_data_h = {0.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
+		std::vector<T> inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
 		inference_data_h.resize(inference_data_len);
 
-		predictions = rf_classifier->predict(inference_data_h.data(), params.n_inference_rows, params.n_cols, true);
+		predictions = rf_classifier->predict(inference_data_h.data(), params.n_inference_rows, params.n_cols, false);
 		for (int i = 0; i < params.n_inference_rows; i++) {
 			std::cout << "Random forest predicted " << predictions[i] << std::endl;
 		}
@@ -140,7 +141,8 @@ protected:
 const std::vector<RfInputs<float> > inputsf2 = {
 		  //{ 4, 2, 1, 1.0f, 1.0f, 4}, //};
 		  //{ 4, 2, 3, 1.0f, 1.0f, 4, -1, -1} };
-		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1} };
+		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1, false},
+		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1, true} };
 
 
 //FIXME Add tests for fit and predict. Identify what would make a comparison match (similar predictions?)
