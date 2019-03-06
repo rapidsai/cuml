@@ -7,18 +7,19 @@
 #include <sstream>
 #include <string>
 
-#define N 150
-
+#define N 4
+#define COLS 2
+#define depth -1
 using namespace std;
 int main()
 {
 	ifstream myfile;
-	myfile.open("data.csv");
+	myfile.open("data2.csv");
 	string line;
 	vector<float> data;
 	vector<int> labels;
 	int counter = 0;
-	data.resize(N*4);
+	data.resize(N*COLS);
 	labels.resize(N);
 	
 	while(getline(myfile,line))
@@ -32,11 +33,11 @@ int main()
 					if(str.peek() == ',')
 						str.ignore();
 				}
-			data[counter + 0*N] = row[0];
-			data[counter + 1*N] = row[1];
-			data[counter + 2*N] = row[2];
-			data[counter + 3*N] = row[3];
-			labels[counter] = (int)row[4];
+			for(int j = 0;j<COLS;j++)
+				{
+					data[counter + j*N] = row[j];
+				}
+			labels[counter] = (int)row[COLS];
 			counter++;
 		}
 	cout << "Lines processed " << counter << endl;  
@@ -52,18 +53,32 @@ int main()
 			h_rowids[i] = i;
 		}
 	
-	cudaMalloc((void**)(&d_data),N*4*sizeof(float));
+	cudaMalloc((void**)(&d_data),N*COLS*sizeof(float));
 	cudaMalloc((void**)(&d_labels),N*sizeof(int));
 	cudaMalloc((void**)(&rowids),N*sizeof(int));
 	
-	cudaMemcpy(d_data,data.data(),N*4*sizeof(float),cudaMemcpyHostToDevice);
+	cudaMemcpy(d_data,data.data(),N*COLS*sizeof(float),cudaMemcpyHostToDevice);
 	cudaMemcpy(d_labels,labels.data(),N*sizeof(int),cudaMemcpyHostToDevice);
 	cudaMemcpy(rowids,h_rowids,N*sizeof(unsigned int),cudaMemcpyHostToDevice);
 
 	ML::DecisionTree::DecisionTreeClassifier model;
-	model.plant(d_data,4,N,d_labels,rowids,N,8);
+	model.plant(d_data,COLS,N,d_labels,rowids,N,depth);
 	model.print();
-	
+
+	for(int i = 0;i<N;i++)
+		{
+			vector<float> infer_data;
+			for(int j = 0;j<COLS;j++)
+				{
+					infer_data.push_back(data[i + j*N]);
+				}
+			
+			int ans = model.predict(infer_data.data());
+			if(ans != labels[i])
+				{
+					printf("Mismatch at %d , true value %d , infered value %d\n",i,labels[i],ans);
+				}
+		}
 	cudaFree(d_data);
 	cudaFree(d_labels);
 	cudaFree(rowids);

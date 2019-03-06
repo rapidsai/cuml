@@ -126,7 +126,9 @@ namespace ML {
 				
 				if (condition)
 					{
-						node->class_predict = get_class(labels, n_sampled_rows);
+						int *sampledlabels = tempmem->sampledlabels;
+						get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
+						node->class_predict = get_class(sampledlabels, n_sampled_rows);
 						leaf_counter++;
 						if (depth > depth_counter)
 							depth_counter = depth;
@@ -136,8 +138,8 @@ namespace ML {
 						int nrowsleft, nrowsright;
 						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids);
 						node->question = ques;
-						node->left = grow_tree(data, colper, &labels[0], depth+1, &rowids[0], nrowsleft);
-						node->right = grow_tree(data, colper, &labels[nrowsleft], depth+1, &rowids[nrowsleft], nrowsright);
+						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft);
+						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright);
 					}
 				return node;
 			}
@@ -149,17 +151,17 @@ namespace ML {
 				int *sampledlabels = tempmem->sampledlabels;
 				int *leftlabels = tempmem->leftlabels;
 				int *rightlabels = tempmem->rightlabels;
+				float *h_sampcol = (float*)malloc(n_sampled_rows*sizeof(float));
 				
 				// Bootstrap columns
 				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(), colselector.end(), 0);
-				std::random_shuffle(colselector.begin(), colselector.end());
-				colselector.resize((int)(colper * dinfo.Ncols ));
+				//std::random_shuffle(colselector.begin(), colselector.end());
+				//colselector.resize((int)(colper * dinfo.Ncols ));
 				
 				get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 				int *labelptr = sampledlabels;
 				float ginibefore = gini(labelptr, n_sampled_rows);
-				
 				
 				for (int i=0; i<colselector.size(); i++)
 					{
@@ -169,10 +171,13 @@ namespace ML {
 						float min = minimum(colptr, n_sampled_rows);
 						float max = maximum(colptr, n_sampled_rows);
 						float delta = (max - min)/ nbins ;
+						CUDA_CHECK(cudaMemcpy(h_sampcol,sampledcolumn,n_sampled_rows*sizeof(float),cudaMemcpyDeviceToHost));
 						
-						for (int j=1; j<nbins; j++)
+						//for (int j=1; j<nbins; j++)
+						for(int j=0;j<n_sampled_rows;j++)
 							{
-								float quesval = min + delta*j;
+								//float quesval = min + delta*j;
+								float quesval = h_sampcol[j];
 								float info_gain = evaluate_split(colptr, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows);
 								if (info_gain == -1.0)
 									continue;
@@ -186,6 +191,8 @@ namespace ML {
 							}
 						
 					}
+				
+				free(h_sampcol);
 				
 			}
 			
