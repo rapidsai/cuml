@@ -255,15 +255,15 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 # ###################################################################################################
 # # - build examples -------------------------------------------------------------------------
 #
-# if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-#     add_subdirectory(examples)
-# endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
-#
-# install(TARGETS cuml
-#         DESTINATION lib)
+
+install(TARGETS cuml
+        DESTINATION lib)
 
 
 ###################################################################################################

@@ -1,6 +1,11 @@
 #include "hmm/gmm.h"
 #include "hmm/gmm_py.h"
 
+void init_test(){
+        // nCl = 1;
+}
+
+
 void init_f32(GMM<float> &gmm,
               float *dmu, float *dsigma, float *dPis, float *dPis_inv, float *dLlhd,
               int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,

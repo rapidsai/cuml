@@ -26,8 +26,8 @@ def sample_sigmas(nDim, nCl, lddsigma):
     return np.array(s)
 
 
-def sample_pis(nObs):
-    pis = np.random.rand(nObs)
+def sample_pis(nCl):
+    pis = np.random.rand(nCl)
     pis /= np.sum(pis)
     return pis
 
@@ -35,7 +35,7 @@ def sample_pis(nObs):
 def sample_llhd(nCl, nObs, ldLlhd):
     eps = 1e-6
     llhd = sample_matrix(nCl, nObs, ldLlhd, False)
-    llhd /= (np.sum(llhd, axis=1) + eps * np.ones(ldd))[:, None]
+    llhd /= (np.sum(llhd, axis=1) + eps * np.ones(ldLlhd))[:, None]
     return llhd
 
 
@@ -43,5 +43,5 @@ def sample_mixture(mus, sigmas, pis, nCl, nDim, nObs, lddsigma, dt):
     def _sample_mixture():
         idx = np.random.multinomial(1, pis).argmax()
         cov = sigmas[idx].reshape((nDim, lddsigma))[:nDim, :nDim]
-        return np.random.multivariate_normal(mus[idx], cov, 1).astype(dt)
-    return [_sample_mixture() for _ in range(nObs)]
+        return np.random.multivariate_normal(mus[idx], cov, 1)
+    return np.array([_sample_mixture() for _ in range(nObs)], dtype=dt)

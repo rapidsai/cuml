@@ -47,12 +47,12 @@ def test_gaussian_mixture_base(precision):
 
     mus = sample_mus(nDim=nDim, nCl=nCl, lddmu=ldd)
     sigmas = sample_sigmas(nDim=nDim, nCl=nCl, lddsigma=ldd)
-    pis = sample_pis(nObs=nObs)
+    pis = sample_pis(nCl=nCl)
 
     X = sample_mixture(mus=mus, sigmas=sigmas, pis=pis,
                        nCl=nCl, nDim=nDim, nObs=nObs, lddsigma=ldd, dt=dt)
 
-    # TODO : Fix ldd
+    # # TODO : Fix ldd
     gmm.fit(X, nCl, n_iter)
 
     assert 0 < 0.1
