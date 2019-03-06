@@ -34,16 +34,18 @@ namespace ML {
 			int max_depth; 
 	    	int max_leaves; 	
 			int rf_type;
+			bool bootstrap;
 
 			DecisionTree::DecisionTreeClassifier * trees;
 		
 		public:
-			rf(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) {
+			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) {
 					n_trees = cfg_n_trees;
 					max_depth = cfg_max_depth; //FIXME Set these during fit?
 					max_leaves = cfg_max_leaves;
 					trees = NULL; 
 					rf_type = cfg_rf_type;
+					bootstrap = cfg_bootstrap;
 			}
 
 			~rf() {
@@ -66,14 +68,15 @@ namespace ML {
 	class rfClassifier : public rf {
 		public:
 
-		rfClassifier(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) : rf::rf(cfg_n_trees, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+		rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) 
+					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
 
         /** 
          * Fit an RF classification model on input data with n_rows samples and n_cols features.
-         * @param input			data array in FIXME row major format for now.
+         * @param input			data array in col major format for now (device ptr)
          * @param n_rows		number of training? data rows
-         * @param n_cols		number of features (columns)
-         * @param labels		list of target features
+         * @param n_cols		number of features (i.e, columns)
+         * @param labels		list of target features (device ptr)
          * @param n_trees		number of trees in the random forest
          * @param max_features	number of features to consider per split (default = sqrt(n_cols))
 	     * @param rows_sample	ratio of n_rows used per tree
@@ -96,11 +99,27 @@ namespace ML {
 			
 			for (int i = 0; i < n_trees; i++) {
 				// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
-				unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement). 
+				unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 				CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
-
-				MLCommon::Random::Rng r(i); //FIXME Ensure the seed for each tree is different and a meaningful one.
-				r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows-1);
+				
+				if (bootstrap) {
+					MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
+					r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows);
+					/*
+					//DBG
+					std::cout << "Bootstrapping for tree " << i << std::endl;
+					unsigned int h_selected_rows[n_sampled_rows];
+					CUDA_CHECK(cudaMemcpy(h_selected_rows, selected_rows, n_sampled_rows * sizeof(unsigned int), cudaMemcpyDeviceToHost));
+					for (int tmp = 0; tmp < n_sampled_rows; tmp++) {
+						std::cout << h_selected_rows[tmp] << " ";
+					}
+					std::cout << std::endl;
+					*/
+				} else {
+					std::vector<unsigned int> h_selected_rows(n_sampled_rows);
+					std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
+					CUDA_CHECK(cudaMemcpy(selected_rows, h_selected_rows.data(), n_sampled_rows * sizeof(unsigned int), cudaMemcpyHostToDevice));
+				}
 
 				/* Build individual tree in the forest.
 				   - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -168,7 +187,8 @@ namespace ML {
 	class rfRegressor : public rf {
 	    public:
 
-		rfRegressor(int cfg_n_trees, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::REGRESSION) : rf::rf(cfg_n_trees, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::REGRESSION) 
+						: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
 
 		void fit(float * input, int n_rows, int n_cols, int * labels,
                          int n_trees, float max_features, float rows_sample) {};
