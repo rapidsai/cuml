@@ -297,7 +297,6 @@ cdef class UMAP:
 
         self.knn = new kNN(X_m.shape[1])
 
-
         self.umap.fit(
             <float*> self.raw_data,
             <int> X_m.shape[0],
