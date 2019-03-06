@@ -103,6 +103,8 @@ protected:
 			std::cout << "Random forest predicted " << predictions[i] << std::endl;
 		}
 
+		rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+
 
 		
     }
@@ -142,7 +144,8 @@ const std::vector<RfInputs<float> > inputsf2 = {
 		  //{ 4, 2, 1, 1.0f, 1.0f, 4}, //};
 		  //{ 4, 2, 3, 1.0f, 1.0f, 4, -1, -1} };
 		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1, false},
-		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1, true} };
+		  { 4, 2, 3, 1.0f, 1.0f, 4, 8, -1, true}, 
+		  { 4, 2, 1, 1.0f, 1.0f, 4, 8, -1, true} };
 
 
 //FIXME Add tests for fit and predict. Identify what would make a comparison match (similar predictions?)
