@@ -300,6 +300,9 @@ class PCA:
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
 
+        if self.params.n_components> self.params.n_cols:
+            raise ValueError('Number of components should not be greater than the number of columns in the data')
+
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
@@ -537,3 +540,24 @@ class PCA:
 
         del(X_m)
         return X_new
+
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
+        for key in variables:
+            var_value = getattr(self.params,key,None)
+            params[key] = var_value   
+        return params
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
+        for key, value in params.items():
+            if key not in variables:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                setattr(self.params, key, value)
+        return self
