@@ -218,20 +218,20 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 # # ###################################################################################################
 # # # - build test executable -------------------------------------------------------------------------
 
-add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
-
-target_link_libraries(ml_test
-                      ${GTEST_LIBNAME}
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-		              gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      cuml
-                      pthread
-                      z)
+# add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
+#
+# target_link_libraries(ml_test
+#                       ${GTEST_LIBNAME}
+#                       ${CUDA_cublas_LIBRARY}
+#                       ${CUDA_curand_LIBRARY}
+#                       ${CUDA_cusolver_LIBRARY}
+#                       ${CUDA_CUDART_LIBRARY}
+# 		              gpufaisslib
+#                       faisslib
+#                       ${BLAS_LIBRARIES}
+#                       cuml
+#                       pthread
+#                       z)
 
 
 # ###################################################################################################
@@ -255,9 +255,9 @@ target_link_libraries(ml_test
 # ###################################################################################################
 # # - build examples -------------------------------------------------------------------------
 #
-if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-    add_subdirectory(examples)
-endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+# if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+#     add_subdirectory(examples)
+# endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------

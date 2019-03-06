@@ -55,7 +55,8 @@ cdef extern from "hmm/gmm_py.h" nogil:
                        int,
                        int)
 
-    cdef void update_rhos_f32(float*, GMM[float]&)
+    cdef void setup_f32(GMM[float]&)
+    cdef void update_rhos_f32(GMM[float]&, float*)
     cdef void update_mus_f32(float*, GMM[float]&)
     cdef void update_sigmas_f32(float*, GMM[float]&)
     cdef void update_pis_f32(GMM[float]&)
@@ -99,16 +100,10 @@ class GaussianMixture:
         cdef int nDim = self.nDim
         cdef int nObs = self.nObs
 
-        # cdef int nCl = 2
-        # cdef int nDim = 3
-        # cdef int nObs = 4
-
         cdef GMM[float] gmm
 
         if self.precision == 'single':
             with nogil:
-
-
               # TODO : Check pointers
               init_f32(gmm,
               <float*> _dmu_ptr,
@@ -125,7 +120,8 @@ class GaussianMixture:
               <int> nCl,
               <int> nDim,
               <int> nObs)
-              update_rhos_f32(<float*>_dX_ptr, gmm)
+              setup_f32(gmm)
+              update_rhos_f32(gmm, <float*> _dX_ptr)
               update_mus_f32(<float*>_dX_ptr, gmm)
               update_sigmas_f32(<float*>_dX_ptr, gmm)
               update_pis_f32(gmm)
@@ -145,23 +141,28 @@ class GaussianMixture:
       self.dPis_inv = cuda.to_device(inv_pis)
       self.dLlhd = cuda.to_device(llhd)
 
-    def fit(self, X, nCl, n_iter):
-      self.dX = cuda.to_device(X)
+    def fit(self, X, nCl, nDim, nObs, n_iter):
 
       self.nCl = int(nCl)
-      self.nDim = int(X.shape[0])
-      self.nObs = int(X.shape[1])
+      self.nDim = int(nDim)
+      self.nObs = int(nObs)
 
       self.lddx = roundup(self.nDim, RUP_SIZE)
       self.lddmu = roundup(self.nDim, RUP_SIZE)
       self.lddsigma = roundup(self.nDim, RUP_SIZE)
       self.lddsigma_full = roundup(self.nDim * self.lddsigma, RUP_SIZE)
       self.lddLlhd = roundup(self.nCl, RUP_SIZE)
+      self.lddPis = self.nCl
+
+      X = complete_zeros(X, nDim, nObs, self.lddx)
+      print("\n X \n")
+      print(X)
+      self.dX = cuda.to_device(X.astype(self.dtype))
 
       self.initialize()
 
-      # for _ in range(n_iter) :
-      #   self.step()
+      for _ in range(n_iter) :
+        self.step()
 
     def __setattr__(self, name, value):
         if name in ["dmu"]:

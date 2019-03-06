@@ -134,6 +134,8 @@ void setup(GMM<T> &gmm) {
         allocate(gmm.dX_array, gmm.nObs);
         allocate_pointer_array(gmm.dmu_array, gmm.lddmu, gmm.nCl);
         allocate_pointer_array(gmm.dsigma_array, gmm.lddsigma_full, gmm.nCl);
+
+        magma_init();
 }
 
 template <typename T>
@@ -164,10 +166,12 @@ void update_rhos(T* dX, GMM<T>& gmm,
 
         bool isLog = false;
 
-        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        // // print_matrix_device(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_batches, gmm.lddsigma, "dsigma matrix");
-        // print_matrix_device(gmm.nDim, 1, dPis, lddPis, "dPis");
-        // print_matrix_device(gmm.nDim, 1, gmm.dmu, gmm.lddmu, "dmu matrix");
+        printf("nObs %d\n", gmm.nObs);
+        printf("nDim %d\n", gmm.nDim);
+        printf("lddx %d\n", gmm.lddx);
+        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis");
+        print_matrix_device(gmm.nDim, 1, gmm.dmu, gmm.lddmu, "dmu matrix");
 
         split_to_batches(gmm.nObs, gmm.dX_array, dX, gmm.lddx);
         split_to_batches(gmm.nCl, gmm.dmu_array, gmm.dmu, gmm.lddmu);
@@ -189,7 +193,7 @@ void update_rhos(T* dX, GMM<T>& gmm,
 
         normalize_matrix(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, false);
 
-        // print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_array, gmm.lddsigma, "dSigma matrix");
+        print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, gmm.dsigma_array, gmm.lddsigma, "dSigma matrix");
 
         printf(" update rhos **********************\n");
 }

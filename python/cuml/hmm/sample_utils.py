@@ -5,6 +5,10 @@ def zero_out(A, m, n, ldda):
     A[m:ldda, :] = 0.
     return A
 
+def complete_zeros(A, m, n, ldda):
+    B = np.zeros((ldda, n))
+    B[:m,:] = A
+    return B
 
 def sample_matrix(m, n, lddA, isSymPos):
     A = np.random.rand(lddA, m)
@@ -43,5 +47,8 @@ def sample_mixture(mus, sigmas, pis, nCl, nDim, nObs, lddsigma, dt):
     def _sample_mixture():
         idx = np.random.multinomial(1, pis).argmax()
         cov = sigmas[idx].reshape((nDim, lddsigma))[:nDim, :nDim]
-        return np.random.multivariate_normal(mus[idx], cov, 1)
-    return np.array([_sample_mixture() for _ in range(nObs)], dtype=dt)
+        x = np.random.multivariate_normal(mus[idx], cov, 1)[0]
+        return x
+    X = np.array([_sample_mixture() for _ in range(nObs)], dtype=dt).T
+    return X
+

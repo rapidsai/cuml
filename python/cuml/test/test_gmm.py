@@ -34,7 +34,7 @@ def np_to_dataframe(df):
 def test_gaussian_mixture_base(precision):
 
     gmm = GaussianMixture(precision=precision)
-    n_iter = 10
+    n_iter = 1
     nCl = 2
     nDim = 2
     nObs = 20
@@ -53,7 +53,7 @@ def test_gaussian_mixture_base(precision):
                        nCl=nCl, nDim=nDim, nObs=nObs, lddsigma=ldd, dt=dt)
 
     # # TODO : Fix ldd
-    gmm.fit(X, nCl, n_iter)
+    gmm.fit(X, nCl, nDim, nObs, n_iter)
 
     assert 0 < 0.1
 

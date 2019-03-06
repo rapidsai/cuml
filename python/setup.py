@@ -48,7 +48,7 @@ extensions = [
               runtime_library_dirs=[cuda_lib_dir],
               libraries=['cuda', 'cuml'],
               language='c++',
-              extra_compile_args=['-std=c++11'])
+              extra_compile_args=['-std=c++11', "-g", "-Wall"])
 ]
 
 setup(name='cuml',

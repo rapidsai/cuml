@@ -1,11 +1,6 @@
 #include "hmm/gmm.h"
 #include "hmm/gmm_py.h"
 
-void init_test(){
-        // nCl = 1;
-}
-
-
 void init_f32(GMM<float> &gmm,
               float *dmu, float *dsigma, float *dPis, float *dPis_inv, float *dLlhd,
               int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
@@ -16,7 +11,8 @@ void init_f32(GMM<float> &gmm,
              nCl, nDim, nObs);
 }
 
-void update_rhos_f32(float* dX, GMM<float>& gmm){
+// void update_rhos_f32(, ){
+void update_rhos_f32(GMM<float>& gmm, float* dX){
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
 
@@ -51,4 +47,8 @@ void update_sigmas_f32(float* dX, GMM<float>& gmm){
 
 void update_pis_f32(GMM<float>& gmm){
         update_pis(gmm);
+}
+
+void setup_f32(GMM<float> &gmm) {
+        setup(gmm);
 }
