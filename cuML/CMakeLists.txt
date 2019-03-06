@@ -191,7 +191,7 @@ file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
-# file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/b_likelihood.cu")
+file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/magma/*")
 file(GLOB_RECURSE magma_debug_sources "src/hmm/gmm.cu")
 # file(GLOB_RECURSE magma_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 

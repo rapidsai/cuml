@@ -43,10 +43,20 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
         allocate_pointer_array(dipiv_array, n, batchCount);
         allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
         allocate(info_array, batchCount);
+
         copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
 
-        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
-                            batchCount, queue);
+        // Getting errors with getrf
+        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array, batchCount, queue);
+
+        // magma_potrf_batched(MagmaLower,
+        //                     n,
+        //                     dA_array,
+        //                     ldda,
+        //                     info_array,
+        //                     batchCount,
+        //                     queue
+        //                     );
         // assert_batched(batchCount, info_array);
 
         diag_product_batched(n, dA_array_cpy, ldda, dDet_array, batchCount);

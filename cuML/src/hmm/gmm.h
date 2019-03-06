@@ -224,7 +224,7 @@ void update_rhos(T* dX, GMM<T>& gmm,
                  cublasHandle_t cublasHandle, magma_queue_t queue){
         printf("*************** update rhos\n");
 
-        bool isLog = false;
+        bool isLog = true;
 
         print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
         print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
@@ -246,8 +246,12 @@ void update_rhos(T* dX, GMM<T>& gmm,
                            gmm.dLlhd, gmm.lddLlhd,
                            isLog);
 
+        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix before ");
+
         cublasdgmm(cublasHandle, CUBLAS_SIDE_LEFT, gmm.nCl, gmm.nObs,
                    gmm.dLlhd, gmm.lddLlhd, gmm.dPis, 1, gmm.dLlhd, gmm.lddLlhd);
+
+        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix after");
 
         normalize_matrix(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, true);
 
@@ -387,7 +391,7 @@ void em(T* dX, int n_iter, GMM<T>& gmm,
 
                 // // M step
                 // update_mus(dX, gmm, cublasHandle, queue);
-                update_sigmas(dX, gmm, cublasHandle, queue);
+                // update_sigmas(dX, gmm, cublasHandle, queue);
                 // update_pis(gmm);
         }
 }
