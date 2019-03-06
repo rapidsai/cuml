@@ -22,12 +22,13 @@
 import ctypes
 import cudf
 import numpy as np
-
+from collections import defaultdict
 from numba import cuda
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from sklearn.utils.fixes import signature
 
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
@@ -155,8 +156,6 @@ class Ridge:
 
 
     For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
-    
-
     """
     # Link will work later
     # For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_.
@@ -181,12 +180,11 @@ class Ridge:
         self.fit_intercept = fit_intercept
         self.normalize = normalize
 
-        if solver in ['svd', 'eig', 'cd']:
+        if solver in ('svd', 'eig', 'cd'):
             self.algo = self._get_algorithm_int(solver)
         else:
             msg = "solver {!r} is not supported"
             raise TypeError(msg.format(solver))
-
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
@@ -211,6 +209,7 @@ class Ridge:
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
+
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -224,7 +223,6 @@ class Ridge:
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-
         cdef uintptr_t X_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -364,3 +362,30 @@ class Ridge:
         del(X_m)
 
         return preds
+
+
+    def get_params(self, deep=True):
+        params = dict()
+        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value   
+        return params
+
+
+    def set_params(self, **params):
+        if not params:
+            return self
+        current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        if params["solver"]=='eig':
+            self.algo=1
+        else:
+            self.algo = 0
+        return self
+

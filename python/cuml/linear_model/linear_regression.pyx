@@ -22,14 +22,15 @@
 import ctypes
 import cudf
 import numpy as np
+
 import warnings # For DeprecationWarning
 
 from numba import cuda
-
+from collections import defaultdict
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-
+from sklearn.utils.fixes import signature
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
@@ -67,7 +68,6 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
 
 class LinearRegression:
-
     """
     LinearRegression is a simple machine learning model where the response y is modelled by a 
     linear combination of the predictors in X.
@@ -146,23 +146,20 @@ class LinearRegression:
 
 
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
     """
     # For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_. 
     # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
 
-    
+
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
 
         """
         Initializes the linear regression class.
-
         Parameters
         ----------
         algorithm : Type: string. 'eig' (default) and 'svd' are supported algorithms.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
         """
         self.coef_ = None
         self.intercept_ = None
@@ -199,15 +196,12 @@ class LinearRegression:
     def fit(self, X, y):
         """
         Fit the model with X and y.
-
         Parameters
         ----------
         X : cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
-
         """
 
         cdef uintptr_t X_ptr
@@ -255,6 +249,7 @@ class LinearRegression:
 
         cdef float c_intercept1
         cdef double c_intercept2
+
         if self.gdf_datatype.type == np.float32:
 
             olsFit(<float*>X_ptr,
@@ -280,23 +275,20 @@ class LinearRegression:
                        <int>self.algo)
 
             self.intercept_ = c_intercept2
-
         return self
+
 
     def predict(self, X):
         """
         Predicts the y for X.
-
         Parameters
         ----------
         X : cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
-
         """
 
         cdef uintptr_t X_ptr
@@ -340,3 +332,31 @@ class LinearRegression:
         del(X_m)
 
         return preds
+
+      
+    def get_params(self, deep=True):
+        params = dict()
+        variables = ['algorithm','fit_intercept','normalize']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value   
+        return params
+
+      
+    def set_params(self, **params):
+        if not params:
+            return self
+        variables = ['algorithm','fit_intercept','normalize']
+
+        current_params = {"algorithm" : self.algo,"fit_intercept" : self.fit_intercept,"normalize" : self.normalize}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        if params["algorithm"]=='eig':
+            self.algo=1
+        else:
+            self.algo = 0
+        return self
