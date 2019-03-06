@@ -19,12 +19,12 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-from cuml.neighbors.knn cimport *
-
 import numpy as np
 import pandas as pd
 import cudf
 import ctypes
+
+from libcpp cimport bool
 
 from librmm_cffi import librmm as rmm
 from libc.stdlib cimport malloc, free
@@ -34,20 +34,34 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-class KNNparams:
-    def __init__(self, n_gpus):
-        self.n_gpus = n_gpus
+from cuml import numba_utils
+
+cdef extern from "knn/knn.h" namespace "ML":
+
+    cdef cppclass kNNParams:
+        float *ptr,
+        int N
+
+    cdef cppclass kNN:
+        kNN(int D) except +
+        void search(const float *search_items,
+                    int search_items_size,
+                    long *res_I,
+                    float *res_D,
+                    int k)
+        void fit(kNNParams *input,
+                 int N)
 
 
-cdef class KNN:
+cdef class NearestNeighbors:
     """
 
-    Create a DataFrame, fill it with data, and compute KNN:
+    Create a DataFrame, fill it with data, and compute NearestNeighbors:
 
     .. code-block:: python
 
       import cudf
-      from cuml import KNN
+      from cuml.neighbors import NearestNeighbors
       import numpy as np
 
       np_float = np.array([
@@ -64,12 +78,12 @@ cdef class KNN:
       print('n_samples = 3, n_dims = 3')
       print(gdf_float)
 
-      knn_float = KNN(n_gpus=1)
-      knn_float.fit(gdf_float)
-      Distance,Index = knn_float.query(gdf_float,k=3) #get 3 nearest neighbors
+      nn_float = NearestNeighbors()
+      nn_float.fit(gdf_float)
+      distances,indices = nn_float.kneighbors(gdf_float,k=3) #get 3 nearest neighbors
 
-      print(Index)
-      print(Distance)
+      print(indices)
+      print(distances)
 
     Output:
 
@@ -83,20 +97,24 @@ cdef class KNN:
       1   1.0   2.0   4.0
       2   2.0   2.0   4.0
 
-      # Index:
+      # indices:
 
                index_neighbor_0 index_neighbor_1 index_neighbor_2
       0                0                1                2
       1                1                0                2
       2                2                1                0
-      # Distance:
+      # distances:
 
                distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
       0                 0.0                 1.0                 2.0
       1                 0.0                 1.0                 1.0
       2                 0.0                 1.0                 2.0
 
-    For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
+    For an additional example see `the NearestNeighbors notebook
+    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
+
+    For additional docs, see `scikitlearn's NearestNeighbors
+    <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
 
     """
     cpdef kNN *k
@@ -112,11 +130,9 @@ cdef class KNN:
 
     cpdef kNNParams *input
 
-
-
     def __cinit__(self, should_downcast = False):
         """
-        Construct the kNN object for training and querying.
+        Construct the NearestNeighbors object for training and querying.
 
         Parameters
         ----------
@@ -128,6 +144,9 @@ cdef class KNN:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
+    def __dealloc__(self):
+        del self.k
+        del self.input
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -162,20 +181,19 @@ cdef class KNN:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = X.as_gpu_matrix(order="C")
+            X = numba_utils.row_matrix(X)
+
         elif isinstance(X, np.ndarray):
             dtype = X.dtype
 
             if dtype != np.float32:
                 if self._should_downcast:
-                    X = X.astype(np.float32)
+                    X = np.ascontiguousarray(X.astype(np.float32))
                     if len(X[X == np.inf]) > 0:
                         raise Exception("Downcast to single-precision resulted in data loss.")
-
                 else:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
-
 
             X = cuda.to_device(X)
         else:
@@ -186,7 +204,7 @@ cdef class KNN:
 
     def fit(self, X):
         """
-        Fit a KNN index for performing nearest neighbor queries.
+        Fit GPU index for performing nearest neighbor queries.
 
         Parameters
         ----------
@@ -211,10 +229,40 @@ cdef class KNN:
         self.k.fit(<kNNParams*> self.input,
                    <int> 1)
 
-
-    def query(self, X, k):
+    def _fit_mg(self, n_dims, alloc_info):
         """
-        Query the KNN index for the k nearest neighbors of column vectors in X.
+        Fits a model using multiple GPUs. This method takes in a list of dict objects
+        representing the distribution of the underlying device pointers. The device
+        information can be extracted from the pointers.
+
+        :param n_dims
+            the number of features for each vector
+        :param alloc_info
+            a list of __cuda_array_interface__ dicts
+        :return:
+        """
+        self.k = new kNN(n_dims)
+
+        del self.input
+        self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
+
+        cdef uintptr_t input_ptr
+        for i in range(len(alloc_info)):
+            params = new kNNParams()
+            params.N = < int > alloc_info[i]["shape"][0]
+
+            input_ptr = alloc_info[i]["data"][0]
+            params.ptr = < float * > input_ptr
+
+            self.input[i] = deref(params)
+
+        self.k.fit( < kNNParams * > self.input,
+                    < int > len(alloc_info))
+
+
+    def kneighbors(self, X, k):
+        """
+        Query the GPU index for the k nearest neighbors of row vectors in X.
 
         Parameters
         ----------
@@ -239,31 +287,68 @@ cdef class KNN:
         N = len(X)
 
         # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32))
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order = "C"))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order = "C"))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
 
-        self.k.search(<float*>X_ctype,
-                      <int> N,
-                      <long*>I_ptr,
-                      <float*>D_ptr,
-                      <int> k)
+        self._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
 
-        I_ndarr = I_ndarr.reshape((N, k)).transpose()
-        D_ndarr = D_ndarr.reshape((N, k)).transpose()
+        I_ndarr = I_ndarr.reshape((N, k))
+        D_ndarr = D_ndarr.reshape((N, k))
 
-        I = cudf.DataFrame()
-        for i in range(0, I_ndarr.shape[0]):
-            I[str(i)] = I_ndarr[i,:]
+        inds = cudf.DataFrame()
+        for i in range(0, I_ndarr.shape[1]):
+            inds[str(i)] = I_ndarr[:,i]
 
-        D = cudf.DataFrame()
-        for i in range(0, D_ndarr.shape[0]):
-            D[str(i)] = D_ndarr[i,:]
+        dists = cudf.DataFrame()
+        for i in range(0, D_ndarr.shape[1]):
+            dists[str(i)] = D_ndarr[:,i]
 
         if isinstance(X, np.ndarray):
-            I = np.asarray(I.as_gpu_matrix())
-            D = np.asarray(D.as_gpu_matrix())
+            inds = np.asarray(inds.as_gpu_matrix())
+            dists = np.asarray(dists.as_gpu_matrix())
 
-        return D, I
+        return dists, inds
+
+
+    def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
+        """
+        Query the GPU index for the k nearest neighbors of column vectors in X.
+
+        Parameters
+        ----------
+        X_ctype : Ctypes pointer (row-major)
+            Pointer to input data
+
+        N: Intetger
+            The number of rows in X
+
+        k: Integer
+            Number of neighbors to search
+
+        I_ptr: Ctypes pointer (row-major)
+            Pointer to N*k array for output indices
+
+        D_ptr: Ctypes pointer (row-major)
+            Pointer to N*k array for output distances
+
+        Returns
+        ----------
+        distances: cuDF DataFrame or numpy ndarray
+            The distances of the k-nearest neighbors for each column vector in X
+
+        indices: cuDF DataFrame of numpy ndarray
+            The indices of the k-nearest neighbors for each column vector in X
+        """
+
+        cdef uintptr_t inds = I_ptr
+        cdef uintptr_t dists = D_ptr
+        cdef uintptr_t x = X_ctype
+
+        self.k.search(<float*>x,
+                      <int> N,
+                      <long*>inds,
+                      <float*>dists,
+                      <int> k)
