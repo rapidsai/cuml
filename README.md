@@ -71,7 +71,6 @@ conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 #### Pip
 cuML can also be installed using pip. Select the package based on your version of CUDA.
 
-*Note:* Pip has no faiss-gpu package: If installing cuML from pip and you plan to use cuml.KNN, you must install [Faiss](https://github.com/facebookresearch/faiss) manually or via conda (see below).
 
 ```bash
 # cuda 9.2
