@@ -234,6 +234,22 @@ namespace UMAPAlgo {
                 }
             }
 
+            /**
+             * Combines all the fuzzy simplicial sets into a global
+             * one via a fuzzy union.
+             *
+             * @param rows   rows of the fuzzy simplicial set coo
+             * @param cols   cols of the fuzzy simplicial set coo
+             * @param vals   vals of the fuzzy simplicial set coo
+             * @param orows  output rows of the global fuzzy union coo
+             * @param ocols  output cols of the global fuzzy union coo
+             * @param ovals  output vals of the global fuzzy union coo
+             * @param rnnz   output counts
+             * @param n      number of rows in coo matrix
+             * @param n_neighbors the number of cols in coo matrix
+             * @param set_op_mix_ratio  trade off between fuzzy union
+             *                          and fuzzy intersection.
+             */
             template<int TPB_X, typename T>
             __global__ void compute_result(
                     int *rows, int *cols, T *vals,
@@ -297,6 +313,9 @@ namespace UMAPAlgo {
                 }
             }
 
+            /*
+             * Sets up and runs the knn dist smoothing
+             */
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
                     T *rhos, T *sigmas, UMAPParams *params, float local_connectivity) {
