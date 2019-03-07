@@ -37,7 +37,6 @@ namespace FuzzySimplSet {
 	template<int TPB_X, typename T>
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
-			 int *rows, int *cols, T *vals,
 			 int *orows, int *ocols, T *ovals,
 			 UMAPParams *params, int *nnz,
 			 int algorithm = 0) {
@@ -45,7 +44,6 @@ namespace FuzzySimplSet {
 		switch(algorithm) {
 		case 0:
 			Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists,
-					       rows, cols, vals,
 					       orows, ocols, ovals,
 					       nnz,
 					       params);

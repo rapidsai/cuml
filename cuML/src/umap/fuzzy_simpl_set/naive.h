@@ -178,7 +178,7 @@ namespace UMAPAlgo {
              * row is a local fuzzy simplicial set, with a membership strength for the
              * 1-simplex to each other data point.
              *
-             * TODO: Optimize for coalesced reads.
+             * TODO: Optimize for coalesced reads (use col-major inputs).
              *
              * @param knn_indices: the knn index matrix of size (n, k)
              * @param knn_dists: the knn distance matrix of size (n, k)
@@ -347,7 +347,6 @@ namespace UMAPAlgo {
              */
             template<int TPB_X, typename T>
             void launcher(int n, const long *knn_indices, const float *knn_dists,
-                   int *rows, int *cols, T *vals,
                    int *rrows, int *rcols, T *rvals,
                    int *nnz, UMAPParams *params) {
 
@@ -372,6 +371,13 @@ namespace UMAPAlgo {
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                         rhos, sigmas, params, params->local_connectivity
                 );
+
+                int *rows, *cols;
+                T *vals;
+                MLCommon::allocate(rows, n*params->n_neighbors);
+                MLCommon::allocate(cols, n*params->n_neighbors);
+                MLCommon::allocate(vals, n*params->n_neighbors);
+
 
                 /**
                  * Compute graph of membership strengths
@@ -434,6 +440,10 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaFree(ocols));
                 CUDA_CHECK(cudaFree(ovals));
                 CUDA_CHECK(cudaFree(rnnz));
+
+                CUDA_CHECK(cudaFree(rows));
+                CUDA_CHECK(cudaFree(cols));
+                CUDA_CHECK(cudaFree(vals));
 
                 CUDA_CHECK(cudaFree(crows));
                 CUDA_CHECK(cudaFree(ccols));

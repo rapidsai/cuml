@@ -36,9 +36,9 @@ namespace UMAPAlgo {
                 }
             }
 
-
-            // TODO: This should really be pulled out into its own algorithm
-
+            /**
+             * Performs a spectral layout initialization
+             */
             template<typename T>
             void launcher(const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
@@ -52,7 +52,7 @@ namespace UMAPAlgo {
                 check(nvgraphCreate (&handle));
 
                 /**
-                 * First convert COO to CSR
+                 * Convert COO to CSR
                  */
 
                 // Allocate csr arrays

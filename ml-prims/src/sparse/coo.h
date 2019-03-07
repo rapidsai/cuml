@@ -18,6 +18,16 @@
 
 namespace MLCommon {
 
+    /**
+     * Sorts the arrays that comprise the coo matrix
+     * by row.
+     *
+     * @param m number of rows in coo matrix
+     * @param n number of cols in coo matrix
+     * @param rows rows array from coo matrix
+     * @param cols cols array from coo matrix
+     * @param vals vals array from coo matrix
+     */
     template<typename T>
     void coo_sort(int m, int n, int nnz,
                   int *rows, int *cols, T *vals) {
@@ -75,10 +85,10 @@ namespace MLCommon {
             d_P,
             CUSPARSE_INDEX_BASE_ZERO
         );
-        cudaDeviceSynchronize(); /* wait until the computation is done */
+
+        CUDA_CHECK(cudaDeviceSynchronize());
 
         copy(vals, vals_sorted, nnz);
-        cudaDeviceSynchronize();
 
         cudaFree(d_P);
         cudaFree(vals_sorted);
@@ -93,6 +103,7 @@ namespace MLCommon {
      * A required argument is an exclusive scan array providing the indices
      * to the compressed output array. The exclusive scan array should be
      * created from an array of non-zero value counts per chunk.
+     *
      * @param n: number of nonzero values in COO
      * @param rows: input array of rows (size n)
      * @param cols: input array of cols (size n)
@@ -132,6 +143,7 @@ namespace MLCommon {
 
     /**
      * Removes the zeros from a COO formatted sparse matrix.
+     *
      * @param nnz: size of rows/cols/vals arrays
      * @param rows: input array of rows (size n)
      * @param cols: input array of cols (size n)
@@ -167,4 +179,41 @@ namespace MLCommon {
         CUDA_CHECK(cudaPeekAtLastError());
         CUDA_CHECK(cudaFree(ex_scan));
     }
+
+    /**
+     * Count all the rows in the coo row array and place them in the
+     * results matrix, indexed by row.
+     *
+     * @param rows the rows array of the coo matrix
+     * @param nnz the size of the rows array
+     * @param results array to place results
+     * @param n number of rows in coo matrix
+     */
+    template<int TPB_X, typename T>
+    __global__ void coo_row_count(int *rows, int nnz,
+            int *results, int n) {
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+        if(row < nnz)
+            atomicAdd(results+rows[row], 1);
+    }
+
+    /**
+     * Count all the rows with non-zero values in the coo row and val
+     * arrays. Place the counts in the results matrix, indexed by row.
+     *
+     * @param rows the rows array of the coo matrix
+     * @param vals the vals array of the coo matrix
+     * @param nnz the size of rows / vals
+     * @param results array to place resulting counts
+     * @param n number of rows in coo matrix
+     */
+    template<int TPB_X, typename T>
+    __global__ void coo_row_count_nz(int *rows, T *vals, int nnz,
+            int *results, int n) {
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+        if(row < nnz && vals[row] > 0.0) {
+            atomicAdd(results+rows[row], 1);
+        }
+    }
+
 }
