@@ -28,7 +28,7 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
+#from sklearn.utils.fixes import signature
 
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
