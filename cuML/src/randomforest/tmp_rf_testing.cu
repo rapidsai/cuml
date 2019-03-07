@@ -58,7 +58,7 @@ void parse_csv(std::vector<float> & data, std::vector<int> & labels, int train_c
 			}
 			for (int col = 0; col < HIGGS_COLS; col++) {
 				if (counter < train_cnt)  {
-					data[counter + col * HIGGS_ROWS] = row[col + 1]; // 1st column is label; train data should be col major
+					data[counter + col * train_cnt] = row[col + 1]; // 1st column is label; train data should be col major
 					if (test_is_train) 
 						test_data[counter*HIGGS_COLS + col] = row[col + 1]; // test data should be row major
 				} else if (!test_is_train)
@@ -141,8 +141,8 @@ int main() {
 	rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), inference_rows, higgs_params.n_cols, false);
 
 	cout << "Free memory\n";
-	//CUDA_CHECK(cudaFree(higgs_data));
-	//CUDA_CHECK(cudaFree(higgs_labels));
+	CUDA_CHECK(cudaFree(higgs_data));
+	CUDA_CHECK(cudaFree(higgs_labels));
 	
 
 #if 0
