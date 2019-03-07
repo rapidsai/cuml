@@ -41,7 +41,7 @@ extern "C" {
  * @param X_col_major: true if X is stored column-major, i.e. feature column contiguous
  * @{
  */
-void cuml_glm_fit_qn_logistic_s(float *X, float *y, int N, int D,
+void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
                                 bool fit_intercept, float l1, float l2,
                                 int max_iter, float grad_tol,
                                 int linesearch_max_iter, int lbfgs_memory,
@@ -50,7 +50,7 @@ void cuml_glm_fit_qn_logistic_s(float *X, float *y, int N, int D,
                                 float *f,  // function value
                                 int *num_iters, bool X_col_major);
 
-void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
+void cuml_glm_fit_logistic_qn_d(double *X, double *y, int N, int D,
                                 bool fit_intercept, double l1, double l2,
                                 int max_iter, double grad_tol,
                                 int linesearch_max_iter, int lbfgs_memory,
@@ -58,7 +58,7 @@ void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
                                 double *w0, // initial value and result
                                 double *f, int *num_iters, bool X_col_major);
 
-void cuml_glm_fit_qn_linear_s(float *X, float *y, int N, int D,
+void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D,
                               bool fit_intercept, float l1, float l2,
                               int max_iter, float grad_tol,
                               int linesearch_max_iter, int lbfgs_memory,
@@ -66,7 +66,7 @@ void cuml_glm_fit_qn_linear_s(float *X, float *y, int N, int D,
                               float *w0, // initial value and result
                               float *f, int *num_iters, bool X_col_major);
 
-void cuml_glm_fit_qn_linear_d(double *X, double *y, int N, int D,
+void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
                               bool fit_intercept, double l1, double l2,
                               int max_iter, double grad_tol,
                               int linesearch_max_iter, int lbfgs_memory,
@@ -74,7 +74,7 @@ void cuml_glm_fit_qn_linear_d(double *X, double *y, int N, int D,
                               double *w0, // initial value and result
                               double *f, int *num_iters, bool X_col_major);
 
-void cuml_glm_fit_qn_softmax_s(float *X, float *y, int N, int D, int C,
+void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
                                bool fit_intercept, float l1, float l2,
                                int max_iter, float grad_tol,
                                int linesearch_max_iter, int lbfgs_memory,
@@ -82,7 +82,7 @@ void cuml_glm_fit_qn_softmax_s(float *X, float *y, int N, int D, int C,
                                float *w0, // initial value and result
                                float *f, int *num_iters, bool X_col_major);
 
-void cuml_glm_fit_qn_softmax_d(double *X, double *y, int N, int D, int C,
+void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
                                bool fit_intercept, double l1, double l2,
                                int max_iter, double grad_tol,
                                int linesearch_max_iter, int lbfgs_memory,
