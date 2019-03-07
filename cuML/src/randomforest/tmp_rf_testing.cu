@@ -23,14 +23,13 @@
 #include <string>
 
 #define HIGGS_DATA "/gpfs/fs1/myrtop/rapids_repos/HIGGS.csv"
-#define HIGGS_COLS 28 // + 1 for label (it's the first per csv line)
-#define HIGGS_ROWS 1000
-#define TRAIN_RATIO 0.8
+//#define HIGGS_COLS 28 // + 1 for label (it's the first per csv line)
+//#define TRAIN_RATIO 0.8
 
 using namespace MLCommon;
 using namespace std;
 
-void parse_csv(std::vector<float> & data, std::vector<int> & labels, int train_cnt,
+void parse_csv(int n_cols, std::vector<float> & data, std::vector<int> & labels, int train_cnt,
 			   std::vector<float> & test_data, std::vector<int> & test_labels, int test_cnt, bool test_is_train) {
 
 	cout << "train_cnt " << train_cnt << " test_cnt " << test_cnt << endl;
@@ -39,10 +38,10 @@ void parse_csv(std::vector<float> & data, std::vector<int> & labels, int train_c
 	string line;
 
 	int counter = 0;
-	data.resize(train_cnt * HIGGS_COLS);
+	data.resize(train_cnt * n_cols);
 	labels.resize(train_cnt);
 
-	test_data.resize(test_cnt * HIGGS_COLS);
+	test_data.resize(test_cnt * n_cols);
 	test_labels.resize(test_cnt);
 	
 	int break_cnt = (test_is_train) ? train_cnt : train_cnt + test_cnt;
@@ -56,13 +55,13 @@ void parse_csv(std::vector<float> & data, std::vector<int> & labels, int train_c
 				if(str.peek() == ',')
 					str.ignore();
 			}
-			for (int col = 0; col < HIGGS_COLS; col++) {
+			for (int col = 0; col < n_cols; col++) {
 				if (counter < train_cnt)  {
 					data[counter + col * train_cnt] = row[col + 1]; // 1st column is label; train data should be col major
 					if (test_is_train) 
-						test_data[counter*HIGGS_COLS + col] = row[col + 1]; // test data should be row major
+						test_data[counter*n_cols + col] = row[col + 1]; // test data should be row major
 				} else if (!test_is_train)
-					test_data[(counter - train_cnt)*HIGGS_COLS + col] = row[col + 1]; // test data should be row major
+					test_data[(counter - train_cnt)*n_cols + col] = row[col + 1]; // test data should be row major
 			}
 			if (counter < train_cnt)  {
 				labels[counter] = (int) row[0];
@@ -78,67 +77,87 @@ void parse_csv(std::vector<float> & data, std::vector<int> & labels, int train_c
 	
 
 struct RF_inputs {
-	int n_rows;
-	int n_cols;
-	int n_trees;
-	float max_features;
-	float rows_sample;
-	int n_inference_rows;
-	int max_depth;
-	int max_leaves;
-	bool bootstrap;
+	int n_rows, n_cols, n_inference_rows;
+	int n_trees, max_depth, max_leaves, n_bins;
+	float max_features, rows_sample, train_ratio;
+	bool bootstrap, test_is_train;
 
-	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features, float cfg_rows_sample, int cfg_n_inference_rows, int cfg_max_depth, int cfg_max_leaves, bool cfg_bootstrap) {
-		 n_rows = cfg_n_rows;
-		 n_cols = cfg_n_cols;
-		 n_trees = cfg_n_trees;
-		 max_features = cfg_max_features;
-		 rows_sample = cfg_rows_sample;
-		 n_inference_rows = cfg_n_inference_rows;
-		 max_depth = cfg_max_depth;
-		 max_leaves = cfg_max_leaves;
-		 bootstrap = cfg_bootstrap;
+	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features, 
+			  	float cfg_rows_sample, float cfg_train_ratio, int cfg_max_depth, 
+				int cfg_max_leaves, bool cfg_bootstrap, bool cfg_test_is_train, int cfg_n_bins) {
+
+		train_ratio = cfg_train_ratio;
+		test_is_train = cfg_test_is_train;
+
+		n_rows = test_is_train ? cfg_n_rows : train_ratio * cfg_n_rows;
+	 	n_cols = cfg_n_cols;
+		n_trees = cfg_n_trees;
+		max_features = cfg_max_features;
+		rows_sample = cfg_rows_sample;
+		max_depth = cfg_max_depth;
+		max_leaves = cfg_max_leaves;
+		bootstrap = cfg_bootstrap;
+		n_inference_rows = test_is_train ? cfg_n_rows : (1.0f -train_ratio) * cfg_n_rows;
+		n_bins = cfg_n_bins;
+		cout << "Train ratio " << train_ratio << " test_is_train " << test_is_train << ", n_rows " << n_rows << ", n_cols " << n_cols << " n_trees " << n_trees << " col_per " << max_features << " row_per " << rows_sample << " max_depth " << max_depth << " max_leaves " << max_leaves  << " bootstrap " << bootstrap << " n_inference_rows " << n_inference_rows << " n_bins " << n_bins << endl;
 	}
+
 };
 
-int main() {
+int main(int argc, char **argv) {
 
-	RF_inputs higgs_params(HIGGS_ROWS, HIGGS_COLS, 10, 1.0f, 1.0f, HIGGS_ROWS, 8, -1, true);
+	/* Command line args:
+		- # rows
+	   	- # cols (fixed per dataset)
+		- # trees
+		- col_per
+		- row_per
+		- train_ratio (e.g., 0.8 will use 80% of rows for training and 20% for testing)
+		- max_depth
+		- max_leaves
+		- bootstrap
+		- test_is_train (otherwise 80% of rows is used for training and 20% for testing)
+		- n_bins
+	*/
+
+	if (argc != 12) {
+		cout << "Error! 11 args are needed\n";
+		return 0;
+	}
+	RF_inputs params(stoi(argv[1]), stoi(argv[2]), stoi(argv[3]), stof(argv[4]), stof(argv[5]), stof(argv[6]), stoi(argv[7]), stoi(argv[8]), (strcmp(argv[9], "true") == 0), (strcmp(argv[10], "true") == 0), stoi(argv[11]));
+
 	float * higgs_data;
 	int * higgs_labels;
 
-	ML::rfClassifier * rf_classifier;
-	bool test_is_train = true;
-
-	int train_rows = TRAIN_RATIO * higgs_params.n_rows;
-	int inference_rows = test_is_train ? train_rows : (1.0f - TRAIN_RATIO) * higgs_params.n_rows;
-    int higgs_data_len = train_rows * higgs_params.n_cols;
+    int higgs_data_len = params.n_rows * params.n_cols;
     allocate(higgs_data, higgs_data_len);
-    allocate(higgs_labels, train_rows);
+    allocate(higgs_labels, params.n_rows);
 
 	std::vector<float> h_higgs_data, inference_data;
 	std::vector<int> h_higgs_labels, inference_labels;
 
 	// Populate labels and data
-	parse_csv(h_higgs_data, h_higgs_labels, train_rows, inference_data, inference_labels, inference_rows, test_is_train); //last arg makes test same as training
+	parse_csv(params.n_cols, h_higgs_data, h_higgs_labels, params.n_rows, inference_data, inference_labels, params.n_inference_rows, params.test_is_train); //last arg makes test same as training
+
 	updateDevice(higgs_data, h_higgs_data.data(), higgs_data_len);
-	updateDevice(higgs_labels, h_higgs_labels.data(), train_rows);
+	updateDevice(higgs_labels, h_higgs_labels.data(), params.n_rows);
 	cout << "Finished populating device labels and data\n";
 
 	// Classify higgs_dataset
- 	rf_classifier = new ML::rfClassifier::rfClassifier(higgs_params.n_trees, higgs_params.bootstrap, 0, 0);
+	ML::rfClassifier * rf_classifier;
+ 	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
 	cout << "Called RF constructor\n";
-	rf_classifier->fit(higgs_data, train_rows, higgs_params.n_cols, higgs_labels, higgs_params.n_trees, higgs_params.max_features, higgs_params.rows_sample);
+	rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
 	cout << "Planted the random forest\n";
 
 	//Predict w/ test dataset
-	/*predictions = rf_classifier->predict(inference_data.data(), inference_rows, higgs_params.n_cols, false);
-	for (int i = 0; i < inference_rows; i++) {
+	/*predictions = rf_classifier->predict(inference_data.data(), params.n_inference_rows, params.n_cols, false);
+	for (int i = 0; i < params.n_inference_rows; i++) {
 		std::cout << "Random forest predicted " << predictions[i] << std::endl;
 	}*/
 
 	cout << "Will start testing\n";
-	rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), inference_rows, higgs_params.n_cols, false);
+	rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), params.n_inference_rows, params.n_cols, false);
 
 	cout << "Free memory\n";
 	CUDA_CHECK(cudaFree(higgs_data));

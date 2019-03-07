@@ -40,22 +40,32 @@ namespace ML {
 
 	class rf {
 		protected:
-			int n_trees; 
-			int max_depth; 
-	    	int max_leaves; 	
-			int rf_type;
+			int n_trees, n_bins, rf_type;
+			int max_depth, max_leaves; 
 			bool bootstrap;
+			float rows_sample, max_features; // ratio of n_rows used per tree
+         	//max_features	number of features to consider per split (default = sqrt(n_cols))
 
 			DecisionTree::DecisionTreeClassifier * trees;
 		
 		public:
-			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) {
+			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
+			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) {
+
 					n_trees = cfg_n_trees;
 					max_depth = cfg_max_depth; //FIXME Set these during fit?
 					max_leaves = cfg_max_leaves;
 					trees = NULL; 
 					rf_type = cfg_rf_type;
 					bootstrap = cfg_bootstrap;
+					n_bins = cfg_n_bins;
+					rows_sample = cfg_rows_sample;
+					max_features = cfg_max_features;
+
+					ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
+					ASSERT((cfg_n_bins > 0), "Invalid n_bins %d", cfg_n_bins);
+					ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
+					ASSERT((max_features > 0) && (max_features <= 1.0), "max_features value %f outside permitted (0, 1] range", max_features);
 			}
 
 			~rf() {
@@ -72,37 +82,26 @@ namespace ML {
 
 //FIXME: input could be of different type.
 //FIXME: labels for regression could be of different type too, potentially match input type. 
-/*FIXME: there are many more hyperparameters to consider, as per SKL-RF. For example:
-  - max_depth, max_leaves, criterion etc. */
 
 	class rfClassifier : public rf {
 		public:
 
-		rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::CLASSIFICATION) 
-					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+		rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
+						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) 
+					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {};
 
         /** 
          * Fit an RF classification model on input data with n_rows samples and n_cols features.
          * @param input			data array in col major format for now (device ptr)
-         * @param n_rows		number of training? data rows
+         * @param n_rows		number of training data rows
          * @param n_cols		number of features (i.e, columns)
          * @param labels		list of target features (device ptr)
-         * @param n_trees		number of trees in the random forest
-         * @param max_features	number of features to consider per split (default = sqrt(n_cols))
-	     * @param rows_sample	ratio of n_rows used per tree
         */
-		void fit(float * input, int n_rows, int n_cols, int * labels,
-                         int cfg_n_trees, float max_features, float rows_sample, int cfg_max_depth=-1, int cfg_max_leaves=-1) {
+		void fit(float * input, int n_rows, int n_cols, int * labels) {
+
 			ASSERT(!trees, "Cannot fit an existing forest.");
-			ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
-			ASSERT((max_features > 0) && (max_features <= 1.0), "max_features value %f outside permitted (0, 1] range", max_features);
 			ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 			ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-			ASSERT((cfg_n_trees > 0), "Invalid n_trees %d", cfg_n_trees);
-
-			n_trees = cfg_n_trees;
-			max_depth = cfg_max_depth;
-			max_leaves = cfg_max_leaves;
 
 			rfClassifier::trees = new DecisionTree::DecisionTreeClassifier[n_trees];
 			int n_sampled_rows = rows_sample * n_rows;
@@ -137,7 +136,8 @@ namespace ML {
 				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.  
 					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
 				*/
-				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, max_depth, max_leaves, max_features);
+				std::cout << "Fitting tree # " << i << std::endl;
+				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, max_depth, max_leaves, max_features, n_bins);
 
 				//Cleanup
 				CUDA_CHECK(cudaFree(selected_rows));
@@ -218,8 +218,9 @@ namespace ML {
 	class rfRegressor : public rf {
 	    public:
 
-		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=0, int cfg_max_leaves=0, int cfg_rf_type=RF_type::REGRESSION) 
-						: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type) {};
+		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::REGRESSION, int cfg_n_bins=8, 
+						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) 
+					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {};
 
 		void fit(float * input, int n_rows, int n_cols, int * labels,
                          int n_trees, float max_features, float rows_sample) {};
