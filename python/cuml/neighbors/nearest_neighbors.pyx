@@ -128,9 +128,11 @@ cdef class NearestNeighbors:
 
     cdef bool _should_downcast
 
+    cdef object n_neighbors
+
     cpdef kNNParams *input
 
-    def __cinit__(self, should_downcast = False):
+    def __cinit__(self, n_neighbors = 5, should_downcast = False):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -141,6 +143,7 @@ cdef class NearestNeighbors:
             true will allow single-precision input arrays to be automatically downcasted to single
             precision. Default = False.
         """
+        self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
 
@@ -260,7 +263,7 @@ cdef class NearestNeighbors:
                     < int > len(alloc_info))
 
 
-    def kneighbors(self, X, k):
+    def kneighbors(self, X, k = None):
         """
         Query the GPU index for the k nearest neighbors of row vectors in X.
 
@@ -280,6 +283,9 @@ cdef class NearestNeighbors:
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
+
+        if k is None:
+            k = self.n_neighbors
 
         X_m = self._downcast(X)
 
