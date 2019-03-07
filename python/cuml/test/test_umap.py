@@ -43,7 +43,7 @@ def test_umap_transform_on_iris():
         [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
-    fitter = UMAP(n_neighbors=10, min_dist=0.01, verbose = True)
+    fitter = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
     fitter.fit(data)
 
     new_data = iris.data[~iris_selection]
@@ -83,8 +83,8 @@ def test_umap_data_formats(input_type, should_downcast):
     digits = datasets.load_digits(n_class=9)
     X = digits["data"].astype(dtype)
 
-    umap = UMAP(n_neighbors = 3, n_components = 2,
-                should_downcast = should_downcast)
+    umap = UMAP(n_neighbors=3, n_components=2,
+                should_downcast=should_downcast)
 
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
@@ -103,7 +103,7 @@ def test_umap_downcast_fails(input_type):
     X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
-    umap = UMAP(should_downcast = False)
+    umap = UMAP(should_downcast=False)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
@@ -113,7 +113,7 @@ def test_umap_downcast_fails(input_type):
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
 
-    umap = UMAP(should_downcast = True)
+    umap = UMAP(should_downcast=True)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
