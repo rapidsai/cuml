@@ -120,20 +120,19 @@ class GaussianMixture:
               <int> nCl,
               <int> nDim,
               <int> nObs)
+
               setup_f32(gmm)
-              update_rhos_f32(gmm, <float*> _dX_ptr)
+              # update_rhos_f32(gmm, <float*> _dX_ptr)
               update_mus_f32(<float*>_dX_ptr, gmm)
               update_sigmas_f32(<float*>_dX_ptr, gmm)
               update_pis_f32(gmm)
 
-
     def initialize(self):
       mus = sample_mus(self.nDim, self.nCl, self.lddmu).astype(self.dtype)
       sigmas = sample_sigmas(self.nDim, self.nCl, self.lddsigma).astype(self.dtype)
-      pis = sample_pis(self.nCl).astype(self.dtype)
+      pis = sample_pis(self.nCl, self.lddPis).astype(self.dtype)
       llhd = sample_llhd(self.nCl, self.nObs, self.lddLlhd).astype(self.dtype)
-      # TODO : Fix inv pis
-      inv_pis = (1 / pis).astype(self.dtype)
+      inv_pis = sample_pis(self.nCl, self.lddPis).astype(self.dtype)
 
       self.dmu = cuda.to_device(mus)
       self.dsigma = cuda.to_device(sigmas)
@@ -152,11 +151,8 @@ class GaussianMixture:
       self.lddsigma = roundup(self.nDim, RUP_SIZE)
       self.lddsigma_full = roundup(self.nDim * self.lddsigma, RUP_SIZE)
       self.lddLlhd = roundup(self.nCl, RUP_SIZE)
-      self.lddPis = self.nCl
+      self.lddPis = roundup(self.nCl, RUP_SIZE)
 
-      X = complete_zeros(X, nDim, nObs, self.lddx)
-      print("\n X \n")
-      print(X)
       self.dX = cuda.to_device(X.astype(self.dtype))
 
       self.initialize()

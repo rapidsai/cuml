@@ -17,6 +17,7 @@
 #include <ml_utils.h>
 
 using namespace MLCommon::HMM;
+using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 
 
@@ -88,8 +89,8 @@ void dgmmBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         int idxO, idxX, idxD;
 
         for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
-                for (size_t j = j_start; j < n; j+=nThreads_x) {
-                        for (size_t i = i_start; i < m; i+=nThreads_y) {
+                for (size_t j = j_start; j < n; j+=nThreads_y) {
+                        for (size_t i = i_start; i < m; i+=nThreads_x) {
                                 idxO = IDX(i, j, lddO);
                                 idxX = IDX(i, j, lddx);
                                 idxD = IDX(bId, j, lddd);
@@ -105,8 +106,8 @@ void dgmm_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                   T** dX_array, magma_int_t lddx,
                   T* dD_array, magma_int_t lddd){
         dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int)n, (int)block.y),
-                  ceildiv((int)m, (int)block.z),
+        dim3 grid(ceildiv((int)m, (int)block.x),
+                  ceildiv((int)n, (int)block.y),
                   1);
 
         int nThreads_x = grid.x * block.x;
@@ -224,12 +225,12 @@ void update_rhos(T* dX, GMM<T>& gmm,
                  cublasHandle_t cublasHandle, magma_queue_t queue){
         printf("*************** update rhos\n");
 
-        bool isLog = true;
+        bool isLog = false;
 
-        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
-        print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
-        print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
+        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        // print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
+        // print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
 
         split_to_batches(gmm.nObs, gmm.dX_array, dX, gmm.lddx);
         split_to_batches(gmm.nCl, gmm.dmu_array, gmm.dmu, gmm.lddmu);
@@ -246,36 +247,36 @@ void update_rhos(T* dX, GMM<T>& gmm,
                            gmm.dLlhd, gmm.lddLlhd,
                            isLog);
 
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix before ");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix before ");
 
         cublasdgmm(cublasHandle, CUBLAS_SIDE_LEFT, gmm.nCl, gmm.nObs,
                    gmm.dLlhd, gmm.lddLlhd, gmm.dPis, 1, gmm.dLlhd, gmm.lddLlhd);
 
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix after");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix after");
 
         normalize_matrix(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, true);
 
         // print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, gmm.dsigma_array, gmm.lddsigma, "dSigma matrix");
-        printf(" update rhos after ***** n");
-        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
-        print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
-        print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
-        printf(" update rhos **********************\n");
+        // printf(" update rhos after ***** n");
+        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        // print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
+        // print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
+        // printf(" update rhos **********************\n");
 }
 
 template <typename T>
 void update_mus(T* dX, GMM<T>& gmm,
                 cublasHandle_t cublasHandle, magma_queue_t queue){
         T alpha = (T)1.0 / gmm.nObs, beta = (T)0.0;
-        printf("  ********************** update mus\n");
+        // printf("  ********************** update mus\n");
 
         // print_matrix_device(gmm.nDim, gmm.nDim, gmm.dsigma, gmm.lddsigma, "dSigma matrix");
 
         // print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
-        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        print_matrix_device(gmm.nDim, gmm.nDim, gmm.dsigma, gmm.lddsigma, "dSigma matrix");
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        // print_matrix_device(gmm.nDim, gmm.nDim, gmm.dsigma, gmm.lddsigma, "dSigma matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
 
         CUBLAS_CHECK(cublasgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_T, gmm.nDim, gmm.nCl, gmm.nObs, &alpha, dX, gmm.lddx, gmm.dLlhd, gmm.lddLlhd, &beta, gmm.dmu, gmm.lddmu));
         // magmablas_gemm(MagmaNoTrans, MagmaTrans,
@@ -283,29 +284,29 @@ void update_mus(T* dX, GMM<T>& gmm,
         //                alpha, dX, gmm.lddx, gmm.dLlhd, gmm.lddLlhd,
         //                beta, gmm.dmu, gmm.lddmu, queue);
 
-        print_matrix_device(gmm.nCl, 1, gmm.dPis_inv, gmm.lddPis, "dPis inv matrix");
+        // print_matrix_device(gmm.nCl, 1, gmm.dPis_inv, gmm.lddPis, "dPis inv matrix");
         CUBLAS_CHECK(cublasdgmm(cublasHandle, CUBLAS_SIDE_RIGHT,
                                 gmm.nDim, gmm.nCl,
                                 gmm.dmu, gmm.lddmu,
                                 gmm.dPis_inv, 1,
                                 gmm.dmu, gmm.lddmu));
-        print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
+        // print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
 
-        print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
+        // print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
 
         inverse(gmm.dPis_inv, gmm.dPis, gmm.nCl);
 
-        printf(" update mus **********************\n");
+        // printf(" update mus **********************\n");
 
 }
 
 template <typename T>
 void update_sigmas(T* dX, GMM<T>& gmm,
                    cublasHandle_t cublasHandle, magma_queue_t queue){
-        printf(" update sigmas **********************\n");
-        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
-        print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
+        // printf("\n\n update sigmas **********************\n");
+        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        // print_matrix_device(gmm.nDim, gmm.nCl, gmm.dmu, gmm.lddmu, "dmu matrix");
 
         T **dX_batches=NULL, **dmu_batches=NULL, **dsigma_batches=NULL,
         **dDiff_batches=NULL;
@@ -323,36 +324,56 @@ void update_sigmas(T* dX, GMM<T>& gmm,
                               dX, gmm.lddx, gmm.dmu, gmm.lddmu, gmm.dsigma, gmm.lddsigma, gmm.lddsigma_full);
 
 
-        print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_batches, gmm.lddsigma, "dSigma matrix");
+        // print_matrix_batched(gmm.nDim, gmm.nObs, gmm.nCl, dDiff_batches, ldDiff, "dDiff batches");
+        // print_matrix_batched(gmm.nDim, gmm.nObs, gmm.nCl, dX_batches, gmm.lddsigma, "dx batches");
+        // print_matrix_batched(gmm.nDim, 1, gmm.nCl, dmu_batches, gmm.lddmu, "dmu batches");
 
         // Compute diffs
+        // printf("-------- nObs %d\n", gmm.nObs);
         subtract_batched(gmm.nDim, gmm.nObs, batchCount,
                          dDiff_batches, ldDiff,
                          dX_batches, gmm.lddx,
                          dmu_batches, gmm.lddmu);
 
-        print_matrix_batched(gmm.nDim, gmm.nObs, gmm.nCl, dDiff_batches, ldDiff, "dDiff matrix");
 
         // Compute sigmas
         sqrt(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 
+        // print_matrix_batched(gmm.nDim, gmm.nObs, gmm.nCl, dDiff_batches, ldDiff, "dDiff matrix");
 
         dgmm_batched(gmm.nDim, gmm.nObs, gmm.nCl,
                      dDiff_batches, ldDiff,
                      dDiff_batches, ldDiff,
                      gmm.dLlhd, gmm.lddLlhd);
 
+        // print_matrix_batched(gmm.nDim, gmm.nObs, gmm.nCl, dDiff_batches, ldDiff, "dDiff matrix");
+
         // get the sum of all the covs
-        T alpha = (T)1.0 / gmm.nObs, beta = (T)0.0;
+        T alpha = (T) 1.0 / gmm.nObs, beta = (T)0.0;
         magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
                                gmm.nDim, gmm.nDim, gmm.nObs,
                                alpha, dDiff_batches, ldDiff,
                                dDiff_batches, ldDiff, beta,
                                dsigma_batches, gmm.lddsigma, gmm.nCl, queue);
 
+
+        // cublasgemmBatched(cublasHandle,
+        //                   CUBLAS_OP_N,
+        //                   CUBLAS_OP_T,
+        //                   gmm.nDim, gmm.nDim, gmm.nObs,
+        //                   &alpha,
+        //                   dDiff_batches, ldDiff,
+        //                   dDiff_batches, ldDiff,
+        //                   &beta,
+        //                   dsigma_batches, gmm.lddsigma,
+        //                   gmm.nCl);
+
+        // print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_batches, gmm.lddsigma, "dSigma matrix after gemm");
+
+
         // Normalize with respect to N_k
         inverse(gmm.dPis_inv, gmm.dPis, gmm.nCl);
-        print_matrix_device(gmm.nCl, 1, gmm.dPis_inv, gmm.lddPis, "dPis inv matrix");
+        // print_matrix_device(gmm.nCl, 1, gmm.dPis_inv, gmm.lddPis, "dPis inv matrix");
 
         CUBLAS_CHECK(cublasdgmm(cublasHandle, CUBLAS_SIDE_RIGHT,
                                 gmm.lddsigma_full, gmm.nCl,
@@ -362,18 +383,21 @@ void update_sigmas(T* dX, GMM<T>& gmm,
 
         square(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 
-        printf(" ************** after ***********\n");
-        print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
-        print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
-        print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_batches, gmm.lddsigma, "dSigma matrix");
-
-        printf(" update sigmas **********************\n");
+        // printf(" ************** after ***********\n");
+        // print_matrix_device(gmm.nDim, gmm.nObs, dX, gmm.lddx, "dx matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        // print_matrix_batched(gmm.nDim, gmm.nDim, gmm.nCl, dsigma_batches, gmm.lddsigma, "dSigma matrix");
+        //
+        // printf(" update sigmas **********************\n\n\n");
 
 }
 
 template <typename T>
 void update_pis(GMM<T>& gmm){
-        MLCommon::Stats::sum(gmm.dPis, gmm.dLlhd, gmm.nObs, gmm.lddLlhd, true);
+        // print_matrix_device(gmm.lddPis, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
+        // print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+
+        MLCommon::Stats::sum(gmm.dPis, gmm.dLlhd, gmm.lddLlhd, gmm.nObs, true);
         normalize_matrix(gmm.lddPis, 1, gmm.dPis, gmm.lddPis, true);
 }
 
@@ -389,10 +413,10 @@ void em(T* dX, int n_iter, GMM<T>& gmm,
                 // E step
                 update_rhos(dX, gmm, cublasHandle, queue);
 
-                // // M step
-                // update_mus(dX, gmm, cublasHandle, queue);
-                // update_sigmas(dX, gmm, cublasHandle, queue);
-                // update_pis(gmm);
+                // M step
+                update_mus(dX, gmm, cublasHandle, queue);
+                update_sigmas(dX, gmm, cublasHandle, queue);
+                update_pis(gmm);
         }
 }
 
@@ -402,11 +426,9 @@ void fit(T* dX, int n_iter, GMM<T>& gmm,
         em(dX, n_iter, gmm, cublasHandle, queue);
 }
 
-// void free(){
-//         CUDA_CHECK(cudaFree(dmu_array));
-//         CUDA_CHECK(cudaFree(dsigma_array));
-//         CUDA_CHECK(cudaFree(dLlhd));
-//         CUDA_CHECK(cudaFree(dPis));
-//         CUDA_CHECK(cudaFree(dPis_inv));
-//         CUBLAS_CHECK(cublasDestroy(cublasHandle));
-// }
+template <typename T>
+void free(GMM<T>& gmm){
+        CUDA_CHECK(cudaFree(gmm.dX_array));
+        CUDA_CHECK(cudaFree(gmm.dsigma_array));
+        CUDA_CHECK(cudaFree(gmm.dmu_array));
+}

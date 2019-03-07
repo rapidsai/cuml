@@ -2,53 +2,79 @@ import numpy as np
 
 
 def zero_out(A, m, n, ldda):
+    A = A.reshape((ldda, n), order='F')
     A[m:ldda, :] = 0.
-    return A
+    return A.flatten(order='F')
+
 
 def complete_zeros(A, m, n, ldda):
     B = np.zeros((ldda, n))
     B[:m,:] = A
     return B
 
-def sample_matrix(m, n, lddA, isSymPos):
-    A = np.random.rand(lddA, m)
+def remove_zeros(A, m, n, ldda):
+    A = A.reshape((ldda, n), order='F')
+    return A[:m, :]
+
+def sample_matrix(m, n, lddA, dt, isSymPos=False, isNorm=False):
+    A = np.random.rand(lddA, n)
+
     if isSymPos:
         assert m == n
         A[0:m, :] = A[0:m, :] + A[0:m, :].T
         for idx in range(m):
             A[idx, idx] += m
-    return zero_out(A, m, n, lddA)
 
+    if isNorm :
+        A = A.flatten(order='F')
+        zero_out(A, m, n, lddA)
+        A = A.reshape((lddA, n), order='F')
+        A /= np.sum(A, axis=0)[None, :]
+        return A.flatten(order='F')
 
-def sample_mus(nDim, nCl, lddmu):
+    A = A.flatten(order='F')
+    A_al = zero_out(A, m, n, lddA)
+    A = A.reshape((m, n), order="F")
+    return A, A_al
+
+def print_matrix(m, n, A_al, lddA) :
+    A = A_al.reshape((lddA, n), order='F')
+    print(A)
+
+def sample_mus(nDim, nCl, lddmu, dt):
     return sample_matrix(nDim, nCl, lddmu, False)
 
+def sample_sigmas(nDim, nCl, lddsigma, dt):
+    sigmas_samples = [sample_matrix(nDim, nDim, lddsigma, True) for _ in range(nCl)]
+    sigmas_al = np.concatenate([sigma[1] for sigma in sigmas_samples])
+    sigmas = np.concatenate([sigma[0] for sigma in sigmas_samples])
+    return sigmas, sigmas_al
 
-def sample_sigmas(nDim, nCl, lddsigma):
-    s = [sample_matrix(nDim, nDim, lddsigma, True).T.reshape(
-        lddsigma * nDim) for _ in range(nCl)]
-    return np.array(s)
 
-
-def sample_pis(nCl):
-    pis = np.random.rand(nCl)
+def sample_pis(nCl, lddpis, dt):
+    pis, pis_al = sample_matrix(nCl, 1, lddpis, False, False)
     pis /= np.sum(pis)
-    return pis
+    pis_al /= np.sum(pis_al)
+    return pis, pis_al
 
 
 def sample_llhd(nCl, nObs, ldLlhd):
-    eps = 1e-6
-    llhd = sample_matrix(nCl, nObs, ldLlhd, False)
-    llhd /= (np.sum(llhd, axis=1) + eps * np.ones(ldLlhd))[:, None]
-    return llhd
+    return sample_matrix(nCl, nObs, ldLlhd, isNorm=True)
 
 
-def sample_mixture(mus, sigmas, pis, nCl, nDim, nObs, lddsigma, dt):
+def sample_data(mus, sigmas, pis, nObs, nDim, lddx, dt):
     def _sample_mixture():
         idx = np.random.multinomial(1, pis).argmax()
-        cov = sigmas[idx].reshape((nDim, lddsigma))[:nDim, :nDim]
-        x = np.random.multivariate_normal(mus[idx], cov, 1)[0]
+        x = np.random.multivariate_normal(mus[idx], sigmas[idx], 1)[0]
         return x
     X = np.array([_sample_mixture() for _ in range(nObs)], dtype=dt).T
-    return X
+    X_al = complete_zeros(X, nDim, nObs, lddx)
+    X_al.reshape((lddx, nObs),  order='F')
+    return X, X_al
+
+def sample_parameters(nDim, nCl, lddmu, lddsigmas, lddpis, dt):
+    return {"mus" : sample_mus(nDim=nDim, nCl=nCl, lddmu=lddmu, dt=dt),
+            "sigmas" : sample_sigmas(nDim=nDim, nCl=nCl, lddsigma=lddsigmas, dt=dt),
+            "pis" : sample_pis(nCl=nCl, lddpis=lddpis, dt=dt)
+            }
 

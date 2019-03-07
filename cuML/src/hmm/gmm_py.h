@@ -17,3 +17,5 @@ void update_sigmas_f32(float* dX, GMM<float>& gmm);
 void update_pis_f32(GMM<float>& gmm);
 
 void setup_f32(GMM<float> &gmm);
+
+void free_f32(GMM<float> &gmm);

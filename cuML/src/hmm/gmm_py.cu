@@ -21,6 +21,8 @@ void update_rhos_f32(GMM<float>& gmm, float* dX){
         magma_queue_create(device, &queue);
 
         update_rhos(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
 
 void update_mus_f32(float* dX, GMM<float>& gmm){
@@ -32,6 +34,8 @@ void update_mus_f32(float* dX, GMM<float>& gmm){
         magma_queue_create(device, &queue);
 
         update_mus(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
 
 void update_sigmas_f32(float* dX, GMM<float>& gmm){
@@ -43,6 +47,8 @@ void update_sigmas_f32(float* dX, GMM<float>& gmm){
         magma_queue_create(device, &queue);
 
         update_sigmas(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
 
 void update_pis_f32(GMM<float>& gmm){
@@ -51,4 +57,8 @@ void update_pis_f32(GMM<float>& gmm){
 
 void setup_f32(GMM<float> &gmm) {
         setup(gmm);
+}
+
+void free_f32(GMM<float> &gmm) {
+        free(gmm);
 }

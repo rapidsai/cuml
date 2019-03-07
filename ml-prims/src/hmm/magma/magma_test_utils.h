@@ -282,15 +282,15 @@ void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
 }
 
 
-// void assert_batched(int batchCount, int *d_info_array){
-//         int *h_info_array;
-//         h_info_array = (int *)malloc(sizeof(int) * batchCount);
-//         updateHost(h_info_array, d_info_array, batchCount);
-//         for (size_t i = 0; i < batchCount; i++) {
-//                 ASSERT(h_info_array[i] == 0, "info returned val=%d", h_info_array[i]);
-//         }
-//         free(h_info_array);
-// }
+void assert_batched(int batchCount, int *d_info_array){
+        int *h_info_array;
+        h_info_array = (int *)malloc(sizeof(int) * batchCount);
+        updateHost(h_info_array, d_info_array, batchCount);
+        for (size_t i = 0; i < batchCount; i++) {
+                ASSERT(h_info_array[i] == 0, "info returned val=%d", h_info_array[i]);
+        }
+        free(h_info_array);
+}
 
 
 template <typename T>

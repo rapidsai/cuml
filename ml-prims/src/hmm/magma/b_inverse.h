@@ -13,15 +13,18 @@ namespace MLCommon {
 
 
 template <typename T>
-__global__ void ID_kernel (int n, T *A, int ldda) {
-        int j = threadIdx.x + blockDim.x * blockIdx.x;
-        int i = threadIdx.y + blockDim.y * blockIdx.y;
-        if (i < n && j < n)
-        {
-                if (i == j)
-                        A[IDX(i, j, ldda)] = 1.0;
-                else
-                        A[IDX(i, j, ldda)] = 0.0;
+__global__ void ID_kernel (int n, T *A, int ldda,
+                           int nThreads_x, int nThreads_y) {
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+
+        for (size_t j = j_start; j < n; j+=nThreads_y) {
+                for (size_t i = i_start; i <  n; i+=nThreads_x) {
+                        if (i == j)
+                                A[IDX(i, j, ldda)] = 1.0;
+                        else
+                                A[IDX(i, j, ldda)] = 0.0;
+                }
         }
 }
 
@@ -29,8 +32,14 @@ __global__ void ID_kernel (int n, T *A, int ldda) {
 template <typename T>
 void make_ID_matrix(int n, T *A, int ldda) {
         dim3 block(32,32);
-        dim3 grid(ceildiv(n, (int)block.x), ceildiv(n, (int)block.y));
-        ID_kernel<T> <<< grid, block >>>(n, A, ldda);
+        dim3 grid(ceildiv(n, (int)block.x),
+                  ceildiv(n, (int)block.y),
+                  1);
+        int nThreads_x = grid.x * block.x;
+        int nThreads_y = grid.y * block.y;
+
+        ID_kernel<T> <<< grid, block >>>(n, A, ldda,
+                                         nThreads_x, nThreads_y);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }

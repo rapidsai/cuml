@@ -2,6 +2,7 @@
 
 #include "hmm/magma/magma_test_utils.h"
 #include "hmm/magma/magma_batched_wrappers.h"
+#include "utils.h"
 
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
@@ -16,12 +17,14 @@ void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
                 for (size_t j = 0; j < n; j++) {
                         dDet_array[i] *= dU_array[i][IDX(j, j, lddu)];
                 }
+                // TODO : ADD square for Cholesky
+                // dDet_array[i] *= dDet_array[i];
         }
 }
 
 template <typename T>
 void diag_product_batched(magma_int_t n, T** dU_array, magma_int_t lddu,
-                          T*& dDet_array, magma_int_t batchCount){
+                          T* dDet_array, magma_int_t batchCount){
         dim3 block(32, 1, 1);
         dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
         int numThreads = grid.x * block.x;
@@ -36,7 +39,7 @@ void diag_product_batched(magma_int_t n, T** dU_array, magma_int_t lddu,
 
 template <typename T>
 void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
-                 T*& dDet_array, magma_int_t batchCount, magma_queue_t queue){
+                 T* dDet_array, magma_int_t batchCount, magma_queue_t queue){
 
         int **dipiv_array, *info_array;
         T **dA_array_cpy; // U and L are stored here after getrf
@@ -46,8 +49,9 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
 
         copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
 
-        // Getting errors with getrf
-        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array, batchCount, queue);
+        // Getting errors with getrf but getting the same results as numpy
+        magma_getrf_batched(n, n, dA_array_cpy, ldda,
+                            dipiv_array, info_array, batchCount, queue);
 
         // magma_potrf_batched(MagmaLower,
         //                     n,

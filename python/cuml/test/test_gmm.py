@@ -19,8 +19,9 @@ import numpy as np
 
 from numba import cuda
 from math import sqrt
-from cuml import GaussianMixture
+import cuml
 from cuml.hmm.sample_utils import *
+from sklearn.mixture import GaussianMixture
 
 
 def np_to_dataframe(df):
@@ -29,55 +30,71 @@ def np_to_dataframe(df):
         pdf[c] = df[:, c]
     return pdf
 
+def mse(x, y):
+    return np.sum((x - y) ** 2)
 
-@pytest.mark.parametrize('precision', ['single'])
-def test_gaussian_mixture_base(precision):
+def compute_error(params_pred, params_true):
+    mse_dict = dict(
+        (key, mse(params_pred[key], params_true[key]) )
+         for key in params_pred.keys())
+    error = sum([mse_dict[key] for key in mse_dict.keys()])
+    return mse_dict, error
 
-    gmm = GaussianMixture(precision=precision)
-    n_iter = 1
-    nCl = 2
-    nDim = 2
-    nObs = 20
-    ldd = 32
+def run_sklearn(X, n_iter):
+    gmm = GaussianMixture(n_components=nCl,
+                             covariance_type="full",
+                             tol=100,
+                             reg_covar=0,
+                             max_iter=n_iter,
+                             n_init=1,
+                             init_params="random",
+                             weights_init=None,
+                             means_init=None,
+                             precisions_init=None,
+                             random_state=None,
+                             warm_start=False,
+                             verbose=0,
+                             verbose_interval=10)
+    gmm.fit(X)
+    params = {"mus" : gmm.means_,
+              "sigmas" : gmm.covariances_,
+              "pis" : gmm.weights_}
 
+    return params
+
+def run_cuml(X, n_iter):
+    gmm = cuml.GaussianMixture(precision=precision)
+
+    gmm.fit(X, nCl, n_iter)
+
+    params = {"mus" : gmm.dmu.copy_to_host(),
+              "sigmas" : gmm.dsigma.copy_to_host(),
+              "pis" : gmm.dPis.copy_to_host()}
+    return params
+
+def sample():
     if precision == 'single':
         dt = np.float32
     else:
         dt = np.float64
 
-    mus = sample_mus(nDim=nDim, nCl=nCl, lddmu=ldd)
-    sigmas = sample_sigmas(nDim=nDim, nCl=nCl, lddsigma=ldd)
-    pis = sample_pis(nCl=nCl)
-
-    X = sample_mixture(mus=mus, sigmas=sigmas, pis=pis,
-                       nCl=nCl, nDim=nDim, nObs=nObs, lddsigma=ldd, dt=dt)
-
-    # # TODO : Fix ldd
-    gmm.fit(X, nCl, nDim, nObs, n_iter)
-
-    assert 0 < 0.1
+    params = sample_parameters()
+    data = sample_data()
+    return data, params
 
 
-# # @pytest.mark.parametrize('nDim', [2, 10, 25])
-# # @pytest.mark.parametrize('nObs', [1, 2, 10, 25])
-# # @pytest.mark.parametrize('precision', ['single', 'double'])
-# # @pytest.mark.parametrize('input_type', ['numpy', 'cudf'])
-# @pytest.mark.parametrize('nDim', [2])
-# @pytest.mark.parametrize('nObs', [250])
-# @pytest.mark.parametrize('nCl', [2])
-# @pytest.mark.parametrize('precision', ['single'])
-# @pytest.mark.parametrize('input_type', ['numpy'])
-# def test_gaussian_mixture(precision, nDim, nObs, input_type):
-#     gmm = GaussianMixture(precision=precision)
-#
-#     if precision == 'single':
-#         dt = np.float32
-#     else:
-#         dt = np.float64
-#
-#     if input_type == 'numpy':
-#         X = sample_mixture(nCl=nCl, nDim=nDim, nObs=nObs)
-#
-#     rmse_x = 0
-#     gmm.fit(X=X, n_iter=10, nCl=nCl)
-#     assert sqrt(rmse_x) < 0.1
+if __name__ == '__main__':
+    n_iter = 3
+
+    precision = 'single'
+    nCl = 2
+    nDim = 1
+    nObs = 1000
+
+    data, true_params = sample()
+    sk_params = run_sklearn(data, n_iter, nCl)
+    cuml_params = run_cuml(data, n_iter, nCl, precision)
+
+    sk_error = compute_error(sk_params, true_params)
+
+    assert sk_error < 0.1
