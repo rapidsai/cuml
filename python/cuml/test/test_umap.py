@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import pytest
 from cuml.manifold.umap import UMAP
 import cudf
@@ -20,14 +19,11 @@ import pandas as pd
 import numpy as np
 
 from sklearn import datasets
-from sklearn.metrics.pairwise import euclidean_distances
-from scipy.sparse.csgraph import connected_components
 from sklearn.manifold.t_sne import trustworthiness
 
 from nose.tools import assert_greater_equal
 
 from sklearn.cluster import KMeans
-
 
 from sklearn.utils.testing import (
     assert_equal,
@@ -43,7 +39,6 @@ from sklearn.utils.testing import (
 
 from sklearn.metrics import pairwise_distances, adjusted_rand_score
 
-import umap
 
 def test_blobs_cluster():
     data, labels = datasets.make_blobs(n_samples=500, n_features=10, centers=5)
