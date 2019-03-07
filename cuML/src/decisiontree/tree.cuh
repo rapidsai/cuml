@@ -67,7 +67,7 @@ namespace ML {
 		{
 		private:
 			TreeNode *root = NULL;
-			const int nbins = 8;
+			int nbins;
 			DataInfo dinfo;
 			int treedepth;
 			int depth_counter = 0;
@@ -77,17 +77,18 @@ namespace ML {
 			size_t total_temp_mem;
 		public:
 			// Expects column major float dataset, integer labels
-			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0)
+			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
 			{
-				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, maxdepth, max_leaf_nodes, colper);
+				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, maxdepth, max_leaf_nodes, colper, n_bins);
 			}
 			
 			// Same as above fit, but planting is better for a tree then fitting.
-			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0)
+			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
 			{
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
 				dinfo.Ncols = ncols;
+				nbins = n_bins;
 				treedepth = maxdepth;
 				maxleaves = max_leaf_nodes;
 				tempmem = new TemporaryMemory(n_sampled_rows);
