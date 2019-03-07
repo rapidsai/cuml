@@ -13,42 +13,34 @@
 # limitations under the License.
 #
 import pytest
+
 from cuml.manifold.umap import UMAP
+
 import cudf
 import pandas as pd
 import numpy as np
 
-from sklearn import datasets
-from sklearn.manifold.t_sne import trustworthiness
-
 from nose.tools import assert_greater_equal
 
+from sklearn import datasets
+from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
-
-from sklearn.utils.testing import (
-    assert_equal,
-    assert_array_equal,
-    assert_almost_equal,
-    assert_array_almost_equal,
-    assert_raises,
-    assert_in,
-    assert_not_in,
-    assert_no_warnings,
-    if_matplotlib,
-)
-
-from sklearn.metrics import pairwise_distances, adjusted_rand_score
+from sklearn.utils.testing import assert_equal
+from sklearn.metrics import adjusted_rand_score
 
 
 def test_blobs_cluster():
-    data, labels = datasets.make_blobs(n_samples=500, n_features=10, centers=5)
+    data, labels = datasets.make_blobs(
+        n_samples=500, n_features=10, centers=5)
     embedding = UMAP().fit_transform(data)
-    assert_equal(adjusted_rand_score(labels, KMeans(5).fit_predict(embedding)), 1.0)
+    assert_equal(adjusted_rand_score(labels,
+                                     KMeans(5).fit_predict(embedding)), 1.0)
 
 
 def test_umap_transform_on_iris():
     iris = datasets.load_iris()
-    iris_selection = np.random.choice([True, False], 150, replace=True, p=[0.75, 0.25])
+    iris_selection = np.random.choice(
+        [True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
 
     fitter = UMAP(n_neighbors=10, min_dist=0.01, verbose = True)
@@ -61,7 +53,8 @@ def test_umap_transform_on_iris():
     assert_greater_equal(
         trust,
         0.90,
-        "Insufficiently trustworthy transform for" "iris dataset: {}".format(trust),
+        "Insufficiently trustworthy transform "
+        "for" "iris dataset: {}".format(trust),
     )
 
 
@@ -75,7 +68,8 @@ def test_umap_trustworthiness_on_iris_random_init():
     assert_greater_equal(
         trust,
         0.95,
-        "Insufficiently trustworthy embedding for" "iris dataset: {}".format(trust),
+        "Insufficiently trustworthy embedding for"
+        "" "iris dataset: {}".format(trust),
     )
 
 
@@ -88,9 +82,9 @@ def test_umap_data_formats(input_type, should_downcast):
     # For now, FAISS based nearest_neighbors only supports single precision
     digits = datasets.load_digits(n_class=9)
     X = digits["data"].astype(dtype)
-    y = digits["target"]
 
-    umap = UMAP(n_neighbors = 3, n_components = 2, should_downcast = should_downcast)
+    umap = UMAP(n_neighbors = 3, n_components = 2,
+                should_downcast = should_downcast)
 
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
