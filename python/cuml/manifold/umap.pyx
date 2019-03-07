@@ -356,8 +356,8 @@ cdef class UMAP:
                         <float*>x_ptr,
                        <int>X_m.shape[0],
                        <int>X_m.shape[1],
-                       <float*> embed_ptr,
-                       <int> embedding.shape[0],
+                       <float*> self.embeddings,
+                       <int> self.arr_embed.shape[0],
                        <float*> embed_ptr)
 
         if isinstance(X, cudf.DataFrame):

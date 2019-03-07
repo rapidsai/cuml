@@ -169,7 +169,6 @@ namespace UMAPAlgo {
                         if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist)
                             sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
                     }
-
                 }
             }
 
@@ -300,8 +299,7 @@ namespace UMAPAlgo {
 
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
-                    T *rhos, T *sigmas, UMAPParams *params) {
-
+                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity) {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
 
@@ -334,7 +332,7 @@ namespace UMAPAlgo {
                  * Smooth kNN distances to be continuous
                  */
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
-                        rhos, params->n_neighbors, params->local_connectivity);
+                        rhos, params->n_neighbors, local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
             }
 
@@ -372,7 +370,7 @@ namespace UMAPAlgo {
                 MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                        rhos, sigmas, params
+                        rhos, sigmas, params, params->local_connectivity
                 );
 
                 /**

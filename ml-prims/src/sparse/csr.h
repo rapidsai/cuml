@@ -9,7 +9,6 @@ namespace MLCommon {
             int *ia,    // csr row counts (sorted by row)
             T *vals, int nnz,  // array of values and number of non-zeros
             int m,          // num rows in csr
-            int n,
             T *result) {    // output array
 
         // row-based matrix 1 thread per row
@@ -23,15 +22,20 @@ namespace MLCommon {
                 stop_idx = ia[row+1];
             else
                 stop_idx = nnz;
-            T sum = 0.0;
-            for(int j = start_idx; j < stop_idx; j++)
-                sum += vals[j];
+
+            T sum = T(0.0);
+            for(int j = start_idx; j < stop_idx; j++) {
+                sum = sum + vals[j];
+            }
 
             for(int j = start_idx; j < stop_idx; j++)
-                if(sum > 0.0)
-                    vals[j] /= sum;
+                if(sum > 0.0) {
+                    T val = vals[j];
+                    result[j] = val / sum;
+
+                }
                 else
-                    vals[j] = 0.0;
+                    result[j] = 0.0;
         }
     }
 }

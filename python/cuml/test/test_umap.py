@@ -43,6 +43,7 @@ from sklearn.utils.testing import (
 
 from sklearn.metrics import pairwise_distances, adjusted_rand_score
 
+import umap
 
 def test_blobs_cluster():
     data, labels = datasets.make_blobs(n_samples=500, n_features=10, centers=5)
@@ -54,7 +55,8 @@ def test_umap_transform_on_iris():
     iris = datasets.load_iris()
     iris_selection = np.random.choice([True, False], 150, replace=True, p=[0.75, 0.25])
     data = iris.data[iris_selection]
-    fitter = UMAP(n_neighbors=10, min_dist=0.01)
+
+    fitter = UMAP(n_neighbors=10, min_dist=0.01, verbose = True)
     fitter.fit(data)
 
     new_data = iris.data[~iris_selection]
@@ -63,7 +65,7 @@ def test_umap_transform_on_iris():
     trust = trustworthiness(new_data, embedding, 10)
     assert_greater_equal(
         trust,
-        0.89,
+        0.90,
         "Insufficiently trustworthy transform for" "iris dataset: {}".format(trust),
     )
 
@@ -82,77 +84,49 @@ def test_umap_trustworthiness_on_iris_random_init():
     )
 
 
-# @pytest.mark.parametrize('should_downcast', [True, False])
-# @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-# def test_umap_fit(input_type, should_downcast):
-#
-#     dtype = np.float32 if not should_downcast else np.float64
-#
-#     # For now, FAISS based nearest_neighbors only supports single precision
-#     digits = datasets.load_digits(n_class=9)
-#     X = digits["data"].astype(dtype)
-#     y = digits["target"]
-#
-#     print(str(y))
-#
-#     umap = UMAP(n_neighbors = 3, n_components = 2, should_downcast = should_downcast)
-#
-#     if input_type == 'dataframe':
-#         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-#         embeds = umap.fit_transform(X)
-#
-#         assert type(embeds) == cudf.DataFrame
-#
-#         embeds_arr = np.asarray(embeds.as_gpu_matrix(order="C"))
-#     else:
-#         embeds = umap.fit_transform(X)
-#
-#         assert type(embeds) == np.ndarray
-#
-#         embeds_arr = embeds
-#
-#     # print(str(embeds_arr))
-#
-#     # UMAP is stochastic so we cannot compare results directly.
-#     # Instead, measure the centroid distance within each label.
-#     # Since we are using a low n_neighbors value, we should be
-#     # optimizing for local distance, therefore differing labels
-#     # *should* be pushed away from each other; hopefully enough
-#     # to get a consistent boundary for our tests.
-#
-#     overall = euclidean_distances(embeds)
-#
-#     cluster1_dists = euclidean_distances(embeds[y==0])
-#     cluster2_dists = euclidean_distances(embeds[y==1])
-#
-#
-#
-#     print(str(overall))
-#     print(str(connected_components(overall)))
-#
-#
-#     assert 1==0
-#
-#
-# # @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-# # def test_umap_downcast_fails(input_type):
-# #
-# #     X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
-# #
-# #     # Test fit() fails with double precision when should_downcast set to False
-# #     knn_cu = cuKNN()
-# #     if input_type == 'dataframe':
-# #         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-# #
-# #     with pytest.raises(Exception):
-# #         knn_cu.fit(X, should_downcast=False)
-# #
-# #     # Test fit() fails when downcast corrupted data
-# #     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
-# #
-# #     knn_cu = cuKNN()
-# #     if input_type == 'dataframe':
-# #         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-# #
-# #     with pytest.raises(Exception):
-# #         knn_cu.fit(X, should_downcast=True)
+@pytest.mark.parametrize('should_downcast', [True, False])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_umap_data_formats(input_type, should_downcast):
+
+    dtype = np.float32 if not should_downcast else np.float64
+
+    # For now, FAISS based nearest_neighbors only supports single precision
+    digits = datasets.load_digits(n_class=9)
+    X = digits["data"].astype(dtype)
+    y = digits["target"]
+
+    umap = UMAP(n_neighbors = 3, n_components = 2, should_downcast = should_downcast)
+
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+        embeds = umap.fit_transform(X)
+
+        assert type(embeds) == cudf.DataFrame
+    else:
+        embeds = umap.fit_transform(X)
+
+        assert type(embeds) == np.ndarray
+
+
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+def test_umap_downcast_fails(input_type):
+
+    X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
+
+    # Test fit() fails with double precision when should_downcast set to False
+    umap = UMAP(should_downcast = False)
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        umap.fit(X, should_downcast=False)
+
+    # Test fit() fails when downcast corrupted data
+    X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
+
+    umap = UMAP(should_downcast = True)
+    if input_type == 'dataframe':
+        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+
+    with pytest.raises(Exception):
+        umap.fit(X, should_downcast=True)

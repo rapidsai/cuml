@@ -229,7 +229,8 @@ namespace UMAPAlgo {
 	                T *epochs_per_sample,
 	                int n_vertices,
 	                float gamma,
-	                UMAPParams *params) {
+	                UMAPParams *params,
+	                int n_epochs) {
 
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
@@ -242,7 +243,7 @@ namespace UMAPAlgo {
                 int nsr = params->negative_sample_rate;
 	            MLCommon::LinAlg::unaryOp<T>(epochs_per_negative_sample, epochs_per_sample,
 	                     nnz,
-	                    [=] __device__(T input) { return input / nsr; }
+	                    [=] __device__(T input) { return input / float(nsr); }
 	            );
 
 	            T *epoch_of_next_negative_sample;
@@ -256,7 +257,7 @@ namespace UMAPAlgo {
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
 
-                for(int n = 0; n < params->n_epochs; n++) {
+                for(int n = 0; n < n_epochs; n++) {
 
                     struct timeval tp;
                     gettimeofday(&tp, NULL);
@@ -279,7 +280,7 @@ namespace UMAPAlgo {
 	                    *params
 	                );
 
-                    alpha = params->initial_alpha * (1.0 - (float(n) / float(params->n_epochs)));
+                    alpha = params->initial_alpha * (1.0 - (float(n) / float(n_epochs)));
 	            }
 
 	            CUDA_CHECK(cudaFree(epochs_per_negative_sample));
@@ -330,7 +331,8 @@ namespace UMAPAlgo {
 	                            epochs_per_sample,
 	                            m,
 	                            params->repulsion_strength,
-	                            params);
+	                            params,
+	                            params->n_epochs);
 
 	            CUDA_CHECK(cudaPeekAtLastError());
                 CUDA_CHECK(cudaFree(epochs_per_sample));
