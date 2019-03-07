@@ -89,7 +89,8 @@ namespace ML {
 				// and have the reducer/combiner re-label the indices
 				// based on the shards they came from.
 
-				std::cout << "Adding index " << i << "total_n=" << this->total_n << std::endl;
+				if(this->verbose)
+				    std::cout << "Adding index " << i << "total_n=" << this->total_n << std::endl;
 				sub_indices[i]->add(params->N, params->ptr);
 			} else {
 				std::stringstream ss;
