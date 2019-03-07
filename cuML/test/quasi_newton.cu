@@ -12,7 +12,7 @@ using namespace ML::GLM;
 
 template <typename T, typename LossFunction>
 int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N, bool has_bias,
-           T l1, T l2, int max_iter, T grad_tol, T value_rel_tol,
+           T l1, T l2, int max_iter, T grad_tol, 
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
            T *fx, int *num_iters, STORAGE_ORDER ordX);
 
@@ -93,7 +93,6 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
 
   int max_iter = 100;
   T grad_tol = 1e-8;
-  T value_rel_tol = 1e-5;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
@@ -103,7 +102,7 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
 
   qn_fit<T, LossFunction>(&loss, devUpload.devX.data, devUpload.devY.data,
                           z.data, in.n_row, loss.fit_intercept, l1, l2,
-                          max_iter, grad_tol, value_rel_tol,
+                          max_iter, grad_tol, 
                           linesearch_max_iter, lbfgs_memory, verbosity, w0.data,
                           &fx, &num_iters, ROW_MAJOR);
 
