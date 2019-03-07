@@ -33,18 +33,15 @@ using namespace ML::GLM;
 template <typename T, typename LossFunction>
 int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
-           T value_rel_tol, int linesearch_max_iter, int lbfgs_memory,
-           int verbosity,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0, // initial value and result
            T *fx, int *num_iters, STORAGE_ORDER ordX) {
 
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
-  opt_param.delta = value_rel_tol;
   opt_param.max_iterations = max_iter;
   opt_param.m = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
-  // opt_param.past = 1; //TODO if we wan delta to be used...
   SimpleVec<T> w(w0, loss->n_param);
 
   if (l2 == 0) {
@@ -63,36 +60,29 @@ int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
 }
 
 // TODO these could be macros..
-void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D,
-                             bool fit_intercept, double l1, double l2,
-                             int max_iter, double grad_tol,
-                             double value_rel_tol, int linesearch_max_iter,
-                             int lbfgs_memory, int verbosity,
-                             double *w0, // initial value and result
-                             double *f, int *num_iters, bool X_col_major) {
+void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
+                                bool fit_intercept, double l1, double l2,
+                                int max_iter, double grad_tol,
+                                int linesearch_max_iter, int lbfgs_memory,
+                                int verbosity,
+                                double *w0, // initial value and result
+                                double *f, int *num_iters, bool X_col_major) {
 
   typedef double Real;
   typedef LogisticLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  if (X_col_major) {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, COL_MAJOR);
-  } else {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, ROW_MAJOR);
-  }
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D,
+void cuml_glm_fit_logistic_s(float *X, float *y, int N, int D,
                              bool fit_intercept, float l1, float l2,
-                             int max_iter, float grad_tol, float value_rel_tol,
+                             int max_iter, float grad_tol,
                              int linesearch_max_iter, int lbfgs_memory,
                              int verbosity,
                              float *w0, // initial value and result
@@ -103,137 +93,84 @@ void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D,
 
   LossFunction loss(D, fit_intercept);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  if (X_col_major) {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, COL_MAJOR);
-  } else {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, ROW_MAJOR);
-  }
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_linreg_fit_dqn(double *X, double *y, int N, int D,
-                             bool fit_intercept, double l1, double l2,
-                             int max_iter, double grad_tol,
-                             double value_rel_tol, int linesearch_max_iter,
-                             int lbfgs_memory, int verbosity,
-                             double *w0, // initial value and result
-                             double *f, int *num_iters, bool X_col_major) {
+void cuml_glm_fit_linear_d(double *X, double *y, int N, int D,
+                           bool fit_intercept, double l1, double l2,
+                           int max_iter, double grad_tol,
+                           int linesearch_max_iter, int lbfgs_memory,
+                           int verbosity,
+                           double *w0, // initial value and result
+                           double *f, int *num_iters, bool X_col_major) {
   typedef double Real;
   typedef SquaredLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  if (X_col_major) {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, COL_MAJOR);
-  } else {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, ROW_MAJOR);
-  }
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_linreg_fit_sqn(float *X, float *y, int N, int D,
-                             bool fit_intercept, float l1, float l2,
-                             int max_iter, float grad_tol, float value_rel_tol,
-                             int linesearch_max_iter, int lbfgs_memory,
-                             int verbosity,
-                             float *w0, // initial value and result
-                             float *f, int *num_iters, bool X_col_major) {
+void cuml_glm_fit_linear_s(float *X, float *y, int N, int D, bool fit_intercept,
+                           float l1, float l2, int max_iter, float grad_tol,
+                           int linesearch_max_iter, int lbfgs_memory,
+                           int verbosity,
+                           float *w0, // initial value and result
+                           float *f, int *num_iters, bool X_col_major) {
   typedef float Real;
   typedef SquaredLoss<Real> LossFunction;
 
   LossFunction loss(D, fit_intercept);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  if (X_col_major) {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, COL_MAJOR);
-  } else {
-    qn_fit<Real, LossFunction>(
-        &loss, X, y, z.data, N, fit_intercept, l1, l2, max_iter, grad_tol,
-        value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, ROW_MAJOR);
-  }
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void dummy(double *X, double *y, int N, int D, bool fit_intercept, double l1,
-           double l2, int max_iter, double grad_tol, double value_rel_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity,
-           double *w0, // initial value and result
-           double *f, int *num_iters) {
-
-  // need to instantiate templates, such that libcuml has them
+void cuml_glm_fit_softmax_d(double *X, double *y, int N, int D, int C,
+                            bool fit_intercept, double l1, double l2,
+                            int max_iter, double grad_tol,
+                            int linesearch_max_iter, int lbfgs_memory,
+                            int verbosity,
+                            double *w0, // initial value and result
+                            double *f, int *num_iters, bool X_col_major) {
   typedef double Real;
+  typedef Softmax<Real> LossFunction;
 
-  LogisticLoss<Real> logistic(D, fit_intercept);
-  Real *z = 0;
+  LossFunction loss(D, C, fit_intercept);
+  SimpleMatOwning<Real> z(C, N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LogisticLoss<Real>>(
-      &logistic, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, ROW_MAJOR);
-
-  Softmax<Real> softmax(1, 1, false);
-
-
-  qn_fit<Real, Softmax<Real>>(
-      &softmax, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, COL_MAJOR);
-
-  SquaredLoss<Real> squared(1, false);
-
-  qn_fit<Real, SquaredLoss<Real>>(
-      &squared, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, ROW_MAJOR);
-
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void dummy(float *X, float *y, int N, int D, bool fit_intercept, float l1,
-           float l2, int max_iter, float grad_tol, float value_rel_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity,
-           float *w0, // initial value and result
-           float *f, int *num_iters) {
-
-  // need to instantiate templates, such that libcuml has them
+void cuml_glm_fit_softmax_s(float *X, float *y, int N, int D, int C,
+                            bool fit_intercept, float l1, float l2,
+                            int max_iter, float grad_tol,
+                            int linesearch_max_iter, int lbfgs_memory,
+                            int verbosity,
+                            float *w0, // initial value and result
+                            float *f, int *num_iters, bool X_col_major) {
   typedef float Real;
+  typedef Softmax<Real> LossFunction;
 
-  LogisticLoss<Real> logistic(D, fit_intercept);
-  Real *z = 0;
+  LossFunction loss(D, C, fit_intercept);
+  SimpleMatOwning<Real> z(C, N); // TODO this allocation somewhere else?
+  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LogisticLoss<Real>>(
-      &logistic, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, COL_MAJOR);
-
-
-  Softmax<Real> softmax(1, 1, false);
-
-
-  qn_fit<Real, Softmax<Real>>(
-      &softmax, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, COL_MAJOR);
-
-  SquaredLoss<Real> squared(1, false);
-
-
-  qn_fit<Real, SquaredLoss<Real>>(
-      &squared, X, y, z, N, fit_intercept, l1, l2, max_iter, grad_tol,
-      value_rel_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-      num_iters, COL_MAJOR);
+  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+                             max_iter, grad_tol, linesearch_max_iter,
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }

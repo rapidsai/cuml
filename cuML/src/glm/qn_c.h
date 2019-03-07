@@ -19,34 +19,75 @@
 extern "C" {
 // train regularized GLMs using L-BFGS-type quasi newton algorithms
 // if l1 > 0, we will use OWL-QN, an extension to L-BFGS
-void cuml_glm_logreg_fit_sqn(float *X, float *y, int N, int D, bool has_bias,
-                             float l1, float l2, int max_iter, float grad_tol,
-                             float value_rel_tol, int linesearch_max_iter,
-                             int lbfgs_memory, int verbosity,
-                             float *w0, // initial value and result
-                             float *f,  // function value
-                             int *num_iters, bool X_col_major);
 
-void cuml_glm_logreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
-                             double l1, double l2, int max_iter,
-                             double grad_tol, double value_rel_tol,
-                             int linesearch_max_iter, int lbfgs_memory,
-                             int verbosity,
-                             double *w0, // initial value and result
-                             double *f, int *num_iters, bool X_col_major);
+/**
+ * @defgroup functions to fit a GLM using quasi newton methods.
+ * @param X: pointer to feature matrix of dimension NxD
+ * @param y: pointer to label vector of length N
+ * @param N: number of examples
+ * @param D: number of features
+ * @param C: number of classes (softmax only)
+ * @param fit_intercept: should model include a bias?
+ * @param l1: l1 regularization strength
+ * @param l2: l2 regularization strength
+ * @param max_iter: limit on iteration number
+ * @param grad_tol: tolerance for convergence check
+ * @param linesearch_max_iter: max number of linesearch iterations
+ * @param lbfgs_memory: rank of the lbfgs inv-Hessian approximation
+ * @param verbosity: verbosity level
+ * @param w0: vector of length (D + fit_intercept ) * C with starting point and final result
+ * @param f: host pointer holding the final objective value
+ * @param num_iters: host pointer holding the actual number of iterations taken
+ * @param X_col_major: true if X is stored column-major, i.e. feature column contiguous
+ * @{
+ */
+void cuml_glm_fit_qn_logistic_s(float *X, float *y, int N, int D,
+                                bool fit_intercept, float l1, float l2,
+                                int max_iter, float grad_tol,
+                                int linesearch_max_iter, int lbfgs_memory,
+                                int verbosity,
+                                float *w0, // initial value and result
+                                float *f,  // function value
+                                int *num_iters, bool X_col_major);
 
-void cuml_glm_linreg_fit_sqn(float *X, float *y, int N, int D, bool has_bias,
-                             float l1, float l2, int max_iter, float grad_tol,
-                             float value_rel_tol, int linesearch_max_iter,
-                             int lbfgs_memory, int verbosity,
-                             float *w0, // initial value and result
-                             float *f, int *num_iters, bool X_col_major);
+void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
+                                bool fit_intercept, double l1, double l2,
+                                int max_iter, double grad_tol,
+                                int linesearch_max_iter, int lbfgs_memory,
+                                int verbosity,
+                                double *w0, // initial value and result
+                                double *f, int *num_iters, bool X_col_major);
 
-void cuml_glm_linreg_fit_dqn(double *X, double *y, int N, int D, bool has_bias,
-                             double l1, double l2, int max_iter,
-                             double grad_tol, double value_rel_tol,
-                             int linesearch_max_iter, int lbfgs_memory,
-                             int verbosity,
-                             double *w0, // initial value and result
-                             double *f, int *num_iters, bool X_col_major);
+void cuml_glm_fit_qn_linear_s(float *X, float *y, int N, int D,
+                              bool fit_intercept, float l1, float l2,
+                              int max_iter, float grad_tol,
+                              int linesearch_max_iter, int lbfgs_memory,
+                              int verbosity,
+                              float *w0, // initial value and result
+                              float *f, int *num_iters, bool X_col_major);
+
+void cuml_glm_fit_qn_linear_d(double *X, double *y, int N, int D,
+                              bool fit_intercept, double l1, double l2,
+                              int max_iter, double grad_tol,
+                              int linesearch_max_iter, int lbfgs_memory,
+                              int verbosity,
+                              double *w0, // initial value and result
+                              double *f, int *num_iters, bool X_col_major);
+
+void cuml_glm_fit_qn_softmax_s(float *X, float *y, int N, int D, int C,
+                               bool fit_intercept, float l1, float l2,
+                               int max_iter, float grad_tol,
+                               int linesearch_max_iter, int lbfgs_memory,
+                               int verbosity,
+                               float *w0, // initial value and result
+                               float *f, int *num_iters, bool X_col_major);
+
+void cuml_glm_fit_qn_softmax_d(double *X, double *y, int N, int D, int C,
+                               bool fit_intercept, double l1, double l2,
+                               int max_iter, double grad_tol,
+                               int linesearch_max_iter, int lbfgs_memory,
+                               int verbosity,
+                               double *w0, // initial value and result
+                               double *f, int *num_iters, bool X_col_major);
+/** @} */
 }
