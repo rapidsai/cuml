@@ -44,10 +44,15 @@ void naiveRowWeightedMean(T* R, T* D, T* W, int M, int N, bool rowMajor){
   int istr = rowMajor ? 1 : M;
   int jstr = rowMajor ? N : 1;
 
+  //sum the weights
+  T WS = 0;
+  for(int i=0; i<N; i++) WS += W[i];
+
   for(int j=0; j<M; j++){
     R[j] = (T)0;
     for(int i=0; i<N; i++){
-      R[j] += (W[i]*D[i*istr + j*jstr] - R[j])/(T)(i+1);
+      //R[j] += (W[i]*D[i*istr + j*jstr] - R[j])/(T)(i+1);
+      R[j] += (W[i]*D[i*istr + j*jstr])/WS;
     }
   }
 }
@@ -103,10 +108,15 @@ void naiveColWeightedMean(T* R, T* D, T* W, int M, int N, bool rowMajor){
   int istr = rowMajor ? 1 : M;
   int jstr = rowMajor ? N : 1;
 
+  //sum the weights
+  T WS = 0;
+  for(int j=0; j<M; j++) WS += W[j];
+
   for(int i=0; i<N; i++){
     R[i] = (T)0;
     for(int j=0; j<M; j++){
-      R[i] += (W[j]*D[i*istr + j*jstr] - R[i])/(T)(j+1);
+      //R[i] += (W[j]*D[i*istr + j*jstr] - R[i])/(T)(j+1);
+      R[i] += (W[j]*D[i*istr + j*jstr])/WS;
     }
   }
 }
@@ -160,7 +170,7 @@ static const float tolF = 128*std::numeric_limits<float>::epsilon();
 static const double tolD = 128*std::numeric_limits<double>::epsilon();
 
 const std::vector<WeightedMeanInputs<float>> inputsf = {
-  {tolF, 4,  4, 1234},
+  {tolF,    4,   4, 1234},
   {tolF, 1024,  32, 1234},
   {tolF, 1024,  64, 1234},
   {tolF, 1024, 128, 1234},
@@ -172,6 +182,7 @@ const std::vector<WeightedMeanInputs<float>> inputsf = {
 };
 
 const std::vector<WeightedMeanInputs<double>> inputsd = {
+  {tolD,    4,   4, 1234},
   {tolD, 1024,  32, 1234},
   {tolD, 1024,  64, 1234},
   {tolD, 1024, 128, 1234},

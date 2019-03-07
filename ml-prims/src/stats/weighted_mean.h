@@ -31,17 +31,21 @@ namespace Stats {
  * @param weights per-column means
  * @param D number of columns of data
  * @param N number of rows of data
- * @param stream cuda streamkto launch work on
+ * @param stream cuda stream to launch work on
  */
 template <typename Type>
 void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int N,
         cudaStream_t stream = 0) {
-    Type C = D;
+    //sum the weights & copy back to CPU
+    Type WS = 0;
+    LinAlg::coalescedReduction(mu, weights, D, 1, (Type)0, false, stream);
+    updateHost(&WS, mu, 1, stream);
+
     LinAlg::coalescedReduction(mu, data, D, N, (Type)0,
             false, stream,
             [weights]__device__(Type v, int i){ return v*weights[i]; },
             []__device__(Type a, Type b){ return a+b; },
-            [C]__device__(Type v){ return v/C; });
+            [WS]__device__(Type v){ return v/WS; });
 }
 
 /**
@@ -53,17 +57,21 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int
  * @param weights per-column means
  * @param D number of columns of data
  * @param N number of rows of data
- * @param stream cuda streamkto launch work on
+ * @param stream cuda stream to launch work on
  */
 template <typename Type>
 void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int N,
         cudaStream_t stream = 0) {
-    Type C = N;
+    //sum the weights & copy back to CPU
+    Type WS = 0;
+    LinAlg::stridedReduction(mu, weights, 1, N, (Type)0, false, stream);
+    updateHost(&WS, mu, 1, stream);
+
     LinAlg::stridedReduction(mu, data, D, N, (Type)0,
             false, stream,
             [weights]__device__(Type v, int i){ return v*weights[i]; },
             []__device__(Type a, Type b){ return a+b; },
-            [C]__device__(Type v){ return v/C; });
+            [WS]__device__(Type v){ return v/WS; });
 }
 
 }; // end namespace Stats
