@@ -20,12 +20,9 @@ import cudf
 import pandas as pd
 import numpy as np
 
-from nose.tools import assert_greater_equal
-
 from sklearn import datasets
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
-from sklearn.utils.testing import assert_equal
 from sklearn.metrics import adjusted_rand_score
 
 
@@ -33,8 +30,9 @@ def test_blobs_cluster():
     data, labels = datasets.make_blobs(
         n_samples=500, n_features=10, centers=5)
     embedding = UMAP().fit_transform(data)
-    assert_equal(adjusted_rand_score(labels,
-                                     KMeans(5).fit_predict(embedding)), 1.0)
+    score = adjusted_rand_score(labels,
+                                KMeans(5).fit_predict(embedding))
+    assert score == 1.0
 
 
 def test_umap_transform_on_iris():
@@ -50,12 +48,7 @@ def test_umap_transform_on_iris():
     embedding = fitter.transform(new_data)
 
     trust = trustworthiness(new_data, embedding, 10)
-    assert_greater_equal(
-        trust,
-        0.90,
-        "Insufficiently trustworthy transform "
-        "for" "iris dataset: {}".format(trust),
-    )
+    assert trust >= 0.90
 
 
 def test_umap_trustworthiness_on_iris_random_init():
@@ -65,12 +58,7 @@ def test_umap_trustworthiness_on_iris_random_init():
         n_neighbors=10, min_dist=0.01,  init="random"
     ).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, 10)
-    assert_greater_equal(
-        trust,
-        0.95,
-        "Insufficiently trustworthy embedding for"
-        "" "iris dataset: {}".format(trust),
-    )
+    assert trust >= 0.95
 
 
 @pytest.mark.parametrize('should_downcast', [True, False])
