@@ -39,6 +39,9 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
+            /**
+             * Calculate the squared distance between two vectors of size n
+             */
 	        template<typename T>
 	        __device__ __host__ float rdist(const T *X, const T *Y, int n) {
 	            float result = 0.0;
@@ -84,6 +87,9 @@ namespace UMAPAlgo {
 	                return val;
 	        }
 
+	        /**
+	         * Calculate the repulsive gradient
+	         */
 	        template<typename T>
 	        __device__ __host__ T repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
                 T grad_coeff = 2.0 * gamma * params.b;
@@ -93,6 +99,9 @@ namespace UMAPAlgo {
                 return grad_coeff;
 	        }
 
+	        /**
+	         * Calculate the attractive gradient
+	         */
 	        template<typename T>
 	        __device__ __host__ T attractive_grad(T dist_squared, UMAPParams params) {
                 T grad_coeff = -2.0 * params.a * params.b *
@@ -101,6 +110,12 @@ namespace UMAPAlgo {
                 return grad_coeff;
 	        }
 
+	        /**
+	         * Kernel for performing 1 epoch of stochastic gradient descent
+	         * on each call. Vectors are sampled in proportion to their
+	         * weights in the 1-skeleton. Negative samples are drawn
+	         * randomly.
+	         */
 	        template <typename T, int TPB_X>
 	        __global__ void optimize_batch_kernel(
                     T *head_embedding, int head_n,
@@ -207,19 +222,13 @@ namespace UMAPAlgo {
 	        }
 
 	        /**
-	         * Runs a stochastic gradient descent using sampling weights defined on
+	         * Runs gradient descent using sampling weights defined on
 	         * both the attraction and repulsion vectors.
 	         *
-	         * The python version is not mini-batched, but this would be ideal
-	         * in order to improve the parallelism.
-	         *
-	         * In this SGD implementation, the weights being tuned are actually the
+	         * In this GD implementation, the weights being tuned are the
 	         * embeddings themselves, as the objective function is attracting
 	         * positive weights (neighbors in the 1-skeleton) and repelling
-	         * negative weights (non-neighbors in the 1-skeleton). It's important
-	         * to think through the implications of this in the batching, as
-	         * it means threads will need to be synchronized when updating
-	         * the same embeddings.
+	         * negative weights (non-neighbors in the 1-skeleton).
 	         */
 	        template< int TPB_X, typename T>
 	        void optimize_layout(

@@ -136,6 +136,9 @@ namespace UMAPAlgo {
 
         }
 
+        /**
+         * Perform non-linear gradient descent
+         */
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
                 T *coef, UMAPParams *params, float tolerance = 1e-6, int max_epochs = 25000) {

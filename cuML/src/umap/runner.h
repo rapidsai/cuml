@@ -64,23 +64,13 @@ namespace UMAPAlgo {
         }
 	}
 
-    template<int TPB_X, typename T>
-    __global__ void exact_coo_row_counts(int *rows, T *vals, int nnz,
-            int *results, int n) {
-        int row = (blockIdx.x * TPB_X) + threadIdx.x;
-        if(row < nnz)
-            atomicAdd(results+rows[row], 1);
-    }
 
-    template<int TPB_X, typename T>
-    __global__ void nonzero_coo_row_counts(int *rows, T *vals, int nnz,
-            int *results, int n) {
-        int row = (blockIdx.x * TPB_X) + threadIdx.x;
-        if(row < nnz && vals[row] > 0.0) {
-            atomicAdd(results+rows[row], 1);
-        }
-    }
-
+    /**
+     * Simple helper function to set the values of an array to zero.
+     *
+     * @param vals array of values
+     * @param nnz size of array of values
+     */
     template<int TPB_X>
     __global__ void reset_vals(int *vals, int nnz) {
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -107,13 +97,17 @@ namespace UMAPAlgo {
     }
 
 
+    /**
+     * Firt exponential decay curve to find the parameters
+     * a and b, which are based on min_dist and spread
+     * parameters.
+     */
     void find_ab(UMAPParams *params) {
         Optimize::find_params_ab(params);
     }
 
-
     /**
-     *
+     * Fit
      */
 	template<typename T, int TPB_X>
 	size_t _fit(T *X,       // input matrix
@@ -122,7 +116,6 @@ namespace UMAPAlgo {
 	            kNN *knn,
 	            UMAPParams *params,
 	            T *embeddings) {
-
 
 	    find_ab(params);
 
@@ -138,19 +131,12 @@ namespace UMAPAlgo {
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
 		CUDA_CHECK(cudaPeekAtLastError());
 
-		int *graph_rows, *graph_cols;
-		T *graph_vals;
-
         int *rgraph_rows, *rgraph_cols;
         T *rgraph_vals;
 
 		/**
 		 * Allocate workspace for fuzzy simplicial set.
 		 */
-		MLCommon::allocate(graph_rows, n*params->n_neighbors);
-		MLCommon::allocate(graph_cols, n*params->n_neighbors);
-		MLCommon::allocate(graph_vals, n*params->n_neighbors);
-
         MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2);
         MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
         MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
@@ -162,9 +148,6 @@ namespace UMAPAlgo {
 		int nnz = 0;
 
 		FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists,
-						   graph_rows,
-						   graph_cols,
-						   graph_vals,
                            rgraph_rows,
                            rgraph_cols,
                            rgraph_vals,
@@ -190,9 +173,6 @@ namespace UMAPAlgo {
 
 		CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
-        CUDA_CHECK(cudaFree(graph_rows));
-        CUDA_CHECK(cudaFree(graph_cols));
-        CUDA_CHECK(cudaFree(graph_vals));
         CUDA_CHECK(cudaFree(rgraph_rows));
         CUDA_CHECK(cudaFree(rgraph_cols));
         CUDA_CHECK(cudaFree(rgraph_vals));
@@ -212,7 +192,6 @@ namespace UMAPAlgo {
                       kNN *knn,
 	                  UMAPParams *params,
 	                  T *transformed) {
-
 
 	    /**
 	     * Perform kNN of X
@@ -286,7 +265,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ex_scan, n, true);
 
         // COO should be sorted by row at this point- we get the counts and then normalize
-        exact_coo_row_counts<TPB_X, T><<<grid_nnz, blk>>>(graph_rows, graph_vals, nnz, ia, n);
+        MLCommon::coo_row_count<TPB_X, T><<<grid_nnz, blk>>>(graph_rows, nnz, ia, n);
 
         thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
         thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
@@ -307,7 +286,7 @@ namespace UMAPAlgo {
 
         reset_vals<TPB_X><<<grid_n,blk>>>(ia, n);
 
-        nonzero_coo_row_counts<TPB_X, T><<<grid_nnz,blk>>>(graph_rows, graph_vals, nnz, ia, n);
+        MLCommon::coo_row_count_nz<TPB_X, T><<<grid_nnz,blk>>>(graph_rows, graph_vals, nnz, ia, n);
 
         /**
          * Go through COO values and set everything that's less than
@@ -383,7 +362,6 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(graph_rows));
         CUDA_CHECK(cudaFree(graph_cols));
         CUDA_CHECK(cudaFree(graph_vals));
-
 
         CUDA_CHECK(cudaFree(ia));
         CUDA_CHECK(cudaFree(ex_scan));
