@@ -60,7 +60,7 @@ int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
 }
 
 // TODO these could be macros..
-void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
+void cuml_glm_fit_logistic_qn_d(double *X, double *y, int N, int D,
                                 bool fit_intercept, double l1, double l2,
                                 int max_iter, double grad_tol,
                                 int linesearch_max_iter, int lbfgs_memory,
@@ -80,7 +80,7 @@ void cuml_glm_fit_qn_logistic_d(double *X, double *y, int N, int D,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_fit_logistic_s(float *X, float *y, int N, int D,
+void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
                              bool fit_intercept, float l1, float l2,
                              int max_iter, float grad_tol,
                              int linesearch_max_iter, int lbfgs_memory,
@@ -100,7 +100,7 @@ void cuml_glm_fit_logistic_s(float *X, float *y, int N, int D,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_fit_linear_d(double *X, double *y, int N, int D,
+void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
                            bool fit_intercept, double l1, double l2,
                            int max_iter, double grad_tol,
                            int linesearch_max_iter, int lbfgs_memory,
@@ -119,7 +119,7 @@ void cuml_glm_fit_linear_d(double *X, double *y, int N, int D,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_fit_linear_s(float *X, float *y, int N, int D, bool fit_intercept,
+void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D, bool fit_intercept,
                            float l1, float l2, int max_iter, float grad_tol,
                            int linesearch_max_iter, int lbfgs_memory,
                            int verbosity,
@@ -137,7 +137,7 @@ void cuml_glm_fit_linear_s(float *X, float *y, int N, int D, bool fit_intercept,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_fit_softmax_d(double *X, double *y, int N, int D, int C,
+void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
                             bool fit_intercept, double l1, double l2,
                             int max_iter, double grad_tol,
                             int linesearch_max_iter, int lbfgs_memory,
@@ -156,7 +156,7 @@ void cuml_glm_fit_softmax_d(double *X, double *y, int N, int D, int C,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
 
-void cuml_glm_fit_softmax_s(float *X, float *y, int N, int D, int C,
+void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
                             bool fit_intercept, float l1, float l2,
                             int max_iter, float grad_tol,
                             int linesearch_max_iter, int lbfgs_memory,
