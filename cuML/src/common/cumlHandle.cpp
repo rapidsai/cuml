@@ -174,28 +174,6 @@ const cumlHandle_impl& cumlHandle::getImpl() const
     return *_impl.get();
 }
 
-class cudaDeviceScope {
-public:
-    cudaDeviceScope( const int dev_id )
-        : _dev_id( dev_id )
-    {
-        CUDA_CHECK( cudaGetDevice(&_old_dev_id) );
-        if ( _dev_id != _old_dev_id ) {
-            CUDA_CHECK( cudaSetDevice(_dev_id) );
-        }
-    }
-    ~cudaDeviceScope()
-    {
-        if ( _dev_id != _old_dev_id ) {
-            //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
-            cudaSetDevice(_old_dev_id);
-        }
-    }
-private:
-    const int _dev_id;
-    int _old_dev_id;
-};
-
 class defaultDeviceAllocator : public deviceAllocator {
 public:
     virtual void* allocate( std::size_t n, cudaStream_t ) {
@@ -230,10 +208,9 @@ public:
     }
 };
 
-//TODO provide deviceAllocator adaptor for a pair of function pointers (needed for C interface)
-
 cumlHandle_impl::cumlHandle_impl()
-    : _dev_ids(1,0), _deviceAllocator( std::make_shared<defaultDeviceAllocator>() ), _hostAllocator( std::make_shared<defaultHostAllocator>() )
+    : _dev_id( []() -> int { int cur_dev = -1; CUDA_CHECK( cudaGetDevice ( &cur_dev ) ); return cur_dev; }() ),
+      _deviceAllocator( std::make_shared<defaultDeviceAllocator>() ), _hostAllocator( std::make_shared<defaultHostAllocator>() )
 {
     createResources();
 }
@@ -243,28 +220,9 @@ cumlHandle_impl::~cumlHandle_impl()
     destroyResources();
 }
 
-void cumlHandle_impl::setDevice( int dev_id )
+int cumlHandle_impl::getDevice() const
 {
-    destroyResources();
-    _dev_ids[0] = dev_id;
-    createResources();
-}
-
-void cumlHandle_impl::setDevices(const std::vector<int>& dev_ids )
-{
-    destroyResources();
-    _dev_ids = dev_ids;
-    createResources();
-}
-
-int cumlHandle_impl::getDevice( int dev_idx ) const
-{
-    return _dev_ids[dev_idx];
-}
-
-int cumlHandle_impl::getNumDevices() const
-{
-    return _dev_ids.size();
+    return _dev_id;
 }
 
 void cumlHandle_impl::setStream( cudaStream_t stream )
@@ -275,11 +233,6 @@ void cumlHandle_impl::setStream( cudaStream_t stream )
 cudaStream_t cumlHandle_impl::getStream() const
 {
     return _userStream;
-}
-
-cudaStream_t cumlHandle_impl::getDeviceStream( int dev_idx ) const
-{
-    return _streams[dev_idx*_num_streams + 0];
 }
 
 void cumlHandle_impl::setDeviceAllocator( std::shared_ptr<deviceAllocator> allocator )
@@ -302,19 +255,19 @@ std::shared_ptr<hostAllocator> cumlHandle_impl::getHostAllocator() const
     return _hostAllocator;
 }
 
-cublasHandle_t cumlHandle_impl::getCublasHandle( int dev_idx ) const
+cublasHandle_t cumlHandle_impl::getCublasHandle() const
 {
-    return _cublas_handles[dev_idx];
+    return _cublas_handle;
 }
 
-cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle( int dev_idx ) const
+cusolverDnHandle_t cumlHandle_impl::getcusolverDnHandle() const
 {
-    return _cusolverDn_handles[dev_idx];
+    return _cusolverDn_handle;
 }
 
-cusparseHandle_t cumlHandle_impl::getcusparseHandle( int dev_idx ) const
+cusparseHandle_t cumlHandle_impl::getcusparseHandle() const
 {
-    return _cusparse_handles[dev_idx];
+    return _cusparse_handle;
 }
 
 cudaStream_t cumlHandle_impl::getInternalStream( int sid ) const
@@ -347,73 +300,53 @@ void cumlHandle_impl::waitOnInternalStreams() const
 
 void cumlHandle_impl::createResources()
 {
-    CUDA_CHECK( cudaEventCreateWithFlags( &_event, cudaEventDisableTiming ) );
-    cudaDeviceScope _( 0 );
-    for (auto dev_id: _dev_ids) 
-    {
-        CUDA_CHECK( cudaSetDevice(dev_id) );
+    cudaStream_t stream;
+    CUDA_CHECK( cudaStreamCreate(&stream) );
 
+    CUBLAS_CHECK( cublasCreate(&_cublas_handle) );
+
+    CUSOLVER_CHECK( cusolverDnCreate(&_cusolverDn_handle) );
+
+    CUSPARSE_CHECK( cusparseCreate(&_cusparse_handle) );
+
+    _streams.push_back(stream);
+    for (int i = 1; i < _num_streams; ++i)
+    {
         cudaStream_t stream;
         CUDA_CHECK( cudaStreamCreate(&stream) );
-
-        cublasHandle_t cublas_handle;
-        CUBLAS_CHECK( cublasCreate(&cublas_handle) );
-        CUBLAS_CHECK( cublasSetStream(cublas_handle, stream) );
-
-        cusolverDnHandle_t cusolverDn_handle;
-        CUSOLVER_CHECK( cusolverDnCreate(&cusolverDn_handle) );
-        CUSOLVER_CHECK( cusolverDnSetStream(cusolverDn_handle, stream) );
-
-        cusparseHandle_t cusparse_handle;
-        CUSPARSE_CHECK( cusparseCreate(&cusparse_handle) );
-        CUSPARSE_CHECK( cusparseSetStream(cusparse_handle, stream) );
-
         _streams.push_back(stream);
-        _cublas_handles.push_back( cublas_handle );
-        _cusolverDn_handles.push_back( cusolverDn_handle );
-        _cusparse_handles.push_back( cusparse_handle );
-        
-        for (int i = 1; i < _num_streams; ++i)
-        {
-            cudaStream_t stream;
-            CUDA_CHECK( cudaStreamCreate(&stream) );
-            _streams.push_back(stream);
-        }
     }
 }
 
 void cumlHandle_impl::destroyResources()
 {
-    while ( !_cusparse_handles.empty() )
     {
-        cusparseStatus_t status = cusparseDestroy( _cusparse_handles.back() );
+        cusparseStatus_t status = cusparseDestroy( _cusparse_handle );
         if ( CUSPARSE_STATUS_SUCCESS != status )
         {
             //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
             // deallocate should not throw execeptions which is why CUSPARSE_CHECK is not used.
         }
-        _cusparse_handles.pop_back();
     }
-    while ( !_cusolverDn_handles.empty() )
+
     {
-        cusolverStatus_t  status = cusolverDnDestroy( _cusolverDn_handles.back() );
+        cusolverStatus_t status = cusolverDnDestroy( _cusolverDn_handle );
         if ( CUSOLVER_STATUS_SUCCESS != status )
         {
             //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
             // deallocate should not throw execeptions which is why CUSOLVER_CHECK is not used.
         }
-        _cusolverDn_handles.pop_back();
     }
-    while ( !_cublas_handles.empty() )
+
     {
-        cublasStatus_t status = cublasDestroy( _cublas_handles.back() );
+        cublasStatus_t status = cublasDestroy( _cublas_handle );
         if ( CUBLAS_STATUS_SUCCESS != status )
         {
             //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
             // deallocate should not throw execeptions which is why CUBLAS_CHECK is not used.
         }
-        _cublas_handles.pop_back();
     }
+
     while ( !_streams.empty() )
     {
         cudaError_t status = cudaStreamDestroy( _streams.back() );

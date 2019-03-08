@@ -30,6 +30,7 @@ class cumlHandle_impl {
 public:
     cumlHandle_impl();
     ~cumlHandle_impl();
+    int getDevice() const;
     void setStream( cudaStream_t stream );
     cudaStream_t getStream() const;
     void setDeviceAllocator( std::shared_ptr<deviceAllocator> allocator );
@@ -37,9 +38,9 @@ public:
     void setHostAllocator( std::shared_ptr<hostAllocator> allocator );
     std::shared_ptr<hostAllocator> getHostAllocator() const;
 
-    cublasHandle_t getCublasHandle( int dev_idx = 0 ) const;
-    cusolverDnHandle_t getcusolverDnHandle( int dev_idx = 0 ) const;
-    cusparseHandle_t getcusparseHandle( int dev_idx ) const;
+    cublasHandle_t getCublasHandle() const;
+    cusolverDnHandle_t getcusolverDnHandle() const;
+    cusparseHandle_t getcusparseHandle() const;
 
     cudaStream_t getInternalStream( int sid ) const;
     int getNumInternalStreams() const;
@@ -47,25 +48,19 @@ public:
     void waitOnUserStream() const;
     void waitOnInternalStreams() const;
 
-    void setDevice( int dev_id );
-    void setDevices( const std::vector<int>& dev_ids );
-    int  getDevice( int dev_idx = 0 ) const;
-    int  getNumDevices() const;
-
-    cudaStream_t getDeviceStream( int dev_idx ) const;
 private:
     //TODO: What is the right number?
     static constexpr int                _num_streams = 3;
-    std::vector<int>                    _dev_ids;
+    const int                           _dev_id;
     std::vector<cudaStream_t>           _streams;
-    std::vector<cublasHandle_t>         _cublas_handles;
-    std::vector<cusolverDnHandle_t>     _cusolverDn_handles;
-    std::vector<cusparseHandle_t>       _cusparse_handles;
+    cublasHandle_t                      _cublas_handle;
+    cusolverDnHandle_t                  _cusolverDn_handle;
+    cusparseHandle_t                    _cusparse_handle;
     std::shared_ptr<deviceAllocator>    _deviceAllocator;
     std::shared_ptr<hostAllocator>      _hostAllocator;
     cudaStream_t                        _userStream;
     cudaEvent_t                         _event;
-    
+
     void createResources();
     void destroyResources();
 };
