@@ -40,6 +40,7 @@ namespace MLCommon {
  *     temp.release(stream);
  * }
  * @endcode
+ * @todo: Add missing doxygen documentation
  */
 template<typename T>
 class device_buffer : public buffer_base<T>

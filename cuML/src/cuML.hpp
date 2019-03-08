@@ -29,16 +29,63 @@ using MLCommon::hostAllocator;
 
 class cumlHandle_impl;
 
+/**
+ * @brief Handle to manage resources needed by cuML algorithms.
+ */
 class cumlHandle {
 public:
+    /**
+     * @brief construct a cumlHandle with default paramters.
+     *
+     * The default paramters are 
+     *   - stream: default or NULL stream
+     *   - DeviceAllocator: cudaMalloc
+     *   - HostAllocator: cudaMallocHost
+     */
     cumlHandle();
+    /**
+     * @brief releases all resources internally manged by cumlHandle.
+     */
     ~cumlHandle();
+    /**
+     * @brief sets the stream to which all cuML work issued via this handle should be ordered.
+     *
+     * @param[in] stream    the stream to which cuML work should be ordered.
+     */
     void setStream( cudaStream_t stream );
+    /**
+     * @brief gets the stream to which all cuML work issued via this handle should be ordered.
+     *
+     * @returns the stream to which cuML work should be ordered.
+     */
     cudaStream_t getStream() const;
+    /**
+     * @brief sets the allocator to use for all device allocations done in cuML.
+     * 
+     * @param[in] allocator     the MLCommon::deviceAllocator to use for device allocations.
+     */
     void setDeviceAllocator( std::shared_ptr<deviceAllocator> allocator );
+    /**
+     * @brief gets the allocator to use for all device allocations done in cuML.
+     * 
+     * @returns the MLCommon::deviceAllocator to use for device allocations.
+     */
     std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
+    /**
+     * @brief sets the allocator to use for substantial host allocations done in cuML.
+     * 
+     * @param[in] allocator     the MLCommon::hostAllocator to use for host allocations.
+     */
     void setHostAllocator( std::shared_ptr<hostAllocator> allocator );
+    /**
+     * @brief gets the allocator to use for substantial host allocations done in cuML.
+     * 
+     * @returns the MLCommon::hostAllocator to use for host allocations.
+     */
     std::shared_ptr<hostAllocator> getHostAllocator() const;
+    /**
+     * @brief for internal use only.
+     */
     const cumlHandle_impl& getImpl() const;
 private:
     std::unique_ptr<cumlHandle_impl> _impl;
