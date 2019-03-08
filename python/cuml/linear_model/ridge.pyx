@@ -82,7 +82,10 @@ class Ridge:
     cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to 
     fit a linear model. SVD is more stable, but Eig (default) is much more faster. CD uses
     Coordinate Descent and can be faster if the data is large.
-
+    
+    Examples
+    --------
+    
     .. code-block:: python
 
         import numpy as np

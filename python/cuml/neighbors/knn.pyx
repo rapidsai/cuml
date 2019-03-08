@@ -40,14 +40,31 @@ class KNNparams:
 
 
 cdef class KNN:
-    """
 
-    Create a DataFrame, fill it with data, and compute KNN:
+    """
+    KNN or K-Nearest-Neighbors is a unsupervised algorithm where if one wants
+    to find the "closest" datapoint(s) to new unseen data, one can calculate
+    a suitable "distance" between each and every point, and return the datapoints
+    which have the smallest distance to it.
+
+    Applications of KNN include recommendation systems where content or colloborative
+    filtering is used.
+
+    cuML's KNN expects a cuDF DataFrame, and fits a special data structure first to
+    approximate the distance calculations, allowing our querying times to be O(plogn)
+    and not the brute force O(np) [where p = no(features)].
+
+    Examples
+    --------
 
     .. code-block:: python
 
       import cudf
+
+      # Both import methods supported
+      from cuml.neighbors import KNN
       from cuml import KNN
+
       import numpy as np
 
       np_float = np.array([
@@ -96,7 +113,17 @@ cdef class KNN:
       1                 0.0                 1.0                 1.0
       2                 0.0                 1.0                 2.0
 
-    For an additional example see `the KNN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/knn_demo.ipynb>`_. For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
+    Parameters
+    ----------
+    should_downcast : bool (default = False)
+        Currently only single precision is supported in the underlying undex. Setting this to
+        true will allow single-precision input arrays to be automatically downcasted to single
+        precision. Default = False.
+    n_gpus : int (default = 1)
+        How many GPUs to use.
+
+    For an additional example see `the KNN notebook <github.com/rapidsai/notebooks/blob/master/cuml/knn_demo.ipynb>`_.
+    For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
 
     """
     cpdef kNN *k
@@ -111,7 +138,6 @@ cdef class KNN:
     cdef bool _should_downcast
 
     cpdef kNNParams *input
-
 
 
     def __cinit__(self, should_downcast = False):

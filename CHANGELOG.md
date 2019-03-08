@@ -29,6 +29,7 @@
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
 - PR #274: Edited doc strings - import statements + docs
 - PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
 
 ## Bug Fixes
 
