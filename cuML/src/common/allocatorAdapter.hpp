@@ -16,11 +16,95 @@
 
 #pragma once
 
+#include <limits>
+
+#include <thrust/system/cuda/execution_policy.h>
+
 #include "../../../ml-prims/src/utils.h"
 
 #include "../cuML.hpp"
 
 namespace ML {
+
+template<typename T>
+class stdAllocatorAdapter
+{
+public:
+    using size_type         = std::size_t;
+    using value_type        = T;
+    using pointer           = value_type*;
+    using const_pointer     = const value_type*;
+    using reference         = value_type&;
+    using const_reference   = const value_type&;
+    using difference_type   = std::ptrdiff_t;
+
+    template<typename U>
+    struct rebind
+    {
+        typedef stdAllocatorAdapter<U> other;
+    };
+
+    stdAllocatorAdapter() = delete;
+
+    stdAllocatorAdapter(const stdAllocatorAdapter& other) = default;
+
+    template<typename U>
+    stdAllocatorAdapter(stdAllocatorAdapter<U> const& other)
+        : _allocator(other._allocator), _stream(other._stream)
+    {}
+
+    stdAllocatorAdapter& operator=(const stdAllocatorAdapter& other) = default;
+    
+    stdAllocatorAdapter(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream)
+        : _allocator(allocator), _stream(stream)
+    {}
+
+    ~stdAllocatorAdapter () {}
+
+    inline pointer address(reference ref) const
+    {
+        return &ref;
+    }
+    inline const_pointer address(const_reference ref) const
+    {
+        return &ref;
+    }
+
+    pointer allocate(size_type size, typename std::allocator<void>::const_pointer = 0)
+    {
+        return static_cast<pointer>(_allocator->allocate( size, _stream ));
+    }
+    void deallocate(pointer ptr, size_type size) { 
+        _allocator->deallocate(ptr, size, _stream);
+    }
+
+    inline size_type max_size() const
+    {
+        return std::numeric_limits<size_type>::max() / sizeof(value_type);
+    }
+
+    void construct(pointer ptr, const value_type& t) const
+    {
+        new(ptr) value_type(t);
+    }
+    void destroy(pointer ptr) const
+    {
+        ptr->~value_type();
+    }
+
+    bool operator==(const stdAllocatorAdapter&) const
+    {
+        return true;
+    }
+    bool operator!=(const stdAllocatorAdapter& other) const
+    {
+        return !operator==(other);
+    }
+
+private:
+    std::shared_ptr<hostAllocator>  _allocator;
+    cudaStream_t                    _stream = 0;
+};
 
 /**
  * @code{.cpp}
