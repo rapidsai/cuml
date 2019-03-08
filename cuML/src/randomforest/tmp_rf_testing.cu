@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
 	cout << "Free memory\n";
 	CUDA_CHECK(cudaFree(higgs_data));
 	CUDA_CHECK(cudaFree(higgs_labels));
+	delete rf_classifier;
 	
 
 #if 0
