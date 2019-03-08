@@ -20,7 +20,6 @@ from Cython.Build import cythonize
 import os
 import versioneer
 from distutils.sysconfig import get_python_lib
-import os
 
 
 install_requires = [
