@@ -23,12 +23,14 @@ import ctypes
 import cudf
 import numpy as np
 
+import warnings
+
 from numba import cuda
 from collections import defaultdict
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
+
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
@@ -66,14 +68,12 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
 
 class LinearRegression:
-
     """
-    LinearRegression is a simple machine learning model where the response y is modelled by a 
+    LinearRegression is a simple machine learning model where the response y is modelled by a
     linear combination of the predictors in X.
 
-    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2 
-    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default) 
-    is much more faster.
+    cuML's LinearRegression expects a cuDF DataFrame, and provides 2 algorithms SVD and Eig to
+    fit a linear model. SVD is more stable, but Eig (default) is much more faster.
 
     Examples
     --------
@@ -146,26 +146,31 @@ class LinearRegression:
 
 
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
     """
+    # For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_.
+    # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
+
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
 
         """
         Initializes the linear regression class.
-
         Parameters
         ----------
         algorithm : Type: string. 'eig' (default) and 'svd' are supported algorithms.
         fit_intercept: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
         """
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
-        if algorithm in ['svd', 'eig']:
+
+        ## Algorithm will be changed to solver in 0.7
+        warnings.warn("Argument (algorithm) will be changed to (solver) in cuML 0.7", warnings.DeprecationWarning)
+        ##
+
+        if algorithm in ('svd', 'eig'):
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -191,15 +196,12 @@ class LinearRegression:
     def fit(self, X, y):
         """
         Fit the model with X and y.
-
         Parameters
         ----------
         X : cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
-
         """
 
         cdef uintptr_t X_ptr
@@ -221,11 +223,11 @@ class LinearRegression:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -279,17 +281,14 @@ class LinearRegression:
     def predict(self, X):
         """
         Predicts the y for X.
-
         Parameters
         ----------
         X : cuDF DataFrame
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
         Returns
         ----------
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
-
         """
 
         cdef uintptr_t X_ptr
@@ -334,16 +333,16 @@ class LinearRegression:
 
         return preds
 
-      
+
     def get_params(self, deep=True):
         params = dict()
         variables = ['algorithm','fit_intercept','normalize']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
-      
+
     def set_params(self, **params):
         if not params:
             return self
@@ -361,4 +360,3 @@ class LinearRegression:
         else:
             self.algo = 0
         return self
-
