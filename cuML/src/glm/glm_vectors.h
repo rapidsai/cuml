@@ -293,18 +293,24 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
 }
 
 // TODO The following classes own their storage and are just for testing
+// The internals should be replaced by device_buffer+device_allocator, when ready
 template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
+  bool allocated;
 
-  SimpleVecOwning() : Super() {}
+  SimpleVecOwning() : Super(), allocated(false) {}
 
-  SimpleVecOwning(int n) { reset(n); }
+  SimpleVecOwning(int n) : Super(), allocated(false) { reset(n); }
 
   ~SimpleVecOwning() { CUDA_CHECK(cudaFree(Super::data)); }
 
   void reset(int n) {
-    MLCommon::allocate(Super::data, n);
-    Super::reset(Super::data, n);
+    if (allocated) {
+      CUDA_CHECK(cudaFree(this->data));
+    }
+    MLCommon::allocate(this->data, n);
+    Super::reset(this->data, n);
+    allocated = true;
   }
 
   void operator=(const SimpleVec<T> &other) { Super::operator=(other); }
@@ -312,21 +318,28 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
 
 template <typename T> struct SimpleMatOwning : SimpleMat<T> {
   typedef SimpleMat<T> Super;
+  bool allocated;
   using Super::m;
   using Super::n;
   using Super::ord;
 
-  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
+  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR)
+      : Super(order), allocated(false) {}
 
   SimpleMatOwning(int m, int n, STORAGE_ORDER order = COL_MAJOR)
-      : Super(order) {
+      : Super(order), allocated(false) {
     reset(m, n);
   }
 
   ~SimpleMatOwning() { CUDA_CHECK(cudaFree(Super::data)); }
   void reset(int m, int n) {
+
+    if (allocated) {
+      CUDA_CHECK(cudaFree(this->data));
+    }
     MLCommon::allocate(Super::data, m * n);
     Super::reset(Super::data, m, n);
+    allocated = true;
   }
 };
 
