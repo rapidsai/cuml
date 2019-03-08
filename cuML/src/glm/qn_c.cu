@@ -27,8 +27,8 @@
  * Implementation of the quasi newton C api
  */
 
-using namespace ML;
-using namespace ML::GLM;
+namespace ML{
+namespace GLM{
 
 template <typename T, typename LossFunction>
 int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
@@ -169,3 +169,6 @@ void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
                              max_iter, grad_tol, linesearch_max_iter,
                              lbfgs_memory, verbosity, w0, f, num_iters, ord);
 }
+
+};
+};
