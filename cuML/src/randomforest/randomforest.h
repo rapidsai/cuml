@@ -53,7 +53,7 @@ namespace ML {
 			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) {
 
 					n_trees = cfg_n_trees;
-					max_depth = cfg_max_depth; //FIXME Set these during fit?
+					max_depth = cfg_max_depth;
 					max_leaves = cfg_max_leaves;
 					trees = NULL; 
 					rf_type = cfg_rf_type;
@@ -73,10 +73,32 @@ namespace ML {
 			}
 
 			int get_ntrees() {
-				std::cout << std::dec << n_trees << " " << max_depth << " " << max_leaves << " " << rf_type << "\n";
 				return n_trees;
 			}
 
+			void print_rf_summary() {
+
+				if (!trees) std::cout << "Empty forest" << std::endl;
+				else {
+					std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
+					for (int i = 0; i < n_trees; i++) {
+						std::cout << "Tree #" << i << std::endl;
+						trees[i].print_tree_summary();
+					}
+				}
+			}
+
+			void print_rf_detailed() {
+
+				if (!trees) std::cout << "Empty forest" << std::endl;
+				else {
+					std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
+					for (int i = 0; i < n_trees; i++) {
+						std::cout << "Tree #" << i << std::endl;
+						trees[i].print();
+					}
+				}
+			}
 
     };
 
@@ -204,7 +226,7 @@ namespace ML {
 
 			float accuracy = correctly_predicted * 1.0f/n_rows;
 			RF_metrics stats(accuracy);
-			stats.print();
+			if (verbose) stats.print();
 
 			/* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
 			   For non binary classification problems (i.e., one target and  > 2 labels), need avg for each of these metrics */

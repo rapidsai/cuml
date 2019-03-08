@@ -150,6 +150,8 @@ int main(int argc, char **argv) {
 	rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
 	cout << "Planted the random forest\n";
 
+	rf_classifier->print_rf_detailed();
+
 	//Predict w/ test dataset
 	/*predictions = rf_classifier->predict(inference_data.data(), params.n_inference_rows, params.n_cols, false);
 	for (int i = 0; i < params.n_inference_rows; i++) {
