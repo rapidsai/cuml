@@ -1,24 +1,24 @@
 # cuML developer guide
-This document summarizes rules and best practices for contributions to C++ component cuML of RAPIDS/cuml.
+This document summarizes rules and best practices for contributions to the cuML C++ component of rapidsai/cuml.
 
 ## General
 Please start by reading [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Thread safety
-cuML should be thread safe and its functions can be called from multiple host threads if they use different handles.
+cuML is thread safe so its functions can be called from multiple host threads if they use different handles.
 
-The implementation of cuML should be single threaded.
+The implementation of cuML is single threaded.
 
 ## Coding style
 
 ## Error handling
-All calls to CUDA APIs should be done via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. Those macros take care of checking the return values of the used API calls and generate an exception in case the command was not successful. In case an exception needs to be avoided, e.g. when implementing a destructor, `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229) should be used. Those macros will only log the error but do not throw an exception.
+Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 
 ## Logging
 Add once https://github.com/rapidsai/cuml/issues/100 is addressed.
 
 ## Device and Host memory allocations
-To enable `libcuml.so` users to control how memory for temporary data is allocated device memory should only be allocated via the allocator provided:
+To enable `libcuml.so` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
 ```cpp
 template<typename T>
 void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
@@ -28,7 +28,7 @@ void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
     h.getDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
-the same rule applies to larger amounts of host heap memory:
+The same rule applies to larger amounts of host heap memory:
 ```cpp
 template<typename T>
 void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
@@ -55,7 +55,7 @@ void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
 }
 ```
 ### Using thrust
-To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator the `ML::thrustAllocatorAdapter` available in `allocatorAdapter.hpp` should be used with the `thrust::cuda::par` execution policy:
+To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator, use the `ML::thrustAllocatorAdapter` available in `allocatorAdapter.hpp` with the `thrust::cuda::par` execution policy:
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
 {
@@ -74,7 +74,7 @@ void foo(const ML::cumlHandle_impl& h, ... , cudaStream_t stream )
 ```
 
 ## Asynchronous operations and stream ordering
-All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). If an implementation only requires a single CUDA Stream the stream from `ML::cumlHandle_impl` should be used:
+All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). Implementations that require only one CUDA Stream should use the stream from `ML::cumlHandle_impl`:
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ...)
 {
@@ -88,13 +88,13 @@ void cumlAlgo(const ML::cumlHandle_impl& h, ...)
     ML::detail::streamSyncer _(handle);
 }
 ```
-ensures the stream ordering behavior described above.
+This ensures the stream ordering behavior described above.
 
-### Using thrust
+### Using Thrust
 To ensure that thrust algorithms are executed in the intended stream the `thrust::cuda::par` execution policy should be used (described in the section Device and Host memory allocations/Using thrust).
 
 ## CUDA Resources
-Implementations of ML algorithms should not create reusable resources themselves. Instead they should use the existing one in `ML::cumlHandle_impl `. This allows to avoid constant creating and recreation of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request in case a resource handle is missing in `ML::cumlHandle_impl `.
+Do not create reusable CUDA resources directly in Implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl ` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
 The resources can be obtained like this
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ...)
@@ -116,4 +116,4 @@ The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each al
 
 ## C APIs
 
-For a ML algorithm implemented in cuML the C++ API should be designed in a way that makes it easy to wrap it in C. I.e. only use C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`). Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
+ML algorithms implemented in cuML should have C++ APIs that are easy to wrap in C. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`). Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
