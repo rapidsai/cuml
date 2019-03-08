@@ -28,7 +28,7 @@ add_executable(mlcommon_test
   cuda_utils.cu
   cov.cu
   decoupled_lookback.cu
-	dist_adj.cu
+  dist_adj.cu
   dist_cos.cu
   dist_euc_exp.cu
   dist_euc_unexp.cu

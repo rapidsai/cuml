@@ -88,8 +88,7 @@ public:
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
-      (d_val <= threshold) ? (d_val = 1.f) : (d_val = 0.f);
-      return d_val;
+      return d_val <= threshold;
     };
 
     distance<EucExpandedL2, DataType, DataType, bool, OutputTile_t>(
