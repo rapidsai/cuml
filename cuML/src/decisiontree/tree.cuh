@@ -104,11 +104,18 @@ namespace ML {
 				ASSERT(root, "Cannot predict w/ empty tree!");
 				return classify(row, root, verbose);	
 			}
-			// Printing utility for debug and looking at nodes and leaves.
-			void print()
+
+			// Printing utility for high level tree info.
+			void print_tree_summary()
 			{
 				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
 				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;				
+			}
+
+			// Printing utility for debug and looking at nodes and leaves.
+			void print()
+			{
+				print_tree_summary();
 				print_node("", root, false);
 			}
 
@@ -126,7 +133,7 @@ namespace ML {
 					condition = (condition || (depth == treedepth));
 
 				if (maxleaves != -1)
-					condition = (condition || (leaf_counter == maxleaves));
+					condition = (condition || (leaf_counter >= maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
 				
 				if (condition)
 					{
