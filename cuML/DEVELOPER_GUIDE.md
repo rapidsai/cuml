@@ -68,7 +68,7 @@ The header `allocatorAdapter.hpp` also provides a helper function to create an e
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ... , cudaStream_t stream )
 {
-    auto execution_policy = ML::exec_policy(h.getDeviceAllocator(),stream);
+    auto execution_policy = ML::thrust_exec_policy(h.getDeviceAllocator(),stream);
     thrust::for_each(execution_policy->on(stream), ... );
 }
 ```

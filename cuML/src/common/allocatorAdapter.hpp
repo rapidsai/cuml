@@ -26,7 +26,7 @@ namespace ML {
  * @code{.cpp}
  * void foo( const cumlHandle_impl& h, ... , cudaStream_t stream )
  * {
- *     auto execution_policy = ML::exec_policy(h.getDeviceAllocator(),stream);
+ *     auto execution_policy = ML::thrust_exec_policy(h.getDeviceAllocator(),stream);
  *     thrust::for_each(execution_policy->on(stream), ... );
  * }
  * @endcode
@@ -74,7 +74,7 @@ namespace
  * @Returns A Thrust execution policy that will use allocator for temporary memory
  * allocation.
  */
-inline auto exec_policy(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) -> std::unique_ptr<decltype(thrust::cuda::par(_decltypeHelper)),std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)> >
+inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) -> std::unique_ptr<decltype(thrust::cuda::par(_decltypeHelper)),std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)> >
 {
     thrustAllocatorAdapter * alloc{nullptr};
 
