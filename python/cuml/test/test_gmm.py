@@ -17,11 +17,10 @@ import pytest
 import cudf
 import numpy as np
 
-from numba import cuda
-from math import sqrt
 import cuml
 from cuml.hmm.sample_utils import *
 from sklearn.mixture import GaussianMixture
+from cuml.hmm.utils import timer, info
 
 
 def np_to_dataframe(df):
@@ -31,7 +30,7 @@ def np_to_dataframe(df):
     return pdf
 
 def mse(x, y):
-    return np.sum((x - y) ** 2)
+    return np.mean((x - y) ** 2)
 
 def compute_error(params_pred, params_true):
     mse_dict = dict(
@@ -40,6 +39,19 @@ def compute_error(params_pred, params_true):
     error = sum([mse_dict[key] for key in mse_dict.keys()])
     return mse_dict, error
 
+@info
+def sample(nDim, nCl, nObs):
+    if precision == 'single':
+        dt = np.float32
+    else:
+        dt = np.float64
+
+    params = sample_parameters(nDim=nDim, nCl=nCl, dt=dt)
+    X = sample_data(nObs, params, dt)
+    return X, params
+
+@timer("sklearn")
+@info
 def run_sklearn(X, n_iter):
     gmm = GaussianMixture(n_components=nCl,
                              covariance_type="full",
@@ -62,39 +74,51 @@ def run_sklearn(X, n_iter):
 
     return params
 
-def run_cuml(X, n_iter):
-    gmm = cuml.GaussianMixture(precision=precision)
+@timer("cuml")
+@info
+def run_cuml(X, n_iter, precision):
+    gmm = cuml.GaussianMixture(n_components=nCl,
+                               max_iter=n_iter,
+                               precision=precision)
 
-    gmm.fit(X, nCl, n_iter)
+    gmm.fit(X)
 
-    params = {"mus" : gmm.dmu.copy_to_host(),
-              "sigmas" : gmm.dsigma.copy_to_host(),
-              "pis" : gmm.dPis.copy_to_host()}
+    params = {"mus": gmm.means_,
+              "sigmas": gmm.covariances_,
+              "pis": gmm.weights_}
     return params
 
-def sample():
-    if precision == 'single':
-        dt = np.float32
-    else:
-        dt = np.float64
 
-    params = sample_parameters()
-    data = sample_data()
-    return data, params
+def print_info(true_params, sk_params, cuml_params):
+    print("\n true params")
+    print(true_params)
+
+    print('\nsklearn')
+    mse_dict_sk, error_sk = compute_error(sk_params, true_params)
+    print('error')
+    print(mse_dict_sk)
+    print("params")
+    print(sk_params)
+
+    print('\ncuml')
+    mse_dict_cuml, error_cuml = compute_error(cuml_params, true_params)
+    print('error')
+    print(mse_dict_cuml)
+    print("params")
+    print(cuml_params)
 
 
 if __name__ == '__main__':
     n_iter = 3
 
     precision = 'single'
-    nCl = 2
-    nDim = 1
-    nObs = 1000
+    nCl = 3
+    nDim = 4000
+    nObs = 100000
 
-    data, true_params = sample()
-    sk_params = run_sklearn(data, n_iter, nCl)
-    cuml_params = run_cuml(data, n_iter, nCl, precision)
+    X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs)
 
-    sk_error = compute_error(sk_params, true_params)
+    sk_params = run_sklearn(X, n_iter)
+    cuml_params = run_cuml(X, n_iter, precision)
 
-    assert sk_error < 0.1
+    print_info(true_params, sk_params, cuml_params)

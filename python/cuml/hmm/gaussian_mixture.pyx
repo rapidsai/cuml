@@ -29,7 +29,6 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.hmm.sample_utils import *
-from cuml.hmm.gmm_utils import roundup
 
 cdef extern from "hmm/hmm_variables.h" :
     cdef cppclass GMM[T]:
@@ -40,18 +39,18 @@ cdef extern from "hmm/gmm_py.h" nogil:
     cdef void init_test()
 
     cdef void init_f32(GMM[float]&,
-                  float*,
                        float*,
                        float*,
                        float*,
                        float*,
+                       float*,
                        int,
                        int,
                        int,
                        int,
                        int,
                        int,
-                        int,
+                       int,
                        int,
                        int)
 
@@ -77,101 +76,107 @@ class GaussianMixture:
             'double': np.float64,
         }[precision]
 
-    def __init__(self, precision='single', seed=False):
+    def __init__(self, n_components, max_iter, precision='single', seed=False):
         self.precision = precision
         self.dtype = self._get_dtype(precision)
 
+        self.n_components = n_components
+        self.max_iter = max_iter
+
     def step(self):
+        cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
+        cdef uintptr_t _dmu_ptr = self.dParams["mus"].device_ctypes_pointer.value
+        cdef uintptr_t _dsigma_ptr = self.dParams["sigmas"].device_ctypes_pointer.value
+        cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
+        cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
+        cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
 
-        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
-        cdef uintptr_t _dmu_ptr = self.dmu.device_ctypes_pointer.value
-        cdef uintptr_t _dsigma_ptr = self.dsigma.device_ctypes_pointer.value
-        cdef uintptr_t _dPis_ptr = self.dPis.device_ctypes_pointer.value
-        cdef uintptr_t _dPis_inv_ptr = self.dPis_inv.device_ctypes_pointer.value
-        cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
+        cdef int lddx = self.ldd["x"]
+        cdef int lddmu = self.ldd["mus"]
+        cdef int lddsigma = self.ldd["sigmas"]
+        cdef int lddsigma_full = self.ldd["sigmas"] * self.nDim
+        cdef int lddPis = self.ldd["pis"]
+        cdef int lddLlhd =self.ldd["llhd"]
 
-        cdef int lddx = self.lddx
-        cdef int lddmu = self.lddmu
-        cdef int lddsigma = self.lddsigma
-        cdef int lddsigma_full = self.lddsigma_full
-        cdef int lddPis = self.lddPis
-        cdef int lddLlhd =self.lddLlhd
         cdef int nCl = self.nCl
         cdef int nDim = self.nDim
         cdef int nObs = self.nObs
 
         cdef GMM[float] gmm
 
+
+
         if self.precision == 'single':
             with nogil:
-              # TODO : Check pointers
-              init_f32(gmm,
-              <float*> _dmu_ptr,
-              <float*> _dsigma_ptr,
-              <float*> _dPis_ptr,
-              <float*> _dPis_inv_ptr,
-              <float*> _dLlhd_ptr,
-              <int> lddx,
-              <int> lddmu,
-              <int> lddsigma,
-              <int> lddsigma_full,
-              <int> lddPis,
-              <int> lddLlhd,
-              <int> nCl,
-              <int> nDim,
-              <int> nObs)
+                init_f32(gmm,
+                         <float*> _dmu_ptr,
+                         <float*> _dsigma_ptr,
+                         <float*> _dPis_ptr,
+                         <float*> _dPis_inv_ptr,
+                         <float*> _dLlhd_ptr,
+                         <int> lddx,
+                         <int> lddmu,
+                         <int> lddsigma,
+                         <int> lddsigma_full,
+                         <int> lddPis,
+                         <int> lddLlhd,
+                         <int> nCl,
+                         <int> nDim,
+                         <int> nObs)
 
-              setup_f32(gmm)
-              # update_rhos_f32(gmm, <float*> _dX_ptr)
-              update_mus_f32(<float*>_dX_ptr, gmm)
-              update_sigmas_f32(<float*>_dX_ptr, gmm)
-              update_pis_f32(gmm)
+                setup_f32(gmm)
+                # update_rhos_f32(gmm, <float*> _dX_ptr)
+                update_mus_f32(<float*>_dX_ptr, gmm)
+                update_sigmas_f32(<float*>_dX_ptr, gmm)
+                update_pis_f32(gmm)
 
-    def initialize(self):
-      mus = sample_mus(self.nDim, self.nCl, self.lddmu).astype(self.dtype)
-      sigmas = sample_sigmas(self.nDim, self.nCl, self.lddsigma).astype(self.dtype)
-      pis = sample_pis(self.nCl, self.lddPis).astype(self.dtype)
-      llhd = sample_llhd(self.nCl, self.nObs, self.lddLlhd).astype(self.dtype)
-      inv_pis = sample_pis(self.nCl, self.lddPis).astype(self.dtype)
+    def _initialize_parameters(self, X):
+        self.nObs = X.shape[0]
+        self.nDim = X.shape[1]
+        self.nCl = self.n_components
 
-      self.dmu = cuda.to_device(mus)
-      self.dsigma = cuda.to_device(sigmas)
-      self.dPis = cuda.to_device(pis)
-      self.dPis_inv = cuda.to_device(inv_pis)
-      self.dLlhd = cuda.to_device(llhd)
+        self.ldd = {"x" : roundup(self.nDim, RUP_SIZE),
+                    "mus" : roundup(self.nDim, RUP_SIZE),
+                    "sigmas" : roundup(self.nDim, RUP_SIZE),
+                     "llhd" : roundup(self.nCl, RUP_SIZE),
+                    "pis" : roundup(self.nCl, RUP_SIZE),
+                    "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
-    def fit(self, X, nCl, nDim, nObs, n_iter):
+        params = sample_parameters(self.nDim, self.nCl, dt=self.dtype)
+        params["llhd"] = sample_matrix(self.nCl, self.nObs, self.dtype, isColNorm=True)
+        params['inv_pis'] = sample_matrix(1, self.nCl, self.dtype, isRowNorm=True)
+        params["x"] = X.T.astype(self.dtype)
 
-      self.nCl = int(nCl)
-      self.nDim = int(nDim)
-      self.nObs = int(nObs)
+        params = align_parameters(params, self.ldd)
+        params = flatten_parameters(params)
+        params = cast_parameters(params ,self.dtype)
 
-      self.lddx = roundup(self.nDim, RUP_SIZE)
-      self.lddmu = roundup(self.nDim, RUP_SIZE)
-      self.lddsigma = roundup(self.nDim, RUP_SIZE)
-      self.lddsigma_full = roundup(self.nDim * self.lddsigma, RUP_SIZE)
-      self.lddLlhd = roundup(self.nCl, RUP_SIZE)
-      self.lddPis = roundup(self.nCl, RUP_SIZE)
+        self.dParams = dict(
+            (key, cuda.to_device(params[key])) for key in self.ldd.keys())
 
-      self.dX = cuda.to_device(X.astype(self.dtype))
+    def fit(self, X):
+        self._initialize_parameters(X)
 
-      self.initialize()
+        for _ in range(self.max_iter) :
+            self.step()
 
-      for _ in range(n_iter) :
-        self.step()
+    @property
+    def means_(self):
+        mus = self.dParams["mus"].copy_to_host()
+        mus = deallign(mus, self.nDim, self.nCl, self.ldd["mus"])
+        return mus.T
 
-    def __setattr__(self, name, value):
-        if name in ["dmu"]:
-            if (isinstance(value, cudf.DataFrame)):
-                val = numba_utils.row_matrix(value)
+    @property
+    def covariances_(self):
+        sigmas = self.dParams["sigmas"].copy_to_host()
+        sigmas = deallign(sigmas, self.nDim, self.nCl * self.nDim,
+                          self.ldd["sigmas"])
+        sigmas = sigmas.reshape((self.nDim, self.nDim, self.nCl), order="F")
+        return np.swapaxes(sigmas, 0, 2)
 
-            elif (isinstance(value, cudf.Series)):
-                val = value.to_gpu_array()
 
-            elif (isinstance(value, np.ndarray) or cuda.devicearray.is_cuda_ndarray(value)):
-                val = cuda.to_device(value)
-
-            super(GaussianMixture, self).__setattr__(name, val)
-
-        else:
-            super(GaussianMixture, self).__setattr__(name, value)
+    @property
+    def weights_(self):
+        pis = self.dParams["pis"].copy_to_host()
+        pis = deallign(pis, self.nCl, 1, self.ldd["pis"])
+        return pis
