@@ -88,11 +88,23 @@ cdef extern from "kmeans/kmeans_c.h" namespace "ML":
 class KMeans:
 
     """
-    Create a DataFrame, fill it with data, and compute Kmeans:
+    KMeans is a basic but powerful clustering method which is optimized via Expectation Maximization.
+    It randomnly selects K data points in X, and computes which samples are close to these points.
+    For every cluster of points, a mean is computed (hence the name), and this becomes the new
+    centroid.
+
+    cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
+    method is more stable than randomnly selecting K points.
+    
+    Examples
+    --------
 
     .. code-block:: python
 
+        # Both import methods supported
         from cuml import KMeans
+        from cuml.cluster import KMeans
+
         import cudf
         import numpy as np
         import pandas as pd
@@ -147,6 +159,39 @@ class KMeans:
              0    1
           0  3.5  2.5
           1  1.0  1.5
+    
+    Parameters
+    ----------
+    n_clusters : int (default = 8)
+        The number of centroids or clusters you want.
+    max_iter : int (default = 300)
+        The more iterations of EM, the more accurate, but slower.
+    tol : float (default = 1e-4)
+        Stopping criterion when centroid means do not change much.
+    verbose : boolean (default = 0)
+        If True, prints diagnositc information.
+    random_state : int (default = 1)
+        If you want results to be the same when you restart Python, select a state.
+    precompute_distances : boolean (default = 'auto')
+        Not supported yet.
+    init : 'kmeans++'
+        Uses fast and stable kmeans++ intialization. More options will be supported later.
+    n_init : int (default = 1)
+        Number of times intialization is run. More is slower, but can be better.
+    algorithm : "auto"
+        Currently uses full EM, but will support others later.
+    n_gpu : int (default = 1)
+        Number of GPUs to use. If -1 is used, uses all GPUs. More usage is faster.
+    gpu_id : int (default = 0)
+        Which GPU to use if n_gpu == 1.
+
+
+    Attributes
+    ----------
+    cluster_centers_ : array
+        The coordinates of the final clusters. This represents of "mean" of each data cluster.
+    labels_ : array
+        Which cluster each datapoint belongs to.    
 
 
     For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
