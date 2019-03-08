@@ -44,6 +44,9 @@ struct TemporaryMemory
 
 	//Total temp mem
 	size_t totalmem = 0;
+
+	//CUDA stream
+	cudaStream_t stream;
 	
 	TemporaryMemory(int N)
 	{
@@ -75,7 +78,8 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc(&temprowids,N*sizeof(int)));
 
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char);
-	
+
+		CUDA_CHECK(cudaStreamCreate(&stream));
 	}
 	void print_info()
 	{
@@ -98,6 +102,7 @@ struct TemporaryMemory
 		cudaFree(d_flags_left);
 		cudaFree(d_flags_right);
 		cudaFree(temprowids);
+		cudaStreamDestroy(stream);
 	}
 	
 };
