@@ -1,7 +1,7 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
-
+- PR #235: NearestNeighbors MG Support
 
 
 ## Improvements
@@ -25,9 +25,12 @@
 - PR #232: Added reduce_rows_by_key
 - PR #246: Support for 2 vectors in the matrix vector operator
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
+- PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
 - PR #237: Update build instructions
+- PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
 
 ## Bug Fixes
 
@@ -37,6 +40,7 @@
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
+- PR #279: Removing faiss-gpu references in README
 
 
 # cuML 0.5.1 (05 Feb 2019)
