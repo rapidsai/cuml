@@ -2,7 +2,7 @@
 
 ## New Features
 
-...
+- PR #277: Added row- and column-wise weighted mean primitive
 
 ## Improvements
 

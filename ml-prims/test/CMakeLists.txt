@@ -58,7 +58,8 @@ add_executable(mlcommon_test
   sum.cu
   svd.cu
   transpose.cu
-  unary_op.cu)
+  unary_op.cu
+  weighted_mean.cu)
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}
