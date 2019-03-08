@@ -18,6 +18,9 @@
 
 namespace MLCommon {
 
+/**
+ * @todo: Add missing doxygen documentation
+ */
 template<typename T>
 class buffer_base
 {

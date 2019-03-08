@@ -26,6 +26,9 @@
 
 namespace ML {
 
+/**
+ * @todo: Add doxygen documentation
+ */
 class cumlHandle_impl {
 public:
     cumlHandle_impl();
@@ -67,6 +70,9 @@ private:
 
 namespace detail {
 
+/**
+ * @todo: Add doxygen documentation
+ */
 class streamSyncer {
 public:
     streamSyncer( const cumlHandle_impl& handle )

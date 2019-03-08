@@ -107,6 +107,7 @@ private:
 };
 
 /**
+ * @todo: Complete doxygen documentation
  * @code{.cpp}
  * void foo( const cumlHandle_impl& h, ... , cudaStream_t stream )
  * {
@@ -152,10 +153,10 @@ namespace
  * @brief Returns a unique_ptr to a Thrust CUDA execution policy that uses the
  * passed in allocator for temporary memory allocation.
  *
- * @Param allocator The allocator to use
- * @Param stream    The stream that the allocator will use
+ * @param[in] allocator The allocator to use
+ * @param[in] stream    The stream that the allocator will use
  *
- * @Returns A Thrust execution policy that will use allocator for temporary memory
+ * @returns A Thrust execution policy that will use allocator for temporary memory
  * allocation.
  */
 inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) -> std::unique_ptr<decltype(thrust::cuda::par(_decltypeHelper)),std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)> >
