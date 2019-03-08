@@ -69,7 +69,6 @@ protected:
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
 		// Set selected rows: all for forest w/ single decision tree
-		unsigned int * selected_rows;
 		allocate(selected_rows, params.n_rows);
 		std::vector<unsigned int> selected_rows_h = {0, 1, 2, 3};
 		selected_rows_h.resize(params.n_rows);
@@ -132,8 +131,9 @@ protected:
 	void TearDown() override {
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(data));
-		delete tree_cf;
+		CUDA_CHECK(cudaFree(selected_rows));
 		delete rf_classifier;
+		//delete tree_cf;
 
 	}
 
@@ -145,9 +145,10 @@ protected:
     int * labels, * predictions;
 	std::vector<T> inference_data_h;
 	std::vector<int> labels_h;
+	unsigned int * selected_rows;
 
 	
-	DecisionTree::DecisionTreeClassifier * tree_cf;
+	//DecisionTree::DecisionTreeClassifier * tree_cf;
     rfClassifier * rf_classifier;
 
 };

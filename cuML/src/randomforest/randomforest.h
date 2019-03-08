@@ -69,7 +69,7 @@ namespace ML {
 			}
 
 			~rf() {
-					delete trees;
+					delete [] trees;
 			}
 
 			int get_ntrees() {
