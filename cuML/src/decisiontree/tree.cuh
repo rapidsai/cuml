@@ -73,8 +73,10 @@ namespace ML {
 			int depth_counter = 0;
 			int maxleaves;
 			int leaf_counter = 0;
-			TemporaryMemory *tempmem;
+			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
+			const int MAXSTREAMS = 8;
+			
 		public:
 			// Expects column major float dataset, integer labels
 			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
@@ -91,11 +93,22 @@ namespace ML {
 				nbins = n_bins;
 				treedepth = maxdepth;
 				maxleaves = max_leaf_nodes;
-				tempmem = new TemporaryMemory(n_sampled_rows);
-				total_temp_mem = tempmem->totalmem;
-			     
+				tempmem.resize(MAXSTREAMS);
+
+				for(int i = 0;i<MAXSTREAMS;i++)
+					{
+						tempmem[i] = new TemporaryMemory(n_sampled_rows);
+						
+					}
+				total_temp_mem = tempmem[0]->totalmem;
+				total_temp_mem *= MAXSTREAMS;
 				root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows);
-				delete tempmem;
+
+				for(int i = 0;i<MAXSTREAMS;i++)
+					{
+						delete tempmem[i];
+					}
+				
 				return;
 			}
 			
@@ -137,9 +150,9 @@ namespace ML {
 				
 				if (condition)
 					{
-						int *sampledlabels = tempmem->sampledlabels;
+						int *sampledlabels = tempmem[0]->sampledlabels;
 						get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
-						node->class_predict = get_class(sampledlabels, n_sampled_rows,tempmem);
+						node->class_predict = get_class(sampledlabels, n_sampled_rows,tempmem[0]);
 						leaf_counter++;
 						if (depth > depth_counter)
 							depth_counter = depth;
@@ -158,60 +171,68 @@ namespace ML {
 			void find_best_fruit(float *data, int *labels, const float colper, Question& ques, float& gain, unsigned int* rowids, const int n_sampled_rows)
 			{
 				gain = 0.0;
-				float *sampledcolumn = tempmem->sampledcolumns;
-				int *sampledlabels = tempmem->sampledlabels;
-				int *leftlabels = tempmem->leftlabels;
-				int *rightlabels = tempmem->rightlabels;
 				
 				// Bootstrap columns
 				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(), colselector.end(), 0);
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
-				
-				get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
-				int *labelptr = sampledlabels;
-				float ginibefore = gini(labelptr, n_sampled_rows, tempmem);
+
+				int *labelptr = tempmem[0] -> sampledlabels;
+				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
+				float ginibefore = gini(labelptr, n_sampled_rows, tempmem[0]);
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
-				
+
+#pragma omp parallel for num_threads(MAXSTREAMS)
 				for (int i=0; i<colselector.size(); i++)
 					{
-					     
-						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows);
-						float *colptr = sampledcolumn;
-						float min = minimum(colptr, n_sampled_rows);
-						float max = maximum(colptr, n_sampled_rows);
+						int streamid = i % MAXSTREAMS;
+						
+						float *sampledcolumn = tempmem[streamid]->sampledcolumns;
+						int *sampledlabels = tempmem[streamid]->sampledlabels;
+						int *leftlabels = tempmem[streamid]->leftlabels;
+						int *rightlabels = tempmem[streamid]->rightlabels;
+
+						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
+						
+						float min = minimum(sampledcolumn, n_sampled_rows);
+						float max = maximum(sampledcolumn, n_sampled_rows);
 						float delta = (max - min)/ nbins ;
 												
 						for (int j=1; j<current_nbins; j++)
 							{
 								float quesval = min + delta*j;
-								float info_gain = evaluate_split(colptr, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows);
+								float info_gain = evaluate_split(sampledcolumn, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows, streamid);
 								if (info_gain == -1.0)
 									continue;
+#pragma omp critical
+								{
+									if (info_gain > gain)
+										{
+											gain = info_gain;
+											ques.value = quesval;
+											ques.column = colselector[i];
+										}
+								}
 								
-								if (info_gain > gain)
-									{
-										gain = info_gain;
-										ques.value = quesval;
-										ques.column = colselector[i];
-									}
 							}
 						
 					}
+				
+				CUDA_CHECK(cudaDeviceSynchronize());
 			}
 			
-			float evaluate_split(float *column, int* labels, int* leftlabels, int* rightlabels, float ginibefore, float quesval, const int nrows)
+			float evaluate_split(float *column, int* labels, int* leftlabels, int* rightlabels, float ginibefore, float quesval, const int nrows,const int streamid)
 			{
 				int lnrows, rnrows;
 				
-				split_labels(column, labels, leftlabels, rightlabels, nrows, lnrows, rnrows, quesval, tempmem);
+				split_labels(column, labels, leftlabels, rightlabels, nrows, lnrows, rnrows, quesval, tempmem[streamid]);
 				
 				if (lnrows == 0 || rnrows == 0)
 					return -1.0;
 				
-				float ginileft = gini(leftlabels, lnrows, tempmem);       
-				float giniright = gini(rightlabels, rnrows, tempmem);
+				float ginileft = gini(leftlabels, lnrows, tempmem[streamid], tempmem[streamid]->stream);       
+				float giniright = gini(rightlabels, rnrows, tempmem[streamid], tempmem[streamid]->stream);
 				
 				
 				float impurity = (lnrows/nrows) * ginileft + (rnrows/nrows) * giniright;
@@ -222,10 +243,10 @@ namespace ML {
 			void split_branch(float *data, const Question ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
-				float *sampledcolumn = tempmem->sampledcolumns;
+				float *sampledcolumn = tempmem[0]->sampledcolumns;
 				
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
-				make_split(sampledcolumn, ques.value, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem);
+				make_split(sampledcolumn, ques.value, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
 				
 				return;
 			}

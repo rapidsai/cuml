@@ -20,14 +20,14 @@
 #include <thrust/sort.h>
 #include "../memory.cuh"
 
-float gini(int *labels_in,const int nrows,const TemporaryMemory* tempmem)
+float gini(int *labels_in,const int nrows,const TemporaryMemory* tempmem,const cudaStream_t stream = 0)
 {
   float gval = 1.0;
   int *labels = tempmem->ginilabels;
   
-  CUDA_CHECK(cudaMemcpy(labels,labels_in,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
+  CUDA_CHECK(cudaMemcpyAsync(labels,labels_in,nrows*sizeof(int),cudaMemcpyDeviceToDevice,stream));
   
-  thrust::sort(thrust::device,labels,labels + nrows);
+  thrust::sort(thrust::cuda::par.on(stream),labels,labels + nrows);
   
   // Declare, allocate, and initialize device-accessible pointers for input and output
   int *d_unique_out = tempmem->d_unique_out;      
@@ -39,15 +39,15 @@ float gini(int *labels_in,const int nrows,const TemporaryMemory* tempmem)
   size_t temp_storage_bytes = tempmem->gini_temp_storage_bytes;
   
   // Run encoding
-  CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
+  CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows, stream));
 
   int num_unique;
-  CUDA_CHECK(cudaMemcpy(&num_unique,d_num_runs_out,sizeof(int),cudaMemcpyDeviceToHost));
+  CUDA_CHECK(cudaMemcpyAsync(&num_unique,d_num_runs_out,sizeof(int),cudaMemcpyDeviceToHost,stream));
 
   int *h_counts_out = (int*)malloc(num_unique*sizeof(int));
 
-  CUDA_CHECK(cudaMemcpy(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
-  CUDA_CHECK(cudaDeviceSynchronize());
+  CUDA_CHECK(cudaMemcpyAsync(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost,stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   
   for(int i=0;i<num_unique;i++)
     {
