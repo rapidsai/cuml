@@ -62,6 +62,7 @@ def test_umap_trustworthiness_on_iris():
     # As a result, our score drops by 0.003.
     assert trust >= 0.967
 
+
 def test_umap_trustworthiness_on_iris_random_init():
     iris = datasets.load_iris()
     data = iris.data
