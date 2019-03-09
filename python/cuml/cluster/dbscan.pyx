@@ -53,11 +53,18 @@ cdef extern from "dbscan/dbscan_c.h" namespace "ML":
 class DBSCAN:
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters where
-    data is concentrated. This allows DBSCAN to generalize to all problems, since in
-    most applications, datapoints tend to congregate in larger groups.
+    data is concentrated. This allows DBSCAN to generalize to many problems if the
+    datapoints tend to congregate in larger groups.
 
     cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph to compute
     the distances between close neighbours.
+    
+    Applications
+    ------------
+    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
+    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
+    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
+    customer segmentation in marketing analyses, and much more.
 
     Examples
     --------
@@ -104,6 +111,11 @@ class DBSCAN:
 
     For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
+    
+    Notes
+    -----
+    DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
+    is that datapoints need to be concentrated in groups for clusters to be constructed.
 
     """
 
