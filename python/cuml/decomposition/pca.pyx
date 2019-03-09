@@ -125,9 +125,16 @@ class PCA:
     Full (default) uses a full eigendecomposition then selects the top K eigenvectors. 
     The Jacobi algorithm is much faster as it iteratively tries to correct the top K eigenvectors,
     but might be less accurate.
+    
+    Applications
+    -------------
+    PCA is used extensively in practice for data visualization and data compression. It has been used
+    to visualize extremely large word embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
+    datasets of everyday objects and images, and used to distinguish between cancerous cells from 
+    healthy cells.
 
     Examples
-    --------
+    ---------
 
     .. code-block:: python
 
@@ -246,6 +253,12 @@ class PCA:
         From Bishop 1999's Textbook. Used in later tasks like calculating the
         estimated covariance of X.
 
+    Notes
+    ------
+    PCA considers linear combinations of features, specifically those that maximise global
+    variance structure. This means PCA is fantastic for global structure analyses, but weak
+    for local relationships. Consider UMAP or T-SNE for a locally important embedding.
+    
     
     For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_. 
     For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
