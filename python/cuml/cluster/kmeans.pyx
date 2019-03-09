@@ -201,8 +201,8 @@ class KMeans:
 
     Notes
     ------
-    KMeans requires a n_clusters to be specified. This means one needs to approximately "guess"
-    how many clusters a dataset has. If one is not sure, one can start with a small number, and 
+    KMeans requires n_clusters to be specified. This means one needs to approximately guess or know
+    how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and 
     visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
     
     
