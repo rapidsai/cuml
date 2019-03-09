@@ -46,8 +46,9 @@ def sample(nDim, nCl, nObs):
     else:
         dt = np.float64
 
-    params = sample_parameters(nDim=nDim, nCl=nCl, dt=dt)
-    X = sample_data(nObs, params, dt)
+    params = sample_parameters(nDim=nDim, nCl=nCl)
+    X = sample_data(nObs, params)
+    params = cast_parameters(params, dtype=dt)
     return X, params
 
 @timer("sklearn")
@@ -65,8 +66,8 @@ def run_sklearn(X, n_iter):
                              precisions_init=None,
                              random_state=None,
                              warm_start=False,
-                             verbose=0,
-                             verbose_interval=10)
+                             verbose=1,
+                             verbose_interval=1)
     gmm.fit(X)
     params = {"mus" : gmm.means_,
               "sigmas" : gmm.covariances_,
@@ -109,12 +110,12 @@ def print_info(true_params, sk_params, cuml_params):
 
 
 if __name__ == '__main__':
-    n_iter = 3
+    n_iter = 2
 
     precision = 'single'
-    nCl = 3
-    nDim = 4000
-    nObs = 100000
+    nCl = 1
+    nDim = 5
+    nObs = 100
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs)
 

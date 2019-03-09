@@ -44,6 +44,7 @@ cdef extern from "hmm/gmm_py.h" nogil:
                        float*,
                        float*,
                        float*,
+                       float*,
                        int,
                        int,
                        int,
@@ -55,6 +56,7 @@ cdef extern from "hmm/gmm_py.h" nogil:
                        int)
 
     cdef void setup_f32(GMM[float]&)
+    cdef void update_llhd_f32(GMM[float]&, bool)
     cdef void update_rhos_f32(GMM[float]&, float*)
     cdef void update_mus_f32(float*, GMM[float]&)
     cdef void update_sigmas_f32(float*, GMM[float]&)
@@ -76,12 +78,22 @@ class GaussianMixture:
             'double': np.float64,
         }[precision]
 
-    def __init__(self, n_components, max_iter, precision='single', seed=False):
+    # TODO : Fix the default values
+    def __init__(self, n_components, tol=1e-03,
+                 reg_covar=1e-06, max_iter=100, init_params="random",
+                 warm_start=False, precision='single'):
         self.precision = precision
         self.dtype = self._get_dtype(precision)
 
         self.n_components = n_components
+        self.tol = tol
         self.max_iter = max_iter
+
+        self._isLog = True
+
+
+    def _update_llhd_diff(self, prev_llhd, curr_llhd):
+        return curr_llhd.copy_to_host() - prev_llhd.copy_to_host()
 
     def step(self):
         cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
@@ -90,6 +102,7 @@ class GaussianMixture:
         cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
         cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
+        cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
 
         cdef int lddx = self.ldd["x"]
         cdef int lddmu = self.ldd["mus"]
@@ -104,7 +117,7 @@ class GaussianMixture:
 
         cdef GMM[float] gmm
 
-
+        prev_llhd = self.cur_llhd
 
         if self.precision == 'single':
             with nogil:
@@ -114,6 +127,7 @@ class GaussianMixture:
                          <float*> _dPis_ptr,
                          <float*> _dPis_inv_ptr,
                          <float*> _dLlhd_ptr,
+                         <float*> _cur_llhd_ptr,
                          <int> lddx,
                          <int> lddmu,
                          <int> lddsigma,
@@ -125,40 +139,53 @@ class GaussianMixture:
                          <int> nObs)
 
                 setup_f32(gmm)
-                # update_rhos_f32(gmm, <float*> _dX_ptr)
+                update_rhos_f32(gmm, <float*> _dX_ptr)
                 update_mus_f32(<float*>_dX_ptr, gmm)
                 update_sigmas_f32(<float*>_dX_ptr, gmm)
                 update_pis_f32(gmm)
+                update_llhd_f32(gmm, self._isLog)
+
+        return self._update_llhd_diff(prev_llhd, self.cur_llhd)
 
     def _initialize_parameters(self, X):
-        self.nObs = X.shape[0]
-        self.nDim = X.shape[1]
-        self.nCl = self.n_components
+        if self.warm_start :
+            try:
+                getattr(self, "nCl")
+            except AttributeError:
+                print("Please run the model a first time")
+        else :
+            self.nObs = X.shape[0]
+            self.nDim = X.shape[1]
+            self.nCl = self.n_components
 
-        self.ldd = {"x" : roundup(self.nDim, RUP_SIZE),
-                    "mus" : roundup(self.nDim, RUP_SIZE),
-                    "sigmas" : roundup(self.nDim, RUP_SIZE),
-                     "llhd" : roundup(self.nCl, RUP_SIZE),
-                    "pis" : roundup(self.nCl, RUP_SIZE),
-                    "inv_pis" : roundup(self.nCl, RUP_SIZE)}
+            self.ldd = {"x" : roundup(self.nDim, RUP_SIZE),
+                        "mus" : roundup(self.nDim, RUP_SIZE),
+                        "sigmas" : roundup(self.nDim, RUP_SIZE),
+                         "llhd" : roundup(self.nCl, RUP_SIZE),
+                        "pis" : roundup(self.nCl, RUP_SIZE),
+                        "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
-        params = sample_parameters(self.nDim, self.nCl, dt=self.dtype)
-        params["llhd"] = sample_matrix(self.nCl, self.nObs, self.dtype, isColNorm=True)
-        params['inv_pis'] = sample_matrix(1, self.nCl, self.dtype, isRowNorm=True)
-        params["x"] = X.T.astype(self.dtype)
+            params = sample_parameters(self.nDim, self.nCl)
+            params["llhd"] = sample_matrix(self.nCl, self.nObs, isColNorm=True)
+            params['inv_pis'] = sample_matrix(1, self.nCl, isRowNorm=True)
+            params["x"] = X.T
 
-        params = align_parameters(params, self.ldd)
-        params = flatten_parameters(params)
-        params = cast_parameters(params ,self.dtype)
+            params = align_parameters(params, self.ldd)
+            params = flatten_parameters(params)
+            params = cast_parameters(params ,self.dtype)
 
-        self.dParams = dict(
-            (key, cuda.to_device(params[key])) for key in self.ldd.keys())
+            self.dParams = dict(
+                (key, cuda.to_device(params[key])) for key in self.ldd.keys())
+
+            self.cur_llhd = cuda.to_device(np.zeros(1, dtype=self.dtype))
 
     def fit(self, X):
         self._initialize_parameters(X)
 
         for _ in range(self.max_iter) :
-            self.step()
+            llhd_dif = self.step()
+            if  self.llhd_dif < self.tol :
+                break
 
     @property
     def means_(self):

@@ -50,10 +50,11 @@ void print_matrix_host(magma_int_t m, magma_int_t n, T *A, magma_int_t lda,
         printf("%s\n", msg.c_str());
 
         for (magma_int_t i=0; i < m; ++i) {
+                printf("[\n");
                 for (magma_int_t j=0; j < n; ++j) {
-                        printf("%f | ", (float) A(i,j));
+                        printf("%f, ", (float) A(i,j));
                 }
-                printf("\n");
+                printf("],\n");
         }
         printf("\n");
 

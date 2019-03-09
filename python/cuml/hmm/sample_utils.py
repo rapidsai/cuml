@@ -15,14 +15,14 @@ def deallign(A, m, n, ldda):
     A = A.reshape((ldda, n), order='F')
     return A[:m, :]
 
-def sample_matrix(m, n, dt, isSymPos=False, isRowNorm=False, isColNorm=False,
-                  coef=10):
-    A = np.random.rand(m, n)
+def sample_matrix(m, n, isSymPos=False, isRowNorm=False, isColNorm=False,
+                  coef=10., epsilon=1e-06):
+    A = np.random.rand(m, n).astype(np.float64)
     A *= coef
 
     if isSymPos:
         assert m == n
-        A = np.matmul(A, A.T)
+        A = np.matmul(A, A.T) + epsilon * np.eye(n)
 
     if isColNorm :
         A /= np.sum(A, axis=0)[None, :]
@@ -30,7 +30,6 @@ def sample_matrix(m, n, dt, isSymPos=False, isRowNorm=False, isColNorm=False,
     if isRowNorm:
         A /= np.sum(A, axis=1)[:, None]
 
-    A = A.astype(dt)
     return A
 
 # def sample_data(nObs, params, dt):
@@ -50,26 +49,26 @@ def sample_matrix(m, n, dt, isSymPos=False, isRowNorm=False, isColNorm=False,
 #     X = np.array([_sample_mixture() for _ in range(nObs)], dtype=dt)
 #     return X
 
-def sample_data(nObs, params, dt):
+def sample_data(nObs, params):
     nCl = params["pis"][0].shape[0]
     counts = np.random.multinomial(nObs, params["pis"][0])
     samples = [np.random.multivariate_normal(params["mus"][idx],
                                              params["sigmas"][idx],
                                              counts[idx])
                for idx in range(nCl)]
-    print(np.linalg.slogdet(params["sigmas"][0]))
+    print(params["sigmas"][0].dtype)
+    print(np.linalg.eig(params["sigmas"][0]))
     X = np.concatenate(samples)
-    X = X.astype(dt)
     return X
 
-def sample_parameters(nDim, nCl, dt):
-    mus = sample_matrix(nCl, nDim, dt, isSymPos=False)
+def sample_parameters(nDim, nCl):
+    mus = sample_matrix(nCl, nDim, isSymPos=False)
 
-    sigmas = [sample_matrix(nDim, nDim, dt, isSymPos=True)
+    sigmas = [sample_matrix(nDim, nDim, isSymPos=True)
               for _ in range(nCl)]
-    sigmas = np.array(sigmas)
+    sigmas = np.array(sigmas, dtype=np.float64)
 
-    pis = sample_matrix(1, nCl, dt, False)
+    pis = sample_matrix(1, nCl, False)
     pis /= np.sum(pis)
 
     return {"mus" : mus,

@@ -3,11 +3,10 @@ import time
 def timer(name):
     def timer_decorator(func):
         def timed_fun(*args, **kwargs):
-            print(name)
             start = time.time()
             return_values = func(*args, **kwargs)
             end = time.time()
-            print("Elapsed time : ", end - start, "\n")
+            print("\n Elapsed time for ", name, " : ",  end - start, "\n")
             return return_values
         return timed_fun
     return timer_decorator

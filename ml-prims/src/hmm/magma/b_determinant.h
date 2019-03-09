@@ -13,12 +13,13 @@ void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
                          T* dDet_array, magma_int_t batchCount, int numThreads){
         int idxThread = threadIdx.x + blockDim.x * blockIdx.x;
         for (size_t i = idxThread; i < batchCount; i+=numThreads) {
-                dDet_array[i] = 1;
+                dDet_array[i] = 0;
                 for (size_t j = 0; j < n; j++) {
-                        dDet_array[i] *= dU_array[i][IDX(j, j, lddu)];
+                        printf("%f\n", (float) dU_array[i][IDX(j, j, lddu)]);
+                        dDet_array[i] += std::log(std::abs(dU_array[i][IDX(j, j, lddu)]));
+                        printf("%f\n", (float) std::log(dU_array[i][IDX(j, j, lddu)]));
                 }
-                // TODO : ADD square for Cholesky
-                // dDet_array[i] *= dDet_array[i];
+                dDet_array[i] = std::exp(dDet_array[i]);
         }
 }
 
@@ -49,7 +50,6 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
 
         copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
 
-        // Getting errors with getrf but getting the same results as numpy
         magma_getrf_batched(n, n, dA_array_cpy, ldda,
                             dipiv_array, info_array, batchCount, queue);
 
