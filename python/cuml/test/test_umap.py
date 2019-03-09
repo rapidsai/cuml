@@ -51,6 +51,17 @@ def test_umap_transform_on_iris():
     assert trust >= 0.90
 
 
+def test_umap_trustworthiness_on_iris():
+    iris = datasets.load_iris()
+    data = iris.data
+    embedding = UMAP(n_neighbors=10, min_dist=0.01).fit_transform(data)
+    trust = trustworthiness(iris.data, embedding, 10)
+
+    # We are doing a spectral embedding but not a
+    # multi-component layout (which is marked experimental).
+    # As a result, our score drops by 0.003.
+    assert trust >= 0.967
+
 def test_umap_trustworthiness_on_iris_random_init():
     iris = datasets.load_iris()
     data = iris.data
