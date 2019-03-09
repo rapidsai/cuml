@@ -63,7 +63,7 @@ if(DEBUG)
 endif()
 # Generate optimized binary for every known arch
 if(NOT GPU_ARCHS)
-  set(GPU_ARCHS "35;50;52;60;61")
+  set(GPU_ARCHS "60;61")
   # NOTE: NOTE: Add more 'if's for every new arch release!
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
