@@ -60,14 +60,14 @@ class DBSCAN:
     the distances between close neighbours.
     
     Applications
-    ------------
+    -------------
     DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
     it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
     DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
     customer segmentation in marketing analyses, and much more.
 
     Examples
-    --------
+    ---------
 
     .. code-block:: python
             
@@ -96,7 +96,7 @@ class DBSCAN:
             2    2
 
     Parameters
-    ----------
+    -----------
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same neighborhood.
     min_samples : int (default = 5)
@@ -104,19 +104,18 @@ class DBSCAN:
         an important core point (including the point itself).
 
     Attributes
-    ----------
+    -----------
     labels_ : array
         Which cluster each datapoint belongs to. Noisy samples are labeled as -1.
 
-
-    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
-    For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
-    
     Notes
-    -----
+    ------
     DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
     is that datapoints need to be concentrated in groups for clusters to be constructed.
-
+    
+    
+    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
+    For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
     def __init__(self, eps=0.5, min_samples=5):
