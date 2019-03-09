@@ -96,6 +96,12 @@ class KMeans:
     cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
     method is more stable than randomnly selecting K points.
     
+    Applications
+    -------------
+    The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
+    first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
+    approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
+    
     Examples
     --------
 
@@ -193,9 +199,14 @@ class KMeans:
     labels_ : array
         Which cluster each datapoint belongs to.    
 
-
+    Notes
+    ------
+    KMeans requires a n_clusters to be specified. This means one needs to approximately "guess"
+    how many clusters a dataset has. If one is not sure, one can start with a small number, and 
+    visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
+    
+    
     For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
-
     """
 
     def __init__(self, n_clusters=8, max_iter=300, tol=1e-4, verbose=0, random_state=1, precompute_distances='auto', init='kmeans++', n_init=1, algorithm='auto', n_gpu=1, gpu_id=0):
