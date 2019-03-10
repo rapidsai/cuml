@@ -29,7 +29,7 @@ namespace UMAPAlgo {
 
             using namespace ML;
 
-            void check(nvgraphStatus_t status) {
+            void NVGRAPH_CHECK(nvgraphStatus_t status) {
                 if (status != NVGRAPH_STATUS_SUCCESS) {
                     printf("ERROR : %d\n",status);
                     exit(0);
@@ -49,7 +49,7 @@ namespace UMAPAlgo {
 
                 nvgraphHandle_t handle;
                 cudaDataType_t edge_dimT = CUDA_R_32F;
-                check(nvgraphCreate (&handle));
+                NVGRAPH_CHECK(nvgraphCreate (&handle));
 
                 /**
                  * Convert COO to CSR
@@ -72,7 +72,7 @@ namespace UMAPAlgo {
                 CSR_input->nvertices = n;
                 CSR_input->source_offsets = src_offsets;
 
-                check(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
+                NVGRAPH_CHECK(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
                         &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
                 /**
@@ -98,15 +98,15 @@ namespace UMAPAlgo {
                 clustering_params.kmean_max_iter = 1;
 
                 nvgraphGraphDescr_t graph;
-                check(nvgraphCreateGraphDescr(handle, &graph));
-                check(nvgraphSetGraphStructure(handle, graph, (void*)CSR_input, NVGRAPH_CSR_32));
-                check(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
-                check(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
+                NVGRAPH_CHECK(nvgraphCreateGraphDescr(handle, &graph));
+                NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph, (void*)CSR_input, NVGRAPH_CSR_32));
+                NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
+                NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
-                check(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, clustering, eigVals, embedding));
+                NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, clustering, eigVals, embedding));
 
-                check(nvgraphDestroyGraphDescr(handle, graph));
-                check(nvgraphDestroy(handle));
+                NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
+                NVGRAPH_CHECK(nvgraphDestroy(handle));
 
                 CUDA_CHECK(cudaFree(src_offsets));
                 CUDA_CHECK(cudaFree(dst_indices));

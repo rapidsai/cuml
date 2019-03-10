@@ -29,7 +29,6 @@
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
 - PR #275: Kmeans use of faster gpu_matrix
->>>>>>> branch-0.6
 
 ## Bug Fixes
 
