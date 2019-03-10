@@ -26,9 +26,6 @@ import ctypes
 
 from cuml import numba_utils
 
-
-from librmm_cffi import librmm as rmm
-from cython.operator cimport dereference as deref
 from numba import cuda
 
 from libcpp cimport bool
