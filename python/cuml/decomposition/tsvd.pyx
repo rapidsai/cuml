@@ -98,13 +98,16 @@ class TruncatedSVD:
     Full (default) uses a full eigendecomposition then selects the top K singular vectors. 
     The Jacobi algorithm is much faster as it iteratively tries to correct the top K singular
     vectors, but might be less accurate.
-
+    
+    Applications
+    -------------
     TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
     word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
-    same as TruncatedPCA.
+    same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
+    systems and data compression.
 
     Examples
-    --------
+    ---------
 
     .. code-block:: python
             
@@ -163,7 +166,7 @@ class TruncatedSVD:
         2  5.000001 0.9999999 1.0000004
 
     Parameters
-    ----------
+    -----------
     n_components : int (default = 1)
         The number of top K singular vectors / values you want. Must be <= number(columns).
     algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
@@ -178,7 +181,7 @@ class TruncatedSVD:
         If you want results to be the same when you restart Python, select a state.
 
     Attributes
-    ----------
+    -----------
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
     explained_variance_ : array
@@ -188,6 +191,12 @@ class TruncatedSVD:
     singular_values_ : array
         The top K singular values. Remember all singular values >= 0
 
+    Notes
+    ------
+    TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number of components
+    you want is much smaller than the number of features. The approximation to the largest
+    singular values and vectors is very robust, however, this method loses a lot of accuracy
+    when you want many many components.
 
     For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_. 
     For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
