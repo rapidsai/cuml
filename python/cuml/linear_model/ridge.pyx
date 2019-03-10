@@ -81,9 +81,15 @@ class Ridge:
     cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to
     fit a linear model. SVD is more stable, but Eig (default) is much more faster. CD uses
     Coordinate Descent and can be faster if the data is large.
+    
+    Applications
+    -------------
+    Ridge Regression is used in the same way as LinearRegression, but is used more frequently
+    as it does not suffer from multicollinearity issues. Ridge is used in insurance premium
+    prediction, stock market analysis and much more.
 
     Examples
-    --------
+    ---------
 
     .. code-block:: python
 
@@ -134,7 +140,7 @@ class Ridge:
                     1 14.999999
 
     Parameters
-    ----------
+    -----------
     alpha : float or double
         Regularization strength - must be a positive float. Larger values specify
         stronger regularization. Array input will be supported later.
@@ -150,11 +156,17 @@ class Ridge:
         If False, no scaling will be done.
 
     Attributes
-    ----------
+    -----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
+        
+    Notes
+    ------
+    Ridge provides L2 regularization. This means that the coefficients can shrink to become
+    very very small, but not zero. This can cause issues of interpretabiliy on the coefficients.
+    Consider using Lasso, or thresholding small coefficients to zero.
 
 
     For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
