@@ -56,17 +56,20 @@ cdef extern from "knn/knn.h" namespace "ML":
 cdef class NearestNeighbors:
     """
 
-    KNN or K-Nearest-Neighbors is a unsupervised algorithm where if one wants
-    to find the "closest" datapoint(s) to new unseen data, one can calculate
-    a suitable "distance" between each and every point, and return the datapoints
-    which have the smallest distance to it.
-
-    Applications of KNN include recommendation systems where content or colloborative
-    filtering is used.
-
-    cuML's KNN expects a cuDF DataFrame, and fits a special data structure first to
+    NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
+    datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
+    each and every point, and return the top K datapoints which have the smallest distance to it.
+    
+    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic chunking will be done
+    in to a Numpy Array in a future release), and fits a special data structure first to
     approximate the distance calculations, allowing our querying times to be O(plogn)
     and not the brute force O(np) [where p = no(features)]:
+    
+    Applications
+    -------------
+    Applications of NearestNeighbors include recommendation systems where content or colloborative
+    filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
+    used in data visualization and regression / classification tasks.
 
     .. code-block:: python
 
@@ -126,15 +129,20 @@ cdef class NearestNeighbors:
       1                 0.0                 1.0                 1.0
       2                 0.0                 1.0                 2.0
 
-     Parameters
+    Parameters
     ----------
+    n_neighbors: int (default = 5)
+        The top K closest datapoints you want the algorithm to return. If this number is large,
+        then expect the algorithm to run slower.
     should_downcast : bool (default = False)
         Currently only single precision is supported in the underlying undex. Setting this to
         true will allow single-precision input arrays to be automatically downcasted to single
         precision. Default = False.
-
-    For an additional example see `the KNN notebook <github.com/rapidsai/notebooks/blob/master/cuml/knn_demo.ipynb>`_.
-    For additional docs, see `scikitlearn's KDtree <http://scikit-learn.org/stable/modules/generated/sklearn.neighbors.KDTree.html#sklearn.neighbors.KDTree>`_.
+        
+    Notes
+    ------
+    NearestNeighbors is a generative model. This means the data X has to be stored in order
+    for inference to occur.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
@@ -164,6 +172,9 @@ cdef class NearestNeighbors:
 
         Parameters
         ----------
+        n_neighbors: int (default = 5)
+            The top K closest datapoints you want the algorithm to return. If this number is large,
+            then expect the algorithm to run slower.
         should_downcast: Bool
             Currently only single precision is supported in the underlying undex. Setting this to
             true will allow single-precision input arrays to be automatically downcasted to single
