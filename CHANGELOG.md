@@ -1,3 +1,18 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+- PR #277: Added row- and column-wise weighted mean primitive
+
+## Improvements
+
+- PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+
+## Bug Fixes
+
+...
+
+
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
@@ -28,6 +43,7 @@
 - PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 
