@@ -27,35 +27,37 @@
  * Implementation of the quasi newton C api
  */
 
-namespace ML{
-namespace GLM{
+namespace ML {
+namespace GLM {
 
 template <typename T, typename LossFunction>
-int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N,
+int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0, // initial value and result
-           T *fx, int *num_iters, STORAGE_ORDER ordX) {
+           T *fx, int *num_iters, STORAGE_ORDER ordX, cudaStream_t stream) {
 
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
   opt_param.max_iterations = max_iter;
   opt_param.m = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
-  SimpleVec<T> w(w0, loss->n_param);
+  SimpleVec<T> w(w0, loss.n_param);
 
   if (l2 == 0) {
-    GLMWithData<T, LossFunction> lossWith(loss, Xptr, yptr, zptr, N, ordX);
+    GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity,
+                       stream);
 
   } else {
 
     Tikhonov<T> reg(l2);
-    RegularizedGLM<T, LossFunction, decltype(reg)> obj(loss, &reg);
+    RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity,
+                       stream);
   }
 }
 
@@ -67,16 +69,21 @@ void cuml_glm_fit_logistic_qn_d(double *X, double *y, int N, int D,
                                 int verbosity, double *w0, double *f,
                                 int *num_iters, bool X_col_major) {
 
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef double Real;
   typedef LogisticLoss<Real> LossFunction;
 
-  LossFunction loss(D, fit_intercept);
+  LossFunction loss(D, fit_intercept, cublas);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
 void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
@@ -86,16 +93,21 @@ void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
                                 int verbosity, float *w0, float *f,
                                 int *num_iters, bool X_col_major) {
 
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef float Real;
   typedef LogisticLoss<Real> LossFunction;
 
-  LossFunction loss(D, fit_intercept);
+  LossFunction loss(D, fit_intercept, cublas);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
 void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
@@ -104,16 +116,22 @@ void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
                               int linesearch_max_iter, int lbfgs_memory,
                               int verbosity, double *w0, double *f,
                               int *num_iters, bool X_col_major) {
+
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef double Real;
   typedef SquaredLoss<Real> LossFunction;
 
-  LossFunction loss(D, fit_intercept);
+  LossFunction loss(D, fit_intercept, cublas);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
 void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D,
@@ -122,16 +140,22 @@ void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D,
                               int linesearch_max_iter, int lbfgs_memory,
                               int verbosity, float *w0, float *f,
                               int *num_iters, bool X_col_major) {
+
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef float Real;
   typedef SquaredLoss<Real> LossFunction;
 
-  LossFunction loss(D, fit_intercept);
+  LossFunction loss(D, fit_intercept, cublas);
   SimpleVecOwning<Real> z(N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
 void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
@@ -140,16 +164,22 @@ void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
                                int linesearch_max_iter, int lbfgs_memory,
                                int verbosity, double *w0, double *f,
                                int *num_iters, bool X_col_major) {
+
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef double Real;
   typedef Softmax<Real> LossFunction;
 
-  LossFunction loss(D, C, fit_intercept);
+  LossFunction loss(D, C, fit_intercept, cublas);
   SimpleMatOwning<Real> z(C, N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
 void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
@@ -158,17 +188,23 @@ void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
                                int linesearch_max_iter, int lbfgs_memory,
                                int verbosity, float *w0, float *f,
                                int *num_iters, bool X_col_major) {
+
+  // TODO this will come from the cuml handle
+  cublasHandle_t cublas;
+  cublasCreate(&cublas);
+  cudaStream_t stream = 0;
+
   typedef float Real;
   typedef Softmax<Real> LossFunction;
 
-  LossFunction loss(D, C, fit_intercept);
+  LossFunction loss(D, C, fit_intercept, cublas);
   SimpleMatOwning<Real> z(C, N); // TODO this allocation somewhere else?
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  qn_fit<Real, LossFunction>(&loss, X, y, z.data, N, fit_intercept, l1, l2,
+  qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
 }
 
-};
-};
+}; // namespace GLM
+}; // namespace ML

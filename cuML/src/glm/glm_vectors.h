@@ -54,7 +54,7 @@ template <typename T> struct SimpleMat {
   inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
                           const bool transA, const SimpleMat<T> &B,
                           const bool transB, const T beta,
-                          cublasHandle_t &cublas) {
+                          const cublasHandle_t &cublas) {
 
     int kA = A.n;
     int kB = B.m;
