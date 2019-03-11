@@ -436,12 +436,12 @@ namespace UMAPAlgo {
                 MLCommon::allocate(ccols, n_compressed_nonzeros, true);
                 MLCommon::allocate(cvals, n_compressed_nonzeros, true);
 
-                MLCommon::coo_remove_zeros<TPB_X, T>(n*k*2,
+                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(n*k*2,
                         orows, ocols, ovals,
                         crows, ccols, cvals,
                         rnnz, n);
 
-                MLCommon::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
+                MLCommon::Sparse::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
 
                 nnz[0] = n_compressed_nonzeros;
 
