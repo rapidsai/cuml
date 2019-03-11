@@ -31,7 +31,7 @@ namespace GLM {
 
 template <typename T>
 inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
-                      const SimpleMat<T> &W, cublasHandle_t &cublas,
+                      const SimpleMat<T> &W, const cublasHandle_t &cublas,
                       cudaStream_t stream = 0) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
@@ -57,7 +57,7 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
 template <typename T>
 inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
                       const SimpleMat<T> &dZ, bool setZero,
-                      cublasHandle_t &cublas, cudaStream_t stream = 0) {
+                      const cublasHandle_t &cublas, cudaStream_t stream = 0) {
   // Backward pass:
   // - compute G <- dZ * X.T
   // - for bias: Gb = mean(dZ, 1)
@@ -95,11 +95,15 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  cublasHandle_t cublas;
+  // TODO This might change once cumlHandle is available
+  // Option 1: cublas handle still here
+  // Option 2: full cuml handle here
+  // Option 3: no handle here. Replace all streams in function calls with cuml
+  // handle
+  const cublasHandle_t &cublas;
 
-  GLMBase(int D, int C, bool fit_intercept) : GLMDims(C, D, fit_intercept) {
-    cublasCreate(&cublas);
-  }
+  GLMBase(int D, int C, bool fit_intercept, const cublasHandle_t &cublas)
+      : GLMDims(C, D, fit_intercept), cublas(cublas) {}
 
   /*
    * Computes the following:

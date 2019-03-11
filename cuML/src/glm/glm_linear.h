@@ -28,8 +28,8 @@ template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   typedef GLMBase<T, SquaredLoss<T>> Super;
 
-  SquaredLoss(int D, bool has_bias)
-      : Super(D, 1, has_bias) {}
+  SquaredLoss(int D, bool has_bias, const cublasHandle_t & cublas)
+      : Super(D, 1, has_bias, cublas) {}
 
   inline __device__ T lz(const T y, const T z) const {
     T diff = y - z;

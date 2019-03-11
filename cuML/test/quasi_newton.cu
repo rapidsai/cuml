@@ -11,10 +11,10 @@ namespace ML {
 namespace GLM {
 
 template <typename T, typename LossFunction>
-int qn_fit(LossFunction *loss, T *Xptr, T *yptr, T *zptr, int N, bool has_bias,
-           T l1, T l2, int max_iter, T grad_tol, 
-           int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
-           T *fx, int *num_iters, STORAGE_ORDER ordX);
+int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N, bool has_bias,
+           T l1, T l2, int max_iter, T grad_tol, int linesearch_max_iter,
+           int lbfgs_memory, int verbosity, T *w0, T *fx, int *num_iters,
+           STORAGE_ORDER ordX, cudaStream_t stream);
 
 using namespace MLCommon;
 
@@ -26,7 +26,11 @@ struct QuasiNewtonTest : ::testing::Test {
   const static double tol;
   const static double X[N][D];
   cublasHandle_t cublas;
-  void SetUp() { cublasCreate(&cublas); }
+  cudaStream_t stream;
+  void SetUp() {
+    cublasCreate(&cublas);
+    stream = 0;
+  }
   void TearDown() {}
 };
 
@@ -86,7 +90,7 @@ template <class T> struct DevUpload {
 
 template <typename T, class LossFunction>
 T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
-      T *w, SimpleMat<T> &z, int verbosity = 0) {
+      T *w, SimpleMat<T> &z, int verbosity = 0, cudaStream_t stream = 0) {
 
   int max_iter = 100;
   T grad_tol = 1e-8;
@@ -97,11 +101,10 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(&loss, devUpload.devX.data, devUpload.devY.data,
-                          z.data, in.n_row, loss.fit_intercept, l1, l2,
-                          max_iter, grad_tol, 
-                          linesearch_max_iter, lbfgs_memory, verbosity, w0.data,
-                          &fx, &num_iters, ROW_MAJOR);
+  qn_fit<T, LossFunction>(
+      loss, devUpload.devX.data, devUpload.devY.data, z.data, in.n_row,
+      loss.fit_intercept, l1, l2, max_iter, grad_tol, linesearch_max_iter,
+      lbfgs_memory, verbosity, w0.data, &fx, &num_iters, ROW_MAJOR, stream);
 
   return fx;
 }
@@ -116,8 +119,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   in.n_col = 2;
   double alpha = 0.01;
 
-  LogisticLoss<double> loss_b(in.n_col, true);
-  LogisticLoss<double> loss_no_b(in.n_col, false);
+  LogisticLoss<double> loss_b(in.n_col, true, cublas);
+  LogisticLoss<double> loss_no_b(in.n_col, false, cublas);
 
   SimpleVecOwning<double> w0(in.n_col + 1);
   SimpleVecOwning<double> z(in.n_row);
@@ -132,7 +135,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l1_b[0], &b_l1_b, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
@@ -144,7 +147,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = 0;
   l2 = alpha;
-  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
 
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l2_b[0], &b_l2_b, w0.data, 1, in.n_col,
@@ -156,7 +159,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l1_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
@@ -167,7 +170,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = 0;
   l2 = alpha;
-  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l2_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
@@ -192,15 +195,15 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   SimpleMatOwning<double> z(C, in.n_row);
   SimpleVecOwning<double> w0(C * (in.n_col + 1));
 
-  Softmax<double> loss_b(in.n_col, C, true);
-  Softmax<double> loss_no_b(in.n_col, C, false);
+  Softmax<double> loss_b(in.n_col, C, true, cublas);
+  Softmax<double> loss_no_b(in.n_col, C, false, cublas);
 
   l1 = alpha;
   l2 = 0.0;
   in.fit_intercept = true;
   double obj_l1_b = 0.5407911382311313;
 
-  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
   l1 = 0.0;
@@ -208,7 +211,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   in.fit_intercept = true;
   double obj_l2_b = 0.5721784062720949;
 
-  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   l1 = alpha;
@@ -216,7 +219,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   in.fit_intercept = false;
   double obj_l1_no_b = 0.6606929813245878;
 
-  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
   l1 = 0.0;
@@ -225,7 +228,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 
   double obj_l2_no_b = 0.6597171282106854;
 
-  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z);
+  fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
@@ -245,8 +248,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   DevUpload<double> devUpload(in, &X[0][0], &y[0], cublas);
   SimpleVecOwning<double> w0(in.n_col + 1);
   SimpleVecOwning<double> z(in.n_row);
-  SquaredLoss<double> loss_b(in.n_col, true);
-  SquaredLoss<double> loss_no_b(in.n_col, false);
+  SquaredLoss<double> loss_b(in.n_col, true, cublas);
+  SquaredLoss<double> loss_no_b(in.n_col, false, cublas);
 
   in.fit_intercept = true;
   l1 = alpha;

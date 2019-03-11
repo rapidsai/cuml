@@ -172,7 +172,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 template <typename T>
 inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
                           const op_pseudo_grad<T> &pseudo_grad,
-                          const int pg_limit, SimpleVec<T> &pseudo, cudaStream_t stream) {
+                          const int pg_limit, SimpleVec<T> &pseudo,
+                          cudaStream_t stream) {
   if (grad.len > pg_limit) {
     pseudo = grad;
     SimpleVec<T> mask(pseudo.data, pg_limit);
@@ -224,7 +225,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   op_project<T> project_neg(T(-1.0));
 
   auto f_wrap = [&f, &l1_penalty, &pg_limit,
-                 &stream](SimpleVec<T> &x, SimpleVec<T> &grad, T * dev_scalar, cudaStream_t stream = 0) {
+                 &stream](SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
+                          cudaStream_t stream = 0) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
@@ -238,7 +240,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   // op to compute the pseudo gradients
   op_pseudo_grad<T> pseudo_grad(l1_penalty);
 
-  fx = f_wrap(x, grad, dev_scalar, stream); // fx is loss+regularizer, grad is grad of loss only
+  fx = f_wrap(x, grad, dev_scalar,
+              stream); // fx is loss+regularizer, grad is grad of loss only
 
   // compute pseudo grad, but don't overwrite grad: used to build H
   // pseudo.assign_binary(x, grad, pseudo_grad);
@@ -314,8 +317,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 template <typename T, typename LossFunction>
 inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                        LossFunction &loss, const T l1,
-                       const LBFGSParam<T> &opt_param,
-                       const int verbosity = 0) {
+                       const LBFGSParam<T> &opt_param, const int verbosity = 0,
+                       cudaStream_t stream = 0) {
 
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
@@ -328,17 +331,17 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    verbosity);
+                    verbosity, stream);
 
     if (verbosity > 0)
       printf("L-BFGS Done\n");
-  } else { 
-      // There might not be a better way to deal with dispatching
-      // for the l1 case:
-      // The algorithm explicitely expects a differentiable 
-      // function f(x). It takes care of adding and
-      // handling the term l1norm(x) * l1_pen explicitely, i.e.
-      // it needs to evaluate f(x) and its gradient separately
+  } else {
+    // There might not be a better way to deal with dispatching
+    // for the l1 case:
+    // The algorithm explicitely expects a differentiable
+    // function f(x). It takes care of adding and
+    // handling the term l1norm(x) * l1_pen explicitely, i.e.
+    // it needs to evaluate f(x) and its gradient separately
 
     SimpleVecOwning<T> workspace(owlqn_workspace_size(opt_param, x.len));
 
@@ -349,7 +352,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    verbosity);
+                    verbosity, stream);
 
     if (verbosity > 0)
       printf("OWL-QN Done\n");
