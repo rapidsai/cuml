@@ -38,6 +38,49 @@ namespace ML {
 		CLASSIFICATION, REGRESSION,
 	};
 
+	/* Update labels so they are unique from 0 to n_unique_vals. 
+   		Create an old_label to new_label map per random forest.
+	*/
+	void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false) {
+	
+		std::pair<std::map<int, int>::iterator, bool> ret;
+		int n_unique_labels = 0;
+	
+		if (verbose) std::cout << "Preprocessing labels\n";
+		for (int i = 0; i < n_rows; i++) {
+	  				ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
+	  				if (ret.second) {
+				n_unique_labels += 1;
+			}
+			if (verbose) std::cout << "Mapping " << labels[i] << " to ";
+			labels[i] = ret.first->second; //Update labels **IN-PLACE**
+			if (verbose) std::cout << labels[i] << std::endl;
+		}
+		if (verbose) std::cout << "Finished preprocessing labels\n";
+	
+	}
+
+
+	/* Revert preprocessing effect, if needed. */
+	void postprocess_labels(int n_rows, std::vector<int> labels, std::map<int, int> & labels_map, bool verbose=false) {
+	
+		if (verbose) std::cout << "Postrocessing labels\n";
+		std::map<int, int>::iterator it;
+		int n_unique_cnt = labels_map.size();
+		std::vector<int> reverse_map;
+		reverse_map.resize(n_unique_cnt);
+		for (auto it = labels_map.begin(); it != labels_map.end(); it++) {
+			reverse_map[it->second] = it->first;
+		}
+	
+		for (int i = 0; i < n_rows; i++) {
+			if (verbose) std::cout << "Mapping " << labels[i] << " back to " << reverse_map[labels[i]] << std::endl;
+			labels[i] = reverse_map[labels[i]];
+		}
+		if (verbose) std::cout << "Finished postrocessing labels\n";
+	}
+
+
 	class rf {
 		protected:
 			int n_trees, n_bins, rf_type;
@@ -112,12 +155,15 @@ namespace ML {
 						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) 
 					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {};
 
+
         /** 
          * Fit an RF classification model on input data with n_rows samples and n_cols features.
          * @param input			data array in col major format for now (device ptr)
          * @param n_rows		number of training data rows
          * @param n_cols		number of features (i.e, columns)
-         * @param labels		list of target features (device ptr)
+         * @param labels		list of target features (device ptr).
+								Assumption: labels were preprocessed to map to ascending numbers from 0;
+							    needed for current gini impl in decision tree
         */
 		void fit(float * input, int n_rows, int n_cols, int * labels) {
 
@@ -165,6 +211,7 @@ namespace ML {
 				CUDA_CHECK(cudaFree(selected_rows));
 
 			}
+
 		}	
 
 

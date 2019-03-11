@@ -43,6 +43,7 @@ template<typename T>
 	return os;
 }
 
+
 template<typename T>
 class RfTest: public ::testing::TestWithParam<RfInputs<T> > {
 protected:
@@ -66,6 +67,7 @@ protected:
 		// Populate labels
 		labels_h = {0, 1, 0, 4};
 		labels_h.resize(params.n_rows);
+		ML::preprocess_labels(params.n_rows, labels_h, labels_map);
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
 		// Set selected rows: all for forest w/ single decision tree
@@ -92,7 +94,7 @@ protected:
 		inference_data_h.resize(inference_data_len);
 
 		//ML::RF_metrics rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
-		
+
 # if  0
 		int single_tree_inference_data_len = params.n_cols;
 		std::vector<T> single_tree_inference_data_h = {30.0f, 20.0f};
@@ -129,12 +131,13 @@ protected:
 	}
 
 	void TearDown() override {
+		ML::postprocess_labels(params.n_rows, labels_h, labels_map);
+
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(data));
 		CUDA_CHECK(cudaFree(selected_rows));
 		delete rf_classifier;
 		//delete tree_cf;
-
 	}
 
 protected:
@@ -146,6 +149,7 @@ protected:
 	std::vector<T> inference_data_h;
 	std::vector<int> labels_h;
 	unsigned int * selected_rows;
+	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
 
 	
 	//DecisionTree::DecisionTreeClassifier * tree_cf;
@@ -165,6 +169,7 @@ const std::vector<RfInputs<float> > inputsf2 = {
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
 	//ASSERT_TRUE(devArrMatch(labels, predictions, predictions.size(), Compare<int>())); // using train set as test
+	//ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	ASSERT_TRUE((tmp.accuracy == 1.0f));
 }
