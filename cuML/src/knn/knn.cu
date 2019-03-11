@@ -69,7 +69,6 @@ namespace ML {
 				this->indices += 1;
 
 				auto gpu_res = new faiss::gpu::StandardGpuResources();
-//				gpu_res->setTempMemory(params->N*D*4);
 
 				res.emplace_back(gpu_res);
 
