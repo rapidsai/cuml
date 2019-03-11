@@ -2,6 +2,7 @@
 
 ## New Features
 - PR #235: NearestNeighbors MG Support
+- PR #290: NearestNeighbors numpy MG Support
 
 
 ## Improvements
