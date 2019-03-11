@@ -40,8 +40,10 @@ struct CompareApprox {
   CompareApprox(T eps_) : eps(eps_) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(a - b);
+    std::cout << "diff: " << diff << std::endl;
     T m = std::max(abs(a), abs(b));
     T ratio = m >= eps ? diff / m : diff;
+
     return (ratio <= eps);
   }
 

@@ -265,7 +265,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ex_scan, n, true);
 
         // COO should be sorted by row at this point- we get the counts and then normalize
-        MLCommon::coo_row_count<TPB_X, T><<<grid_nnz, blk>>>(graph_rows, nnz, ia, n);
+        MLCommon::Sparse::coo_row_count<TPB_X, T><<<grid_nnz, blk>>>(graph_rows, nnz, ia, n);
 
         thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
         thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
@@ -274,7 +274,7 @@ namespace UMAPAlgo {
         T *vals_normed;
         MLCommon::allocate(vals_normed, nnz, true);
 
-         MLCommon::csr_row_normalize_l1<TPB_X, T><<<grid_n, blk>>>(dev_ex_scan.get(), graph_vals, nnz,
+         MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T><<<grid_n, blk>>>(dev_ex_scan.get(), graph_vals, nnz,
                  n, vals_normed);
 
         init_transform<TPB_X, T><<<grid_n,blk>>>(graph_cols, vals_normed, n,
@@ -286,7 +286,7 @@ namespace UMAPAlgo {
 
         reset_vals<TPB_X><<<grid_n,blk>>>(ia, n);
 
-        MLCommon::coo_row_count_nz<TPB_X, T><<<grid_nnz,blk>>>(graph_rows, graph_vals, nnz, ia, n);
+        MLCommon::Sparse::coo_row_count_nz<TPB_X, T><<<grid_nnz,blk>>>(graph_rows, graph_vals, nnz, ia, n);
 
         /**
          * Go through COO values and set everything that's less than
@@ -328,7 +328,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ccols, non_zero_vals, true);
         MLCommon::allocate(cvals, non_zero_vals, true);
 
-        MLCommon::coo_remove_zeros<TPB_X, T>(nnz,
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(nnz,
                 graph_rows, graph_cols, graph_vals,
                 crows, ccols, cvals,
                 ia, n);

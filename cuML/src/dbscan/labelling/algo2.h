@@ -28,10 +28,21 @@
 
 namespace Dbscan {
 namespace Label {
+
+/**
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel.
+ *
+ * todo: This might also be reusable as a more generalized connected component
+ * labeling algorithm.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ */
 namespace Algo2 {
 
 using namespace thrust;
 using namespace MLCommon;
+
 
 template <typename Type, int TPB_X>
 __global__ void label_device(Pack<Type> data, int startVertexId, int batchSize) {
