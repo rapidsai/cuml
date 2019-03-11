@@ -8,7 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, 
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -25,11 +25,12 @@
 #include <vector>
 #include <algorithm>
 #include <numeric>
+#include <map>
 
 
 namespace ML {
 	namespace DecisionTree {
-		
+
 		struct Question
 		{
 			int column;
@@ -40,7 +41,7 @@ namespace ML {
 		{
 			TreeNode *left = NULL;
 			TreeNode *right = NULL;
-			int class_predict;  
+			int class_predict; 
 			Question question;
 			void print(std::ostream& os)
 			{
@@ -76,9 +77,12 @@ namespace ML {
 			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 8;
+			int n_unique_labels = -1; // number of unique labels in dataset
 			
 		public:
 			// Expects column major float dataset, integer labels
+			// data, labels are both device ptr.
+			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
 			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
 			{
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, maxdepth, max_leaf_nodes, colper, n_bins);
@@ -102,7 +106,8 @@ namespace ML {
 					}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
-				root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows);
+				GiniInfo split_info;
+				root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 
 				for(int i = 0;i<MAXSTREAMS;i++)
 					{
@@ -133,13 +138,15 @@ namespace ML {
 			}
 
 		private:
-			TreeNode* grow_tree(float *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows)
+			TreeNode* grow_tree(float *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info)
 			{
 				TreeNode *node = new TreeNode();
 				Question ques;
 				float gain = 0.0;
-				
-				find_best_fruit(data, labels, colper, ques, gain, rowids, n_sampled_rows);  //ques and gain are output here
+				GiniInfo split_info[3]; // basis, left, right. Populate this
+				split_info[0] = prev_split_info;
+
+				find_best_fruit(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 				bool condition = (gain == 0.0);
 				
 				if (treedepth != -1)
@@ -162,13 +169,14 @@ namespace ML {
 						int nrowsleft, nrowsright;
 						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids);
 						node->question = ques;
-						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft);
-						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright);
+						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
+						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
 					}
 				return node;
 			}
 			
-			void find_best_fruit(float *data, int *labels, const float colper, Question& ques, float& gain, unsigned int* rowids, const int n_sampled_rows)
+			/* depth is used to distinguish between root and other tree nodes for computations */
+			void find_best_fruit(float *data, int *labels, const float colper, Question& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
 				gain = 0.0;
 				
@@ -178,14 +186,20 @@ namespace ML {
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
 
-				int *labelptr = tempmem[0] -> sampledlabels;
+				int *labelptr = tempmem[0]->sampledlabels;
 				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
-				float ginibefore = gini(labelptr, n_sampled_rows, tempmem[0]);
+				// Optimize ginibefore; no need to compute except for root.
+				if (depth == 0) {
+					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
+				}
+				float ginibefore = split_info[0].best_gini;
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 
 #pragma omp parallel for num_threads(MAXSTREAMS)
 				for (int i=0; i<colselector.size(); i++)
 					{
+						GiniInfo local_split_info[3];
+						local_split_info[0] = split_info[0];
 						int streamid = i % MAXSTREAMS;
 						
 						float *sampledcolumn = tempmem[streamid]->sampledcolumns;
@@ -202,7 +216,7 @@ namespace ML {
 						for (int j=1; j<current_nbins; j++)
 							{
 								float quesval = min + delta*j;
-								float info_gain = evaluate_split(sampledcolumn, labelptr, leftlabels, rightlabels, ginibefore, quesval, n_sampled_rows, streamid);
+								float info_gain = evaluate_split(sampledcolumn, labelptr, leftlabels, rightlabels, ginibefore, quesval, &local_split_info[0], n_sampled_rows, streamid);
 								if (info_gain == -1.0)
 									continue;
 #pragma omp critical
@@ -212,6 +226,7 @@ namespace ML {
 											gain = info_gain;
 											ques.value = quesval;
 											ques.column = colselector[i];
+											for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 										}
 								}
 								
@@ -222,7 +237,7 @@ namespace ML {
 				CUDA_CHECK(cudaDeviceSynchronize());
 			}
 			
-			float evaluate_split(float *column, int* labels, int* leftlabels, int* rightlabels, float ginibefore, float quesval, const int nrows,const int streamid)
+			float evaluate_split(float *column, int* labels, int* leftlabels, int* rightlabels, float ginibefore, float quesval, GiniInfo split_info[3], const int nrows, const int streamid)
 			{
 				int lnrows, rnrows;
 				
@@ -231,11 +246,14 @@ namespace ML {
 				if (lnrows == 0 || rnrows == 0)
 					return -1.0;
 				
-				float ginileft = gini(leftlabels, lnrows, tempmem[streamid], tempmem[streamid]->stream);       
-				float giniright = gini(rightlabels, rnrows, tempmem[streamid], tempmem[streamid]->stream);
+				gini(leftlabels, lnrows, tempmem[streamid], split_info[1], n_unique_labels, tempmem[streamid]->stream);
+				//gini(rightlabels, rnrows, tempmem[streamid], split_info[2], n_unique_labels, tempmem[streamid]->stream);
+				// Compute giniright from the histograms of parent and parent's left node. Currently CPU only.
+				gini_right_node(rnrows, split_info[0], split_info[1], split_info[2], n_unique_labels, tempmem[streamid]->stream);
+				ASSERT((ginibefore == split_info[0].best_gini), "ginibefore %f best gini %f  mismatch", ginibefore, split_info[0].best_gini);
 				
-				
-				float impurity = (lnrows/nrows) * ginileft + (rnrows/nrows) * giniright;
+				//ginileft is split_info[1].best_gini and giniright is split_info[2].best_gini	
+				float impurity = (lnrows/nrows) * split_info[1].best_gini + (rnrows/nrows) * split_info[2].best_gini;
 				
 				return (ginibefore - impurity);
 			}
@@ -255,11 +273,11 @@ namespace ML {
 			int classify(const float * row, TreeNode * node, bool verbose=false) {
 				Question q = node->question;
 				if (node->left && (row[q.column] <= q.value)) {
-					if (verbose) 
+					if (verbose)
 						std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
 					return classify(row, node->left, verbose);
 				} else if (node->right && (row[q.column] > q.value)) {
-					if (verbose) 
+					if (verbose)
 						std::cout << "Classifying Right @ node w/ column " << q.column << " and value " << q.value << std::endl;
 					return classify(row, node->right, verbose);
 				} else {
@@ -290,4 +308,4 @@ namespace ML {
 		
 	} //End namespace DecisionTree
 	
-} //End namespace ML 
+} //End namespace ML

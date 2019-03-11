@@ -120,6 +120,8 @@ int main(int argc, char **argv) {
 		- n_bins
 	*/
 
+	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
+
 	if (argc != 12) {
 		cout << "Error! 11 args are needed\n";
 		return 0;
@@ -138,6 +140,9 @@ int main(int argc, char **argv) {
 
 	// Populate labels and data
 	parse_csv(params.n_cols, h_higgs_data, h_higgs_labels, params.n_rows, inference_data, inference_labels, params.n_inference_rows, params.test_is_train); //last arg makes test same as training
+
+	//Preprocess labels 
+	ML::preprocess_labels(params.n_rows, h_higgs_labels, labels_map);
 
 	updateDevice(higgs_data, h_higgs_data.data(), higgs_data_len);
 	updateDevice(higgs_labels, h_higgs_labels.data(), params.n_rows);
@@ -158,14 +163,20 @@ int main(int argc, char **argv) {
 		std::cout << "Random forest predicted " << predictions[i] << std::endl;
 	}*/
 
+	ML::postprocess_labels(params.n_rows, h_higgs_labels, labels_map);
+	ML::preprocess_labels(params.n_inference_rows, inference_labels, labels_map); //use same map as labels
+
 	cout << "Will start testing\n";
-	rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), params.n_inference_rows, params.n_cols, false);
+	ML::RF_metrics metrics = rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), params.n_inference_rows, params.n_cols, false);
+	metrics.print();
+
+	ML::postprocess_labels(params.n_inference_rows, inference_labels, labels_map); 
 
 	cout << "Free memory\n";
 	CUDA_CHECK(cudaFree(higgs_data));
 	CUDA_CHECK(cudaFree(higgs_labels));
 	delete rf_classifier;
-	
+
 
 #if 0
 	RF_inputs params(4, 2, 3, 1.0f, 1.0f, 4, 8, -1, true);
