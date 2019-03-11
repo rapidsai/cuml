@@ -28,6 +28,7 @@ add_executable(mlcommon_test
   cuda_utils.cu
   coo.cu
   cov.cu
+  csr.cu
   decoupled_lookback.cu
   distance.cu
   # distance_adj.cu
