@@ -5,7 +5,7 @@ namespace MLCommon {
     namespace Sparse {
         template<int TPB_X, typename T>
         __global__ void csr_row_normalize_l1(
-                int *ia,    // csr row counts (sorted by row)
+                int *ia,    // csr row ex_scan (sorted by row)
                 T *vals, int nnz,  // array of values and number of non-zeros
                 int m,          // num rows in csr
                 T *result) {    // output array
@@ -27,14 +27,15 @@ namespace MLCommon {
                     sum = sum + vals[j];
                 }
 
-                for(int j = start_idx; j < stop_idx; j++)
+                for(int j = start_idx; j < stop_idx; j++) {
                     if(sum > 0.0) {
                         T val = vals[j];
                         result[j] = val / sum;
-
                     }
-                    else
+                    else {
                         result[j] = 0.0;
+                    }
+                }
             }
         }
     }

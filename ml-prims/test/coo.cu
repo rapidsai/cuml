@@ -178,6 +178,7 @@ TEST_P(COORowCount, Result) {
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
     coo_row_count<32, float><<<grid, blk>>>(in_rows, 5, results, 5);
+    cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
 
@@ -207,6 +208,7 @@ TEST_P(COORowCountNonzero, Result) {
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
     coo_row_count_nz<32, float><<<grid, blk>>>(in_rows, in_vals, 5, results, 5);
+    cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
 
@@ -226,3 +228,5 @@ INSTANTIATE_TEST_CASE_P(COOTests, COORowCount,
 
 INSTANTIATE_TEST_CASE_P(COOTests, COORowCountNonzero,
                         ::testing::ValuesIn(inputsf));
+}
+}

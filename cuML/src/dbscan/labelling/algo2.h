@@ -43,7 +43,6 @@ namespace Algo2 {
 using namespace thrust;
 using namespace MLCommon;
 
-
 template <typename Type, int TPB_X>
 __global__ void label_device(Pack<Type> data, int startVertexId, int batchSize) {
     int tid = threadIdx.x + blockIdx.x*TPB_X;
