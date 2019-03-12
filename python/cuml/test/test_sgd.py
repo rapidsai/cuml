@@ -27,4 +27,3 @@ def test_svd(datatype, lrate, input_type, penalty, loss):
     cu_sgd.fit(X, y)
     cu_pred = cu_sgd.predict(pred_data).to_array()
     print("cuML predictions : ", cu_pred)
-
