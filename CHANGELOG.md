@@ -8,6 +8,7 @@
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 - PR #303: Reusable spectral embedding / clustering
+- PR #271: Initial support for hyperparameter optimization with dask for many models
 
 ## Improvements
 
