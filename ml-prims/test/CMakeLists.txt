@@ -60,7 +60,14 @@ add_executable(mlcommon_test
   sum.cu
   svd.cu
   transpose.cu
-  unary_op.cu)
+  unary_op.cu
+  hinge.cu
+  linearReg.cu
+  log.cu
+  logisticReg.cu
+  penalty.cu
+  sigmoid.cu
+  )
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}
