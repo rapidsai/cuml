@@ -22,6 +22,7 @@
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
 #include "memory.cuh"
+#include "Timer.h"
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -78,7 +79,7 @@ namespace ML {
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 8;
 			int n_unique_labels = -1; // number of unique labels in dataset
-			
+			double construct_time;
 		public:
 			// Expects column major float dataset, integer labels
 			// data, labels are both device ptr.
@@ -107,8 +108,10 @@ namespace ML {
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
 				GiniInfo split_info;
+				Timer timer;
 				root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
-
+				construct_time = timer.getElapsedSeconds();
+				
 				for(int i = 0;i<MAXSTREAMS;i++)
 					{
 						delete tempmem[i];
@@ -127,7 +130,8 @@ namespace ML {
 			void print_tree_summary()
 			{
 				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
-				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;				
+				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
+				std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
 			}
 
 			// Printing utility for debug and looking at nodes and leaves.
