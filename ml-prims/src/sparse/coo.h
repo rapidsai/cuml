@@ -286,7 +286,7 @@ namespace MLCommon {
          * Converts a knn graph into a COO format.
          */
         template<typename T>
-        void from_knn_graph(long *knn_indices, T *knn_dists, int m, int k,
+        void from_knn(long *knn_indices, T *knn_dists, int m, int k,
                 int *rows, int *cols, T *vals) {
 
             dim3 grid(ceildiv(m, 32), 1, 1);
