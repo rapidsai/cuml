@@ -21,4 +21,7 @@ namespace ML {
     void spectral_fit_clusters(float *X, int m, int n, int n_neighbors,
             int n_clusters, float eigen_tol, int *out);
 
+    void spectral_fit_embedding(float *X, int m, int n,
+                    int n_neighbors, int n_components,
+                    float *out);
 }

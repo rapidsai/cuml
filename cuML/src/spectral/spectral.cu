@@ -24,4 +24,10 @@ namespace ML {
         Spectral::fit_clusters<float>(X, m, n, n_neighbors, n_clusters,  eigen_tol, out);
     }
 
+    void spectral_fit_embedding(float *X, int m, int n,
+                    int n_neighbors, int n_components,
+                    float *out) {
+        Spectral::fit_embedding<float>(X, m, n, n_neighbors, n_components, out);
+    }
+
 }
