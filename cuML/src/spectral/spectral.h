@@ -124,8 +124,6 @@ namespace ML {
             MLCommon::Sparse::from_knn_graph(knn_indices, knn_dists, m, n_neighbors,
                     rows, cols, vals);
 
-            std::cout << MLCommon::arr2Str(out, m, "out") << std::endl;
-
             fit_clusters(rows, cols, vals, m*n_neighbors, m, n_clusters, eigen_tol, out);
 
             CUDA_CHECK(cudaFree(rows));
@@ -149,7 +147,6 @@ namespace ML {
             kNNParams params[1];
             params[0].N = m;
             params[0].ptr = X;
-
 
             knn->fit(*&params, 1);
             knn->search(X, m, knn_indices, knn_dists, n_neighbors);

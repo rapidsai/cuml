@@ -75,12 +75,60 @@ class SpectralClustering:
     For additional docs, see `Scikitlearn's SpectralClustering <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.SpectralClustering.html>`_.
     """
 
-    def __init__(self, n_clusters = 8, n_neighbors = 10, eigen_tol = 0.01):
+    def _downcast(self, X):
+
+        if isinstance(X, cudf.DataFrame):
+            dtype = np.dtype(X[X.columns[0]]._column.dtype)
+
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
+
+            if dtype != np.float32:
+                if self._should_downcast:
+
+                    new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+
+                    if overflowed > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                    X = cudf.DataFrame(new_cols)
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+            X = numba_utils.row_matrix(X)
+        elif isinstance(X, np.ndarray):
+            dtype = X.dtype
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
+
+            if dtype != np.float32:
+                if self._should_downcast:
+                    X = X.astype(np.float32)
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+
+                else:
+                    raise Exception("Input is double precision. Use 'should_downcast=True' "
+                                    "if you'd like it to be automatically casted to single precision.")
+
+            X = cuda.to_device(X)
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+        return X
+
+
+    def __init__(self, n_clusters = 8, n_neighbors = 10, eigen_tol = 0.01,
+                 should_downcast = True):
         self.n_clusters = n_clusters
         self.n_neighbors = n_neighbors
         self.eigen_tol = eigen_tol
         self.labels_ = None
         self.labels_array = None
+        self._should_downcast = should_downcast
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -107,24 +155,9 @@ class SpectralClustering:
         if self.labels_array is not None:
             del self.labels_array
 
-        cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
+        X_m = self._downcast(X)
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_ctype_ptr(X_m)
+        cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
 
