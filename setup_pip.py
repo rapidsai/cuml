@@ -39,6 +39,8 @@ install_requires = [
     'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
+exc_list = ['cuml/linear_model/linear_regression_spmg.pyx',
+            'cuml/decomposition/tsvd_spmg.pyx']
 
 cython_files = ['python/cuml/*/*.pyx']
 
@@ -81,7 +83,8 @@ setup(name=name,
       license='Apache 2.0',
       install_requires=install_requires,
       python_requires='>=3.6,<3.8',
-      ext_modules=cythonize(extensions),
+      ext_modules=cythonize(extensions,
+                            exclude=exc_list),
       cmdclass={
           'build_ext': CMakeBuildExt,
           'install_headers': InstallHeaders
