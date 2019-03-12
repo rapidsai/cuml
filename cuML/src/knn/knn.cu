@@ -116,15 +116,20 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-        #pragma omp parallel
-		{
-            #pragma omp for
+//        #pragma omp parallel
+//		{
+//            #pragma omp for
 		    for(int i = 0; i < indices; i++) {
-                std::cout << "Searching index " << i << std::endl;
+
+		        if(this->verbose)
+		            std::cout << "Searching index " << i << std::endl;
                 this->sub_indices[i]->search(n, search_items, k,
                         all_D+(i*k*n), all_I+(i*k*n));
 		    }
-		}
+//		}
+//
+		if(this->verbose)
+		    std::cout << "Done searching." << std::endl;
 
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());

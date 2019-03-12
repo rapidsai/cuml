@@ -68,8 +68,8 @@ namespace ML {
             int weight_index = 0;
 
             float *eigVals, *embedding;
-            MLCommon::allocate(eigVals, n_clusters);
-            MLCommon::allocate(embedding, n*n_clusters);
+            MLCommon::allocate(eigVals, n_clusters, true);
+            MLCommon::allocate(embedding, n*n_clusters, true);
 
             // Spectral clustering parameters
             struct SpectralClusteringParameter clustering_params;
@@ -88,8 +88,14 @@ namespace ML {
             NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
             NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
-                    &clustering_params, out, eigVals, embedding));
+            NVGRAPH_CHECK(nvgraphSpectralClustering(handle,
+                    graph,
+                    weight_index,
+                    &clustering_params,
+                    out,
+                    eigVals,
+                    embedding
+            ));
 
             NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
             NVGRAPH_CHECK(nvgraphDestroy(handle));
@@ -117,6 +123,8 @@ namespace ML {
 
             MLCommon::Sparse::from_knn_graph(knn_indices, knn_dists, m, n_neighbors,
                     rows, cols, vals);
+
+            std::cout << MLCommon::arr2Str(out, m, "out") << std::endl;
 
             fit_clusters(rows, cols, vals, m*n_neighbors, m, n_clusters, eigen_tol, out);
 
@@ -209,7 +217,7 @@ namespace ML {
             NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
             NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
-                    &clustering_params, labels, eigVals, out));
+                    &clustering_params, labels, eigVals, (void*)out));
 
             NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
             NVGRAPH_CHECK(nvgraphDestroy(handle));

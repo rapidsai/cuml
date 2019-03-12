@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-#pragma once
+#include "spectral.h"
+#include "spectral_c.h"
 
 namespace ML {
 
     void spectral_fit_clusters(float *X, int m, int n, int n_neighbors,
-            int n_clusters, float eigen_tol, int *out);
+            int n_clusters, float eigen_tol, int *out) {
+        Spectral::fit_clusters<float>(X, m, n, n_neighbors, n_clusters,  eigen_tol, out);
+    }
 
 }

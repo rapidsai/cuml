@@ -16,6 +16,7 @@
 
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
+from cuml.cluster.spectral import SpectralClustering
 
 from cuml.decomposition.pca import PCA
 from cuml.decomposition.tsvd import TruncatedSVD

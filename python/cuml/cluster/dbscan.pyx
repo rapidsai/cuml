@@ -163,7 +163,7 @@ class DBSCAN:
 
             Returns
             -------
-            y : cuDF Series, shape (n_samples)
+            labels : cuDF Series, shape (n_samples)
               cluster labels
         """
         self.fit(X)

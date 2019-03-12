@@ -191,7 +191,8 @@ add_library(cuml SHARED
             src/common/cumlHandle.cpp
             src/common/cuml_api.cpp
             src/umap/umap.cu
-	    src/solver/solver.cu
+		    src/solver/solver.cu
+		    src/spectral/spectral.cu
             )
 
 set(CUML_LINK_LIBRARIES 

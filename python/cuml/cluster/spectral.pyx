@@ -33,8 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 from sklearn.utils.fixes import signature
 from collections import defaultdict
 
-cdef extern from "spectral/spectral.h" namespace "ML":
-
+cdef extern from "spectral/spectral_c.h" namespace "ML":
 
     cdef void spectral_fit_clusters(float *X,
                    int n_rows,
@@ -45,8 +44,6 @@ cdef extern from "spectral/spectral.h" namespace "ML":
                    int *out)
 
 
-
-
 class SpectralClustering:
     """
     Create a DataFrame, fill it with data, and compute spectral clusters:
@@ -54,7 +51,7 @@ class SpectralClustering:
     .. code-block:: python
 
             import cudf
-            from cuml import DBSCAN
+            from cuml.cluster.spectral import SpectralClustering
             import numpy as np
 
             gdf_float = cudf.DataFrame()
@@ -74,15 +71,16 @@ class SpectralClustering:
             1    1
             2    2
 
-    For an additional example, see `the SpectralClustering notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
-
+    For an additional example, see `the SpectralClustering notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/spectral_clustering_demo.ipynb>`_.
+    For additional docs, see `Scikitlearn's SpectralClustering <https://scikit-learn.org/stable/modules/generated/sklearn.cluster.SpectralClustering.html>`_.
     """
 
-    def __init__(self, n_clusters = 8, n_neighbors = 10, eigen_tol = 0.0):
+    def __init__(self, n_clusters = 8, n_neighbors = 10, eigen_tol = 0.01):
         self.n_clusters = n_clusters
         self.n_neighbors = n_neighbors
         self.eigen_tol = eigen_tol
         self.labels_ = None
+        self.labels_array = None
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -122,18 +120,19 @@ class SpectralClustering:
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
-
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        print("n_rows: "+ str(self.n_rows))
-
         input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+
+        print(str(self.labels_))
+
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
+
         spectral_fit_clusters(<float*>input_ptr,
                            <int> self.n_rows,
                            <int> self.n_cols,
@@ -155,7 +154,7 @@ class SpectralClustering:
 
             Returns
             -------
-            y : cuDF Series, shape (n_samples)
+            labels : cuDF Series, shape (n_samples)
               cluster labels
         """
         self.fit(X)
@@ -169,12 +168,11 @@ class SpectralClustering:
             params[key] = var_value
         return params
 
-
-
     def set_params(self, **params):
         if not params:
             return self
-        current_params = {"eps": self.eps,"min_samples":self.min_samples}
+        current_params = {"n_clusters": self.n_clusters,"n_neighbors":self.n_neighbors,
+                          "eigen_tol": self.eigen_tol}
         for key, value in params.items():
             if key not in current_params:
                 raise ValueError('Invalid parameter for estimator')
