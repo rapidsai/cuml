@@ -11,7 +11,6 @@ namespace ML {
 
     namespace Spectral {
 
-
         void NVGRAPH_CHECK(nvgraphStatus_t status) {
             if (status != NVGRAPH_STATUS_SUCCESS) {
                 printf("ERROR : %d\n",status);
@@ -170,6 +169,8 @@ namespace ML {
             int weight_index = 0;
 
             float *eigVals;
+            int *labels;
+            MLCommon::allocate(labels, n);
             MLCommon::allocate(eigVals, n_components);
 
             // Spectral clustering parameters
@@ -188,7 +189,7 @@ namespace ML {
             NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
             NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, out, eigVals, out));
+            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, labels, eigVals, out));
 
             NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
             NVGRAPH_CHECK(nvgraphDestroy(handle));
