@@ -128,8 +128,6 @@ class SpectralClustering:
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
 
-        print(str(self.labels_))
-
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
 
