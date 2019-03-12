@@ -33,27 +33,23 @@ from libc.stdlib cimport calloc, malloc, free
 from sklearn.utils.fixes import signature
 from collections import defaultdict
 
-cdef extern from "spectral/spectral.h" namespace "ML::Spectral":
+cdef extern from "spectral/spectral.h" namespace "ML":
 
 
-    cdef void fit_clusters(float *input,
+    cdef void spectral_fit_clusters(float *X,
                    int n_rows,
                    int n_cols,
-                   float eps,
-                   int min_pts,
-                   int *labels)
-
-    cdef void dbscanFit(double *input,
-                   int n_rows,
-                   int n_cols,
-                   double eps,
-                   int min_pts,
-                   int *labels)
+                   int n_neighbors,
+                   int n_clusters,
+                   float eigen_tol,
+                   int *out)
 
 
-class DBSCAN:
+
+
+class SpectralClustering:
     """
-    Create a DataFrame, fill it with data, and compute DBSCAN:
+    Create a DataFrame, fill it with data, and compute spectral clusters:
 
     .. code-block:: python
 
@@ -66,9 +62,9 @@ class DBSCAN:
             gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
             gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
 
-            dbscan_float = DBSCAN(eps=1.0, min_samples=1)
-            dbscan_float.fit(gdf_float)
-            print(dbscan_float.labels_)
+            spectral_cluster = SpectralClustering()
+            spectral_cluster.fit(gdf_float)
+            print(spectral_cluster.labels_)
 
     Output:
 
@@ -78,15 +74,15 @@ class DBSCAN:
             1    1
             2    2
 
-    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
+    For an additional example, see `the SpectralClustering notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
 
     """
 
-    def __init__(self, eps=0.5, min_samples=5):
-        self.eps = eps
-        self.min_samples = min_samples
+    def __init__(self, n_clusters = 8, n_neighbors = 10, eigen_tol = 0.0):
+        self.n_clusters = n_clusters
+        self.n_neighbors = n_neighbors
+        self.eigen_tol = eigen_tol
         self.labels_ = None
-        self.labels_array = None
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -99,7 +95,7 @@ class DBSCAN:
 
     def fit(self, X):
         """
-            Perform DBSCAN clustering from features or distance matrix.
+            Perform SpectralClustering clustering from features.
 
             Parameters
             ----------
@@ -138,21 +134,13 @@ class DBSCAN:
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
-        print(hex(labels_ptr))
-        if self.gdf_datatype.type == np.float32:
-            dbscanFit(<float*>input_ptr,
-                               <int> self.n_rows,
-                               <int> self.n_cols,
-                               <float> self.eps,
-                               <int> self.min_samples,
-		               <int*> labels_ptr)
-        else:
-            dbscanFit(<double*>input_ptr,
-                               <int> self.n_rows,
-                               <int> self.n_cols,
-                               <double> self.eps,
-                               <int> self.min_samples,
-		               <int*> labels_ptr)
+        spectral_fit_clusters(<float*>input_ptr,
+                           <int> self.n_rows,
+                           <int> self.n_cols,
+                           <int> self.n_neighbors,
+                           <int> self.n_clusters,
+                           <float> self.eigen_tol,
+                           <int*> labels_ptr)
         del(X_m)
         return self
 
