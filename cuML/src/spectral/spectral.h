@@ -11,12 +11,12 @@ namespace ML {
 
     namespace Spectral {
 
-        void NVGRAPH_CHECK(nvgraphStatus_t status) {
-            if (status != NVGRAPH_STATUS_SUCCESS) {
-                printf("ERROR : %d\n",status);
-                exit(0);
-            }
-        }
+        #define NVGRAPH_CHECK(call)  \
+            do { \
+                nvgraphStatus_t status = call; \
+                ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s'\n", #call); \
+            } while(0)
+
 
         template<typename T>
         void fit_clusters(int *rows, int *cols, T *vals, int nnz,
