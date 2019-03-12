@@ -38,6 +38,7 @@
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #312: Last minute cleanup before release
 
 ## Bug Fixes
 
