@@ -33,6 +33,7 @@ from cuml.utils.pointer_utils import device_of_gpu_matrix
 from cuml.solvers.sgd import SGD
 
 from cuml.manifold.umap import UMAP
+from cuml.manifold.spectral import SpectralEmbedding
 
 from ._version import get_versions
 __version__ = get_versions()['version']

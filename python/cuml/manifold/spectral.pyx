@@ -77,7 +77,7 @@ class SpectralEmbedding:
 
     """
 
-    def __init__(self, n_components=2, n_neighbors = 10, should_downcast):
+    def __init__(self, n_components=2, n_neighbors = 10, should_downcast = True):
         self.n_components = n_components
         self.n_neighbors = n_neighbors
         self.embedding_ = None
@@ -158,7 +158,7 @@ class SpectralEmbedding:
         cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
 
         self.embedding_array_ = cuda.to_device(
-            np.zeros((X_m.n_rows,
+            np.zeros((self.n_rows,
                       self.n_components),
                       order = "C",
                       dtype=np.float32))
@@ -168,7 +168,7 @@ class SpectralEmbedding:
         spectral_fit_embedding(<float*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
-                               <float> self.n_neighbors,
+                               <int> self.n_neighbors,
                                <int> self.n_components,
                                <float*> embedding_ptr)
 
@@ -182,7 +182,7 @@ class SpectralEmbedding:
         del(X_m)
         return self
 
-    def fit_predict(self, X):
+    def fit_transform(self, X):
         """
             Performs clustering on input_gdf and returns cluster labels.
 

@@ -15,3 +15,4 @@
 #
 
 from cuml.manifold.umap import UMAP
+from cuml.manifold.spectral import SpectralEmbedding
