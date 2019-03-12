@@ -189,6 +189,7 @@ add_library(cuml SHARED
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
             src/umap/umap.cu
+	    src/solver/solver.cu
             )
 
 set(CUML_LINK_LIBRARIES 
