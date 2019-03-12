@@ -112,11 +112,15 @@ void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,con
 	int *d_num_selected_out = tempmem->d_num_selected_out;
 	
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows, tempmem->stream);
-	CUDA_CHECK(cudaMemcpyAsync(&leftnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
-
+	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_left_rows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
+	
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows, tempmem->stream);
-
-	CUDA_CHECK(cudaMemcpyAsync(&rightnrows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
+	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_right_rows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
+	
+	
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	leftnrows = tempmem->h_left_rows[0];
+	rightnrows = tempmem->h_right_rows[0];
 	return;
 }
 

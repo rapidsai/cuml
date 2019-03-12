@@ -34,48 +34,48 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniI
 {
 	float gval = 1.0;
 	int *labels = tempmem->ginilabels;
-
+	
 	CUDA_CHECK(cudaMemcpyAsync(labels, labels_in, nrows*sizeof(int), cudaMemcpyDeviceToDevice, stream));
-
 	thrust::sort(thrust::cuda::par.on(stream), labels, labels + nrows);
-
+	
+	
 	// Declare,  allocate,  and initialize device-accessible pointers for input and output
 	int *d_unique_out = tempmem->d_unique_out;
 	int *d_counts_out = tempmem->d_counts_out;
 	int *d_num_runs_out = tempmem->d_num_runs_out;    
-
+	
 	// Determine temporary device storage requirements
 	void     *d_temp_storage = tempmem->d_gini_temp_storage;
 	size_t temp_storage_bytes = tempmem->gini_temp_storage_bytes;
 
 	// Run encoding
 	CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage,  temp_storage_bytes,  labels,  d_unique_out,  d_counts_out,  d_num_runs_out,  nrows,  stream));
+	
+	int *num_unique = tempmem->h_num_runs_out;
+	CUDA_CHECK(cudaMemcpyAsync(num_unique, d_num_runs_out, sizeof(int), cudaMemcpyDeviceToHost, stream));
 
-	int num_unique;
-	CUDA_CHECK(cudaMemcpyAsync(&num_unique, d_num_runs_out, sizeof(int), cudaMemcpyDeviceToHost, stream));
-
-	int *h_counts_out = (int*)malloc(num_unique * sizeof(int));
-	int *h_unique_out = (int*)malloc(num_unique * sizeof(int));
-
-	CUDA_CHECK(cudaMemcpyAsync(h_counts_out, d_counts_out, num_unique*sizeof(int), cudaMemcpyDeviceToHost, stream));
-	CUDA_CHECK(cudaMemcpyAsync(h_unique_out, d_unique_out, num_unique*sizeof(int), cudaMemcpyDeviceToHost, stream));
+	int *h_counts_out = tempmem->h_counts_out;
+	int *h_unique_out = tempmem->h_unique_out;
+	CUDA_CHECK(cudaStreamSynchronize(stream));
+	
+	CUDA_CHECK(cudaMemcpyAsync(h_counts_out, d_counts_out, (*num_unique)*sizeof(int), cudaMemcpyDeviceToHost, stream));
+	CUDA_CHECK(cudaMemcpyAsync(h_unique_out, d_unique_out, (*num_unique)*sizeof(int), cudaMemcpyDeviceToHost, stream));
 	CUDA_CHECK(cudaStreamSynchronize(stream));
 
 	if (unique_labels == -1) {
-		unique_labels = num_unique; //only updated for root
+		unique_labels = *num_unique; //only updated for root
 	}
 
 	split_info.hist.resize(unique_labels, 0);
-	for(int i=0; i < num_unique; i++) {
+	for(int i=0; i < *num_unique; i++) {
 		//split_info.hist.insert(std::pair<int, int>(h_unique_out[i], h_counts_out[i])); //update gini hist
 		split_info.hist[h_unique_out[i]] = h_counts_out[i]; //update_gini_hist
 		float prob = ((float)h_counts_out[i]) / nrows;
 		gval -= prob*prob; 
 	}
+	
 	split_info.best_gini = gval; //Update gini val
-
-	free(h_counts_out);
-	free(h_unique_out);
+	return;
 }
 
 /* Compute gini info from parent and left node histograms. On CPU for now. */ 
@@ -89,5 +89,5 @@ void gini_right_node(const int nrows, GiniInfo & parent_info, GiniInfo & left_no
 		gval -= prob*prob; 
 	}
 	right_node_info.best_gini = gval;
-
+	return;
 }

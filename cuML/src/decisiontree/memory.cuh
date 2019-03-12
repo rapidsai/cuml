@@ -28,12 +28,12 @@ struct TemporaryMemory
 
 	//Below are for gini & get_class functions
 	int *ginilabels;
-	int *d_unique_out;      
-	int *d_counts_out;      
-	int *d_num_runs_out;    
+	int *d_unique_out, *h_unique_out;      
+	int *d_counts_out, *h_counts_out;      
+	int *d_num_runs_out, *h_num_runs_out;    
   	void *d_gini_temp_storage = NULL;
 	size_t gini_temp_storage_bytes = 0;
-
+	
 	//Below pointers are shared for split functions
 	char *d_flags_left;
 	char *d_flags_right;
@@ -41,14 +41,18 @@ struct TemporaryMemory
 	size_t split_temp_storage_bytes = 0;
 	int *d_num_selected_out;
 	int *temprowids;
-
+	int *h_left_rows, *h_right_rows;
+	
 	//Total temp mem
 	size_t totalmem = 0;
 
 	//CUDA stream
 	cudaStream_t stream;
+
+	//For min max;
+	float *h_min, *h_max;
 	
-	TemporaryMemory(int N)
+	TemporaryMemory(int N,int maxstr)
 	{
 		CUDA_CHECK(cudaMalloc((void**)&leftlabels,N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&rightlabels,N*sizeof(int)));
@@ -66,20 +70,35 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out),sizeof(int)));
 		CUDA_CHECK(cudaMalloc(&d_gini_temp_storage, gini_temp_storage_bytes));
 
+		CUDA_CHECK(cudaMallocHost((void**)(&h_unique_out),N*sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)(&h_counts_out),N*sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)(&h_num_runs_out),sizeof(int)));
+	
 		totalmem += gini_temp_storage_bytes + sizeof(int) + 3*N*sizeof(int);
 		
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, ginilabels, d_flags_left, ginilabels,d_num_selected_out, N);
 		
-		CUDA_CHECK(cudaMalloc(&d_split_temp_storage, split_temp_storage_bytes));
-		CUDA_CHECK(cudaMalloc(&d_num_selected_out,sizeof(int)));
-		CUDA_CHECK(cudaMalloc(&d_flags_left,N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc(&d_flags_right,N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc(&temprowids,N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
+		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out,sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&d_flags_left,N*sizeof(char)));
+		CUDA_CHECK(cudaMalloc((void**)&d_flags_right,N*sizeof(char)));
+		CUDA_CHECK(cudaMalloc((void**)&temprowids,N*sizeof(int)));
 
+		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows,sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows,sizeof(int)));
+		
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char);
 
-		CUDA_CHECK(cudaStreamCreate(&stream));
+		//for min max
+		CUDA_CHECK(cudaMallocHost((void**)&h_min,sizeof(float)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_max,sizeof(float)));
+		
+		//Create Streams
+		if(maxstr == 1)
+			stream = 0;
+		else
+			CUDA_CHECK(cudaStreamCreate(&stream));
 	}
 	void print_info()
 	{
@@ -92,6 +111,9 @@ struct TemporaryMemory
 		cudaFree(d_unique_out);
 		cudaFree(d_counts_out);
 		cudaFree(d_num_runs_out);
+		cudaFreeHost(h_unique_out);
+		cudaFreeHost(h_counts_out);
+		cudaFreeHost(h_num_runs_out);
 		cudaFree(d_gini_temp_storage);
 		cudaFree(sampledcolumns);
 		cudaFree(sampledlabels);
@@ -102,6 +124,10 @@ struct TemporaryMemory
 		cudaFree(d_flags_left);
 		cudaFree(d_flags_right);
 		cudaFree(temprowids);
+		cudaFreeHost(h_left_rows);
+		cudaFreeHost(h_right_rows);
+		cudaFreeHost(h_min);
+		cudaFreeHost(h_max);
 		cudaStreamDestroy(stream);
 	}
 	

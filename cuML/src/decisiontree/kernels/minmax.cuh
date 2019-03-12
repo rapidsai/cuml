@@ -20,27 +20,32 @@
 
 float minimum(float *d_samples, int num_samples)
 {
-  float minval;
-  float *min_ptr = thrust::min_element(thrust::device, d_samples, d_samples + num_samples);
-  CUDA_CHECK(cudaMemcpy(&minval, min_ptr, sizeof(float), cudaMemcpyDeviceToHost));
-  return minval;
+	float minval;
+	float *min_ptr = thrust::min_element(thrust::device, d_samples, d_samples + num_samples);
+	CUDA_CHECK(cudaMemcpy(&minval, min_ptr, sizeof(float), cudaMemcpyDeviceToHost));
+	return minval;
 }
 
 float maximum(float *d_samples, int num_samples)
 {
-  float maxval;
-  float *max_ptr = thrust::max_element(thrust::device, d_samples, d_samples + num_samples);
-  CUDA_CHECK(cudaMemcpy(&maxval, max_ptr, sizeof(float), cudaMemcpyDeviceToHost));
-  return maxval;
+	float maxval;
+	float *max_ptr = thrust::max_element(thrust::device, d_samples, d_samples + num_samples);
+	CUDA_CHECK(cudaMemcpy(&maxval, max_ptr, sizeof(float), cudaMemcpyDeviceToHost));
+	return maxval;
 }
 
 // According to https://thrust.github.io/doc/group__extrema.html#gaa9dcee5e36206a3ef7215a4b3984e002
 // minmax_element "[..] function is potentially more efficient than separate cols to min_element and max_element."
 
-void min_and_max(float * d_samples, int num_samples, float & min_val, float & max_val, const cudaStream_t stream=0) {
+void min_and_max(float * d_samples, int num_samples, float & min_val, float & max_val,const TemporaryMemory* tempmem) {
+
 	thrust::pair<float *, float *> result;
-	//result = thrust::minmax_element(thrust::cuda::par.on(stream), thrust::device, d_samples, d_samples + num_samples);
-	result = thrust::minmax_element(thrust::cuda::par.on(stream), d_samples, d_samples + num_samples);
-	CUDA_CHECK(cudaMemcpyAsync(&min_val, result.first, sizeof(float), cudaMemcpyDeviceToHost, stream));
- 	CUDA_CHECK(cudaMemcpyAsync(&max_val, result.second, sizeof(float), cudaMemcpyDeviceToHost, stream));
+	result = thrust::minmax_element(thrust::cuda::par.on(tempmem->stream), d_samples, d_samples + num_samples);
+	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_min, result.first, sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
+ 	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_max, result.second, sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
+	
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	min_val = tempmem->h_min[0];
+	max_val = tempmem->h_max[0];
+	return;
 }
