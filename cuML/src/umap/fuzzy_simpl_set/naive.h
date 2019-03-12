@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include "knn/knn.h"
 #include "umap/umapparams.h"
 
@@ -28,7 +30,7 @@
 #include <stdio.h>
 #include <string>
 
-#pragma once
+
 
 namespace UMAPAlgo {
     namespace FuzzySimplSet {
