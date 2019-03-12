@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#pragma once
+
 #include "umapparams.h"
 #include "optimize.h"
 
@@ -36,7 +39,7 @@
 #include <iostream>
 #include <cuda_runtime.h>
 
-#pragma once
+
 
 namespace UMAPAlgo {
 

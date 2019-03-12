@@ -7,6 +7,7 @@
 - PR #235: NearestNeighbors MG Support
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
+- PR #303: Reusable spectral embedding / clustering
 
 ## Improvements
 
