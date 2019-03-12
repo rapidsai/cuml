@@ -166,6 +166,7 @@ class LinearRegression:
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
+            self.algorithm = algorithm 
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
