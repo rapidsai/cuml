@@ -1,9 +1,11 @@
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
+
 - PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
+- PR #247 : Added "proper" CUDA API to cuML
 - PR #235: NearestNeighbors MG Support
-- PR #261: UMAP Algorithm 
+- PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 
 ## Improvements
@@ -33,6 +35,7 @@
 - PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
+- PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 
 ## Bug Fixes
 
