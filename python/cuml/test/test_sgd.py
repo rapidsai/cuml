@@ -2,7 +2,6 @@ import numpy as np
 import cudf
 from cuml.solvers import SGD as cumlSGD
 import pytest
-from sklearn.linear_model import SGDClassifier
 
 
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
@@ -14,11 +13,6 @@ def test_svd(datatype, lrate, input_type, penalty, loss):
     X = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]], dtype=datatype)
     y = np.array([1, 1, 2, 2], dtype=datatype)
     pred_data = np.array([[3.0, 5.0], [2.0, 5.0]]).astype(datatype)
-    sk_sgd = SGDClassifier(learning_rate=lrate, eta0=0.005,
-                           max_iter=2000, tol=0.0, fit_intercept=True,
-                           penalty=penalty, loss=loss)
-    sk_sgd.fit(X, y)
-    sk_pred = sk_sgd.predict(pred_data)
     if input_type == 'dataframe':
         X = cudf.DataFrame()
         X['col1'] = np.asarray([-1, -2, 1, 2], dtype=datatype)
@@ -32,5 +26,3 @@ def test_svd(datatype, lrate, input_type, penalty, loss):
                      tol=0.0, penalty=penalty, loss=loss)
     cu_sgd.fit(X, y)
     cu_pred = cu_sgd.predict(pred_data).to_array()
-    print("scikit learn predictions : ", sk_pred)
-    print("cuML predictions : ", cu_pred)
