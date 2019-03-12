@@ -98,7 +98,7 @@ class DBSCAN:
 
     def fit(self, X):
         """
-            Perform DBSCAN clustering from features or distance matrix.
+            Perform DBSCAN clustering from features.
 
             Parameters
             ----------
@@ -130,14 +130,11 @@ class DBSCAN:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        print("n_rows: "+ str(self.n_rows))
-
         input_ptr = self._get_ctype_ptr(X_m)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
-        print(hex(labels_ptr))
         if self.gdf_datatype.type == np.float32:
             dbscanFit(<float*>input_ptr,
                                <int> self.n_rows,
