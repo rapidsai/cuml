@@ -17,11 +17,13 @@ An installation requirement for cuML is that your system must be linux-like.
 Support for Windows is possible in the near future.
 
 
+
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    api.rst
+
 
 Indices and tables
 ==================
