@@ -197,6 +197,7 @@ namespace ML {
             CUDA_CHECK(cudaFree(src_offsets));
             CUDA_CHECK(cudaFree(dst_indices));
             CUDA_CHECK(cudaFree(eigVals));
+            CUDA_CHECK(cudaFree(labels));
 
             free(COO_input);
             free(CSR_input);
