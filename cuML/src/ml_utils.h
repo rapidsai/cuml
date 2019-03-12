@@ -32,6 +32,18 @@ enum solver {
 	COV_EIG_DQ, COV_EIG_JACOBI, RANDOMIZED,
 };
 
+enum lr_type {
+	OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE,
+};
+
+enum loss_funct {
+	SQRD_LOSS, HINGE, LOG,
+};
+
+enum penalty {
+	NONE, L1, L2, ELASTICNET
+};
+
 //template<typename math_t>
 class params {
 public:

@@ -2,6 +2,7 @@
 
 ## New Features
 
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
 - PR #247 : Added "proper" CUDA API to cuML
 - PR #235: NearestNeighbors MG Support
 - PR #261: UMAP Algorithm
