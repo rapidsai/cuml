@@ -3,7 +3,8 @@
 ## New Features
 - PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
 - PR #235: NearestNeighbors MG Support
-
+- PR #261: UMAP Algorithm 
+- PR #290: NearestNeighbors numpy MG Support
 
 ## Improvements
 
@@ -29,7 +30,9 @@
 - PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
 
 ## Bug Fixes
 
