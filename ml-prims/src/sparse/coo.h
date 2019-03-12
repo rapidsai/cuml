@@ -1,8 +1,17 @@
 /*
- * coo.h
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
- *  Created on: Feb 13, 2019
- *      Author: cjnolet
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #pragma once
@@ -16,11 +25,13 @@
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
 
+
+
 namespace MLCommon {
 
     namespace Sparse {
 
-
+        template<typename T>
         void gthr_sorted_vals(cusparseHandle_t handle,
                 int nnz,
                 float *vals,
@@ -36,6 +47,9 @@ namespace MLCommon {
             );
         }
 
+
+
+        template<typename T>
         void gthr_sorted_vals(cusparseHandle_t handle,
                 int nnz,
                 double *vals,
@@ -111,7 +125,7 @@ namespace MLCommon {
             T* vals_sorted;
             allocate(vals_sorted, nnz);
 
-            gthr_sorted_vals(
+            gthr_sorted_vals<T>(
                 handle,
                 nnz,
                 vals,
@@ -247,6 +261,34 @@ namespace MLCommon {
             if(row < nnz && vals[row] > 0.0) {
                 atomicAdd(results+rows[row], 1);
             }
+        }
+
+        template<int TPB_X, typename T>
+        __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
+                int *rows, int *cols, T *vals) {
+
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            if(row < m) {
+
+                for(int i = 0; i < k; i++) {
+                    rows[row*k+i] = row;
+                    cols[row*k+i] = knn_indices[row*k+i];
+                    vals[row*k+i] = knn_dists[row*k+i];
+                }
+            }
+        }
+
+        /**
+         * Converts a knn graph into a COO format.
+         */
+        template<typename T>
+        void from_knn_graph(long *knn_indices, T *knn_dists, int m, int k,
+                int *rows, int *cols, T *vals) {
+
+            dim3 grid(ceildiv(m, 32), 1, 1);
+            dim3 blk(32, 1, 1);
+            from_knn_graph_kernel<32, T><<<grid, blk>>>(
+                    knn_indices, knn_dists, m, k, rows, cols, vals);
         }
     }
 
