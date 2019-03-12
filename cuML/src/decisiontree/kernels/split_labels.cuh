@@ -18,6 +18,8 @@
 #include <utils.h>
 #include "cub/cub.cuh"
 #include <thrust/sort.h>
+#include <algorithm>
+
 __global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float quesval,const int nrows)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -84,6 +86,16 @@ int get_class(int *labels,int nrows,const TemporaryMemory* tempmem)
 	
 	return classval;
 }
+
+/* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
+   computation. */
+int get_class_hist(std::vector<int> & node_hist) {
+
+	int classval =  std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
+	return classval;
+}
+
+
 void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,const int nrows,int& leftnrows,int& rightnrows,float quesval,const TemporaryMemory* tempmem)
 {
 	
