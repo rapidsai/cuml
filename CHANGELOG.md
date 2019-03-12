@@ -17,7 +17,7 @@
 
 ## New Features
 - PR #235: NearestNeighbors MG Support
-- PR #261: UMAP Algorithm 
+- PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 
 ## Improvements
@@ -47,6 +47,7 @@
 - PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
+- PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 
 ## Bug Fixes
 
