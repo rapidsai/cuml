@@ -29,6 +29,18 @@ namespace ML {
 
     namespace Spectral {
 
+        /***
+         * Given a (symmetric) knn graph in COO format, this function computes the spectral
+         * clustering, using Lanczos min cut algorithm and k-means.
+         * @param rows source vertices of knn graph
+         * @param cols destination vertices of knn graph
+         * @param vals edge weights (distances) connecting source & destination vertices
+         * @param nnz number of nonzero edge weights in vals (size of rows/cols/vals)
+         * @param n total number of vertices in graph (n_samples)
+         * @param n_clusters the number of clusters to fit
+         * @param eigen_tol the tolerance threshold for the eigensolver
+         * @param out output array for labels (size m)
+         */
 
         template<typename T>
         void fit_clusters(int *rows, int *cols, T *vals, int nnz,
@@ -104,6 +116,17 @@ namespace ML {
         }
 
 
+        /***
+         * Given a indices and distances matrices, this function computes the spectral
+         * clustering, using Lanczos min cut algorithm and k-means.
+         * @param knn_indices m*n_neighbors matrix of nearest indices
+         * @param knn_dists m*n_neighbors matrix of distances to nearest neigbors
+         * @param m number of vertices in knn_indices and knn_dists
+         * @param n_neighbors the number of neighbors to query for knn graph construction
+         * @param n_clusters the number of clusters to fit
+         * @param eigen_tol the tolerance threshold for the eigensolver
+         * @param out output array for labels (size m)
+         */
         template<typename T>
         void fit_clusters(long *knn_indices, T *knn_dists, int m, int n_neighbors,
                 int n_clusters, float eigen_tol, int *out) {
@@ -115,8 +138,10 @@ namespace ML {
             MLCommon::allocate(cols, m*n_neighbors);
             MLCommon::allocate(vals, m*n_neighbors);
 
-            MLCommon::Sparse::from_knn_graph(knn_indices, knn_dists, m, n_neighbors,
+            MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                     rows, cols, vals);
+
+            // todo: Need to symmetrize the knn to create the knn graph
 
             fit_clusters(rows, cols, vals, m*n_neighbors, m, n_clusters, eigen_tol, out);
 
@@ -126,6 +151,17 @@ namespace ML {
         }
 
 
+        /***
+         * Given a feature matrix, this function computes the spectral
+         * clustering, using Lanczos min cut algorithm and k-means.
+         * @param X a feature matrix (size m*n)
+         * @param m number of samples in X
+         * @param n number of features in X
+         * @param n_neighbors the number of neighbors to query for knn graph construction
+         * @param n_clusters the number of clusters to fit
+         * @param eigen_tol the tolerance threshold for the eigensolver
+         * @param out output array for labels (size m)
+         */
         template<typename T>
         void fit_clusters(T *X, int m, int n, int n_neighbors,
                 int n_clusters, float eigen_tol, int *out) {
@@ -155,6 +191,19 @@ namespace ML {
             delete knn;
         }
 
+        /***
+         * Given a COO formatted (symmetric) knn graph, this function
+         * computes the spectral embeddings (lowest n_components
+         * eigenvectors), using Lanczos min cut algorithm.
+         * @param rows source vertices of knn graph (size nnz)
+         * @param cols destination vertices of knn graph (size nnz)
+         * @param vals edge weights connecting vertices of knn graph (size nnz)
+         * @param nnz size of rows/cols/vals
+         * @param n number of samples in X
+         * @param n_neighbors the number of neighbors to query for knn graph construction
+         * @param n_components the number of components to project the X into
+         * @param out output array for labels (size m)
+         */
         template<typename T>
         void fit_embedding(int *rows, int*cols, T *vals, int nnz, int n,
                 int n_components, T *out) {
@@ -223,6 +272,17 @@ namespace ML {
             free(CSR_input);
         }
 
+        /***
+         * Given index and distance matrices returned from a knn query, this
+         * function computes the spectral embeddings (lowest n_components
+         * eigenvectors), using Lanczos min cut algorithm.
+         * @param knn_indices nearest neighbor indices (size m*n_neighbors)
+         * @param knn_dists nearest neighbor distances (size m*n_neighbors
+         * @param m number of samples in X
+         * @param n_neighbors the number of neighbors to query for knn graph construction
+         * @param n_components the number of components to project the X into
+         * @param out output array for labels (size m)
+         */
         template<typename T>
         void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
             int n_components, T *out) {
@@ -234,8 +294,11 @@ namespace ML {
             MLCommon::allocate(cols, m*n_neighbors);
             MLCommon::allocate(vals, m*n_neighbors);
 
-            MLCommon::Sparse::from_knn_graph(knn_indices, knn_dists, m, n_neighbors,
+            MLCommon::Sparse::from_knn(knn_indices, knn_dists, m, n_neighbors,
                     rows, cols, vals);
+
+            // todo: Need to symmetrize the knn graph here. UMAP works here because
+            // it has already done this.
 
             fit_embedding(rows, cols, vals, m*n_neighbors, m, n_components, out);
 
@@ -244,6 +307,17 @@ namespace ML {
             CUDA_CHECK(cudaFree(vals));
         }
 
+        /***
+         * Given a feature matrix, this function computes the spectral
+         * embeddings (lowest n_components eigenvectors), using
+         * Lanczos min cut algorithm.
+         * @param X a feature matrix (size m*n)
+         * @param m number of samples in X
+         * @param n number of features in X
+         * @param n_neighbors the number of neighbors to query for knn graph construction
+         * @param n_components the number of components to project the X into
+         * @param out output array for labels (size m)
+         */
         template<typename T>
         void fit_embedding(T *X, int m, int n,
                 int n_neighbors, int n_components,
