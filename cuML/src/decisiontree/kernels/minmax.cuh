@@ -37,9 +37,10 @@ float maximum(float *d_samples, int num_samples)
 // According to https://thrust.github.io/doc/group__extrema.html#gaa9dcee5e36206a3ef7215a4b3984e002
 // minmax_element "[..] function is potentially more efficient than separate cols to min_element and max_element."
 
-void min_and_max(float * d_samples, int num_samples, float & min_val, float & max_val) {
+void min_and_max(float * d_samples, int num_samples, float & min_val, float & max_val, const cudaStream_t stream=0) {
 	thrust::pair<float *, float *> result;
-	result = thrust::minmax_element(thrust::device, d_samples, d_samples + num_samples);
-	CUDA_CHECK(cudaMemcpy(&min_val, result.first, sizeof(float), cudaMemcpyDeviceToHost));
- 	CUDA_CHECK(cudaMemcpy(&max_val, result.second, sizeof(float), cudaMemcpyDeviceToHost));
+	//result = thrust::minmax_element(thrust::cuda::par.on(stream), thrust::device, d_samples, d_samples + num_samples);
+	result = thrust::minmax_element(thrust::cuda::par.on(stream), d_samples, d_samples + num_samples);
+	CUDA_CHECK(cudaMemcpyAsync(&min_val, result.first, sizeof(float), cudaMemcpyDeviceToHost, stream));
+ 	CUDA_CHECK(cudaMemcpyAsync(&max_val, result.second, sizeof(float), cudaMemcpyDeviceToHost, stream));
 }
