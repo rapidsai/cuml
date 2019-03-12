@@ -101,7 +101,7 @@ namespace ML {
 
 				for(int i = 0;i<MAXSTREAMS;i++)
 					{
-						tempmem[i] = new TemporaryMemory(n_sampled_rows);
+						tempmem[i] = new TemporaryMemory(n_sampled_rows,MAXSTREAMS);
 						
 					}
 				total_temp_mem = tempmem[0]->totalmem;
@@ -210,16 +210,18 @@ namespace ML {
 
 						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
 						
-						float min, max;
-						min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]->stream);
+						float min,max;						
+						min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]);
 						float delta = (max - min)/ nbins ;
-												
+						
 						for (int j=1; j<current_nbins; j++)
 							{
 								float quesval = min + delta*j;
 								float info_gain = evaluate_split(sampledcolumn, labelptr, leftlabels, rightlabels, ginibefore, quesval, &local_split_info[0], n_sampled_rows, streamid);
+								CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 								if (info_gain == -1.0)
 									continue;
+
 #pragma omp critical
 								{
 									if (info_gain > gain)
