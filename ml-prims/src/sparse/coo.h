@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "cusparse_wrappers.h"
+
 #include <cusparse_v2.h>
 
 #include <thrust/device_ptr.h>
@@ -32,12 +34,12 @@ namespace MLCommon {
     namespace Sparse {
 
         template<typename T>
-        void gthr_sorted_vals(cusparseHandle_t handle,
+        cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
                 int nnz,
                 float *vals,
                 float *vals_sorted,
                 int *d_P) {
-            cusparseSgthr(
+            return cusparseSgthr(
                 handle,
                 nnz,
                 vals,
@@ -50,12 +52,12 @@ namespace MLCommon {
 
 
         template<typename T>
-        void gthr_sorted_vals(cusparseHandle_t handle,
+        cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
                 int nnz,
                 double *vals,
                 double *vals_sorted,
                 int *d_P) {
-            cusparseDgthr(
+            return cusparseDgthr(
                 handle,
                 nnz,
                 vals,
@@ -89,11 +91,11 @@ namespace MLCommon {
 
             cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
 
-            cusparseCreate(&handle);
+            CUSPARSE_CHECK(cusparseCreate(&handle));
 
-            cusparseSetStream(handle, stream);
+            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            cusparseXcoosort_bufferSizeExt(
+            CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(
                 handle,
                 m,
                 n,
@@ -101,17 +103,17 @@ namespace MLCommon {
                 rows,
                 cols,
                 &pBufferSizeInBytes
-            );
+            ));
 
-            cudaMalloc(&d_P, sizeof(int)*nnz);
-            cudaMalloc(&pBuffer, sizeof(char)* pBufferSizeInBytes);
+            allocate(d_P, nnz);
+            cudaMalloc(&pBuffer, pBufferSizeInBytes*sizeof(char));
 
-            cusparseCreateIdentityPermutation(
+            CUSPARSE_CHECK(cusparseCreateIdentityPermutation(
                 handle,
                 nnz,
-                d_P);
+                d_P));
 
-            cusparseXcoosortByRow(
+            CUSPARSE_CHECK(cusparseXcoosortByRow(
                 handle,
                 m,
                 n,
@@ -120,18 +122,20 @@ namespace MLCommon {
                 cols,
                 d_P,
                 pBuffer
-            );
+            ));
 
             T* vals_sorted;
             allocate(vals_sorted, nnz);
 
-            gthr_sorted_vals<T>(
+            CUSPARSE_CHECK(cusparse_gthr<T>(
                 handle,
                 nnz,
                 vals,
                 vals_sorted,
                 d_P
-            );
+            ));
+
+            cudaDeviceSynchronize();
 
 
             copy(vals, vals_sorted, nnz);
@@ -139,7 +143,7 @@ namespace MLCommon {
             cudaFree(d_P);
             cudaFree(vals_sorted);
             cudaFree(pBuffer);
-            cusparseDestroy(handle);
+            CUSPARSE_CHECK(cusparseDestroy(handle));
             cudaStreamDestroy(stream);
         }
 

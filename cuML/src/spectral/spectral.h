@@ -2,6 +2,8 @@
 
 #include <nvgraph.h>
 
+#include "sparse/nvgraph_wrappers.h"
+
 #include "sparse/coo.h"
 #include "knn/knn.h"
 
@@ -10,12 +12,6 @@
 namespace ML {
 
     namespace Spectral {
-
-        #define NVGRAPH_CHECK(call)  \
-            do { \
-                nvgraphStatus_t status = call; \
-                ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s'\n", #call); \
-            } while(0)
 
 
         template<typename T>
@@ -28,6 +24,8 @@ namespace ML {
 
             /**
              * Convert COO to CSR
+             *
+             * todo: Add this to sparse prims
              */
 
             // Allocate csr arrays
@@ -47,7 +45,8 @@ namespace ML {
             CSR_input->nvertices = n;
             CSR_input->source_offsets = src_offsets;
 
-            NVGRAPH_CHECK(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
+            NVGRAPH_CHECK(nvgraphConvertTopology(handle,
+                    NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
                     &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
             int weight_index = 0;
@@ -68,11 +67,13 @@ namespace ML {
 
             nvgraphGraphDescr_t graph;
             NVGRAPH_CHECK(nvgraphCreateGraphDescr(handle, &graph));
-            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph, (void*)CSR_input, NVGRAPH_CSR_32));
+            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph,
+                    (void*)CSR_input, NVGRAPH_CSR_32));
             NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
             NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, out, eigVals, embedding));
+            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
+                    &clustering_params, out, eigVals, embedding));
 
             NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
             NVGRAPH_CHECK(nvgraphDestroy(handle));
@@ -163,7 +164,8 @@ namespace ML {
             CSR_input->nvertices = n;
             CSR_input->source_offsets = src_offsets;
 
-            NVGRAPH_CHECK(nvgraphConvertTopology(handle, NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
+            NVGRAPH_CHECK(nvgraphConvertTopology(handle, NVGRAPH_COO_32,
+                    (void*)COO_input, (void*)vals,
                     &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
             int weight_index = 0;
@@ -185,11 +187,13 @@ namespace ML {
 
             nvgraphGraphDescr_t graph;
             NVGRAPH_CHECK(nvgraphCreateGraphDescr(handle, &graph));
-            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph, (void*)CSR_input, NVGRAPH_CSR_32));
+            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph,
+                    (void*)CSR_input, NVGRAPH_CSR_32));
             NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
             NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index, &clustering_params, labels, eigVals, out));
+            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
+                    &clustering_params, labels, eigVals, out));
 
             NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
             NVGRAPH_CHECK(nvgraphDestroy(handle));
@@ -223,6 +227,7 @@ namespace ML {
             CUDA_CHECK(cudaFree(cols));
             CUDA_CHECK(cudaFree(vals));
         }
+
         template<typename T>
         void fit_embedding(T *X, int m, int n,
                 int n_neighbors, int n_components,
@@ -251,8 +256,5 @@ namespace ML {
 
             delete knn;
         }
-
-
-
     }
 }

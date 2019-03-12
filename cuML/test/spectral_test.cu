@@ -57,8 +57,6 @@ TEST_F(TestSpectralClustering, Fit) {
     MLCommon::allocate(out, n, true);
 
     ML::Spectral::fit_clusters(X, n, d, k, 10, 1e-3f, out);
-
-    std::cout << MLCommon::arr2Str(out, n, "out") << std::endl;
 }
 
 typedef SpectralTest<float> TestSpectralEmbedding;
@@ -78,8 +76,6 @@ TEST_F(TestSpectralEmbedding, Fit) {
     MLCommon::allocate(out, n*2, true);
 
     ML::Spectral::fit_embedding(X, n, d, k, 2, out);
-
-    std::cout << MLCommon::arr2Str(out, n, "out") << std::endl;
 }
 
 
