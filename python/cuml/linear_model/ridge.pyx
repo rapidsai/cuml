@@ -373,16 +373,13 @@ class Ridge:
     def set_params(self, **params):
         if not params:
             return self
-        current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
+        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter %s for estimator')
+            if key not in variables:
+                raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-                current_params[key] = value
-        if params["solver"]=='eig':
-            self.algo=1
-        else:
-            self.algo = 0
+        if 'solver' in params.keys():
+            self.algo=self._get_algorithm_int(self.solver)
         return self
 
