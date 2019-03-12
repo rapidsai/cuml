@@ -85,6 +85,7 @@ def test_ridge(datatype, X_type, y_type, algorithm):
                       normalize=False,
                       solver=algorithm)
 
+    assert curidge.get_params()['solver'] is algorithm
     if X_type == 'dataframe':
         gdf = cudf.DataFrame()
         gdf['0'] = np.asarray([2, 6, 2, 2], dtype=datatype)
