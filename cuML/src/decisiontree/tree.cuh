@@ -159,7 +159,8 @@ namespace ML {
 					{
 						int *sampledlabels = tempmem[0]->sampledlabels;
 						get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
-						node->class_predict = get_class(sampledlabels, n_sampled_rows,tempmem[0]);
+						//node->class_predict = get_class(sampledlabels, n_sampled_rows,tempmem[0]);
+						node->class_predict = get_class_hist(split_info[0].hist);
 						leaf_counter++;
 						if (depth > depth_counter)
 							depth_counter = depth;
@@ -248,10 +249,10 @@ namespace ML {
 				
 				gini(leftlabels, lnrows, tempmem[streamid], split_info[1], n_unique_labels, tempmem[streamid]->stream);
 				//gini(rightlabels, rnrows, tempmem[streamid], split_info[2], n_unique_labels, tempmem[streamid]->stream);
+
 				// Compute giniright from the histograms of parent and parent's left node. Currently CPU only.
 				gini_right_node(rnrows, split_info[0], split_info[1], split_info[2], n_unique_labels, tempmem[streamid]->stream);
-				ASSERT((ginibefore == split_info[0].best_gini), "ginibefore %f best gini %f  mismatch", ginibefore, split_info[0].best_gini);
-				
+
 				//ginileft is split_info[1].best_gini and giniright is split_info[2].best_gini	
 				float impurity = (lnrows/nrows) * split_info[1].best_gini + (rnrows/nrows) * split_info[2].best_gini;
 				
