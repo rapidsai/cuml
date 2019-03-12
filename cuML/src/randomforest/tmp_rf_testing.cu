@@ -26,6 +26,23 @@
 //#define HIGGS_COLS 28 // + 1 for label (it's the first per csv line)
 //#define TRAIN_RATIO 0.8
 
+//Modified version of TIMEIT_LOOP from test_utils.h
+#define TIMEIT_LOOP(ms, count, func)			\
+	do {										\
+		cudaEvent_t start, stop;				\
+		CUDA_CHECK(cudaEventCreate(&start));	\
+		CUDA_CHECK(cudaEventCreate(&stop));		\
+		CUDA_CHECK(cudaEventRecord(start));		\
+		for (int i = 0; i < count; ++i) {		\
+			func;								\
+		}										\
+		CUDA_CHECK(cudaEventRecord(stop));		\
+		CUDA_CHECK(cudaEventSynchronize(stop));	\
+		ms = 0.f;								\
+		CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));	\
+		ms /= count;									\
+} while (0)	
+
 using namespace MLCommon;
 using namespace std;
 
@@ -152,10 +169,13 @@ int main(int argc, char **argv) {
 	ML::rfClassifier * rf_classifier;
  	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
 	cout << "Called RF constructor\n";
-	rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
-	cout << "Planted the random forest\n";
+	//rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
+
+	float ms;
+	TIMEIT_LOOP(ms, 1, rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels));
 
 	rf_classifier->print_rf_detailed();
+	cout << "Planted the random forest in " << ms << " ms, " << ms /1000.0 << " s." << endl;
 
 	//Predict w/ test dataset
 	/*predictions = rf_classifier->predict(inference_data.data(), params.n_inference_rows, params.n_cols, false);

@@ -211,7 +211,7 @@ namespace ML {
 						get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
 						
 						float min, max;
-						min_and_max(sampledcolumn, n_sampled_rows, min, max);
+						min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]->stream);
 						float delta = (max - min)/ nbins ;
 												
 						for (int j=1; j<current_nbins; j++)
