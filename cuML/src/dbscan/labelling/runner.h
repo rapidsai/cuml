@@ -55,7 +55,7 @@ void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph,
 template <typename Type>
 void final_relabel(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
-         bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
+         bool *xa, bool *fa, bool *m, Type *map_id) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
                        visited, db_cluster, xa, fa, m, map_id};
     Algo2::relabel<Type>(handle, data, stream);

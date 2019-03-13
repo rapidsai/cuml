@@ -96,7 +96,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
             continue;
 		VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd,
 				startVertexId, nPoints, stream);
-
 		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs

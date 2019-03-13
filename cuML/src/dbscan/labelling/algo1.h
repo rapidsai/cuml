@@ -94,7 +94,7 @@ void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int sta
     MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
     MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
     MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
- 
+
     for(int i=0; i<batchSize; i++) {
         if(!host_visited[i + startVertexId] && host_core_pts[i]) {
             host_visited[i + startVertexId] = true;
@@ -105,7 +105,6 @@ void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int sta
             cluster++;
         }
     }
-
     MLCommon::updateDeviceAsync(data.visited, host_visited.data(), N, stream);
     MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster.data(), N, stream);
 }
