@@ -49,6 +49,22 @@ void square(math_t *out, const math_t *in, int len,
                 stream);
 }
 
+template <typename Type>
+__global__ void naiveAddElemKernel(Type *out, const Type *in1, const Type in2,
+                                   int len) {
+        int idx = threadIdx.x + blockIdx.x * blockDim.x;
+        if (idx < len) {
+                out[idx] = in1[idx] + in2;
+        }
+}
+
+template <typename Type>
+void naiveAddElem(Type *out, const Type *in1, const Type in2, int len) {
+        static const int TPB = 64;
+        int nblks = ceildiv(len, TPB);
+        naiveAddElemKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+        CUDA_CHECK(cudaPeekAtLastError());
+}
 
 // template <typename T>
 // __global__ void regularizeKernel (int n, int batchCount, T *A, int ldda, T reg, int nThreads_x, int nThreads_y, int nThreads_z) {

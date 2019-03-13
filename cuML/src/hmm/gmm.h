@@ -184,6 +184,14 @@ void update_pis(GMM<T>& gmm){
 
         MLCommon::Stats::sum(gmm.dPis, gmm.dLlhd, gmm.lddLlhd, gmm.nObs, true);
         // _print_gmm_data_bis(gmm, "\n\nend of pis");
+        T epsilon;
+        if(std::is_same<T,float>::value) {
+                epsilon = 1.1920928955078125e-06;
+        }
+        else if(std::is_same<T,double>::value) {
+                epsilon = 2.220446049250313e-15;
+        }
+        naiveAddElem(gmm.dPis, gmm.dPis, epsilon, gmm.nCl);
 
         normalize_matrix(gmm.lddPis, 1, gmm.dPis, gmm.lddPis, true);
 }

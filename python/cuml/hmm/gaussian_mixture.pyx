@@ -80,7 +80,6 @@ class GaussianMixture:
             'double': np.float64,
         }[precision]
 
-    # TODO : Fix the default values
     def __init__(self, n_components, tol=1e-03,
                  reg_covar=1e-06, max_iter=100, init_params="random",
                  warm_start=False, precision='single', random_state=None):
@@ -252,7 +251,7 @@ class GaussianMixture:
         for it in range(1, self.max_iter + 1) :
             self.step()
 
-            # print("\n Iteration", it)
+            print("\n Iteration", it)
             # print(self.resp_)
             # print("Lower bound ", self.lower_bound_)
 
