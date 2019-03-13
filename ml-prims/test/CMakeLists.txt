@@ -30,8 +30,11 @@ add_executable(mlcommon_test
   cov.cu
   csr.cu
   decoupled_lookback.cu
-  distance.cu
-  # distance_adj.cu
+  dist_adj.cu
+  dist_cos.cu
+  dist_euc_exp.cu
+  dist_euc_unexp.cu
+  dist_l1.cu
   divide.cu
   eig.cu
   eltwise.cu
@@ -67,6 +70,7 @@ add_executable(mlcommon_test
   logisticReg.cu
   penalty.cu
   sigmoid.cu
+  weighted_mean.cu
   )
 
 target_link_libraries(mlcommon_test
