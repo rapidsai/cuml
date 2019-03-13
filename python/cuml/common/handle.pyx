@@ -20,46 +20,40 @@
 # cython: language_level = 3
 
 
-cdef extern from "cuda_runtime.h":
-    cdef struct cudaStream_t:
-        pass
+cimport cuml.common.cuda
 
 
-cdef extern from *: #"cuML_api.h":
-    cdef struct cumlHandle_t:
-         void* ptr
-
-cdef extern from "cuML_api.h":
-    cdef enum cumlError_t:
-        pass
-
-    cumlError_t cumlCreate(cumlHandle_t* handle)
-    cumlError_t cumlSetStream(cumlHandle_t handle, cudaStream_t stream)
-    cumlError_t cumlDestroy(cumlHandle_t handle)
+cdef extern from "cuML.hpp" namespace "ML" nogil:
+    cdef cppclass cumlHandle:
+        cumlHandle() except +
+        void setStream(cuml.common.cuda._Stream s)
 
 
-cdef class cumlHandle:
+# TODO: name this properly!
+# TODO: add support for setting custom memory allocators
+cdef class Handle:
     """
-    cumlHandle is a lightweight wrapper around the corresponding C-struct
-    (and APIs) exposed by cuML's C++ interface. Refer to the header files
-    cuML_api.h and cuML.hpp for interface level details of this struct
+    Handle is a lightweight python wrapper around the corresponding C++ class
+    of cumlHandle exposed by cuML's C++ interface. Refer to the header file
+    cuML.hpp for interface level details of this struct
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml
+        stream = cuml.cuda.Stream()
+        handle = cuml.Handle()
+        handle.setStream(stream)
     """
-    cdef cumlHandle_t *handle
+    cdef cumlHandle *h
 
     def __cinit__(self):
-        cdef cumlError_t err = cumlCreate(self.handle)
-        # TODO: clean this!
-        if err != 0:
-            raise Exception(err)
+        self.h = new cumlHandle()
 
-    # def __dealloc__(self):
-    #     cdef cumlError_t err = cumlDestroy(*self.handle)
-    #     # TODO: clean this!
-    #     if err != 0:
-    #         print("Warning: failed to destroy cumlHandle!")
+    def __dealloc_(self):
+        del self.h
 
-    # def setStream(self, stream):
-    #     cdef cumlError_t err = cumlSetStream(*self.handle, stream)
-    #     # TODO: clean this!
-    #     if err != 0:
-    #         raise Exception(err)
+    def setStream(self, stream):
+        self.h.setStream(stream.getStream())

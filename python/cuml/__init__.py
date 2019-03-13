@@ -34,3 +34,6 @@ from cuml.manifold.umap import UMAP
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
+
+import cuml.common.cuda as cuda
+import cuml.common.handle as handle
