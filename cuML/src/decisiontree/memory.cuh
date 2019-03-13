@@ -53,9 +53,10 @@ struct TemporaryMemory
 	float *h_min, *h_max;
 	
 	int* d_hist;
-	
+	int *h_hist;
 	TemporaryMemory(int N,int maxstr,int nunique)
 	{
+		CUDA_CHECK(cudaMallocHost((void**)&h_hist,nunique*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist,nunique*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&leftlabels,N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&rightlabels,N*sizeof(int)));
@@ -111,6 +112,7 @@ struct TemporaryMemory
 	~TemporaryMemory()
 	{
 		cudaFree(d_hist);
+		cudaFreeHost(h_hist);
 		cudaFree(ginilabels);
 		cudaFree(d_unique_out);
 		cudaFree(d_counts_out);
