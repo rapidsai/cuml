@@ -20,32 +20,36 @@
 #include "vertexdeg/runner.h"
 #include "adjgraph/runner.h"
 #include "labelling/runner.h"
+#include <cuML.hpp>
 
 namespace Dbscan {
 
 using namespace MLCommon;
 
 template<typename Type, typename Type_f>
-void run(Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
+void run(const ML::cumlHandle& handle, Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
 		int* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
 		Type *db_cluster, bool *xa, bool *fa, bool *m, Type *map_id,
-		Type_f* dots, cudaStream_t stream, int algoVd, int algoAdj,
+		Type_f* dots, int algoVd, int algoAdj,
 		int algoCcl) {
+    cudaStream_t stream = handle.getStream();
 	//Rynning VerexDeg
-	VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd);
+	VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd);
 	Type *host_vd = new Type[size_t(N + 1)];
-	MLCommon::updateHost(host_vd, vd, N + 1);
+	MLCommon::updateHostAsync(host_vd, vd, N + 1, stream);
 	Type adjlen = host_vd[N];
 	delete[] host_vd;
 	// Running AdjGraph
-	CUDA_CHECK(cudaMalloc((void** )&adj_graph, sizeof(Type) * adjlen));
-	AdjGraph::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, stream,
+    adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), handle.getStream());
+	AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
 			algoAdj);
 	// Running Labelling
-	Label::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
-			db_cluster, xa, fa, m, map_id, stream, algoCcl);
+	Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
+			db_cluster, xa, fa, m, map_id, algoCcl);
 	if (adj_graph != NULL)
-		CUDA_CHECK(cudaFree(adj_graph));
+    {
+        handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), handle.getStream());
+    }
 }
 
 template <typename Type>
@@ -67,9 +71,9 @@ template<typename Type, typename Type_f>
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
-		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches,
-		cudaStream_t stream) {
+size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
+		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches) {
+    cudaStream_t stream = handle.getStream();
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
@@ -116,34 +120,34 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         int nPoints = min(N-startVertexId, batchSize);
         if(nPoints <= 0)
             continue;
-		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
+		VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd,
 				startVertexId, nPoints);
 
-		MLCommon::updateHost(&curradjlen, vd + nPoints, 1);
+		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph == NULL) {
 			adjlen = curradjlen;
-			CUDA_CHECK(cudaMalloc((void** )&adj_graph, sizeof(Type) * adjlen));
+            adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), stream);
 		}
-		AdjGraph::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, stream,
+		AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints);
 		// Running Labelling
-		Label::run(adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
-				labels, xa, fa, m, map_id, stream, algoCcl, startVertexId,
+		Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
+				labels, xa, fa, m, map_id, algoCcl, startVertexId,
 				nPoints);
 		if (adj_graph != NULL)
-			CUDA_CHECK(cudaFree(adj_graph));
+            handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), stream);
 	}
 	if (algoCcl == 2) {
 		Type *adj_graph = NULL;
-		Label::final_relabel(adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
-				visited, labels, xa, fa, m, map_id, stream);
+		Label::final_relabel(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
+				visited, labels, xa, fa, m, map_id);
 	}
 
         static const int TPB = 256;
         int nblks = ceildiv(N, TPB);
-        relabelForSkl<Type><<<nblks,TPB>>>(labels, N);
+        relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N);
 
         CUDA_CHECK(cudaPeekAtLastError());
 

@@ -18,25 +18,26 @@
 #include "naive.h"
 #include "pack.h"
 #include "algo.h"
-
+#include <cuML.hpp>
 
 namespace Dbscan {
 namespace VertexDeg {
 
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
-         cudaStream_t stream, int algo, int startVertexId, int batchSize) {
-         Pack<Type> data = {vd, adj, x, eps, N, D, dots};
+void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
+         int algo, int startVertexId, int batchSize) {
+    
+    Pack<Type> data = {vd, adj, x, eps, N, D, dots};
 
     switch(algo) {
 
     case 0:
-    	Naive::launcher(data, stream, startVertexId, batchSize);
+    	Naive::launcher(handle, data, startVertexId, batchSize);
     	break;
 
     case 1:
-    	Algo::launcher<Type>(data, stream, startVertexId, batchSize);
+    	Algo::launcher<Type>(handle, data, startVertexId, batchSize);
     	break;
 
     default:

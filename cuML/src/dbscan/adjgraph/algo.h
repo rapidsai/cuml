@@ -21,7 +21,8 @@
 #include <cuda_utils.h>
 #include "pack.h"
 #include "../common.h"
-        
+#include <cuML.hpp>
+
 using namespace thrust;
 
 namespace Dbscan {
@@ -53,13 +54,14 @@ __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void launcher(Pack<Type> data, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize) {
+    cudaStream_t stream = handle.getStream();
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
     device_ptr<int> dev_vd = device_pointer_cast(data.vd); 
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
-    exclusive_scan(dev_vd, dev_vd + batchSize, dev_ex_scan);
-    adj_graph_kernel<Type, TPB_X><<<blocks, threads>>>(data, batchSize);
+    exclusive_scan(thrust::cuda::par.on(stream), dev_vd, dev_vd + batchSize, dev_ex_scan);
+    adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
 }
 
 }  // End Algo
