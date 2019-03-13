@@ -2,8 +2,8 @@
 
 ## New Features
 
-- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
-- PR #247 : Added "proper" CUDA API to cuML
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
+- PR #247: Added "proper" CUDA API to cuML
 - PR #235: NearestNeighbors MG Support
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
@@ -48,6 +48,7 @@
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 - PR #279: Removing faiss-gpu references in README
 - PR #321: Fix release script typo
+- PR #327: Update conda requirements for version 0.6 requirements
 
 # cuML 0.5.1 (05 Feb 2019)
 
