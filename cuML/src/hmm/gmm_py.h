@@ -11,6 +11,8 @@ void init_f32(GMM<float> &gmm,
               float *cur_llhd, float reg_covar,
               int nCl, int nDim, int nObs);
 
+void compute_lbow_f32(GMM<float> &gmm);
+
 void update_llhd_f32(float* dX, GMM<float>& gmm);
 
 void update_rhos_f32(GMM<float>& gmm, float* dX);
@@ -24,6 +26,7 @@ void update_pis_f32(GMM<float>& gmm);
 void setup_f32(GMM<float> &gmm);
 
 void free_f32(GMM<float> &gmm);
+
 
 
 }

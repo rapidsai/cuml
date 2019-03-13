@@ -12,6 +12,9 @@ struct GMM {
         int nCl, nDim, nObs;
 
         T reg_covar, *cur_llhd;
+
+        T* dProbNorm;
+        int lddprobnorm;
 };
 
 }

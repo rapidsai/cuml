@@ -15,6 +15,9 @@ void init_f32(GMM<float> &gmm,
              nCl, nDim, nObs);
 }
 
+void compute_lbow_f32(GMM<float>& gmm){
+        compute_lbow(gmm);
+}
 
 void update_llhd_f32(float* dX, GMM<float>& gmm){
         cublasHandle_t cublasHandle;

@@ -1,6 +1,6 @@
 // #include <gtest/gtest.h>
 //
-// #include "hmm/gmm.h"
+// #include "hmm/gmm_py.h"
 //
 // template <typename T>
 // struct GMMInputs {
@@ -16,7 +16,7 @@
 // void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 // {
 //         T *dX;
-// // declaration:
+//         // declaration:
 //         T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
 //         magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
 //         lddx = magma_roundup(nDim, RUP_SIZE);
@@ -46,6 +46,7 @@
 //         allocate(dPis_inv, lddPis);
 //
 //         random_matrix_batched(nDim, 1, nCl, dmu, lddmu, false, seed, start, end);
+//         // TODO : Fix simetry
 //         random_matrix_batched(nDim, nDim, nCl, dsigma, lddsigma, true, seed, start, end);
 //         generate_trans_matrix(nCl, nObs, dLlhd, lddLlhd, true);
 //         generate_trans_matrix(nCl, 1, dPis, lddPis, true);
@@ -54,8 +55,7 @@
 //         fill_matrix_gpu(nDim, nObs, dX, lddx);
 //         print_matrix_device(nDim, nObs, dX, lddx, "dX");
 //
-//
-// // // computation:
+// // computation:
 //         GMM<T> gmm;
 //         init(gmm,
 //              dmu, dsigma, dPis, dPis_inv, dLlhd,
@@ -110,13 +110,13 @@
 //         EXPECT_LT(error, tolerance) << " error out of tol.";
 // }
 //
-// // typedef GMMTest<double> GMMTestD;
-// // TEST_P(GMMTestD, Result){
-// //         EXPECT_LT(error, tolerance) << " error out of tol.";
-// // }
+// typedef GMMTest<double> GMMTestD;
+// TEST_P(GMMTestD, Result){
+//         EXPECT_LT(error, tolerance) << " error out of tol.";
+// }
 //
 // INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestF,
 //                         ::testing::ValuesIn(inputsf2));
 //
-// // INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestD,
-// //                         ::testing::ValuesIn(inputsd2));
+// INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestD,
+//                         ::testing::ValuesIn(inputsd2));

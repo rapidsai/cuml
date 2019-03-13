@@ -18,6 +18,7 @@ void _print_gmm_data(T* dX, GMM<T> &gmm, const std::string& msg) {
         print_matrix_device(gmm.nCl, 1, gmm.dPis, gmm.lddPis, "dPis matrix");
         print_matrix_device(gmm.nCl, 1, gmm.dPis_inv, gmm.lddPis, "dPis inv matrix");
         print_matrix_device(gmm.nCl, gmm.nObs, gmm.dLlhd, gmm.lddLlhd, "dllhd matrix");
+        print_matrix_device(1, gmm.nObs, gmm.dProbNorm, gmm.lddprobnorm, "_prob_norm matrix");
         printf("\n..... ***************\n");
 }
 
@@ -36,6 +37,8 @@ void setup(GMM<T> &gmm) {
         allocate_pointer_array(gmm.dmu_array, gmm.lddmu, gmm.nCl);
         allocate_pointer_array(gmm.dsigma_array, gmm.lddsigma_full, gmm.nCl);
 
+        gmm.lddprobnorm = gmm.nObs;
+        allocate(gmm.dProbNorm, gmm.lddprobnorm);
         magma_init();
 }
 
@@ -69,6 +72,12 @@ void init(GMM<T> &gmm,
 
 
 template <typename T>
+void compute_lbow(GMM<T>& gmm){
+        log(gmm.dProbNorm, gmm.dProbNorm, gmm.lddprobnorm);
+        MLCommon::Stats::sum(gmm.cur_llhd, gmm.dProbNorm, 1, gmm.lddprobnorm, true);
+}
+
+template <typename T>
 void update_llhd(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
         split_to_batches(gmm.nObs, gmm.dX_array, dX, gmm.lddx);
         split_to_batches(gmm.nCl, gmm.dmu_array, gmm.dmu, gmm.lddmu);
@@ -81,15 +90,13 @@ void update_llhd(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
                            gmm.dLlhd, gmm.lddLlhd,
                            false);
 
-        // compute_logllhd(gmm.nCl, gmm.nObs, gmm.dLlhd,  gmm.lddLlhd,
-        //                 gmm.cur_llhd);
-
-        // exp(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
-
         cublasdgmm(cublasHandle, CUBLAS_SIDE_LEFT, gmm.nCl, gmm.nObs,
                    gmm.dLlhd, gmm.lddLlhd, gmm.dPis, 1, gmm.dLlhd, gmm.lddLlhd);
 
-
+        // Update _prob_norm
+        // _print_gmm_data_bis(gmm, "start of _prob_norm");
+        MLCommon::Stats::sum(gmm.dProbNorm, gmm.dLlhd, gmm.nObs, gmm.lddLlhd, false);
+        // _print_gmm_data_bis(gmm, "start of _prob_norm");
 
 }
 
@@ -173,7 +180,7 @@ void update_sigmas(T* dX, GMM<T>& gmm,
 
 template <typename T>
 void update_pis(GMM<T>& gmm){
-        _print_gmm_data_bis(gmm, "start of pis");
+        // _print_gmm_data_bis(gmm, "start of pis");
 
         MLCommon::Stats::sum(gmm.dPis, gmm.dLlhd, gmm.lddLlhd, gmm.nObs, true);
         // _print_gmm_data_bis(gmm, "\n\nend of pis");
@@ -196,6 +203,7 @@ void em_step(T* dX, int n_iter, GMM<T>& gmm,
 
         // Likelihood estimate
         update_llhd(dX, gmm, cublasHandle);
+        compute_lbow(gmm);
 }
 
 template <typename T>

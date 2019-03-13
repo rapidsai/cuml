@@ -39,8 +39,8 @@ def compute_error(params_pred, params_true):
     error = sum([mse_dict[key] for key in mse_dict.keys()])
     return mse_dict, error
 
-@info
-def sample(nDim, nCl, nObs):
+# @info
+def sample(nDim, nCl, nObs, precision):
     if precision == 'single':
         dt = np.float32
     else:
@@ -51,12 +51,9 @@ def sample(nDim, nCl, nObs):
     params = cast_parameters(params, dtype=dt)
     return X, params
 
-@timer("sklearn")
-@info
-def run_sklearn(X, n_iter):
-
-
-    # n_iter = 1
+# @timer("sklearn")
+# @info
+def run_sklearn(X, n_iter, nCl):
     gmm = GaussianMixture(n_components=nCl,
                              covariance_type="full",
                              tol=10000,
@@ -71,10 +68,10 @@ def run_sklearn(X, n_iter):
                              warm_start=False,
                              verbose=1,
                              verbose_interval=1)
-    # gmm.fit(X)
-    #
-    from cuml.hmm.sk_debug import fit_predict
-    fit_predict(gmm, X)
+    gmm.fit(X)
+    # #
+    # from cuml.hmm.sk_debug import fit_predict
+    # fit_predict(gmm, X)
 
     params = {"mus" : gmm.means_,
               "sigmas" : gmm.covariances_,
@@ -82,9 +79,9 @@ def run_sklearn(X, n_iter):
 
     return params
 
-@timer("cuml")
-@info
-def run_cuml(X, n_iter, precision):
+# @timer("cuml")
+# @info
+def run_cuml(X, n_iter, precision, nCl):
     gmm = cuml.GaussianMixture(n_components=nCl,
                                max_iter=n_iter,
                                precision=precision,
@@ -120,21 +117,22 @@ def print_info(true_params, sk_params, cuml_params):
 
     print('\ncuml-sk')
     mse_dict_cuml, error_cuml = compute_error(cuml_params, sk_params)
-    print('error')
+    print('errors')
     print(mse_dict_cuml)
 
 
-if __name__ == '__main__':
-    n_iter = 3
+@pytest.mark.parametrize('n_iter', [2, 10])
+@pytest.mark.parametrize('nCl', [1, 2, 5])
+@pytest.mark.parametrize('nDim', [1, 5, 10])
+@pytest.mark.parametrize('nObs', [100, 1000])
+@pytest.mark.parametrize('precision', ["single"])
+def test_gmm(n_iter, nCl, nDim, nObs, precision):
 
-    precision = 'single'
-    nCl = 10
-    nDim = 5
-    nObs = 1000
+    X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
-    X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs)
-
-    sk_params = run_sklearn(X, n_iter)
-    cuml_params = run_cuml(X, n_iter, precision)
+    sk_params = run_sklearn(X, n_iter, nCl)
+    cuml_params = run_cuml(X, n_iter, precision, nCl)
 
     print_info(true_params, sk_params, cuml_params)
+    error_dict, error = compute_error(cuml_params, sk_params)
+    assert error < 1e-02

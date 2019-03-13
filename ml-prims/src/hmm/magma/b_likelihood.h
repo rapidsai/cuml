@@ -20,17 +20,7 @@ void log(math_t *out, const math_t *in, int len,
                 stream);
 }
 
-template <typename T>
-void compute_logllhd(int nCl, int nObs, T* dLlhd, int lddLlhd, T *cur_llhd){
-        T* dTemp;
-        allocate(dTemp, nObs);
 
-        MLCommon::Stats::sum(dTemp, dLlhd, nObs, nCl, false);
-        log(dTemp, dTemp, nObs);
-        MLCommon::Stats::sum(cur_llhd, dTemp, nObs, 1, true);
-
-        CUDA_CHECK(cudaFree(dTemp));
-}
 
 template <typename T>
 __global__

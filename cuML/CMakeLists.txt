@@ -63,6 +63,8 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 
 set(CONDA_ENV_DIR /home/mehdia/miniconda3/envs/cuml-0128 CACHE STRING
 "Path to the conda env")
+set(MAGMA_LIBRARY ${CONDA_ENV_DIR}/lib/libmagma.a CACHE STRING
+"Path to the magma library")
 
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -182,7 +184,7 @@ include_directories(src
         ${CUB_DIR}
         ${ZLIB_INCLUDE_DIRS$},
         ${CONDA_ENV_DIR}/include
-                ${ZLIB_INCLUDE_DIRS$})
+        ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
@@ -208,7 +210,7 @@ add_library(cuml SHARED
             src/hmm/gmm_py.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CONDA_ENV_DIR}/lib/libmagma.a ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
+set(CUML_LINK_LIBRARIES ${MAGMA_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -226,7 +228,7 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 #                       ${CUDA_curand_LIBRARY}
 #                       ${CUDA_cusolver_LIBRARY}
 #                       ${CUDA_CUDART_LIBRARY}
-# 		              gpufaisslib
+# 		                  gpufaisslib
 #                       faisslib
 #                       ${BLAS_LIBRARIES}
 #                       cuml
@@ -270,13 +272,13 @@ install(TARGETS cuml
 # - build test executable -------------------------------------------------------------------------
 
 
-link_directories(/home/mehdia/miniconda3/envs/cuml-0128/lib /usr/local/cuda-10.0/lib64)
+link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
 
 # add_executable(magma_test ${magma_test_sources})
 #
 # target_link_libraries(magma_test
 #                       ${GTEST_LIBNAME}
-#                       ${CONDA_ENV_DIR}/lib/libmagma.a
+#                       ${MAGMA_LIBRARY}
 #                       ${CUDA_cublas_LIBRARY}
 #                       cusparse
 #                       ${CUDA_curand_LIBRARY}
@@ -289,7 +291,7 @@ add_executable(magma_debug ${magma_debug_sources})
 
 target_link_libraries(magma_debug
                      ${GTEST_LIBNAME}
-                     ${CONDA_ENV_DIR}/lib/libmagma.a
+                     ${MAGMA_LIBRARY}
                      ${CUDA_cublas_LIBRARY}
                      ${CUDA_cusparse_LIBRARY}
                      ${CUDA_curand_LIBRARY}

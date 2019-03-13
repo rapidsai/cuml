@@ -57,6 +57,7 @@ cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
                        int)
 
     cdef void setup_f32(GMM[float]&)
+    cdef void compute_lbow_f32(GMM[float]&)
     cdef void update_llhd_f32(float*, GMM[float]&)
     cdef void update_rhos_f32(GMM[float]&, float*)
     cdef void update_mus_f32(float*, GMM[float]&)
@@ -96,9 +97,6 @@ class GaussianMixture:
         self._isLog = True
         self._isInitialized = False
 
-    def _update_llhd_diff(self, prev_llhd, curr_llhd):
-        return curr_llhd.copy_to_host() - prev_llhd.copy_to_host()
-
     def step(self):
         cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
         cdef uintptr_t _dmu_ptr = self.dParams["mus"].device_ctypes_pointer.value
@@ -123,8 +121,6 @@ class GaussianMixture:
 
         cdef GMM[float] gmm
 
-        prev_llhd = self.cur_llhd
-
         if self.precision == 'single':
             with nogil:
                 init_f32(gmm,
@@ -147,16 +143,14 @@ class GaussianMixture:
 
                 setup_f32(gmm)
 
+                update_llhd_f32(<float*>_dX_ptr, gmm)
                 update_rhos_f32(gmm, <float*> _dX_ptr)
 
                 update_pis_f32(gmm)
                 update_mus_f32(<float*>_dX_ptr, gmm)
                 update_sigmas_f32(<float*>_dX_ptr, gmm)
 
-                update_llhd_f32(<float*>_dX_ptr, gmm)
-
-        d_llhd = self._update_llhd_diff(prev_llhd, self.cur_llhd)
-        return d_llhd
+                compute_lbow_f32(gmm)
 
     def init_step(self):
         cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
@@ -237,7 +231,7 @@ class GaussianMixture:
             params["llhd"] = params["llhd"].T
             params["x"] = X.T
 
-            print(params["llhd"].T)
+            # print(params["llhd"].T)
 
             params = align_parameters(params, self.ldd)
             params = flatten_parameters(params)
@@ -253,12 +247,18 @@ class GaussianMixture:
     def fit(self, X):
         self._initialize_parameters(X)
 
-        for it in range(1, self.max_iter + 1) :
-            llhd_dif = self.step()
-            print("Lower bound %f for iter %d", self.lower_bound_, it)
+        prev_lbow = - np.inf
 
-            # if  llhd_dif < self.tol :
-            #     break
+        for it in range(1, self.max_iter + 1) :
+            self.step()
+
+            # print("\n Iteration", it)
+            # print(self.resp_)
+            # print("Lower bound ", self.lower_bound_)
+
+            diff = self.lower_bound_ - prev_lbow
+            if  diff < self.tol :
+                break
 
     @property
     def means_(self):
@@ -283,11 +283,11 @@ class GaussianMixture:
 
     @property
     def lower_bound_(self):
-        return self.cur_llhd.copy_to_host()
+        return self.cur_llhd.copy_to_host() / self.nObs
 
-    # @property
-    # def resp_(self):
-    #     llhd = self.dParams["llhd"].copy_to_host()
-    #     llhd = deallign(llhd, self.nCl, self.nObs, self.ldd["llhd"])
-    #     llhd = llhd.T
-    #     return llhd
+    @property
+    def resp_(self):
+        llhd = self.dParams["llhd"].copy_to_host()
+        llhd = deallign(llhd, self.nCl, self.nObs, self.ldd["llhd"])
+        llhd = llhd.T
+        return llhd
