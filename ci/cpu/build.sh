@@ -34,13 +34,6 @@ env
 logger "Activate conda env..."
 source activate gdf
 
-logger "Install faiss-gpu..."
-FAISS_CUDA="cuda92"
-if [ "$CUDA" == "10.0" ]; then
-  FAISS_CUDA="cuda100"
-fi
-conda install -n gdf -y -c pytorch faiss-gpu ${FAISS_CUDA}
-
 logger "Check versions..."
 python --version
 gcc --version
