@@ -248,7 +248,6 @@ class LinearRegression:
 
         cdef float c_intercept1
         cdef double c_intercept2
-
         if self.gdf_datatype.type == np.float32:
 
             olsFit(<float*>X_ptr,
@@ -355,7 +354,5 @@ class LinearRegression:
             else:
                 setattr(self, key, value)
         if 'algorithm' in params.keys():
-            self.algo = self._get_algorithm_int(self.algorithm)
+            self.algo=self._get_algorithm_int(self.algorithm)
         return self
-
-
