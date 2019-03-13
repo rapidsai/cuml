@@ -64,6 +64,8 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniI
 	if (unique_labels == -1) {
 		unique_labels = *num_unique; //only updated for root
 	}
+
+	ASSERT((*num_unique <= unique_labels), "Error! Unique labels %d cannot be greater than root's %d unique labels", *num_unique, unique_labels);
 	
 	split_info.hist.resize(unique_labels, 0);
 	for(int i=0; i < *num_unique; i++) {
