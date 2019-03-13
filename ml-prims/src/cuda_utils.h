@@ -83,6 +83,30 @@ DI void forEach(int num, L lambda) {
   }
 }
 
+template<typename T>
+std::string arr2Str(const T *arr, int size, std::string name) {
+
+    std::stringstream ss;
+
+    T* arr_h = (T*)malloc(size * sizeof(T));
+    updateHost(arr_h, arr, size);
+
+    ss << name << " = [ ";
+    for(int i = 0; i < size; i++) {
+        ss << arr_h[i];
+
+        if(i < size-1)
+            ss << ", ";
+    }
+    ss << " ]" << std::endl;
+
+    free(arr_h);
+
+    return ss.str();
+}
+
+
+
 /** number of threads per warp */
 static const int WarpSize = 32;
 
@@ -92,6 +116,7 @@ DI int laneId() {
   asm("mov.s32 %0, %laneid;" : "=r"(id));
   return id;
 }
+
 
 /** Device function to have atomic add support for older archs */
 #if __CUDA_ARCH__ < 600
