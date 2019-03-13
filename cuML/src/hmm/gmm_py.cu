@@ -1,6 +1,8 @@
 #include "hmm/gmm.h"
 #include "hmm/gmm_py.h"
 
+namespace gmm {
+
 void init_f32(GMM<float> &gmm,
               float *dmu, float *dsigma, float *dPis, float *dPis_inv, float *dLlhd,
               int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
@@ -72,4 +74,6 @@ void setup_f32(GMM<float> &gmm) {
 
 void free_f32(GMM<float> &gmm) {
         free(gmm);
+}
+
 }

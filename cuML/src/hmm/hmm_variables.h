@@ -1,5 +1,7 @@
 #pragma once
 
+namespace gmm {
+
 template <typename T>
 struct GMM {
         T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
@@ -11,3 +13,5 @@ struct GMM {
 
         T reg_covar, *cur_llhd;
 };
+
+}

@@ -7,6 +7,8 @@
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
 
+namespace MLCommon {
+
 template <typename T>
 __global__
 void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
@@ -43,7 +45,7 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
                  T* dDet_array, magma_int_t batchCount, magma_queue_t queue){
 
         int **dipiv_array, *info_array;
-        T **dA_array_cpy; // U and L are stored here after getrf
+        T **dA_array_cpy;   // U and L are stored here after getrf
         allocate_pointer_array(dipiv_array, n, batchCount);
         allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
         allocate(info_array, batchCount);
@@ -69,4 +71,7 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
         free_pointer_array(dipiv_array, batchCount);
         free_pointer_array(dA_array_cpy, batchCount);
         CUDA_CHECK(cudaFree(info_array));
+}
+
+
 }

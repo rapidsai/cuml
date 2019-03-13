@@ -9,6 +9,7 @@
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
 
+namespace MLCommon {
 template <typename math_t>
 void log(math_t *out, const math_t *in, int len,
          cudaStream_t stream = 0) {
@@ -43,10 +44,6 @@ void createLlhdBatchesKernel(int nObs, int nCl,
         for (size_t obsId = j_start; obsId < nObs; obsId+=nThreads_y) {
                 for (size_t clId = i_start; clId < nCl; clId+=nThreads_x) {
 
-                        // if(j_start == 0 && i_start == 0) {
-                        //         dX_array[0][0] = 0.;
-                        // }
-                        // dX_batches[IDX(clId, obsId, nCl)] = NULL;
                         size_t idx = IDX(clId, obsId, nCl);
                         dX_batches[idx] = dX_array[obsId];
                         dmu_batches[idx] = dmu_array[clId];
@@ -189,9 +186,7 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         T** &dsigma_array, int lddsigma_full, int lddsigma,
                         T* dLlhd, int lddLlhd,
                         bool isLog){
-        // printf(" update Likelihood **********************\n");
-
-// Allocate
+        // Allocate
         T **dInvSigma_array=NULL, *dInvdet_array=NULL;
         T **dX_batches=NULL, **dmu_batches=NULL,
         **dInvSigma_batches=NULL, **dDiff_batches=NULL;
@@ -210,37 +205,23 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         allocate_pointer_array(dDiff_batches, lddx, batchCount);
 
 
-        int device = 0;    // CUDA device ID
+        int device = 0;      // CUDA device ID
         magma_queue_t queue;
         magma_queue_create(device, &queue);
 
-// Compute sigma inverses
-        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
-
-        // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array before");
+        // Compute sigma inverses
 
         inverse_batched(nDim, dsigma_array, lddsigma, dInvSigma_array, nCl, queue);
 
-        // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array");
-// Compute sigma inv dets
+        // Compute sigma inv dets
         det_batched(nDim, dInvSigma_array, lddsigma, dInvdet_array, nCl, queue);
-        // print_matrix_device(nCl, 1, dInvdet_array, nCl, "dInvdet_array");
 
-// Create batches
-        // print_matrix_batched(nDim, nDim, nCl*nObs, dInvSigma_batches, lddsigma, "dInvSigma_batches before");
-        // print_matrix_batched(nDim, 1, nObs, dX_array, lddx, "dX_array");
-
+        // Create batches
         create_llhd_batches(nObs, nCl,
                             dX_batches, dmu_batches, dInvSigma_batches,
                             dX_array, dmu_array, dInvSigma_array);
 
-        // print_matrix_batched(nDim, 1, nObs * nCl, dX_batches, lddx, "dX_batches");
-        //
-        //
-        // print_matrix_batched(nDim, nDim, nCl*nObs, dInvSigma_batches, lddsigma, "dInvSigma_batches");
-
-
-// Compute diffs
+        // Compute diffs
         subtract_batched(nDim, 1, batchCount,
                          dDiff_batches, lddx,
                          dX_batches, lddx,
@@ -251,20 +232,12 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                          dDiff_batches, dInvSigma_batches, lddsigma,
                          dDiff_batches, dBil_batches, batchCount, queue);
 
-        // print_matrix_device(batchCount, 1, dBil_batches, batchCount, "dBil_batches");
-        // print_matrix_device(nCl, 1, dInvdet_array, nCl, "dInvdet_array");
-
 
         // Compute log likelihoods
         _likelihood_batched(nObs, nCl, nDim,
                             dInvdet_array, dBil_batches, dLlhd, lddLlhd, isLog);
-        // print_matrix_device(nCl, nObs, dLlhd, lddLlhd, "dLlhd");
 
-        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
-
-
-
-// free
+        // free
         free_pointer_array(dInvSigma_array, nCl);
         free_pointer_array(dDiff_batches, batchCount);
 
@@ -274,6 +247,6 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         CUDA_CHECK(cudaFree(dmu_batches));
         CUDA_CHECK(cudaFree(dInvSigma_batches));
 
-        // printf(" **** update Likelihood **********************\n");
+}
 
 }

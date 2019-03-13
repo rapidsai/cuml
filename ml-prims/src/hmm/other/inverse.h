@@ -13,9 +13,6 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
 
-// #include <hmm/utils.h>
-
-
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 

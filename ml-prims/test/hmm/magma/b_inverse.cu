@@ -19,12 +19,6 @@ T test_inverse(magma_int_t n, T** dA_array, magma_int_t ldda, T** dinvA_array, m
 
 // Compute error
         magmablas_gemm_batched(MagmaNoTrans, MagmaNoTrans, n, n, n, alpha, dA_array, ldda, dinvA_array, ldda, beta, dO_array, ldda, batchCount, queue);
-
-        // print_matrix_batched(n, n, batchCount, dA_array, ldda, "dA_array");
-        // print_matrix_batched(n, n, batchCount, dinvA_array, ldda, "dinvA_array");
-        // print_matrix_batched(n, n, batchCount, dO_array, ldda, "O array");
-        // print_matrix_batched(n, n, batchCount, dIdM_array, ldda, "idM array");
-        // print_matrix_batched(n, n, batchCount, dO_array, ldda, "O array");
         mse = array_mse_batched(n, n, batchCount, dO_array, ldda, dIdM_array, ldda);
 
 // free
@@ -55,12 +49,7 @@ T run(magma_int_t n, magma_int_t batchCount)
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda );
 
         // computation:
-        // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
-
         inverse_batched(n, dA_array, ldda, dinvA_array, batchCount, queue);
-
-        // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
-        // print_matrix_batched(n, n, batchCount, dinvA_array, ldda, "invA array");
 
         // Error
         error = test_inverse(n, dA_array, ldda, dinvA_array, batchCount, queue);
@@ -68,7 +57,6 @@ T run(magma_int_t n, magma_int_t batchCount)
         // cleanup:
         free_pointer_array(dA_array, batchCount);
         free_pointer_array(dinvA_array, batchCount);
-        // printf("%f\n", (float) error );
         return error;
 }
 

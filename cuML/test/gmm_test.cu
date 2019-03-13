@@ -12,8 +12,6 @@
 //         return os;
 // }
 //
-// #include "hmm/gmm.h"
-//
 // template <typename T>
 // void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 // {

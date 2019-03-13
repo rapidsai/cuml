@@ -53,11 +53,8 @@ T run(magma_int_t n, magma_int_t batchCount, bool is_hermitian)
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda);
 
 // computation magma :
-        // print_matrix_batched(n, n, batchCount, dA_array, ldda, "A array");
 
         det_batched(n, dA_array, ldda, dDet_magma, batchCount, queue);
-
-        // print_matrix_device(batchCount, 1, dDet_magma, n, "det array");
 
 // computation cusolver :
         run_cuda_det(n, batchCount, dA_array, ldda, dDet_cusolver, is_hermitian);

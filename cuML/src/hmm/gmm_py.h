@@ -1,6 +1,8 @@
 #pragma once
 #include "hmm/hmm_variables.h"
 
+namespace gmm {
+
 void init_f32(GMM<float> &gmm,
               float *dmu,  float *dsigma,
               float *dPis,  float *dPis_inv,  float *dLlhd,
@@ -22,3 +24,6 @@ void update_pis_f32(GMM<float>& gmm);
 void setup_f32(GMM<float> &gmm);
 
 void free_f32(GMM<float> &gmm);
+
+
+}

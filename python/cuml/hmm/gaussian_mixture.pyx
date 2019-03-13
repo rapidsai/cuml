@@ -30,11 +30,11 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.hmm.sample_utils import *
 
-cdef extern from "hmm/hmm_variables.h" :
+cdef extern from "hmm/hmm_variables.h" namespace "gmm":
     cdef cppclass GMM[T]:
         pass
 
-cdef extern from "hmm/gmm_py.h" nogil:
+cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
 
     cdef void init_test()
 

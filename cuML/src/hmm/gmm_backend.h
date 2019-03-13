@@ -1,23 +1,53 @@
 #pragma once
 
-#include <cuda.h>
-#include <cublas_v2.h>
-
-// #include <hmm/structs.h>
-#include <hmm/magma/b_likelihood.h>
 #include <hmm/hmm_variables.h>
-// #include <hmm/cuda/random.h>
+#include <hmm/gmm_utils.h>
 
-#include <linalg/cublas_wrappers.h>
-#include <hmm/cuda/cublas_wrappers.h>
 #include <hmm/magma/magma_test_utils.h>
+#include <hmm/cuda/cublas_wrappers.h>
+#include <hmm/magma/b_likelihood.h>
 
+#include <cuda.h>
+#include <linalg/cublas_wrappers.h>
 #include <linalg/sqrt.h>
 #include <ml_utils.h>
+#include <cublas_v2.h>
 
 using namespace MLCommon::HMM;
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
+
+namespace gmm {
+
+template <typename math_t>
+void inverse(math_t *out, const math_t *in, int len,
+             cudaStream_t stream = 0) {
+        unaryOp(out, in, len,
+                [] __device__(math_t in) {
+                        return 1 / in;
+                },
+                stream);
+}
+
+template <typename math_t>
+void exp(math_t *out, const math_t *in, int len,
+         cudaStream_t stream = 0) {
+        unaryOp(out, in, len,
+                [] __device__(math_t in) {
+                        return std::exp(in);
+                },
+                stream);
+}
+
+template <typename math_t>
+void square(math_t *out, const math_t *in, int len,
+            cudaStream_t stream = 0) {
+        unaryOp(out, in, len,
+                [] __device__(math_t in) {
+                        return in * in;
+                },
+                stream);
+}
 
 
 // template <typename T>
@@ -156,15 +186,6 @@ void dgmm_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename math_t>
-void square(math_t *out, const math_t *in, int len,
-            cudaStream_t stream = 0) {
-        unaryOp(out, in, len,
-                [] __device__(math_t in) {
-                        return in * in;
-                },
-                stream);
-}
 
 template <typename T>
 __global__
@@ -205,28 +226,11 @@ void create_sigmas_batches(int nCl,
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename math_t>
-void inverse(math_t *out, const math_t *in, int len,
-             cudaStream_t stream = 0) {
-        unaryOp(out, in, len,
-                [] __device__(math_t in) {
-                        return 1 / in;
-                },
-                stream);
-}
-
-template <typename math_t>
-void exp(math_t *out, const math_t *in, int len,
-         cudaStream_t stream = 0) {
-        unaryOp(out, in, len,
-                [] __device__(math_t in) {
-                        return std::exp(in);
-                },
-                stream);
-}
-
 template <typename T>
 void generate_trans_matrix(magma_int_t m, magma_int_t n, T* dA, magma_int_t lda, bool colwise){
         fill_matrix_gpu(m, n, dA, lda, false);
         normalize_matrix(m, n, dA, lda, colwise);
+}
+
+
 }

@@ -6,6 +6,8 @@ using namespace MLCommon::HMM;
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 
+namespace gmm {
+
 template <typename T>
 void _print_gmm_data(T* dX, GMM<T> &gmm, const std::string& msg) {
         printf("\n*************** .....\n");
@@ -181,24 +183,19 @@ void update_pis(GMM<T>& gmm){
 
 
 template <typename T>
-void em(T* dX, int n_iter, GMM<T>& gmm,
-        cublasHandle_t cublasHandle, magma_queue_t queue){
-        // Run the EM algorithm
-        for (int it = 0; it < n_iter; it++) {
-                printf("\n -------------------------- \n");
-                printf(" iteration %d\n", it);
+void em_step(T* dX, int n_iter, GMM<T>& gmm,
+             cublasHandle_t cublasHandle, magma_queue_t queue){
 
-                // E step
-                update_rhos(dX, gmm, cublasHandle, queue);
+        // E step
+        update_rhos(dX, gmm, cublasHandle, queue);
 
-                // M step
-                update_pis(gmm);
-                update_mus(dX, gmm, cublasHandle, queue);
-                update_sigmas(dX, gmm, cublasHandle, queue);
+        // M step
+        update_pis(gmm);
+        update_mus(dX, gmm, cublasHandle, queue);
+        update_sigmas(dX, gmm, cublasHandle, queue);
 
-                // Likelihood estimate
-                update_llhd(dX, gmm, cublasHandle);
-        }
+        // Likelihood estimate
+        update_llhd(dX, gmm, cublasHandle);
 }
 
 template <typename T>
@@ -212,4 +209,7 @@ void free(GMM<T>& gmm){
         CUDA_CHECK(cudaFree(gmm.dX_array));
         CUDA_CHECK(cudaFree(gmm.dsigma_array));
         CUDA_CHECK(cudaFree(gmm.dmu_array));
+}
+
+
 }

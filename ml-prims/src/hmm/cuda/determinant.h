@@ -91,7 +91,7 @@ struct Determinant
                         //                                        Ws,
                         //                                        WsSize,
                         //                                        info));
-                        printf("Hermitian determinant still requires testing\n");
+                        printf("Hermitian not yet tested\n");
                 }
                 else{
                         CUSOLVER_CHECK(LinAlg::cusolverDngetrf(*handle,

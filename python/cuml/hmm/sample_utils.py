@@ -3,15 +3,17 @@ from sklearn.utils.validation import check_random_state
 
 
 def roundup(x, ref):
-    return  (int) (ref * np.ceil(x / ref))
+    return (int)(ref * np.ceil(x / ref))
+
 
 def align(A, ldda):
     m = A.shape[0]
     n = A.shape[1]
 
     B = np.zeros((ldda, n))
-    B[:m,:] = A
+    B[:m, :] = A
     return B
+
 
 def deallign(A, m, n, ldda):
     A = A.reshape((ldda, n), order='F')
@@ -28,7 +30,7 @@ def sample_matrix(m, n, random_state, isSymPos=False, isRowNorm=False, isColNorm
         assert m == n
         A = np.matmul(A, A.T) + epsilon * np.eye(n)
 
-    if isColNorm :
+    if isColNorm:
         A /= np.sum(A, axis=0)[None, :]
 
     if isRowNorm:
@@ -36,22 +38,6 @@ def sample_matrix(m, n, random_state, isSymPos=False, isRowNorm=False, isColNorm
 
     return A
 
-# def sample_data(nObs, params, dt):
-#     def _sample_mixture():
-#         idx = np.random.multinomial(1, params["pis"][0]).argmax()
-#         mu = params["mus"][idx]
-#         cov =params["sigmas"][idx]
-#
-#         # print(cov)
-#         # print(np.linalg.det(cov))
-#         # TODO : Check warning positive definite
-#         x = [0]
-#         # print(x)
-#         # print('\n')
-#         return x
-#     print(np.linalg.det(params["sigmas"]))
-#     X = np.array([_sample_mixture() for _ in range(nObs)], dtype=dt)
-#     return X
 
 def sample_data(nObs, params):
     nCl = params["pis"][0].shape[0]
@@ -63,6 +49,7 @@ def sample_data(nObs, params):
     X = np.concatenate(samples)
     return X
 
+
 def sample_parameters(nDim, nCl):
     mus = sample_matrix(nCl, nDim, None, isSymPos=False)
 
@@ -73,26 +60,29 @@ def sample_parameters(nDim, nCl):
     pis = sample_matrix(1, nCl, None, False)
     pis /= np.sum(pis)
 
-    return {"mus" : mus,
-            "sigmas" : sigmas,
-            "pis" : pis
+    return {"mus": mus,
+            "sigmas": sigmas,
+            "pis": pis
             }
+
 
 def align_parameters(params, ldd):
     aligned = dict()
     for key in params.keys():
-        if key in ["llhd", "x"] :
+        if key in ["llhd", "x"]:
             aligned[key] = align(params[key], ldd[key])
-        else :
+        else:
             aligned[key] = params[key]
     return aligned
+
 
 def flatten_parameters(params):
     for key in params.keys():
         params[key] = params[key].flatten(order="F")
-    return  params
+    return params
+
 
 def cast_parameters(params, dtype):
     for key in params.keys():
         params[key] = params[key].astype(dtype)
-    return  params
+    return params
