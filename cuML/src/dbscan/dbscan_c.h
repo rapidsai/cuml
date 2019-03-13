@@ -15,13 +15,14 @@
  */
 
 #pragma once
+#include <cuML.hpp>
 
 namespace ML{
 
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
+void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
 		       int *labels);
 
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
+void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
 		       int *labels);
 
 }

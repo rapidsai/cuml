@@ -25,6 +25,7 @@
 #include "dbscan/common.h"
 #include <iostream>
 #include <limits>
+#include <cuML.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -115,7 +116,7 @@ __global__ void map_label(Pack<Type> data, Type MAX_LABEL) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void label(Pack<Type> data, int startVertexId, int batchSize) {
+void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
     size_t N = data.N;
     bool *host_m = new bool(1);
     bool *host_fa = new bool[N];
@@ -124,18 +125,19 @@ void label(Pack<Type> data, int startVertexId, int batchSize) {
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     
-    init_label<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize, MAX_LABEL); 
+    cudaStream_t stream = handle.getStream();
+    init_label<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize, MAX_LABEL); 
     do {
-        cudaMemset(data.m, false, sizeof(bool));
-        label_device<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
+        CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) ); 
+        label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         cudaDeviceSynchronize();
         //** swapping F1 and F2
-        MLCommon::updateHost(host_fa, data.fa, N);
-        MLCommon::updateHost(host_xa, data.xa, N);
-        MLCommon::updateDevice(data.fa, host_xa, N);
-        MLCommon::updateDevice(data.xa, host_fa, N);
+        MLCommon::updateHostAsync(host_fa, data.fa, N, stream);
+        MLCommon::updateHostAsync(host_xa, data.xa, N, stream);
+        MLCommon::updateDeviceAsync(data.fa, host_xa, N, stream);
+        MLCommon::updateDeviceAsync(data.xa, host_fa, N, stream);
         //** Updating m *
-        MLCommon::updateHost(host_m, data.m, 1);
+        MLCommon::updateHostAsync(host_m, data.m, 1, stream);
     } while(host_m[0]); 
 
     delete [] host_m;
@@ -144,33 +146,35 @@ void label(Pack<Type> data, int startVertexId, int batchSize) {
 }
 
 template <typename Type>
-void launcher(Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, Type N, int startVertexId, int batchSize) {
+    cudaStream_t stream = handle.getStream();
     //data.resetArray(stream);
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     if(startVertexId == 0)
-        init_all<Type, TPB_X><<<blocks, threads>>>(data, MAX_LABEL); 
-    label(data, startVertexId, batchSize);
+        init_all<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL); 
+    label(handle, data, startVertexId, batchSize);
 }
 
 template <typename Type>
-void relabel(Pack<Type> data, cudaStream_t stream) {
+void relabel(const ML::cumlHandle& handle, Pack<Type> data) {
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
+    cudaStream_t stream = handle.getStream();
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
     Type *host_db_cluster = new Type[N];
     Type *host_map_id = new Type[N];
     memset(host_map_id, 0, N*sizeof(Type));
-    MLCommon::updateHost(host_db_cluster, data.db_cluster, N);
+    MLCommon::updateHostAsync(host_db_cluster, data.db_cluster, N, stream);
     sort(host, host_db_cluster, host_db_cluster + N);
     Type *uid = unique(host, host_db_cluster, host_db_cluster + N, equal_to<Type>());
     Type num_clusters = uid - host_db_cluster;
     for(int i=0; i<num_clusters; i++)
         host_map_id[i] = host_db_cluster[i];
-    MLCommon::updateDevice(data.map_id, host_map_id, N);
-    map_label<Type,TPB_X><<<blocks, threads>>>(data, MAX_LABEL);
+    MLCommon::updateDeviceAsync(data.map_id, host_map_id, N, stream);
+    map_label<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL);
     delete [] host_db_cluster;
     delete [] host_map_id;
 }

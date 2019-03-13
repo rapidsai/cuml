@@ -19,20 +19,21 @@
 #include "algo.h"
 #include "pack.h"
 #include "naive.h"
+#include <cuML.hpp>
 
 namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
-         Type minpts, bool* core_pts, cudaStream_t stream, int algo, int batchSize) {
+void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+         Type minpts, bool* core_pts, int algo, int batchSize) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts};
     switch(algo) {
     case 0:
-        Naive::launcher<Type>(data, batchSize, stream);
+        Naive::launcher<Type>(handle, data, batchSize);
         break;
     case 1:
-        Algo::launcher<Type>(data, batchSize, stream);
+        Algo::launcher<Type>(handle, data, batchSize);
         break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);

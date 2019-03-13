@@ -22,6 +22,7 @@
 #include <cuda_utils.h>
 #include "pack.h"
 #include "dbscan/common.h"
+#include <cuML.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -47,25 +48,26 @@ __global__ void bfs_device(Pack<Type> data, int startVertexId, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
+void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
          int startVertexId, int batchSize) {
+    cudaStream_t stream = handle.getStream();
     bool *host_xa = new bool[N];
     bool *host_fa = new bool[N];
     memset(host_xa, false, sizeof(bool)*N);
     memset(host_fa, false, sizeof(bool)*N);
     host_fa[id] = true;
-    MLCommon::updateDevice(data.xa, host_xa, N);
-    MLCommon::updateDevice(data.fa, host_fa, N);
+    MLCommon::updateDeviceAsync(data.xa, host_xa, N, stream);
+    MLCommon::updateDeviceAsync(data.fa, host_fa, N, stream);
     int countFa = 1;
     dim3 blocks(ceildiv(batchSize, TPB_X), 1, 1);
     dim3 threads(TPB_X, 1, 1);
     while(countFa > 0) {
-        bfs_device<Type,TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
+        bfs_device<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         cudaDeviceSynchronize();
         countFa = count(device, data.fa, data.fa + N, true);
     }
-    MLCommon::updateHost(host_xa, data.xa, N);
+    MLCommon::updateHostAsync(host_xa, data.xa, N, stream);
     for(int i=0; i<N; i++) {
         if(host_xa[i]) {
             host_db_cluster[i] = cluster;
@@ -77,7 +79,8 @@ void bfs(int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int 
 }
 
 template <typename Type>
-void identifyCluster(Pack<Type> data, int startVertexId, int batchSize) {
+void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
+    cudaStream_t stream = handle.getStream();
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
     int *host_vd = new int[batchSize+1];
@@ -85,27 +88,28 @@ void identifyCluster(Pack<Type> data, int startVertexId, int batchSize) {
     bool *host_visited = new bool[N];
     Type *host_ex_scan = new Type[batchSize];
     Type *host_db_cluster = new Type[N];
-    MLCommon::updateHost(host_core_pts, data.core_pts, batchSize);
-    MLCommon::updateHost(host_vd, data.vd, batchSize+1);
+    MLCommon::updateHostAsync(host_core_pts, data.core_pts, batchSize, stream);
+    MLCommon::updateHostAsync(host_vd, data.vd, batchSize+1, stream);
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     Type *host_adj_graph = new Type[adjgraph_size];
-    MLCommon::updateHost(host_ex_scan, data.ex_scan, batchSize);
-    MLCommon::updateHost(host_adj_graph, data.adj_graph, adjgraph_size);
-    MLCommon::updateHost(host_visited, data.visited, N);
-    MLCommon::updateHost(host_db_cluster, data.db_cluster, N);
+    MLCommon::updateHostAsync(host_ex_scan, data.ex_scan, batchSize, stream);
+    MLCommon::updateHostAsync(host_adj_graph, data.adj_graph, adjgraph_size, stream);
+    MLCommon::updateHostAsync(host_visited, data.visited, N, stream);
+    MLCommon::updateHostAsync(host_db_cluster, data.db_cluster, N, stream);
  
     for(int i=0; i<batchSize; i++) {
         if(!host_visited[i + startVertexId] && host_core_pts[i]) {
             host_visited[i + startVertexId] = true;
             host_db_cluster[i + startVertexId] = cluster;
-            bfs(i, data, host_adj_graph, host_ex_scan, host_vd,
-                host_visited, host_db_cluster, cluster, N, startVertexId, batchSize);
+            bfs(handle, i, data, host_adj_graph, host_ex_scan, host_vd,
+                host_visited, host_db_cluster, cluster, N, startVertexId, 
+                batchSize);
             cluster++;
         }
     }
 
-    MLCommon::updateDevice(data.visited, host_visited, N);
-    MLCommon::updateDevice(data.db_cluster, host_db_cluster, N);
+    MLCommon::updateDeviceAsync(data.visited, host_visited, N, stream);
+    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster, N, stream);
     delete [] host_vd;
     delete [] host_core_pts;
     delete [] host_visited;
@@ -115,11 +119,12 @@ void identifyCluster(Pack<Type> data, int startVertexId, int batchSize) {
 }
 
 template <typename Type>
-void launcher(Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
+        cudaStream_t stream = handle.getStream();
     if(startVertexId == 0)
         data.resetArray(stream);
         CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*data.N, stream));
-    identifyCluster(data, startVertexId, batchSize);
+    identifyCluster(handle, data, startVertexId, batchSize);
 }
 
 } //End Algo1
