@@ -549,7 +549,7 @@ class PCA:
         for key in variables:
             var_value = getattr(self.params,key,None)
             params[key] = var_value  
-            if 'svd_solver'==key:
+            if 'svd_solver'== key:
                 params[key] = getattr(self, key, None)
             		 
         return params
