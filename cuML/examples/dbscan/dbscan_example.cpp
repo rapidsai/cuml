@@ -197,8 +197,8 @@ int main(int argc, char * argv[])
 #ifdef HAVE_RMM
     rmmOptions_t rmmOptions;
     rmmOptions.allocation_mode = PoolAllocation;
-    rmmOptions.initial_pool_size = size_t(1024)*size_t(1024)*size_t(1024);
-    rmmOptions.enable_logging = true;
+    rmmOptions.initial_pool_size = 0;
+    rmmOptions.enable_logging = false;
     rmmError_t rmmStatus = rmmInitialize(&rmmOptions);
     if ( RMM_SUCCESS != rmmStatus )
     {
