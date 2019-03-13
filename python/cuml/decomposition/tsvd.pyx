@@ -211,7 +211,6 @@ class TruncatedSVD:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-
     def fit(self, X, _transform=True):
         """
             Fit LSI model on training cudf DataFrame X.
@@ -334,7 +333,6 @@ class TruncatedSVD:
 
         return X_new
 
-
     def inverse_transform(self, X):
         """
             Transform X back to its original space.
@@ -393,8 +391,6 @@ class TruncatedSVD:
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         return X_original
-
-
 
     def transform(self, X):
         """
@@ -461,7 +457,6 @@ class TruncatedSVD:
         del(X_m)
         return X_new
 
-
     def get_params(self, deep=True):
         params = dict()
         variables = ['n_components', 'algorithm', 'svd_solver', 'tol', 'n_iter', 'random_state','iterated_power','random_state', 'n_cols','n_rows']
@@ -469,8 +464,7 @@ class TruncatedSVD:
             var_value = getattr(self.params,key,None)
             params[key] = var_value   
             if 'algorithm'==key:
-                params[key] = getattr(self, key, None)
-            		 
+                params[key] = getattr(self, key, None) 
         return params
 
     def set_params(self, **params):
