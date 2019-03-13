@@ -33,7 +33,7 @@ namespace ML {
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
-	kNN::kNN(int D): D(D), total_n(0), indices(0){}
+	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose){}
 	kNN::~kNN() {
 
 		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
@@ -68,7 +68,9 @@ namespace ML {
 				this->total_n += params->N;
 				this->indices += 1;
 
-				res.emplace_back(new faiss::gpu::StandardGpuResources());
+				auto gpu_res = new faiss::gpu::StandardGpuResources();
+
+				res.emplace_back(gpu_res);
 
 				faiss::gpu::GpuIndexFlatConfig config;
 				config.device = att.device;
@@ -85,6 +87,9 @@ namespace ML {
 				// As a result, we need to add the ids ourselves
 				// and have the reducer/combiner re-label the indices
 				// based on the shards they came from.
+
+				if(this->verbose)
+				    std::cout << "Adding index " << i << "total_n=" << this->total_n << std::endl;
 				sub_indices[i]->add(params->N, params->ptr);
 			} else {
 				std::stringstream ss;
@@ -111,9 +116,15 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-        for(int i = 0; i < indices; i++)
-			this->sub_indices[i]->search(n, search_items, k,
-					all_D+(i*k*n), all_I+(i*k*n));
+        #pragma omp parallel
+		{
+            #pragma omp for
+		    for(int i = 0; i < indices; i++) {
+                std::cout << "Searching index " << i << std::endl;
+                this->sub_indices[i]->search(n, search_items, k,
+                        all_D+(i*k*n), all_I+(i*k*n));
+		    }
+		}
 
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
@@ -127,6 +138,77 @@ namespace ML {
 		delete result_D;
 		delete result_I;
 	}
+
+    /**
+     * Chunk a host array up into one or many GPUs (determined by the provided
+     * list of gpu ids) and fit a knn model.
+     *
+     * @param ptr       an array in host memory to chunk over devices
+     * @param n         number of elements in ptr
+     * @param devices   array of device ids for chunking the ptr
+     * @param n_chunks  number of elements in gpus
+     * @param out       host pointer (size n) to store output
+     */
+    void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
+
+        int chunk_size = MLCommon::ceildiv(n, n_chunks);
+
+        if(this->verbose) {
+            std::cout << "Chunk size: " << chunk_size << std::endl;
+            std::cout << "n_chunks: " << n_chunks << std::endl;
+        }
+
+        kNNParams *params = (kNNParams*)malloc(n_chunks * sizeof(kNNParams));
+
+        #pragma omp parallel
+        {
+            #pragma omp for
+            for(int i = 0; i < n_chunks; i++) {
+
+                int device = devices[i];
+                CUDA_CHECK(cudaSetDevice(device));
+
+                if(this->verbose)
+                    std::cout << "Setting device: " << device << std::endl;
+
+                int length = chunk_size;
+                if(length * i >= n)
+                    length = (chunk_size*i)-n;
+
+                if(this->verbose)
+                    std::cout << "Length: " << length << std::endl;
+
+                float *ptr_d;
+                MLCommon::allocate(ptr_d, length*D);
+                MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), length*D);
+
+                kNNParams p;
+                p.N = length;
+                p.ptr = ptr_d;
+
+                params[i] = p;
+            }
+        }
+
+        fit(params, n_chunks);
+
+        if(this->verbose)
+            std::cout << "About to free" << std::endl;
+
+        #pragma omp parallel
+        {
+            #pragma omp for
+            for(int i = 0; i < n_chunks; i++) {
+                kNNParams p = params[i];
+                CUDA_CHECK(cudaFree(p.ptr));
+            }
+        }
+
+        free(params);
+   }
+
+
+
 
 
 	/** Merge results from several shards into a single result set.
@@ -190,7 +272,6 @@ namespace ML {
 				}
 			}
 		}
-
 	};
 
 };

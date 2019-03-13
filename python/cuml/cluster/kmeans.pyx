@@ -22,8 +22,10 @@
 import ctypes
 import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
+from cuml import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -168,6 +170,10 @@ class KMeans:
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
         self.gpu_id = gpu_id
+        warnings.warn("The current version of the KMeans algorithm will change to be based on cuML's machine"
+                      " learning primitives to achieve performance and reliability improvements."
+                      "Some functionality may be affected.",
+                      FutureWarning)
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -177,10 +183,6 @@ class KMeans:
 
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        c = gdf.as_gpu_matrix(order='C').shape
-        return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
     def fit(self, X):
         """
@@ -196,7 +198,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -294,7 +296,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -310,7 +312,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
@@ -375,7 +377,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -391,7 +393,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
@@ -449,7 +451,7 @@ class KMeans:
         variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
 

@@ -14,8 +14,8 @@
 #
 
 import pytest
-from cuml import KNN as cuKNN
-from sklearn.neighbors import KDTree as skKNN
+from cuml.neighbors import NearestNeighbors as cuKNN
+from sklearn.neighbors import NearestNeighbors as skKNN
 import cudf
 import pandas as pd
 import numpy as np
@@ -23,21 +23,23 @@ import numpy as np
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_search(input_type, should_downcast):
+def test_nn_search(input_type, should_downcast):
 
     dtype = np.float32 if not should_downcast else np.float64
 
     # For now, FAISS based knn only supports single precision
     X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
 
-    knn_sk = skKNN(X, metric="l2")
-    D_sk, I_sk = knn_sk.query(X, len(X))
+    knn_sk = skKNN(metric="l2")
+    knn_sk.fit(X)
+
+    D_sk, I_sk = knn_sk.kneighbors(X, len(X))
 
     knn_cu = cuKNN(should_downcast=should_downcast)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
         knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.query(X, len(X))
+        D_cuml, I_cuml = knn_cu.kneighbors(X, len(X))
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame
@@ -49,7 +51,7 @@ def test_knn_search(input_type, should_downcast):
 
     else:
         knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.query(X, len(X))
+        D_cuml, I_cuml = knn_cu.kneighbors(X, len(X))
 
         assert type(D_cuml) == np.ndarray
         assert type(I_cuml) == np.ndarray
@@ -57,16 +59,12 @@ def test_knn_search(input_type, should_downcast):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    print(str(D_cuml_arr))
-    print(str(D_cuml_arr))
-    print(str(I_cuml_arr))
-
     assert np.array_equal(D_cuml_arr, np.square(D_sk))
     assert np.array_equal(I_cuml_arr, I_sk)
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn_downcast_fails(input_type):
+def test_nn_downcast_fails(input_type):
 
     X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
 

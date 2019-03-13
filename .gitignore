@@ -13,11 +13,7 @@ htmlcov
 build/
 cuml.egg-info/
 dist/
-python/cuml/cluster/*.cpp
-python/cuml/decomposition/*.cpp
-python/cuml/filter/*.cpp
-python/cuml/linear_model/*.cpp
-python/cuml/neighbors/*.cpp
+python/cuml/**/*.cpp
 log
 .ipynb_checkpoints
 .DS_Store
