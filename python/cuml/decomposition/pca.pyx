@@ -563,7 +563,7 @@ class PCA:
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
-                if 'svd_solver' in parameter.keys():
+                if 'svd_solver' in parameter.keys() and key=='svd_solver':
                     setattr(self, key, value)
                 else:
                     setattr(self.params, key, value)
