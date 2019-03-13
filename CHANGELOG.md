@@ -29,6 +29,7 @@
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
 - PR #322: set_params updated
+
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
