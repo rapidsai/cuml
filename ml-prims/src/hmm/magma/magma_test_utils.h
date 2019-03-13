@@ -296,12 +296,6 @@ void assert_batched(int batchCount, int *d_info_array){
 
 template <typename T>
 __global__
-void atomicRandom(T* x){
-
-}
-
-template <typename T>
-__global__
 void symetrizeBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                             T* dA, magma_int_t ldda,
                             int nThreads_x, int nThreads_y, int nThreads_z){

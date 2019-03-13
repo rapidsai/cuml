@@ -15,11 +15,11 @@ void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
         for (size_t i = idxThread; i < batchCount; i+=numThreads) {
                 dDet_array[i] = 0;
                 for (size_t j = 0; j < n; j++) {
-                        printf("%f\n", (float) dU_array[i][IDX(j, j, lddu)]);
+                        // printf("%f\n", (float) dU_array[i][IDX(j, j, lddu)]);
                         dDet_array[i] += std::log(std::abs(dU_array[i][IDX(j, j, lddu)]));
-                        printf("%f\n", (float) std::log(dU_array[i][IDX(j, j, lddu)]));
                 }
                 dDet_array[i] = std::exp(dDet_array[i]);
+
         }
 }
 

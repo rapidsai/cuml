@@ -8,14 +8,6 @@ struct GMM {
         int lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
 
         int nCl, nDim, nObs;
-};
 
-template <typename T>
-struct HMM {
-        GMM<T>& gmm;
-
-        T *dT;
-        int *dV, **dV_array;
-        T **dAlpha_array, **dBeta_array
-        int lddt, lddv;
+        T reg_covar, *cur_llhd;
 };

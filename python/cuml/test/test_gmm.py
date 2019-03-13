@@ -54,9 +54,12 @@ def sample(nDim, nCl, nObs):
 @timer("sklearn")
 @info
 def run_sklearn(X, n_iter):
+
+
+    # n_iter = 1
     gmm = GaussianMixture(n_components=nCl,
                              covariance_type="full",
-                             tol=100,
+                             tol=10000,
                              reg_covar=0,
                              max_iter=n_iter,
                              n_init=1,
@@ -64,11 +67,15 @@ def run_sklearn(X, n_iter):
                              weights_init=None,
                              means_init=None,
                              precisions_init=None,
-                             random_state=None,
+                             random_state=10,
                              warm_start=False,
                              verbose=1,
                              verbose_interval=1)
-    gmm.fit(X)
+    # gmm.fit(X)
+    #
+    from cuml.hmm.sk_debug import fit_predict
+    fit_predict(gmm, X)
+
     params = {"mus" : gmm.means_,
               "sigmas" : gmm.covariances_,
               "pis" : gmm.weights_}
@@ -80,7 +87,10 @@ def run_sklearn(X, n_iter):
 def run_cuml(X, n_iter, precision):
     gmm = cuml.GaussianMixture(n_components=nCl,
                                max_iter=n_iter,
-                               precision=precision)
+                               precision=precision,
+                               reg_covar=0,
+                               random_state=10,
+                               warm_start=False)
 
     gmm.fit(X)
 
@@ -108,14 +118,19 @@ def print_info(true_params, sk_params, cuml_params):
     print("params")
     print(cuml_params)
 
+    print('\ncuml-sk')
+    mse_dict_cuml, error_cuml = compute_error(cuml_params, sk_params)
+    print('error')
+    print(mse_dict_cuml)
+
 
 if __name__ == '__main__':
-    n_iter = 2
+    n_iter = 3
 
     precision = 'single'
-    nCl = 1
+    nCl = 10
     nDim = 5
-    nObs = 100
+    nObs = 1000
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs)
 

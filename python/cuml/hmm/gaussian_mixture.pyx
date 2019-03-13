@@ -44,19 +44,20 @@ cdef extern from "hmm/gmm_py.h" nogil:
                        float*,
                        float*,
                        float*,
+                       int,
+                       int,
+                       int,
+                       int,
+                       int,
+                       int,
                        float*,
-                       int,
-                       int,
-                       int,
-                       int,
-                       int,
-                       int,
+                       float,
                        int,
                        int,
                        int)
 
     cdef void setup_f32(GMM[float]&)
-    cdef void update_llhd_f32(GMM[float]&, bool)
+    cdef void update_llhd_f32(float*, GMM[float]&)
     cdef void update_rhos_f32(GMM[float]&, float*)
     cdef void update_mus_f32(float*, GMM[float]&)
     cdef void update_sigmas_f32(float*, GMM[float]&)
@@ -81,16 +82,19 @@ class GaussianMixture:
     # TODO : Fix the default values
     def __init__(self, n_components, tol=1e-03,
                  reg_covar=1e-06, max_iter=100, init_params="random",
-                 warm_start=False, precision='single'):
+                 warm_start=False, precision='single', random_state=None):
         self.precision = precision
         self.dtype = self._get_dtype(precision)
 
         self.n_components = n_components
         self.tol = tol
+        self.reg_covar = reg_covar
         self.max_iter = max_iter
+        self.warm_start = warm_start
+        self.random_state = random_state
 
         self._isLog = True
-
+        self._isInitialized = False
 
     def _update_llhd_diff(self, prev_llhd, curr_llhd):
         return curr_llhd.copy_to_host() - prev_llhd.copy_to_host()
@@ -102,7 +106,6 @@ class GaussianMixture:
         cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
         cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
-        cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
 
         cdef int lddx = self.ldd["x"]
         cdef int lddmu = self.ldd["mus"]
@@ -110,6 +113,9 @@ class GaussianMixture:
         cdef int lddsigma_full = self.ldd["sigmas"] * self.nDim
         cdef int lddPis = self.ldd["pis"]
         cdef int lddLlhd =self.ldd["llhd"]
+
+        cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
+        cdef float reg_covar = self.reg_covar
 
         cdef int nCl = self.nCl
         cdef int nDim = self.nDim
@@ -127,25 +133,82 @@ class GaussianMixture:
                          <float*> _dPis_ptr,
                          <float*> _dPis_inv_ptr,
                          <float*> _dLlhd_ptr,
-                         <float*> _cur_llhd_ptr,
                          <int> lddx,
                          <int> lddmu,
                          <int> lddsigma,
                          <int> lddsigma_full,
                          <int> lddPis,
                          <int> lddLlhd,
+                         <float*> _cur_llhd_ptr,
+                         <float> reg_covar,
                          <int> nCl,
                          <int> nDim,
                          <int> nObs)
 
                 setup_f32(gmm)
+
                 update_rhos_f32(gmm, <float*> _dX_ptr)
+
+                update_pis_f32(gmm)
                 update_mus_f32(<float*>_dX_ptr, gmm)
                 update_sigmas_f32(<float*>_dX_ptr, gmm)
-                update_pis_f32(gmm)
-                update_llhd_f32(gmm, self._isLog)
 
-        return self._update_llhd_diff(prev_llhd, self.cur_llhd)
+                update_llhd_f32(<float*>_dX_ptr, gmm)
+
+        d_llhd = self._update_llhd_diff(prev_llhd, self.cur_llhd)
+        return d_llhd
+
+    def init_step(self):
+        cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
+        cdef uintptr_t _dmu_ptr = self.dParams["mus"].device_ctypes_pointer.value
+        cdef uintptr_t _dsigma_ptr = self.dParams["sigmas"].device_ctypes_pointer.value
+        cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
+        cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
+        cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
+
+        cdef int lddx = self.ldd["x"]
+        cdef int lddmu = self.ldd["mus"]
+        cdef int lddsigma = self.ldd["sigmas"]
+        cdef int lddsigma_full = self.ldd["sigmas"] * self.nDim
+        cdef int lddPis = self.ldd["pis"]
+        cdef int lddLlhd =self.ldd["llhd"]
+
+        cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
+        cdef float reg_covar = self.reg_covar
+
+        cdef int nCl = self.nCl
+        cdef int nDim = self.nDim
+        cdef int nObs = self.nObs
+
+        cdef GMM[float] gmm
+
+        prev_llhd = self.cur_llhd
+
+        if self.precision == 'single':
+            with nogil:
+                init_f32(gmm,
+                         <float*> _dmu_ptr,
+                         <float*> _dsigma_ptr,
+                         <float*> _dPis_ptr,
+                         <float*> _dPis_inv_ptr,
+                         <float*> _dLlhd_ptr,
+                         <int> lddx,
+                         <int> lddmu,
+                         <int> lddsigma,
+                         <int> lddsigma_full,
+                         <int> lddPis,
+                         <int> lddLlhd,
+                         <float*> _cur_llhd_ptr,
+                         <float> reg_covar,
+                         <int> nCl,
+                         <int> nDim,
+                         <int> nObs)
+
+                setup_f32(gmm)
+
+                update_pis_f32(gmm)
+                update_mus_f32(<float*>_dX_ptr, gmm)
+                update_sigmas_f32(<float*>_dX_ptr, gmm)
 
     def _initialize_parameters(self, X):
         if self.warm_start :
@@ -165,27 +228,37 @@ class GaussianMixture:
                         "pis" : roundup(self.nCl, RUP_SIZE),
                         "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
-            params = sample_parameters(self.nDim, self.nCl)
-            params["llhd"] = sample_matrix(self.nCl, self.nObs, isColNorm=True)
-            params['inv_pis'] = sample_matrix(1, self.nCl, isRowNorm=True)
+            params = dict({"mus" : np.zeros((self.ldd["mus"], self.nCl)),
+                      "sigmas" : np.zeros((self.ldd["sigmas"] * self.nDim, self.nCl)),
+                      "pis" : np.zeros((self.ldd["pis"], 1)),
+                      "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
+
+            params["llhd"] = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
+            params["llhd"] = params["llhd"].T
             params["x"] = X.T
+
+            print(params["llhd"].T)
 
             params = align_parameters(params, self.ldd)
             params = flatten_parameters(params)
-            params = cast_parameters(params ,self.dtype)
+            params = cast_parameters(params, self.dtype)
 
             self.dParams = dict(
                 (key, cuda.to_device(params[key])) for key in self.ldd.keys())
 
             self.cur_llhd = cuda.to_device(np.zeros(1, dtype=self.dtype))
+            self.init_step()
+
 
     def fit(self, X):
         self._initialize_parameters(X)
 
-        for _ in range(self.max_iter) :
+        for it in range(1, self.max_iter + 1) :
             llhd_dif = self.step()
-            if  self.llhd_dif < self.tol :
-                break
+            print("Lower bound %f for iter %d", self.lower_bound_, it)
+
+            # if  llhd_dif < self.tol :
+            #     break
 
     @property
     def means_(self):
@@ -207,3 +280,14 @@ class GaussianMixture:
         pis = self.dParams["pis"].copy_to_host()
         pis = deallign(pis, self.nCl, 1, self.ldd["pis"])
         return pis
+
+    @property
+    def lower_bound_(self):
+        return self.cur_llhd.copy_to_host()
+
+    # @property
+    # def resp_(self):
+    #     llhd = self.dParams["llhd"].copy_to_host()
+    #     llhd = deallign(llhd, self.nCl, self.nObs, self.ldd["llhd"])
+    #     llhd = llhd.T
+    #     return llhd

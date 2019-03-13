@@ -20,11 +20,11 @@ void log(math_t *out, const math_t *in, int len,
 }
 
 template <typename T>
-compute_logllhd(int nCl, int nObs, T* dLlhd, int lddLlhd, T *cur_llhd){
+void compute_logllhd(int nCl, int nObs, T* dLlhd, int lddLlhd, T *cur_llhd){
         T* dTemp;
         allocate(dTemp, nObs);
 
-        MLCommon::Stats::sum(dTemp, dLlhd, ldda, nCl, false);
+        MLCommon::Stats::sum(dTemp, dLlhd, nObs, nCl, false);
         log(dTemp, dTemp, nObs);
         MLCommon::Stats::sum(cur_llhd, dTemp, nObs, 1, true);
 
@@ -215,16 +215,16 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         magma_queue_create(device, &queue);
 
 // Compute sigma inverses
-        print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
+        // print_matrix_batched(nDim, nDim, nCl, dsigma_array, lddsigma, "dSigma matrix");
 
         // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array before");
 
         inverse_batched(nDim, dsigma_array, lddsigma, dInvSigma_array, nCl, queue);
 
-        print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array");
+        // print_matrix_batched(nDim, nDim, nCl, dInvSigma_array, lddsigma, "dInvSigma_array");
 // Compute sigma inv dets
         det_batched(nDim, dInvSigma_array, lddsigma, dInvdet_array, nCl, queue);
-        print_matrix_device(nCl, 1, dInvdet_array, nCl, "dInvdet_array");
+        // print_matrix_device(nCl, 1, dInvdet_array, nCl, "dInvdet_array");
 
 // Create batches
         // print_matrix_batched(nDim, nDim, nCl*nObs, dInvSigma_batches, lddsigma, "dInvSigma_batches before");
