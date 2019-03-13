@@ -43,7 +43,74 @@ __global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float q
 		}
 	return;
 }
+/* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
+   computation. */
+int get_class_hist(std::vector<int> & node_hist) {
 
+	int classval =  std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
+	return classval;
+}
+
+
+void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,const int nrows,int& leftnrows,int& rightnrows,float quesval,const TemporaryMemory* tempmem)
+{
+	
+	char *d_flags_left = tempmem->d_flags_left;
+	char *d_flags_right = tempmem->d_flags_right;
+
+	int *lptr = tempmem->h_left_rows;
+	int *rptr = tempmem->h_right_rows;
+	
+	flag_kernel<<< (int)(nrows/128) + 1,128,0,tempmem->stream>>>(column,d_flags_left,d_flags_right,quesval,nrows);
+	CUDA_CHECK(cudaGetLastError());
+
+	void *d_temp_storage = tempmem->d_split_temp_storage;
+	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
+	int *d_num_selected_out = tempmem->d_num_selected_out;
+	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows, tempmem->stream);
+	CUDA_CHECK(cudaMemcpyAsync(lptr,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
+	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows, tempmem->stream);
+	CUDA_CHECK(cudaMemcpyAsync(rptr,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
+	
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	leftnrows = *lptr;
+	rightnrows = *rptr;
+	return;
+}
+
+void make_split(float *column,const float quesval,const int nrows,int& nrowsleft,int& nrowsright,unsigned int* rowids, const TemporaryMemory* tempmem)
+{
+
+	int *temprowids = tempmem->temprowids;
+	char *d_flags_left = tempmem->d_flags_left;
+	char *d_flags_right = tempmem->d_flags_right;
+	
+	flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
+	CUDA_CHECK(cudaGetLastError());
+
+	void *d_temp_storage = tempmem->d_split_temp_storage;
+	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
+	
+	int *d_num_selected_out = tempmem->d_num_selected_out;
+
+	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids,d_num_selected_out, nrows);
+	
+	CUDA_CHECK(cudaMemcpy(&nrowsleft,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft],d_num_selected_out, nrows);
+	
+	CUDA_CHECK(cudaMemcpy(&nrowsright,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+
+	CUDA_CHECK(cudaMemcpy(rowids,temprowids,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
+
+	return;
+}
+
+
+/*
 int get_class(int *labels,int nrows,const TemporaryMemory* tempmem)
 {
 	int classval = -1;
@@ -86,71 +153,4 @@ int get_class(int *labels,int nrows,const TemporaryMemory* tempmem)
 	
 	return classval;
 }
-
-/* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
-   computation. */
-int get_class_hist(std::vector<int> & node_hist) {
-
-	int classval =  std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
-	return classval;
-}
-
-
-void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,const int nrows,int& leftnrows,int& rightnrows,float quesval,const TemporaryMemory* tempmem)
-{
-	
-	char *d_flags_left = tempmem->d_flags_left;
-	char *d_flags_right = tempmem->d_flags_right;
-	
-	flag_kernel<<< (int)(nrows/128) + 1,128,0,tempmem->stream>>>(column,d_flags_left,d_flags_right,quesval,nrows);
-	CUDA_CHECK(cudaGetLastError());
-
-	
-	void *d_temp_storage = tempmem->d_split_temp_storage;
-	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
-	
-	int *d_num_selected_out = tempmem->d_num_selected_out;
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows, tempmem->stream);
-	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_left_rows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows, tempmem->stream);
-	CUDA_CHECK(cudaMemcpyAsync(tempmem->h_right_rows,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
-	
-	
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	leftnrows = tempmem->h_left_rows[0];
-	rightnrows = tempmem->h_right_rows[0];
-	return;
-}
-
-void make_split(float *column,const float quesval,const int nrows,int& nrowsleft,int& nrowsright,unsigned int* rowids, const TemporaryMemory* tempmem)
-{
-
-	int *temprowids = tempmem->temprowids;
-	char *d_flags_left = tempmem->d_flags_left;
-	char *d_flags_right = tempmem->d_flags_right;
-	
-	flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
-	CUDA_CHECK(cudaGetLastError());
-
-	void *d_temp_storage = tempmem->d_split_temp_storage;
-	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
-	
-	int *d_num_selected_out = tempmem->d_num_selected_out;
-
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids,d_num_selected_out, nrows);
-	
-	CUDA_CHECK(cudaMemcpy(&nrowsleft,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
-	
-	
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft],d_num_selected_out, nrows);
-	
-	CUDA_CHECK(cudaMemcpy(&nrowsright,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
-
-	CUDA_CHECK(cudaMemcpy(rowids,temprowids,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
-
-	return;
-}
+*/
