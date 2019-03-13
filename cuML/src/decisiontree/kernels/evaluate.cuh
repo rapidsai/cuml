@@ -50,28 +50,27 @@ __global__ void evaluate_kernel(const float* __restrict__ column,const int* __re
 void evaluate_and_leftgini(const float *column,const int *labels,const float quesval,const int nrows,const int n_unique_labels,const float ginibefore,GiniInfo& split_info,int& lnrows,int& rnrows,TemporaryMemory* tempmem)	
 {
 	int *dhist = tempmem->d_hist;
-	split_info.hist.resize(n_unique_labels, 0);
-	
-	CUDA_CHECK(cudaHostRegister(split_info.hist.data(),sizeof(int)*n_unique_labels,cudaHostRegisterPortable));
+	int *hhist = tempmem->h_hist;
+
 	CUDA_CHECK(cudaMemsetAsync(dhist,0,sizeof(int)*n_unique_labels,tempmem->stream));
 	evaluate_kernel<<< (int)(nrows/128) + 1, 128,sizeof(int)*n_unique_labels,tempmem->stream>>>(column,labels,quesval,nrows,n_unique_labels,dhist);
 	CUDA_CHECK(cudaGetLastError());
-	CUDA_CHECK(cudaMemcpyAsync(split_info.hist.data(),dhist,sizeof(int)*n_unique_labels,cudaMemcpyDeviceToHost,tempmem->stream));
+	CUDA_CHECK(cudaMemcpyAsync(hhist,dhist,sizeof(int)*n_unique_labels,cudaMemcpyDeviceToHost,tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));	   
-	
 	
 	float gval = 1.0;
 	lnrows = 0;
-	for(int i=0; i < n_unique_labels; i++) {		
+	split_info.hist.resize(n_unique_labels, 0);
+	
+	for(int i=0; i < n_unique_labels; i++) {
+		split_info.hist[i] = hhist[i];
 		float prob = (float)(split_info.hist[i])  / nrows;
 		lnrows += split_info.hist[i];
 		gval -= prob*prob;
-		
 	}
 
 	rnrows = nrows - lnrows;
 	split_info.best_gini = gval; //Update gini val
-	CUDA_CHECK(cudaHostUnregister(split_info.hist.data()));
        
 	return;
 }
