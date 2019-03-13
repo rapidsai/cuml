@@ -120,14 +120,12 @@ void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
         8.025255f, -2.585647f, -3.019001f,
         7.957931f, -2.547737f, -3.283212f
     };
-
     nRows = NUM_ROWS;
     nCols = NUM_COLS;
     minPts = MIN_PTS;
     eps = EPS;
 
     inputData.insert(inputData.begin(), data, data+nRows*nCols);
-
 }
 
 class cachingDeviceAllocator : public ML::deviceAllocator {

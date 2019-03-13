@@ -27,7 +27,6 @@ namespace VertexDeg {
 template <typename Type>
 void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
          int algo, int startVertexId, int batchSize, cudaStream_t stream) {
-    
     Pack<Type> data = {vd, adj, x, eps, N, D, dots};
 
     switch(algo) {
