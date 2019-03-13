@@ -200,6 +200,7 @@ class PCA:
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
                  iterated_power=15, random_state=None, svd_solver='auto'):
         if svd_solver in ['full', 'auto', 'jacobi']:
+            self.svd_solver = svd_solver
             c_algorithm = self._get_algorithm_c_name(svd_solver)
         else:
             msg = "algorithm {!r} is not supported"
@@ -547,17 +548,24 @@ class PCA:
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
         for key in variables:
             var_value = getattr(self.params,key,None)
-            params[key] = var_value   
+            params[key] = var_value  
+            if 'svd_solver'==key:
+                params[key] = getattr(self, key, None)
+            		 
         return params
 
 
-    def set_params(self, **params):
-        if not params:
+    def set_params(self, **parameter):
+        if not parameter:
             return self
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key, value in params.items():
+        for key, value in parameter.items():
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
-                setattr(self.params, key, value)
+                if 'svd_solver' in parameter.keys():
+                    setattr(self, key, value)
+                else:
+                    setattr(self.params, key, value)
+			
         return self
