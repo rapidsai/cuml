@@ -354,5 +354,5 @@ class LinearRegression:
             else:
                 setattr(self, key, value)
         if 'algorithm' in params.keys():
-            self.algo=self._get_algorithm_int(self.algorithm)
+            self.algo = self._get_algorithm_int(self.algorithm)
         return self
