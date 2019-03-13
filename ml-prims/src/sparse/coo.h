@@ -1,11 +1,22 @@
 /*
- * coo.h
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
- *  Created on: Feb 13, 2019
- *      Author: cjnolet
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #pragma once
+
+#include "cusparse_wrappers.h"
 
 #include <cusparse_v2.h>
 
@@ -16,17 +27,19 @@
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
 
+
+
 namespace MLCommon {
 
     namespace Sparse {
 
-
-        void gthr_sorted_vals(cusparseHandle_t handle,
+        template<typename T>
+        cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
                 int nnz,
                 float *vals,
                 float *vals_sorted,
                 int *d_P) {
-            cusparseSgthr(
+            return cusparseSgthr(
                 handle,
                 nnz,
                 vals,
@@ -36,12 +49,15 @@ namespace MLCommon {
             );
         }
 
-        void gthr_sorted_vals(cusparseHandle_t handle,
+
+
+        template<typename T>
+        cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
                 int nnz,
                 double *vals,
                 double *vals_sorted,
                 int *d_P) {
-            cusparseDgthr(
+            return cusparseDgthr(
                 handle,
                 nnz,
                 vals,
@@ -75,11 +91,11 @@ namespace MLCommon {
 
             cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
 
-            cusparseCreate(&handle);
+            CUSPARSE_CHECK(cusparseCreate(&handle));
 
-            cusparseSetStream(handle, stream);
+            CUSPARSE_CHECK(cusparseSetStream(handle, stream));
 
-            cusparseXcoosort_bufferSizeExt(
+            CUSPARSE_CHECK(cusparseXcoosort_bufferSizeExt(
                 handle,
                 m,
                 n,
@@ -87,17 +103,17 @@ namespace MLCommon {
                 rows,
                 cols,
                 &pBufferSizeInBytes
-            );
+            ));
 
-            cudaMalloc(&d_P, sizeof(int)*nnz);
-            cudaMalloc(&pBuffer, sizeof(char)* pBufferSizeInBytes);
+            allocate(d_P, nnz);
+            cudaMalloc(&pBuffer, pBufferSizeInBytes*sizeof(char));
 
-            cusparseCreateIdentityPermutation(
+            CUSPARSE_CHECK(cusparseCreateIdentityPermutation(
                 handle,
                 nnz,
-                d_P);
+                d_P));
 
-            cusparseXcoosortByRow(
+            CUSPARSE_CHECK(cusparseXcoosortByRow(
                 handle,
                 m,
                 n,
@@ -106,18 +122,20 @@ namespace MLCommon {
                 cols,
                 d_P,
                 pBuffer
-            );
+            ));
 
             T* vals_sorted;
             allocate(vals_sorted, nnz);
 
-            gthr_sorted_vals(
+            CUSPARSE_CHECK(cusparse_gthr<T>(
                 handle,
                 nnz,
                 vals,
                 vals_sorted,
                 d_P
-            );
+            ));
+
+            cudaDeviceSynchronize();
 
 
             copy(vals, vals_sorted, nnz);
@@ -125,7 +143,7 @@ namespace MLCommon {
             cudaFree(d_P);
             cudaFree(vals_sorted);
             cudaFree(pBuffer);
-            cusparseDestroy(handle);
+            CUSPARSE_CHECK(cusparseDestroy(handle));
             cudaStreamDestroy(stream);
         }
 
@@ -247,6 +265,34 @@ namespace MLCommon {
             if(row < nnz && vals[row] > 0.0) {
                 atomicAdd(results+rows[row], 1);
             }
+        }
+
+        template<int TPB_X, typename T>
+        __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
+                int *rows, int *cols, T *vals) {
+
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            if(row < m) {
+
+                for(int i = 0; i < k; i++) {
+                    rows[row*k+i] = row;
+                    cols[row*k+i] = knn_indices[row*k+i];
+                    vals[row*k+i] = knn_dists[row*k+i];
+                }
+            }
+        }
+
+        /**
+         * Converts a knn graph into a COO format.
+         */
+        template<typename T>
+        void from_knn_graph(long *knn_indices, T *knn_dists, int m, int k,
+                int *rows, int *cols, T *vals) {
+
+            dim3 grid(ceildiv(m, 32), 1, 1);
+            dim3 blk(32, 1, 1);
+            from_knn_graph_kernel<32, T><<<grid, blk>>>(
+                    knn_indices, knn_dists, m, k, rows, cols, vals);
         }
     }
 
