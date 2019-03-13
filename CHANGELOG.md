@@ -1,8 +1,28 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+- PR #277: Added row- and column-wise weighted mean primitive
+
+## Improvements
+
+- PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+
+## Bug Fixes
+
+...
+
+
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
-- PR #235: NearestNeighbors MG Support
 
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
+- PR #247 : Added "proper" CUDA API to cuML
+- PR #235: NearestNeighbors MG Support
+- PR #261: UMAP Algorithm
+- PR #290: NearestNeighbors numpy MG Support
+- PR #303: Reusable spectral embedding / clustering
 
 ## Improvements
 
@@ -28,7 +48,11 @@
 - PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #322: set_params updated
+- PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
+- PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 
@@ -41,7 +65,7 @@
 - PR #200 Avoid using numpy via cimport in KNN
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 - PR #279: Removing faiss-gpu references in README
-
+- PR #321: Fix release script typo
 
 # cuML 0.5.1 (05 Feb 2019)
 

@@ -37,6 +37,34 @@ using namespace std;
  * @param n_cols: number of columns of output matrix
  * @{
  */
+template<typename m_t>
+void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
+		int *indices, int n_rows_indices, bool rowMajor = false) {
+
+	if (rowMajor) {
+		ASSERT(false,
+				"matrix.h: row major is not supported yet!");
+	}
+
+	auto size = n_rows_indices * n_cols;
+	auto counting = thrust::make_counting_iterator<int>(0);
+
+	thrust::for_each(counting, counting+size, [=]__device__(int idx) {
+		int row = idx % n_rows_indices;
+		int col = idx / n_rows_indices;
+
+	    out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
+	});
+}
+
+/**
+ * @defgroup copy matrix operation for column major matrices.
+ * @param in: input matrix
+ * @param out: output matrix
+ * @param n_rows: number of rows of output matrix
+ * @param n_cols: number of columns of output matrix
+ * @{
+ */
 template <typename m_t>
 void copy(const m_t *in, m_t *out, int n_rows, int n_cols) {
   auto m = n_rows;

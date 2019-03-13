@@ -29,6 +29,10 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
+from cuml.solvers.sgd import SGD
+
+from cuml.manifold.umap import UMAP
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
