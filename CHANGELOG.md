@@ -33,6 +33,7 @@
 - PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
 - PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #322: set_params updated
 - PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
