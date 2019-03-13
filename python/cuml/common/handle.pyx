@@ -44,9 +44,17 @@ cdef class Handle:
 
         import cuml
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
+        handle = cuml.handle.Handle()
         handle.setStream(stream)
+
+        # call ML algos here
+
+        # final synchronization of all work launched/dependent on this stream
+        stream.sync()
+        del handle  # optional!
     """
+
+    # ML::cumlHandle doesn't have copy operator. So, use pointer for the object
     cdef cumlHandle *h
 
     def __cinit__(self):
@@ -56,4 +64,5 @@ cdef class Handle:
         del self.h
 
     def setStream(self, stream):
-        self.h.setStream(stream.getStream())
+        cdef size_t s = <size_t>stream.getStream()
+        self.h.setStream(<cuml.common.cuda._Stream>s)

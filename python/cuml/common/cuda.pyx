@@ -36,17 +36,27 @@ cdef class Stream:
     Stream represents a thin-wrapper around cudaStream_t and its operations.
     """
 
-    cdef _Stream s
+    # NOTE:
+    # If we store _Stream directly, this always leads to the following error:
+    #   "Cannot convert Python object to '_Stream'"
+    # I was unable to find a good solution to this in reasonable time. Also,
+    # since cudaStream_t is a pointer anyways, storing it as an integer should
+    # be just fine (although, that certainly is ugly and hacky!).
+    cdef size_t s
 
     def __cinit__(self):
+        if self.s != 0:
+            return
         cdef _Stream stream;
+        print("Calling...")
         cdef _Error e = cudaStreamCreate(&stream)
         if e != 0:
             raise CudaRtError("Stream create")
-        self.s = stream
+        self.s = <size_t>stream
 
     def __dealloc__(self):
-        cdef _Error e = cudaStreamDestroy(self.s)
+        cdef _Stream stream = <_Stream>self.s
+        cdef _Error e = cudaStreamDestroy(stream)
         if e != 0:
             raise CudaRtError("Stream destroy")
 
@@ -55,9 +65,10 @@ cdef class Stream:
         Synchronize on the cudastream owned by this object. Note that this could
         raise exception due to issues with previous asynchronous launches!
         """
-        cdef _Error e = cudaStreamSynchronize(self.s)
+        cdef _Stream stream = <_Stream>self.s
+        cdef _Error e = cudaStreamSynchronize(stream)
         if e != 0:
             raise CudaRtError("Stream sync")
 
-    cdef _Stream getStream(self):
+    def getStream(self):
         return self.s
