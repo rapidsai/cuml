@@ -98,7 +98,7 @@ struct TemporaryMemory
 		if(maxstr == 1)
 			stream = 0;
 		else
-			CUDA_CHECK(cudaStreamCreate(&stream));
+			CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 	}
 	void print_info()
 	{
