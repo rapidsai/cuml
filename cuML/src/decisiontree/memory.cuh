@@ -52,14 +52,17 @@ struct TemporaryMemory
 	//For min max;
 	float *h_min, *h_max;
 	
-	TemporaryMemory(int N,int maxstr)
+	int* d_hist;
+	
+	TemporaryMemory(int N,int maxstr,int nunique)
 	{
+		CUDA_CHECK(cudaMalloc((void**)&d_hist,nunique*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&leftlabels,N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&rightlabels,N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns,N*sizeof(float)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels,N*sizeof(int)));
-
-		totalmem += 3*N*sizeof(int) + N*sizeof(float);
+		
+		totalmem += 3*N*sizeof(int) + N*sizeof(float) + nunique*sizeof(int);
 
 		// Allocate temporary storage for gini		
 		CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_gini_temp_storage, gini_temp_storage_bytes, ginilabels, d_unique_out, d_counts_out, d_num_runs_out, N));
@@ -73,7 +76,7 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMallocHost((void**)(&h_unique_out),N*sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)(&h_counts_out),N*sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)(&h_num_runs_out),sizeof(int)));
-	
+		
 		totalmem += gini_temp_storage_bytes + sizeof(int) + 3*N*sizeof(int);
 		
 		//Allocate Temporary for split functions
@@ -107,6 +110,7 @@ struct TemporaryMemory
 	}
 	~TemporaryMemory()
 	{
+		cudaFree(d_hist);
 		cudaFree(ginilabels);
 		cudaFree(d_unique_out);
 		cudaFree(d_counts_out);
