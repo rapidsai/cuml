@@ -166,6 +166,7 @@ class LinearRegression:
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
+            self.algorithm = algorithm 
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -247,7 +248,6 @@ class LinearRegression:
 
         cdef float c_intercept1
         cdef double c_intercept2
-
         if self.gdf_datatype.type == np.float32:
 
             olsFit(<float*>X_ptr,
@@ -348,17 +348,11 @@ class LinearRegression:
         if not params:
             return self
         variables = ['algorithm','fit_intercept','normalize']
-
-        current_params = {"algorithm" : self.algo,"fit_intercept" : self.fit_intercept,"normalize" : self.normalize}
         for key, value in params.items():
-            if key not in current_params:
+            if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
                 setattr(self, key, value)
-                current_params[key] = value
-        if params["algorithm"]=='eig':
-            self.algo=1
-        else:
-            self.algo = 0
+        if 'algorithm' in params.keys():
+            self.algo = self._get_algorithm_int(self.algorithm)
         return self
-
