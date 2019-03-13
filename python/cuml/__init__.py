@@ -35,5 +35,6 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-import cuml.common.cuda as cuda
-import cuml.common.handle as handle
+import cuml._common.cuda as cuda
+import cuml._common.handle as handle
+import cuml._common.base as base
