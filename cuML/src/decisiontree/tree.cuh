@@ -21,6 +21,7 @@
 #include "kernels/minmax.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
+#include "kernels/evaluate.cuh"
 #include "memory.cuh"
 #include "Timer.h"
 #include <vector>
@@ -77,20 +78,20 @@ namespace ML {
 			int leaf_counter = 0;
 			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
-			const int MAXSTREAMS = 8;
+			const int MAXSTREAMS = 1;
 			int n_unique_labels = -1; // number of unique labels in dataset
 			double construct_time;
 		public:
 			// Expects column major float dataset, integer labels
 			// data, labels are both device ptr.
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
+			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
 			{
-				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, maxdepth, max_leaf_nodes, colper, n_bins);
+				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins);
 			}
 			
 			// Same as above fit, but planting is better for a tree then fitting.
-			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
+			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
 			{
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
@@ -99,10 +100,11 @@ namespace ML {
 				treedepth = maxdepth;
 				maxleaves = max_leaf_nodes;
 				tempmem.resize(MAXSTREAMS);
-
+				n_unique_labels = unique_labels;
+				
 				for(int i = 0;i<MAXSTREAMS;i++)
 					{
-						tempmem[i] = new TemporaryMemory(n_sampled_rows,MAXSTREAMS);
+						tempmem[i] = new TemporaryMemory(n_sampled_rows,MAXSTREAMS,unique_labels);
 						
 					}
 				total_temp_mem = tempmem[0]->totalmem;
@@ -201,7 +203,7 @@ namespace ML {
 
 				
 				
-#pragma omp parallel for num_threads(MAXSTREAMS)
+#pragma omp parallel for num_threads(1)
 				for (int i=0; i<colselector.size(); i++)
 					{
 						GiniInfo local_split_info[3];
@@ -246,14 +248,8 @@ namespace ML {
 			{
 				int lnrows, rnrows;
 				
-				split_labels(column, labels, leftlabels, rightlabels, nrows, lnrows, rnrows, quesval, tempmem[streamid]);
+				evaluate_and_leftgini(column,labels,quesval,nrows,n_unique_labels,ginibefore,split_info[1],lnrows,rnrows,tempmem[streamid]);
 				
-				if (lnrows == 0 || rnrows == 0)
-					return -1.0;
-				
-				gini(leftlabels, lnrows, tempmem[streamid], split_info[1], n_unique_labels, tempmem[streamid]->stream);
-				//gini(rightlabels, rnrows, tempmem[streamid], split_info[2], n_unique_labels, tempmem[streamid]->stream);
-
 				// Compute giniright from the histograms of parent and parent's left node. Currently CPU only.
 				gini_right_node(rnrows, split_info[0], split_info[1], split_info[2], n_unique_labels, tempmem[streamid]->stream);
 

@@ -61,10 +61,6 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniI
 	CUDA_CHECK(cudaMemcpyAsync(h_unique_out, d_unique_out, (*num_unique)*sizeof(int), cudaMemcpyDeviceToHost, stream));
 	CUDA_CHECK(cudaStreamSynchronize(stream));
 	
-	if (unique_labels == -1) {
-		unique_labels = *num_unique; //only updated for root
-	}
-	
 	split_info.hist.resize(unique_labels, 0);
 	for(int i=0; i < *num_unique; i++) {
 		split_info.hist[h_unique_out[i]] = h_counts_out[i]; //update_gini_hist
