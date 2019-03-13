@@ -28,7 +28,6 @@ from collections import defaultdict
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
@@ -68,11 +67,11 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 class LinearRegression:
 
     """
-    LinearRegression is a simple machine learning model where the response y is modelled by a 
+    LinearRegression is a simple machine learning model where the response y is modelled by a
     linear combination of the predictors in X.
 
-    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2 
-    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default) 
+    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2
+    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default)
     is much more faster.
 
     Examples
@@ -221,11 +220,11 @@ class LinearRegression:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -334,16 +333,16 @@ class LinearRegression:
 
         return preds
 
-      
+
     def get_params(self, deep=True):
         params = dict()
         variables = ['algorithm','fit_intercept','normalize']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
-      
+
     def set_params(self, **params):
         if not params:
             return self

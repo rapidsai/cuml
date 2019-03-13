@@ -28,7 +28,6 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
 
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
@@ -75,11 +74,11 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 class Ridge:
 
     """
-    Ridge extends LinearRegression by providing L2 regularization on the coefficients when 
+    Ridge extends LinearRegression by providing L2 regularization on the coefficients when
     predicting response y with a linear combination of the predictors in X. It can reduce
     the variance of the predictors, and improves the conditioning of the problem.
 
-    cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to 
+    cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to
     fit a linear model. SVD is more stable, but Eig (default) is much more faster. CD uses
     Coordinate Descent and can be faster if the data is large.
 
@@ -134,7 +133,7 @@ class Ridge:
     Parameters
     ----------
     alpha : float or double
-        Regularization strength - must be a positive float. Larger values specify 
+        Regularization strength - must be a positive float. Larger values specify
         stronger regularization. Array input will be supported later.
     solver : 'eig' or 'svd' or 'cd' (default = 'eig')
         Eig uses a eigendecomposition of the covariance matrix, and is much faster.
@@ -239,11 +238,11 @@ class Ridge:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -366,7 +365,7 @@ class Ridge:
         variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
 
