@@ -62,7 +62,7 @@
 - PR #200 Avoid using numpy via cimport in KNN
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 - PR #279: Removing faiss-gpu references in README
-
+- PR #321: Fix release script typo
 
 # cuML 0.5.1 (05 Feb 2019)
 
