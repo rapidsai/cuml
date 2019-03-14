@@ -30,7 +30,6 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from sklearn.utils.fixes import signature
 from collections import defaultdict
 
 cdef extern from "dbscan/dbscan_c.h" namespace "ML":
@@ -174,7 +173,7 @@ class DBSCAN:
         variables = [ 'eps','min_samples']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
 
