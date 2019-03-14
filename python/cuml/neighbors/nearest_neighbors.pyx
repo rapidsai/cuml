@@ -71,12 +71,8 @@ cdef class NearestNeighbors:
     approximate the distance calculations, allowing our querying times to be O(plogn)
     and not the brute force O(np) [where p = no(features)]:
     
-    Applications
-    -------------
-    Applications of NearestNeighbors include recommendation systems where content or colloborative
-    filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
-    used in data visualization and regression / classification tasks.
-
+    Examples
+    ---------
     .. code-block:: python
 
       import cudf
@@ -149,6 +145,12 @@ cdef class NearestNeighbors:
     ------
     NearestNeighbors is a generative model. This means the data X has to be stored in order
     for inference to occur.
+    
+    **Applications of NearestNeighbors**
+    
+        Applications of NearestNeighbors include recommendation systems where content or colloborative
+        filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
+        used in data visualization and regression / classification tasks.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
