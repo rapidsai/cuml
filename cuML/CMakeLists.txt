@@ -62,11 +62,6 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-set(CONDA_ENV_DIR /home/mehdia/miniconda3/envs/cuml-0128 CACHE STRING
-"Path to the conda env")
-set(MAGMA_LIBRARY ${CONDA_ENV_DIR}/lib/libmagma.a CACHE STRING
-"Path to the magma library")
-
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -184,7 +179,8 @@ include_directories(src
         ${CUTLASS_DIR}
         ${CUB_DIR}
         ${ZLIB_INCLUDE_DIRS$},
-        ${CONDA_ENV_DIR}/include
+        # TODO : Fix the path
+        /home/mehdia/miniconda3/envs/cuml-0128/include
         ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -223,7 +219,6 @@ set(CUML_LINK_LIBRARIES
 	faisslib
 	${BLAS_LIBRARIES})
 
-set(CUML_LINK_LIBRARIES ${MAGMA_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -234,16 +229,13 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
-
-link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
-
 add_executable(magma_test_prims ${magma_prims_test_sources})
 
 target_link_libraries(magma_test_prims
                       ${GTEST_LIBNAME}
-                      ${MAGMA_LIBRARY}
-                      ${CUDA_cublas_LIBRARY}
+                      magma
                       cusparse
+                      ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
