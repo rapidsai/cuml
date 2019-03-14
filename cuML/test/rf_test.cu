@@ -86,14 +86,13 @@ protected:
 
  		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, 
 							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
-		rf_classifier->fit(data, params.n_rows, params.n_cols, labels);
+		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, labels_map.size());
 
 		// Inference data: same as train, but row major
 		int inference_data_len = params.n_inference_rows * params.n_cols;
 		inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
 		inference_data_h.resize(inference_data_len);
 
-		//ML::RF_metrics rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 
 # if  0
 		int single_tree_inference_data_len = params.n_cols;
@@ -132,6 +131,9 @@ protected:
 
 	void TearDown() override {
 		ML::postprocess_labels(params.n_rows, labels_h, labels_map);
+		inference_data_h.clear();
+		labels_h.clear();
+		labels_map.clear();
 
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(data));
@@ -142,10 +144,9 @@ protected:
 
 protected:
 
-   	//placeholder for any params?
 	RfInputs<T> params;
-	T * data, * inference_data;
-    int * labels, * predictions;
+	T * data;
+    int * labels;
 	std::vector<T> inference_data_h;
 	std::vector<int> labels_h;
 	unsigned int * selected_rows;
@@ -168,8 +169,6 @@ const std::vector<RfInputs<float> > inputsf2 = {
 // devArrMatch compares 2 device n-D arrays. See external/ml-prims/test/test_utils.h
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
-	//ASSERT_TRUE(devArrMatch(labels, predictions, predictions.size(), Compare<int>())); // using train set as test
-	//ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	ASSERT_TRUE((tmp.accuracy == 1.0f));
 }
