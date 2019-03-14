@@ -106,10 +106,12 @@ class DBSCAN:
     DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
     is that datapoints need to be concentrated in groups for clusters to be constructed.
     
-    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
-    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
-    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
-    customer segmentation in marketing analyses, and much more.
+    **Applications of DBSCAN**
+
+	    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
+	    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
+	    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
+	    customer segmentation in marketing analyses, and much more.
     
     
     For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
