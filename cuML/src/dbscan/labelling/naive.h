@@ -21,6 +21,7 @@
 #include "../common.h"
 #include <queue>
 #include <cuML.hpp>
+#include <common/host_buffer.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -58,43 +59,36 @@ void bfs(const ML::cumlHandle& handle, int id, Type *host_adj_graph,
 template <typename Type>
 void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = (size_t)data.N;
-    Type *host_vd = new Type[N+1];
-    bool *host_core_pts = new bool[N];
-    bool *host_visited = new bool[N];
-    Type *host_ex_scan = new Type[N];
-    Type *host_db_cluster = new Type[N];
-    bool *host_xa = new bool[N]();
+    MLCommon::host_buffer<Type> host_vd(handle.getHostAllocator(), stream, sizeof(Type)*(N+1));
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
     data.resetArray(stream);
     /** this line not in resetArray function because it interferes with algo2 */
     //CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*N, stream));
-    MLCommon::updateHostAsync(host_core_pts, data.core_pts, N, stream);
-    MLCommon::updateHostAsync(host_vd, data.vd, N+1, stream);
+    MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, N, stream);
+    MLCommon::updateHostAsync(host_vd.data(), data.vd, N+1, stream);
     size_t adjgraph_size = size_t(host_vd[N]);
-    Type *host_adj_graph = new Type[adjgraph_size];
-    MLCommon::updateHostAsync(host_ex_scan, data.ex_scan, N, stream);
-    MLCommon::updateHostAsync(host_adj_graph, data.adj_graph, adjgraph_size, stream);
-    MLCommon::updateHostAsync(host_xa, data.xa, N, stream);
-    MLCommon::updateHostAsync(host_visited, data.visited, N, stream);
-    MLCommon::updateHostAsync(host_db_cluster, data.db_cluster, N, stream);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
+    MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, N, stream);
+    MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
+    MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
+    MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
+    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
     Type cluster = Type(1);
     for(int i=0; i<N; i++) { 
         if((!host_visited[i]) && host_core_pts[i]) {
 	    host_visited[i] = true;
             host_db_cluster[i] = cluster;
-            bfs(handle, i, host_adj_graph, host_ex_scan, host_vd, 
-                host_visited, host_db_cluster, cluster, host_xa, N);
+            bfs(handle, i, host_adj_graph.data(), host_ex_scan.data(), host_vd.data(), 
+                host_visited.data(), host_db_cluster.data(), cluster, host_xa.data(), N);
             cluster++; 
 	}
    } 
-    MLCommon::updateDeviceAsync(data.visited, host_visited, N, stream);
-    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster, N, stream);
-    delete [] host_vd;
-    delete [] host_core_pts;
-    delete [] host_visited;
-    delete [] host_ex_scan;
-    delete [] host_db_cluster;
-    delete [] host_xa;
-    delete [] host_adj_graph;
+    MLCommon::updateDeviceAsync(data.visited, host_visited.data(), N, stream);
+    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster.data(), N, stream);
 }
 } // End Naive
 } // End Label

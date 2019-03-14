@@ -23,6 +23,7 @@
 #include "pack.h"
 #include "dbscan/common.h"
 #include <cuML.hpp>
+#include <common/host_buffer.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -51,13 +52,13 @@ template <typename Type>
 void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
          int startVertexId, int batchSize, cudaStream_t stream) {
-    bool *host_xa = new bool[N];
-    bool *host_fa = new bool[N];
-    memset(host_xa, false, sizeof(bool)*N);
-    memset(host_fa, false, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    memset(host_xa.data(), false, sizeof(bool)*N);
+    memset(host_fa.data(), false, sizeof(bool)*N);
     host_fa[id] = true;
-    MLCommon::updateDeviceAsync(data.xa, host_xa, N, stream);
-    MLCommon::updateDeviceAsync(data.fa, host_fa, N, stream);
+    MLCommon::updateDeviceAsync(data.xa, host_xa.data(), N, stream);
+    MLCommon::updateDeviceAsync(data.fa, host_fa.data(), N, stream);
     int countFa = 1;
     dim3 blocks(ceildiv(batchSize, TPB_X), 1, 1);
     dim3 threads(TPB_X, 1, 1);
@@ -66,54 +67,47 @@ void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_g
         cudaDeviceSynchronize();
         countFa = count(device, data.fa, data.fa + N, true);
     }
-    MLCommon::updateHostAsync(host_xa, data.xa, N, stream);
+    MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
     for(int i=0; i<N; i++) {
         if(host_xa[i]) {
             host_db_cluster[i] = cluster;
             host_visited[i] = true;
         }
     }
-    delete [] host_xa;
-    delete [] host_fa;
 }
 
 template <typename Type>
 void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
-    int *host_vd = new int[batchSize+1];
-    bool *host_core_pts = new bool[batchSize];
-    bool *host_visited = new bool[N];
-    Type *host_ex_scan = new Type[batchSize];
-    Type *host_db_cluster = new Type[N];
-    MLCommon::updateHostAsync(host_core_pts, data.core_pts, batchSize, stream);
-    MLCommon::updateHostAsync(host_vd, data.vd, batchSize+1, stream);
+    MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, sizeof(int)*(batchSize+1));
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(int)*batchSize);
+    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*batchSize);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
+
+    MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, batchSize, stream);
+    MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
     size_t adjgraph_size = size_t(host_vd[batchSize]);
-    Type *host_adj_graph = new Type[adjgraph_size];
-    MLCommon::updateHostAsync(host_ex_scan, data.ex_scan, batchSize, stream);
-    MLCommon::updateHostAsync(host_adj_graph, data.adj_graph, adjgraph_size, stream);
-    MLCommon::updateHostAsync(host_visited, data.visited, N, stream);
-    MLCommon::updateHostAsync(host_db_cluster, data.db_cluster, N, stream);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
+    MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, batchSize, stream);
+    MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
+    MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
+    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
  
     for(int i=0; i<batchSize; i++) {
         if(!host_visited[i + startVertexId] && host_core_pts[i]) {
             host_visited[i + startVertexId] = true;
             host_db_cluster[i + startVertexId] = cluster;
-            bfs(handle, i, data, host_adj_graph, host_ex_scan, host_vd,
-                host_visited, host_db_cluster, cluster, N, startVertexId, 
+            bfs(handle, i, data, host_adj_graph.data(), host_ex_scan.data(), host_vd.data(),
+                host_visited.data(), host_db_cluster.data(), cluster, N, startVertexId, 
                 batchSize, stream);
             cluster++;
         }
     }
 
-    MLCommon::updateDeviceAsync(data.visited, host_visited, N, stream);
-    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster, N, stream);
-    delete [] host_vd;
-    delete [] host_core_pts;
-    delete [] host_visited;
-    delete [] host_ex_scan;
-    delete [] host_db_cluster;
-    delete [] host_adj_graph;
+    MLCommon::updateDeviceAsync(data.visited, host_visited.data(), N, stream);
+    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster.data(), N, stream);
 }
 
 template <typename Type>
