@@ -65,8 +65,8 @@ def run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state):
                              precisions_init=None,
                              random_state=random_state,
                              warm_start=False,
-                             verbose=1,
-                             verbose_interval=1)
+                             verbose=0,
+                             verbose_interval=0)
     gmm.fit(X)
 
     params = {"mus" : gmm.means_,
@@ -119,8 +119,8 @@ def print_info(true_params, sk_params, cuml_params):
 
 
 @pytest.mark.parametrize('n_iter', [100])
-@pytest.mark.parametrize('nCl', [5, 10])
-@pytest.mark.parametrize('nDim', [5, 10])
+@pytest.mark.parametrize('nCl', [5])
+@pytest.mark.parametrize('nDim', [5])
 @pytest.mark.parametrize('nObs', [1000])
 @pytest.mark.parametrize('precision', ["single"])
 @pytest.mark.parametrize('tol', [1e-03])

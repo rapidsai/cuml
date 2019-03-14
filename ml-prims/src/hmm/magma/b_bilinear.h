@@ -45,11 +45,11 @@ void dot_batched(int n, T **dX_array, T **dY_array, T *dO,
 }
 
 template <typename T>
-__host__ __device__
+__device__
 T bilinear_naive(int m, int n, T* x, T* y, T* A, magma_int_t lda){
         T res = 0;
-        for (size_t j = 0; j < m; j++) {
-                for (size_t i = 0; i < n; i++) {
+        for (size_t j = 0; j < n; j++) {
+                for (size_t i = 0; i < m; i++) {
                         res += x[i] * y[j] * A[IDX(i, j, lda)];
                 }
         }

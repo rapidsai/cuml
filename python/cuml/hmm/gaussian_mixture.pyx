@@ -253,15 +253,10 @@ class GaussianMixture:
         for it in range(1, self.max_iter + 1) :
             self.step()
 
-            # print("\n Iteration", it)
-            # print(self.weights_)
-            # print("Lower bound ", self.lower_bound_)
-
             diff = self.lower_bound_ - prev_lbow
             if  diff < self.tol :
                 break
             prev_lbow = self.lower_bound_
-            print(diff)
 
     @property
     def means_(self):

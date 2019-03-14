@@ -10,6 +10,17 @@ using namespace MLCommon::LinAlg;
 namespace MLCommon {
 
 template <typename T>
+__device__
+T sign(T x){
+        if (x > 0)
+                return (T) 1;
+        else if (x < 0)
+                return (T) -1;
+        else
+                return 0;
+}
+
+template <typename T>
 __global__
 void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
                          T* dDet_array, magma_int_t batchCount, int numThreads){
@@ -17,11 +28,9 @@ void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
         for (size_t i = idxThread; i < batchCount; i+=numThreads) {
                 dDet_array[i] = 0;
                 for (size_t j = 0; j < n; j++) {
-                        // printf("%f\n", (float) dU_array[i][IDX(j, j, lddu)]);
                         dDet_array[i] += std::log(std::abs(dU_array[i][IDX(j, j, lddu)]));
                 }
                 dDet_array[i] = std::exp(dDet_array[i]);
-
         }
 }
 
