@@ -151,7 +151,14 @@ class TruncatedSVD:
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
                  algorithm='full'):
+
+        self.n_components = n_components
+        self.tol = tol
+        self.n_iter = n_iter
+        self.random_state = random_state
+        self.algorithm = algorithm
         if algorithm in ['full', 'auto', 'jacobi']:
+            self.algorithm = algorithm
             c_algorithm = self._get_algorithm_c_name(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -204,7 +211,6 @@ class TruncatedSVD:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-
     def fit(self, X, _transform=True):
         """
             Fit LSI model on training cudf DataFrame X.
@@ -245,7 +251,6 @@ class TruncatedSVD:
         params.n_iterations = self.params.iterated_power
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
-
         self._initialize_arrays(self.params.n_components,
                                 self.params.n_rows, self.params.n_cols)
 
@@ -328,7 +333,6 @@ class TruncatedSVD:
 
         return X_new
 
-
     def inverse_transform(self, X):
         """
             Transform X back to its original space.
@@ -387,8 +391,6 @@ class TruncatedSVD:
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         return X_original
-
-
 
     def transform(self, X):
         """
@@ -455,23 +457,27 @@ class TruncatedSVD:
         del(X_m)
         return X_new
 
-
     def get_params(self, deep=True):
         params = dict()
-        variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver','n_cols','n_rows']
+        variables = ['n_components', 'algorithm', 'svd_solver', 'tol', 'n_iter', 'random_state','iterated_power','random_state', 'n_cols','n_rows']
         for key in variables:
             var_value = getattr(self.params,key,None)
             params[key] = var_value   
+            if 'algorithm'==key:
+                params[key] = getattr(self, key, None) 
         return params
-
 
     def set_params(self, **params):
         if not params:
             return self
-        variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver']
+        variables = ['n_components', 'algorithm', 'tol', 'svd_solver', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
-                setattr(self.params, key, value)
-        return self
+                if 'algorithm' in params.keys() and key=='algorithm':
+                    setattr(self, key, value)
+                    setattr(self.params, 'svd_solver', self._get_algorithm_c_name(value) )
+                else:
+                    setattr(self.params, key, value)
+        return self.params
