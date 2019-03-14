@@ -20,6 +20,7 @@
 #include <math.h>
 #include "cuda_utils.h"
 #include <cuML.hpp>
+#include <common/device_buffer.hpp>
 
 #include "pack.h"
 
@@ -39,7 +40,7 @@ void launcher(const ML::cumlHandle& handle, Pack<value_t> data, int startVertexI
     int n = min(data.N - startVertexId, batchSize);
     int k = data.D;
 
-    char* workspace = nullptr;
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
     size_t workspaceSize = 0;
 
     value_t eps2 = data.eps * data.eps;
@@ -75,22 +76,19 @@ void launcher(const ML::cumlHandle& handle, Pack<value_t> data, int startVertexI
     CUDA_CHECK(cudaPeekAtLastError());
 
     if (workspaceSize != 0) {
-        // MLCommon::allocate(workspace, workspaceSize);
-        workspace = (char*) handle.getDeviceAllocator()->allocate(workspaceSize, stream);
+        workspace.resize(workspaceSize, stream);
     }
 
     MLCommon::Distance::distance<distance_type, value_t, value_t, value_t, OutputTile_t>
     		(data.x, data.x+startVertexId*k, 					// x & y inputs
                  dist,  // output todo: this should be removed soon
     		 m, n, k, 											// Cutlass block params
-    		 (void*)workspace, workspaceSize, 					// workspace params
+			 (void*)workspace.data(), workspaceSize, 					// workspace params
     		 dbscan_op, 										// epilogue operator
     		 stream												// cuda stream
 	 );
 
     CUDA_CHECK(cudaPeekAtLastError());
-    // CUDA_CHECK(cudaFree(workspace));
-    handle.getDeviceAllocator()->deallocate(workspace, workspaceSize, stream);
 }
 
 

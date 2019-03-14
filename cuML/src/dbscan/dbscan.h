@@ -17,10 +17,12 @@
 #pragma once
 
 #include "runner.h"
+#include <common/device_buffer.hpp>
 
 namespace ML {
 
 using namespace Dbscan;
+
 
 int computeBatchCount(int n_rows) {
 
@@ -51,13 +53,9 @@ void dbscanFitImpl(const ML::cumlHandle& handle, T *input, int n_rows, int n_col
                                        labels, algoVd, algoAdj, algoCcl, NULL,
                                        n_batches, stream);
 
-    char* workspace;
-    // CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
-
-    workspace = (char*) handle.getDeviceAllocator()->allocate(workspaceSize*sizeof(char), stream);
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream, workspaceSize);
     Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-                algoCcl, workspace, n_batches, stream);
-    handle.getDeviceAllocator()->deallocate(workspace, workspaceSize*sizeof(char), stream);
+                algoCcl, workspace.data(), n_batches, stream);
 }
 
 /** @} */

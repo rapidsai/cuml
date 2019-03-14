@@ -21,6 +21,7 @@
 #include "adjgraph/runner.h"
 #include "labelling/runner.h"
 #include <cuML.hpp>
+#include <common/device_buffer.hpp>
 
 namespace Dbscan {
 
@@ -39,16 +40,12 @@ void run(const ML::cumlHandle& handle, Type_f *x, Type N, Type minPts, Type D, T
 	Type adjlen = host_vd[N];
 	delete[] host_vd;
 	// Running AdjGraph
-    adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), stream);
-	AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
+    MLCommon::device_buffer<Type> adj_graph_buffer(handle.getDeviceAllocator(), stream, adjlen*sizeof(Type));
+	AdjGraph::run(handle, adj, vd, adj_graph_buffer.data(), ex_scan, N, minPts, core_pts,
 			algoAdj, stream);
 	// Running Labelling
-	Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
+	Label::run(handle, adj, vd, adj_graph_buffer.data(), ex_scan, N, minPts, core_pts, visited,
 			db_cluster, xa, fa, m, map_id, algoCcl, stream);
-	if (adj_graph != NULL)
-    {
-        handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), stream);
-    }
 }
 
 template <typename Type>
@@ -113,7 +110,7 @@ size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, 
 
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
-		Type *adj_graph = NULL;
+		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
 		int startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
         if(nPoints <= 0)
@@ -124,18 +121,16 @@ size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, 
 		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
-		if (curradjlen > adjlen || adj_graph == NULL) {
+		if (curradjlen > adjlen || adj_graph.data() == NULL) {
 			adjlen = curradjlen;
-            adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), stream);
+            adj_graph.resize(adjlen*sizeof(Type), stream);
 		}
-		AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
+		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
 		// Running Labelling
-		Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
+		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,
 				nPoints, stream);
-		if (adj_graph != NULL)
-            handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), stream);
 	}
 	if (algoCcl == 2) {
 		Type *adj_graph = NULL;
