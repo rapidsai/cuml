@@ -73,13 +73,6 @@ class LinearRegression:
 
     cuML's LinearRegression expects a cuDF DataFrame, and provides 2 algorithms SVD and Eig to
     fit a linear model. SVD is more stable, but Eig (default) is much more faster.
-    
-    Applications
-    -------------
-    LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
-    It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
-    machine learning tasks. This model should be first tried if the machine learning problem is a
-    regression task (predicting a continuous variable).
 
     Examples
     ---------
@@ -156,6 +149,12 @@ class LinearRegression:
     and variance explosions from outliers. Consider using Ridge Regression to fix the multicollinearity 
     problem,and consider maybe first DBSCAN to remove the outliers, or using leverage statistics to 
     filter possible outliers.
+    
+    **Applications of LinearRegression**
+        LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
+        It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
+        machine learning tasks. This model should be first tried if the machine learning problem is a
+        regression task (predicting a continuous variable).
 
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
     """
@@ -350,6 +349,13 @@ class LinearRegression:
 
       
     def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         variables = ['algorithm','fit_intercept','normalize']
         for key in variables:
@@ -359,6 +365,13 @@ class LinearRegression:
 
       
     def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         variables = ['algorithm','fit_intercept','normalize']
