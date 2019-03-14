@@ -28,7 +28,6 @@
 #include <algorithm>
 #include <numeric>
 #include <map>
-#include <omp.h>
 
 namespace ML {
 	namespace DecisionTree {
@@ -201,15 +200,12 @@ namespace ML {
 				float ginibefore = split_info[0].best_gini;
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 
-				
-				
-#pragma omp parallel for num_threads(1)
+
 				for (int i=0; i<colselector.size(); i++)
 					{
 						GiniInfo local_split_info[3];
 						local_split_info[0] = split_info[0];
-						//int streamid = i % MAXSTREAMS;
-						int streamid = omp_get_thread_num();
+						int streamid = i % MAXSTREAMS;
 						float *sampledcolumn = tempmem[streamid]->sampledcolumns;
 						int *sampledlabels = tempmem[streamid]->sampledlabels;
 						int *leftlabels = tempmem[streamid]->leftlabels;
@@ -227,17 +223,13 @@ namespace ML {
 								float info_gain = evaluate_split(sampledcolumn, labelptr, leftlabels, rightlabels, ginibefore, quesval, &local_split_info[0], n_sampled_rows, streamid);
 								CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 								
-#pragma omp critical
-								{
-									if (info_gain > gain)
-										{
-											gain = info_gain;
-											ques.value = quesval;
-											ques.column = colselector[i];
-											for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
-										}
-								}
-								
+								if (info_gain > gain)
+									{
+										gain = info_gain;
+										ques.value = quesval;
+										ques.column = colselector[i];
+										for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
+									}
 							}
 						
 					}

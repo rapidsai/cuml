@@ -111,6 +111,7 @@ struct TemporaryMemory
 	}
 	~TemporaryMemory()
 	{
+		
 		cudaFree(d_hist);
 		cudaFreeHost(h_hist);
 		cudaFree(ginilabels);
@@ -134,7 +135,8 @@ struct TemporaryMemory
 		cudaFreeHost(h_right_rows);
 		cudaFreeHost(h_min);
 		cudaFreeHost(h_max);
-		cudaStreamDestroy(stream);
+		if(stream != 0)
+			cudaStreamDestroy(stream);
 	}
 	
 };
