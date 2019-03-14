@@ -51,35 +51,6 @@ int get_class_hist(std::vector<int> & node_hist) {
 	return classval;
 }
 
-
-void split_labels(float *column,int* labels,int* leftlabels,int* rightlabels,const int nrows,int& leftnrows,int& rightnrows,float quesval,const TemporaryMemory* tempmem)
-{
-	
-	char *d_flags_left = tempmem->d_flags_left;
-	char *d_flags_right = tempmem->d_flags_right;
-
-	int *lptr = tempmem->h_left_rows;
-	int *rptr = tempmem->h_right_rows;
-	
-	flag_kernel<<< (int)(nrows/128) + 1,128,0,tempmem->stream>>>(column,d_flags_left,d_flags_right,quesval,nrows);
-	CUDA_CHECK(cudaGetLastError());
-
-	void *d_temp_storage = tempmem->d_split_temp_storage;
-	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
-	int *d_num_selected_out = tempmem->d_num_selected_out;
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_left, leftlabels,d_num_selected_out, nrows, tempmem->stream);
-	CUDA_CHECK(cudaMemcpyAsync(lptr,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, labels, d_flags_right, rightlabels,d_num_selected_out, nrows, tempmem->stream);
-	CUDA_CHECK(cudaMemcpyAsync(rptr,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost,tempmem->stream));
-	
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	leftnrows = *lptr;
-	rightnrows = *rptr;
-	return;
-}
-
 void make_split(float *column,const float quesval,const int nrows,int& nrowsleft,int& nrowsright,unsigned int* rowids, const TemporaryMemory* tempmem)
 {
 
@@ -108,49 +79,3 @@ void make_split(float *column,const float quesval,const int nrows,int& nrowsleft
 
 	return;
 }
-
-
-/*
-int get_class(int *labels,int nrows,const TemporaryMemory* tempmem)
-{
-	int classval = -1;
-	
-	thrust::sort(thrust::device,labels,labels + nrows);
-	
-	void     *d_temp_storage = tempmem->d_gini_temp_storage;
-	size_t temp_storage_bytes = tempmem->gini_temp_storage_bytes;
-
-	  // Declare, allocate, and initialize device-accessible pointers for input and output
-	int *d_unique_out = tempmem->d_unique_out;      
-	int *d_counts_out = tempmem->d_counts_out;      
-	int *d_num_runs_out = tempmem->d_num_runs_out;    
-	
-	// Run encoding
-	CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_temp_storage, temp_storage_bytes, labels, d_unique_out, d_counts_out, d_num_runs_out, nrows));
-
-	int num_unique;
-	CUDA_CHECK(cudaMemcpy(&num_unique,d_num_runs_out,sizeof(int),cudaMemcpyDeviceToHost));
-	
-	int *h_counts_out = (int*)malloc(num_unique*sizeof(int));
-	int *h_unique_out = (int*)malloc(num_unique*sizeof(int));
-	
-	CUDA_CHECK(cudaMemcpy(h_counts_out,d_counts_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
-	CUDA_CHECK(cudaMemcpy(h_unique_out,d_unique_out,num_unique*sizeof(int),cudaMemcpyDeviceToHost));
-	CUDA_CHECK(cudaDeviceSynchronize());
-
-	int max = -1;
-	for(int i=0;i<num_unique;i++)
-		{
-			if(h_counts_out[i] > max)
-				{
-					max = h_counts_out[i];
-					classval = h_unique_out[i];
-				}
-		}
-	
-	free(h_counts_out);
-	free(h_unique_out);
-	
-	return classval;
-}
-*/
