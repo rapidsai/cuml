@@ -253,6 +253,7 @@ class PCA:
     for local relationships. Consider UMAP or T-SNE for a locally important embedding.
     
     **Applications of PCA**
+        
         PCA is used extensively in practice for data visualization and data compression. It has been used
         to visualize extremely large word embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
         datasets of everyday objects and images, and used to distinguish between cancerous cells from 
