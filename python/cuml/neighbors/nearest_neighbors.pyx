@@ -43,7 +43,7 @@ cdef extern from "knn/knn.h" namespace "ML":
         int N
 
     cdef cppclass kNN:
-        kNN(int D) except +
+        kNN(int D, bool verbose) except +
         void search(const float *search_items,
                     int search_items_size,
                     long *res_I,
@@ -51,6 +51,13 @@ cdef extern from "knn/knn.h" namespace "ML":
                     int k)
         void fit(kNNParams *input,
                  int N)
+
+        void fit_from_host(
+            float *ptr,
+            int n,
+            int *devices,
+            int n_chunks,
+        )
 
 
 cdef class NearestNeighbors:
@@ -127,12 +134,15 @@ cdef class NearestNeighbors:
     cdef uintptr_t D_ptr
 
     cdef bool _should_downcast
+    cdef object n_gpus
+    cdef object devices
+    cdef bool _verbose
 
     cdef object n_neighbors
 
     cpdef kNNParams *input
 
-    def __cinit__(self, n_neighbors = 5, should_downcast = False):
+    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -143,6 +153,9 @@ cdef class NearestNeighbors:
             true will allow single-precision input arrays to be automatically downcasted to single
             precision. Default = False.
         """
+        self._verbose = verbose
+        self.n_gpus = n_gpus
+        self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
@@ -214,23 +227,66 @@ cdef class NearestNeighbors:
         X : cuDF DataFrame or numpy ndarray
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
-
-        X_m = self._downcast(X)
-
-        cdef uintptr_t X_ctype = X_m.device_ctypes_pointer.value
         assert len(X.shape) == 2, 'data should be two dimensional'
+
         n_dims = X.shape[1]
+        self.k = new kNN(n_dims, verbose = self._verbose)
 
-        self.k = new kNN(n_dims)
+        cdef uintptr_t X_ctype = -1
+        cdef uintptr_t dev_ptr = -1
+        if isinstance(X, np.ndarray):
 
-        params = new kNNParams()
-        params.N = <int>len(X)
-        params.ptr = <float*>X_ctype
+            if X.dtype != np.float32:
+                if self._should_downcast:
+                    X = np.ascontiguousarray(X, np.float32)
+                    if len(X[X==np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted in data loss.")
+                else:
+                    raise Exception("Only single precision floating point is supported for this"
+                                    "algorithm. Use 'should_downcast=True' if you'd like it to "
+                                    "be automatically casted to single precision.")
 
-        self.input[0] = deref(params)
+            sys_devices = set([d.id for d in cuda.gpus])
 
-        self.k.fit(<kNNParams*> self.input,
-                   <int> 1)
+            print(str(sys_devices))
+
+            if self.devices is not None:
+                for d in self.devices:
+                    if d not in sys_devices:
+                        raise Exception("Device %d is not available" % d)
+
+                final_devices = self.devices
+
+            else:
+                n_gpus = min(self.n_gpus, len(sys_devices))
+                final_devices = list(sys_devices)[:n_gpus]
+                print(str(final_devices))
+
+            final_devices = np.ascontiguousarray(np.array(final_devices), np.int32)
+
+            X_ctype = X.ctypes.data
+            dev_ptr = final_devices.ctypes.data
+
+            self.k.fit_from_host(
+                <float*>X_ctype,
+                <int>X.shape[0],
+                <int*>dev_ptr,
+                <int>len(final_devices)
+            )
+
+        else:
+            X_m = self._downcast(X)
+
+            X_ctype = X_m.device_ctypes_pointer.value
+
+            params = new kNNParams()
+            params.N = <int>len(X)
+            params.ptr = <float*>X_ctype
+
+            self.input[0] = deref(params)
+
+            self.k.fit(<kNNParams*> self.input,
+                       <int> 1)
 
     def _fit_mg(self, n_dims, alloc_info):
         """
@@ -244,7 +300,7 @@ cdef class NearestNeighbors:
             a list of __cuda_array_interface__ dicts
         :return:
         """
-        self.k = new kNN(n_dims)
+        self.k = new kNN(n_dims, verbose = self._verbose)
 
         del self.input
         self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))

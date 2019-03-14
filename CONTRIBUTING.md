@@ -27,11 +27,13 @@ into three categories:
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it
-4. Code! Make sure to update unit tests!
-5. When done, [create your pull request](https://github.com/rapidsai/cuml/compare)
-6. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/). Fix if needed
-7. Wait for other developers to review your code and update code as needed
-8. Once reviewed and approved, a RAPIDS developer will merge your pull request
+4. Get familar with the developer guide relevant for you:
+ * For C++ developers it is avaiable here [DEVELOPER_GUIDE.md](cuML/DEVELOPER_GUIDE.md)
+5. Code! Make sure to update unit tests!
+6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare)
+7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/). Fix if needed
+8. Wait for other developers to review your code and update code as needed
+9. Once reviewed and approved, a RAPIDS developer will merge your pull request
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues
 and ask for clarifications!
