@@ -10,8 +10,7 @@
 
 ## Bug Fixes
 
-...
-
+- PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 
 # cuML 0.6.0 (Date TBD)
 
