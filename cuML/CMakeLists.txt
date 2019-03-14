@@ -33,7 +33,7 @@ else()
 	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
-find_package(CUDA 10.0 REQUIRED)
+find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
     find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -70,9 +70,9 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
-option(MEMCHECK "Enable cudamemcheck function symbol backtrace in nvcc" ON)
+option(MEMCHECK "Enable cudamemcheck function symbol backtrace in nvcc" OFF)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
-option(DEBUG "Get a debug build" ON)
+option(DEBUG "Get a debug build" OFF)
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
