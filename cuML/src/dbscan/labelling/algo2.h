@@ -26,6 +26,7 @@
 #include <iostream>
 #include <limits>
 #include <cuML.hpp>
+#include <common/host_buffer.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -118,9 +119,10 @@ static const int TPB_X = 256;
 template <typename Type>
 void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = data.N;
-    bool *host_m = new bool(1);
-    bool *host_fa = new bool[N];
-    bool *host_xa = new bool[N];
+    bool host_m;
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
@@ -131,17 +133,13 @@ void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int
         label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         cudaDeviceSynchronize();
         //** swapping F1 and F2
-        MLCommon::updateHostAsync(host_fa, data.fa, N, stream);
-        MLCommon::updateHostAsync(host_xa, data.xa, N, stream);
-        MLCommon::updateDeviceAsync(data.fa, host_xa, N, stream);
-        MLCommon::updateDeviceAsync(data.xa, host_fa, N, stream);
+        MLCommon::updateHostAsync(host_fa.data(), data.fa, N, stream);
+        MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
+        MLCommon::updateDeviceAsync(data.fa, host_xa.data(), N, stream);
+        MLCommon::updateDeviceAsync(data.xa, host_fa.data(), N, stream);
         //** Updating m *
-        MLCommon::updateHostAsync(host_m, data.m, 1, stream);
-    } while(host_m[0]); 
-
-    delete [] host_m;
-    delete [] host_fa;
-    delete [] host_xa;
+        MLCommon::updateHostAsync(&host_m, data.m, 1, stream);
+    } while(host_m);
 }
 
 template <typename Type>
@@ -161,19 +159,17 @@ void relabel(const ML::cumlHandle& handle, Pack<Type> data, cudaStream_t stream)
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
-    Type *host_db_cluster = new Type[N];
-    Type *host_map_id = new Type[N];
-    memset(host_map_id, 0, N*sizeof(Type));
-    MLCommon::updateHostAsync(host_db_cluster, data.db_cluster, N, stream);
-    sort(host, host_db_cluster, host_db_cluster + N);
-    Type *uid = unique(host, host_db_cluster, host_db_cluster + N, equal_to<Type>());
-    Type num_clusters = uid - host_db_cluster;
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    memset(host_map_id.data(), 0, N*sizeof(Type));
+    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    sort(host, host_db_cluster.data(), host_db_cluster.data() + N);
+    Type *uid = unique(host, host_db_cluster.data(), host_db_cluster.data() + N, equal_to<Type>());
+    Type num_clusters = uid - host_db_cluster.data();
     for(int i=0; i<num_clusters; i++)
         host_map_id[i] = host_db_cluster[i];
-    MLCommon::updateDeviceAsync(data.map_id, host_map_id, N, stream);
+    MLCommon::updateDeviceAsync(data.map_id, host_map_id.data(), N, stream);
     map_label<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL);
-    delete [] host_db_cluster;
-    delete [] host_map_id;
 }
 
 } // End Algo2
