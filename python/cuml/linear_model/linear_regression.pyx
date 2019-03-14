@@ -151,6 +151,7 @@ class LinearRegression:
     filter possible outliers.
     
     **Applications of LinearRegression**
+        
         LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
         It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
         machine learning tasks. This model should be first tried if the machine learning problem is a
