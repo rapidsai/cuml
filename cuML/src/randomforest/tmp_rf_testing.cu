@@ -80,6 +80,7 @@ void parse_csv(int n_cols, std::vector<float> & data, std::vector<int> & labels,
 				} else if (!test_is_train)
 					test_data[(counter - train_cnt)*n_cols + col] = row[col + 1]; // test data should be row major
 			}
+			ASSERT((row[0] == 0) || (row[0] == 1), "Invalid higgs label of %d", row[0]);
 			if (counter < train_cnt)  {
 				labels[counter] = (int) row[0];
 				if (test_is_train) test_labels[counter] = labels[counter];
@@ -160,6 +161,8 @@ int main(int argc, char **argv) {
 
 	//Preprocess labels 
 	ML::preprocess_labels(params.n_rows, h_higgs_labels, labels_map);
+	int n_unique_labels = labels_map.size();
+	std::cout << "Dataset has " << n_unique_labels << " labels." << std::endl;
 
 	updateDevice(higgs_data, h_higgs_data.data(), higgs_data_len);
 	updateDevice(higgs_labels, h_higgs_labels.data(), params.n_rows);
@@ -172,7 +175,7 @@ int main(int argc, char **argv) {
 	//rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
 
 	float ms;
-	TIMEIT_LOOP(ms, 1, rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels));
+	TIMEIT_LOOP(ms, 1, rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels, n_unique_labels));
 
 	rf_classifier->print_rf_detailed();
 	cout << "Planted the random forest in " << ms << " ms, " << ms /1000.0 << " s." << endl;
@@ -197,47 +200,6 @@ int main(int argc, char **argv) {
 	CUDA_CHECK(cudaFree(higgs_labels));
 	delete rf_classifier;
 
-
-#if 0
-	RF_inputs params(4, 2, 3, 1.0f, 1.0f, 4, 8, -1, true);
-	float * data;
-    int * labels, * predictions;
-
-	ML::rfClassifier * rf_classifier;
-
-    int data_len = params.n_rows * params.n_cols;
-    allocate(data, data_len);
-    allocate(labels, params.n_rows);
-
-	// Populate data (assume Col major)
-	std::vector<float> data_h = {30.0f, 1.0f, 2.0f, 0.0f, 10.0f, 20.0f, 10.0f, 40.0f};
-	data_h.resize(data_len);
-    updateDevice(data, data_h.data(), data_len);
-
-	// Populate labels
-	std::vector<int> labels_h = {0, 1, 0, 4};
-	labels_h.resize(params.n_rows);
-	updateDevice(labels, labels_h.data(), params.n_rows);
-
- 	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, 0, 0);
-	rf_classifier->fit(data, params.n_rows, params.n_cols, labels, params.n_trees, params.max_features, params.rows_sample);
-
-	int inference_data_len = params.n_inference_rows * params.n_cols;
-	std::vector<float> inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
-	inference_data_h.resize(inference_data_len);
-
-	predictions = rf_classifier->predict(inference_data_h.data(), params.n_inference_rows, params.n_cols, false);
-	for (int i = 0; i < params.n_inference_rows; i++) {
-		std::cout << "Random forest predicted " << predictions[i] << std::endl;
-	}
-
-	rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
-
-	CUDA_CHECK(cudaFree(labels));
-	CUDA_CHECK(cudaFree(data));
-	delete predictions;
-
-#endif
 	return 0;
 }
 

@@ -48,8 +48,8 @@ namespace ML {
 	
 		if (verbose) std::cout << "Preprocessing labels\n";
 		for (int i = 0; i < n_rows; i++) {
-	  				ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
-	  				if (ret.second) {
+			ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
+			if (ret.second) {
 				n_unique_labels += 1;
 			}
 			if (verbose) std::cout << "Mapping " << labels[i] << " to ";
@@ -62,7 +62,7 @@ namespace ML {
 
 
 	/* Revert preprocessing effect, if needed. */
-	void postprocess_labels(int n_rows, std::vector<int> labels, std::map<int, int> & labels_map, bool verbose=false) {
+	void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false) {
 	
 		if (verbose) std::cout << "Postrocessing labels\n";
 		std::map<int, int>::iterator it;
@@ -164,8 +164,9 @@ namespace ML {
          * @param labels		list of target features (device ptr).
 								Assumption: labels were preprocessed to map to ascending numbers from 0;
 							    needed for current gini impl in decision tree
+		 * @param n_unique_labels	#unique label values (known during preprocessing)
         */
-		void fit(float * input, int n_rows, int n_cols, int * labels) {
+		void fit(float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
 			ASSERT(!trees, "Cannot fit an existing forest.");
 			ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
@@ -204,8 +205,8 @@ namespace ML {
 				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.  
 					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
 				*/
-				std::cout << "Fitting tree # " << i << std::endl;
-				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, max_depth, max_leaves, max_features, n_bins);
+				//std::cout << "Fitting tree # " << i << std::endl;
+				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, max_depth, max_leaves, max_features, n_bins);
 
 				//Cleanup
 				CUDA_CHECK(cudaFree(selected_rows));
