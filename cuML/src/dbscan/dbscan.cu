@@ -18,7 +18,7 @@
 #include "runner.h"
 #include "dbscan_c.h"
 #include "dbscan.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 
@@ -27,12 +27,12 @@ using namespace Dbscan;
 
 void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
 		       int *labels) {
-	dbscanFitImpl(handle, input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
 }
 
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
 		       int *labels) {
-	dbscanFitImpl(handle, input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
 }
 
 /** @} */

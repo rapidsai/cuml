@@ -22,7 +22,7 @@
 #include <cuda_utils.h>
 #include "pack.h"
 #include "dbscan/common.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 
 namespace Dbscan {
@@ -49,7 +49,7 @@ __global__ void bfs_device(Pack<Type> data, int startVertexId, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
+void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
          int startVertexId, int batchSize, cudaStream_t stream) {
     MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
@@ -77,7 +77,7 @@ void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_g
 }
 
 template <typename Type>
-void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
     MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, sizeof(int)*(batchSize+1));
@@ -111,7 +111,7 @@ void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVer
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     if(startVertexId == 0)
         data.resetArray(stream);
         CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*data.N, stream));

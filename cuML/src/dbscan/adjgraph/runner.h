@@ -19,13 +19,13 @@
 #include "algo.h"
 #include "pack.h"
 #include "naive.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Type>
-void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, int algo, int batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts};
     switch(algo) {

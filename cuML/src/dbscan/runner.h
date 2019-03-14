@@ -20,7 +20,7 @@
 #include "vertexdeg/runner.h"
 #include "adjgraph/runner.h"
 #include "labelling/runner.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
 namespace Dbscan {
@@ -46,7 +46,7 @@ template<typename Type, typename Type_f>
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
+size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);

@@ -19,7 +19,7 @@
 #include "distance/distance.h"
 #include <math.h>
 #include "cuda_utils.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
 #include "pack.h"
@@ -30,7 +30,7 @@ namespace Algo {
 
 
 template <typename value_t>
-void launcher(const ML::cumlHandle& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
 
     data.resetArray(stream, batchSize+1);
 

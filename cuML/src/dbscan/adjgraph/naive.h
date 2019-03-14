@@ -19,7 +19,7 @@
 #include <cuda_utils.h>
 #include "pack.h"
 #include "dbscan/common.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 
 namespace Dbscan {
@@ -27,7 +27,7 @@ namespace AdjGraph {
 namespace Naive {
 
 template <typename Type> 
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
     int k = 0;
     int N = data.N;
     MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, sizeof(Type)*(batchSize+1));

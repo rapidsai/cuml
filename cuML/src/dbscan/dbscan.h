@@ -44,7 +44,7 @@ int computeBatchCount(int n_rows) {
 }
 
 template<typename T>
-void dbscanFitImpl(const ML::cumlHandle& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels, cudaStream_t stream) {
+void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels, cudaStream_t stream) {
     int algoVd = 1;
     int algoAdj = 1;
     int algoCcl = 2;
