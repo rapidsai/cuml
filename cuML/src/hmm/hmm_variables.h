@@ -1,6 +1,18 @@
 #pragma once
 
-namespace gmm {
+/** Train options for HMM */
+enum TrainOption {
+        Vitebri,
+        ForwardBackward
+};
+
+template <typename T>
+struct Multinomial {
+        T *dPis, *dLlhd;
+        int lddPis, lddLlhd;
+
+        int nCl, nDim, nObs;
+};
 
 template <typename T>
 struct GMM {
@@ -9,12 +21,41 @@ struct GMM {
 
         int lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
 
-        int nCl, nDim, nObs;
+        int nCl, nDim, nObs, nSeq;
+};
 
-        T reg_covar, *cur_llhd;
+template <typename T>
+struct HMM {
+        int nStates;
 
-        T* dProbNorm;
-        int lddprobnorm;
+        // Transition and emission matrixes
+        T *dT, *dB;
+        // All dLlhd point to dGamma
+        T *dAlpha, *dBeta, *dGamma;
+        int lddt, lddb, lddalpha, lddbeta;
+
+        T **dAlpha_array, **dBeta_array, **dGamma_array;
+
+        int** dMaxPath_array;
+
+        T* alphaScaleCoefs;
+
+        int **dV_idx_array;
+        T **dV_array;
+
+        TrainOption train;
+};
+
+template <typename T>
+struct GMMHMM {
+        std::vector<GMM<T> > gmms;
+        HMM hmm;
+};
+
+template <typename T>
+struct MultinomialHMM {
+        std::vector<Multinomial<T> > multinomials;
+        HMM hmm;
 };
 
 }
