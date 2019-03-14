@@ -10,15 +10,14 @@
 
 ## Bug Fixes
 
-...
-
+- PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
 
-- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties. 
-- PR #247 : Added "proper" CUDA API to cuML
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
+- PR #247: Added "proper" CUDA API to cuML
 - PR #235: NearestNeighbors MG Support
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
@@ -53,6 +52,7 @@
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 
@@ -66,6 +66,7 @@
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
 - PR #279: Removing faiss-gpu references in README
 - PR #321: Fix release script typo
+- PR #327: Update conda requirements for version 0.6 requirements
 
 # cuML 0.5.1 (05 Feb 2019)
 
