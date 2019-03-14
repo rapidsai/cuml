@@ -97,12 +97,6 @@ class KMeans:
     cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
     method is more stable than randomnly selecting K points.
     
-    Applications
-    -------------
-    The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
-    first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
-    approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
-    
     Examples
     --------
 
@@ -205,6 +199,12 @@ class KMeans:
     KMeans requires n_clusters to be specified. This means one needs to approximately guess or know
     how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and 
     visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
+    
+    **Applications of KMeans**
+    
+        The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
+        first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
+        approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
     
     
     For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
@@ -503,6 +503,13 @@ class KMeans:
         return self.fit(input_gdf).transform(input_gdf)
 
     def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
         for key in variables:
@@ -512,6 +519,13 @@ class KMeans:
 
 
     def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         current_params = {"algorithm":self.algorithm,'copy_x':self.copy_x,'init':self.init,"max_iter":self.max_iter,
