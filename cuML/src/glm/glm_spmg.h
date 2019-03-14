@@ -29,11 +29,11 @@ void olsPredictSPMG(double *input, int n_rows, int n_cols, double *h_coef,
 
 void spmgOlsFit(float **input, int *input_cols, int n_rows, int n_cols,
                 float **labels, int *label_rows, float **coef, int *coef_cols,
-                float *intercept, bool fit_intercept, bool normalize, int n_gpus, int *gpu_ids);
+                float *intercept, bool fit_intercept, bool normalize, int n_gpus);
 
 void spmgOlsFit(double **input, int *input_cols, int n_rows, int n_cols,
                 double **labels, int *label_rows, double **coef, int *coef_cols,
-                double *intercept, bool fit_intercept, bool normalize, int n_gpus, int *gpu_ids);
+                double *intercept, bool fit_intercept, bool normalize, int n_gpus);
 
 void spmgOlsPredict(float **input, int *input_cols, int n_rows, int n_cols,
                     float **coef, int *coef_cols, float intercept,
