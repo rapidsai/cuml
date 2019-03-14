@@ -42,22 +42,22 @@ int computeBatchCount(int n_rows) {
 }
 
 template<typename T>
-void dbscanFitImpl(const ML::cumlHandle& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels) {
+void dbscanFitImpl(const ML::cumlHandle& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels, cudaStream_t stream) {
     int algoVd = 1;
     int algoAdj = 1;
     int algoCcl = 2;
     int n_batches = computeBatchCount(n_rows);
     size_t workspaceSize = Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts,
                                        labels, algoVd, algoAdj, algoCcl, NULL,
-                                       n_batches);
+                                       n_batches, stream);
 
     char* workspace;
     // CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
 
-    workspace = (char*) handle.getDeviceAllocator()->allocate(workspaceSize*sizeof(char), handle.getStream());
+    workspace = (char*) handle.getDeviceAllocator()->allocate(workspaceSize*sizeof(char), stream);
     Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-                algoCcl, workspace, n_batches);
-    handle.getDeviceAllocator()->deallocate(workspace, workspaceSize*sizeof(char), handle.getStream());
+                algoCcl, workspace, n_batches, stream);
+    handle.getDeviceAllocator()->deallocate(workspace, workspaceSize*sizeof(char), stream);
 }
 
 /** @} */

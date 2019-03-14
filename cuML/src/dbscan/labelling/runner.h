@@ -33,19 +33,19 @@ template <typename Type>
 void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster, 
          bool *xa, bool *fa, bool *m, Type *map_id, 
-         int algo, int startVertexId, int batchSize) {
+         int algo, int startVertexId, int batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
                        visited, db_cluster, xa, fa, m, map_id};
     switch(algo) {
     case 0:
-        Naive::launcher<Type>(handle, data, startVertexId, batchSize);
+        Naive::launcher<Type>(handle, data, startVertexId, batchSize, stream);
         break;
     case 1:
         ASSERT(N == batchSize, "Label::Algo1 doesn't support batching!");
-        Algo1::launcher<Type>(handle, data, startVertexId, batchSize);
+        Algo1::launcher<Type>(handle, data, startVertexId, batchSize, stream);
         break;
     case 2:
-        Algo2::launcher<Type>(handle, data, N, startVertexId, batchSize);
+        Algo2::launcher<Type>(handle, data, N, startVertexId, batchSize, stream);
         break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
@@ -55,10 +55,10 @@ void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type
 template <typename Type>
 void final_relabel(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
-         bool *xa, bool *fa, bool *m, Type *map_id) {
+         bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
                        visited, db_cluster, xa, fa, m, map_id};
-    Algo2::relabel<Type>(handle, data);
+    Algo2::relabel<Type>(handle, data, stream);
 }
 
 } // namespace Label

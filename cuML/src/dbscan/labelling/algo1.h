@@ -50,8 +50,7 @@ static const int TPB_X = 256;
 template <typename Type>
 void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
-         int startVertexId, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+         int startVertexId, int batchSize, cudaStream_t stream) {
     bool *host_xa = new bool[N];
     bool *host_fa = new bool[N];
     memset(host_xa, false, sizeof(bool)*N);
@@ -79,8 +78,7 @@ void bfs(const ML::cumlHandle& handle, int id, Pack<Type> data, Type *host_adj_g
 }
 
 template <typename Type>
-void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
     int *host_vd = new int[batchSize+1];
@@ -103,7 +101,7 @@ void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVer
             host_db_cluster[i + startVertexId] = cluster;
             bfs(handle, i, data, host_adj_graph, host_ex_scan, host_vd,
                 host_visited, host_db_cluster, cluster, N, startVertexId, 
-                batchSize);
+                batchSize, stream);
             cluster++;
         }
     }
@@ -119,12 +117,11 @@ void identifyCluster(const ML::cumlHandle& handle, Pack<Type> data, int startVer
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
-        cudaStream_t stream = handle.getStream();
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     if(startVertexId == 0)
         data.resetArray(stream);
         CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*data.N, stream));
-    identifyCluster(handle, data, startVertexId, batchSize);
+    identifyCluster(handle, data, startVertexId, batchSize, stream);
 }
 
 } //End Algo1

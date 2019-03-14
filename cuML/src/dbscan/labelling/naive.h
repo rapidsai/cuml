@@ -56,8 +56,7 @@ void bfs(const ML::cumlHandle& handle, int id, Type *host_adj_graph,
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = (size_t)data.N;
     Type *host_vd = new Type[N+1];
     bool *host_core_pts = new bool[N];
