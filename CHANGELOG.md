@@ -55,7 +55,6 @@
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
-
 ## Bug Fixes
 
 - PR #193: Fix AttributeError in PCA and TSVD
