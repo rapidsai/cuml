@@ -85,6 +85,7 @@ set(MLPRIMS_LIBS
   ${CUDA_cublas_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
   pthread
   z)
 

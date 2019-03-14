@@ -26,7 +26,9 @@ add_executable(mlcommon_test
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
+  coo.cu
   cov.cu
+  csr.cu
   decoupled_lookback.cu
   dist_adj.cu
   dist_cos.cu
@@ -62,7 +64,14 @@ add_executable(mlcommon_test
   svd.cu
   transpose.cu
   unary_op.cu
-  weighted_mean.cu)
+  hinge.cu
+  linearReg.cu
+  log.cu
+  logisticReg.cu
+  penalty.cu
+  sigmoid.cu
+  weighted_mean.cu
+  )
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}

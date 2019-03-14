@@ -42,6 +42,7 @@ struct CompareApprox {
     T diff = abs(a - b);
     T m = std::max(abs(a), abs(b));
     T ratio = m >= eps ? diff / m : diff;
+
     return (ratio <= eps);
   }
 
