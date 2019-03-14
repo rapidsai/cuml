@@ -99,13 +99,6 @@ class TruncatedSVD:
     The Jacobi algorithm is much faster as it iteratively tries to correct the top K singular
     vectors, but might be less accurate.
     
-    Applications
-    -------------
-    TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
-    word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
-    same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
-    systems and data compression.
-
     Examples
     ---------
 
@@ -197,6 +190,12 @@ class TruncatedSVD:
     you want is much smaller than the number of features. The approximation to the largest
     singular values and vectors is very robust, however, this method loses a lot of accuracy
     when you want many many components.
+    
+    **Applications of TruncatedSVD**
+        TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
+        word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
+        same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
+        systems and data compression.
 
     For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_. 
     For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
@@ -510,6 +509,13 @@ class TruncatedSVD:
 
 
     def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver','n_cols','n_rows']
         for key in variables:
@@ -519,6 +525,13 @@ class TruncatedSVD:
 
 
     def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         variables = ['n_components', 'tol', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state','svd_solver']
