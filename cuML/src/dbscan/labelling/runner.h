@@ -23,14 +23,14 @@
 #include "algo1.h"
 #include "pack.h"
 #include "algo2.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace Label {
 
 
 template <typename Type>
-void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster, 
          bool *xa, bool *fa, bool *m, Type *map_id, 
          int algo, int startVertexId, int batchSize, cudaStream_t stream) {
@@ -53,7 +53,7 @@ void run(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type
 }
 
 template <typename Type>
-void final_relabel(const ML::cumlHandle& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+void final_relabel(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
          bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,

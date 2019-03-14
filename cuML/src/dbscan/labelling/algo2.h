@@ -25,7 +25,7 @@
 #include "dbscan/common.h"
 #include <iostream>
 #include <limits>
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 
 namespace Dbscan {
@@ -117,7 +117,7 @@ __global__ void map_label(Pack<Type> data, Type MAX_LABEL) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = data.N;
     bool host_m;
     MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, sizeof(bool)*N);
@@ -143,7 +143,7 @@ void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
     //data.resetArray(stream);
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
@@ -154,7 +154,7 @@ void launcher(const ML::cumlHandle& handle, Pack<Type> data, Type N, int startVe
 }
 
 template <typename Type>
-void relabel(const ML::cumlHandle& handle, Pack<Type> data, cudaStream_t stream) {
+void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t stream) {
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();

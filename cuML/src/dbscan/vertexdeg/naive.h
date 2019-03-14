@@ -18,7 +18,7 @@
 
 #include <cuda_utils.h>
 #include "pack.h"
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace VertexDeg {
@@ -66,7 +66,7 @@ __global__ void vertex_degree_kernel(Pack<Type> data, int startVertexId, int bat
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
     dim3 blk(TPB_X, TPB_Y, 1);
     data.resetArray(stream, batchSize+1);

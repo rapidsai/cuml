@@ -20,7 +20,7 @@
 #include "pack.h"
 #include "../common.h"
 #include <queue>
-#include <cuML.hpp>
+#include <common/cumlHandle.hpp>
 #include <common/host_buffer.hpp>
 
 namespace Dbscan {
@@ -29,7 +29,7 @@ namespace Naive {
 
 using namespace std; 
 template <typename Type>
-void bfs(const ML::cumlHandle& handle, int id, Type *host_adj_graph, 
+void bfs(const ML::cumlHandle_impl& handle, int id, Type *host_adj_graph, 
 	 Type *host_ex_scan, Type *host_vd, bool *host_visited,
          Type *host_db_cluster, Type cluster, bool *host_xa, size_t N) {
      queue<int> q;
@@ -57,7 +57,7 @@ void bfs(const ML::cumlHandle& handle, int id, Type *host_adj_graph,
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = (size_t)data.N;
     MLCommon::host_buffer<Type> host_vd(handle.getHostAllocator(), stream, sizeof(Type)*(N+1));
     MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(bool)*N);
