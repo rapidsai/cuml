@@ -22,6 +22,7 @@
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 - PR #303: Reusable spectral embedding / clustering
+- PR #271: Initial support for hyperparameter optimization with dask for many models
 
 ## Improvements
 
@@ -52,6 +53,7 @@
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #312: Last minute cleanup before release
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 
 ## Bug Fixes
