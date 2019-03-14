@@ -116,7 +116,7 @@ __global__ void map_label(Pack<Type> data, Type MAX_LABEL) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
+void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = data.N;
     bool *host_m = new bool(1);
     bool *host_fa = new bool[N];
@@ -125,7 +125,6 @@ void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     
-    cudaStream_t stream = handle.getStream();
     init_label<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize, MAX_LABEL); 
     do {
         CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) ); 
@@ -146,22 +145,20 @@ void label(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, Type N, int startVertexId, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
     //data.resetArray(stream);
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     if(startVertexId == 0)
         init_all<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL); 
-    label(handle, data, startVertexId, batchSize);
+    label(handle, data, startVertexId, batchSize, stream);
 }
 
 template <typename Type>
-void relabel(const ML::cumlHandle& handle, Pack<Type> data) {
+void relabel(const ML::cumlHandle& handle, Pack<Type> data, cudaStream_t stream) {
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
-    cudaStream_t stream = handle.getStream();
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
     Type *host_db_cluster = new Type[N];

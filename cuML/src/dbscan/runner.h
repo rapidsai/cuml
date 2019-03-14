@@ -31,24 +31,23 @@ void run(const ML::cumlHandle& handle, Type_f *x, Type N, Type minPts, Type D, T
 		int* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
 		Type *db_cluster, bool *xa, bool *fa, bool *m, Type *map_id,
 		Type_f* dots, int algoVd, int algoAdj,
-		int algoCcl) {
-    cudaStream_t stream = handle.getStream();
+		int algoCcl, cudaStream_t stream) {
 	//Rynning VerexDeg
-	VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd);
+	VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd, stream);
 	Type *host_vd = new Type[size_t(N + 1)];
 	MLCommon::updateHostAsync(host_vd, vd, N + 1, stream);
 	Type adjlen = host_vd[N];
 	delete[] host_vd;
 	// Running AdjGraph
-    adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), handle.getStream());
+    adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), stream);
 	AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
-			algoAdj);
+			algoAdj, stream);
 	// Running Labelling
 	Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
-			db_cluster, xa, fa, m, map_id, algoCcl);
+			db_cluster, xa, fa, m, map_id, algoCcl, stream);
 	if (adj_graph != NULL)
     {
-        handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), handle.getStream());
+        handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), stream);
     }
 }
 
@@ -72,8 +71,7 @@ template<typename Type, typename Type_f>
  * @return in case the temp buffer is null, this returns the size needed.
  */
 size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
-		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches) {
-    cudaStream_t stream = handle.getStream();
+		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
@@ -121,7 +119,7 @@ size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, 
         if(nPoints <= 0)
             continue;
 		VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd,
-				startVertexId, nPoints);
+				startVertexId, nPoints, stream);
 
 		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
 		// Running AdjGraph
@@ -131,18 +129,18 @@ size_t run(const ML::cumlHandle& handle, Type_f* x, Type N, Type D, Type_f eps, 
             adj_graph = (Type*) handle.getDeviceAllocator()->allocate(adjlen*sizeof(Type), stream);
 		}
 		AdjGraph::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
-				algoAdj, nPoints);
+				algoAdj, nPoints, stream);
 		// Running Labelling
 		Label::run(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,
-				nPoints);
+				nPoints, stream);
 		if (adj_graph != NULL)
             handle.getDeviceAllocator()->deallocate(adj_graph, adjlen*sizeof(Type), stream);
 	}
 	if (algoCcl == 2) {
 		Type *adj_graph = NULL;
 		Label::final_relabel(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
-				visited, labels, xa, fa, m, map_id);
+				visited, labels, xa, fa, m, map_id, stream);
 	}
 
         static const int TPB = 256;

@@ -54,8 +54,7 @@ __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
     device_ptr<int> dev_vd = device_pointer_cast(data.vd); 

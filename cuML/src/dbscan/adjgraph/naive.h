@@ -26,8 +26,7 @@ namespace AdjGraph {
 namespace Naive {
 
 template <typename Type> 
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize) {
-    cudaStream_t stream = handle.getStream();
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
     int k = 0;
     int N = data.N;
     int *host_vd = new Type[batchSize+1];

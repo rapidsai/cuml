@@ -66,11 +66,11 @@ __global__ void vertex_degree_kernel(Pack<Type> data, int startVertexId, int bat
 }
 
 template <typename Type>
-void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize) {
+void launcher(const ML::cumlHandle& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
     dim3 blk(TPB_X, TPB_Y, 1);
-    data.resetArray(handle.getStream(), batchSize+1);
-    vertex_degree_kernel<<<grid, blk, 0, handle.getStream()>>>(data, startVertexId, batchSize);
+    data.resetArray(stream, batchSize+1);
+    vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId, batchSize);
 }
 
 } // namespace Naive
