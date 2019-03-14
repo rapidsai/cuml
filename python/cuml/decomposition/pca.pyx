@@ -379,7 +379,7 @@ class PCA:
 
         return self
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -387,6 +387,8 @@ class PCA:
         ----------
         X : cuDF DataFrame, shape (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+
+        y : ignored
 
         Returns
         -------
@@ -548,10 +550,10 @@ class PCA:
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
         for key in variables:
             var_value = getattr(self.params,key,None)
-            params[key] = var_value  
+            params[key] = var_value
             if 'svd_solver'== key:
                 params[key] = getattr(self, key, None)
-            		 
+
         return params
 
 
@@ -567,5 +569,5 @@ class PCA:
                     setattr(self, key, value)
                 else:
                     setattr(self.params, key, value)
-			
+
         return self
