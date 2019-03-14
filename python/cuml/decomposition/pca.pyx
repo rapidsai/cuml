@@ -30,7 +30,9 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+from cuml._common.base import Base
 from cuml.decomposition.utils cimport *
+
 
 cdef extern from "pca/pca_c.h" namespace "ML":
 
@@ -100,21 +102,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                            double *mu,
                            paramsPCA prms)
 
-class PCAparams:
-    def __init__(self, n_components, copy, whiten, tol, iterated_power,
-                 random_state, svd_solver):
-        self.n_components = n_components
-        self.copy = copy
-        self.whiten = whiten
-        self.svd_solver = svd_solver
-        self.tol = tol
-        self.iterated_power = iterated_power
-        self.random_state = random_state
-        self.n_cols = None
-        self.n_rows = None
 
-
-class PCA:
+class PCA(Base):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
     combine features in X in linear combinations such that each new component captures the most
@@ -264,16 +253,19 @@ class PCA:
     For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
-                 iterated_power=15, random_state=None, svd_solver='auto'):
-        if svd_solver in ['full', 'auto', 'jacobi']:
-            self.svd_solver = svd_solver
-            c_algorithm = self._get_algorithm_c_name(svd_solver)
-        else:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(svd_solver))
-        self.params = PCAparams(n_components, copy, whiten, tol,
-                                iterated_power, random_state, c_algorithm)
+    def __init__(self, copy=True, handle=None, iterated_power=15,
+                 n_components=1, random_state=None, svd_solver='auto', tol=1e-7,
+                 verbose=False, whiten=False):
+        # params
+        super(PCA, self).__init__(handle, random_state, verbose)
+        self.copy = copy
+        self.iterated_power = iterated_power
+        self.n_components = n_components
+        self.svd_solver = svd_solver
+        self.tol = tol
+        self.whiten = whiten
+        self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
+        # attributes
         self.components_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
@@ -288,13 +280,17 @@ class PCA:
         self.noise_variance_ptr = None
 
     def _get_algorithm_c_name(self, algorithm):
-        return {
+        algo_map = {
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
             'jacobi': COV_EIG_JACOBI
-        }[algorithm]
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
+        return algo_map[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -344,15 +340,13 @@ class PCA:
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             # PCA expects transpose of the input
             X_m = X.as_gpu_matrix()
-            self.params.n_rows = len(X)
-            self.params.n_cols = len(X._cols)
-
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
             X_m = cuda.to_device(np.array(X, order='F'))
-            self.params.n_rows = X.shape[0]
-            self.params.n_cols = X.shape[1]
-
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
@@ -360,15 +354,15 @@ class PCA:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
-        params.n_rows = self.params.n_rows
-        params.n_cols = self.params.n_cols
-        params.whiten = self.params.whiten
-        params.n_iterations = self.params.iterated_power
-        params.tol = self.params.tol
-        params.algorithm = self.params.svd_solver
+        params.n_components = self.n_components
+        params.n_rows = self.n_rows
+        params.n_cols = self.n_cols
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
 
-        if self.params.n_components> self.params.n_cols:
+        if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than the number of columns in the data')
 
         self._initialize_arrays(params.n_components,
@@ -463,9 +457,9 @@ class PCA:
         """
         self.fit(X, _transform=True)
         X_new = cudf.DataFrame()
-        num_rows = self.params.n_rows
+        num_rows = self.n_rows
 
-        for i in range(0, self.params.n_components):
+        for i in range(0, self.n_components):
             X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
         return X_new
@@ -500,10 +494,10 @@ class PCA:
         trans_input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = len(X)
-        params.n_cols = self.params.n_cols
-        params.whiten = self.params.whiten
+        params.n_cols = self.n_cols
+        params.whiten = self.whiten
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
                                              dtype=gdf_datatype.type))
@@ -575,10 +569,10 @@ class PCA:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
-        params.whiten = self.params.whiten
+        params.whiten = self.whiten
 
         trans_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
@@ -612,36 +606,6 @@ class PCA:
         return X_new
 
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key in variables:
-            var_value = getattr(self.params,key,None)
-            params[key] = var_value
-            if 'svd_solver'== key:
-                params[key] = getattr(self, key, None)
-
-        return params
-
-
-    def set_params(self, **parameter):
-        if not parameter:
-            return self
-        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key, value in parameter.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter %s for estimator')
-            else:
-                if 'svd_solver' in parameter.keys() and key=='svd_solver':
-                    setattr(self, key, value)
-                else:
-                    setattr(self.params, key, value)
-
-        return self
+    def get_param_names(self):
+        return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
+                "whiten"]
