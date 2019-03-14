@@ -59,13 +59,6 @@ class DBSCAN:
     cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph to compute
     the distances between close neighbours.
     
-    Applications
-    -------------
-    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
-    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
-    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
-    customer segmentation in marketing analyses, and much more.
-
     Examples
     ---------
 
@@ -112,6 +105,11 @@ class DBSCAN:
     ------
     DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
     is that datapoints need to be concentrated in groups for clusters to be constructed.
+    
+    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
+    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
+    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
+    customer segmentation in marketing analyses, and much more.
     
     
     For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
@@ -210,6 +208,13 @@ class DBSCAN:
         return self.labels_
 
     def get_params(self, deep=True):
+	"""
+	Sklearn style return parameter state
+	
+	Parameters
+	-----------
+	deep : boolean (default = True)
+	"""
         params = dict()
         variables = [ 'eps','min_samples']
         for key in variables:
@@ -220,6 +225,13 @@ class DBSCAN:
 
 
     def set_params(self, **params):
+	"""
+	Sklearn style set parameter state to dictionary of params.
+	
+	Parameters
+	-----------
+	params : dict of new params
+	"""
         if not params:
             return self
         current_params = {"eps": self.eps,"min_samples":self.min_samples}
