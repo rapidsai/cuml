@@ -108,12 +108,12 @@ class DBSCAN:
     
     **Applications of DBSCAN**
 
-	    DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
-	    it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
-	    DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
-	    customer segmentation in marketing analyses, and much more.
-    
-    
+	DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
+	it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
+	DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
+	customer segmentation in marketing analyses, and much more.
+
+
     For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
@@ -212,7 +212,7 @@ class DBSCAN:
     def get_params(self, deep=True):
 	"""
 	Sklearn style return parameter state
-	
+
 	Parameters
 	-----------
 	deep : boolean (default = True)
@@ -229,7 +229,7 @@ class DBSCAN:
     def set_params(self, **params):
 	"""
 	Sklearn style set parameter state to dictionary of params.
-	
+
 	Parameters
 	-----------
 	params : dict of new params
