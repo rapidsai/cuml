@@ -381,6 +381,13 @@ class Ridge:
 
 
     def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key in variables:
@@ -390,6 +397,13 @@ class Ridge:
 
 
     def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
