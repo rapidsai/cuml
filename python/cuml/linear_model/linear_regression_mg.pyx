@@ -449,16 +449,16 @@ class LinearRegressionMG:
             idx = 0
             for ary in alloc_info:
                 input_ptr = ary[0]['data'][0]
-                input32[idx] = <double*>input_ptr
+                input32[idx] = <float*>input_ptr
                 input_cols[idx] = ary[0]["shape"][1]
                 n_cols = n_cols + ary[0]["shape"][1]
 
                 input_ptr = ary[1]['data'][0]
-                labels32[idx] = <double*>input_ptr
+                labels32[idx] = <float*>input_ptr
                 label_rows[idx] = ary[1]["shape"][0]
 
                 input_ptr = ary[2]['data'][0]
-                coef32[idx] = <double*>input_ptr
+                coef32[idx] = <float*>input_ptr
                 coef_cols[idx] = ary[2]["shape"][0]
 
                 idx = idx + 1
@@ -475,6 +475,8 @@ class LinearRegressionMG:
                            <bool> self.fit_intercept,
                            <bool> self.normalize,
                            <int> n_allocs)
+
+            return intercept_f32
 
         else:
 
@@ -511,6 +513,8 @@ class LinearRegressionMG:
                         <bool> self.fit_intercept,
                         <bool> self.normalize,
                         <int> n_allocs)
+
+            return intercept_f64
 
 
     def _predict_dask(self, alloc_info, intercept, params):
@@ -556,16 +560,16 @@ class LinearRegressionMG:
             idx = 0
             for ary in alloc_info:
                 input_ptr = ary[0]['data'][0]
-                input32[idx] = <double*>input_ptr
+                input32[idx] = <float*>input_ptr
                 input_cols[idx] = ary[0]["shape"][1]
                 n_cols = n_cols + ary[0]["shape"][1]
 
                 input_ptr = ary[1]['data'][0]
-                coef32[idx] = <double*>input_ptr
+                coef32[idx] = <float*>input_ptr
                 coef_cols[idx] = ary[1]["shape"][0]
 
                 input_ptr = ary[2]['data'][0]
-                pred32[idx] = <double*>input_ptr
+                pred32[idx] = <float*>input_ptr
                 pred_rows[idx] = ary[2]["shape"][0]
 
                 idx = idx + 1
@@ -587,6 +591,7 @@ class LinearRegressionMG:
             pred64 = <double**>malloc(len(alloc_info)*sizeof(double*))
             coef64 = <double**>malloc(len(alloc_info)*sizeof(double*))
 
+            idx = 0
             for ary in alloc_info:
                 input_ptr = ary[0]['data'][0]
                 input64[idx] = <double*>input_ptr
