@@ -62,8 +62,6 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-
-
 set(CONDA_ENV_DIR /home/mehdia/miniconda3/envs/cuml-0128 CACHE STRING
 "Path to the conda env")
 set(MAGMA_LIBRARY ${CONDA_ENV_DIR}/lib/libmagma.a CACHE STRING
@@ -193,12 +191,9 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
+file(GLOB_RECURSE magma_prims_test_sources "${MLPRIMS_DIR}/test/hmm/magma/*.cu")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
-
-# file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/magma/*")
-file(GLOB_RECURSE magma_debug_sources "test/gmm_test.cu")
-file(GLOB_RECURSE magma_prims_test_sources "${MLPRIMS_DIR}/test/hmm/magma/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -228,15 +223,33 @@ set(CUML_LINK_LIBRARIES
 	faisslib
 	${BLAS_LIBRARIES})
 
-            src/hmm/gmm_py.cu
-            )
-
 set(CUML_LINK_LIBRARIES ${MAGMA_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
 
 target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
+
+
+###################################################################################################
+# - build test executable -------------------------------------------------------------------------
+
+
+link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
+
+add_executable(magma_test_prims ${magma_prims_test_sources})
+
+target_link_libraries(magma_test_prims
+                      ${GTEST_LIBNAME}
+                      ${MAGMA_LIBRARY}
+                      ${CUDA_cublas_LIBRARY}
+                      cusparse
+                      ${CUDA_curand_LIBRARY}
+                      ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_CUDART_LIBRARY}
+                      ${BLAS_LIBRARIES}
+                     )
+
 
 # ###################################################################################################
 # # - build test executable -------------------------------------------------------------------------
@@ -282,28 +295,9 @@ target_link_libraries(ml_mg_test
                       pthread
                       ${ZLIB_LIBRARIES})
 
+###################################################################################################
+# - build examples -------------------------------------------------------------------------
 
-# ###################################################################################################
-# # - build test executable -------------------------------------------------------------------------
-#
-# add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
-#
-# target_link_libraries(ml_mg_test
-#                       ${GTEST_LIBNAME}
-#                       ${CUDA_cublas_LIBRARY}
-#                       ${CUDA_curand_LIBRARY}
-#                       ${CUDA_cusolver_LIBRARY}
-#                       ${CUDA_CUDART_LIBRARY}
-#                       gpufaisslib
-#                       faisslib
-#                       ${BLAS_LIBRARIES}
-#                       cuml
-#                       pthread
-#                       ${ZLIB_LIBRARIES})
-
-# ###################################################################################################
-# # - build examples -------------------------------------------------------------------------
-#
 # if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 #     add_subdirectory(examples)
 # endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
@@ -313,36 +307,3 @@ target_link_libraries(ml_mg_test
 
 install(TARGETS cuml
         DESTINATION lib)
-
-
-###################################################################################################
-# - build test executable -------------------------------------------------------------------------
-
-
-link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
-
-add_executable(magma_test_prims ${magma_prims_test_sources})
-
-target_link_libraries(magma_test_prims
-                      ${GTEST_LIBNAME}
-                      ${MAGMA_LIBRARY}
-                      ${CUDA_cublas_LIBRARY}
-                      cusparse
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      ${BLAS_LIBRARIES}
-                     )
-
-# add_executable(magma_debug ${magma_debug_sources})
-#
-# target_link_libraries(magma_debug
-#                      ${GTEST_LIBNAME}
-#                      ${MAGMA_LIBRARY}
-#                      ${CUDA_cublas_LIBRARY}
-#                      ${CUDA_cusparse_LIBRARY}
-#                      ${CUDA_curand_LIBRARY}
-#                      ${CUDA_cusolver_LIBRARY}
-#                      ${CUDA_CUDART_LIBRARY}
-#                      ${BLAS_LIBRARIES}
-#                     )
