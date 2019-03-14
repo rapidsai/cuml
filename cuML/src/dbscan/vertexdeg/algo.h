@@ -31,7 +31,6 @@ namespace Algo {
 
 template <typename value_t>
 void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
-    cudaStream_t stream = handle.getStream();
     data.resetArray(stream, batchSize+1);
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
