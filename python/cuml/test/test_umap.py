@@ -59,8 +59,8 @@ def test_umap_trustworthiness_on_iris():
 
     # We are doing a spectral embedding but not a
     # multi-component layout (which is marked experimental).
-    # As a result, our score drops by 0.003.
-    assert trust >= 0.967
+    # As a result, our score drops by 0.005.
+    assert trust >= 0.965
 
 
 def test_umap_trustworthiness_on_iris_random_init():
