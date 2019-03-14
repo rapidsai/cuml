@@ -192,6 +192,7 @@ class TruncatedSVD:
     when you want many many components.
     
     **Applications of TruncatedSVD**
+        
         TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
         word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
         same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
