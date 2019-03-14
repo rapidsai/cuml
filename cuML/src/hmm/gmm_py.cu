@@ -79,4 +79,82 @@ void free_f32(GMM<float> &gmm) {
         free(gmm);
 }
 
+
+void init_f64(GMM<double> &gmm,
+              double *dmu, double *dsigma, double *dPis, double *dPis_inv, double *dLlhd,
+              int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
+              double *cur_llhd, double reg_covar,
+              int nCl, int nDim, int nObs){
+        init(gmm,
+             dmu, dsigma, dPis, dPis_inv, dLlhd,
+             lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
+             cur_llhd, reg_covar,
+             nCl, nDim, nObs);
+}
+
+void compute_lbow_f64(GMM<double>& gmm){
+        compute_lbow(gmm);
+}
+
+void update_llhd_f64(double* dX, GMM<double>& gmm){
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        update_llhd(dX, gmm, cublasHandle);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
+}
+
+void update_rhos_f64(GMM<double>& gmm, double* dX){
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_rhos(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
+}
+
+void update_mus_f64(double* dX, GMM<double>& gmm){
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_mus(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
+}
+
+void update_sigmas_f64(double* dX, GMM<double>& gmm){
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_sigmas(dX, gmm, cublasHandle, queue);
+
+        CUBLAS_CHECK(cublasDestroy(cublasHandle));
+}
+
+void update_pis_f64(GMM<double>& gmm){
+        update_pis(gmm);
+}
+
+void setup_f64(GMM<double> &gmm) {
+        setup(gmm);
+}
+
+void free_f64(GMM<double> &gmm) {
+        free(gmm);
+}
+
+
 }

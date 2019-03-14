@@ -64,9 +64,7 @@ def run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state):
                              means_init=None,
                              precisions_init=None,
                              random_state=random_state,
-                             warm_start=False,
-                             verbose=0,
-                             verbose_interval=0)
+                             warm_start=False)
     gmm.fit(X)
 
     params = {"mus" : gmm.means_,
@@ -118,11 +116,11 @@ def print_info(true_params, sk_params, cuml_params):
     print(mse_dict_cuml)
 
 
-@pytest.mark.parametrize('n_iter', [100])
-@pytest.mark.parametrize('nCl', [5])
-@pytest.mark.parametrize('nDim', [5])
+@pytest.mark.parametrize('n_iter', [20, 100])
+@pytest.mark.parametrize('nCl', [5, 10])
+@pytest.mark.parametrize('nDim', [5, 10])
 @pytest.mark.parametrize('nObs', [1000])
-@pytest.mark.parametrize('precision', ["single"])
+@pytest.mark.parametrize('precision', ["single", 'double'])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [0])
 @pytest.mark.parametrize('random_state', [10, 45])
@@ -135,4 +133,7 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     print_info(true_params, sk_params, cuml_params)
     error_dict, error = compute_error(cuml_params, sk_params)
-    assert error < 1e-04
+    if precision is "single" :
+        assert error < 1e-04
+    else :
+        assert error < 1e-12

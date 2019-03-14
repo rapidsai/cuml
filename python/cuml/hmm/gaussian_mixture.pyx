@@ -36,8 +36,6 @@ cdef extern from "hmm/hmm_variables.h" namespace "gmm":
 
 cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
 
-    cdef void init_test()
-
     cdef void init_f32(GMM[float]&,
                        float*,
                        float*,
@@ -63,6 +61,34 @@ cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
     cdef void update_mus_f32(float*, GMM[float]&)
     cdef void update_sigmas_f32(float*, GMM[float]&)
     cdef void update_pis_f32(GMM[float]&)
+
+    cdef void init_f64(GMM[double]&,
+                       double*,
+                       double*,
+                       double*,
+                       double*,
+                       double*,
+                       int,
+                       int,
+                       int,
+                       int,
+                       int,
+                       int,
+                       double*,
+                       double,
+                       int,
+                       int,
+                       int)
+
+    cdef void setup_f64(GMM[double]&)
+    cdef void compute_lbow_f64(GMM[double]&)
+    cdef void update_llhd_f64(double*, GMM[double]&)
+    cdef void update_rhos_f64(GMM[double]&, double*)
+    cdef void update_mus_f64(double*, GMM[double]&)
+    cdef void update_sigmas_f64(double*, GMM[double]&)
+    cdef void update_pis_f64(GMM[double]&)
+
+
 
 RUP_SIZE = 32
 
@@ -118,11 +144,12 @@ class GaussianMixture:
         cdef int nDim = self.nDim
         cdef int nObs = self.nObs
 
-        cdef GMM[float] gmm
+        cdef GMM[float] gmm32
+        cdef GMM[double] gmm64
 
         if self.precision == 'single':
             with nogil:
-                init_f32(gmm,
+                init_f32(gmm32,
                          <float*> _dmu_ptr,
                          <float*> _dsigma_ptr,
                          <float*> _dPis_ptr,
@@ -140,16 +167,48 @@ class GaussianMixture:
                          <int> nDim,
                          <int> nObs)
 
-                setup_f32(gmm)
+                setup_f32(gmm32)
 
-                update_llhd_f32(<float*>_dX_ptr, gmm)
-                update_rhos_f32(gmm, <float*> _dX_ptr)
+                update_llhd_f32(<float*>_dX_ptr, gmm32)
+                update_rhos_f32(gmm32, <float*> _dX_ptr)
 
-                update_pis_f32(gmm)
-                update_mus_f32(<float*>_dX_ptr, gmm)
-                update_sigmas_f32(<float*>_dX_ptr, gmm)
+                update_pis_f32(gmm32)
+                update_mus_f32(<float*>_dX_ptr, gmm32)
+                update_sigmas_f32(<float*>_dX_ptr, gmm32)
 
-                compute_lbow_f32(gmm)
+                compute_lbow_f32(gmm32)
+
+        if self.precision == 'double':
+            with nogil:
+                init_f64(gmm64,
+                         <double*> _dmu_ptr,
+                         <double*> _dsigma_ptr,
+                         <double*> _dPis_ptr,
+                         <double*> _dPis_inv_ptr,
+                         <double*> _dLlhd_ptr,
+                         <int> lddx,
+                         <int> lddmu,
+                         <int> lddsigma,
+                         <int> lddsigma_full,
+                         <int> lddPis,
+                         <int> lddLlhd,
+                         <double*> _cur_llhd_ptr,
+                         <double> reg_covar,
+                         <int> nCl,
+                         <int> nDim,
+                         <int> nObs)
+
+                setup_f64(gmm64)
+
+                update_llhd_f64(<double*>_dX_ptr, gmm64)
+                update_rhos_f64(gmm64, <double*> _dX_ptr)
+
+                update_pis_f64(gmm64)
+                update_mus_f64(<double*>_dX_ptr, gmm64)
+                update_sigmas_f64(<double*>_dX_ptr, gmm64)
+
+                compute_lbow_f64(gmm64)
+
 
     def init_step(self):
         cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
@@ -173,13 +232,14 @@ class GaussianMixture:
         cdef int nDim = self.nDim
         cdef int nObs = self.nObs
 
-        cdef GMM[float] gmm
-
         prev_llhd = self.cur_llhd
+
+        cdef GMM[float] gmm32
+        cdef GMM[double] gmm64
 
         if self.precision == 'single':
             with nogil:
-                init_f32(gmm,
+                init_f32(gmm32,
                          <float*> _dmu_ptr,
                          <float*> _dsigma_ptr,
                          <float*> _dPis_ptr,
@@ -197,11 +257,37 @@ class GaussianMixture:
                          <int> nDim,
                          <int> nObs)
 
-                setup_f32(gmm)
+                setup_f32(gmm32)
 
-                update_pis_f32(gmm)
-                update_mus_f32(<float*>_dX_ptr, gmm)
-                update_sigmas_f32(<float*>_dX_ptr, gmm)
+                update_pis_f32(gmm32)
+                update_mus_f32(<float*>_dX_ptr, gmm32)
+                update_sigmas_f32(<float*>_dX_ptr, gmm32)
+
+        if self.precision == 'double':
+            with nogil:
+                init_f64(gmm64,
+                         <double*> _dmu_ptr,
+                         <double*> _dsigma_ptr,
+                         <double*> _dPis_ptr,
+                         <double*> _dPis_inv_ptr,
+                         <double*> _dLlhd_ptr,
+                         <int> lddx,
+                         <int> lddmu,
+                         <int> lddsigma,
+                         <int> lddsigma_full,
+                         <int> lddPis,
+                         <int> lddLlhd,
+                         <double*> _cur_llhd_ptr,
+                         <double> reg_covar,
+                         <int> nCl,
+                         <int> nDim,
+                         <int> nObs)
+
+                setup_f64(gmm64)
+
+                update_pis_f64(gmm64)
+                update_mus_f64(<double*>_dX_ptr, gmm64)
+                update_sigmas_f64(<double*>_dX_ptr, gmm64)
 
     def _initialize_parameters(self, X):
         if self.warm_start :
@@ -217,14 +303,14 @@ class GaussianMixture:
             self.ldd = {"x" : roundup(self.nDim, RUP_SIZE),
                         "mus" : roundup(self.nDim, RUP_SIZE),
                         "sigmas" : roundup(self.nDim, RUP_SIZE),
-                         "llhd" : roundup(self.nCl, RUP_SIZE),
+                        "llhd" : roundup(self.nCl, RUP_SIZE),
                         "pis" : roundup(self.nCl, RUP_SIZE),
                         "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
             params = dict({"mus" : np.zeros((self.ldd["mus"], self.nCl)),
-                      "sigmas" : np.zeros((self.ldd["sigmas"] * self.nDim, self.nCl)),
-                      "pis" : np.zeros((self.ldd["pis"], 1)),
-                      "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
+                           "sigmas" : np.zeros((self.ldd["sigmas"] * self.nDim, self.nCl)),
+                           "pis" : np.zeros((self.ldd["pis"], 1)),
+                           "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
 
             params["llhd"] = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
             params["llhd"] = params["llhd"].T
