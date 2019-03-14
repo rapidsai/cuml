@@ -127,4 +127,4 @@ def clusters_equal(a0, b0, n_clusters):
 
 
 def get_handle(use_handle):
-    return cuml.handle.Handle() if use_handle else None
+    return cuml.common.handle.Handle() if use_handle else None
