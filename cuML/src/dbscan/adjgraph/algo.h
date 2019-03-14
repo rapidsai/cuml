@@ -22,6 +22,7 @@
 #include "pack.h"
 #include "../common.h"
 #include <common/cumlHandle.hpp>
+#include <common/allocatorAdapter.hpp>
 
 using namespace thrust;
 
@@ -59,7 +60,10 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     dim3 threads(TPB_X);
     device_ptr<int> dev_vd = device_pointer_cast(data.vd); 
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
-    exclusive_scan(thrust::cuda::par.on(stream), dev_vd, dev_vd + batchSize, dev_ex_scan);
+
+    ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
+    exclusive_scan(execution_policy, dev_vd, dev_vd + batchSize, dev_ex_scan);
     adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
 }
 
