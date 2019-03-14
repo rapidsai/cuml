@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
@@ -14,26 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
+import argparse
 import numpy as np
 from sklearn.datasets.samples_generator import make_blobs
 
-nRows = 10000
-nCols = 25
-nClusters = 15
-datasetFile = '../datasets/synthetic-%dx%d-clusters-%d.txt' 
-              % (nRows, nCols, nClusters)
+parser = argparse.ArgumentParser('gen_dataset.py ')
 
-X, _ = make_blobs(n_samples=nRows, n_features=nCols, centers=nClusters,
-                    cluster_std=0.1, random_state=123456)
+parser.add_argument('-ns', '--num_samples', type=int, default=10000, \
+                    help='Number of samples (default 10000)')
+parser.add_argument('-nf', '--num_features', type=int, default=25, \
+                    help='Number of features (default 25)')
+parser.add_argument('-nc', '--num_clusters', type=int, default=15, \
+                    help='Number of clusters (default 15)')
+parser.add_argument('--filename_prefix', type=str, default='synthetic', \
+                    help='Prefix used for output dataset file (default synthetic)')
+
+args = parser.parse_args()
+
+datasetFile = '%s-%dx%d-clusters-%d.txt' \
+              % (args.filename_prefix, args.num_samples, args.num_features, \
+                 args.num_clusters)
+
+X, _ = make_blobs(n_samples=args.num_samples, n_features=args.num_features, \
+                  centers=args.num_clusters, cluster_std=0.1, random_state=123456)
 
 
 fp = open(datasetFile, 'w')
-for row in range(nRows):
-    for col in range(nCols):
+for row in range(args.num_samples):
+    for col in range(args.num_features):
         fp.write('%f\n' %X[row, col])
 fp.close()
 
-print 'Dataset file: %s' % datasetFile
-print 'Total %d rows (data-points) with %d columns (features)' % (nRows, nCols)
-print 'Number of clusters = %d' % nClusters
+print('Dataset file: %s' % datasetFile)
+print('Generated total %d samples with %d features each' % (args.num_samples, args.num_features))
+print('Number of clusters = %d' % args.num_clusters)
