@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+import cuml._common.cuda as cuda
+import cuml._common.handle as handle
+import cuml._common.base as base
+
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 
@@ -34,7 +38,3 @@ from cuml.manifold.umap import UMAP
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
-
-import cuml._common.cuda as cuda
-import cuml._common.handle as handle
-import cuml._common.base as base
