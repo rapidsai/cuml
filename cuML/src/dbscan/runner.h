@@ -27,27 +27,6 @@ namespace Dbscan {
 
 using namespace MLCommon;
 
-template<typename Type, typename Type_f>
-void run(const ML::cumlHandle& handle, Type_f *x, Type N, Type minPts, Type D, Type_f eps, bool* adj,
-		int* vd, Type* adj_graph, Type* ex_scan, bool* core_pts, bool* visited,
-		Type *db_cluster, bool *xa, bool *fa, bool *m, Type *map_id,
-		Type_f* dots, int algoVd, int algoAdj,
-		int algoCcl, cudaStream_t stream) {
-	//Rynning VerexDeg
-	VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd, stream);
-	Type *host_vd = new Type[size_t(N + 1)];
-	MLCommon::updateHostAsync(host_vd, vd, N + 1, stream);
-	Type adjlen = host_vd[N];
-	delete[] host_vd;
-	// Running AdjGraph
-    MLCommon::device_buffer<Type> adj_graph_buffer(handle.getDeviceAllocator(), stream, adjlen*sizeof(Type));
-	AdjGraph::run(handle, adj, vd, adj_graph_buffer.data(), ex_scan, N, minPts, core_pts,
-			algoAdj, stream);
-	// Running Labelling
-	Label::run(handle, adj, vd, adj_graph_buffer.data(), ex_scan, N, minPts, core_pts, visited,
-			db_cluster, xa, fa, m, map_id, algoCcl, stream);
-}
-
 template <typename Type>
 __global__ void relabelForSkl(Type* labels, Type N) {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
