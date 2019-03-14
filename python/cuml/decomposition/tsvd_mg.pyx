@@ -187,30 +187,37 @@ class TruncatedSVDSPMG:
         self.explained_variance_ratio_ptr = None
         self.singular_values_ptr = None
 
-    def _get_algorithm_c_name(self, algorithm):
-        return {
+    algo_dict = {
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
             'jacobi': COV_EIG_JACOBI
-        }[algorithm]
+        }
+
+    def _get_algorithm_c_name(self, algorithm):
+        return algo_dict[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
-                                                    dtype=self.gdf_datatype))
-        self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
-                                                   dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(
-                                      np.zeros(n_components,
-                                               dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(
-                                            np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
-        self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.noise_variance_ = cudf.Series(np.zeros(1,
-                                                    dtype=self.gdf_datatype))
+        self.trans_input_ = cudf.utils.cudautils.zeros(n_rows*n_components,
+                                                       self.gdf_datatype)
+
+        self.components_ = cudf.utils.cudautils.zeros(n_cols*n_components,
+                                                       self.gdf_datatype)
+
+        self.explained_variance_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
+                                                       self.gdf_datatype))
+
+        self.explained_variance_ratio_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
+                                                       self.gdf_datatype))
+
+        self.mean_ = cudf.Series(cudf.utils.cudautils.zeros(n_cols,
+                                                       self.gdf_datatype))
+
+        self.singular_values_ = cudf.Series(cudf.utils.cudautils.zeros(n_components,
+                                                       self.gdf_datatype))
+
+        self.noise_variance_ = cudf.Series(np.zeros(1, dtype=self.gdf_datatype))
+
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
