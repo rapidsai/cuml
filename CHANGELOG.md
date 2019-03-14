@@ -7,6 +7,7 @@
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #331: exposing cumlHandle into cython world. Constructing base-class for all cuML algos
 
 ## Bug Fixes
 
