@@ -14,10 +14,6 @@
 # limitations under the License.
 #
 
-import cuml._common.cuda as cuda
-import cuml._common.handle as handle
-import cuml._common.base as base
-
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 

@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-from cuml._common.base import Base
+from cuml.common.base import Base
 from cuml.decomposition.utils cimport *
 
 

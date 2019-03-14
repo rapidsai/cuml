@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 
-import cuml._common.handle
+import cuml.common.handle
 
 
 class Base:
@@ -46,7 +46,7 @@ class Base:
                 Whether to print debug spews
         """
         if handle is None:
-            self.handle = cuml._common.handle.Handle()
+            self.handle = cuml.common.handle.Handle()
         else:
             self.handle = handle
         self.random_state = random_state

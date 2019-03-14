@@ -20,13 +20,13 @@
 # cython: language_level = 3
 
 
-cimport cuml._common.cuda
+cimport cuml.common.cuda
 
 
 cdef extern from "cuML.hpp" namespace "ML" nogil:
     cdef cppclass cumlHandle:
         cumlHandle() except +
-        void setStream(cuml._common.cuda._Stream s)
+        void setStream(cuml.common.cuda._Stream s)
 
 
 # TODO: name this properly!
@@ -43,8 +43,8 @@ cdef class Handle:
     .. code-block:: python
 
         import cuml
-        stream = cuml.cuda.Stream()
-        handle = cuml.handle.Handle()
+        stream = cuml.common.cuda.Stream()
+        handle = cuml.common.handle.Handle()
         handle.setStream(stream)
 
         # call ML algos here
@@ -65,4 +65,4 @@ cdef class Handle:
 
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()
-        self.h.setStream(<cuml._common.cuda._Stream>s)
+        self.h.setStream(<cuml.common.cuda._Stream>s)
