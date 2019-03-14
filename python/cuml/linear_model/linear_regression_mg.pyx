@@ -402,7 +402,7 @@ class LinearRegressionMG:
         return pred
 
 
-    def _fit_dask(self, alloc_info, params):
+    def _fit_mg(self, alloc_info, params):
 
         self.fit_intercept = params['fit_intercept']
         self.normalize = params['normalize']
@@ -517,7 +517,7 @@ class LinearRegressionMG:
             return intercept_f64
 
 
-    def _predict_dask(self, alloc_info, intercept, params):
+    def _predict_mg(self, alloc_info, intercept, params):
 
         self.fit_intercept = params['fit_intercept']
         self.normalize = params['normalize']
@@ -544,9 +544,9 @@ class LinearRegressionMG:
         cdef int* input_cols
         cdef int* pred_rows
         cdef int* coef_cols
-        input_cols = <int*>malloc(len(alloc_info*sizeof(int)))
-        pred_rows = <int*>malloc(len(alloc_info*sizeof(int)))
-        coef_cols = <int*>malloc(len(alloc_info*sizeof(int)))
+        input_cols = <int*>malloc(len(alloc_info)*sizeof(int))
+        pred_rows = <int*>malloc(len(alloc_info)*sizeof(int))
+        coef_cols = <int*>malloc(len(alloc_info)*sizeof(int))
 
         cdef uintptr_t input_ptr
         n_allocs = len(alloc_info)
