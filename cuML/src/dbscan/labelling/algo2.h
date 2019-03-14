@@ -157,7 +157,6 @@ template <typename Type>
 void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t stream) {
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
-    cudaStream_t stream = handle.getStream();
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
     MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
