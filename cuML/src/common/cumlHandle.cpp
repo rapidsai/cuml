@@ -316,6 +316,7 @@ void cumlHandle_impl::createResources()
         CUDA_CHECK( cudaStreamCreate(&stream) );
         _streams.push_back(stream);
     }
+    CUDA_CHECK( cudaEventCreateWithFlags( &_event, cudaEventDisableTiming ) );
 }
 
 void cumlHandle_impl::destroyResources()
