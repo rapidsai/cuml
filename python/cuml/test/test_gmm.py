@@ -15,7 +15,6 @@
 
 import pytest
 import cudf
-import numpy as np
 
 import cuml
 from cuml.hmm.sample_utils import *
@@ -29,17 +28,17 @@ def np_to_dataframe(df):
         pdf[c] = df[:, c]
     return pdf
 
-def mse(x, y):
-    return np.mean((x - y) ** 2)
+def mae(x, y):
+    return np.mean(np.abs(x - y))
 
 def compute_error(params_pred, params_true):
-    mse_dict = dict(
-        (key, mse(params_pred[key], params_true[key]) )
+    mae_dict = dict(
+        (key, mae(params_pred[key], params_true[key]) )
          for key in params_pred.keys())
-    error = sum([mse_dict[key] for key in mse_dict.keys()])
-    return mse_dict, error
+    error = sum([mae_dict[key] for key in mae_dict.keys()]) / 3
+    return mae_dict, error
 
-# @info
+@info
 def sample(nDim, nCl, nObs, precision):
     if precision == 'single':
         dt = np.float32
@@ -51,27 +50,24 @@ def sample(nDim, nCl, nObs, precision):
     params = cast_parameters(params, dtype=dt)
     return X, params
 
-# @timer("sklearn")
-# @info
-def run_sklearn(X, n_iter, nCl):
+@timer("sklearn")
+@info
+def run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state):
     gmm = GaussianMixture(n_components=nCl,
                              covariance_type="full",
-                             tol=10000,
-                             reg_covar=0,
+                             tol=tol,
+                             reg_covar=reg_covar,
                              max_iter=n_iter,
                              n_init=1,
                              init_params="random",
                              weights_init=None,
                              means_init=None,
                              precisions_init=None,
-                             random_state=10,
+                             random_state=random_state,
                              warm_start=False,
                              verbose=1,
                              verbose_interval=1)
     gmm.fit(X)
-    # #
-    # from cuml.hmm.sk_debug import fit_predict
-    # fit_predict(gmm, X)
 
     params = {"mus" : gmm.means_,
               "sigmas" : gmm.covariances_,
@@ -79,15 +75,16 @@ def run_sklearn(X, n_iter, nCl):
 
     return params
 
-# @timer("cuml")
-# @info
-def run_cuml(X, n_iter, precision, nCl):
+@timer("cuml")
+@info
+def run_cuml(X, n_iter, precision, nCl, tol, reg_covar, random_state):
     gmm = cuml.GaussianMixture(n_components=nCl,
                                max_iter=n_iter,
                                precision=precision,
-                               reg_covar=0,
-                               random_state=10,
-                               warm_start=False)
+                               reg_covar=reg_covar,
+                               random_state=random_state,
+                               warm_start=False,
+                               tol=tol)
 
     gmm.fit(X)
 
@@ -121,18 +118,21 @@ def print_info(true_params, sk_params, cuml_params):
     print(mse_dict_cuml)
 
 
-@pytest.mark.parametrize('n_iter', [2, 10])
-@pytest.mark.parametrize('nCl', [1, 2, 5])
-@pytest.mark.parametrize('nDim', [1, 5, 10])
-@pytest.mark.parametrize('nObs', [100, 1000])
+@pytest.mark.parametrize('n_iter', [100])
+@pytest.mark.parametrize('nCl', [5, 10])
+@pytest.mark.parametrize('nDim', [5, 10])
+@pytest.mark.parametrize('nObs', [1000])
 @pytest.mark.parametrize('precision', ["single"])
-def test_gmm(n_iter, nCl, nDim, nObs, precision):
+@pytest.mark.parametrize('tol', [1e-03])
+@pytest.mark.parametrize('reg_covar', [0])
+@pytest.mark.parametrize('random_state', [10, 45])
+def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
-    sk_params = run_sklearn(X, n_iter, nCl)
-    cuml_params = run_cuml(X, n_iter, precision, nCl)
+    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
+    cuml_params = run_cuml(X, n_iter, precision, nCl, tol, reg_covar, random_state)
 
     print_info(true_params, sk_params, cuml_params)
     error_dict, error = compute_error(cuml_params, sk_params)
-    assert error < 1e-02
+    assert error < 1e-04

@@ -246,18 +246,22 @@ class GaussianMixture:
     def fit(self, X):
         self._initialize_parameters(X)
 
+        # print(self.weights_)
+
         prev_lbow = - np.inf
 
         for it in range(1, self.max_iter + 1) :
             self.step()
 
-            print("\n Iteration", it)
-            # print(self.resp_)
+            # print("\n Iteration", it)
+            # print(self.weights_)
             # print("Lower bound ", self.lower_bound_)
 
             diff = self.lower_bound_ - prev_lbow
             if  diff < self.tol :
                 break
+            prev_lbow = self.lower_bound_
+            print(diff)
 
     @property
     def means_(self):
@@ -278,6 +282,7 @@ class GaussianMixture:
     def weights_(self):
         pis = self.dParams["pis"].copy_to_host()
         pis = deallign(pis, self.nCl, 1, self.ldd["pis"])
+        pis = pis.flatten()
         return pis
 
     @property
