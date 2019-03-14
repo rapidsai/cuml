@@ -187,14 +187,14 @@ class TruncatedSVDSPMG:
         self.explained_variance_ratio_ptr = None
         self.singular_values_ptr = None
 
-    algo_dict = {
-            'full': COV_EIG_DQ,
-            'auto': COV_EIG_DQ,
-            'jacobi': COV_EIG_JACOBI
-        }
+        self.algo_dict = {
+                'full': COV_EIG_DQ,
+                'auto': COV_EIG_DQ,
+                'jacobi': COV_EIG_JACOBI
+            }
 
     def _get_algorithm_c_name(self, algorithm):
-        return algo_dict[algorithm]
+        return self.algo_dict[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
