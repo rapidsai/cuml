@@ -41,6 +41,7 @@
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
+- PR #XXX Change default ABI to ON
 
 ## Bug Fixes
 
