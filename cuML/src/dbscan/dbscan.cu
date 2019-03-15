@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-
+#include <cuML_api.h>
 #include "runner.h"
-#include "dbscan_c.h"
+#include "dbscan.hpp"
 #include "dbscan.h"
 #include <common/cumlHandle.hpp>
 
@@ -39,3 +39,47 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 
 };
 // end namespace ML
+// TODO: Move these interface functions to correct place
+extern "C" cumlError_t spDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
+               int *labels) {
+
+    cumlError_t status = CUML_SUCCESS;
+    try
+    {
+        dbscanFit(*reinterpret_cast<ML::cumlHandle*>(handle.ptr), input,
+         n_rows, n_cols, eps, min_pts, labels);
+    }
+    //TODO: Implement this
+    //catch (const MLCommon::Exception& e)
+    //{
+    //    //log e.what()?
+    //    status =  e.getErrorCode();
+    //}
+    catch (...)
+    {
+        status = CUML_ERROR_UNKOWN;
+    }
+    return status;
+
+}
+
+extern "C" cumlError_t dpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
+               int *labels) {
+    cumlError_t status = CUML_SUCCESS;
+    try
+    {
+        dbscanFit(*reinterpret_cast<ML::cumlHandle*>(handle.ptr), input,
+         n_rows, n_cols, eps, min_pts, labels);
+    }
+    //TODO: Implement this
+    //catch (const MLCommon::Exception& e)
+    //{
+    //    //log e.what()?
+    //    status =  e.getErrorCode();
+    //}
+    catch (...)
+    {
+        status = CUML_ERROR_UNKOWN;
+    }
+    return status;
+}
