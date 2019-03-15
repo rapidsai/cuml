@@ -116,11 +116,11 @@ def print_info(true_params, sk_params, cuml_params):
     print(mse_dict_cuml)
 
 
-@pytest.mark.parametrize('n_iter', [20, 100])
+@pytest.mark.parametrize('n_iter', [100])
 @pytest.mark.parametrize('nCl', [5, 10])
 @pytest.mark.parametrize('nDim', [5, 10])
 @pytest.mark.parametrize('nObs', [1000])
-@pytest.mark.parametrize('precision', ["single", 'double'])
+@pytest.mark.parametrize('precision', ['double'])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [0])
 @pytest.mark.parametrize('random_state', [10, 45])

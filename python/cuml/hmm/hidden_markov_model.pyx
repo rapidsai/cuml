@@ -29,37 +29,49 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.hmm.sample_utils import *
-from cuml.hmm.hmm_base import HMMBase
+from cuml.hmm.hmm_base import _BaseHMM
 
 from libcpp.vector cimport vector
 
 
-cdef extern from "hmm/hmm_variables.h" :
+cdef extern from "hmm/hmm_variables.h" namespace "hmm" :
     cdef cppclass HMM[T]:
         pass
 
-cdef extern from "hmm/hmm_py.h" nogil:
+cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
 
-    cdef void init_f32(HMM[float]&,
+    cdef void init_f64(HMM[double] &hmm,
+                       vector[double*] dmu,
+                       vector[double*] dsigma,
+                       vector[double*] dPis,
+                       vector[double*] dPis_inv,
+                       double* dLlhd,
+                       double* cur_llhd,
+                       int lddx,
+                       int lddmu,
+                       int lddsigma,
+                       int lddsigma_full,
+                       int lddPis,
+                       int lddLlhd,
+                       int nCl,
+                       int nDim,
+                       int nObs,
+                       double reg_covar,
+                       int nStates,
+                       double* dT,
+                       int lddt
                        )
-    cdef void setup_f32(HMM[float]&)
 
-    cdef void forward_f32(HMM[float]&,
-                          float*,
-                          int*,
-                          int)
-    cdef void backward_f32(HMM[float]&,
-                          float*,
-                          int*,
-                          int)
 
-class GMMHMM(HMMBase):
+class GMMHMM(_BaseHMM):
     def __init__(self, ):
         super().__init__()
 
     cdef setup_hmm(self):
-        cdef vector[double*] *_dmu_ptr_vector = new vector[double*]()
-        cdef int i
+        cdef vector[double*] _dmu_ptr_vector
+        cdef vector[double*] _dsigma_ptr_vector
+        cdef vector[double*] _dPis_ptr_vector
+        cdef vector[double*] _dPis_inv_ptr_vector
 
         for gmm in self.gmms:
             gmm.initialize_parameters()
@@ -71,17 +83,57 @@ class GMMHMM(HMMBase):
             cdef uintptr_t _dPis_inv_ptr = self.gmms[i].dParams["inv_pis"].device_ctypes_pointer.value
 
             _dmu_ptr_vector.push_back(_dmu_ptr)
-            _dmu_ptr_vector.push_back(_dsigma_ptr)
-            _dPis_ptr.push_back(_dPis_ptr)
-            _dPis_inv_ptr.push_back(_dPis_inv_ptr)
+            _dsigma_ptr_vector.push_back(_dsigma_ptr)
+            _dPis_ptr_vector.push_back(_dPis_ptr)
+            _dPis_inv_ptr_vector.push_back(_dPis_inv_ptr)
+
+        cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
+        cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
+
+        # TODO : Very important remove memory allocatio of dLlhd by each gmm, not used dB used instead
+        cdef int lddx = self.gmm[0].ldd["x"]
+        cdef int lddmu = self.gmm[0].ldd["mus"]
+        cdef int lddsigma = self.gmm[0].ldd["sigmas"]
+        cdef int lddsigma_full = self.gmm[0].ldd["sigmas"] * self.nDim
+        cdef int lddPis = self.gmm[0].ldd["pis"]
+        cdef int lddLlhd =self.gmm[0].ldd["llhd"]
+        cdef int lddt = self.lddt
+
+        cdef uintptr_t _cur_llhd_ptr = self.gmm[0].cur_llhd.device_ctypes_pointer.value
+        cdef float reg_covar = self.gmm[0].reg_covar
+
+        cdef int nCl = self.nCl
+        cdef int nDim = self.nDim
+        cdef int nObs = self.nObs
+        cdef int nStates = self.n_components
 
         cdef HMM[float] hmm32
+        cdef HMM[double] hmm64
 
-        if self.precision == 'single':
+        if self.precision == 'double':
             with nogil:
-                init_f32()
+                init_f64(hmm64,
+                         _dmu_ptr_vector,
+                         _dsigma_ptr_vector,
+                         _dPis_ptr_vector,
+                         _dPis_inv_ptr_vector,
+                         _dB_ptr,
+                         _cur_llhd_ptr,
+                         lddx,
+                         lddmu,
+                         lddsigma,
+                         lddsigma_full,
+                         lddPis,
+                         lddLlhd,
+                         nCl,
+                         nDim,
+                         nObs,
+                         reg_covar,
+                         nStates,
+                         _dT_ptr,
+                         lddt)
 
-        return hmm32
+        return hmm64
 
     # def predict_proba(self, X, lengths=None):
     #     cdef HMM[float] hmm

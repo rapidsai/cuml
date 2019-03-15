@@ -4,12 +4,12 @@
 namespace gmm {
 
 void init_f32(GMM<float> &gmm,
-              float *dmu, float *dsigma, float *dPis, float *dPis_inv, float *dLlhd,
+              float *dmu, float *dsigma, float *dPis, float *dPis_inv, float *dB,
               int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
               float *cur_llhd, float reg_covar,
               int nCl, int nDim, int nObs){
         init(gmm,
-             dmu, dsigma, dPis, dPis_inv, dLlhd,
+             dmu, dsigma, dPis, dPis_inv, dB,
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              cur_llhd, reg_covar,
              nCl, nDim, nObs);

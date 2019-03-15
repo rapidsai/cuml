@@ -1,3 +1,4 @@
+import numpy as np
 import time
 
 def timer(name):
@@ -18,3 +19,13 @@ def info(func):
         print("Completed ", func.__name__, "")
         return return_values
     return wrapped_fun
+
+def reset(func):
+    def wrapped_fun(*args, **kwargs):
+        return_values = func(*args, **kwargs)
+        return return_values
+    return wrapped_fun
+
+
+def mae(x, y):
+    return np.mean(np.abs(x - y))

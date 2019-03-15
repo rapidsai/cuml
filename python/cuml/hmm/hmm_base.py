@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import numpy as np
 from cuml.hmm.sample_utils import *
+from cuml.hmm import GaussianMixture
 
 RUP_SIZE = 32
 
@@ -59,7 +60,9 @@ class _BaseHMM(_BaseCUML):
 
         self.n_components = n_components
         self.n_mix = n_mix
+
         self.min_covar = min_covar
+
         self.startprob_prior = startprob_prior
         self.transmat_prior = transmat_prior
         self.weights_prior = weights_prior
@@ -76,7 +79,7 @@ class _BaseHMM(_BaseCUML):
         self.params = params
         self.init_params = init_params
 
-        self.gmms = [_BaseGMM(self.precision) for _ in range(self.n_mix)]
+        self._initialize()
 
     @abstractmethod
     def fit(self):
@@ -106,13 +109,6 @@ class _BaseHMM(_BaseCUML):
     def score_samples(self, X, lengths=None):
         pass
 
-    def _setup(self, X, lengths=None):
-        params = dict()
-        params["T"] = sample_matrix(self.n_components, self.n_mix, isRowNorm=True)
-
-    def _convert(self):
-        pass
-
     @property
     def means_(self):
         return np.array([gmm.means_ for gmm in self.gmms])
@@ -124,3 +120,19 @@ class _BaseHMM(_BaseCUML):
     @property
     def weights_(self):
         return np.array([gmm.weights_ for gmm in self.gmms])
+
+    def _initialize(self):
+        self.gmms = [_BaseGMM(self.precision) for _ in range(self.n_mix)]
+
+        self.dT = sample_matrix(self.n_components, self.n_mix, random_state=self.random_state, isRowNorm=True)
+        self.lddt = roundup(self.n_components, RUP_SIZE)
+
+        # Align flatten, cast and copy to device
+        self.dT = process_parameter(self.dT, self.lddt, self.dtype)
+
+    def _setup(self, X, lengths=None):
+        self.nObs = X.shape[0]
+        self.nDim = X.shape[1]
+        self.dB = sample_matrix(self.n_components, self.nObs * self.nCl, random_state=self.random_state, isColNorm=True)
+        self.lddb = roundup(self.nCl, RUP_SIZE)
+        self.lddb = process_parameter(self.dB, self.lddb, self.dtype)

@@ -208,6 +208,7 @@ add_library(cuml SHARED
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
             src/hmm/gmm_py.cu
+            src/hmm/hmm_py.cu
             )
 
 set(CUML_LINK_LIBRARIES ${MAGMA_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})

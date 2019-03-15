@@ -22,14 +22,20 @@ import hmmlearn
 from cuml.hmm.utils import timer, info
 from cuml.hmm.test_utils import *
 
+from cuml.hmm.utils import *
+
 
 class HMMs :
     def __init__(self):
         pass
 
-    def reset(self):
-        self.cuml_hmm = cuml.GMMHMM()
-        self.sk_hmm = hmmlearn.GMMHMM()
+    def _reset(self):
+        self.cuml = cuml.GMMHMM()
+        self.sk = hmmlearn.GMMHMM()
+
+    @reset
+    def test_workflow(self):
+        print(self.cuml.means_)
 
     @reset
     def test_score_samples(self, X, lengths):
@@ -41,7 +47,6 @@ class HMMs :
 
 if __name__ == '__main__':
 
-    X, lengths = sample_sequences()
+    # X, lengths = sample_sequences()
     Tester = HMMs()
-
-    Tester.test_score_samples(X, lengths)
+    Tester.test_workflow()

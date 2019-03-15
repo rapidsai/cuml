@@ -1,19 +1,10 @@
 #pragma once
 
-/** Train options for HMM */
-enum TrainOption {
-        Vitebri,
-        ForwardBackward
-};
+#include <stdlib.h>
+#include <vector>
 
-template <typename T>
-struct Multinomial {
-        T *dPis, *dLlhd;
-        int lddPis, lddLlhd;
 
-        int nCl, nDim, nObs;
-};
-
+namespace gmm {
 template <typename T>
 struct GMM {
         T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
@@ -21,12 +12,29 @@ struct GMM {
 
         int lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
 
-        int nCl, nDim, nObs, nSeq;
+        int nCl, nDim, nObs;
+
+        T reg_covar, *cur_llhd;
+
+        T* dProbNorm;
+        int lddprobnorm;
 };
+
+}
+
+namespace hmm {
+
+/** Train options for HMM */
+enum TrainOption {
+        Vitebri,
+        ForwardBackward
+};
+
 
 template <typename T>
 struct HMM {
         int nStates;
+        std::vector<gmm::GMM<T> > gmms;
 
         // Transition and emission matrixes
         T *dT, *dB;
@@ -46,16 +54,24 @@ struct HMM {
         TrainOption train;
 };
 
-template <typename T>
-struct GMMHMM {
-        std::vector<GMM<T> > gmms;
-        HMM hmm;
-};
+// template <typename T>
+// struct GMMHMM {
+//         //
+//         HMM *hmm;
+// };
 
-template <typename T>
-struct MultinomialHMM {
-        std::vector<Multinomial<T> > multinomials;
-        HMM hmm;
-};
+// template <typename T>
+// struct Multinomial {
+//         T *dPis, *dLlhd;
+//         int lddPis, lddLlhd;
+//
+//         int nCl, nDim, nObs;
+// };
+//
+// template <typename T>
+// struct MultinomialHMM {
+//         std::vector<Multinomial<T> > multinomials;
+//         HMM hmm;
+// };
 
 }
