@@ -28,15 +28,18 @@ def np_to_dataframe(df):
         pdf[c] = df[:, c]
     return pdf
 
+
 def mae(x, y):
     return np.mean(np.abs(x - y))
 
+
 def compute_error(params_pred, params_true):
     mae_dict = dict(
-        (key, mae(params_pred[key], params_true[key]) )
-         for key in params_pred.keys())
+        (key, mae(params_pred[key], params_true[key]))
+        for key in params_pred.keys())
     error = sum([mae_dict[key] for key in mae_dict.keys()]) / 3
     return mae_dict, error
+
 
 @info
 def sample(nDim, nCl, nObs, precision):
@@ -50,28 +53,30 @@ def sample(nDim, nCl, nObs, precision):
     params = cast_parameters(params, dtype=dt)
     return X, params
 
+
 @timer("sklearn")
 @info
 def run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state):
     gmm = GaussianMixture(n_components=nCl,
-                             covariance_type="full",
-                             tol=tol,
-                             reg_covar=reg_covar,
-                             max_iter=n_iter,
-                             n_init=1,
-                             init_params="random",
-                             weights_init=None,
-                             means_init=None,
-                             precisions_init=None,
-                             random_state=random_state,
-                             warm_start=False)
+                          covariance_type="full",
+                          tol=tol,
+                          reg_covar=reg_covar,
+                          max_iter=n_iter,
+                          n_init=1,
+                          init_params="random",
+                          weights_init=None,
+                          means_init=None,
+                          precisions_init=None,
+                          random_state=random_state,
+                          warm_start=False)
     gmm.fit(X)
 
-    params = {"mus" : gmm.means_,
-              "sigmas" : gmm.covariances_,
-              "pis" : gmm.weights_}
+    params = {"mus": gmm.means_,
+              "sigmas": gmm.covariances_,
+              "pis": gmm.weights_}
 
     return params
+
 
 @timer("cuml")
 @info
@@ -129,13 +134,14 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
     sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
-    cuml_params = run_cuml(X, n_iter, precision, nCl, tol, reg_covar, random_state)
+    cuml_params = run_cuml(X, n_iter, precision, nCl,
+                           tol, reg_covar, random_state)
 
     print_info(true_params, sk_params, cuml_params)
     error_dict, error = compute_error(cuml_params, sk_params)
-    if precision is "single" :
+    if precision is "single":
         # I susspect that sklearn is implemented in double precision therefore the computational differences propagate and lead to different results at single precision
-        assert error < 1e-02
-    else :
+        assert error < 1e-01
+    else:
         # Tests have always passed on double precision
         assert error < 1e-12

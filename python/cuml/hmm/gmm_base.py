@@ -4,6 +4,7 @@ from cuml.hmm.sample_utils import *
 
 RUP_SIZE = 32
 
+
 class _BaseCUML(ABC):
     def _get_ctype_ptr(self, obj):
         return obj.device_ctypes_pointer.value
@@ -44,12 +45,11 @@ class _BaseGMM(_BaseCUML):
 
         self._isLog = True
         self._isInitialized = False
-
+        self._isAllocated = False
 
     @abstractmethod
     def fit(self, X):
         pass
-
 
     @property
     def means_(self):
@@ -64,7 +64,6 @@ class _BaseGMM(_BaseCUML):
                           self.ldd["sigmas"])
         sigmas = sigmas.reshape((self.nDim, self.nDim, self.nCl), order="F")
         return np.swapaxes(sigmas, 0, 2)
-
 
     @property
     def weights_(self):
@@ -83,4 +82,3 @@ class _BaseGMM(_BaseCUML):
         llhd = deallign(llhd, self.nCl, self.nObs, self.ldd["llhd"])
         llhd = llhd.T
         return llhd
-
