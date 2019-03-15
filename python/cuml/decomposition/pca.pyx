@@ -621,24 +621,31 @@ class PCA:
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
         for key in variables:
             var_value = getattr(self.params,key,None)
-            params[key] = var_value   
+            params[key] = var_value
+            if 'svd_solver'== key:
+                params[key] = getattr(self, key, None)
+
         return params
 
 
-    def set_params(self, **params):
+    def set_params(self, **parameter):
         """
         Sklearn style set parameter state to dictionary of params.
 
         Parameters
         -----------
-        params : dict of new params
+        parameter : dict of new params
         """
-        if not params:
+        if not parameter:
             return self
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key, value in params.items():
+        for key, value in parameter.items():
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
-                setattr(self.params, key, value)
+                if 'svd_solver' in parameter.keys() and key=='svd_solver':
+                    setattr(self, key, value)
+                else:
+                    setattr(self.params, key, value)
+
         return self
