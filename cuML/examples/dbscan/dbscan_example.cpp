@@ -35,7 +35,7 @@
 #endif //HAVE_RMM
 
 #include <cuML.hpp>
-#include <dbscan/dbscan_c.h>
+#include <dbscan/dbscan.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL( call )                                                                       \
@@ -87,9 +87,12 @@ void printUsage()
 void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
                         size_t& nCols, int& minPts, float& eps)
 {
-    nRows = 25;
-    nCols = 3;
-    float data[nRows*nCols] = 
+    constexpr size_t NUM_ROWS = 25;
+    constexpr size_t NUM_COLS = 3;
+    constexpr int    MIN_PTS  = 2;
+    constexpr float  EPS      = 1.0f;
+
+    constexpr float data[NUM_ROWS*NUM_COLS] =
     {
         -7.497668f, 9.218568f, -4.924911f,
         8.001691f, -2.377415f, -3.496702f,
@@ -117,8 +120,11 @@ void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
         8.025255f, -2.585647f, -3.019001f,
         7.957931f, -2.547737f, -3.283212f
     };
-    minPts = 2;
-    eps = 1.0f;
+
+    nRows = NUM_ROWS;
+    nCols = NUM_COLS;
+    minPts = MIN_PTS;
+    eps = EPS;
 
     inputData.insert(inputData.begin(), data, data+nRows*nCols);
 
