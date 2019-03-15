@@ -30,7 +30,7 @@ class Base:
     from this class.
     """
 
-    def __init__(self, handle=None, random_state=None, verbose=False):
+    def __init__(self, handle=None, verbose=False):
         """
         Constructor. All children must call init method of this base class!
 
@@ -38,10 +38,6 @@ class Base:
         ----------
         handle : cuml.handle.Handle
                If it is None, a new one is created just for this class
-        random_state : int
-                     If int, use this as the seed for the underlying RNG. This
-                     will be used only if the underlying algo needs random
-                     numbers.
         verbose : bool
                 Whether to print debug spews
         """
@@ -49,7 +45,6 @@ class Base:
             self.handle = cuml.common.handle.Handle()
         else:
             self.handle = handle
-        self.random_state = random_state
         self.verbose = verbose
 
 
@@ -60,7 +55,7 @@ class Base:
         of parameter that it needs. This will simplify the `get_params` and
         `set_params` methods. (Refer below)
         """
-        return ["handle", "random_state", "verbose"]
+        return ["handle", "verbose"]
 
 
     def get_params(self, deep=True):

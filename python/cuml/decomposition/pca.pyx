@@ -190,10 +190,11 @@ class PCA(Base):
                  n_components=1, random_state=None, svd_solver='auto', tol=1e-7,
                  verbose=False, whiten=False):
         # params
-        super(PCA, self).__init__(handle, random_state, verbose)
+        super(PCA, self).__init__(handle, verbose)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
+        self.random_state = random_state
         self.svd_solver = svd_solver
         self.tol = tol
         self.whiten = whiten
@@ -294,6 +295,7 @@ class PCA(Base):
         params.n_iterations = self.iterated_power
         params.tol = self.tol
         params.algorithm = self.c_algorithm
+        params.random_state = self.random_state
 
         if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than the number of columns in the data')
