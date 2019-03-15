@@ -63,7 +63,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                        )
 
 
-class GMMHMM(_BaseHMM):
+class HMM(_BaseHMM):
     def __init__(self, ):
         super().__init__()
 
