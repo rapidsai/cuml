@@ -44,6 +44,7 @@ class _BaseGMM(_BaseCUML):
 
         self._isLog = True
         self._isInitialized = False
+        self._isAllocated = False
 
 
     @abstractmethod
