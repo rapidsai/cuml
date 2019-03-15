@@ -267,8 +267,6 @@ class KalmanFilter:
 
         self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
         self._workspace_size = workspace_size
-        print(self.workspace)
-        print(self._workspace_size)
 
 
     def _get_algorithm_c_name(self, algorithm):
