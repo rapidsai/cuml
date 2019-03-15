@@ -71,8 +71,9 @@ class LinearRegression:
     LinearRegression is a simple machine learning model where the response y is modelled by a
     linear combination of the predictors in X.
 
-    cuML's LinearRegression expects a cuDF DataFrame, and provides 2 algorithms SVD and Eig to
-    fit a linear model. SVD is more stable, but Eig (default) is much more faster.
+    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2
+    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default)
+    is much more faster.
 
     Examples
     ---------
