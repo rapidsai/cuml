@@ -267,6 +267,7 @@ class PCA:
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
                  iterated_power=15, random_state=None, svd_solver='auto'):
         if svd_solver in ['full', 'auto', 'jacobi']:
+            self.svd_solver = svd_solver
             c_algorithm = self._get_algorithm_c_name(svd_solver)
         else:
             msg = "algorithm {!r} is not supported"
@@ -445,7 +446,7 @@ class PCA:
 
         return self
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -453,6 +454,8 @@ class PCA:
         ----------
         X : cuDF DataFrame, shape (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+
+        y : ignored
 
         Returns
         -------
