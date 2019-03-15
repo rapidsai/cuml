@@ -24,7 +24,7 @@ namespace MLCommon {
         #define NVGRAPH_CHECK(call)  \
             do { \
                 nvgraphStatus_t status = call; \
-                ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s'\n", #call); \
+                ASSERT(status == NVGRAPH_STATUS_SUCCESS, "FAIL: call='%s', status='%d'\n", #call, status); \
             } while(0)
     }
 }
