@@ -1,7 +1,6 @@
 #pragma once
 
 #include <hmm/hmm_variables.h>
-#include <hmm/gmm_utils.h>
 
 #include <hmm/magma/magma_test_utils.h>
 #include <hmm/cuda/cublas_wrappers.h>
