@@ -20,3 +20,5 @@ cd build
 cmake $CMAKE_COMMON_VARIABLES ..
 # build
 make -j${PARALLEL_LEVEL} VERBOSE=1 install
+# run C++ test
+./ml_test
