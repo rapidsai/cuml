@@ -138,6 +138,8 @@ cdef class NearestNeighbors:
     cdef object devices
     cdef bool _verbose
 
+    cdef object X
+
     cdef object n_neighbors
 
     cpdef kNNParams *input
@@ -159,6 +161,7 @@ cdef class NearestNeighbors:
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
+        self.X = None
 
     def __dealloc__(self):
         del self.k
@@ -261,6 +264,7 @@ cdef class NearestNeighbors:
 
             final_devices = np.ascontiguousarray(np.array(final_devices), np.int32)
 
+            self.X = X
             X_ctype = X.ctypes.data
             dev_ptr = final_devices.ctypes.data
 
@@ -274,6 +278,8 @@ cdef class NearestNeighbors:
         else:
             X_m = self._downcast(X)
 
+            self.X = X_m
+
             X_ctype = X_m.device_ctypes_pointer.value
 
             params = new kNNParams()
@@ -281,6 +287,8 @@ cdef class NearestNeighbors:
             params.ptr = <float*>X_ctype
 
             self.input[0] = deref(params)
+
+            print("Calling fit")
 
             self.k.fit(<kNNParams*> self.input,
                        <int> 1)
@@ -357,17 +365,20 @@ cdef class NearestNeighbors:
         I_ndarr = I_ndarr.reshape((N, k))
         D_ndarr = D_ndarr.reshape((N, k))
 
-        inds = cudf.DataFrame()
-        for i in range(0, I_ndarr.shape[1]):
-            inds[str(i)] = I_ndarr[:,i]
+        if isinstance(X, cudf.DataFrame):
+            inds = cudf.DataFrame()
+            for i in range(0, I_ndarr.shape[1]):
+                inds[str(i)] = I_ndarr[:,i]
 
-        dists = cudf.DataFrame()
-        for i in range(0, D_ndarr.shape[1]):
-            dists[str(i)] = D_ndarr[:,i]
+            dists = cudf.DataFrame()
+            for i in range(0, D_ndarr.shape[1]):
+                dists[str(i)] = D_ndarr[:,i]
 
-        if isinstance(X, np.ndarray):
-            inds = np.asarray(inds.as_gpu_matrix())
-            dists = np.asarray(dists.as_gpu_matrix())
+            return dists, inds
+
+        elif isinstance(X, np.ndarray):
+            inds = np.asarray(I_ndarr)
+            dists = np.asarray(D_ndarr)
 
         return dists, inds
 
