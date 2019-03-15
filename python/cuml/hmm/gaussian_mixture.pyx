@@ -8,6 +8,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.hmm.sample_utils import *
+from cuml.hmm.gmm_base import _BaseGMM
 
 cdef extern from "hmm/hmm_variables.h" namespace "gmm":
     cdef cppclass GMM[T]:
@@ -71,50 +72,34 @@ cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
 
 RUP_SIZE = 32
 
-class GaussianMixture:
-
-    def _get_ctype_ptr(self, obj):
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_dtype(self, precision):
-        return {
-            'single': np.float32,
-            'double': np.float64,
-        }[precision]
-
+class GaussianMixture(_BaseGMM):
     def __init__(self, n_components, tol=1e-03,
                  reg_covar=1e-06, max_iter=100, init_params="random",
                  warm_start=False, precision='single', random_state=None):
-        self.precision = precision
-        self.dtype = self._get_dtype(precision)
+        super().__init__(n_components=n_components,
+                         tol=tol,
+                         reg_covar=reg_covar,
+                         max_iter=max_iter,
+                         init_params=init_params,
+                         warm_start=warm_start,
+                         precision=precision,
+                         random_state=random_state)
 
-        self.n_components = n_components
-        self.tol = tol
-        self.reg_covar = reg_covar
-        self.max_iter = max_iter
-        self.warm_start = warm_start
-        self.random_state = random_state
-
-        self._isLog = True
-        self._isInitialized = False
 
     def step(self):
-        cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
+        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dmu_ptr = self.dParams["mus"].device_ctypes_pointer.value
         cdef uintptr_t _dsigma_ptr = self.dParams["sigmas"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
-        cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
+        cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
 
-        cdef int lddx = self.ldd["x"]
+        cdef int lddx = self.lddx
         cdef int lddmu = self.ldd["mus"]
         cdef int lddsigma = self.ldd["sigmas"]
         cdef int lddsigma_full = self.ldd["sigmas"] * self.nDim
         cdef int lddPis = self.ldd["pis"]
-        cdef int lddLlhd =self.ldd["llhd"]
+        cdef int lddLlhd =self.lddllhd
 
         cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
         cdef float reg_covar = self.reg_covar
@@ -190,19 +175,19 @@ class GaussianMixture:
 
 
     def init_step(self):
-        cdef uintptr_t _dX_ptr = self.dParams["x"].device_ctypes_pointer.value
+        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dmu_ptr = self.dParams["mus"].device_ctypes_pointer.value
         cdef uintptr_t _dsigma_ptr = self.dParams["sigmas"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
         cdef uintptr_t _dPis_inv_ptr = self.dParams["inv_pis"].device_ctypes_pointer.value
-        cdef uintptr_t _dLlhd_ptr = self.dParams["llhd"].device_ctypes_pointer.value
+        cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
 
-        cdef int lddx = self.ldd["x"]
+        cdef int lddx = self.lddx
         cdef int lddmu = self.ldd["mus"]
         cdef int lddsigma = self.ldd["sigmas"]
         cdef int lddsigma_full = self.ldd["sigmas"] * self.nDim
         cdef int lddPis = self.ldd["pis"]
-        cdef int lddLlhd =self.ldd["llhd"]
+        cdef int lddLlhd =self.lddllhd
 
         cdef uintptr_t _cur_llhd_ptr = self.cur_llhd.device_ctypes_pointer.value
         cdef float reg_covar = self.reg_covar
@@ -268,21 +253,13 @@ class GaussianMixture:
                 update_mus_f64(<double*>_dX_ptr, gmm64)
                 update_sigmas_f64(<double*>_dX_ptr, gmm64)
 
-    def _initialize_parameters(self, X):
-        if self.warm_start :
-            try:
-                getattr(self, "nCl")
-            except AttributeError:
-                print("Please run the model a first time")
-        else :
-            self.nObs = X.shape[0]
-            self.nDim = X.shape[1]
+    def _initialize(self, X):
             self.nCl = self.n_components
+            self.nDim = X.shape[1]
+            self.nObs = X.shape[0]
 
-            self.ldd = {"x" : roundup(self.nDim, RUP_SIZE),
-                        "mus" : roundup(self.nDim, RUP_SIZE),
+            self.ldd = {"mus" : roundup(self.nDim, RUP_SIZE),
                         "sigmas" : roundup(self.nDim, RUP_SIZE),
-                        "llhd" : roundup(self.nCl, RUP_SIZE),
                         "pis" : roundup(self.nCl, RUP_SIZE),
                         "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
@@ -291,27 +268,35 @@ class GaussianMixture:
                            "pis" : np.zeros((self.ldd["pis"], 1)),
                            "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
 
-            params["llhd"] = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
-            params["llhd"] = params["llhd"].T
-            params["x"] = X.T
-
-            # print(params["llhd"].T)
-
             params = align_parameters(params, self.ldd)
             params = flatten_parameters(params)
             params = cast_parameters(params, self.dtype)
-
             self.dParams = dict(
                 (key, cuda.to_device(params[key])) for key in self.ldd.keys())
-
             self.cur_llhd = cuda.to_device(np.zeros(1, dtype=self.dtype))
-            self.init_step()
 
+    def _setup(self, X):
+            self.dX = X.T
+            self.dLlhd = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
+            self.dLlhd = self.dLlhd.T
+
+            self.lddx = roundup(self.nDim, RUP_SIZE)
+            self.lddllhd = roundup(self.nCl, RUP_SIZE)
+
+            # Align flatten, cast and copy to device
+            self.dX = process_parameter(self.dX, self.lddx, self.dtype)
+            self.dLlhd = process_parameter(self.dLlhd, self.lddllhd, self.dtype)
 
     def fit(self, X):
-        self._initialize_parameters(X)
-
-        # print(self.weights_)
+        if self.warm_start :
+            try:
+                getattr(self, "nCl")
+            except AttributeError:
+                print("Please run the model a first time")
+        else :
+            self._initialize(X)
+        self._setup(X)
+        self.init_step()
 
         prev_lbow = - np.inf
 
@@ -323,35 +308,3 @@ class GaussianMixture:
                 break
             prev_lbow = self.lower_bound_
 
-    @property
-    def means_(self):
-        mus = self.dParams["mus"].copy_to_host()
-        mus = deallign(mus, self.nDim, self.nCl, self.ldd["mus"])
-        return mus.T
-
-    @property
-    def covariances_(self):
-        sigmas = self.dParams["sigmas"].copy_to_host()
-        sigmas = deallign(sigmas, self.nDim, self.nCl * self.nDim,
-                          self.ldd["sigmas"])
-        sigmas = sigmas.reshape((self.nDim, self.nDim, self.nCl), order="F")
-        return np.swapaxes(sigmas, 0, 2)
-
-
-    @property
-    def weights_(self):
-        pis = self.dParams["pis"].copy_to_host()
-        pis = deallign(pis, self.nCl, 1, self.ldd["pis"])
-        pis = pis.flatten()
-        return pis
-
-    @property
-    def lower_bound_(self):
-        return self.cur_llhd.copy_to_host() / self.nObs
-
-    @property
-    def resp_(self):
-        llhd = self.dParams["llhd"].copy_to_host()
-        llhd = deallign(llhd, self.nCl, self.nObs, self.ldd["llhd"])
-        llhd = llhd.T
-        return llhd

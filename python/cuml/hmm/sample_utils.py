@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.utils.validation import check_random_state
 from numba import cuda
 
+
 def roundup(x, ref):
     return (int)(ref * np.ceil(x / ref))
 
@@ -87,8 +88,9 @@ def cast_parameters(params, dtype):
         params[key] = params[key].astype(dtype)
     return params
 
+
 def process_parameter(A, ldda, dtype):
     A = align(A, ldda)
     A = A.flatten(order='F')
-    A =  A.astype(dtype=dtype)
+    A = A.astype(dtype=dtype)
     return cuda.to_device(A)
