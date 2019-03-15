@@ -21,7 +21,6 @@
 #include "ml_utils.h"
 #include "dbscan/dbscan.h"
 #include <linalg/cublas_wrappers.h>
-#include <iostream>
 #include <vector>
 
 namespace ML {
@@ -49,7 +48,7 @@ protected:
 	void basicTest() {
 
 		params = ::testing::TestWithParam<DbscanInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
+		Random::Rng r(params.seed);
 		int len = params.len;
 
 		allocate(data, len);

@@ -15,15 +15,23 @@
 #
 
 
+set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
+project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
+
+if(NOT DEFINED BLAS_LIBRARIES)
+    find_package( BLAS REQUIRED )
+else()
+	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -40,21 +48,26 @@ endif(ZLIB_FOUND)
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
-
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
+set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
+  "Path to FAISS source directory")
 set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims CACHE STRING
   "Path to the ml-prims repo")
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-
+set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
+  "Path to nvGraph lib")
+  
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
+set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
+  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
@@ -121,39 +134,78 @@ endif(NOT CMAKE_CXX11_ABI)
 
 ## end of other compiler options
 
-
-
 ###################################################################################################
-# - include paths ---------------------------------------------------------------------------------
+# - include paths ---------------------------------------------`------------------------------------
+
+
+include (ExternalProject)
+ExternalProject_Add(faiss
+  SOURCE_DIR ${FAISS_DIR}
+  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
+  BUILD_COMMAND $(MAKE)
+  INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
+  BUILD_IN_SOURCE 1
+  BUILD_ALWAYS 0
+  PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
+)
+
+ExternalProject_Get_Property(faiss install_dir)
+
+add_library(faisslib STATIC IMPORTED)
+add_library(gpufaisslib STATIC IMPORTED)
+
+add_dependencies(faisslib faiss)
+add_dependencies(gpufaisslib faiss)
+
+set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
+set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
-                    ${GTEST_DIR}/googletest/include
-                    ${MLPRIMS_DIR}/src
-                    ${MLPRIMS_DIR}/src/dbscan
-                    ${MLPRIMS_DIR}/test
-                    ${CUTLASS_DIR}
-                    ${CUB_DIR}
-                    ${ZLIB_INCLUDE_DIRS$})
+	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+        ${GTEST_DIR}/include
+        ${MLPRIMS_DIR}/src
+        ${MLPRIMS_DIR}/test
+        ${CUTLASS_DIR}
+        ${CUB_DIR}
+        ${ZLIB_INCLUDE_DIRS$})
 
-add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
+add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
+file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
-
 add_library(cuml SHARED
             src/pca/pca.cu
             src/tsvd/tsvd.cu
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
             src/glm/glm.cu
+            src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
+            src/common/cumlHandle.cpp
+            src/common/cuml_api.cpp
+            src/umap/umap.cu
+	    src/solver/solver.cu
             )
 
-set(CUML_LINK_LIBRARIES ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} ${ZLIB_LIBRARIES})
+set(CUML_LINK_LIBRARIES 
+	${CUDA_cublas_LIBRARY} 
+	${CUDA_curand_LIBRARY} 
+	${CUDA_cusolver_LIBRARY} 
+	${CUDA_CUDART_LIBRARY} 
+	${CUDA_cusparse_LIBRARY} 
+	${CUDA_nvgraph_LIBRARY} 
+	${ZLIB_LIBRARIES} 
+	gpufaisslib 
+	faisslib 
+	${BLAS_LIBRARIES})
+
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
@@ -170,7 +222,37 @@ target_link_libraries(ml_test
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
+                      gpufaisslib
+                      ${CUDA_cusparse_LIBRARY}
+                      ${CUDA_nvgraph_LIBRARY}
+		                  gpufaisslib
+                      faisslib
+                      ${BLAS_LIBRARIES}
+                      cuml
+                      pthread
+                      z)
+                      
+                      
+###################################################################################################
+# - build test executable -------------------------------------------------------------------------
+
+add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
+
+target_link_libraries(ml_mg_test
+                      ${GTEST_LIBNAME}
+                      ${CUDA_cublas_LIBRARY}
+                      ${CUDA_curand_LIBRARY}
+                      ${CUDA_cusolver_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
+                      ${CUDA_CUDART_LIBRARY}
+                      ${CUDA_cusparse_LIBRARY}
+                      ${CUDA_nvgraph_LIBRARY}
+                      gpufaisslib
+                      faisslib
+                      ${BLAS_LIBRARIES}
+                      cuml
                       pthread
                       ${ZLIB_LIBRARIES})
 
@@ -186,3 +268,8 @@ endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 install(TARGETS cuml
         DESTINATION lib)
+        
+
+
+		
+

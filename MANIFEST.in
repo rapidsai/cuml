@@ -1,2 +1,2 @@
 include versioneer.py
-include python/cuML/_version.py
+include python/cuml/_version.py

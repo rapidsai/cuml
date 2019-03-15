@@ -13,7 +13,7 @@ htmlcov
 build/
 cuml.egg-info/
 dist/
-python/cuML/cuml.cpp
+python/cuml/**/*.cpp
 log
 .ipynb_checkpoints
 .DS_Store
@@ -23,3 +23,6 @@ log
 .cproject
 .settings
 .ptp-sync-folder
+
+## Pycharm
+.idea

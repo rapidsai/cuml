@@ -16,9 +16,10 @@
 
 #pragma once
 
+#include "../matrix/matrix.h"
 #include "cublas_wrappers.h"
 #include "cusolver_wrappers.h"
-#include "../matrix/matrix.h"
+#include "device_allocator.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -29,33 +30,42 @@ namespace LinAlg {
  * @param Q: Q matrix to be returned (on GPU)
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
+ * @param cusolverH cusolver handle
+ * @param mgr device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
-void qrGetQ(math_t* &M, math_t* &Q, int n_rows, int n_cols, cusolverDnHandle_t cusolverH){
-    int m = n_rows, n = n_cols;
-    int k = min(m, n);
-    cudaMemcpy(Q, M, sizeof(math_t) * m * n, cudaMemcpyDeviceToDevice);
+void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
+            cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
+  cudaStream_t stream;
+  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
 
-    math_t *tau;
-    allocate<math_t>(tau, k, true);
+  int m = n_rows, n = n_cols;
+  int k = min(m, n);
+  CUDA_CHECK(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n,
+                             cudaMemcpyDeviceToDevice, stream));
 
-    int Lwork, *devInfo;
-    CUDA_CHECK(cudaMalloc((void**)&devInfo, sizeof(int)));
-    math_t *workspace;
+  math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * k);
+  CUDA_CHECK(cudaMemsetAsync(tau, 0, sizeof(math_t) * k, stream));
 
-        CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
-        CUDA_CHECK(cudaMalloc((void**)&workspace, sizeof(math_t)*Lwork));
-        CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo));
-        CUDA_CHECK(cudaFree(workspace));
-        CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
-        CUDA_CHECK(cudaMalloc((void**)&workspace, sizeof(math_t)*Lwork));
-        CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo));
-        CUDA_CHECK(cudaFree(workspace));
-        CUDA_CHECK(cudaFree(devInfo));
+  int *devInfo = (int *)mgr.alloc(sizeof(int));
+  int Lwork;
 
-    // clean up
-    CUDA_CHECK(cudaFree(tau));
+  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
+  math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+  CUSOLVER_CHECK(
+    cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo));
+  mgr.free(workspace, stream);
+  CUSOLVER_CHECK(
+    cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
+  workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+  CUSOLVER_CHECK(
+    cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo));
+  mgr.free(workspace, stream);
+  mgr.free(devInfo, stream);
+
+  // clean up
+  mgr.free(tau, stream);
 }
 
 /**
@@ -65,40 +75,53 @@ void qrGetQ(math_t* &M, math_t* &Q, int n_rows, int n_cols, cusolverDnHandle_t c
  * @param R: R matrix to be returned (on GPU)
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
+ * @param cusolverH cusolver handle
+ * @param mgr device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
-void qrGetQR(math_t* &M, math_t* &Q, math_t* &R, int n_rows, int n_cols, cusolverDnHandle_t cusolverH){
-    int m = n_rows, n = n_cols;
-    math_t *R_full, *tau;
-    allocate<math_t>(R_full, m * n, true);
-    allocate<math_t>(tau, min(m, n), true);
-    int R_full_nrows = m, R_full_ncols = n;
-    CUDA_CHECK(cudaMemcpy(R_full, M, sizeof(math_t)*m*n, cudaMemcpyDeviceToDevice));
+void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
+             cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
+  cudaStream_t stream;
+  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
 
-    int Lwork, *devInfo;
-    CUDA_CHECK(cudaMalloc((void**)&devInfo, sizeof(int)));
-    math_t *workspace;
+  int m = n_rows, n = n_cols;
+  math_t *R_full = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
+  math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * min(m, n));
+  CUDA_CHECK(cudaMemsetAsync(tau, 0, sizeof(math_t) * min(m, n), stream));
+  int R_full_nrows = m, R_full_ncols = n;
+  CUDA_CHECK(cudaMemcpyAsync(R_full, M, sizeof(math_t) * m * n,
+                             cudaMemcpyDeviceToDevice, stream));
 
-        CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
-        CUDA_CHECK(cudaMalloc((void**)&workspace, sizeof(math_t)*Lwork));
-        CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, tau, workspace, Lwork, devInfo));
-        CUDA_CHECK(cudaFree(workspace));
+  int Lwork;
+  int *devInfo = (int *)mgr.alloc(sizeof(int));
 
-        Matrix::copyUpperTriangular(R_full, R, m, n);
+  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(
+    cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
+  math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full,
+                                 R_full_nrows, tau, workspace, Lwork, devInfo));
+  mgr.free(workspace, stream);
 
-        CUDA_CHECK(cudaMemcpy(Q, R_full, sizeof(math_t)*m*n, cudaMemcpyDeviceToDevice));
-        int Q_nrows = m, Q_ncols = n;
+  Matrix::copyUpperTriangular(R_full, R, m, n);
 
-        CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols, min(Q_ncols,Q_nrows), Q, Q_nrows, tau, &Lwork));
-        CUDA_CHECK(cudaMalloc((void**)&workspace, sizeof(math_t)*Lwork));
-        CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols, min(Q_ncols,Q_nrows), Q, Q_nrows, tau, workspace, Lwork, devInfo));
-        CUDA_CHECK(cudaFree(workspace));
-        CUDA_CHECK(cudaFree(devInfo));
+  CUDA_CHECK(cudaMemcpyAsync(Q, R_full, sizeof(math_t) * m * n,
+                             cudaMemcpyDeviceToDevice, stream));
+  int Q_nrows = m, Q_ncols = n;
 
-    // clean up
-    CUDA_CHECK(cudaFree(R_full));
-    CUDA_CHECK(cudaFree(tau));
+  CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols,
+                                            min(Q_ncols, Q_nrows), Q, Q_nrows,
+                                            tau, &Lwork));
+  workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols,
+                                 min(Q_ncols, Q_nrows), Q, Q_nrows, tau,
+                                 workspace, Lwork, devInfo));
+  mgr.free(workspace, stream);
+  mgr.free(devInfo, stream);
+
+  // clean up
+  mgr.free(R_full, stream);
+  mgr.free(tau, stream);
 }
 
 }; // end namespace LinAlg
