@@ -54,6 +54,7 @@
 - PR #279: Removing faiss-gpu references in README
 - PR #321: Fix release script typo
 - PR #327: Update conda requirements for version 0.6 requirements
+- PR #XXX: Run googletest in build.sh for libcuml
 
 # cuML 0.5.1 (05 Feb 2019)
 
