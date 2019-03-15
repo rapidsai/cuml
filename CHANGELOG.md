@@ -1,3 +1,59 @@
+# cuML 0.6.0 (Date TBD)
+
+## New Features
+
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
+- PR #247: Added "proper" CUDA API to cuML
+- PR #235: NearestNeighbors MG Support
+- PR #261: UMAP Algorithm
+- PR #290: NearestNeighbors numpy MG Support
+- PR #303: Reusable spectral embedding / clustering
+- PR #271: Initial support for hyperparameter optimization with dask for many models
+
+## Improvements
+
+- PR #144: Dockerfile update and docs for LinearRegression and Kalman Filter.
+- PR #168: Add /ci/gpu/build.sh file to cuML
+- PR #167: Integrating full-n-final ml-prims repo inside cuml
+- PR #198: (ml-prims) Removal of *MG calls + fixed a bug in permute method
+- PR #194: Added new ml-prims for supporting LASSO regression.
+- PR #114: Building faiss C++ api into libcuml
+- PR #64: Using FAISS C++ API in cuML and exposing bindings through cython
+- PR #208: Issue ml-common-3: Math.h: swap thrust::for_each with binaryOp,unaryOp
+- PR #224: Improve doc strings for readable rendering with readthedocs
+- PR #209: Simplify README.md, move build instructions to BUILD.md
+- PR #218: Fix RNG to use given seed and adjust RNG test tolerances.
+- PR #225: Support for generating random integers
+- PR #215: Refactored LinAlg::norm to Stats::rowNorm and added Stats::colNorm
+- PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
+- PR #230: Refactored the cuda_utils header
+- PR #236: Refactored cuml python package structure to be more sklearn like
+- PR #232: Added reduce_rows_by_key
+- PR #246: Support for 2 vectors in the matrix vector operator
+- PR #244: Fix for single GPU OLS and Ridge to support one column training data
+- PR #271: Added get_params and set_params functions for linear and ridge regression
+- PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
+- PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #322: set_params updated
+- PR #237: Update build instructions
+- PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
+- PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #312: Last minute cleanup before release
+- PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
+
+## Bug Fixes
+
+- PR #193: Fix AttributeError in PCA and TSVD
+- PR #211: Fixing inconsistent use of proper batch size calculation in DBSCAN
+- PR #202: Adding back ability for users to define their own BLAS
+- PR #201: Pass CMAKE CUDA path to faiss/configure script
+- PR #200 Avoid using numpy via cimport in KNN
+- PR #228: Bug fix: LinAlg::unaryOp with 0-length input
+- PR #279: Removing faiss-gpu references in README
+- PR #321: Fix release script typo
+- PR #327: Update conda requirements for version 0.6 requirements
+
 # cuML 0.5.1 (05 Feb 2019)
 
 ## Bug Fixes
@@ -14,6 +70,7 @@
 - PR #69: Ridge (L2 Regularized) Linear Regression
 - PR #103: Linear Kalman Filter
 - PR #117: Pip install support
+- PR #64: Device to device support from cuML device pointers into FAISS
 
 ## Improvements
 
@@ -27,6 +84,7 @@
 - PR #139: Move thirdparty submodules to root and add symlinks to new locations
 - PR #151: Replace TravisCI testing and conda pkg builds with gpuCI
 - PR #164: Add numba kernel for faster column to row major transform
+- PR #114: Adding FAISS to cuml build
 
 ## Bug Fixes
 

@@ -27,11 +27,10 @@ build:
 requirements:
   build:
     - cmake>=3.12.4
-    - cudf 0.5*
+    - cudf 0.6*
   run:
-    - faiss-gpu
     - cuda{{ cuda_major }}{{ cuda_minor }}
-    - cudf 0.5*
+    - cudf 0.6*
 
 about:
   home: http://rapids.ai/

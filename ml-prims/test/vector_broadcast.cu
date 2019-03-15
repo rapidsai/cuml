@@ -71,7 +71,7 @@ class VecBcastTest: public ::testing::TestWithParam<VecBcastInputs<T> > {
 protected:
     void SetUp() override {
         params = ::testing::TestWithParam<VecBcastInputs<T>>::GetParam();
-        Random::Rng<T> r(params.seed);
+        Random::Rng r(params.seed);
         int rows = params.rows;
         int cols = params.cols;
         int len = rows * cols;

@@ -34,7 +34,13 @@ namespace LinAlg {
 
 template<typename math_t>
 void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+              DeviceAllocator &mgr) {
+
+	ASSERT(n_cols > 0,
+			"lstsq: number of columns cannot be less than one");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
 
 	math_t *S, *V, *U;
 	math_t *UT_b;
@@ -47,7 +53,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(S, n_cols);
 	allocate(UT_b, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH);
+	svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH, cublasH, mgr);
 
 	gemv(U, n_rows, n_rows, b, UT_b, true, cublasH);
 
@@ -64,7 +70,13 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 template<typename math_t>
 void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+    DeviceAllocator &mgr) {
+
+	ASSERT(n_cols > 1,
+			"lstsq: number of columns cannot be less than two");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
 
 	math_t *S, *V, *U;
 
@@ -75,7 +87,7 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH);
+	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH);
 
