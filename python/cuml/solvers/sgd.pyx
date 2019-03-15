@@ -101,20 +101,83 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 
 class SGD:
 
+    """
+    The SGD cuML algorithm accepts a numpy matrix or a cuDF DataFrame as the input dataset. 
+    The SGD algorithm currently works with linear regression, ridge regression and SVM models.    
+    Examples
+    --------
+
+    .. code-block:: python
+       import numpy as np
+       import cudf
+       from cuml.solvers import SGD as cumlSGD
+
+       X = cudf.DataFrame()
+       X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+       X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+       y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
+       pred_data = cudf.DataFrame()
+       pred_data['col1'] = np.asarray([3, 2], dtype=datatype)
+       pred_data['col2'] = np.asarray([5, 5], dtype=datatype)
+
+       cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
+                        fit_intercept=True, batch_size=2,
+                        tol=0.0, penalty=penalty, loss=loss)
+
+       cu_sgd.fit(X, y)
+       cu_pred = cu_sgd.predict(pred_data).to_array()
+       print(" cuML intercept : ", cu_sgd.intercept_)
+       print(" cuML coef : ", cu_sgd.coef_)
+       print("cuML predictions : ", cu_pred)
+
+       Output:
+
+       .. code-block:: python
+            
+       cuML intercept :  0.004561662673950195
+       cuML coef :  0      0.9834546
+                    1    0.010128272
+                   dtype: float32
+       cuML predictions :  [3.0055666 2.0221121]
+            
+           
+       Parameters
+       ----------
+       loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+           'hinge' uses linear SVM   
+           'log' uses logistic regression
+           'squared_loss' uses linear regression
+       penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+           'none' does not perform any regularization
+           'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value of coefficients
+           'l2' performs L2 norm (Ridge) which minimizes the sum of the square of the coefficients
+           'elasticnet' performs Elastic Net regularization which is a weighted average of L1 and L2 norms
+       alpha: The constant value which decides the degree of regularization
+       fit_intercept : boolean (default = True)
+           If True, the model tries to correct for the global mean of y.
+           If False, the model expects that you have centered the data.        
+       epochs : The number of times the model should iterate through the entire dataset during training (default = 1000)
+       tol : is a stopping criteria (default = 1e-3)
+           The training process will stop if current_loss > previous_loss - tol 
+       shuffle : True, False (default = True)
+           True, shuffles the training data after each epoch
+           False, does not shuffle the training data after each epoch
+       eta0 : Initial learning rate (default = 0.0)
+       power_t : The exponent used for calculating the invscaling learning rate (default = 0.5)
+       learning_rate : 'optimal', 'constant', 'invscaling', 'adaptive' (default = 'constant')
+           optimal option supported in the next version
+           constant keeps the learning rate constant
+           adaptive changes the learning rate if the training loss or the validation accuracy does not improve for n_iter_no_change epochs.
+               The old learning rate is generally divide by 5
+       n_iter_no_change : the number of epochs to train without any imporvement in the model (default = 5)
+       
+       For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
+       
+    """
+    
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5, batch_size=32, n_iter_no_change=5):
-
-        """
-        Initializes the liner regression class.
-
-        Parameters
-        ----------
-        loss : 
-        penalty: 
-        alpha: 
-
-        """
-
+        
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
         else:
