@@ -21,6 +21,7 @@
 #include <faiss/gpu/GpuIndexFlat.h>
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
+#include <faiss/gpu/GpuDistance.h>
 
 #include <vector>
 #include <sstream>
@@ -35,14 +36,6 @@ namespace ML {
 	 */
 	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose){}
 	kNN::~kNN() {
-
-		for(faiss::gpu::GpuIndexFlatL2* idx : sub_indices) {
-			delete idx;
-		}
-
-		for(faiss::gpu::GpuResources *r : res) {
-			delete r;
-		}
 	}
 
 	/**
@@ -53,50 +46,22 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
+	    std::cout << "N=" << N << std::endl;
+
+	    if(knn_params.size() > 0) {
+	        knn_params.clear();
+	        this->indices = 0;
+	        this->total_n = 0;
+	    }
+
 		for(int i = 0; i < N; i++) {
 
-			kNNParams *params = &input[i];
+			kNNParams params = input[i];
 
-			cudaPointerAttributes att;
-			cudaError_t err = cudaPointerGetAttributes(&att, params->ptr);
+			std::cout << "Adding index: " << this->indices << std::endl;
 
-			if(err == 0 && att.device > -1) {
-
-				if(i < N)
-					id_ranges.push_back(total_n);
-
-				this->total_n += params->N;
-				this->indices += 1;
-
-				auto gpu_res = new faiss::gpu::StandardGpuResources();
-				gpu_res->setTempMemory(params->N*this->D*4*2);
-
-				res.emplace_back(gpu_res);
-
-				faiss::gpu::GpuIndexFlatConfig config;
-				config.device = att.device;
-				config.useFloat16 = false;
-				config.storeTransposed = false;
-
-				sub_indices.emplace_back(
-						new faiss::gpu::GpuIndexFlatL2(res[i], D, config)
-				);
-
-				// It's only necessary to maintain our set of shards because
-				// the GpuIndexFlat class does not support add_with_ids(),
-				// a dependency of the IndexShards composite class.
-				// As a result, we need to add the ids ourselves
-				// and have the reducer/combiner re-label the indices
-				// based on the shards they came from.
-
-				if(this->verbose)
-				    std::cout << "Adding index " << i << "total_n=" << this->total_n << std::endl;
-				sub_indices[i]->add(params->N, params->ptr);
-			} else {
-				std::stringstream ss;
-				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
-				throw ss.str();
-			}
+			this->indices++;
+			this->knn_params.emplace_back(params);
 		}
 	}
 
@@ -117,21 +82,63 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-        #pragma omp parallel
-		{
-            #pragma omp for
 		    for(int i = 0; i < indices; i++) {
-                std::cout << "Searching index " << i << std::endl;
-                this->sub_indices[i]->search(n, search_items, k,
-                        all_D+(i*k*n), all_I+(i*k*n));
+
+		        kNNParams params = knn_params[i];
+
+	            cudaPointerAttributes att;
+	            cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
+
+	            CUDA_CHECK(cudaSetDevice(att.device));
+
+	            if(err == 0 && att.device > -1) {
+
+	                if(i < params.N)
+	                    id_ranges.push_back(total_n);
+
+	                this->total_n += params.N;
+
+	                std::cout << "Indices: " << this->indices << std::endl;
+
+	                faiss::gpu::StandardGpuResources gpu_res;
+	                gpu_res.setTempMemory(params.N*this->D*4*2);
+
+                    std::cout << "Ptr: " << params.ptr << std::endl;
+                    std::cout << "Device: " << att.device << std::endl;
+                    std::cout << "N: " << params.N << std::endl;
+                    std::cout << "D: " << this->D << std::endl;
+
+	                bruteForceKnn(&gpu_res,
+	                            faiss::METRIC_L2,
+	                            params.ptr,
+	                            params.N,
+	                            search_items,
+	                            n,
+	                            this->D,
+	                            k,
+	                            all_D+(i*k*n),
+	                            all_I+(i*k*n));
+
+	                std::cout << "DONE!" << std::endl;
+	                CUDA_CHECK(cudaPeekAtLastError());
+
+	            } else {
+	                std::stringstream ss;
+	                ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
+	                throw ss.str();
+	            }
 		    }
-		}
+
+		std::cout << "Performing merge!!" << std::endl;
 
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
 
 		MLCommon::updateDevice(res_D, result_D, k*n, 0);
 		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+
+		std::cout << MLCommon::arr2Str(res_D, k*n, "res_D") << std::endl;
+        std::cout << MLCommon::arr2Str(res_I, k*n, "res_I") << std::endl;
 
 		delete all_D;
 		delete all_I;
@@ -159,7 +166,7 @@ namespace ML {
             std::cout << "n_chunks: " << n_chunks << std::endl;
         }
 
-        kNNParams *params = (kNNParams*)malloc(n_chunks * sizeof(kNNParams));
+        kNNParams params[n_chunks];
 
         #pragma omp parallel
         {
@@ -195,22 +202,7 @@ namespace ML {
 
         if(this->verbose)
             std::cout << "About to free" << std::endl;
-
-        #pragma omp parallel
-        {
-            #pragma omp for
-            for(int i = 0; i < n_chunks; i++) {
-                kNNParams p = params[i];
-                CUDA_CHECK(cudaFree(p.ptr));
-            }
-        }
-
-        free(params);
    }
-
-
-
-
 
 	/** Merge results from several shards into a single result set.
 	 * @param all_distances  size nshard * n * k

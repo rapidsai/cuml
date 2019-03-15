@@ -40,8 +40,7 @@ namespace ML {
 
 		std::vector<long> id_ranges;
 
-		std::vector<faiss::gpu::GpuResources* > res;
-		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+		std::vector<kNNParams> knn_params;
 
 		int total_n;
 		int indices;
