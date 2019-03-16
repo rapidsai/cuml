@@ -632,15 +632,6 @@ class PCA:
 
 
     def set_params(self, **parameter):
-        
-        """
-        Sklearn style set parameter state to dictionary of params. 
-
-        Parameters
-        -----------
-        parameter : dict of new params
-        """
-        
         if not parameter:
             return self
         variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
