@@ -79,11 +79,11 @@ namespace ML {
 	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
 
-		float *result_D = new float[k*n];
-		long *result_I = new long[k*n];
+		float *result_D = new float[k*size_t(n)];
+		long*result_I = new long[k*size_t(n)];
 
-		float *all_D = new float[indices*k*n];
-		long *all_I = new long[indices*k*n];
+		float *all_D = new float[indices*k*size_t(n)];
+		long *all_I = new long[indices*k*size_t(n)];
 
 
 		/**
@@ -101,12 +101,12 @@ namespace ML {
                 size_t free, total;
                 cudaMemGetInfo(&free, &total);
 
-                if(params.N*this->D*4 > free) {
+                if(size_t(params.N)*size_t(this->D)*4l > free) {
                     std::cout << "Not enough free memory on device "
                             << att.device
                             << " to run kneighbors. "
                             << "needed="
-                            << long(long(params.N)*long(this->D)*4l)
+                            << size_t(size_t(params.N)*size_t(this->D)*4l)
                             << ", free=" << free << std::endl;
                     return;
                 }
@@ -129,7 +129,7 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
-                        gpu_res.setTempMemory(long(params.N)*long(this->D)*4l);
+                        gpu_res.setTempMemory(size_t(params.N)*size_t(this->D)*4l);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -158,14 +158,14 @@ namespace ML {
 		}
 
 
-		merge_tables<faiss::CMin<float, int>>(n, k, indices,
+		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
 
-		MLCommon::updateDevice(res_D, result_D, k*n, 0);
-		MLCommon::updateDevice(res_I, result_I, k*n, 0);
+		MLCommon::updateDevice(res_D, result_D, k*size_t(n), 0);
+		MLCommon::updateDevice(res_I, result_I, k*size_t(n), 0);
 
-		std::cout << MLCommon::arr2Str(res_D, k*n, "res_D") << std::endl;
-        std::cout << MLCommon::arr2Str(res_I, k*n, "res_I") << std::endl;
+		std::cout << MLCommon::arr2Str(res_D, k*size_t(n), "res_D") << std::endl;
+        std::cout << MLCommon::arr2Str(res_I, k*size_t(n), "res_I") << std::endl;
 
 		delete all_D;
 		delete all_I;
@@ -186,7 +186,7 @@ namespace ML {
      */
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
-        long chunk_size = MLCommon::ceildiv<long>((long)n, (long)n_chunks);
+        size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
 
         kNNParams params[n_chunks];
 
@@ -199,13 +199,13 @@ namespace ML {
             int device = devices[i];
             CUDA_CHECK(cudaSetDevice(device));
 
-            long length = chunk_size;
+            size_t length = chunk_size;
             if(length * i >= n)
                 length = (chunk_size*i)-n;
 
             float *ptr_d;
-            MLCommon::allocate(ptr_d, long(length)*long(D));
-            MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), long(length)*long(D));
+            MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
+            MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), size_t(length)*size_t(D));
 
             kNNParams p;
             p.N = length;
@@ -237,7 +237,7 @@ namespace ML {
 			return;
 		}
 
-		long stride = n * k;
+		size_t stride = n * k;
 		#pragma omp parallel
 		{
 			std::vector<int> buf (2 * nshard);
