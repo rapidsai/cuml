@@ -227,7 +227,7 @@ namespace ML {
         for(int i = 0; i < n_chunks; i++) {
 
             int device = devices[i];
-            CUDA_CHECK(cudaSetDevice(att.device));
+            CUDA_CHECK(cudaSetDevice(device));
             if(!verify_size(size_t(length)*size_t(D)), device)
                 return;
         }
