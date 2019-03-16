@@ -633,7 +633,7 @@ class PCA:
 
     def set_params(self, **parameter):
         """
-        Sklearn style set parameter state to dictionary of params.
+        Sklearn style set parameter state to dictionary of params. 
 
         Parameters
         -----------
