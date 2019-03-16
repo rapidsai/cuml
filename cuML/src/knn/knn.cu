@@ -127,7 +127,7 @@ namespace ML {
             if(err == 0 && att.device > -1) {
                 CUDA_CHECK(cudaSetDevice(att.device));
 
-                if(!verify_size(size_t(params.N)*size_t(this->D)*4l), att.device)
+                if(!verify_size(size_t(params.N)*size_t(this->D)*4l, att.device))
                     return;
             }
 		}
@@ -231,7 +231,7 @@ namespace ML {
             if(length * i >= n)
                 length = (chunk_size*i)-size_t(n);
             CUDA_CHECK(cudaSetDevice(device));
-            if(!verify_size(size_t(length)*size_t(D)), device)
+            if(!verify_size(size_t(length)*size_t(D), device))
                 return;
         }
 
