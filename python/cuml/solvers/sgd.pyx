@@ -181,6 +181,8 @@ class SGD:
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
 
+    Notes
+    ------
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
     
