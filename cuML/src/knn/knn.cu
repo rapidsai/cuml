@@ -35,8 +35,14 @@ namespace ML {
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
-	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose){}
+	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose), owner(false){}
 	kNN::~kNN() {
+
+	    if(this->owner) {
+	        if(this->verbose)
+	            std::cout << "Freeing memory" << std::endl;
+            for(kNNParams p : params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	    }
 	}
 
 	/**
@@ -190,8 +196,7 @@ namespace ML {
 
         kNNParams params[n_chunks];
 
-        omp_lock_t lock;
-        omp_init_lock(&lock);
+        this->owner = true;
 
         #pragma omp parallel for
         for(int i = 0; i < n_chunks; i++) {
@@ -211,15 +216,10 @@ namespace ML {
             p.N = length;
             p.ptr = ptr_d;
 
-            omp_set_lock(&lock);
             params[i] = p;
-            omp_unset_lock(&lock);
         }
 
         fit(params, n_chunks);
-
-        if(this->verbose)
-            std::cout << "About to free" << std::endl;
    }
 
 	/** Merge results from several shards into a single result set.
