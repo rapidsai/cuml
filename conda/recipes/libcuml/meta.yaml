@@ -29,7 +29,6 @@ requirements:
     - cmake>=3.12.4
     - cudf 0.6*
   run:
-    - cuda{{ cuda_major }}{{ cuda_minor }}
     - cudf 0.6*
 
 about:
