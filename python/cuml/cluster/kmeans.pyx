@@ -170,9 +170,7 @@ class KMeans:
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
         self.gpu_id = gpu_id
-        warnings.warn("The current version of the KMeans algorithm will change to be based on cuML's machine"
-                      " learning primitives to achieve performance and reliability improvements."
-                      "Some functionality may be affected.",
+        warnings.warn("This version of K-means will be depricated in 0.7 for stability reasons. A new version based on our lessons learned will be available in 0.7. The current version will get no new bug fixes or improvements. The new version will follow the same API.",
                       FutureWarning)
 
     def _get_ctype_ptr(self, obj):

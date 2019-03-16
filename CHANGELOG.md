@@ -8,6 +8,7 @@
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 - PR #303: Reusable spectral embedding / clustering
+- PR #325: Initial support for single process multi-GPU OLS and tSVD
 - PR #271: Initial support for hyperparameter optimization with dask for many models
 
 ## Improvements
@@ -41,6 +42,7 @@
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
+- PR #342 Change default ABI to ON
 
 ## Bug Fixes
 
@@ -54,6 +56,7 @@
 - PR #321: Fix release script typo
 - PR #327: Update conda requirements for version 0.6 requirements
 - PR #352: Correctly calculating numpy chunk sizing for kNN
+- PR #345: Run python import as part of package build to trigger compilation
 
 # cuML 0.5.1 (05 Feb 2019)
 
