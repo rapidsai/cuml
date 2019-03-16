@@ -162,6 +162,7 @@ cdef class NearestNeighbors:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
         self.X = None
+        self.k = NULL
 
     def __dealloc__(self):
         del self.k
@@ -232,7 +233,7 @@ cdef class NearestNeighbors:
         """
         assert len(X.shape) == 2, 'data should be two dimensional'
 
-        if self.k is not None:
+        if self.k != NULL:
             del self.k
 
         n_dims = X.shape[1]
