@@ -40,6 +40,9 @@ namespace ML {
 
 	    try {
 	        if(this->owner) {
+
+	            if(this->verbose)
+	                std::cout << "Freeing kNN memory" << std::endl;
 	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 	        }
 
@@ -49,9 +52,9 @@ namespace ML {
 	}
 
 	void kNN::reset() {
-
         if(knn_params.size() > 0) {
             knn_params.clear();
+            this->id_ranges.clear();
             this->indices = 0;
             this->total_n = 0;
         }
@@ -234,8 +237,6 @@ namespace ML {
             if(!verify_size(size_t(length)*size_t(D), device))
                 return;
         }
-
-
 
         #pragma omp parallel for
         for(int i = 0; i < n_chunks; i++) {

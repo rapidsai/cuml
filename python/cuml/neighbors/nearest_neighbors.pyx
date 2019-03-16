@@ -292,8 +292,6 @@ cdef class NearestNeighbors:
 
             self.input[0] = deref(params)
 
-            print("Calling fit")
-
             self.k.fit(<kNNParams*> self.input,
                        <int> 1)
 
@@ -309,6 +307,10 @@ cdef class NearestNeighbors:
             a list of __cuda_array_interface__ dicts
         :return:
         """
+
+        if self.k != NULL:
+            del self.k
+
         self.k = new kNN(n_dims, verbose = self._verbose)
 
         del self.input
@@ -383,6 +385,10 @@ cdef class NearestNeighbors:
         elif isinstance(X, np.ndarray):
             inds = np.asarray(I_ndarr)
             dists = np.asarray(D_ndarr)
+
+        del I_ndarr
+        del D_ndarr
+        del X_m
 
         return dists, inds
 
