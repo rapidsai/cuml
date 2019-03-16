@@ -48,9 +48,6 @@ namespace ML {
 		bool verbose;
 		bool owner;
 
-        void reset();
-
-        bool verify_size(size_t size);
 
 
     public:
@@ -60,6 +57,11 @@ namespace ML {
 	     */
 		kNN(int D, bool verbose = false);
 		~kNN();
+
+        void reset();
+
+        bool verify_size(size_t size);
+
 
         /**
          * Search the kNN for the k-nearest neighbors of a set of query vectors
