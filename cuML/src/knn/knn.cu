@@ -159,7 +159,7 @@ namespace ML {
      */
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
-        int chunk_size = MLCommon::ceildiv(n, n_chunks);
+        long chunk_size = MLCommon::ceildiv<long>((long)n, (long)n_chunks);
 
         if(this->verbose) {
             std::cout << "Chunk size: " << chunk_size << std::endl;
@@ -179,16 +179,21 @@ namespace ML {
                 if(this->verbose)
                     std::cout << "Setting device: " << device << std::endl;
 
-                int length = chunk_size;
+                long length = chunk_size;
                 if(length * i >= n)
                     length = (chunk_size*i)-n;
 
                 if(this->verbose)
                     std::cout << "Length: " << length << std::endl;
+                std::cout << "D=" << this->D << std::endl;
+
+                std::cout << "length=" << length << std::endl;
+
+		std::cout << "Allocating " << length*D << " floats" << std::endl;
 
                 float *ptr_d;
-                MLCommon::allocate(ptr_d, length*D);
-                MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), length*D);
+                MLCommon::allocate(ptr_d, long(length)*long(D));
+                MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), long(length)*long(D));
 
                 kNNParams p;
                 p.N = length;
