@@ -28,7 +28,6 @@ from collections import defaultdict
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
@@ -181,6 +180,7 @@ class LinearRegression:
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
+            self.algorithm = algorithm 
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -236,11 +236,11 @@ class LinearRegression:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -262,7 +262,6 @@ class LinearRegression:
 
         cdef float c_intercept1
         cdef double c_intercept2
-
         if self.gdf_datatype.type == np.float32:
 
             olsFit(<float*>X_ptr,
@@ -349,7 +348,7 @@ class LinearRegression:
 
         return preds
 
-      
+
     def get_params(self, deep=True):
         """
         Sklearn style return parameter state
@@ -362,10 +361,10 @@ class LinearRegression:
         variables = ['algorithm','fit_intercept','normalize']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
-      
+
     def set_params(self, **params):
         """
         Sklearn style set parameter state to dictionary of params.
@@ -377,17 +376,11 @@ class LinearRegression:
         if not params:
             return self
         variables = ['algorithm','fit_intercept','normalize']
-
-        current_params = {"algorithm" : self.algo,"fit_intercept" : self.fit_intercept,"normalize" : self.normalize}
         for key, value in params.items():
-            if key not in current_params:
+            if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')
             else:
                 setattr(self, key, value)
-                current_params[key] = value
-        if params["algorithm"]=='eig':
-            self.algo=1
-        else:
-            self.algo = 0
+        if 'algorithm' in params.keys():
+            self.algo = self._get_algorithm_int(self.algorithm)
         return self
-

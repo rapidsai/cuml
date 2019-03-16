@@ -283,8 +283,6 @@ cdef class NearestNeighbors:
 
             sys_devices = set([d.id for d in cuda.gpus])
 
-            print(str(sys_devices))
-
             if self.devices is not None:
                 for d in self.devices:
                     if d not in sys_devices:
@@ -295,7 +293,6 @@ cdef class NearestNeighbors:
             else:
                 n_gpus = min(self.n_gpus, len(sys_devices))
                 final_devices = list(sys_devices)[:n_gpus]
-                print(str(final_devices))
 
             final_devices = np.ascontiguousarray(np.array(final_devices), np.int32)
 
