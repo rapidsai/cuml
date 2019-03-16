@@ -138,8 +138,6 @@ cdef class NearestNeighbors:
     cdef object devices
     cdef bool _verbose
 
-    cdef object X
-
     cdef object n_neighbors
 
     cpdef kNNParams *input
@@ -161,7 +159,6 @@ cdef class NearestNeighbors:
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
-        self.X = None
         self.k = NULL
 
     def __dealloc__(self):
@@ -268,7 +265,6 @@ cdef class NearestNeighbors:
 
             final_devices = np.ascontiguousarray(np.array(final_devices), np.int32)
 
-            self.X = X
             X_ctype = X.ctypes.data
             dev_ptr = final_devices.ctypes.data
 
@@ -281,8 +277,6 @@ cdef class NearestNeighbors:
 
         else:
             X_m = self._downcast(X)
-
-            self.X = X_m
 
             X_ctype = X_m.device_ctypes_pointer.value
 
