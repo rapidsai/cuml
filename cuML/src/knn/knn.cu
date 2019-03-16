@@ -160,7 +160,6 @@ namespace ML {
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
                         gpu_res.noTempMemory();
-//                        gpu_res.setTempMemory(size_t(params.N)*size_t(this->D)*4l);
                         gpu_res.setCudaMallocWarning(false);
 
                         bruteForceKnn(&gpu_res,
