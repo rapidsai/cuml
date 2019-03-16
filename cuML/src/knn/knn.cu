@@ -85,6 +85,7 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
+
         if(this->owner) {
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
         }
@@ -158,7 +159,8 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
-                        gpu_res.setTempMemory(size_t(params.N)*size_t(this->D)*4l);
+                        gpu_res.noTempMemory();
+//                        gpu_res.setTempMemory(size_t(params.N)*size_t(this->D)*4l);
                         gpu_res.setCudaMallocWarning(false);
 
                         bruteForceKnn(&gpu_res,
@@ -186,7 +188,6 @@ namespace ML {
                 }
             }
 		}
-
 
 		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
