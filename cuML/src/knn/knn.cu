@@ -65,9 +65,7 @@ namespace ML {
             }
 
             this->total_n += params.N;
-
         }
-
 	}
 
 	/**
@@ -87,6 +85,35 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
+
+		/**
+		 * Initial verification of memory
+		 */
+		for(int i = 0; i < indices; i++) {
+            kNNParams params = knn_params[i];
+
+            cudaPointerAttributes att;
+            cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
+
+            if(err == 0 && att.device > -1) {
+                CUDA_CHECK(cudaSetDevice(att.device));
+
+                size_t free, total;
+                cudaMemGetInfo(&free, &total);
+
+                if(params.N*this->D*4 > free) {
+                    std::cout << "Not enough free memory on device "
+                            << att.device
+                            << " to run kneighbors. "
+                            << "needed="
+                            << long(long(params.N)*long(this->D)*4l)
+                            << ", free=" << free << std::endl;
+                    return;
+                }
+            }
+		}
+
+
         #pragma omp parallel
 		{
             #pragma omp for
@@ -102,7 +129,7 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
-                        gpu_res.setTempMemory(params.N*this->D*4);
+                        gpu_res.setTempMemory(long(params.N)*long(this->D)*4l);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -112,8 +139,8 @@ namespace ML {
                                     n,
                                     this->D,
                                     k,
-                                    all_D+(i*k*n),
-                                    all_I+(i*k*n));
+                                    all_D+(long(i)*k*long(n)),
+                                    all_I+(long(i)*k*long(n)));
 
                         CUDA_CHECK(cudaPeekAtLastError());
 
