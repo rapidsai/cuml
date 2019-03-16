@@ -46,6 +46,7 @@ namespace ML {
 		int indices;
 		int D;
 		bool verbose;
+		bool owner;
 
 
     public:
