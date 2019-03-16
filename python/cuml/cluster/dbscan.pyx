@@ -50,72 +50,35 @@ cdef extern from "dbscan/dbscan_c.h" namespace "ML":
 
 
 class DBSCAN:
-	"""
-	DBSCAN is a very powerful yet fast clustering technique that finds clusters where
-	data is concentrated. This allows DBSCAN to generalize to many problems if the
-	datapoints tend to congregate in larger groups.
+    """
+    Create a DataFrame, fill it with data, and compute DBSCAN:
 
-	cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph to compute
-	the distances between close neighbours.
-	
-	Examples
-	---------
+    .. code-block:: python
 
-	.. code-block:: python
-			
-			# Both import methods supported
-			from cuml import DBSCAN
-			from cuml.cluster import DBSCAN
+            import cudf
+            from cuml import DBSCAN
+            import numpy as np
 
-			import cudf
-			import numpy as np
+            gdf_float = cudf.DataFrame()
+            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
+            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
 
-			gdf_float = cudf.DataFrame()
-			gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
-			gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
-			gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+            dbscan_float = DBSCAN(eps=1.0, min_samples=1)
+            dbscan_float.fit(gdf_float)
+            print(dbscan_float.labels_)
 
-			dbscan_float = DBSCAN(eps = 1.0, min_samples = 1)
-			dbscan_float.fit(gdf_float)
-			print(dbscan_float.labels_)
+    Output:
 
-	Output:
+    .. code-block:: python
 
-	.. code-block:: python
+            0    0
+            1    1
+            2    2
 
-			0    0
-			1    1
-			2    2
+    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/dbscan_demo.ipynb>`_. For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
 
-	Parameters
-	-----------
-	eps : float (default = 0.5)
-		The maximum distance between 2 points such they reside in the same neighborhood.
-	min_samples : int (default = 5)
-		The number of samples in a neighborhood such that this group can be considered as
-		an important core point (including the point itself).
-
-	Attributes
-	-----------
-	labels_ : array
-		Which cluster each datapoint belongs to. Noisy samples are labeled as -1.
-
-	Notes
-	------
-	DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
-	is that datapoints need to be concentrated in groups for clusters to be constructed.
-	
-	**Applications of DBSCAN**
-
-		DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
-		it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
-		DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
-		customer segmentation in marketing analyses, and much more.
-
-
-	For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
-	For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
-	"""
+    """
 
     def __init__(self, eps=0.5, min_samples=5):
         self.eps = eps
@@ -206,13 +169,6 @@ class DBSCAN:
         return self.labels_
 
     def get_params(self, deep=True):
-	"""
-	Sklearn style return parameter state
-
-	Parameters
-	-----------
-	deep : boolean (default = True)
-	"""
         params = dict()
         variables = [ 'eps','min_samples']
         for key in variables:
@@ -223,13 +179,6 @@ class DBSCAN:
 
 
     def set_params(self, **params):
-	"""
-	Sklearn style set parameter state to dictionary of params.
-
-	Parameters
-	-----------
-	params : dict of new params
-	"""
         if not params:
             return self
         current_params = {"eps": self.eps,"min_samples":self.min_samples}
