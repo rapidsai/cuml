@@ -56,6 +56,7 @@
 - PR #321: Fix release script typo
 - PR #327: Update conda requirements for version 0.6 requirements
 - PR #345: Run python import as part of package build to trigger compilation
+- PR #351: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
 
 # cuML 0.5.1 (05 Feb 2019)
 
