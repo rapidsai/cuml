@@ -39,8 +39,6 @@ namespace ML {
 	kNN::~kNN() {
 
 	    if(this->owner) {
-	        if(this->verbose)
-	            std::cout << "Freeing memory" << std::endl;
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 	    }
 	}
@@ -80,8 +78,6 @@ namespace ML {
 	void kNN::fit(kNNParams *input, int N) {
 
         if(this->owner) {
-            if(this->verbose)
-                std::cout << "Freeing memory" << std::endl;
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
         }
 
@@ -212,9 +208,6 @@ namespace ML {
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
         if(this->owner) {
-            std::cout << "Owner- freeing memory" << std::endl;
-            if(this->verbose)
-                std::cout << "Freeing memory" << std::endl;
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
         }
 
