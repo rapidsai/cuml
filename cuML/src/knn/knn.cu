@@ -54,7 +54,7 @@ namespace ML {
         }
 	}
 
-	bool verify_size(size_t size, int device) {
+	bool kNN::verify_size(size_t size, int device) {
         size_t free, total;
         cudaMemGetInfo(&free, &total);
 
