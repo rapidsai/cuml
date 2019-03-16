@@ -227,6 +227,9 @@ namespace ML {
         for(int i = 0; i < n_chunks; i++) {
 
             int device = devices[i];
+            size_t length = chunk_size;
+            if(length * i >= n)
+                length = (chunk_size*i)-size_t(n);
             CUDA_CHECK(cudaSetDevice(device));
             if(!verify_size(size_t(length)*size_t(D)), device)
                 return;
@@ -242,7 +245,7 @@ namespace ML {
 
             size_t length = chunk_size;
             if(length * i >= n)
-                length = (chunk_size*i)-n;
+                length = (size_t(chunk_size)*i)-size_t(n);
 
             float *ptr_d;
             MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
