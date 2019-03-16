@@ -23,6 +23,7 @@
 #include <faiss/Heap.h>
 #include <faiss/gpu/GpuDistance.h>
 
+#include <omp.h>
 #include <vector>
 #include <sstream>
 
@@ -54,15 +55,19 @@ namespace ML {
 	        this->total_n = 0;
 	    }
 
-		for(int i = 0; i < N; i++) {
+        for(int i = 0; i < N; i++) {
 
-			kNNParams params = input[i];
+            kNNParams params = input[i];
+            this->indices++;
+            this->knn_params.emplace_back(params);
+            if(i < params.N) {
+                id_ranges.push_back(total_n);
+            }
 
-			std::cout << "Adding index: " << this->indices << std::endl;
+            this->total_n += params.N;
 
-			this->indices++;
-			this->knn_params.emplace_back(params);
-		}
+        }
+
 	}
 
 	/**
@@ -82,54 +87,49 @@ namespace ML {
 		float *all_D = new float[indices*k*n];
 		long *all_I = new long[indices*k*n];
 
-		    for(int i = 0; i < indices; i++) {
+        #pragma omp parallel
+		{
+            #pragma omp for
+            for(int i = 0; i < indices; i++) {
 
-		        kNNParams params = knn_params[i];
+                kNNParams params = knn_params[i];
 
-	            cudaPointerAttributes att;
-	            cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
-
-                std::cout << "Device: " << att.device << std::endl;
+                cudaPointerAttributes att;
+                cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
 
                 if(err == 0 && att.device > -1) {
                     CUDA_CHECK(cudaSetDevice(att.device));
 
-	                if(i < params.N)
-	                    id_ranges.push_back(total_n);
+                    try {
+                        faiss::gpu::StandardGpuResources gpu_res;
+                        gpu_res.setTempMemory(params.N*this->D*4);
 
-	                this->total_n += params.N;
+                        bruteForceKnn(&gpu_res,
+                                    faiss::METRIC_L2,
+                                    params.ptr,
+                                    params.N,
+                                    search_items,
+                                    n,
+                                    this->D,
+                                    k,
+                                    all_D+(i*k*n),
+                                    all_I+(i*k*n));
 
-	                std::cout << "Indices: " << this->indices << std::endl;
+                        CUDA_CHECK(cudaPeekAtLastError());
 
-	                faiss::gpu::StandardGpuResources gpu_res;
-	                gpu_res.setTempMemory(params.N*this->D*4);
+                    } catch(const std::exception &e) {
+                       std::cout << "Exception occurred: " << e.what() << std::endl;
+                    }
 
-                    std::cout << "Ptr: " << params.ptr << std::endl;
-                    std::cout << "N: " << params.N << std::endl;
-                    std::cout << "D: " << this->D << std::endl;
 
-	                bruteForceKnn(&gpu_res,
-	                            faiss::METRIC_L2,
-	                            params.ptr,
-	                            params.N,
-	                            search_items,
-	                            n,
-	                            this->D,
-	                            k,
-	                            all_D+(i*k*n),
-	                            all_I+(i*k*n));
+                } else {
+                    std::stringstream ss;
+                    ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer << ", N=" << params.N;
+                    std::cout << "Exception: " << ss.str() << std::endl;
+                }
+            }
+		}
 
-	                std::cout << "DONE!" << std::endl;
-	                CUDA_CHECK(cudaPeekAtLastError());
-
-	            } else {
-	                std::stringstream ss;
-	                ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
-	                throw ss.str();
-	            }
-		    }
-
-		std::cout << "Performing merge!!" << std::endl;
 
 		merge_tables<faiss::CMin<float, int>>(n, k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
@@ -161,47 +161,33 @@ namespace ML {
 
         long chunk_size = MLCommon::ceildiv<long>((long)n, (long)n_chunks);
 
-        if(this->verbose) {
-            std::cout << "Chunk size: " << chunk_size << std::endl;
-            std::cout << "n_chunks: " << n_chunks << std::endl;
-        }
-
         kNNParams params[n_chunks];
 
-//        #pragma omp parallel
-//        {
-//            #pragma omp for
-            for(int i = 0; i < n_chunks; i++) {
+        omp_lock_t lock;
+        omp_init_lock(&lock);
 
-                int device = devices[i];
-                CUDA_CHECK(cudaSetDevice(device));
+        #pragma omp parallel for
+        for(int i = 0; i < n_chunks; i++) {
 
-                if(this->verbose)
-                    std::cout << "Setting device: " << device << std::endl;
+            int device = devices[i];
+            CUDA_CHECK(cudaSetDevice(device));
 
-                long length = chunk_size;
-                if(length * i >= n)
-                    length = (chunk_size*i)-n;
+            long length = chunk_size;
+            if(length * i >= n)
+                length = (chunk_size*i)-n;
 
-                if(this->verbose)
-                    std::cout << "Length: " << length << std::endl;
-                std::cout << "D=" << this->D << std::endl;
+            float *ptr_d;
+            MLCommon::allocate(ptr_d, long(length)*long(D));
+            MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), long(length)*long(D));
 
-                std::cout << "length=" << length << std::endl;
+            kNNParams p;
+            p.N = length;
+            p.ptr = ptr_d;
 
-		std::cout << "Allocating " << length*D << " floats" << std::endl;
-
-                float *ptr_d;
-                MLCommon::allocate(ptr_d, long(length)*long(D));
-                MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), long(length)*long(D));
-
-                kNNParams p;
-                p.N = length;
-                p.ptr = ptr_d;
-
-                params[i] = p;
-            }
-//        }
+            omp_set_lock(&lock);
+            params[i] = p;
+            omp_unset_lock(&lock);
+        }
 
         fit(params, n_chunks);
 
