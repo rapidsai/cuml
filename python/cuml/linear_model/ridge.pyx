@@ -28,7 +28,6 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
 
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
@@ -197,6 +196,7 @@ class Ridge:
         self.normalize = normalize
 
         if solver in ['svd', 'eig', 'cd']:
+            self.solver = solver
             self.algo = self._get_algorithm_int(solver)
         else:
             msg = "solver {!r} is not supported"
@@ -258,11 +258,11 @@ class Ridge:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -392,7 +392,7 @@ class Ridge:
         variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
 
@@ -406,16 +406,12 @@ class Ridge:
         """
         if not params:
             return self
-        current_params = {"alpha":self.alpha, "fit_intercept" : self.fit_intercept, "normalize" : self.normalize, "solver" :self.algo}
+        variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter %s for estimator')
+            if key not in variables:
+                raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-                current_params[key] = value
-        if params["solver"]=='eig':
-            self.algo=1
-        else:
-            self.algo = 0
+        if 'solver' in params.keys():
+            self.algo=self._get_algorithm_int(self.solver)
         return self
-

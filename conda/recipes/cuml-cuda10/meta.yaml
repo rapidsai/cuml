@@ -30,11 +30,13 @@ requirements:
     - cmake>=3.12.4
     - cudf 0.6*
     - libcuml={{ version }}
+    - libcumlMG
   run:
     - python x.x
     - setuptools
     - cudf 0.6*
     - libcuml={{ version }}
+    - libcumlMG
 
 about:
   home: http://rapids.ai/

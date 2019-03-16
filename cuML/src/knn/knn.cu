@@ -94,7 +94,7 @@ namespace ML {
 			} else {
 				std::stringstream ss;
 				ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer;
-				throw ss.str();
+				std::cout << "Exception: " << ss.str() << std::endl;
 			}
 		}
 	}
@@ -151,8 +151,7 @@ namespace ML {
      */
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
-        int chunk_size = MLCommon::ceildiv(n, n_chunks);
-
+        long chunk_size = MLCommon::ceildiv<long>((long)n, (long)n_chunks);
         if(this->verbose) {
             std::cout << "Chunk size: " << chunk_size << std::endl;
             std::cout << "n_chunks: " << n_chunks << std::endl;
@@ -160,34 +159,30 @@ namespace ML {
 
         kNNParams *params = (kNNParams*)malloc(n_chunks * sizeof(kNNParams));
 
-        #pragma omp parallel
-        {
-            #pragma omp for
-            for(int i = 0; i < n_chunks; i++) {
+        for(int i = 0; i < n_chunks; i++) {
 
-                int device = devices[i];
-                CUDA_CHECK(cudaSetDevice(device));
+            int device = devices[i];
+            CUDA_CHECK(cudaSetDevice(device));
 
-                if(this->verbose)
-                    std::cout << "Setting device: " << device << std::endl;
+            if(this->verbose)
+                std::cout << "Setting device: " << device << std::endl;
 
-                int length = chunk_size;
-                if(length * i >= n)
-                    length = (chunk_size*i)-n;
+            long length = chunk_size;
+            if(length * i >= n)
+                length = (chunk_size*i)-n;
 
-                if(this->verbose)
-                    std::cout << "Length: " << length << std::endl;
+            if(this->verbose)
+                std::cout << "Length: " << length << std::endl;
 
-                float *ptr_d;
-                MLCommon::allocate(ptr_d, length*D);
-                MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), length*D);
+            float *ptr_d;
+            MLCommon::allocate(ptr_d, length*long(D));
+            MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), length*long(D));
 
-                kNNParams p;
-                p.N = length;
-                p.ptr = ptr_d;
+            kNNParams p;
+            p.N = length;
+            p.ptr = ptr_d;
 
-                params[i] = p;
-            }
+            params[i] = p;
         }
 
         fit(params, n_chunks);
