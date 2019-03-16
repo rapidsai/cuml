@@ -9,30 +9,17 @@ namespace hmm {
 
 template <typename T>
 void init(HMM<T> &hmm,
-          std::vector<T*> dmu, std::vector<T*> dsigma, std::vector<T*> dPis, std::vector<T*> dPis_inv, T* dB, T* cur_llhd,
-          int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
-          int nCl, int nDim, int nObs,
-          T reg_covar,
+          std::vector<gmm::GMM<T> > &gmms,
           int nStates,
-          T* dT,
-          int lddt
+          T* dT, int lddt, T* dB, int lddb
           ) {
 
         hmm.dT = dT;
         hmm.dB = dB;
         hmm.lddt = lddt;
+        hmm.lddb = lddb;
         hmm.nStates = nStates;
-
-        for (size_t stateId = 0; stateId < nStates; stateId++) {
-                // TODO : Fix dLlhd allocation
-                gmm::GMM<T> gmm;
-                hmm.gmms.push_back(gmm);
-                gmm::init(hmm.gmms[stateId],
-                          dmu[stateId], dsigma[stateId], dPis[stateId], dPis_inv[stateId], dB,
-                          lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
-                          cur_llhd, reg_covar,
-                          nCl, nDim, nObs);
-        }
+        hmm.gmms = gmms;
 
 }
 

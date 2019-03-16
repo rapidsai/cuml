@@ -6,9 +6,13 @@ from cuml import numba_utils
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+from libcpp.vector cimport vector
 
 from cuml.hmm.sample_utils import *
 from cuml.hmm.gmm_base import _BaseGMM
+from cuml.hmm.hmm_base import _BaseHMM
+
+
 
 cdef extern from "hmm/hmm_variables.h" namespace "gmm":
     cdef cppclass GMM[T]:
@@ -67,6 +71,20 @@ cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
     cdef void update_mus_f64(double*, GMM[double]&)
     cdef void update_sigmas_f64(double*, GMM[double]&)
     cdef void update_pis_f64(GMM[double]&)
+
+cdef extern from "hmm/hmm_variables.h" namespace "hmm":
+    cdef cppclass HMM[T]:
+        pass
+
+cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
+    cdef void init_f64(HMM[double] &hmm,
+                       vector[GMM[double]] &gmms,
+                       int nStates,
+                       double* dT,
+                       int lddt,
+                       double* dB,
+                       int lddb
+                       )
 
 
 
@@ -204,11 +222,17 @@ class GaussianMixture(_BaseGMM):
                 update_mus_f64(<double*>_dX_ptr, gmm64)
                 update_sigmas_f64(<double*>_dX_ptr, gmm64)
 
-    def _initialize(self, X):
+    def _set_dims(self, X=None, nCl=None, nDim=None, nObs=None):
+        if X is None :
+            self.nCl = nCl
+            self.nDim = nDim
+            self.nObs = nObs
+        else :
             self.nCl = self.n_components
             self.nDim = X.shape[1]
             self.nObs = X.shape[0]
 
+    def _initialize(self):
             self.ldd = {"mus" : roundup(self.nDim, RUP_SIZE),
                         "sigmas" : roundup(self.nDim, RUP_SIZE),
                         "pis" : roundup(self.nCl, RUP_SIZE),
@@ -245,7 +269,8 @@ class GaussianMixture(_BaseGMM):
             except AttributeError:
                 print("Please run the model a first time")
         else :
-            self._initialize(X)
+            self._set_dims(X)
+            self._initialize()
         self._setup(X)
         self.init_step()
 
@@ -258,3 +283,88 @@ class GaussianMixture(_BaseGMM):
             if  diff < self.tol :
                 break
             prev_lbow = self.lower_bound_
+
+
+
+
+cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
+    cdef vector[GMM[float]] gmms32
+    cdef vector[GMM[double]] gmms64
+
+    cdef GMM[float] *ar_gmms32 = <GMM[float] *>malloc(self.n_components * sizeof(GMM[float]))
+    cdef GMM[double] *ar_gmms64 = <GMM[double] *>malloc(self.n_components * sizeof(GMM[double]))
+
+    cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
+    cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
+
+    cdef int nStates = self.n_components
+    cdef int lddt = self.lddt
+    cdef int lddb = self.lddb
+
+
+    if self.precision == 'double':
+        for i in range(self.n_components):
+            # ar_gmms64[i] = new GMM[double]()
+            _setup_gmm(self.gmms[i], ar_gmms32[i], ar_gmms64[i])
+            gmms64.push_back(ar_gmms64[i])
+
+        with nogil:
+            init_f64(hmm64,
+                     gmms64,
+                     <int>nStates,
+                     <double*>_dT_ptr,
+                     <int>lddt,
+                     <double*>_dB_ptr,
+                     <int>lddb)
+
+class HiddenMarkovModel(_BaseHMM):
+    def __init__(self,
+                 n_components,
+                 n_mix,
+                 precision="double",
+                 covariance_type="full",
+                 random_state=None):
+        pass
+
+        super().__init__(n_components=n_components,
+                 n_mix=n_mix,
+                 precision=precision,
+                         random_state=random_state)
+
+
+    def fit(self, X, lengths=None):
+        self._set_dims(X)
+        self._initialize()
+        self._setup(X)
+
+        cdef HMM[float] hmm32
+        cdef HMM[double] hmm64
+        setup_hmm(self, hmm32, hmm64)
+
+    def _initialize(self):
+        # Align flatten, cast and copy to device
+        self.dT = sample_matrix(self.n_components, self.n_mix, random_state=self.random_state, isRowNorm=True)
+        self.lddt = roundup(self.n_components, RUP_SIZE)
+        self.dT = process_parameter(self.dT, self.lddt, self.dtype)
+
+        self.gmms = [GaussianMixture(n_components=self.nCl,
+                                     precision=self.precision) for _ in range(self.n_components)]
+        for gmm in self.gmms:
+            gmm._set_dims(nCl=self.nCl, nDim=self.nDim, nObs=self.nObs)
+            gmm._initialize()
+
+    def _set_dims(self, X):
+        self.nObs = X.shape[0]
+        self.nDim = X.shape[1]
+        self.nCl = self.n_mix
+        self.nStates = self.n_components
+
+    def _setup(self, X):
+        self.dB = sample_matrix(self.n_components,
+                                self.nObs * self.nCl,
+                                random_state=self.random_state,
+                                isColNorm=True)
+        self.lddb = roundup(self.nCl, RUP_SIZE)
+        self.dB = process_parameter(self.dB, self.lddb, self.dtype)
+        for gmm in self.gmms :
+            gmm._setup(X)

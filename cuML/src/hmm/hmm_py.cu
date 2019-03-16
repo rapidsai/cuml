@@ -4,21 +4,11 @@
 namespace hmm {
 
 void init_f64(HMM<double> &hmm,
-              std::vector<double*> dmu, std::vector<double*> dsigma, std::vector<double*> dPis, std::vector<double*> dPis_inv, double* dLlhd, double* cur_llhd,
-              int lddx, int lddmu, int lddsigma, int lddsigma_full, int lddPis, int lddLlhd,
-              int nCl, int nDim, int nObs,
-              double reg_covar,
+              std::vector<gmm::GMM<double> > &gmms,
               int nStates,
-              double* dT,
-              int lddt){
-        init(hmm,
-             dmu, dsigma, dPis, dPis_inv, dLlhd, cur_llhd,
-             lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
-             nCl, nDim, nObs,
-             reg_covar,
-             nStates,
-             dT,
-             lddt);
+              double* dT, int lddt, double* dB, int lddb){
+        init(hmm, gmms, nStates,
+             dT, lddt, dB, lddb);
 }
 
 // void setup_f32(HMM<float> &hmm) {

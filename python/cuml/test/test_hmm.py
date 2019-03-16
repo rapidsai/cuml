@@ -17,36 +17,45 @@ import pytest
 import cudf
 
 import cuml
-from cuml.hmm.sampler import sample_sequences
+from cuml.hmm.hmm_sampling import HMMSampler
 import hmmlearn
-from cuml.hmm.utils import timer, info
-from cuml.hmm.test_utils import *
+
 
 from cuml.hmm.utils import *
 
 
-class HMMs :
-    def __init__(self):
-        pass
+class HMMTester :
+    def __init__(self, kwargs):
+        self.kwargs = kwargs
 
     def _reset(self):
-        self.cuml = cuml.GMMHMM()
-        self.sk = hmmlearn.GMMHMM()
+        self.sk = hmmlearn.hmm.GMMHMM(**self.kwargs)
+        self.cuml = cuml.hmm.HiddenMarkovModel(**self.kwargs)
 
-    @reset
-    def test_workflow(self):
+
+    def test_workflow(self, X, lengths):
+        self._reset()
+        self.cuml.fit(X, lengths)
         print(self.cuml.means_)
 
-    @reset
     def test_score_samples(self, X, lengths):
-
         cuml_out = self.cuml.score_samples(X, lengths)
         sk_out = self.sk.score_samples(X, lengths)
         return mae(cuml_out, sk_out)
 
 
 if __name__ == '__main__':
+    n_seq = 10
+    n_dim = 3
+    hmm_kwargs = {"n_components" : 5,
+                  "n_mix" : 4,
+                  "covariance_type" : "full"}
 
-    # X, lengths = sample_sequences()
-    Tester = HMMs()
-    Tester.test_workflow()
+    hmm_sampler = HMMSampler(n_seq=n_seq,
+                             n_dim=n_dim,
+                             n_mix=hmm_kwargs["n_mix"],
+                             n_components=hmm_kwargs["n_components"])
+    X, lengths = hmm_sampler.sample_sequences()
+
+    hmm_tester = HMMTester(hmm_kwargs)
+    hmm_tester.test_workflow(X, lengths)
