@@ -27,46 +27,46 @@ from libc.stdlib cimport calloc, malloc, free
 cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 
     cdef void sgdFit(float *input,
-	                 int n_rows,
-	                 int n_cols,
-	                 float *labels,
-	                 float *coef,
-	                 float *intercept,
-	                 bool fit_intercept,
-	                 int batch_size,
-	                 int epochs,
-	                 int lr_type,
-	                 float eta0,
-	                 float power_t,
-	                 int loss,
-	                 int penalty,
-	                 float alpha,
-	                 float l1_ratio,
-	                 bool shuffle,
-	                 float tol,
-	                 int n_iter_no_change)
+                     int n_rows,
+                     int n_cols,
+                     float *labels,
+                     float *coef,
+                     float *intercept,
+                     bool fit_intercept,
+                     int batch_size,
+                     int epochs,
+                     int lr_type,
+                     float eta0,
+                     float power_t,
+                     int loss,
+                     int penalty,
+                     float alpha,
+                     float l1_ratio,
+                     bool shuffle,
+                     float tol,
+                     int n_iter_no_change)
 
     
     cdef void sgdFit(double *input,
-	                 int n_rows,
-	                 int n_cols,
-	                 double *labels,
-	                 double *coef,
-	                 double *intercept,
-	                 bool fit_intercept,
-	                 int batch_size,
-	                 int epochs,
-	                 int lr_type,
-	                 double eta0,
-	                 double power_t,
-	                 int loss,
-	                 int penalty,
-	                 double alpha,
-	                 double l1_ratio,
-	                 bool shuffle,
-	                 double tol,
-	                 int n_iter_no_change)
-	                 
+                     int n_rows,
+                     int n_cols,
+                     double *labels,
+                     double *coef,
+                     double *intercept,
+                     bool fit_intercept,
+                     int batch_size,
+                     int epochs,
+                     int lr_type,
+                     double eta0,
+                     double power_t,
+                     int loss,
+                     int penalty,
+                     double alpha,
+                     double l1_ratio,
+                     bool shuffle,
+                     double tol,
+                     int n_iter_no_change)
+                     
     cdef void sgdPredict(const float *input, 
                          int n_rows, 
                          int n_cols, 
@@ -100,21 +100,93 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                          int loss)
 
 class SGD:
+    """
+    Stochastic Gradient Descent is a very common machine learning algorithm where one optimizes
+    some cost function via gradient steps. This makes SGD very attractive for large problems
+    when the exact solution is hard or even impossible to find.
 
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
-                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5, batch_size=32, n_iter_no_change=5):
+    cuML's SGD algorithm accepts a numpy matrix or a cuDF DataFrame as the input dataset.
+    The SGD algorithm currently works with linear regression, ridge regression and SVM models.
 
-        """
-        Initializes the liner regression class.
+    Examples
+    ---------
 
-        Parameters
-        ----------
-        loss : 
-        penalty: 
-        alpha: 
+    .. code-block:: python
 
-        """
+        import numpy as np
+        import cudf
+        from cuml.solvers import SGD as cumlSGD
 
+        X = cudf.DataFrame()
+        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
+        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
+        pred_data = cudf.DataFrame()
+        pred_data['col1'] = np.asarray([3, 2], dtype=datatype)
+        pred_data['col2'] = np.asarray([5, 5], dtype=datatype)
+
+        cu_sgd = cumlSGD(learning_rate=lrate, eta0=0.005, epochs=2000,
+                        fit_intercept=True, batch_size=2,
+                        tol=0.0, penalty=penalty, loss=loss)
+
+        cu_sgd.fit(X, y)
+        cu_pred = cu_sgd.predict(pred_data).to_array()
+        print(" cuML intercept : ", cu_sgd.intercept_)
+        print(" cuML coef : ", cu_sgd.coef_)
+        print("cuML predictions : ", cu_pred)
+
+    Output:
+
+    .. code-block:: python
+            
+        cuML intercept :  0.004561662673950195
+        cuML coef :  0      0.9834546
+                    1    0.010128272
+                   dtype: float32
+        cuML predictions :  [3.0055666 2.0221121]
+            
+           
+    Parameters
+    -----------
+    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
+       'hinge' uses linear SVM   
+       'log' uses logistic regression
+       'squared_loss' uses linear regression
+    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
+       'none' does not perform any regularization
+       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value of coefficients
+       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of the coefficients
+       'elasticnet' performs Elastic Net regularization which is a weighted average of L1 and L2 norms
+    alpha: float (default = 0.0001)
+        The constant value which decides the degree of regularization
+    fit_intercept : boolean (default = True)
+       If True, the model tries to correct for the global mean of y.
+       If False, the model expects that you have centered the data.        
+    epochs : int (default = 1000)
+        The number of times the model should iterate through the entire dataset during training (default = 1000)
+    tol : float (default = 1e-3)
+       The training process will stop if current_loss > previous_loss - tol 
+    shuffle : boolean (default = True)
+       True, shuffles the training data after each epoch
+       False, does not shuffle the training data after each epoch
+    eta0 : float (default = 0.0)
+        Initial learning rate
+    power_t : float (default = 0.5)
+        The exponent used for calculating the invscaling learning rate
+    learning_rate : 'optimal', 'constant', 'invscaling', 'adaptive' (default = 'constant')
+        optimal option supported in the next version
+        constant keeps the learning rate constant
+        adaptive changes the learning rate if the training loss or the validation accuracy does not improve for n_iter_no_change epochs.
+        The old learning rate is generally divide by 5
+    n_iter_no_change : int (default = 5)
+        the number of epochs to train without any imporvement in the model
+
+    For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
+    """
+    
+    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
+        fit_intercept=True, epochs=1000, tol=1e-3, shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5, batch_size=32, n_iter_no_change=5):
+        
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
         else:
@@ -270,7 +342,7 @@ class SGD:
                        <float>self.l1_ratio,
                        <bool>self.shuffle,
                        <float>self.tol,
-	               <int>self.n_iter_no_change)
+                   <int>self.n_iter_no_change)
 
             self.intercept_ = c_intercept1
         else:
@@ -292,7 +364,7 @@ class SGD:
                        <double>self.l1_ratio,
                        <bool>self.shuffle,
                        <double>self.tol,
-	               <int>self.n_iter_no_change)
+                   <int>self.n_iter_no_change)
             
             self.intercept_ = c_intercept2
 
