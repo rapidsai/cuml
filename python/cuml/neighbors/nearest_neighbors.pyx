@@ -232,6 +232,9 @@ cdef class NearestNeighbors:
         """
         assert len(X.shape) == 2, 'data should be two dimensional'
 
+        if self.k is not None:
+            del self.k
+
         n_dims = X.shape[1]
         self.k = new kNN(n_dims, verbose = self._verbose)
 
