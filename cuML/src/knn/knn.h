@@ -48,6 +48,10 @@ namespace ML {
 		bool verbose;
 		bool owner;
 
+        void reset();
+
+        bool verify_size(size_t size);
+
 
     public:
 	    /**
