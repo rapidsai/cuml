@@ -21,7 +21,7 @@ gdf_float['2'] = [4.0, 2.0, 1.0]
 dbscan_float = DBSCAN(eps=1.0, min_samples=1)
 dbscan_float.fit(gdf_float)
 
-print(dbsca_float.labels_)
+print(dbscan_float.labels_)
 ```
 
 Output:
@@ -36,14 +36,16 @@ For additional examples, browse our complete [API documentation](https://rapidsa
 
 ### Supported Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD) - Single GPU
+- Truncated Singular Value Decomposition (tSVD) - Single GPU, Muti-GPU in Conda CUDA 10 package
+- Linear Regression (Ordinary Least Squares) - Single GPU, Muti-GPU in Conda CUDA 10 package
 - Principal Component Analysis (PCA) - Single GPU
 - Density-based spatial clustering of applications with noise (DBSCAN) - Single GPU
 - K-Means Clustering - Multi-GPU
 - K-Nearest Neighbors - Multi-GPU (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
-- Linear Regression (Ordinary Least Squares) - Single GPU
 - Ridge Regression - Single GPU
 - Kalman Filter - Single GPU
+- UMAP
+- Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
 
 Algorithms in progress:
 
@@ -51,7 +53,6 @@ Algorithms in progress:
 - Lasso
 - Elastic-Net
 - Logistic Regression
-- UMAP
 
 More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
 
