@@ -41,7 +41,6 @@
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
-- PR #315: Improved Documentation and fixed Docs api.rst
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342 Change default ABI to ON
 
