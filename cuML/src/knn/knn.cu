@@ -41,7 +41,7 @@ namespace ML {
 	    if(this->owner) {
 	        if(this->verbose)
 	            std::cout << "Freeing memory" << std::endl;
-            for(kNNParams p : params) { CUDA_CHECK(cudaFree(p.ptr)); }
+            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 	    }
 	}
 
