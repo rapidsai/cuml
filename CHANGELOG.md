@@ -34,14 +34,13 @@
 - PR #244: Fix for single GPU OLS and Ridge to support one column training data
 - PR #271: Added get_params and set_params functions for linear and ridge regression
 - PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
-- PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #269: (and PR #315) Documentation enhancement and updating
 - PR #322: set_params updated
 - PR #237: Update build instructions
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
-- PR #315: Documentation enhancement and updating
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342 Change default ABI to ON
 
