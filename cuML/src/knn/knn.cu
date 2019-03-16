@@ -89,9 +89,10 @@ namespace ML {
 	            cudaPointerAttributes att;
 	            cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
 
-	            CUDA_CHECK(cudaSetDevice(att.device));
+                std::cout << "Device: " << att.device << std::endl;
 
-	            if(err == 0 && att.device > -1) {
+                if(err == 0 && att.device > -1) {
+                    CUDA_CHECK(cudaSetDevice(att.device));
 
 	                if(i < params.N)
 	                    id_ranges.push_back(total_n);
@@ -104,7 +105,6 @@ namespace ML {
 	                gpu_res.setTempMemory(params.N*this->D*4*2);
 
                     std::cout << "Ptr: " << params.ptr << std::endl;
-                    std::cout << "Device: " << att.device << std::endl;
                     std::cout << "N: " << params.N << std::endl;
                     std::cout << "D: " << this->D << std::endl;
 
