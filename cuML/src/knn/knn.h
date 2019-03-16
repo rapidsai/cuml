@@ -60,7 +60,7 @@ namespace ML {
 
         void reset();
 
-        bool verify_size(size_t size);
+        bool verify_size(size_t size, int device);
 
 
         /**
