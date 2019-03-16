@@ -198,6 +198,30 @@ namespace ML {
 
         this->owner = true;
 
+        /**
+         * Initial verification of memory
+         */
+        for(int i = 0; i < n_chunks; i++) {
+
+            int device = devices[i];
+            CUDA_CHECK(cudaSetDevice(att.device));
+
+            size_t free, total;
+            cudaMemGetInfo(&free, &total);
+
+            if(size_t(length)*size_t(D) > free) {
+                std::cout << "Not enough free memory on device "
+                        << att.device
+                        << " to run kneighbors. "
+                        << "needed="
+                        << size_t(length)*size_t(D)
+                        << ", free=" << free << std::endl;
+                return;
+            }
+        }
+
+
+
         #pragma omp parallel for
         for(int i = 0; i < n_chunks; i++) {
 
@@ -210,7 +234,7 @@ namespace ML {
 
             float *ptr_d;
             MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
-            MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i), size_t(length)*size_t(D));
+            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D));
 
             kNNParams p;
             p.N = length;
