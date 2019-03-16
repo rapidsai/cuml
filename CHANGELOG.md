@@ -43,7 +43,7 @@
 - PR #312: Last minute cleanup before release
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342 Change default ABI to ON
-- PR #315: Documentation enhancement and updating
+
 
 ## Bug Fixes
 
