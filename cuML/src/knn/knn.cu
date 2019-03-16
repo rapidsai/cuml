@@ -38,8 +38,13 @@ namespace ML {
 	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose), owner(false){}
 	kNN::~kNN() {
 
-	    if(this->owner) {
-            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	    try {
+	        if(this->owner) {
+	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	        }
+
+	    } catch(const std::exception &e) {
+	        std::cout << "An exception occurred releasing kNN memory: " << e.what() << std::endl;
 	    }
 	}
 
@@ -151,6 +156,7 @@ namespace ML {
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
                         gpu_res.setTempMemory(size_t(params.N)*size_t(this->D)*4l);
+                        gpu_res.setCudaMallocWarning(false);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -184,9 +190,6 @@ namespace ML {
 
 		MLCommon::updateDevice(res_D, result_D, k*size_t(n), 0);
 		MLCommon::updateDevice(res_I, result_I, k*size_t(n), 0);
-
-		std::cout << MLCommon::arr2Str(res_D, k*size_t(n), "res_D") << std::endl;
-        std::cout << MLCommon::arr2Str(res_I, k*size_t(n), "res_I") << std::endl;
 
 		delete all_D;
 		delete all_I;
