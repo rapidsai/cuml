@@ -54,13 +54,13 @@ namespace ML {
         }
 	}
 
-	bool verify_size(size_t size) {
+	bool verify_size(size_t size, int device) {
         size_t free, total;
         cudaMemGetInfo(&free, &total);
 
         if(size > free) {
             std::cout << "Not enough free memory on device "
-                    << att.device
+                    << device
                     << " to run kneighbors. "
                     << "needed="
                     << size
@@ -127,7 +127,7 @@ namespace ML {
             if(err == 0 && att.device > -1) {
                 CUDA_CHECK(cudaSetDevice(att.device));
 
-                if(!verify_size(size_t(params.N)*size_t(this->D)*4l))
+                if(!verify_size(size_t(params.N)*size_t(this->D)*4l), att.device)
                     return;
             }
 		}
@@ -228,7 +228,7 @@ namespace ML {
 
             int device = devices[i];
             CUDA_CHECK(cudaSetDevice(att.device));
-            if(!verify_size(size_t(length)*size_t(D)))
+            if(!verify_size(size_t(length)*size_t(D)), device)
                 return;
         }
 
