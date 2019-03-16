@@ -45,6 +45,32 @@ namespace ML {
 	    }
 	}
 
+	void kNN::reset() {
+
+        if(knn_params.size() > 0) {
+            knn_params.clear();
+            this->indices = 0;
+            this->total_n = 0;
+        }
+	}
+
+	bool verify_size(size_t size) {
+        size_t free, total;
+        cudaMemGetInfo(&free, &total);
+
+        if(size > free) {
+            std::cout << "Not enough free memory on device "
+                    << att.device
+                    << " to run kneighbors. "
+                    << "needed="
+                    << size
+                    << ", free=" << free << std::endl;
+            return false;
+        }
+
+        return true;
+	}
+
 	/**
 	 * Fit a kNN model by creating separate indices for multiple given
 	 * instances of kNNParams.
@@ -53,13 +79,10 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
-	    std::cout << "N=" << N << std::endl;
+	    if(this->verbose)
+	        std::cout << "N=" << N << std::endl;
 
-	    if(knn_params.size() > 0) {
-	        knn_params.clear();
-	        this->indices = 0;
-	        this->total_n = 0;
-	    }
+	    reset();
 
         for(int i = 0; i < N; i++) {
 
@@ -104,18 +127,8 @@ namespace ML {
             if(err == 0 && att.device > -1) {
                 CUDA_CHECK(cudaSetDevice(att.device));
 
-                size_t free, total;
-                cudaMemGetInfo(&free, &total);
-
-                if(size_t(params.N)*size_t(this->D)*4l > free) {
-                    std::cout << "Not enough free memory on device "
-                            << att.device
-                            << " to run kneighbors. "
-                            << "needed="
-                            << size_t(size_t(params.N)*size_t(this->D)*4l)
-                            << ", free=" << free << std::endl;
+                if(!verify_size(size_t(params.N)*size_t(this->D)*4l))
                     return;
-                }
             }
 		}
 
@@ -192,11 +205,21 @@ namespace ML {
      */
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
-        size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
+        if(this->owner) {
+            if(this->verbose)
+                std::cout << "Freeing memory" << std::endl;
+            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+        }
 
+        reset();
+
+
+        size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
         kNNParams params[n_chunks];
 
         this->owner = true;
+
+
 
         /**
          * Initial verification of memory
@@ -205,19 +228,8 @@ namespace ML {
 
             int device = devices[i];
             CUDA_CHECK(cudaSetDevice(att.device));
-
-            size_t free, total;
-            cudaMemGetInfo(&free, &total);
-
-            if(size_t(length)*size_t(D) > free) {
-                std::cout << "Not enough free memory on device "
-                        << att.device
-                        << " to run kneighbors. "
-                        << "needed="
-                        << size_t(length)*size_t(D)
-                        << ", free=" << free << std::endl;
+            if(!verify_size(size_t(length)*size_t(D)))
                 return;
-            }
         }
 
 
