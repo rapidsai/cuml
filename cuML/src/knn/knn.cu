@@ -102,7 +102,7 @@ namespace ML {
 	                std::cout << "Indices: " << this->indices << std::endl;
 
 	                faiss::gpu::StandardGpuResources gpu_res;
-	                gpu_res.setTempMemory(params.N*this->D*4*2);
+	                gpu_res.setTempMemory(params.N*this->D*4);
 
                     std::cout << "Ptr: " << params.ptr << std::endl;
                     std::cout << "N: " << params.N << std::endl;
@@ -168,9 +168,9 @@ namespace ML {
 
         kNNParams params[n_chunks];
 
-        #pragma omp parallel
-        {
-            #pragma omp for
+//        #pragma omp parallel
+//        {
+//            #pragma omp for
             for(int i = 0; i < n_chunks; i++) {
 
                 int device = devices[i];
@@ -196,7 +196,7 @@ namespace ML {
 
                 params[i] = p;
             }
-        }
+//        }
 
         fit(params, n_chunks);
 
