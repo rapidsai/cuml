@@ -253,7 +253,7 @@ class TruncatedSVDSPMG:
             raise TypeError(msg)
 
         if (not np.isfortran(X)):
-            X = np.array(X, order='F')
+            X = np.array(X, order='F', dtype=X.dtype)
 
         cpdef paramsTSVD params
         params.n_components = self.params.n_components
@@ -270,10 +270,10 @@ class TruncatedSVDSPMG:
         self.components_ = np.zeros((n_cols, self.params.n_components),
                                     dtype=X.dtype, order='F')
         self.explained_variance_ = np.zeros(self.params.n_components,
-                                            dtype=X.dtype)
+                                            dtype=X.dtype, order='F')
         self.explained_variance_ratio_ = np.zeros(self.params.n_components,
-                                                  dtype=X.dtype)
-        self.singular_values_ = np.zeros(self.params.n_components, dtype=X.dtype)
+                                                  dtype=X.dtype, order='F')
+        self.singular_values_ = np.zeros(self.params.n_components, dtype=X.dtype, order='F')
         self.trans_input_ = np.zeros((n_rows, self.params.n_components), dtype=X.dtype, order='F')
 
         X_ptr = X.ctypes.data
@@ -282,7 +282,8 @@ class TruncatedSVDSPMG:
         explained_variance_ratio_ptr = self.explained_variance_ratio_.ctypes.data
         singular_values_ptr = self.singular_values_.ctypes.data
         trans_input_ptr = self.trans_input_.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids).ctypes.data
+        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_ids_32.ctypes.data
 
         if not _transform:
             if self.gdf_datatype.type == np.float32:
@@ -339,7 +340,7 @@ class TruncatedSVDSPMG:
             X = np.array(X, order='F')
 
         if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F')
+            self.components_ = np.array(self.components_, order='F', dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -365,7 +366,8 @@ class TruncatedSVDSPMG:
 
         X_ptr = X.ctypes.data
         original_X_ptr = original_X.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids).ctypes.data
+        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
         if self.gdf_datatype.type == np.float32:
@@ -396,7 +398,7 @@ class TruncatedSVDSPMG:
             X = np.array(X, order='F')
 
         if (not np.isfortran(self.components_)):
-            self.components_ = np.array(self.components_, order='F')
+            self.components_ = np.array(self.components_, order='F', dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -422,7 +424,8 @@ class TruncatedSVDSPMG:
 
         X_ptr = X.ctypes.data
         trans_X_ptr = trans_X.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids).ctypes.data
+        gpu_ids_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
         if self.gdf_datatype.type == np.float32:
@@ -571,3 +574,4 @@ class TruncatedSVDSPMG:
         else:
             raise ValueError('Number of GPUS should be 2 or more'
                              'For single GPU, use the normal TruncatedSVD')
+
