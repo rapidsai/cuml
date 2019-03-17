@@ -379,7 +379,8 @@ class LinearRegressionMG:
 
         X_ptr = X.ctypes.data
         pred_ptr = pred.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids, dtype=np.int32).ctypes.data
+        gpu_id_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_id_32.ctypes.data
         coef_ptr = self.coef_.ctypes.data
 
         if self.gdf_datatype.type == np.float32:
