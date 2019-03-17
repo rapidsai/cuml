@@ -40,13 +40,14 @@ namespace ML {
 
 		std::vector<long> id_ranges;
 
-		std::vector<faiss::gpu::GpuResources* > res;
-		std::vector<faiss::gpu::GpuIndexFlatL2* > sub_indices;
+		std::vector<kNNParams> knn_params;
 
 		int total_n;
 		int indices;
 		int D;
 		bool verbose;
+		bool owner;
+
 
 
     public:
@@ -56,6 +57,11 @@ namespace ML {
 	     */
 		kNN(int D, bool verbose = false);
 		~kNN();
+
+        void reset();
+
+        bool verify_size(size_t size, int device);
+
 
         /**
          * Search the kNN for the k-nearest neighbors of a set of query vectors

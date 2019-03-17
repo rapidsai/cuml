@@ -71,6 +71,7 @@
 - PR #327: Update conda requirements for version 0.6 requirements
 - PR #352: Correctly calculating numpy chunk sizing for kNN
 - PR #345: Run python import as part of package build to trigger compilation
+- PR #347: Lowering memory usage of kNN.  
 
 # cuML 0.5.1 (05 Feb 2019)
 
