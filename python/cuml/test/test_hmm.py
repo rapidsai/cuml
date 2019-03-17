@@ -35,7 +35,7 @@ class HMMTester :
 
     def test_workflow(self, X, lengths):
         self._reset()
-        self.cuml.fit(X, lengths)
+        self.cuml._forward_backward(X, lengths, False, False)
         print(self.cuml.means_)
 
     def test_score_samples(self, X, lengths):

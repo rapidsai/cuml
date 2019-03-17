@@ -43,33 +43,35 @@ class _BaseHMM(_BaseCUML):
         self.n_mix = n_mix
         self.random_state=random_state
 
-    # @abstractmethod
-    # def fit(self, X, lengths=None):
-    #     pass
-    #
+    @abstractmethod
+    def fit(self, X, lengths=None):
+        self._fit(X, lengths)
+
     # @abstractmethod
     # def decode(self, X, lengths=None, algorithm=None):
     #     pass
-    #
+
     # @abstractmethod
     # def predict(self, X, lengths=None):
     #     pass
-    #
-    # @abstractmethod
-    # def predict_proba(self, X, lengths=None):
-    #     pass
-    #
+
+    def predict_proba(self, X, lengths=None):
+        self._forward_backard(X, lengths, True, True)
+        self._compute_gammas(X, lengths)
+        return self._gammas_
+
     # @abstractmethod
     # def sample(self, n_samples=1, random_state=None):
     #     pass
-    #
-    # @abstractmethod
-    # def score(self, X, lengths=None):
-    #     pass
-    #
-    # @abstractmethod
-    # def score_samples(self, X, lengths=None):
-    #     pass
+
+    def score(self, X, lengths=None):
+        self._forward_backard(X, lengths, True, False)
+        return self._score()
+
+    def score_samples(self, X, lengths=None):
+        logprob = self.score(X, lengths)
+        posteriors = self.predict_proba(X, lengths)
+        return logprob, posteriors
 
     def _get_means(self):
         return np.array([gmm.means_ for gmm in self.gmms])

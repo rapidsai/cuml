@@ -84,11 +84,16 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                        double* dT,
                        int lddt,
                        double* dB,
-                       int lddb)
-    cdef void forward_f64(HMM[double] &hmm,
-                          double* dX,
-                          int* lengths,
-                          int nObs)
+                       int lddb,
+                       double* dGamma,
+                       int lddgamma)
+
+    cdef void forward_backward_f64(HMM[double] &hmm,
+                                   double* dX,
+                                   int* dlenghts,
+                                   int nSeq,
+                                   bool doForward,
+                                   bool doBackward)
 
 
 RUP_SIZE = 32
@@ -299,14 +304,15 @@ cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
 
     cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
     cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
+    cdef uintptr_t _dGamma_ptr = self.dGamma.device_ctypes_pointer.value
 
     cdef int nStates = self.n_components
     cdef int lddt = self.lddt
     cdef int lddb = self.lddb
+    cdef int lddgamma = self.lddgamma
 
     if self.precision == 'double':
         for i in range(self.n_components):
-            # ar_gmms64[i] = new GMM[double]()
             _setup_gmm(self.gmms[i], ar_gmms32[i], ar_gmms64[i])
             gmms64.push_back(ar_gmms64[i])
 
@@ -317,7 +323,9 @@ cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
                      <double*>_dT_ptr,
                      <int>lddt,
                      <double*>_dB_ptr,
-                     <int>lddb)
+                     <int>lddb,
+                     <double*>_dGamma_ptr,
+                     <int>lddgamma)
 
 class HiddenMarkovModel(_BaseHMM, _DevHMM):
     def __init__(self,
@@ -334,28 +342,8 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
                          random_state=random_state)
 
 
-    def fit(self, X, lengths=None):
-        self._set_dims(X)
-        self._initialize()
-        self._setup(X, lengths)
-
-        cdef HMM[float] hmm32
-        cdef HMM[double] hmm64
-        setup_hmm(self, hmm32, hmm64)
-
-        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
-        cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
-        cdef int nObs = self.nObs
-
-
-        for gmm in self.gmms :
-            gmm.init_step()
-
-        if self.dtype is "double" :
-            forward_f64(hmm64,
-                        <double*> _dX_ptr,
-                        <int*> _dlengths_ptr,
-                        <int> nObs)
+    def _fit(self, X, lengths=None):
+        pass
 
     def _initialize(self):
         # Align flatten, cast and copy to device
@@ -369,11 +357,16 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
             gmm._set_dims(nCl=self.nCl, nDim=self.nDim, nObs=self.nObs)
             gmm._initialize()
 
-    def _set_dims(self, X):
+    def _set_dims(self, X, lengths):
         self.nObs = X.shape[0]
         self.nDim = X.shape[1]
         self.nCl = self.n_mix
         self.nStates = self.n_components
+
+        if lengths is None :
+            self.n_seq = 1
+        else :
+            self.n_seq = lengths.shape[0]
 
     def _setup(self, X, lengths):
         self.dB = sample_matrix(self.n_components,
@@ -382,6 +375,10 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
                                 isColNorm=True)
         self.lddb = roundup(self.nCl, RUP_SIZE)
         self.dB = process_parameter(self.dB, self.lddb, self.dtype)
+
+        self.dGamma = np.zeros((self.nStates, self.nObs), dtype=self.dtype)
+        self.lddgamma = roundup(self.nStates, RUP_SIZE)
+        self.dGamma = process_parameter(self.dGamma, self.lddgamma, self.dtype)
 
         for gmm in self.gmms :
             gmm._setup(X)
@@ -397,3 +394,31 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
         # Check leading dimension
         lengths = lengths.astype(int)
         self.dlengths = cuda.to_device(lengths)
+
+    def _forward_backward(self, X, lengths, do_forward, do_backward):
+        self._set_dims(X, lengths)
+        self._initialize()
+        self._setup(X, lengths)
+
+        cdef HMM[float] hmm32
+        cdef HMM[double] hmm64
+        setup_hmm(self, hmm32, hmm64)
+
+        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
+        cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
+        cdef int nObs = self.nObs
+        cdef int nSeq = self.nSeq
+
+        cdef bool doForward = do_forward
+        cdef bool doBackward = do_backward
+
+        for gmm in self.gmms :
+            gmm.init_step()
+
+        if self.dtype is "double" :
+            forward_backward_f64(hmm64,
+                                   <double*> _dX_ptr,
+                                   <int*> _dlengths_ptr,
+                                   <int> nSeq,
+                                   <bool> doForward,
+                                   <bool> doBackward)

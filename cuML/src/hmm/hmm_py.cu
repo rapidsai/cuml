@@ -6,19 +6,20 @@ namespace hmm {
 void init_f64(HMM<double> &hmm,
               std::vector<gmm::GMM<double> > &gmms,
               int nStates,
-              double* dT, int lddt, double* dB, int lddb){
+              double* dT, int lddt,
+              double* dB, int lddb,
+              double* dGamma, int lddgamma){
         init(hmm, gmms, nStates,
-             dT, lddt, dB, lddb);
+             dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
 // void setup_f64(HMM<double> &hmm) {
 //         setup(hmm);
 // }
 
-void forward_f64(HMM<double>& hmm,
-                 double* dX,
-                 int* len_array,
-                 int nObs){
+void forward_backward_f64(HMM<double> &hmm,
+                          double* dX, int* dlenghts, int nSeq,
+                          bool doForward, bool doBackward){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -28,7 +29,7 @@ void forward_f64(HMM<double>& hmm,
         magma_queue_create(device, &queue);
         // workspaceCreate(hmm);
 
-        forward(dX, len_array, nObs, hmm, cublasHandle, queue);
+        _forward_backward(hmm, dX, dlenghts, nSeq, doForward, doBackward);
 
         // workspaceFree(hmm);
 

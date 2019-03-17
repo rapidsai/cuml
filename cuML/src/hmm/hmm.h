@@ -13,12 +13,17 @@ void init(HMM<T> &hmm,
           int nStates,
           T* dT, int lddt,
           T* dB, int lddb,
+          T* dGamma, int lddgamma
           ) {
 
         hmm.dT = dT;
         hmm.dB = dB;
+        hmm.dGamma = dGamma;
+
         hmm.lddt = lddt;
         hmm.lddb = lddb;
+        hmm.lddgamma = lddgamma;
+
         hmm.nStates = nStates;
         hmm.gmms = gmms;
 
@@ -43,24 +48,15 @@ void init(HMM<T> &hmm,
 // }
 
 template <typename T>
-void forward_backward(T* dX, int* dlenghts, int nSeq, HMM<T>& hmm,
+void forward_backward(HMM<T> &hmm,
+                      T* dX, int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
                       bool doForward, bool doBackward){
 
         _compute_emissions(dX, hmm, cublasHandle);
         _matrix_powers(hmm.nStates, hmm.dT_pows, gmm.max_len,
                        hmm.dT, hmm.lddt, queue);
-        if (doForward) {
-                _compute_cumprod(hmm.nDim,
-                                 hmm.dAlpha_array, hmm.lddalpha,
-                                 hmm.dB, lddb,
-                                 dlenghts, nSeq,
-                                 true);
-                _compute_states_distributions();
-                _forward_likelihood();
-        }
-        if (doBackward) {
-        }
+        _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
 }
 
 // template <typename T>

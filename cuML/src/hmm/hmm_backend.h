@@ -19,95 +19,99 @@ void _compute_emissions(T* dX, HMM<T>& hmm, cublasHandle_t cublasHandle){
 }
 
 template <typename T>
-void _compute_alphas(T* dX, HMM<T>& hmm, cublasHandle_t cublasHandle){
+void _matrix_powers(magma_int_t n, T** dA_pow_array, magma_int_t max_p,
+                    T* dA, magma_int_t ldda, magma_queue_t queue){
 
+        T alpha =1, beta=0;
+        dA_pow_array[0] = dA;
+        for (size_t p = 1; p < max_p; p++) {
+                magma_gemm ( MagmaNoTrans,
+                             MagmaNoTrans,
+                             n,
+                             n,
+                             n,
+                             alpha,
+                             dA_pow_array[i-1],
+                             ldda,
+                             dA,
+                             ldda,
+                             beta,
+                             dA_pow_array[i],
+                             ldda,
+                             queue
+                             )
+        }
 }
 
-// template <typename T>
-// __device__
-// void compute_max_states(int *dV_idx, int lddv,
-//                         T* dV, int lddv,
-//                         T* dAlpha, int lddalpha,
-//                         T* dT, int lddt,
-//                         int curStateId, int curTime
-//                         ){
-//
-//         T val, maxVal=0.;
-//         int maxValIdx;
-//
-//         for (size_t prevStateId = 0; prevStateId < nStates; prevStateId++) {
-//                 val = std::log(dT[IDX(prevStateId, curStateId, lddT)]) +
-//                       std::log(alphas[prevStateId]) +
-//                       std::log(B[curStateId]);
-//                 if (val > maxVal) {
-//                         maxVal = val;
-//                         maxValIdx = prevStateId;
-//                 }
-//         }
-//
-//         dV[stateId] = maxVal;
-//         dV_idx[IDX(curStateId, curTime, lddv)] = maxValIdx;
-// }
-//
-// template <typename T>
-// __device__
-// void compute_max_path(int *dV_idx, int lddv,
-//                       int* dMaxPath, int len,
-//                       T* dAlpha, int lddalpha){
-//         dMaxPath[len - 1] = arg_max(dAlpha + (len - 1) * lddalpha);
-//         for (i = len - 2; i >= 0; --i) {
-//                 max_path[i] = dV_idx[IDX(max_path[i+1], i, lddv)];
-//         }
-// }
-//
-//
-// template <typename T>
-// __global__
-// void viterbiKernel(int *dV_idx_array, int lddv,
-//                    T* dV_array, int lddv,
-//                    T* dAlpha_array, int lddalpha,
-//                    T* dT, int lddt,
-//                    int* dMaxPath_array, int len_array,
-//                    int nStates,
-//                    int nThreads_x, int nThreads_y
-//                    ){
-//         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-//         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
-//
-//         for (size_t bId = i_start; bId < batchCount; bId+=nThreads_x) {
-//                 for (size_t timeId = 0; timeId < len_array[bId]; timeId++) {
-//                         for (size_t stateId = j_start; stateId < nStates; stateId+=nThreads_y) {
-//                                 compute_max_states(dV_idx_array[bId], lddv,
-//                                                    dV_array[bId], lddv,
-//                                                    dAlpha_array[bId], lddalpha,
-//                                                    dT, lddt,
-//                                                    curStateId, timeId);
-//                                 compute_max_path(dV_idx_array[bId], lddv,
-//                                                  dMaxPath_array[bId], len,
-//                                                  dAlpha_array[bId], lddalpha);
-//                         }
-//                 }
-//
-//         }
-// }
-//
-// template <typename T>
-// _computeGammasKernel(){
-//         for (size_t obsId = 0; obsId < nObs; obsId++) {
-//                 for (size_t stateId = 0; stateId < nStates; stateId++) {
-//                         dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
-//                 }
-//
-//         }
-//
-// }
-//
-// template <typename T>
-// void compute_gammas(){
-//         forward();
-//         backward();
-//         // elementwise
-//         // Normalize
-// }
-//
+
+template <typename T>
+__device__
+T _prod(T x, T y){
+        return std::exp(std::log(x) + std::log(y));
+}
+
+template <typename T>
+__global__
+void _ForwardBackwardKernel(magma_int_t nStates,
+                            T** dSDists_array, magma_int_t lddsdist,
+                            T** dT_pows, magma_int_t lddt,
+                            T** dB_array, magma_int_t lddb,
+                            magma_int_t *dlenghts, magma_int_t n_seq,
+                            bool isForward,
+                            int numThreads_x, int numThreads_y){
+        int seqId_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int stateId_start = threadIdx.y + blockDim.y * blockIdx.y;
+        T cum_prod = 1;
+
+        for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
+                for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
+                        if (isForward) {
+                                for (size_t obsId = 0; obsId < lenghts[seqId]; obsId++) {
+                                        cum_prod = _prod(cum_prod, dB_array[seqId][IDX(stateId, obsId, lddb)]);
+                                        dO_array[seqId][IDX(stateId, obsId, lddo)] = cum_prod * dT_pows[obsId][IDX(0, stateId, lddt)];
+                                }
+                        }
+
+                }
+        }
+}
+
+template <typename T>
+void _forward_backward(HMM<T>& hmm,
+                       int* dlenghts, int nSeq,
+                       bool doForward, bool doBackward ){
+        dim3 block(32, 32, 1);
+        dim3 grid(ceildiv(hmm.nStates, (int)block.x),
+                  ceildiv(n_seq, (int)block.y),
+                  1);
+
+        int numThreads_x = grid.x * block.x;
+        int numThreads_y = grid.y * block.y;
+
+        if (doForward) {
+                _ForwardBackwardKernel<T> <<< grid, block >>>(hmm.nStates,
+                                                              hmm.dAlpha_array, hmm.lddalpha,
+                                                              hmm.dT_pows, hmm.lddt,
+                                                              hmm.dB_array, hmm.lddb,
+                                                              dlenghts, n_seq,
+                                                              true,
+                                                              numThreads_x, numThreads_y);
+        }
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
+template <typename T>
+_computeGammasKernel(){
+        for (size_t obsId = 0; obsId < nObs; obsId++) {
+                for (size_t stateId = 0; stateId < nStates; stateId++) {
+                        dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
+                }
+
+        }
+}
+
+
+
 }

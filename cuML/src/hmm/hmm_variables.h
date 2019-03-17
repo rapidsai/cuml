@@ -36,11 +36,9 @@ struct HMM {
         int nStates;
         std::vector<gmm::GMM<T> > gmms;
 
-        // Transition and emission matrixes
-        T *dT, *dB;
         // All dLlhd point to dGamma
-        T *dAlpha, *dBeta, *dGamma;
-        int lddt, lddb, lddalpha, lddbeta;
+        T *dT, *dB, *dAlpha, *dBeta, *dGamma;
+        int lddt, lddb, lddalpha, lddbeta, lddgamma;
 
         T **dAlpha_array, **dBeta_array, **dGamma_array;
 
@@ -51,7 +49,6 @@ struct HMM {
         int **dV_idx_array;
         T **dV_array;
         T **dT_pows;
-        int max_len;
 
         TrainOption train;
 };
