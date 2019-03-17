@@ -159,6 +159,7 @@ cdef class NearestNeighbors:
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
+        self.k = NULL
 
     def __dealloc__(self):
         del self.k
@@ -229,6 +230,9 @@ cdef class NearestNeighbors:
         """
         assert len(X.shape) == 2, 'data should be two dimensional'
 
+        if self.k != NULL:
+            del self.k
+
         n_dims = X.shape[1]
         self.k = new kNN(n_dims, verbose = self._verbose)
 
@@ -297,6 +301,10 @@ cdef class NearestNeighbors:
             a list of __cuda_array_interface__ dicts
         :return:
         """
+
+        if self.k != NULL:
+            del self.k
+
         self.k = new kNN(n_dims, verbose = self._verbose)
 
         del self.input
@@ -357,17 +365,24 @@ cdef class NearestNeighbors:
         I_ndarr = I_ndarr.reshape((N, k))
         D_ndarr = D_ndarr.reshape((N, k))
 
-        inds = cudf.DataFrame()
-        for i in range(0, I_ndarr.shape[1]):
-            inds[str(i)] = I_ndarr[:,i]
+        if isinstance(X, cudf.DataFrame):
+            inds = cudf.DataFrame()
+            for i in range(0, I_ndarr.shape[1]):
+                inds[str(i)] = I_ndarr[:,i]
 
-        dists = cudf.DataFrame()
-        for i in range(0, D_ndarr.shape[1]):
-            dists[str(i)] = D_ndarr[:,i]
+            dists = cudf.DataFrame()
+            for i in range(0, D_ndarr.shape[1]):
+                dists[str(i)] = D_ndarr[:,i]
 
-        if isinstance(X, np.ndarray):
-            inds = np.asarray(inds.as_gpu_matrix())
-            dists = np.asarray(dists.as_gpu_matrix())
+            return dists, inds
+
+        elif isinstance(X, np.ndarray):
+            inds = np.asarray(I_ndarr)
+            dists = np.asarray(D_ndarr)
+
+        del I_ndarr
+        del D_ndarr
+        del X_m
 
         return dists, inds
 

@@ -1,3 +1,17 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+- PR #277: Added row- and column-wise weighted mean primitive
+
+## Improvements
+
+- PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+
+## Bug Fixes
+
+- PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+
 # cuML 0.6.0 (Date TBD)
 
 ## New Features
@@ -55,8 +69,11 @@
 - PR #279: Removing faiss-gpu references in README
 - PR #321: Fix release script typo
 - PR #327: Update conda requirements for version 0.6 requirements
+- PR #352: Correctly calculating numpy chunk sizing for kNN
 - PR #345: Run python import as part of package build to trigger compilation
-- PR #351: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
+- PR #351: Fixing issues with very large numpy inputs to SPMG OLS and tSVD
+- PR #347: Lowering memory usage of kNN.  
+
 
 # cuML 0.5.1 (05 Feb 2019)
 
