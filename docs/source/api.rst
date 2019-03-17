@@ -2,42 +2,46 @@ cuML API Reference
 ====================
 
 Linear Regression
------------------
+------------------
 
 .. autoclass:: cuml.LinearRegression
     :members:
 
+
 Ridge Regression
 -----------------
 
-.. autoclass:: cuml.RidgeRegression
+.. autoclass:: cuml.Ridge
     :members:
 
-Kalman Filter
--------------
 
-.. autoclass:: cuml.KalmanFilter
+Stochastic Gradient Descent
+----------------------------
+
+.. autoclass:: cuml.SGD
     :members:
 
-.. currentmodule:: cuml.DBSCAN
 
-K-Nearest Neighbors
--------------------
+Nearest Neighbors
+--------------------
 
-.. autoclass:: cuml.KNN
+.. autoclass:: cuml.NearestNeighbors
     :members:
 
-K-Means
--------
+
+K-Means Clustering
+--------------------
 
 .. autoclass:: cuml.KMeans
     :members:
 
+
 DBSCAN
-------
+-------
 
 .. autoclass:: cuml.DBSCAN
     :members:
+
 
 Kalman Filter
 -------------
@@ -45,14 +49,23 @@ Kalman Filter
 .. autoclass:: cuml.KalmanFilter
     :members:
 
-PCA
----
+
+Principal Component Analysis
+-----------------------------
 
 .. autoclass:: cuml.PCA
     :members:
 
+
 Truncated SVD
--------------
+--------------
 
 .. autoclass:: cuml.TruncatedSVD
+    :members:
+
+
+UMAP
+-------------
+
+.. autoclass:: cuml.UMAP
     :members:
