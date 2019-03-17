@@ -11,7 +11,8 @@ template <typename T>
 void init(HMM<T> &hmm,
           std::vector<gmm::GMM<T> > &gmms,
           int nStates,
-          T* dT, int lddt, T* dB, int lddb
+          T* dT, int lddt,
+          T* dB, int lddb,
           ) {
 
         hmm.dT = dT;
@@ -21,13 +22,16 @@ void init(HMM<T> &hmm,
         hmm.nStates = nStates;
         hmm.gmms = gmms;
 
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                gmm.gmms[stateId] = hmm.dB + nObs * stateId;
+        }
 }
 
 // template <typename T>
 // void setup(){
 //
 // }
-//
+
 // template <typename T>
 // void createPassWs(HMM<T> &hmm) {
 //         allocate(hmm.dGamma, hmm.lddgamma * hmm.nStates);
@@ -37,38 +41,28 @@ void init(HMM<T> &hmm,
 // void freePassWs(HMM<T> &hmm) {
 //
 // }
-//
-// template <typename T>
-// void forward(T* dX, int* len_array, HMM<T>& hmm,
-//              cublasHandle_t cublasHandle, magma_queue_t queue){
-//
-//         _compute_emissions();
-//
-//         // Set up the batches
-//         _create_batches();
-//
-//         for (size_t t = 0; t < max_len; t++) {
-//                 step();
-//         }
-//
-//         _forward_likelihood();
-// }
-//
-// template <typename T>
-// void backward(T* dX, int* len_array, HMM<T>& hmm,
-//               cublasHandle_t cublasHandle, magma_queue_t queue){
-//         _compute_emissions();
-//
-//         // Set up the batches
-//         _create_batches();
-//
-//         for (size_t t = 0; t < max_len; t++) {
-//                 step();
-//         }
-//
-//         _backward_likelihood();
-// }
-//
+
+template <typename T>
+void forward_backward(T* dX, int* dlenghts, int nSeq, HMM<T>& hmm,
+                      cublasHandle_t cublasHandle, magma_queue_t queue,
+                      bool doForward, bool doBackward){
+
+        _compute_emissions(dX, hmm, cublasHandle);
+        _matrix_powers(hmm.nStates, hmm.dT_pows, gmm.max_len,
+                       hmm.dT, hmm.lddt, queue);
+        if (doForward) {
+                _compute_cumprod(hmm.nDim,
+                                 hmm.dAlpha_array, hmm.lddalpha,
+                                 hmm.dB, lddb,
+                                 dlenghts, nSeq,
+                                 true);
+                _compute_states_distributions();
+                _forward_likelihood();
+        }
+        if (doBackward) {
+        }
+}
+
 // template <typename T>
 // void createViterbiWs(){
 //         allocate(hmm.dV_ptr_array, hmm.lddv * hmm.max_len, hmm.nObs);

@@ -8,11 +8,11 @@ void init_f64(HMM<double> &hmm,
               int nStates,
               double* dT, int lddt, double* dB, int lddb);
 
-// void forward_f32(HMM<float>& hmm,
-//                  float* dX,
-//                  int* len_array,
-//                  int nObs);
-//
+void forward_f64(HMM<double>& hmm,
+                 double* dX,
+                 int* len_array,
+                 int nObs);
+
 // void backward_f32(HMM<float>& hmm,
 //                   float* dX,
 //                   int* len_array,

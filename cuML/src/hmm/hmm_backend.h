@@ -1,24 +1,28 @@
-// #pragma once
+#pragma once
+
+#include "hmm/hmm_utils.h"
+#include "hmm/gmm.h"
+#include "hmm/hmmprims.h"
+
+// References :
+// http://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf
 //
-// #include "hmm/hmm_utils.h"
-//
-// // References :
-// // http://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf
-// //
-//
-// namespace hmm {
-// template <typename T>
-// void _compute_emissions(T* dX, int* len_array, HMM<T>& hmm){
-//         // Compute the emissions likelihoods B
-//         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-//                 // TODO : Change the API to compute the batches in the backend
-//                 _likelihood_batched();
-//                 _compute_likelihood();
-//         }
-// }
-//
-//
-//
+
+namespace hmm {
+template <typename T>
+void _compute_emissions(T* dX, HMM<T>& hmm, cublasHandle_t cublasHandle){
+        // Compute the emissions likelihoods B
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                gmm::update_llhd(dX, hmm.gmms[stateId], cublasHandle);
+                // Stores the likelihoods in dProbNorm which points to dB + offset
+        }
+}
+
+template <typename T>
+void _compute_alphas(T* dX, HMM<T>& hmm, cublasHandle_t cublasHandle){
+
+}
+
 // template <typename T>
 // __device__
 // void compute_max_states(int *dV_idx, int lddv,
@@ -106,4 +110,4 @@
 //         // Normalize
 // }
 //
-// }
+}

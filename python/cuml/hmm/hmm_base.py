@@ -29,8 +29,6 @@ class _BaseGMM(_BaseCUML):
     def initialize(self):
         pass
 
-
-
 class _BaseHMM(_BaseCUML):
     def __init__(self,
                  n_components,
@@ -73,15 +71,37 @@ class _BaseHMM(_BaseCUML):
     # def score_samples(self, X, lengths=None):
     #     pass
 
-    @property
-    def means_(self):
+    def _get_means(self):
         return np.array([gmm.means_ for gmm in self.gmms])
 
-    @property
-    def covars_(self):
+    def _set_means(self, means):
+        for i in range(len(means.shape[0])):
+            self.gmms[i].set_means(means[i])
+
+    def _get_covars(self):
         return np.array([gmm.covariances_ for gmm in self.gmms])
 
-    @property
-    def weights_(self):
+    def _set_covars(self, covars):
+        for i in range(len(covars.shape[0])):
+            self.gmms[i].set_means(covars[i])
+
+    def _get_weights(self):
         return np.array([gmm.weights_ for gmm in self.gmms])
 
+    def _set_weights(self, weights):
+        for i in range(len(weights.shape[0])):
+            self.gmms[i].set_means(weights[i])
+
+    def _get_transmat(self):
+        T = self.dT.copy_to_host()
+        T = deallign(T, self.nStates, self.nStates, self.lddt)
+        return T
+
+    def _set_transmat(self, transmat):
+        for i in range(len(transmat.shape[0])):
+            self.gmms[i].set_means(transmat[i])
+
+    means_ = property(_get_means, _set_means)
+    covars_ = property(_get_covars, _set_covars)
+    weights_ = property(_get_weights, _set_weights)
+    transmat_ = property(_get_transmat, _set_transmat)

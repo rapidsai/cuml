@@ -11,6 +11,7 @@ from libcpp.vector cimport vector
 from cuml.hmm.sample_utils import *
 from cuml.hmm.gmm_base import _BaseGMM
 from cuml.hmm.hmm_base import _BaseHMM
+from cuml.hmm.devtools import _DevHMM
 
 
 
@@ -83,9 +84,11 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                        double* dT,
                        int lddt,
                        double* dB,
-                       int lddb
-                       )
-
+                       int lddb)
+    cdef void forward_f64(HMM[double] &hmm,
+                          double* dX,
+                          int* lengths,
+                          int nObs)
 
 
 RUP_SIZE = 32
@@ -152,11 +155,11 @@ cdef _setup_gmm(self, GMM[float]& gmm32, GMM[double]& gmm64, toAllocate=True):
                      <int> nObs)
     if toAllocate :
         if self.precision == 'single':
-                with nogil:
-                    setup_f32(gmm32)
+            with nogil:
+                setup_f32(gmm32)
         if self.precision == 'double':
-                with nogil:
-                    setup_f64(gmm64)
+            with nogil:
+                setup_f64(gmm64)
 
 
 class GaussianMixture(_BaseGMM):
@@ -233,34 +236,34 @@ class GaussianMixture(_BaseGMM):
             self.nObs = X.shape[0]
 
     def _initialize(self):
-            self.ldd = {"mus" : roundup(self.nDim, RUP_SIZE),
-                        "sigmas" : roundup(self.nDim, RUP_SIZE),
-                        "pis" : roundup(self.nCl, RUP_SIZE),
-                        "inv_pis" : roundup(self.nCl, RUP_SIZE)}
+        self.ldd = {"mus" : roundup(self.nDim, RUP_SIZE),
+                    "sigmas" : roundup(self.nDim, RUP_SIZE),
+                    "pis" : roundup(self.nCl, RUP_SIZE),
+                    "inv_pis" : roundup(self.nCl, RUP_SIZE)}
 
-            params = dict({"mus" : np.zeros((self.ldd["mus"], self.nCl)),
-                           "sigmas" : np.zeros((self.ldd["sigmas"] * self.nDim, self.nCl)),
-                           "pis" : np.zeros((self.ldd["pis"], 1)),
-                           "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
+        params = dict({"mus" : np.zeros((self.ldd["mus"], self.nCl)),
+                       "sigmas" : np.zeros((self.ldd["sigmas"] * self.nDim, self.nCl)),
+                       "pis" : np.zeros((self.ldd["pis"], 1)),
+                       "inv_pis" : np.zeros((self.ldd["inv_pis"], 1))})
 
-            params = align_parameters(params, self.ldd)
-            params = flatten_parameters(params)
-            params = cast_parameters(params, self.dtype)
-            self.dParams = dict(
-                (key, cuda.to_device(params[key])) for key in self.ldd.keys())
-            self.cur_llhd = cuda.to_device(np.zeros(1, dtype=self.dtype))
+        params = align_parameters(params, self.ldd)
+        params = flatten_parameters(params)
+        params = cast_parameters(params, self.dtype)
+        self.dParams = dict(
+            (key, cuda.to_device(params[key])) for key in self.ldd.keys())
+        self.cur_llhd = cuda.to_device(np.zeros(1, dtype=self.dtype))
 
     def _setup(self, X):
-            self.dX = X.T
-            self.dLlhd = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
-            self.dLlhd = self.dLlhd.T
+        self.dX = X.T
+        self.dLlhd = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
+        self.dLlhd = self.dLlhd.T
 
-            self.lddx = roundup(self.nDim, RUP_SIZE)
-            self.lddllhd = roundup(self.nCl, RUP_SIZE)
+        self.lddx = roundup(self.nDim, RUP_SIZE)
+        self.lddllhd = roundup(self.nCl, RUP_SIZE)
 
-            # Align flatten, cast and copy to device
-            self.dX = process_parameter(self.dX, self.lddx, self.dtype)
-            self.dLlhd = process_parameter(self.dLlhd, self.lddllhd, self.dtype)
+        # Align flatten, cast and copy to device
+        self.dX = process_parameter(self.dX, self.lddx, self.dtype)
+        self.dLlhd = process_parameter(self.dLlhd, self.lddllhd, self.dtype)
 
     def fit(self, X):
         if self.warm_start :
@@ -301,7 +304,6 @@ cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
     cdef int lddt = self.lddt
     cdef int lddb = self.lddb
 
-
     if self.precision == 'double':
         for i in range(self.n_components):
             # ar_gmms64[i] = new GMM[double]()
@@ -317,7 +319,7 @@ cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
                      <double*>_dB_ptr,
                      <int>lddb)
 
-class HiddenMarkovModel(_BaseHMM):
+class HiddenMarkovModel(_BaseHMM, _DevHMM):
     def __init__(self,
                  n_components,
                  n_mix,
@@ -327,19 +329,33 @@ class HiddenMarkovModel(_BaseHMM):
         pass
 
         super().__init__(n_components=n_components,
-                 n_mix=n_mix,
-                 precision=precision,
+                         n_mix=n_mix,
+                         precision=precision,
                          random_state=random_state)
 
 
     def fit(self, X, lengths=None):
         self._set_dims(X)
         self._initialize()
-        self._setup(X)
+        self._setup(X, lengths)
 
         cdef HMM[float] hmm32
         cdef HMM[double] hmm64
         setup_hmm(self, hmm32, hmm64)
+
+        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
+        cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
+        cdef int nObs = self.nObs
+
+
+        for gmm in self.gmms :
+            gmm.init_step()
+
+        if self.dtype is "double" :
+            forward_f64(hmm64,
+                        <double*> _dX_ptr,
+                        <int*> _dlengths_ptr,
+                        <int> nObs)
 
     def _initialize(self):
         # Align flatten, cast and copy to device
@@ -359,12 +375,25 @@ class HiddenMarkovModel(_BaseHMM):
         self.nCl = self.n_mix
         self.nStates = self.n_components
 
-    def _setup(self, X):
+    def _setup(self, X, lengths):
         self.dB = sample_matrix(self.n_components,
                                 self.nObs * self.nCl,
                                 random_state=self.random_state,
                                 isColNorm=True)
         self.lddb = roundup(self.nCl, RUP_SIZE)
         self.dB = process_parameter(self.dB, self.lddb, self.dtype)
+
         for gmm in self.gmms :
             gmm._setup(X)
+
+        self.dX = X.T
+        self.lddx = roundup(self.nDim, RUP_SIZE)
+        # Align flatten, cast and copy to device
+        self.dX = process_parameter(self.dX, self.lddx, self.dtype)
+
+        # Process lengths
+        if lengths is None :
+            lengths = np.array([self.nObs])
+        # Check leading dimension
+        lengths = lengths.astype(int)
+        self.dlengths = cuda.to_device(lengths)

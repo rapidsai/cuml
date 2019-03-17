@@ -50,6 +50,8 @@ struct HMM {
 
         int **dV_idx_array;
         T **dV_array;
+        T **dT_pows;
+        int max_len;
 
         TrainOption train;
 };

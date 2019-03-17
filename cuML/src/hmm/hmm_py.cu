@@ -11,29 +11,29 @@ void init_f64(HMM<double> &hmm,
              dT, lddt, dB, lddb);
 }
 
-// void setup_f32(HMM<float> &hmm) {
-//         setup_hmm(hmm);
+// void setup_f64(HMM<double> &hmm) {
+//         setup(hmm);
 // }
-//
-// void forward_f32(HMM<float>& hmm,
-//                  float* dX,
-//                  int* len_array,
-//                  int nObs){
-//
-//         cublasHandle_t cublasHandle;
-//         CUBLAS_CHECK(cublasCreate(&cublasHandle));
-//
-//         int device = 0;
-//         magma_queue_t queue;
-//         magma_queue_create(device, &queue);
-//         workspaceCreate(hmm);
-//
-//         forward(dX, len_array, hmm, nObs, cublasHandle, queue);
-//
-//         workspaceFree(hmm);
-//
-// }
-//
+
+void forward_f64(HMM<double>& hmm,
+                 double* dX,
+                 int* len_array,
+                 int nObs){
+
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+        // workspaceCreate(hmm);
+
+        forward(dX, len_array, nObs, hmm, cublasHandle, queue);
+
+        // workspaceFree(hmm);
+
+}
+
 // void backward_f32(HMM<float>& hmm,
 //                   float* dX,
 //                   int* len_array,
