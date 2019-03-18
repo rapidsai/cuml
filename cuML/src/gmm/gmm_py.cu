@@ -1,5 +1,5 @@
-#include "hmm/gmm.h"
-#include "hmm/gmm_py.h"
+#include "gmm/gmm.h"
+#include "gmm/gmm_py.h"
 
 namespace gmm {
 

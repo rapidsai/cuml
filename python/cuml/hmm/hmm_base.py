@@ -73,6 +73,7 @@ class _BaseHMM(_BaseCUML):
         posteriors = self.predict_proba(X, lengths)
         return logprob, posteriors
 
+    # TODO : Fix setters
     def _get_means(self):
         return np.array([gmm.means_ for gmm in self.gmms])
 
@@ -103,7 +104,16 @@ class _BaseHMM(_BaseCUML):
         for i in range(len(transmat.shape[0])):
             self.gmms[i].set_means(transmat[i])
 
+    def _get_gamma(self):
+        gamma = self.dGamma.copy_to_host()
+        gamma = deallign(gamma, self.nStates, self.nObs, self.lddgamma)
+        return gamma
+
+    def _set_gamma(self, gamma):
+        pass
+
     means_ = property(_get_means, _set_means)
     covars_ = property(_get_covars, _set_covars)
     weights_ = property(_get_weights, _set_weights)
     transmat_ = property(_get_transmat, _set_transmat)
+    _gamma_ = property(_get_gamma, _set_gamma)

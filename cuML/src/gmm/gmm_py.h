@@ -1,5 +1,5 @@
 #pragma once
-#include "hmm/hmm_variables.h"
+#include "gmm/gmm_variables.h"
 
 namespace gmm {
 

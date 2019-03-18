@@ -103,7 +103,7 @@ void _forward_backward(HMM<T>& hmm,
 
 
 template <typename T>
-_computeGammasKernel(){
+_updateGammasKernel(){
         for (size_t obsId = 0; obsId < nObs; obsId++) {
                 for (size_t stateId = 0; stateId < nStates; stateId++) {
                         dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
@@ -111,6 +111,8 @@ _computeGammasKernel(){
 
         }
 }
+
+
 
 
 

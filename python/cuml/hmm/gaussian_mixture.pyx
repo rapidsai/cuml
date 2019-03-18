@@ -15,11 +15,11 @@ from cuml.hmm.devtools import _DevHMM
 
 
 
-cdef extern from "hmm/hmm_variables.h" namespace "gmm":
+cdef extern from "gmm/gmm_variables.h" namespace "gmm":
     cdef cppclass GMM[T]:
         pass
 
-cdef extern from "hmm/gmm_py.h" namespace "gmm" nogil:
+cdef extern from "gmm/gmm_py.h" namespace "gmm" nogil:
 
     cdef void init_f32(GMM[float]&,
                        float*,

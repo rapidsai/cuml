@@ -11,6 +11,8 @@ void init_f64(HMM<double> &hmm,
               double* dGamma, int lddgamma
               );
 
+void setup_f64(HMM<double> &hmm);
+
 void forward_backward_f64(HMM<double> &hmm,
                           double* dX, int* dlenghts, int nSeq,
                           bool doForward, bool doBackward);
