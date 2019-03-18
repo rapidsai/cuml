@@ -136,7 +136,7 @@ To ensure that thrust algorithms are executed in the intended stream the `thrust
 
 ## CUDA Resources
 
-Do not create reusable CUDA resources directly in Implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
+Do not create reusable CUDA resources directly in implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
 The resources can be obtained like this
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ...)
