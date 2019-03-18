@@ -76,6 +76,7 @@
 - PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
 - PR #357: Removing FAISS requirement from README
 - PR #362: Fix for matVecOp crashing on large input sizes
+- PR #366: Index arithmetic issue fix with TxN_t class
 
 
 # cuML 0.5.1 (05 Feb 2019)
