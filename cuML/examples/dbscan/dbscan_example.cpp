@@ -23,12 +23,10 @@
 #include <map>
 #include <cuda_runtime.h>
 
-// #define HAVE_CUB
 #ifdef HAVE_CUB
 #include <cub/util_allocator.cuh>
 #endif //HAVE_CUB
 
-#define HAVE_RMM
 #ifdef HAVE_RMM
 #include <rmm/rmm.h>
 #include <common/rmmAllocatorAdapter.hpp>
