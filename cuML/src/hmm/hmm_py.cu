@@ -35,25 +35,22 @@ void forward_backward_f64(HMM<double> &hmm,
 
 }
 
+void viterbi_f64(HMM<double>& hmm,
+                 int* dStates, int* dlenghts, int nSeq){
 
-// void viterbi_f32(HMM<float>& hmm,
-//                  float* dX,
-//                  int* len_array,
-//                  int nObs){
-//
-//         cublasHandle_t cublasHandle;
-//         CUBLAS_CHECK(cublasCreate(&cublasHandle));
-//
-//         int device = 0;
-//         magma_queue_t queue;
-//         magma_queue_create(device, &queue);
-//         workspaceCreate(hmm);
-//
-//         viterbi(dX, len_array, hmm, nObs, cublasHandle, queue);
-//
-//         workspaceFree(hmm);
-// }
-//
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+        // workspaceCreate(hmm);
+
+        viterbi(hmm, dStates, dlenghts, nSeq);
+
+        // workspaceFree(hmm);
+}
+
 // void em_f32(HMM<float>& hmm,
 //             float* dX,
 //             int* len_array,

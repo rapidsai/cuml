@@ -17,3 +17,6 @@ void forward_backward_f64(HMM<double> &hmm,
                           double* dX, int* dlenghts, int nSeq,
                           bool doForward, bool doBackward);
 }
+
+void viterbi_f64(HMM<double>& hmm,
+                 int* dStates, int* dlenghts, int nSeq);

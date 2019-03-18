@@ -2,8 +2,9 @@
 
 #include <stdlib.h>
 
-#include "hmm/gmm.h"
-#include "hmm/hmm_backend.h"
+#include "gmm/gmm.h"
+#include "hmm/forward_backward.h"
+#include "hmm/viterbi.h"
 
 namespace hmm {
 
@@ -92,7 +93,7 @@ void update_gammas(HMM<T> &hmm,
 
 template <typename T>
 void viterbi(HMM<T>& hmm,
-             int* dMaxPath_array, int len_array){
+             int* dStates, int* dlenghts, int nSeq){
 
         // TODO : Fix the block grid sizes projectwise
 

@@ -7,10 +7,6 @@ using namespace MLCommon::LinAlg;
 namespace hmm {
 
 
-}
-
-
-
 template <typename T>
 __device__
 void compute_max_states(int *dV_idx, int lddv,
@@ -77,6 +73,9 @@ void viterbiKernel(int *dV_idx_array, int lddv,
                 }
 
         }
+
+
+}
 
 
 }
