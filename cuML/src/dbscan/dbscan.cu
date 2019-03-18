@@ -40,7 +40,7 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 };
 // end namespace ML
 // TODO: Move these interface functions to correct place
-extern "C" cumlError_t spDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
+extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
 
     cumlError_t status = CUML_SUCCESS;
@@ -63,7 +63,7 @@ extern "C" cumlError_t spDbscanFit(cumlHandle_t handle, float *input, int n_rows
 
 }
 
-extern "C" cumlError_t dpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
+extern "C" cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
                int *labels) {
     cumlError_t status = CUML_SUCCESS;
     try
