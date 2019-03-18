@@ -170,10 +170,6 @@ int main(int argc, char * argv[])
     int minPts = get_argval<int>(argv, argv+argc, "-min_pts", 3);
     float eps = get_argval<float>(argv, argv+argc, "-eps", 1.0f);
 
-    int *d_labels = nullptr;
-    std::vector<float> h_inputData;
-    float *d_inputData = nullptr;
-
     {
         cudaError_t cudaStatus = cudaSuccess;
         cudaStatus = cudaSetDevice( devId );
@@ -196,7 +192,6 @@ int main(int argc, char * argv[])
 
     ML::cumlHandle cumlHandle;
 
-
 #ifdef HAVE_RMM
     rmmOptions_t rmmOptions;
     rmmOptions.allocation_mode = PoolAllocation;
@@ -218,6 +213,7 @@ int main(int argc, char * argv[])
     cudaStream_t stream;
     CUDA_RT_CALL( cudaStreamCreate( &stream ) );
     cumlHandle.setStream( stream );
+    std::vector<float> h_inputData;
 
     if(input == "")
     {
@@ -266,6 +262,9 @@ int main(int argc, char * argv[])
     }
 
     std::vector<int> h_labels(nRows);
+    int *d_labels = nullptr;
+    float *d_inputData = nullptr;
+
     CUDA_RT_CALL( cudaMalloc(&d_labels, nRows*sizeof(int)) );
     CUDA_RT_CALL( cudaMalloc(&d_inputData, nRows*nCols*sizeof(float)) );
     CUDA_RT_CALL( cudaMemcpyAsync(d_inputData, h_inputData.data(), 
