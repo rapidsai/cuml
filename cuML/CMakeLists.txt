@@ -120,7 +120,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 
 ## other compiler options
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 if(NOT CMAKE_CXX11_ABI)
         message(STATUS "Disabling the GLIBCXX11 ABI")
