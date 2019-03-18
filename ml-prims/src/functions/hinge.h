@@ -35,10 +35,9 @@
 namespace MLCommon {
 namespace Functions {
 
-template <typename math_t>
-void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2, int n_row, int n_col) {
-
-
+template <typename math_t, typename idx_type = int>
+void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2,
+                       idx_type n_row, idx_type n_col) {
 	LinAlg::matrixVectorOp(data, data, vec1, vec2, n_col, n_row, false, true,
 		        		       [] __device__ (math_t a, math_t b, math_t c) {
 		                              if (c < math_t(1))
