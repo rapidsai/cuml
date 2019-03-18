@@ -77,6 +77,8 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVerte
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
     MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
     MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    cudaStreamSynchronize(stream);
+
     Type cluster = Type(1);
     for(int i=0; i<N; i++) { 
         if((!host_visited[i]) && host_core_pts[i]) {
