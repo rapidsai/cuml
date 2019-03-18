@@ -317,5 +317,6 @@ int main(int argc, char * argv[])
 
     CUDA_RT_CALL( cudaFree(d_labels) );
     CUDA_RT_CALL( cudaFree(d_inputData) );
+    CUDA_RT_CALL( cudaDeviceSynchronize() );
     return 0;
 }
