@@ -20,13 +20,23 @@
 # cython: language_level = 3
 
 
+from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
 
 cdef extern from "cuML.hpp" namespace "ML" nogil:
+    cdef cppclass deviceAllocator:
+        pass
+
     cdef cppclass cumlHandle:
         cumlHandle() except +
         void setStream(cuml.common.cuda._Stream s)
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
+
+
+cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
+    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
+        pass
 
 
 # TODO: name this properly!
@@ -66,3 +76,15 @@ cdef class Handle:
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()
         self.h.setStream(<cuml.common.cuda._Stream>s)
+
+    # TODO: in future, maybe we should just enable RMM by default!?
+    def enableRMM(self):
+        """
+        Enables to use RMM as the allocator for all device memory allocations
+        inside cuML C++ world. Currently, there are only 2 kinds of allocators.
+        First, the usual cudaMalloc/Free, which is the default for cumlHandle.
+        Second, the allocator based on RMM. So, this function, basically makes
+        the cumlHandle use a more efficient allocator, instead of the default.
+        """
+        cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
+        self.h.setDeviceAllocator(rmmAlloc)

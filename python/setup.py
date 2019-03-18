@@ -34,6 +34,14 @@ if os.environ.get('CUDA_HOME', False):
     cuda_lib_dir = os.path.join(os.environ.get('CUDA_HOME'), 'lib64')
     cuda_include_dir = os.path.join(os.environ.get('CUDA_HOME'), 'include')
 
+rmm_include_dir = '/include'
+rmm_lib_dir = '/lib'
+
+if os.environ.get('CONDA_PREFIX', None):
+    conda_prefix = os.environ.get('CONDA_PREFIX')
+    rmm_include_dir = os.path.join(conda_prefix, rmm_include_dir)
+    rmm_lib_dir = os.path.join(conda_prefix, rmm_lib_dir)
+
 extensions = [
     Extension("*",
               sources=['cuml/*/*.pyx'],
@@ -43,10 +51,12 @@ extensions = [
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
                             '../cuML/external/ml-prims/external/cub',
-                            cuda_include_dir],
+                            cuda_include_dir,
+                            rmm_include_dir],
               library_dirs=[get_python_lib()],
-              runtime_library_dirs=[cuda_lib_dir],
-              libraries=['cuda', 'cuml'],
+              runtime_library_dirs=[cuda_lib_dir,
+                                    rmm_lib_dir],
+              libraries=['cuda', 'cuml', 'rmm'],
               language='c++',
               extra_compile_args=['-std=c++11'])
 ]
