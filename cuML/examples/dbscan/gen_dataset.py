@@ -28,6 +28,10 @@ parser.add_argument('-nc', '--num_clusters', type=int, default=15, \
                     help='Number of clusters (default 15)')
 parser.add_argument('--filename_prefix', type=str, default='synthetic', \
                     help='Prefix used for output dataset file (default synthetic)')
+parser.add_argument('-sd', '--standard_dev' type=str, default=0.1, \
+                    help='Standard deviation of samples generated')
+parser.add_argument('-st', '--random_state' type=str, default=123456, \
+                    help='Standard deviation of samples generated')
 
 args = parser.parse_args()
 
@@ -36,7 +40,8 @@ datasetFile = '%s-%dx%d-clusters-%d.txt' \
                  args.num_clusters)
 
 X, _ = make_blobs(n_samples=args.num_samples, n_features=args.num_features, \
-                  centers=args.num_clusters, cluster_std=0.1, random_state=123456)
+                  centers=args.num_clusters, cluster_std=arg.standard_dev, \
+                  random_state=arg.random_state)
 
 
 fp = open(datasetFile, 'w')
