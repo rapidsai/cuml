@@ -39,7 +39,6 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 
 };
 // end namespace ML
-// TODO: Move these interface functions to correct place
 extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
 
