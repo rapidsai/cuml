@@ -23,7 +23,7 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
+template <typename T, typename IdxType>
 struct MatVecOpInputs {
   T tolerance;
   int rows, cols;
@@ -31,18 +31,19 @@ struct MatVecOpInputs {
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const MatVecOpInputs<T> &dims) {
+template <typename T, typename IdxType>
+::std::ostream &operator<<(::std::ostream &os,
+                           const MatVecOpInputs<T, IdxType> &dims) {
   return os;
 }
 
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename T>
+template <typename T, typename IdxType>
 void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
-                          int D, int N, bool rowMajor, bool bcastAlongRows,
-                          bool useTwoVectors) {
+                          IdxType D, IdxType N, bool rowMajor,
+                          bool bcastAlongRows, bool useTwoVectors) {
   if(useTwoVectors) {
     matrixVectorOp(out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
                    [] __device__(T a, T b, T c) { return a + b + c; });
@@ -52,18 +53,19 @@ void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
   }
 }
 
-template <typename T>
-class MatVecOpTest : public ::testing::TestWithParam<MatVecOpInputs<T>> {
+template <typename T, typename IdxType>
+class MatVecOpTest :
+  public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
 protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<MatVecOpInputs<T>>::GetParam();
+      params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
-    int N = params.rows, D = params.cols;
-    int len = N * D;
+    IdxType N = params.rows, D = params.cols;
+    IdxType len = N * D;
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    int vecLen = params.bcastAlongRows ? D : N;
+    IdxType vecLen = params.bcastAlongRows ? D : N;
     allocate(vec1, vecLen);
     allocate(vec2, vecLen);
     r.uniform(in, len, (T)-1.0, (T)1.0);
@@ -89,12 +91,12 @@ protected:
   }
 
 protected:
-  MatVecOpInputs<T> params;
+  MatVecOpInputs<T, IdxType> params;
   T *in, *out, *out_ref, *vec1, *vec2;
 };
 
 
-const std::vector<MatVecOpInputs<float>> inputsf = {
+const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
   {0.00001f, 1024, 32, true, true, false, 1234ULL},
   {0.00001f, 1024, 64, true, true, false, 1234ULL},
   {0.00001f, 1024, 32, true, false, false, 1234ULL},
@@ -112,16 +114,28 @@ const std::vector<MatVecOpInputs<float>> inputsf = {
   {0.00001f, 1024, 64, false, true, true, 1234ULL},
   {0.00001f, 1024, 32, false, false, true, 1234ULL},
   {0.00001f, 1024, 64, false, false, true, 1234ULL}};
-typedef MatVecOpTest<float> MatVecOpTestF;
-TEST_P(MatVecOpTestF, Result) {
+typedef MatVecOpTest<float, int> MatVecOpTestF_i32;
+TEST_P(MatVecOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
+                        ::testing::ValuesIn(inputsf_i32));
 
 
-const std::vector<MatVecOpInputs<double>> inputsd = {
+const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
+  {0.00001f, 2500000, 250, false, false, false, 1234ULL},
+  {0.00001f, 2500000, 250, false, false, true, 1234ULL}};
+typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
+TEST_P(MatVecOpTestF_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64,
+                        ::testing::ValuesIn(inputsf_i64));
+
+
+const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
   {0.0000001, 1024, 32, true, true, false, 1234ULL},
   {0.0000001, 1024, 64, true, true, false, 1234ULL},
   {0.0000001, 1024, 32, true, false, false, 1234ULL},
@@ -139,13 +153,25 @@ const std::vector<MatVecOpInputs<double>> inputsd = {
   {0.0000001, 1024, 64, false, true, true, 1234ULL},
   {0.0000001, 1024, 32, false, false, true, 1234ULL},
   {0.0000001, 1024, 64, false, false, true, 1234ULL}};
-typedef MatVecOpTest<double> MatVecOpTestD;
-TEST_P(MatVecOpTestD, Result) {
+typedef MatVecOpTest<double, int> MatVecOpTestD_i32;
+TEST_P(MatVecOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
+                        ::testing::ValuesIn(inputsd_i32));
+
+
+const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
+  {0.0000001, 2500000, 250, false, false, false, 1234ULL},
+  {0.0000001, 2500000, 250, false, false, true, 1234ULL}};
+typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
+TEST_P(MatVecOpTestD_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
+                        ::testing::ValuesIn(inputsd_i64));
 
 } // end namespace LinAlg
 } // end namespace MLCommon
