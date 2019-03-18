@@ -75,9 +75,9 @@ void printUsage()
               << "    dbscan_example [-dev_id <GPU id>]" << std::endl
               << "For other cases:" << std::endl
               << "    dbscan_example [-dev_id <GPU id>] -input <samples-file> "
-              << "-num_samples <numer of samples> -num_features <number of features> "
-              << "[-min_pts <minimum number of points in a cluster>] "
-              << "[-eps <maximum distance between any two points of a cluster>] "
+              << "-num_samples <number of samples> -num_features <number of features> "
+              << "[-min_pts <minimum number of samples in a cluster>] "
+              << "[-eps <maximum distance between any two samples of a cluster>] "
               << std::endl;
     return;
 }
@@ -313,7 +313,7 @@ int main(int argc, char * argv[])
     }
 
     std::cout << "Total number of clusters: " << nClusters << std::endl;
-    std::cout << "Noise points: " << noise << std::endl;
+    std::cout << "Noise samples: " << noise << std::endl;
 
     CUDA_RT_CALL( cudaFree(d_labels) );
     CUDA_RT_CALL( cudaFree(d_inputData) );
