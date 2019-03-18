@@ -230,8 +230,8 @@ int main(int argc, char * argv[])
     {
         // Samples file specified but nRows and nCols is not specified
         // Print usage and quit
-        std::cout << "Samples file: " << input << std::endl;
-        std::cout << "Incorrect value for (num_samples x num_features): (" 
+        std::cerr << "Samples file: " << input << std::endl;
+        std::cerr << "Incorrect value for (num_samples x num_features): ("
                   << nRows << " x " << nCols << ")"
                   << std::endl;
         printUsage();
@@ -255,6 +255,13 @@ int main(int argc, char * argv[])
         while( input_stream >> val )
         {
             h_inputData.push_back(val);
+        }
+        if(h_inputData.size() != nRows*nCols)
+        {
+            std::cerr << "ERROR: Read " << h_inputData.size() << " from "
+                      << input << ", while expecting to read: "
+                      << nRows*nCols << " (num_samples*num_features)"
+                      << std::endl;
         }
     }
 
