@@ -170,7 +170,6 @@ int main(int argc, char * argv[])
     int minPts = get_argval<int>(argv, argv+argc, "-min_pts", 3);
     float eps = get_argval<float>(argv, argv+argc, "-eps", 1.0f);
 
-    int *h_labels = nullptr;
     int *d_labels = nullptr;
     std::vector<float> h_inputData;
     float *d_inputData = nullptr;
@@ -259,7 +258,7 @@ int main(int argc, char * argv[])
         }
     }
 
-    h_labels = (int*) malloc(nRows * sizeof(int));
+    std::vector<int> h_labels(nRows);
     CUDA_RT_CALL( cudaMalloc(&d_labels, nRows*sizeof(int)) );
     CUDA_RT_CALL( cudaMalloc(&d_inputData, nRows*nCols*sizeof(float)) );
     CUDA_RT_CALL( cudaMemcpyAsync(d_inputData, h_inputData.data(), 
@@ -273,7 +272,7 @@ int main(int argc, char * argv[])
              << std::endl;
 
     ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels);
-    CUDA_RT_CALL( cudaMemcpyAsync(h_labels, d_labels, nRows*sizeof(int),
+    CUDA_RT_CALL( cudaMemcpyAsync(h_labels.data(), d_labels, nRows*sizeof(int),
                   cudaMemcpyDeviceToHost, stream) );
 
     std::map<int, size_t> histogram;
