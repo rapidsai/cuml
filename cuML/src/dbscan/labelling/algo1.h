@@ -68,6 +68,7 @@ void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_
         countFa = count(device, data.fa, data.fa + N, true);
     }
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
+    cudaStreamSynchronize(stream);
     for(int i=0; i<N; i++) {
         if(host_xa[i]) {
             host_db_cluster[i] = cluster;
