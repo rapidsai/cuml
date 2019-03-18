@@ -36,8 +36,8 @@ namespace Stats {
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
-template <typename Type, int TPB = 256>
-void meanCenter(Type *out, const Type *data, const Type *mu, int D, int N,
+template <typename Type, typename IdxType = int, int TPB = 256>
+void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
                 bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
   LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
                          [] __device__(Type a, Type b) { return a - b; },
@@ -57,8 +57,8 @@ void meanCenter(Type *out, const Type *data, const Type *mu, int D, int N,
  * @param bcastAlongRows whether to broadcast vector along rows or columns
  * @param stream cuda stream where to launch work
  */
-template <typename Type, int TPB = 256>
-void meanAdd(Type *out, const Type *data, const Type *mu, int D, int N,
+template <typename Type, typename IdxType = int, int TPB = 256>
+void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
              bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
   LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
                          [] __device__(Type a, Type b) { return a + b; },
