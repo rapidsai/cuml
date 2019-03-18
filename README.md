@@ -41,7 +41,7 @@ For additional examples, browse our complete [API documentation](https://rapidsa
 - Principal Component Analysis (PCA) - Single GPU
 - Density-based spatial clustering of applications with noise (DBSCAN) - Single GPU
 - K-Means Clustering - Multi-GPU
-- K-Nearest Neighbors - Multi-GPU (Requires [Faiss](https://github.com/facebookresearch/faiss) installation to use)
+- K-Nearest Neighbors - Multi-GPU
 - Ridge Regression - Single GPU
 - Kalman Filter - Single GPU
 - UMAP
