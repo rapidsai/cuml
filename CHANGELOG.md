@@ -41,6 +41,7 @@
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
+- PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342 Change default ABI to ON
 
@@ -60,6 +61,8 @@
 - PR #347: Lowering memory usage of kNN.
 - PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
 - PR #357: Removing FAISS requirement from README
+- PR #362: Fix for matVecOp crashing on large input sizes
+
 
 # cuML 0.5.1 (05 Feb 2019)
 
