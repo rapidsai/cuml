@@ -170,6 +170,7 @@ const std::vector<RfInputs<float> > inputsf2 = {
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
 	ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+	rf_classifier->print_rf_detailed();
 	ASSERT_TRUE((tmp.accuracy == 1.0f));
 }
 

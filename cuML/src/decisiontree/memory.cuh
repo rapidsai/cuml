@@ -8,7 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS, 
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -21,7 +21,7 @@
 struct TemporaryMemory
 {
 	//Below four are for tree building
-	int *leftlabels;
+	int *leftlabels; //FIXME do we use leftlabels and rightlabels anywhere?
 	int *rightlabels;
 	int *sampledlabels;
 	float *sampledcolumns;
@@ -52,51 +52,55 @@ struct TemporaryMemory
 	//For min max;
 	float *h_min, *h_max;
 	
-	int* d_hist;
-	int *h_hist;
-	TemporaryMemory(int N,int maxstr,int nunique)
+	//For histograms in gini
+	int *d_hist, *h_hist;
+
+	TemporaryMemory(int N, int maxstr, int n_unique, int n_bins)
 	{
-		CUDA_CHECK(cudaMallocHost((void**)&h_hist,nunique*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&d_hist,nunique*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&leftlabels,N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&rightlabels,N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns,N*sizeof(float)));
-		CUDA_CHECK(cudaMalloc((void**)&sampledlabels,N*sizeof(int)));
+
+		int n_hist_bytes = n_unique * n_bins * sizeof(int);
+
+		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
+		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
+		CUDA_CHECK(cudaMalloc((void**)&leftlabels, N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&rightlabels, N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N*sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
 		
-		totalmem += 3*N*sizeof(int) + N*sizeof(float) + nunique*sizeof(int);
+		totalmem += 3*N*sizeof(int) + N*sizeof(float) + n_hist_bytes;
 
 		// Allocate temporary storage for gini		
 		CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_gini_temp_storage, gini_temp_storage_bytes, ginilabels, d_unique_out, d_counts_out, d_num_runs_out, N));
 		
-		CUDA_CHECK(cudaMalloc((void**)(&ginilabels),N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_unique_out),N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_counts_out),N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out),sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)(&ginilabels), N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)(&d_unique_out), N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)(&d_counts_out), N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out), sizeof(int)));
 		CUDA_CHECK(cudaMalloc(&d_gini_temp_storage, gini_temp_storage_bytes));
 
-		CUDA_CHECK(cudaMallocHost((void**)(&h_unique_out),N*sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)(&h_counts_out),N*sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)(&h_num_runs_out),sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)(&h_unique_out), N*sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)(&h_counts_out), N*sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)(&h_num_runs_out), sizeof(int)));
 		
 		totalmem += gini_temp_storage_bytes + sizeof(int) + 3*N*sizeof(int);
 		
 		//Allocate Temporary for split functions
-		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, ginilabels, d_flags_left, ginilabels,d_num_selected_out, N);
+		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, ginilabels, d_flags_left, ginilabels, d_num_selected_out, N);
 		
 		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
-		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out,sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&d_flags_left,N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc((void**)&d_flags_right,N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc((void**)&temprowids,N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out, sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**)&d_flags_left, N*sizeof(char)));
+		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
+		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
 
-		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows,sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows,sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
 		
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char);
 
 		//for min max
-		CUDA_CHECK(cudaMallocHost((void**)&h_min,sizeof(float)));
-		CUDA_CHECK(cudaMallocHost((void**)&h_max,sizeof(float)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_min, sizeof(float)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_max, sizeof(float)));
 		
 		//Create Streams
 		if(maxstr == 1)
