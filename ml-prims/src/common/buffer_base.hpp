@@ -90,12 +90,15 @@ protected:
     value_type*                         _data;
     void set_stream( cudaStream_t stream )
     {
-        cudaEvent_t event;
-        CUDA_CHECK( cudaEventCreateWithFlags( &event, cudaEventDisableTiming ) );
-        CUDA_CHECK( cudaEventRecord( event, _stream ) );
-        CUDA_CHECK( cudaStreamWaitEvent ( stream, event, 0 ) );
-        _stream = stream;
-        CUDA_CHECK( cudaEventDestroy( event ) );
+        if ( _stream != stream )
+        {
+            cudaEvent_t event;
+            CUDA_CHECK( cudaEventCreateWithFlags( &event, cudaEventDisableTiming ) );
+            CUDA_CHECK( cudaEventRecord( event, _stream ) );
+            CUDA_CHECK( cudaStreamWaitEvent ( stream, event, 0 ) );
+            _stream = stream;
+            CUDA_CHECK( cudaEventDestroy( event ) );
+        }
     }
     cudaStream_t get_stream() const
     {
