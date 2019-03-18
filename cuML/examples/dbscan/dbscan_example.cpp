@@ -317,5 +317,7 @@ int main(int argc, char * argv[])
     std::cout << "Total number of clusters: " << nClusters << std::endl;
     std::cout << "Noise points: " << noise << std::endl;
 
+    CUDA_RT_CALL( cudaFree(d_labels) );
+    CUDA_RT_CALL( cudaFree(d_inputData) );
     return 0;
 }
