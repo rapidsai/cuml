@@ -58,26 +58,14 @@ void pcaFitTransform(cumlHandle& handle, double *input, double *trans_input,
                     noise_vars, prms);
 }
 
-void pcaInverseTransform(float *trans_input, float *components,
-		float *singular_vals, float *mu, float *input, paramsPCA prms) {
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	pcaInverseTransform(trans_input, components, singular_vals, mu, input, prms,
-			cublas_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+void pcaInverseTransform(cumlHandle& handle, float *trans_input, float *components,
+                         float *singular_vals, float *mu, float *input, paramsPCA prms) {
+    pcaInverseTransform(handle.getImpl(), trans_input, components, singular_vals, mu, input, prms);
 }
 
-void pcaInverseTransform(double *trans_input, double *components,
-		double *singular_vals, double *mu, double *input, paramsPCA prms) {
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	pcaInverseTransform(trans_input, components, singular_vals, mu, input, prms,
-			cublas_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+void pcaInverseTransform(cumlHandle& handle, double *trans_input, double *components,
+                         double *singular_vals, double *mu, double *input, paramsPCA prms) {
+    pcaInverseTransform(handle.getImpl(), trans_input, components, singular_vals, mu, input, prms);
 }
 
 
