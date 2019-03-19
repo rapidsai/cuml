@@ -30,6 +30,9 @@
 #include <stats/mean.h>
 #include <stats/sum.h>
 #include "ml_utils.h"
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+
 
 namespace ML {
 
@@ -106,12 +109,13 @@ void calEig(math_t *in, math_t *components, math_t *explained_var,
  */
 template<typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
-		int n_cols_comp) {
+              int n_cols_comp, cudaStream_t stream) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto m = n_rows;
 
-    thrust::for_each(counting, counting + n_cols, [=]__device__(int idx) {
+        thrust::for_each(thrust::cuda::par.on(stream),
+                        counting, counting + n_cols, [=]__device__(int idx) {
 			int d_i = idx * m;
 			int end = d_i + m;
 
@@ -221,7 +225,7 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
 
 	signFlip(trans_input, prms.n_rows, prms.n_components, components,
-			prms.n_cols);
+                 prms.n_cols, stream);
 
 	math_t *mu_trans;
 	allocate(mu_trans, prms.n_components);

@@ -50,12 +50,6 @@ template<typename T>
 class PcaTest: public ::testing::TestWithParam<PcaInputs<T> > {
 protected:
 	void basicTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -105,23 +99,13 @@ protected:
 
                 pcaFit(handle.getImpl(), data, components, explained_vars, explained_var_ratio,
                        singular_vals, mean, noise_vars, prms);
-		pcaTransform(data, components, trans_data, singular_vals, mean,
-				     prms, cublas_handle, stream);
-
-		pcaInverseTransform(handle.getImpl(), trans_data, components, singular_vals, mean, data_back, prms);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
+		pcaTransform(handle.getImpl(), data, components, trans_data, singular_vals,
+                             mean, prms);
+		pcaInverseTransform(handle.getImpl(), trans_data, components, singular_vals,
+                                    mean, data_back, prms);
 	}
 
 	void advancedTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
@@ -153,9 +137,6 @@ protected:
 
 		allocate(data2_back, len);
 		pcaInverseTransform(handle.getImpl(), data2_trans, components2, singular_vals2, mean2, data2_back, prms);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 	}
 
 	void SetUp() override {

@@ -95,14 +95,16 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                                   double *input,
                                   paramsPCA prms)
 
-    cdef void pcaTransform(float *input,
+    cdef void pcaTransform(cumlHandle& handle,
+                           float *input,
                            float *components,
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
                            paramsPCA prms)
 
-    cdef void pcaTransform(double *input,
+    cdef void pcaTransform(cumlHandle& handle,
+                           double *input,
                            double *components,
                            double *trans_input,
                            double *singular_vals,
@@ -603,20 +605,23 @@ class PCA(cuml.Base):
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
+        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaTransform(<float*> input_ptr,
-                               <float*> components_ptr,
-                               <float*> trans_input_ptr,
-                               <float*> singular_vals_ptr,
-                               <float*> mean_ptr,
-                               params)
+            pcaTransform(h_[0],
+                         <float*> input_ptr,
+                         <float*> components_ptr,
+                         <float*> trans_input_ptr,
+                         <float*> singular_vals_ptr,
+                         <float*> mean_ptr,
+                         params)
         else:
-            pcaTransform(<double*> input_ptr,
-                               <double*> components_ptr,
-                               <double*> trans_input_ptr,
-                               <double*> singular_vals_ptr,
-                               <double*> mean_ptr,
-                               params)
+            pcaTransform(h_[0],
+                         <double*> input_ptr,
+                         <double*> components_ptr,
+                         <double*> trans_input_ptr,
+                         <double*> singular_vals_ptr,
+                         <double*> mean_ptr,
+                         params)
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):

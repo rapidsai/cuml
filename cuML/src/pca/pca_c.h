@@ -38,7 +38,7 @@ void pcaInverseTransform(cumlHandle& handle, float *trans_input, float *componen
                     float *input, paramsPCA prms);
 void pcaInverseTransform(cumlHandle& handle, double *trans_input, double *components, double *singular_vals, double *mu,
                     double *input, paramsPCA prms);
-void pcaTransform(float *input, float *components, float *trans_input, float *singular_vals, float *mu, paramsPCA prms);
-void pcaTransform(double *input, double *components, double *trans_input, double *singular_vals, double *mu, paramsPCA prms);
+void pcaTransform(cumlHandle& handle, float *input, float *components, float *trans_input, float *singular_vals, float *mu, paramsPCA prms);
+void pcaTransform(cumlHandle& handle, double *input, double *components, double *trans_input, double *singular_vals, double *mu, paramsPCA prms);
 
 }; // end namespace ML
