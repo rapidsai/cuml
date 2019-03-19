@@ -17,26 +17,28 @@
 #pragma once
 
 #include "ml_utils.h"
+#include "cuML.hpp"
 
-namespace ML{
 
-void pcaFit(float *input, float *components, float *explained_var,
-                    float *explained_var_ratio, float *singular_vals, float *mu,
-                    float *noise_vars, paramsPCA prms);
-void pcaFit(double *input, double *components, double *explained_var,
-                    double *explained_var_ratio, double *singular_vals, double *mu,
-                    double *noise_vars, paramsPCA prms);
-void pcaFitTransform(float *input, float *trans_input, float *components, float *explained_var,
-                    float *explained_var_ratio, float *singular_vals, float *mu,
-                    float *noise_vars, paramsPCA prms);
-void pcaFitTransform(double *input, double *trans_input, double *components, double *explained_var,
-                    double *explained_var_ratio, double *singular_vals, double *mu,
-                    double *noise_vars, paramsPCA prms);
+namespace ML {
+
+void pcaFit(cumlHandle& handle, float *input, float *components, float *explained_var,
+            float *explained_var_ratio, float *singular_vals, float *mu,
+            float *noise_vars, paramsPCA prms);
+void pcaFit(cumlHandle& handle, double *input, double *components, double *explained_var,
+            double *explained_var_ratio, double *singular_vals, double *mu,
+            double *noise_vars, paramsPCA prms);
+void pcaFitTransform(cumlHandle& handle, float *input, float *trans_input, float *components,
+                     float *explained_var, float *explained_var_ratio, float *singular_vals,
+                     float *mu, float *noise_vars, paramsPCA prms);
+void pcaFitTransform(cumlHandle& handle, double *input, double *trans_input, double *components,
+                     double *explained_var, double *explained_var_ratio, double *singular_vals,
+                     double *mu, double *noise_vars, paramsPCA prms);
 void pcaInverseTransform(float *trans_input, float *components, float *singular_vals, float *mu,
                     float *input, paramsPCA prms);
 void pcaInverseTransform(double *trans_input, double *components, double *singular_vals, double *mu,
                     double *input, paramsPCA prms);
 void pcaTransform(float *input, float *components, float *trans_input, float *singular_vals, float *mu, paramsPCA prms);
 void pcaTransform(double *input, double *components, double *trans_input, double *singular_vals, double *mu, paramsPCA prms);
-}
 
+}; // end namespace ML

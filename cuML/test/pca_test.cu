@@ -56,9 +56,6 @@ protected:
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
-
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -106,9 +103,8 @@ protected:
 		    prms.algorithm = solver::COV_EIG_JACOBI;
 
 
-		pcaFit(data, components, explained_vars, explained_var_ratio,
-				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle, stream);
-
+                pcaFit(handle.getImpl(), data, components, explained_vars, explained_var_ratio,
+                       singular_vals, mean, noise_vars, prms);
 		pcaTransform(data, components, trans_data, singular_vals, mean,
 				     prms, cublas_handle, stream);
 
@@ -117,7 +113,6 @@ protected:
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
@@ -127,9 +122,6 @@ protected:
 
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -157,8 +149,8 @@ protected:
 		allocate(mean2, prms.n_cols);
 		allocate(noise_vars2, 1);
 
-		pcaFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle, stream);
+                pcaFitTransform(handle.getImpl(), data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
+				singular_vals2, mean2, noise_vars2, prms);
 
 		allocate(data2_back, len);
 		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
@@ -166,10 +158,11 @@ protected:
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
+                handle.setStream(stream);
 		basicTest();
 		advancedTest();
 	}
@@ -196,7 +189,7 @@ protected:
 		CUDA_CHECK(cudaFree(singular_vals2));
 		CUDA_CHECK(cudaFree(mean2));
 		CUDA_CHECK(cudaFree(noise_vars2));
-
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -206,6 +199,8 @@ protected:
 
 	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
 			*singular_vals2, *mean2, *noise_vars2;
+        cumlHandle handle;
+        cudaStream_t stream;
 };
 
 
