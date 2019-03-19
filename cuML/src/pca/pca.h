@@ -123,8 +123,7 @@ void pcaFitTransform(const cumlHandle_impl& handle, math_t *input,
                      paramsPCA prms) {
     pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
            mu, noise_vars, prms);
-    pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-                 handle.getCublasHandle());
+    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
              prms.n_cols);
 }
@@ -150,7 +149,6 @@ void pcaGetPrecision() {
  * @input param mu: mean of features (every column).
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 
 template<typename math_t>
@@ -196,49 +194,42 @@ void pcaScoreSamples() {
 
 /**
  * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @output param trans_input:  the transformed data. Size n_rows * n_components.
  * @input param singular_vals: singular values of the data. Size n_components * 1.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 template<typename math_t>
-void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
-		math_t *singular_vals, math_t *mu, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components,
+                  math_t *trans_input, math_t *singular_vals, math_t *mu, paramsPCA prms) {
+    ASSERT(prms.n_cols > 1,
+           "Parameter n_cols: number of columns cannot be less than two");
+    ASSERT(prms.n_rows > 1,
+           "Parameter n_rows: number of rows cannot be less than two");
+    ASSERT(prms.n_components > 0,
+           "Parameter n_components: number of components cannot be less than one");
 
-	ASSERT(prms.n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(prms.n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
-	ASSERT(prms.n_components > 0,
-			"Parameter n_components: number of components cannot be less than one");
+    if (prms.whiten) {
+        math_t scalar = math_t(sqrt(prms.n_rows - 1));
+        LinAlg::scalarMultiply(components, components, scalar,
+                               prms.n_rows * prms.n_components);
+        Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
+                                              prms.n_rows, prms.n_components, true, true);
+    }
 
-	if (prms.whiten) {
-		math_t scalar = math_t(sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
-		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true);
-	}
+    Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
+    tsvdTransform(input, components, trans_input, prms, handle.getCublasHandle());
+    Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 
-	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle);
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
-
-	if (prms.whiten) {
-		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                                       prms.n_rows, prms.n_components, true, true);
-		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
-		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
-	}
-
+    if (prms.whiten) {
+        Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
+                                               prms.n_rows, prms.n_components, true, true);
+        math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
+        LinAlg::scalarMultiply(components, components, scalar,
+                               prms.n_rows * prms.n_components);
+    }
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML
