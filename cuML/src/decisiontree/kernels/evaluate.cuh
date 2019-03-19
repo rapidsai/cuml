@@ -21,18 +21,16 @@
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
 __global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const float base_quesval, const int batch_bins, const float delta, const int nrows, const int n_unique_labels, int* histout) {
-
+	
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ unsigned int shmemhist[];
-	if (threadIdx.x < n_unique_labels) {
-		for (int i = 0; i < batch_bins; i++) {
-			shmemhist[threadIdx.x + n_unique_labels * i] = 0;
-		}
+	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+		shmemhist[i] = 0;
 	}
-
+	
 	__syncthreads();
-
+	
 	if (tid < nrows) {
 		float data = column[tid];
 		int label = labels[tid];
@@ -49,12 +47,10 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 	__syncthreads();
 
 	// Merge shared mem histograms to the global memory hist
-	if (threadIdx.x < n_unique_labels) {
-		for (int i = 0; i < batch_bins; i++) {
-			atomicAdd(&histout[threadIdx.x  +  n_unique_labels * i], shmemhist[threadIdx.x + n_unique_labels * i]);
-		}
+	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+		atomicAdd(&histout[i], shmemhist[i]);
 	}
-
+	
 }
 
 

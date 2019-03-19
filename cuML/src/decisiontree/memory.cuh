@@ -26,14 +26,6 @@ struct TemporaryMemory
 
 	//Below are for gini & get_class functions
 	int *d_hist, *h_hist; // for histograms in gini
-
-	// FIXME none of these mem allocs for gini are currently used.
-	int *ginilabels;
-	int *d_unique_out, *h_unique_out;      
-	int *d_counts_out, *h_counts_out;      
-	int *d_num_runs_out, *h_num_runs_out;    
-  	void *d_gini_temp_storage = NULL;
-	size_t gini_temp_storage_bytes = 0;
 	
 	//Below pointers are shared for split functions
 	char *d_flags_left;
@@ -65,23 +57,9 @@ struct TemporaryMemory
 		
 		totalmem += N*sizeof(int) + N*sizeof(float) + n_hist_bytes;
 
-		// Allocate temporary storage for gini		
-		CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_gini_temp_storage, gini_temp_storage_bytes, ginilabels, d_unique_out, d_counts_out, d_num_runs_out, N));
-		
-		CUDA_CHECK(cudaMalloc((void**)(&ginilabels), N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_unique_out), N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_counts_out), N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)(&d_num_runs_out), sizeof(int)));
-		CUDA_CHECK(cudaMalloc(&d_gini_temp_storage, gini_temp_storage_bytes));
-
-		CUDA_CHECK(cudaMallocHost((void**)(&h_unique_out), N*sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)(&h_counts_out), N*sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)(&h_num_runs_out), sizeof(int)));
-		
-		totalmem += gini_temp_storage_bytes + sizeof(int) + 3*N*sizeof(int);
-		
+				
 		//Allocate Temporary for split functions
-		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, ginilabels, d_flags_left, ginilabels, d_num_selected_out, N);
+		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
 		
 		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out, sizeof(int)));
@@ -116,14 +94,6 @@ struct TemporaryMemory
 		
 		cudaFree(d_hist);
 		cudaFreeHost(h_hist);
-		cudaFree(ginilabels);
-		cudaFree(d_unique_out);
-		cudaFree(d_counts_out);
-		cudaFree(d_num_runs_out);
-		cudaFreeHost(h_unique_out);
-		cudaFreeHost(h_counts_out);
-		cudaFreeHost(h_num_runs_out);
-		cudaFree(d_gini_temp_storage);
 		cudaFree(sampledcolumns);
 		cudaFree(sampledlabels);
 		cudaFree(d_split_temp_storage);
