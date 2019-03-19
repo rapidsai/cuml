@@ -15,4 +15,4 @@
 #
 
 
-# from cuml.hmm.gaussian_mixture import HiddenMarkovModel
+from cuml.hmm.hidden_markov_model import HiddenMarkovModel

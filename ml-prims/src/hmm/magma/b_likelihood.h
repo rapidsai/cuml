@@ -6,6 +6,12 @@
 #include "hmm/magma/b_inverse.h"
 #include "hmm/magma/b_determinant.h"
 
+#include <thrust/sort.h>
+#include <thrust/functional.h>
+#include <thrust/reduce.h>
+#include <thrust/execution_policy.h>
+#include <thrust/iterator/constant_iterator.h>
+
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
 
@@ -238,5 +244,73 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
         CUDA_CHECK(cudaFree(dInvSigma_batches));
 
 }
+
+
+
+template <typename T>
+__device__
+T naive_multinomial_likelihood(magma_int_t nObs, int* dX, T* dPb){
+        T res = 0;
+        for (size_t j = 0; j < nObs; j++) {
+                res += std::log(dPb[dX[j]]);
+        }
+        return res;
+}
+
+template <typename T>
+__global__
+void multinomial_likelihood_batched_kernel(int nObs, int* dX,
+                                           T** dPb_array, T* dO, int numThreads){
+        int idxThread = threadIdx.x + blockDim.x * blockIdx.x;
+        for (size_t i = idxThread; i < batchCount; i+=numThreads) {
+                dO[i] = naive_multinomial_likelihood(nObs, dX, dPb_array[i]);
+        }
+}
+
+
+
+
+template <typename T>
+void naive_multinomial_likelihood_batched(magma_int_t nStates,
+                                          magma_int_t nObs,
+                                          magma_int_t batchCount,
+                                          int* dX, int** dPb_array,
+                                          T* dLlhd, int lddLlhd,
+                                          bool isLog){
+        dim3 block(32, 1, 1);
+        dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
+        int numThreads = grid.x * block.x;
+        multinomial_likelihood_batched_kernel<T> <<< grid, block >>>(nObs,
+                                                                     dX,
+                                                                     dPb_array,
+                                                                     dO);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+
+}
+
+template <typename T>
+void multinomial_likelihood_batched(magma_int_t nStates,
+                                    magma_int_t nObs,
+                                    magma_int_t batchCount,
+                                    int* dX, int** dPb_array,
+                                    T* dLlhd, int lddLlhd,
+                                    bool isLog){
+        const int N = 6;
+        int A[N] = {1, 4, 2, 8, 5, 7};
+        thrust::sort(A, A + N, thrust::less<int>());
+        // A is now {8, 7, 5, 4, 2, 1};
+
+        int C[N];                                           // output keys
+        int D[N];                                           // output values
+        thrust::constant_iterator<int> ones(1);
+        new_end = thrust::reduce_by_key(thrust::host, A, A + N, ones, C, D);
+
+        for (size_t i = 0; i < N; i++) {
+                printf("%d\n", D[i]);
+        }
+
+}
+
 
 }

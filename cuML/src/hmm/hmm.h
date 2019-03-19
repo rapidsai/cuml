@@ -29,17 +29,20 @@ void init(HMM<T> &hmm,
         hmm.gmms = gmms;
 
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-                gmm.gmms[stateId] = hmm.dB + nObs * stateId;
+                hmm.gmms[stateId].dLlhd = hmm.dB + hmm.nObs * stateId;
         }
 }
 
 template <typename T>
-void setup(HMM<T> &hmm){
-        allocate(hmm.dAplha, hmm.lddalpha * hmm.nObs);
-        allocate(hmm.dBeta, hmm.lddbeta * hmm.nObs);
+void setup(HMM<T> &hmm, int nObs, int nSeq){
+        allocate(hmm.dAlpha, hmm.lddalpha * nObs);
+        allocate(hmm.dBeta, hmm.lddbeta * nObs);
 
-        allocate(hmm.dAplha_array, hmm.n_seq);
-        allocate(hmm.dBeta_array, hmm.n_seq);
+        allocate(hmm.dAlpha_array, nSeq);
+        allocate(hmm.dBeta_array, nSeq);
+
+        hmm.nObs = nObs;
+        hmm.nSeq = nSeq;
 }
 
 // template <typename T>
@@ -59,7 +62,7 @@ void forward_backward(HMM<T> &hmm,
                       bool doForward, bool doBackward){
 
         _compute_emissions(dX, hmm, cublasHandle);
-        _matrix_powers(hmm.nStates, hmm.dT_pows, gmm.max_len,
+        _matrix_powers(hmm.nStates, hmm.dT_pows, hmm.max_len,
                        hmm.dT, hmm.lddt, queue);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
 }

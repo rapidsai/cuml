@@ -144,4 +144,4 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
         assert error < 1e-01
     else:
         # Tests have always passed on double precision
-        assert error < 1e-12
+        assert error < 1e-11

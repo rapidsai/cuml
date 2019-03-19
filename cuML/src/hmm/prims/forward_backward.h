@@ -2,6 +2,10 @@
 
 #include "hmm/prims/hmm_utils.h"
 #include "gmm/gmm.h"
+#include "hmm/hmm_variables.h"
+
+#include "hmm/magma/magma_test_utils.h"
+#include "hmm/magma/magma_batched_wrappers.h"
 
 // References :
 // http://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf
@@ -24,38 +28,31 @@ void _matrix_powers(magma_int_t n, T** dA_pow_array, magma_int_t max_p,
         T alpha =1, beta=0;
         dA_pow_array[0] = dA;
         for (size_t p = 1; p < max_p; p++) {
-                magma_gemm ( MagmaNoTrans,
-                             MagmaNoTrans,
-                             n,
-                             n,
-                             n,
-                             alpha,
-                             dA_pow_array[i-1],
-                             ldda,
-                             dA,
-                             ldda,
-                             beta,
-                             dA_pow_array[i],
-                             ldda,
-                             queue
-                             )
+                MLCommon::LinAlg::magmablas_gemm ( MagmaNoTrans,
+                                                   MagmaNoTrans,
+                                                   n,
+                                                   n,
+                                                   n,
+                                                   alpha,
+                                                   dA_pow_array[p-1],
+                                                   ldda,
+                                                   dA,
+                                                   ldda,
+                                                   beta,
+                                                   dA_pow_array[p],
+                                                   ldda,
+                                                   queue
+                                                   );
         }
-}
-
-
-template <typename T>
-__device__
-T _prod(T x, T y){
-        return std::exp(std::log(x) + std::log(y));
 }
 
 template <typename T>
 __global__
 void _ForwardBackwardKernel(magma_int_t nStates,
-                            T** dSDists_array, magma_int_t lddsdist,
+                            T** dO_array, magma_int_t lddo,
                             T** dT_pows, magma_int_t lddt,
                             T** dB_array, magma_int_t lddb,
-                            magma_int_t *dlenghts, magma_int_t n_seq,
+                            magma_int_t *dlenghts, magma_int_t nSeq,
                             bool isForward,
                             int numThreads_x, int numThreads_y){
         int seqId_start = threadIdx.x + blockDim.x * blockIdx.x;
@@ -65,7 +62,7 @@ void _ForwardBackwardKernel(magma_int_t nStates,
         for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
                 for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
                         if (isForward) {
-                                for (size_t obsId = 0; obsId < lenghts[seqId]; obsId++) {
+                                for (size_t obsId = 0; obsId < dlenghts[seqId]; obsId++) {
                                         cum_prod = _prod(cum_prod, dB_array[seqId][IDX(stateId, obsId, lddb)]);
                                         dO_array[seqId][IDX(stateId, obsId, lddo)] = cum_prod * dT_pows[obsId][IDX(0, stateId, lddt)];
                                 }
@@ -81,7 +78,7 @@ void _forward_backward(HMM<T>& hmm,
                        bool doForward, bool doBackward ){
         dim3 block(32, 32, 1);
         dim3 grid(ceildiv(hmm.nStates, (int)block.x),
-                  ceildiv(n_seq, (int)block.y),
+                  ceildiv(nSeq, (int)block.y),
                   1);
 
         int numThreads_x = grid.x * block.x;
@@ -92,7 +89,7 @@ void _forward_backward(HMM<T>& hmm,
                                                               hmm.dAlpha_array, hmm.lddalpha,
                                                               hmm.dT_pows, hmm.lddt,
                                                               hmm.dB_array, hmm.lddb,
-                                                              dlenghts, n_seq,
+                                                              dlenghts, nSeq,
                                                               true,
                                                               numThreads_x, numThreads_y);
         }
