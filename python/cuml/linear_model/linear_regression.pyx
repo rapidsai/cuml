@@ -28,7 +28,6 @@ from collections import defaultdict
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-from sklearn.utils.fixes import signature
 
 cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 
@@ -68,15 +67,15 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
 class LinearRegression:
 
     """
-    LinearRegression is a simple machine learning model where the response y is modelled by a 
+    LinearRegression is a simple machine learning model where the response y is modelled by a
     linear combination of the predictors in X.
 
-    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2 
-    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default) 
+    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2
+    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default)
     is much more faster.
 
     Examples
-    --------
+    ---------
 
     .. code-block:: python
 
@@ -126,7 +125,7 @@ class LinearRegression:
                     1 14.999999
 
     Parameters
-    ----------
+    -----------
     algorithm : 'eig' or 'svd' (default = 'eig')
         Eig uses a eigendecomposition of the covariance matrix, and is much faster.
         SVD is slower, but is guaranteed to be stable.
@@ -138,16 +137,31 @@ class LinearRegression:
         If False, no scaling will be done.
 
     Attributes
-    ----------
+    -----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-
+        
+    Notes
+    ------
+    LinearRegression suffers from multicollinearity (when columns are correlated with each other),
+    and variance explosions from outliers. Consider using Ridge Regression to fix the multicollinearity 
+    problem,and consider maybe first DBSCAN to remove the outliers, or using leverage statistics to 
+    filter possible outliers.
+    
+    **Applications of LinearRegression**
+        
+        LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
+        It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
+        machine learning tasks. This model should be first tried if the machine learning problem is a
+        regression task (predicting a continuous variable).
 
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-
     """
+    # For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_.
+    # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
+
 
     def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
 
@@ -222,11 +236,11 @@ class LinearRegression:
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
-            raise TypeError(msg) 
+            raise TypeError(msg)
 
         if self.n_rows < 2:
             msg = "X matrix must have at least two rows"
-            raise TypeError(msg)          
+            raise TypeError(msg)
 
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
@@ -334,17 +348,31 @@ class LinearRegression:
 
         return preds
 
-      
+
     def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         variables = ['algorithm','fit_intercept','normalize']
         for key in variables:
             var_value = getattr(self,key,None)
-            params[key] = var_value   
+            params[key] = var_value
         return params
 
-      
+
     def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         variables = ['algorithm','fit_intercept','normalize']

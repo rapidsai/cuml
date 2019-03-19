@@ -36,7 +36,7 @@ class Base:
 
         Parameters
         ----------
-        handle : cuml.handle.Handle
+        handle : cuml.common.handle.Handle
                If it is None, a new one is created just for this class
         verbose : bool
                 Whether to print debug spews
