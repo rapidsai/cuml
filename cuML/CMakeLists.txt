@@ -54,6 +54,8 @@ set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
 set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
   "Path to FAISS source directory")
+set(FAISS_CONFIGURE_DIR ${PROJECT_SOURCE_DIR}/cuML CACHE STRING
+  "Path to FAISS configuration file")
 set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims CACHE STRING
   "Path to the ml-prims repo")
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
@@ -62,7 +64,7 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
   "Path to the cutlass repo")
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
-  
+
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -116,6 +118,10 @@ endforeach()
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
+# Copy configuration file to faiss to compile for the correct GPU architectures
+file(COPY ${PROJECT_SOURCE_DIR}/makefile.inc.in
+     DESTINATION ${FAISS_DIR})
+
 ## end nvcc options
 
 ## other compiler options
@@ -130,6 +136,7 @@ if(NOT CMAKE_CXX11_ABI)
 elseif(CMAKE_CXX11_ABI)
     message(STATUS "Enabling the GLIBCXX11 ABI")
 endif(NOT CMAKE_CXX11_ABI)
+
 
 
 ## end of other compiler options
@@ -194,16 +201,16 @@ add_library(cuml SHARED
 	    src/solver/solver.cu
             )
 
-set(CUML_LINK_LIBRARIES 
-	${CUDA_cublas_LIBRARY} 
-	${CUDA_curand_LIBRARY} 
-	${CUDA_cusolver_LIBRARY} 
-	${CUDA_CUDART_LIBRARY} 
-	${CUDA_cusparse_LIBRARY} 
-	${CUDA_nvgraph_LIBRARY} 
-	${ZLIB_LIBRARIES} 
-	gpufaisslib 
-	faisslib 
+set(CUML_LINK_LIBRARIES
+	${CUDA_cublas_LIBRARY}
+	${CUDA_curand_LIBRARY}
+	${CUDA_cusolver_LIBRARY}
+	${CUDA_CUDART_LIBRARY}
+	${CUDA_cusparse_LIBRARY}
+	${CUDA_nvgraph_LIBRARY}
+	${ZLIB_LIBRARIES}
+	gpufaisslib
+	faisslib
 	${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
@@ -233,8 +240,8 @@ target_link_libraries(ml_test
                       cuml
                       pthread
                       z)
-                      
-                      
+
+
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
@@ -268,8 +275,8 @@ endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 install(TARGETS cuml
         DESTINATION lib)
-        
 
 
-		
+
+
 
