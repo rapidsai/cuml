@@ -31,12 +31,14 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 import cuml
+from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
 
 cdef extern from "pca/pca_c.h" namespace "ML":
 
-    cdef void pcaFit(float *input,
+    cdef void pcaFit(cumlHandle& handle,
+                     float *input,
                      float *components,
                      float *explained_var,
                      float *explained_var_ratio,
@@ -45,7 +47,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                      float *noise_vars,
                      paramsPCA prms)
 
-    cdef void pcaFit(double *input,
+    cdef void pcaFit(cumlHandle& handle,
+                     double *input,
                      double *components,
                      double *explained_var,
                      double *explained_var_ratio,
@@ -54,7 +57,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                      double *noise_vars,
                      paramsPCA prms)
 
-    cdef void pcaFitTransform(float *input,
+    cdef void pcaFitTransform(cumlHandle& handle,
+                              float *input,
                               float *trans_input,
                               float *components,
                               float *explained_var,
@@ -64,7 +68,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                               float *noise_vars,
                               paramsPCA prms)
 
-    cdef void pcaFitTransform(double *input,
+    cdef void pcaFitTransform(cumlHandle& handle,
+                              double *input,
                               double *trans_input,
                               double *components,
                               double *explained_var,
@@ -386,47 +391,52 @@ class PCA(cuml.Base):
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
+        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                pcaFit(<float*> input_ptr,
-                             <float*> components_ptr,
-                             <float*> explained_var_ptr,
-                             <float*> explained_var_ratio_ptr,
-                             <float*> singular_vals_ptr,
-                             <float*> mean_ptr,
-                             <float*> noise_vars_ptr,
-                             params)
+                pcaFit(h_[0],
+                       <float*> input_ptr,
+                       <float*> components_ptr,
+                       <float*> explained_var_ptr,
+                       <float*> explained_var_ratio_ptr,
+                       <float*> singular_vals_ptr,
+                       <float*> mean_ptr,
+                       <float*> noise_vars_ptr,
+                       params)
             else:
-                pcaFit(<double*> input_ptr,
-                             <double*> components_ptr,
-                             <double*> explained_var_ptr,
-                             <double*> explained_var_ratio_ptr,
-                             <double*> singular_vals_ptr,
-                             <double*> mean_ptr,
-                             <double*> noise_vars_ptr,
-                             params)
+                pcaFit(h_[0],
+                       <double*> input_ptr,
+                       <double*> components_ptr,
+                       <double*> explained_var_ptr,
+                       <double*> explained_var_ratio_ptr,
+                       <double*> singular_vals_ptr,
+                       <double*> mean_ptr,
+                       <double*> noise_vars_ptr,
+                       params)
         else:
 
             if self.gdf_datatype.type == np.float32:
-                pcaFitTransform(<float*> input_ptr,
-                                      <float*> trans_input_ptr,
-                                      <float*> components_ptr,
-                                      <float*> explained_var_ptr,
-                                      <float*> explained_var_ratio_ptr,
-                                      <float*> singular_vals_ptr,
-                                      <float*> mean_ptr,
-                                      <float*> noise_vars_ptr,
-                                      params)
+                pcaFitTransform(h_[0],
+                                <float*> input_ptr,
+                                <float*> trans_input_ptr,
+                                <float*> components_ptr,
+                                <float*> explained_var_ptr,
+                                <float*> explained_var_ratio_ptr,
+                                <float*> singular_vals_ptr,
+                                <float*> mean_ptr,
+                                <float*> noise_vars_ptr,
+                                params)
             else:
-                pcaFitTransform(<double*> input_ptr,
-                                      <double*> trans_input_ptr,
-                                      <double*> components_ptr,
-                                      <double*> explained_var_ptr,
-                                      <double*> explained_var_ratio_ptr,
-                                      <double*> singular_vals_ptr,
-                                      <double*> mean_ptr,
-                                      <double*> noise_vars_ptr,
-                                      params)
+                pcaFitTransform(h_[0],
+                                <double*> input_ptr,
+                                <double*> trans_input_ptr,
+                                <double*> components_ptr,
+                                <double*> explained_var_ptr,
+                                <double*> explained_var_ratio_ptr,
+                                <double*> singular_vals_ptr,
+                                <double*> mean_ptr,
+                                <double*> noise_vars_ptr,
+                                params)
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
