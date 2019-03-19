@@ -24,16 +24,6 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.cuda
 
 
-cdef extern from "cuML.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-
-
 cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
     cdef cppclass rmmAllocatorAdapter(deviceAllocator):
         pass
@@ -66,17 +56,20 @@ cdef class Handle:
     """
 
     # ML::cumlHandle doesn't have copy operator. So, use pointer for the object
-    cdef cumlHandle *h
+    # python world cannot access to this raw object directly, hence use 'size_t'!
+    cdef size_t h
 
     def __cinit__(self):
-        self.h = new cumlHandle()
+        self.h = <size_t>(new cumlHandle())
 
     def __dealloc_(self):
-        del self.h
+        h_ = <cumlHandle*>self.h
+        del h_
 
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()
-        self.h.setStream(<cuml.common.cuda._Stream>s)
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.setStream(<cuml.common.cuda._Stream>s)
 
     # TODO: in future, maybe we should just enable RMM by default!?
     def enableRMM(self):
@@ -88,4 +81,8 @@ cdef class Handle:
         the cumlHandle use a more efficient allocator, instead of the default.
         """
         cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
-        self.h.setDeviceAllocator(rmmAlloc)
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.setDeviceAllocator(rmmAlloc)
+
+    cdef getHandle(self):
+        return self.h

@@ -28,6 +28,8 @@
 #include <matrix/math.h>
 #include "ml_utils.h"
 #include "tsvd/tsvd.h"
+#include "cuML.hpp"
+
 
 namespace ML {
 
@@ -69,6 +71,7 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
  * @output param explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
@@ -81,10 +84,10 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
  * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFit(math_t *input, math_t *components, math_t *explained_var,
-		math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
-		math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+void pcaFit(cumlHandle& handle, math_t *input, math_t *components, math_t *explained_var,
+            math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
+            math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
+            cusolverDnHandle_t cusolver_handle) {
     ///@todo: make this to be passed via the interface
     DeviceAllocator mgr = makeDefaultAllocator();
 
@@ -119,6 +122,7 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 
 /**
  * @brief perform fit and transform operations for the pca. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param trans_input: the transformed data. Size n_rows * n_components.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
@@ -132,19 +136,16 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
  * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFitTransform(math_t *input, math_t *trans_input, math_t *components,
+void pcaFitTransform(cumlHandle& handle, math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
-
-	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
-			mu, noise_vars, prms, cublas_handle, cusolver_handle);
-
-	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle);
-
-	signFlip(trans_input, prms.n_rows, prms.n_components, components,
-			prms.n_cols);
+    pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
+           mu, noise_vars, prms, cublas_handle, cusolver_handle);
+    pcaTransform(input, components, trans_input, singular_vals, mu, prms,
+                 cublas_handle);
+    signFlip(trans_input, prms.n_rows, prms.n_components, components,
+             prms.n_cols);
 }
 
 // TODO: implement pcaGetCovariance function
