@@ -21,12 +21,13 @@
 struct TemporaryMemory
 {
 	//Below four are for tree building
-	int *leftlabels; //FIXME do we use leftlabels and rightlabels anywhere?
-	int *rightlabels;
 	int *sampledlabels;
 	float *sampledcolumns;
 
 	//Below are for gini & get_class functions
+	int *d_hist, *h_hist; // for histograms in gini
+
+	// FIXME none of these mem allocs for gini are currently used.
 	int *ginilabels;
 	int *d_unique_out, *h_unique_out;      
 	int *d_counts_out, *h_counts_out;      
@@ -52,9 +53,6 @@ struct TemporaryMemory
 	//For min max;
 	float *h_min, *h_max;
 	
-	//For histograms in gini
-	int *d_hist, *h_hist;
-
 	TemporaryMemory(int N, int maxstr, int n_unique, int n_bins)
 	{
 
@@ -62,12 +60,10 @@ struct TemporaryMemory
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
-		CUDA_CHECK(cudaMalloc((void**)&leftlabels, N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&rightlabels, N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N*sizeof(float)));
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
 		
-		totalmem += 3*N*sizeof(int) + N*sizeof(float) + n_hist_bytes;
+		totalmem += N*sizeof(int) + N*sizeof(float) + n_hist_bytes;
 
 		// Allocate temporary storage for gini		
 		CUDA_CHECK(cub::DeviceRunLengthEncode::Encode(d_gini_temp_storage, gini_temp_storage_bytes, ginilabels, d_unique_out, d_counts_out, d_num_runs_out, N));
@@ -108,11 +104,13 @@ struct TemporaryMemory
 		else
 			CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 	}
+
 	void print_info()
 	{
 		std::cout << " Total temporary memory usage--> "<< ((double)totalmem/ (1024*1024)) << "  MB" << std::endl;
 		return;
 	}
+
 	~TemporaryMemory()
 	{
 		
@@ -128,8 +126,6 @@ struct TemporaryMemory
 		cudaFree(d_gini_temp_storage);
 		cudaFree(sampledcolumns);
 		cudaFree(sampledlabels);
-		cudaFree(leftlabels);
-		cudaFree(rightlabels);
 		cudaFree(d_split_temp_storage);
 		cudaFree(d_num_selected_out);
 		cudaFree(d_flags_left);

@@ -214,7 +214,7 @@ namespace ML {
 				std::iota(colselector.begin(), colselector.end(), 0);
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
-				//FIXME need to update this.
+
 				int *labelptr = tempmem[0]->sampledlabels;
 				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
 
@@ -241,9 +241,10 @@ namespace ML {
 					float min, max;
 					min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]);
 					float delta = (max - min)/ nbins ;
-					//If min == max, node is pure (i.e., a leaf); skip the loop below.
+					//If min == max, then delta would be zero, just go through one bin.
+					bool stop_loop = false;
 
-					for (int j = 1; (j < current_nbins) && (min != max); j += BATCH_BINS) {
+					for (int j = 1; (j < current_nbins) && !stop_loop; j += BATCH_BINS) {
 						float base_quesval = min + delta*j; //each subsequent quesval in this batch is +delta
 
 						int batch_id = 0;
@@ -254,7 +255,8 @@ namespace ML {
 															batch_bins, batch_id, n_sampled_rows, n_unique_labels,
 															&local_split_info[0], tempmem[streamid]);
 
-						ASSERT(info_gain + FLT_EPSILON >= 0.0f, "Cannot have negative info_gain %f", info_gain);
+						//ASSERT(info_gain + FLT_EPSILON >= 0.0f, "Cannot have negative info_gain %f", info_gain);
+						ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
 						// Find best info across batches
 						if (info_gain >= gain) {
@@ -264,27 +266,13 @@ namespace ML {
 							for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 						}
 
+						stop_loop = (min == max) ; // no need to go through the loop again
+
 					}
 				}
 				CUDA_CHECK(cudaDeviceSynchronize());
 			}
 
-
-			// evaluate_split not currently used
-			float evaluate_split(float *column, int* labels, float quesval, GiniInfo split_info[3], const int nrows, const int streamid)
-			{
-				int lnrows, rnrows;
-
-				evaluate_and_leftgini(column, labels, quesval, nrows, n_unique_labels, split_info[1], lnrows, rnrows, tempmem[streamid]);
-
-				// Compute giniright from the histograms of parent and parent's left node. Currently CPU only.
-				gini_right_node(rnrows, split_info[0], split_info[1], split_info[2], n_unique_labels, tempmem[streamid]->stream);
-
-				//ginileft is split_info[1].best_gini and giniright is split_info[2].best_gini
-				float impurity = (lnrows * 1.0f/nrows) * split_info[1].best_gini + (rnrows * 1.0f/nrows) * split_info[2].best_gini;
-
-				return (split_info[0].best_gini - impurity);
-			}
 
 			void split_branch(float *data, const Question ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
