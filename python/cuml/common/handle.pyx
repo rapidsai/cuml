@@ -84,5 +84,5 @@ cdef class Handle:
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setDeviceAllocator(rmmAlloc)
 
-    cdef getHandle(self):
+    def getHandle(self):
         return self.h

@@ -300,7 +300,7 @@ class PCA(Base):
         params.n_iterations = self.iterated_power
         params.tol = self.tol
         params.algorithm = self.c_algorithm
-        params.random_state = self.random_state
+        params.random_state = self.random_state if self.random_state is not None else 42
 
         if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than the number of columns in the data')

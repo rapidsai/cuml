@@ -39,8 +39,8 @@ rmm_lib_dir = '/lib'
 
 if os.environ.get('CONDA_PREFIX', None):
     conda_prefix = os.environ.get('CONDA_PREFIX')
-    rmm_include_dir = os.path.join(conda_prefix, rmm_include_dir)
-    rmm_lib_dir = os.path.join(conda_prefix, rmm_lib_dir)
+    rmm_include_dir = conda_prefix + rmm_include_dir
+    rmm_lib_dir = conda_prefix + rmm_lib_dir
 
 extensions = [
     Extension("*",
