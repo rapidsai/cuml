@@ -167,8 +167,10 @@ protected:
 	}
 
 	void SetUp() override {
-		basicTest();
-		advancedTest();
+            CUDA_CHECK(cudaStreamCreate(&userStream));
+            handle.setStream(userStream);
+            basicTest();
+            advancedTest();
 	}
 
 	void TearDown() override {
@@ -193,17 +195,17 @@ protected:
 		CUDA_CHECK(cudaFree(singular_vals2));
 		CUDA_CHECK(cudaFree(mean2));
 		CUDA_CHECK(cudaFree(noise_vars2));
-
+                CUDA_CHECK(cudaStreamDestroy(userStream));
 	}
 
 protected:
-	PcaInputs<T> params;
-	T *data, *trans_data, *data_back, *components, *explained_vars, *explained_var_ratio, *singular_vals,
-			*mean, *noise_vars, *trans_data_ref, *components_ref, *explained_vars_ref;
-
-	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
-			*singular_vals2, *mean2, *noise_vars2;
-        cumlHandle handle;
+    PcaInputs<T> params;
+    T *data, *trans_data, *data_back, *components, *explained_vars, *explained_var_ratio, *singular_vals,
+        *mean, *noise_vars, *trans_data_ref, *components_ref, *explained_vars_ref;
+    T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
+        *singular_vals2, *mean2, *noise_vars2;
+    cumlHandle handle;
+    cudaStream_t userStream;
 };
 
 

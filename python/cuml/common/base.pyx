@@ -21,6 +21,7 @@
 
 
 import cuml.common.handle
+import cuml.common.cuda
 
 
 class Base:
@@ -43,6 +44,8 @@ class Base:
         """
         if handle is None:
             self.handle = cuml.common.handle.Handle()
+            self.stream = cuml.common.cuda.Stream()
+            self.handle.setStream(self.stream)
         else:
             self.handle = handle
         self.verbose = verbose

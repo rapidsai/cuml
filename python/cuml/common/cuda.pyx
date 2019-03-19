@@ -48,13 +48,13 @@ cdef class Stream:
         if self.s != 0:
             return
         cdef _Stream stream;
-        print("Calling...")
         cdef _Error e = cudaStreamCreate(&stream)
         if e != 0:
             raise CudaRtError("Stream create")
         self.s = <size_t>stream
 
     def __dealloc__(self):
+        self.sync()
         cdef _Stream stream = <_Stream>self.s
         cdef _Error e = cudaStreamDestroy(stream)
         if e != 0:

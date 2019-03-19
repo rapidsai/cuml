@@ -23,6 +23,7 @@ from sklearn import datasets
 
 import cudf
 import cuml
+import cuml.common.cuda
 
 
 def array_equal(a, b, tol=1e-4, with_sign=True):
@@ -127,4 +128,9 @@ def clusters_equal(a0, b0, n_clusters):
 
 
 def get_handle(use_handle):
-    return cuml.common.handle.Handle() if use_handle else None
+    if not use_handle:
+        return None, None
+    h = cuml.common.handle.Handle()
+    s = cuml.common.cuda.Stream()
+    h.setStream(s)
+    return h, s

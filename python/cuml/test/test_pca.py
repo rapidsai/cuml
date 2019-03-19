@@ -32,14 +32,14 @@ def test_pca_fit(datatype, input_type, use_handle):
     skpca = skPCA(n_components=2)
     skpca.fit(X)
 
-    cupca = cuPCA(n_components=2, handle=get_handle(use_handle))
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
         gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
         gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
         cupca.fit(gdf)
-
     else:
         cupca.fit(X)
 
@@ -56,6 +56,8 @@ def test_pca_fit(datatype, input_type, use_handle):
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
+    if stream is not None:
+        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -67,7 +69,8 @@ def test_pca_fit_transform(datatype, input_type, use_handle):
     skpca = skPCA(n_components=2)
     Xskpca = skpca.fit_transform(X)
 
-    cupca = cuPCA(n_components=2, handle=get_handle(use_handle))
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
@@ -79,6 +82,8 @@ def test_pca_fit_transform(datatype, input_type, use_handle):
         Xcupca = cupca.fit_transform(X)
 
     assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
+    if stream is not None:
+        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -88,7 +93,8 @@ def test_pca_inverse_transform(datatype, input_type, use_handle):
     gdf = cudf.DataFrame()
     gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
     gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
-    cupca = cuPCA(n_components=2, handle=get_handle(use_handle))
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         Xcupca = cupca.fit_transform(gdf)
@@ -102,3 +108,5 @@ def test_pca_inverse_transform(datatype, input_type, use_handle):
 
     assert array_equal(input_gdf, gdf,
                        1e-3, with_sign=True)
+    if stream is not None:
+        stream.sync()

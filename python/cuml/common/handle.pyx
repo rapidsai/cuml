@@ -21,7 +21,7 @@
 
 
 from libcpp.memory cimport shared_ptr
-cimport cuml.common.cuda
+from cuml.common.cuda cimport _Stream
 
 
 cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
@@ -30,7 +30,6 @@ cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
 
 
 # TODO: name this properly!
-# TODO: add support for setting custom memory allocators
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
@@ -43,7 +42,8 @@ cdef class Handle:
     .. code-block:: python
 
         import cuml
-        stream = cuml.common.cuda.Stream()
+        from cuml.common.cuda import Stream
+        stream = Stream()
         handle = cuml.common.handle.Handle()
         handle.setStream(stream)
         handle.enableRMM()   # Enable RMM as the device-side allocator
@@ -69,7 +69,7 @@ cdef class Handle:
     def setStream(self, stream):
         cdef size_t s = <size_t>stream.getStream()
         cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setStream(<cuml.common.cuda._Stream>s)
+        h_.setStream(<_Stream>s)
 
     # TODO: in future, maybe we should just enable RMM by default!?
     def enableRMM(self):
