@@ -108,8 +108,7 @@ protected:
 		pcaTransform(data, components, trans_data, singular_vals, mean,
 				     prms, cublas_handle, stream);
 
-		pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, 
-                          prms, cublas_handle, stream);
+		pcaInverseTransform(handle.getImpl(), trans_data, components, singular_vals, mean, data_back, prms);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -153,8 +152,7 @@ protected:
 				singular_vals2, mean2, noise_vars2, prms);
 
 		allocate(data2_back, len);
-		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
-                          prms, cublas_handle, stream);
+		pcaInverseTransform(handle.getImpl(), data2_trans, components2, singular_vals2, mean2, data2_back, prms);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));

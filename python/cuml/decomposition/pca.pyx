@@ -79,14 +79,16 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                               double *noise_vars,
                               paramsPCA prms)
 
-    cdef void pcaInverseTransform(float *trans_input,
+    cdef void pcaInverseTransform(cumlHandle& handle,
+                                  float *trans_input,
                                   float *components,
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
                                   paramsPCA prms)
 
-    cdef void pcaInverseTransform(double *trans_input,
+    cdef void pcaInverseTransform(cumlHandle& handle,
+                                  double *trans_input,
                                   double *components,
                                   double *singular_vals,
                                   double *mu,
@@ -523,20 +525,23 @@ class PCA(cuml.Base):
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
+        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaInverseTransform(<float*> trans_input_ptr,
-                                      <float*> components_ptr,
-                                      <float*> singular_vals_ptr,
-                                      <float*> mean_ptr,
-                                      <float*> input_ptr,
-                                      params)
+            pcaInverseTransform(h_[0],
+                                <float*> trans_input_ptr,
+                                <float*> components_ptr,
+                                <float*> singular_vals_ptr,
+                                <float*> mean_ptr,
+                                <float*> input_ptr,
+                                params)
         else:
-            pcaInverseTransform(<double*> trans_input_ptr,
-                                      <double*> components_ptr,
-                                      <double*> singular_vals_ptr,
-                                      <double*> mean_ptr,
-                                      <double*> input_ptr,
-                                      params)
+            pcaInverseTransform(h_[0],
+                                <double*> trans_input_ptr,
+                                <double*> components_ptr,
+                                <double*> singular_vals_ptr,
+                                <double*> mean_ptr,
+                                <double*> input_ptr,
+                                params)
 
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
