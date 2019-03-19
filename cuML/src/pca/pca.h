@@ -128,12 +128,9 @@ void pcaFitTransform(const cumlHandle_impl& handle, math_t *input, math_t *trans
 		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms) {
     pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
            mu, noise_vars, prms);
-    auto stream = handle.getStream();
-    auto cublas_handle = handle.getCublasHandle();
-    pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-                 cublas_handle, stream);
+    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
-             prms.n_cols);
+             prms.n_cols, handle.getStream());
 }
 
 // TODO: implement pcaGetCovariance function
@@ -157,7 +154,6 @@ void pcaGetPrecision() {
  * @input param mu: mean of features (every column).
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 
 template<typename math_t>
@@ -207,17 +203,19 @@ void pcaScoreSamples() {
 
 /**
  * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @output param trans_input:  the transformed data. Size n_rows * n_components.
  * @input param singular_vals: singular values of the data. Size n_components * 1.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 template<typename math_t>
-void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
-		math_t *singular_vals, math_t *mu, paramsPCA prms,
-		cublasHandle_t cublas_handle, cudaStream_t stream) {
+void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
+		math_t *singular_vals, math_t *mu, paramsPCA prms) {
+    auto stream = handle.getStream();
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -245,11 +243,6 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 		LinAlg::scalarMultiply(components, components, scalar,
 				prms.n_rows * prms.n_components, stream);
 	}
-
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML

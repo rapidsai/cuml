@@ -64,37 +64,14 @@ void pcaInverseTransform(cumlHandle& handle, double *trans_input, double *compon
     pcaInverseTransform(handle.getImpl(), trans_input, components, singular_vals, mu, input, prms);
 }
 
-
-void pcaTransform(float *input, float *components, float *trans_input,
-		float *singular_vals, float *mu, paramsPCA prms) {
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+void pcaTransform(cumlHandle& handle, float *input, float *components, float *trans_input,
+                  float *singular_vals, float *mu, paramsPCA prms) {
+    pcaTransform(handle.getImpl(), input, components, trans_input, singular_vals, mu, prms);
 }
 
-void pcaTransform(double *input, double *components, double *trans_input,
-		double *singular_vals, double *mu, paramsPCA prms) {
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+void pcaTransform(cumlHandle& handle, double *input, double *components, double *trans_input,
+                  double *singular_vals, double *mu, paramsPCA prms) {
+    pcaTransform(handle.getImpl(), input, components, trans_input, singular_vals, mu, prms);
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML
