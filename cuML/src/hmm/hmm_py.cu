@@ -13,29 +13,29 @@ void init_f64(HMM<double, gmm::GMM<double> > &hmm,
              dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
-// void setup_f64(HMM<double> &hmm, int nObs, int nSeq) {
-//         setup(hmm, nObs, nSeq);
-// }
-//
-// void forward_backward_f64(HMM<double> &hmm,
-//                           double* dX, int* dlenghts, int nSeq,
-//                           bool doForward, bool doBackward){
-//
-//         cublasHandle_t cublasHandle;
-//         CUBLAS_CHECK(cublasCreate(&cublasHandle));
-//
-//         int device = 0;
-//         magma_queue_t queue;
-//         magma_queue_create(device, &queue);
-//         // workspaceCreate(hmm);
-//
-//         forward_backward(hmm, dX, dlenghts, nSeq,
-//                          cublasHandle, queue,
-//                          doForward, doBackward);
-//
-//         // workspaceFree(hmm);
-//
-// }
+void setup_f64(HMM<double, gmm::GMM<double> > &hmm, int nObs, int nSeq) {
+        setup(hmm, nObs, nSeq);
+}
+
+void forward_backward_f64(HMM<double, gmm::GMM<double> > &hmm,
+                          double* dX, int* dlenghts, int nSeq,
+                          bool doForward, bool doBackward){
+
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+        // workspaceCreate(hmm);
+
+        forward_backward(hmm, dX, dlenghts, nSeq,
+                         cublasHandle, queue,
+                         doForward, doBackward);
+
+        // workspaceFree(hmm);
+
+}
 
 // void viterbi_f64(HMM<double>& hmm,
 //                  int* dStates, int* dlenghts, int nSeq){

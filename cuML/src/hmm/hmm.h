@@ -33,17 +33,17 @@ void init(HMM<T, D> &hmm,
         }
 }
 
-// template <typename T, typename D>
-// void setup(D &hmm, int nObs, int nSeq){
-//         allocate(hmm.dAlpha, hmm.lddalpha * nObs);
-//         allocate(hmm.dBeta, hmm.lddbeta * nObs);
-//
-//         allocate(hmm.dAlpha_array, nSeq);
-//         allocate(hmm.dBeta_array, nSeq);
-//
-//         hmm.nObs = nObs;
-//         hmm.nSeq = nSeq;
-// }
+template <typename T, typename D>
+void setup(HMM<T, D> &hmm, int nObs, int nSeq){
+        allocate(hmm.dAlpha, hmm.lddalpha * nObs);
+        allocate(hmm.dBeta, hmm.lddbeta * nObs);
+
+        allocate(hmm.dAlpha_array, nSeq);
+        allocate(hmm.dBeta_array, nSeq);
+
+        hmm.nObs = nObs;
+        hmm.nSeq = nSeq;
+}
 
 // template <typename T>
 // void createPassWs(HMM<T> &hmm) {
@@ -55,17 +55,17 @@ void init(HMM<T, D> &hmm,
 //
 // }
 
-// template <typename T, typename D>
-// void forward_backward(D &hmm,
-//                       T* dX, int* dlenghts, int nSeq,
-//                       cublasHandle_t cublasHandle, magma_queue_t queue,
-//                       bool doForward, bool doBackward){
-//
-//         _compute_emissions(dX, hmm, cublasHandle);
-//         _matrix_powers(hmm.nStates, hmm.dT_pows, hmm.max_len,
-//                        hmm.dT, hmm.lddt, queue);
-//         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
-// }
+template <typename T, typename D>
+void forward_backward(HMM<T, D> &hmm,
+                      T* dX, int* dlenghts, int nSeq,
+                      cublasHandle_t cublasHandle, magma_queue_t queue,
+                      bool doForward, bool doBackward){
+
+        _compute_emissions(dX, hmm, cublasHandle);
+        _matrix_powers(hmm.nStates, hmm.dT_pows, hmm.max_len,
+                       hmm.dT, hmm.lddt, queue);
+        _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
+}
 
 // template <typename T>
 // void update_gammas(HMM<T> &hmm,

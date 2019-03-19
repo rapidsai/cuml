@@ -13,6 +13,11 @@ enum TrainOption {
         ForwardBackward
 };
 
+enum DistOption {
+        Multinomial,
+        GaussianMixture
+};
+
 
 template <typename T>
 struct Multinomial {
@@ -45,6 +50,7 @@ struct HMM {
         T **dT_pows;
 
         TrainOption train;
+        DistOption distOption;
 };
 
 // template <typename T>
