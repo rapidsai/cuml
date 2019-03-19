@@ -18,7 +18,7 @@ void compute_max_states(int *dV_idx, int lddv,
 
         T val, maxVal=0.;
         int maxValIdx;
-
+        // Parallelize
         for (size_t prevStateId = 0; prevStateId < nStates; prevStateId++) {
                 val = std::log(dT[IDX(prevStateId, curStateId, lddT)]) +
                       std::log(alphas[prevStateId]) +
@@ -47,18 +47,13 @@ void compute_max_path(int *dV_idx, int lddv,
 
 template <typename T>
 __global__
-void viterbiKernel(int *dV_idx_array, int lddv,
-                   T* dV_array, int lddv,
-                   T* dAlpha_array, int lddalpha,
-                   T* dT, int lddt,
-                   int* dMaxPath_array, int len_array,
-                   int nStates,
-                   int nThreads_x, int nThreads_y
-                   ){
+void viterbiKernel(
+        ){
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
 
-        for (size_t bId = i_start; bId < batchCount; bId+=nThreads_x) {
+
+        for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
                 for (size_t timeId = 0; timeId < len_array[bId]; timeId++) {
                         for (size_t stateId = j_start; stateId < nStates; stateId+=nThreads_y) {
                                 compute_max_states(dV_idx_array[bId], lddv,

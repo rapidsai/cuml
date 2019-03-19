@@ -17,9 +17,9 @@ import pytest
 import cudf
 
 import cuml
-from cuml.hmm.sample_utils import *
+from cuml.gmm.sample_utils import *
 from sklearn.mixture import GaussianMixture
-from cuml.hmm.utils import timer, info
+from cuml.gmm.utils import timer, info
 
 
 def np_to_dataframe(df):

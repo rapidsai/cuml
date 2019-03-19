@@ -14,5 +14,5 @@
 # limitations under the License.
 #
 
-from cuml.hmm.gaussian_mixture import GaussianMixture
-from cuml.hmm.gaussian_mixture import HiddenMarkovModel
+
+# from cuml.hmm.gaussian_mixture import HiddenMarkovModel

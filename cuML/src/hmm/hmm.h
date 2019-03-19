@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "gmm/gmm.h"
-#include "hmm/forward_backward.h"
-#include "hmm/viterbi.h"
+#include "hmm/prims/forward_backward.h"
+#include "hmm/prims/viterbi.h"
 
 namespace hmm {
 
@@ -64,21 +64,21 @@ void forward_backward(HMM<T> &hmm,
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
 }
 
-template <typename T>
-void update_gammas(HMM<T> &hmm,
-                   T* dX, int* dlenghts, int nSeq){
-        dim3 block(32, 32, 1);
-        dim3 grid(ceildiv(hmm.nStates, (int)block.x),
-                  ceildiv(n_seq, (int)block.y),
-                  1);
-
-        int numThreads_x = grid.x * block.x;
-        int numThreads_y = grid.y * block.y;
-
-        _computeGammasKernel<T> <<< grid, block >>>();
-        cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
-}
+// template <typename T>
+// void update_gammas(HMM<T> &hmm,
+//                    T* dX, int* dlenghts, int nSeq){
+//         dim3 block(32, 32, 1);
+//         dim3 grid(ceildiv(hmm.nStates, (int)block.x),
+//                   ceildiv(n_seq, (int)block.y),
+//                   1);
+//
+//         int numThreads_x = grid.x * block.x;
+//         int numThreads_y = grid.y * block.y;
+//
+//         _computeGammasKernel<T> <<< grid, block >>>();
+//         cudaDeviceSynchronize();
+//         CUDA_CHECK(cudaPeekAtLastError());
+// }
 
 
 // template <typename T>
@@ -91,30 +91,24 @@ void update_gammas(HMM<T> &hmm,
 //
 // }
 
-template <typename T>
-void viterbi(HMM<T>& hmm,
-             int* dStates, int* dlenghts, int nSeq){
-
-        // TODO : Fix the block grid sizes projectwise
-
-        dim3 block(32,32);
-        dim3 grid(ceildiv(n, (int)block.x),
-                  ceildiv(n, (int)block.y),
-                  1);
-        int nThreads_x = grid.x * block.x;
-        int nThreads_y = grid.y * block.y;
-        int nThreads_z = grid.z * block.z;
-
-        viterbiKernel<T> <<< grid, block >>>(dV_idx_array, lddv,
-                                             dV_array, lddv,
-                                             dAlpha_array, lddalpha,
-                                             dT, lddt,
-                                             dMaxPath_array, len_array,
-                                             nStates
-                                             nThreads_x, nThreads_y);
-        cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
-}
+// template <typename T>
+// void viterbi(HMM<T>& hmm,
+//              int* dStates, int* dlenghts, int nSeq){
+//
+//         // TODO : Fix the block grid sizes projectwise
+//
+//         dim3 block(32,32);
+//         dim3 grid(ceildiv(n, (int)block.x),
+//                   ceildiv(n, (int)block.y),
+//                   1);
+//         int nThreads_x = grid.x * block.x;
+//         int nThreads_y = grid.y * block.y;
+//         int nThreads_z = grid.z * block.z;
+//
+//         viterbiKernel<T> <<< grid, block >>>();
+//         cudaDeviceSynchronize();
+//         CUDA_CHECK(cudaPeekAtLastError());
+// }
 
 //
 // template <typename T>

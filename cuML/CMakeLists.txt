@@ -207,7 +207,7 @@ add_library(cuml SHARED
             src/glm/glm.cu
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
-            src/hmm/gmm_py.cu
+            src/gmm/gmm_py.cu
             src/hmm/hmm_py.cu
             )
 

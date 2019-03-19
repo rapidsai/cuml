@@ -13,15 +13,12 @@
 # limitations under the License.
 #
 
-import pytest
-import cudf
-
 import cuml
 from cuml.hmm.hmm_sampling import HMMSampler
 import hmmlearn
 
 
-from cuml.hmm.utils import *
+from cuml.gmm.utils import *
 
 
 class HMMTester :

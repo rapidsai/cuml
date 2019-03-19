@@ -48,7 +48,6 @@ void oneHotKernel(T* dO, int lddO, int* dIdxArray, int len_array,
                 }
         }
 }
-}
 
 template <typename T>
 void _one_hot(T* dO, int lddO, int* dIdxArray, int len_array){

@@ -1,6 +1,6 @@
 import numpy as np
 
-from cuml.hmm.sample_utils import sample_matrix
+from cuml.gmm.sample_utils import sample_matrix
 from hmmlearn import hmm
 
 startprob = np.array([0.6, 0.3, 0.1, 0.0])

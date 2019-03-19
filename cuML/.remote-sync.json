@@ -1,0 +1,18 @@
+{
+  "logger": {
+    "title": "Remote Sync"
+  },
+  "transport": "scp",
+  "uploadOnSave": true,
+  "useAtomicWrites": false,
+  "deleteLocal": false,
+  "hostname": "ssh 10.20.170.88",
+  "target": "/home/mehdia/repos/build-rapids/cuml/cuML",
+  "ignore": [
+    ".remote-sync.json",
+    ".git/**"
+  ],
+  "username": "mehdia",
+  "password": "IhtigbrarDC15",
+  "watch": []
+}

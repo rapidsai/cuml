@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-import numpy as np
-from cuml.hmm.sample_utils import *
+from cuml.gmm.sample_utils import *
 
 RUP_SIZE = 32
 

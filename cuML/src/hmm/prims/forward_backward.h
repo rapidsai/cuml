@@ -1,8 +1,7 @@
 #pragma once
 
-#include "hmm/hmm_utils.h"
-#include "hmm/gmm.h"
-#include "hmm/hmmprims.h"
+#include "hmm/prims/hmm_utils.h"
+#include "gmm/gmm.h"
 
 // References :
 // http://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf
@@ -102,15 +101,15 @@ void _forward_backward(HMM<T>& hmm,
 }
 
 
-template <typename T>
-_updateGammasKernel(){
-        for (size_t obsId = 0; obsId < nObs; obsId++) {
-                for (size_t stateId = 0; stateId < nStates; stateId++) {
-                        dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
-                }
-
-        }
-}
+// template <typename T>
+// _updateGammasKernel(){
+//         for (size_t obsId = 0; obsId < nObs; obsId++) {
+//                 for (size_t stateId = 0; stateId < nStates; stateId++) {
+//                         dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
+//                 }
+//
+//         }
+// }
 
 
 

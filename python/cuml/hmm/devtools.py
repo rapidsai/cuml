@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from cuml.hmm.sample_utils import *
+from abc import ABC
+from cuml.gmm.sample_utils import *
 
 class _DevHMM(ABC):
     def __init__(self, precision):
