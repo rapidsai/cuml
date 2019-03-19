@@ -49,8 +49,7 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *compone
     device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
     device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-    calEig(in, components_all.data(), explained_var_all.data(), prms,
-           handle.getcusolverDnHandle(), handle.getCublasHandle(), stream, mgr);
+    calEig(handle, in, components_all.data(), explained_var_all.data(), prms, mgr);
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
