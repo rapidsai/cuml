@@ -15,4 +15,4 @@
 #
 
 
-from cuml.hmm.hidden_markov_model import HiddenMarkovModel
+from cuml.hmm.gmm_hmm import HiddenMarkovModel

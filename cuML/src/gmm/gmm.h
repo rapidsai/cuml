@@ -2,7 +2,6 @@
 
 #include <gmm/gmm_backend.h>
 
-using namespace MLCommon::HMM;
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 

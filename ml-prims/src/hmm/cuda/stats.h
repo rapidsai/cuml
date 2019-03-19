@@ -21,7 +21,6 @@
 // #include "utils.h"
 
 namespace MLCommon {
-namespace HMM {
 
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
@@ -96,7 +95,6 @@ void weighted_covs(T *data, T *weights, T *mus, T *sigmas, T* ps,
 
         CUBLAS_CHECK(cublasdgmm(*cublasHandle, CUBLAS_SIDE_RIGHT, dim * dim, n_classes, sigmas, dim * dim, ps, 1, sigmas, dim * dim));
 
-}
 }
 
 }

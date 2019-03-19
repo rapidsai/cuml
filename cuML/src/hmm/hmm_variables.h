@@ -23,11 +23,11 @@ struct Multinomial {
 };
 
 
-template <typename T>
+// D is the emission distribution
+template <typename T, typename D>
 struct HMM {
         int nStates;
-        std::vector<gmm::GMM<T> > gmms;
-
+        std::vector<D> dists;
         // All dLlhd point to dGamma
         T *dT, *dB, *dAlpha, *dBeta, *dGamma;
         int lddt, lddb, lddalpha, lddbeta, lddgamma;
@@ -47,5 +47,10 @@ struct HMM {
         TrainOption train;
 };
 
+// template <typename T>
+// struct HMM<T, gmm::GMM<T> > GMMHMM;
+//
+// template <typename T>
+// struct HMM<T, Multinomial<T> > MultinomialHMM {};
 
 }

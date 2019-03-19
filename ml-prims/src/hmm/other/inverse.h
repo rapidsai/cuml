@@ -17,7 +17,6 @@ using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 
 namespace MLCommon {
-namespace HMM {
 
 template <typename T>
 struct Inverse {
@@ -72,5 +71,4 @@ struct Inverse {
         }
 };
 
-}
 }

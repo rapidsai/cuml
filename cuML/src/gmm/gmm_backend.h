@@ -12,7 +12,7 @@
 #include <ml_utils.h>
 #include <cublas_v2.h>
 
-using namespace MLCommon::HMM;
+// using namespace MLCommon::HMM;
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
 

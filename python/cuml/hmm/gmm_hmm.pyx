@@ -1,29 +1,17 @@
-import cudf
-import numpy as np
-
-from numba import cuda
-from cuml import numba_utils
-
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
+from libc.stdlib cimport  malloc
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
-from cuml.gmm.sample_utils import *
-from cuml.gmm.gmm_base import _BaseGMM
-from cuml.hmm.hmm_base import _BaseHMM
-from cuml.hmm.devtools import _DevHMM
-from cuml.gmm.sample_utils import *
-
+from cuml.hmm.base.hmm_base import _BaseHMM
+from cuml.hmm.utils.devtools import _DevHMM
 
 from cuml.gmm.gaussian_mixture cimport GMM, _setup_gmm
-
-
+from cuml.hmm.hidden_markov_model cimport HMM, init_f64, floatGMMHMM, doubleGMMHMM
 
 RUP_SIZE = 32
 
-
-cdef setup_hmm(self, HMM[float]& hmm32, HMM[double]& hmm64):
+cdef setup_hmm(self, HMM[float, GMM[float]]& hmm32, doubleGMMHMM& hmm64):
     cdef vector[GMM[float]] gmms32
     cdef vector[GMM[double]] gmms64
 
@@ -80,8 +68,8 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
         self._initialize()
         self._setup(X, lengths)
 
-        cdef HMM[float] hmm32
-        cdef HMM[double] hmm64
+        cdef floatGMMHMM hmm32
+        cdef doubleGMMHMM hmm64
         setup_hmm(self, hmm32, hmm64)
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
@@ -95,10 +83,10 @@ class HiddenMarkovModel(_BaseHMM, _DevHMM):
         for gmm in self.gmms :
             gmm.init_step()
 
-        if self.dtype is "double" :
-            forward_backward_f64(hmm64,
-                                   <double*> _dX_ptr,
-                                   <int*> _dlengths_ptr,
-                                   <int> nSeq,
-                                   <bool> doForward,
-                                   <bool> doBackward)
+        # if self.dtype is "double" :
+        #     forward_backward_f64(hmm64,
+        #                            <double*> _dX_ptr,
+        #                            <int*> _dlengths_ptr,
+        #                            <int> nSeq,
+        #                            <bool> doForward,
+        #                            <bool> doBackward)

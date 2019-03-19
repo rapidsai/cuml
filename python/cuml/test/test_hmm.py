@@ -14,7 +14,7 @@
 #
 
 import cuml
-from cuml.hmm.hmm_sampling import HMMSampler
+from cuml.hmm.utils.hmm_sampling import HMMSampler
 import hmmlearn
 
 

@@ -1,18 +1,13 @@
 import cudf
-import numpy as np
 
 from numba import cuda
 from cuml import numba_utils
 
 from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
-from cuml.gmm.sample_utils import *
 from cuml.gmm.gmm_base import _BaseGMM
-from cuml.hmm.hmm_base import _BaseHMM
-from cuml.hmm.devtools import _DevHMM
 from cuml.gmm.sample_utils import *
 from cuml.gmm.gmm_base import _BaseGMM
 

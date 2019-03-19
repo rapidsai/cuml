@@ -5,7 +5,6 @@
 
 
 namespace MLCommon {
-namespace HMM {
 
 /**
  * @defgroup dgmm cublas dgmm calls
@@ -75,5 +74,4 @@ inline cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
 }
 
 
-}
 }
