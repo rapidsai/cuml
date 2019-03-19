@@ -84,7 +84,7 @@ protected:
 		else
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
-		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle);
+		tsvdFit(handle.getImpl(), data, components, singular_vals, prms);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -125,8 +125,9 @@ protected:
 		allocate(explained_var_ratio2, prms.n_components);
 		allocate(singular_vals2, prms.n_components);
 
-		tsvdFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, prms, cublas_handle, cusolver_handle);
+		tsvdFitTransform(handle.getImpl(), data2, data2_trans, components2,
+                                 explained_vars2, explained_var_ratio2,
+                                 singular_vals2, prms);
 
 		allocate(data2_back, len);
 		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle);
@@ -136,8 +137,10 @@ protected:
 	}
 
 	void SetUp() override {
-		basicTest();
-		advancedTest();
+            CUDA_CHECK(cudaStreamCreate(&userStream));
+            handle.setStream(userStream);
+            basicTest();
+            advancedTest();
 	}
 
 	void TearDown() override {
@@ -152,15 +155,17 @@ protected:
 		CUDA_CHECK(cudaFree(explained_vars2));
 		CUDA_CHECK(cudaFree(explained_var_ratio2));
 		CUDA_CHECK(cudaFree(singular_vals2));
+                CUDA_CHECK(cudaStreamDestroy(userStream));
 	}
 
 protected:
-	TsvdInputs<T> params;
-	T *data, *components, *singular_vals,
-			 *components_ref, *explained_vars_ref;
-
-	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
-			*singular_vals2;
+    TsvdInputs<T> params;
+    T *data, *components, *singular_vals,
+        *components_ref, *explained_vars_ref;
+    T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
+        *singular_vals2;
+    cumlHandle handle;
+    cudaStream_t userStream;
 };
 
 const std::vector<TsvdInputs<float> > inputsf2 = {

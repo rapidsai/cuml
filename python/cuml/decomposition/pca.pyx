@@ -25,8 +25,6 @@ import numpy as np
 
 from numba import cuda
 
-from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
