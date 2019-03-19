@@ -104,8 +104,8 @@ protected:
 		    prms.algorithm = solver::COV_EIG_JACOBI;
 
 
-		pcaFit(handle, data, components, explained_vars, explained_var_ratio,
-                       singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle);
+		pcaFit(handle.getImpl(), data, components, explained_vars, explained_var_ratio,
+                       singular_vals, mean, noise_vars, prms);
 
 		pcaTransform(data, components, trans_data, singular_vals, mean,
 				     prms, cublas_handle);
@@ -154,8 +154,10 @@ protected:
 		allocate(mean2, prms.n_cols);
 		allocate(noise_vars2, 1);
 
-		pcaFitTransform(handle, data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle);
+		pcaFitTransform(handle.getImpl(), data2, data2_trans,
+                                components2, explained_vars2,
+                                explained_var_ratio2, singular_vals2, mean2,
+                                noise_vars2, prms);
 
 		allocate(data2_back, len);
 		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back, prms, cublas_handle);

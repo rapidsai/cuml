@@ -29,6 +29,7 @@
 #include "ml_utils.h"
 #include "tsvd/tsvd.h"
 #include "cuML.hpp"
+#include "common/cumlHandle.hpp"
 
 
 namespace ML {
@@ -36,11 +37,10 @@ namespace ML {
 using namespace MLCommon;
 
 template<typename math_t>
-void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
+void truncCompExpVars(const cumlHandle_impl& handle, math_t *in,
+                      math_t *components, math_t *explained_var,
                       math_t *explained_var_ratio, paramsTSVD prms,
-                      cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
                       DeviceAllocator &mgr) {
-
 	math_t *components_all;
 	math_t *explained_var_all;
 	math_t *explained_var_ratio_all;
@@ -50,8 +50,8 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 	allocate(explained_var_all, prms.n_cols);
 	allocate(explained_var_ratio_all, prms.n_cols);
 
-	calEig(in, components_all, explained_var_all, prms, cusolver_handle,
-               cublas_handle, mgr);
+	calEig(in, components_all, explained_var_all, prms,
+               handle.getcusolverDnHandle(), handle.getCublasHandle(), mgr);
 
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
 			prms.n_components, prms.n_cols);
@@ -71,7 +71,7 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
- * @input param handle: cuml handle object
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
  * @output param explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
@@ -80,14 +80,12 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFit(cumlHandle& handle, math_t *input, math_t *components, math_t *explained_var,
-            math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
-            math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
-            cusolverDnHandle_t cusolver_handle) {
+void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
+            math_t *explained_var, math_t *explained_var_ratio,
+            math_t *singular_vals, math_t *mu, math_t *noise_vars,
+            paramsPCA prms) {
     ///@todo: make this to be passed via the interface
     DeviceAllocator mgr = makeDefaultAllocator();
 
@@ -108,9 +106,9 @@ void pcaFit(cumlHandle& handle, math_t *input, math_t *components, math_t *expla
 	allocate(cov, len);
 
 	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
-			cublas_handle);
-	truncCompExpVars(cov, components, explained_var, explained_var_ratio, prms,
-                         cusolver_handle, cublas_handle, mgr);
+                   handle.getCublasHandle());
+	truncCompExpVars(handle, cov, components, explained_var,
+                         explained_var_ratio, prms, mgr);
 
 	math_t scalar = (prms.n_rows - 1);
 	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, true);
@@ -122,7 +120,7 @@ void pcaFit(cumlHandle& handle, math_t *input, math_t *components, math_t *expla
 
 /**
  * @brief perform fit and transform operations for the pca. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
- * @input param handle: cuml handle object
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param trans_input: the transformed data. Size n_rows * n_components.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
@@ -132,18 +130,17 @@ void pcaFit(cumlHandle& handle, math_t *input, math_t *components, math_t *expla
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFitTransform(cumlHandle& handle, math_t *input, math_t *trans_input, math_t *components,
-		math_t *explained_var, math_t *explained_var_ratio,
-		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
+void pcaFitTransform(const cumlHandle_impl& handle, math_t *input,
+                     math_t *trans_input, math_t *components,
+                     math_t *explained_var, math_t *explained_var_ratio,
+                     math_t *singular_vals, math_t *mu, math_t *noise_vars,
+                     paramsPCA prms) {
     pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
-           mu, noise_vars, prms, cublas_handle, cusolver_handle);
+           mu, noise_vars, prms);
     pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-                 cublas_handle);
+                 handle.getCublasHandle());
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
              prms.n_cols);
 }
