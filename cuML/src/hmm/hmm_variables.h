@@ -15,6 +15,15 @@ enum TrainOption {
 
 
 template <typename T>
+struct Multinomial {
+        T *dPis, *dLlhd;
+        int lddPis, lddLlhd;
+
+        int nCl, nDim, nObs;
+};
+
+
+template <typename T>
 struct HMM {
         int nStates;
         std::vector<gmm::GMM<T> > gmms;
@@ -38,24 +47,5 @@ struct HMM {
         TrainOption train;
 };
 
-// template <typename T>
-// struct GMMHMM {
-//         //
-//         HMM *hmm;
-// };
-
-// template <typename T>
-// struct Multinomial {
-//         T *dPis, *dLlhd;
-//         int lddPis, lddLlhd;
-//
-//         int nCl, nDim, nObs;
-// };
-//
-// template <typename T>
-// struct MultinomialHMM {
-//         std::vector<Multinomial<T> > multinomials;
-//         HMM hmm;
-// };
 
 }
