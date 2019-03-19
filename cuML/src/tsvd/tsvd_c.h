@@ -20,15 +20,15 @@
 
 namespace ML{
 
-void tsvdFit(float *input, float *components, float *singular_vals, paramsTSVD prms);
-void tsvdFit(double *input, double *components, double *singular_vals, paramsTSVD prms);
+void tsvdFit(cumlHandle& handle, float *input, float *components, float *singular_vals, paramsTSVD prms);
+void tsvdFit(cumlHandle& handle, double *input, double *components, double *singular_vals, paramsTSVD prms);
 void tsvdInverseTransform(float *trans_input, float *components,float *input, paramsTSVD prms);
 void tsvdInverseTransform(double *trans_input, double *components,double *input, paramsTSVD prms);
 void tsvdTransform(float *input, float *components, float *trans_input, paramsTSVD prms);
 void tsvdTransform(double *input, double *components, double *trans_input, paramsTSVD prms);
-void tsvdFitTransform(float *input, float *trans_input, float *components, float *explained_var,
+void tsvdFitTransform(cumlHandle& handle, float *input, float *trans_input, float *components, float *explained_var,
                     float *explained_var_ratio, float *singular_vals, paramsTSVD prms);
-void tsvdFitTransform(double *input, double *trans_input, double *components, double *explained_var,
+void tsvdFitTransform(cumlHandle& handle, double *input, double *trans_input, double *components, double *explained_var,
                     double *explained_var_ratio, double *singular_vals, paramsTSVD prms);
 
 
