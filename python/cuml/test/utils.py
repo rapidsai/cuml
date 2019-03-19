@@ -23,6 +23,7 @@ from sklearn import datasets
 
 import cudf
 import cuml
+import cuml.common.cuda
 
 
 def array_equal(a, b, tol=1e-4, with_sign=True):

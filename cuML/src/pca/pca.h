@@ -30,44 +30,35 @@
 #include "tsvd/tsvd.h"
 #include "cuML.hpp"
 #include "common/cumlHandle.hpp"
+#include "common/device_buffer.hpp"
 
 
 namespace ML {
 
 using namespace MLCommon;
 
+///@todo: remove 'mgr'
 template<typename math_t>
-void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, paramsTSVD prms,
-                      cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
-                      cudaStream_t stream, DeviceAllocator &mgr) {
+void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *components,
+                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms,
+                      DeviceAllocator &mgr) {
+    int len = prms.n_cols * prms.n_cols;
+    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.getStream();
+    device_buffer<math_t> components_all(allocator, stream, len);
+    device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
+    device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-	math_t *components_all;
-	math_t *explained_var_all;
-	math_t *explained_var_ratio_all;
-
-	int len = prms.n_cols * prms.n_cols;
-	allocate(components_all, len);
-	allocate(explained_var_all, prms.n_cols);
-	allocate(explained_var_ratio_all, prms.n_cols);
-
-	calEig(in, components_all, explained_var_all, prms, cusolver_handle,
-               cublas_handle, stream, mgr);
-
-	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
-			prms.n_components, prms.n_cols, stream);
-
-  Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols, mgr, stream);
-
-	Matrix::truncZeroOrigin(explained_var_all, prms.n_cols, explained_var,
-			prms.n_components, 1, stream);
-
-	Matrix::truncZeroOrigin(explained_var_ratio_all, prms.n_cols,
-			explained_var_ratio, prms.n_components, 1, stream);
-
-	CUDA_CHECK(cudaFree(components_all));
-	CUDA_CHECK(cudaFree(explained_var_all));
-	CUDA_CHECK(cudaFree(explained_var_ratio_all));
+    calEig(in, components_all.data(), explained_var_all.data(), prms,
+           handle.getcusolverDnHandle(), handle.getCublasHandle(), stream, mgr);
+    Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                            prms.n_components, prms.n_cols, stream);
+    Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
+                  prms.n_cols, mgr, stream);
+    Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
+                            explained_var, prms.n_components, 1, stream);
+    Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
+                            explained_var_ratio, prms.n_components, 1, stream);
 }
 
 /**
@@ -106,18 +97,15 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
 
 	math_t *cov;
 	int len = prms.n_cols * prms.n_cols;
-        ///@todo: update me!
-	allocate(cov, len);
+        device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
 
 	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
 			cublas_handle, stream);
-	truncCompExpVars(cov, components, explained_var, explained_var_ratio, prms,
-                         cusolver_handle, cublas_handle, stream, mgr);
+	truncCompExpVars(handle, cov, components, explained_var, explained_var_ratio, prms,
+                         mgr);
 
 	math_t scalar = (prms.n_rows - 1);
 	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, stream, true);
-
-	CUDA_CHECK(cudaFree(cov));
 
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 }
