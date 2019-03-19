@@ -40,7 +40,6 @@ def test_pca_fit(datatype, input_type, use_handle):
         gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
         gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
         cupca.fit(gdf)
-
     else:
         cupca.fit(X)
 
