@@ -185,8 +185,6 @@ namespace ML {
 				
 				if (condition)
 					{
-						//int *sampledlabels = tempmem[0]->sampledlabels;
-						//get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 						node->class_predict = get_class_hist(split_info[0].hist);
 #ifdef PRINT_GINI
 						node->gini_val = split_info[0].best_gini;
