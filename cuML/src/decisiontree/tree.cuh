@@ -185,8 +185,8 @@ namespace ML {
 				
 				if (condition)
 					{
-						int *sampledlabels = tempmem[0]->sampledlabels;
-						get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
+						//int *sampledlabels = tempmem[0]->sampledlabels;
+						//get_sampled_labels(labels, sampledlabels, rowids, n_sampled_rows);
 						node->class_predict = get_class_hist(split_info[0].hist);
 #ifdef PRINT_GINI
 						node->gini_val = split_info[0].best_gini;
@@ -242,17 +242,15 @@ namespace ML {
 					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
 					get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
 						
-					float min, max;
-					min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]);
-					float delta = (max - min)/ nbins ;
+					// Populates tempmem[streamid]->d_min_max (thrust pair)
+					min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
 
 					// info_gain, local_split_info correspond to the best split
 					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
 					int batch_id = 0;
 					ASSERT(batch_bins <= BATCH_BINS, "Invalid batch_bins");
-					float base_quesval = min + delta; //each subsequent quesval in this batch is +delta
 
-					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, base_quesval, delta,
+					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 														batch_bins, batch_id, n_sampled_rows, n_unique_labels,
 														&local_split_info[0], tempmem[streamid]);
 
@@ -261,6 +259,12 @@ namespace ML {
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
+						// Need to get the delta and base_quesval info from device memory
+						CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
+						float delta = tempmem[streamid]->h_ques_info[0];
+						float base_quesval = tempmem[streamid]->h_ques_info[1];
+
 						ques.set_question_fields(colselector[i], batch_id, delta, base_quesval);
 
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];

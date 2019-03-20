@@ -17,6 +17,7 @@
 #pragma once
 #include <utils.h>
 #include "cub/cub.cuh"
+#include <thrust/extrema.h>
 
 struct TemporaryMemory
 {
@@ -44,7 +45,8 @@ struct TemporaryMemory
 	cudaStream_t stream;
 
 	//For min max;
-	float *h_min, *h_max;
+	thrust::pair<float *, float *> d_min_max; 
+	float *d_ques_info, *h_ques_info; //holds delta and base_val
 	
 	TemporaryMemory(int N, int maxstr, int n_unique, int n_bins)
 	{
@@ -68,15 +70,15 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**) &question_value, sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**) &d_ques_info, 2*sizeof(float)));
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
+		CUDA_CHECK(cudaMallocHost((void**)&h_ques_info, 2*sizeof(float)));
 		
-		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char);
+		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 3*sizeof(float);
 
 		//for min max
-		CUDA_CHECK(cudaMallocHost((void**)&h_min, sizeof(float)));
-		CUDA_CHECK(cudaMallocHost((void**)&h_max, sizeof(float)));
 		
 		//Create Streams
 		if(maxstr == 1)
@@ -104,10 +106,10 @@ struct TemporaryMemory
 		cudaFree(d_flags_right);
 		cudaFree(temprowids);
 		cudaFree(question_value);
+		cudaFree(d_ques_info);
 		cudaFreeHost(h_left_rows);
 		cudaFreeHost(h_right_rows);
-		cudaFreeHost(h_min);
-		cudaFreeHost(h_max);
+		cudaFreeHost(h_ques_info);
 		if(stream != 0)
 			cudaStreamDestroy(stream);
 	}

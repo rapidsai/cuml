@@ -20,7 +20,8 @@
 #include "../memory.cuh"
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const float base_quesval, const int batch_bins, const float delta, const int nrows, const int n_unique_labels, int* histout)
+__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout,
+float *col_min, float *col_max, float * ques_info) 
 {
 	
 	// Reset shared memory histograms
@@ -31,6 +32,9 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 	}
 	
 	__syncthreads();
+
+	float delta = (*col_max - *col_min) / nbins;
+	float base_quesval = *col_min + delta;
 	
 	if (tid < nrows) {
 		float data = column[tid];
@@ -51,6 +55,11 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
 		atomicAdd(&histout[i], shmemhist[i]);
 	}
+
+	if (tid == 0) {
+		ques_info[0] = delta;
+		ques_info[1] = base_quesval;
+	}
 	
 }
 
@@ -58,7 +67,7 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
    Outputs: split_info[1] and split_info[2] are updated with the correct info for the best split among the considered batch.
    batch_id specifies which question (bin) within the batch  gave the best split.
 */
-float batch_evaluate_gini(const float *column, const int *labels, const float base_quesval, const float delta,
+float batch_evaluate_gini(const float *column, const int *labels, const int nbins,
 							const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels,
 							GiniInfo split_info[3], TemporaryMemory* tempmem) {
 
@@ -74,7 +83,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const float ba
 
 	//Kernel launch
 	batch_evaluate_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels,
-		base_quesval, batch_bins, delta, nrows, n_unique_labels, dhist);
+		batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max.first, tempmem->d_min_max.second, tempmem->d_ques_info);
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, n_hists_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
