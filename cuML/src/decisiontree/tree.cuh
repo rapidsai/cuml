@@ -33,10 +33,14 @@
 namespace ML {
 	namespace DecisionTree {
 
-		struct Question
-		{
+		struct Question {
 			int column;
 			float value;
+
+			void update(GiniQuestion ques) {
+				column = ques.column;
+				value = ques.value;
+			};
 		};
 
 		struct TreeNode
@@ -161,7 +165,8 @@ namespace ML {
 			TreeNode* grow_tree(float *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info)
 			{
 				TreeNode *node = new TreeNode();
-				Question ques;
+				GiniQuestion ques;
+				Question node_ques;
 				float gain = 0.0;
 				GiniInfo split_info[3]; // basis, left, right. Populate this
 				split_info[0] = prev_split_info;
@@ -193,8 +198,10 @@ namespace ML {
 				else
 					{
 						int nrowsleft, nrowsright;
-						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids);
-						node->question = ques;
+						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids); // populates ques.value
+						node_ques.update(ques);
+						//std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.column << std::endl;
+						node->question = node_ques;
 						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
 #ifdef PRINT_GINI
@@ -205,7 +212,7 @@ namespace ML {
 			}
 			
 			/* depth is used to distinguish between root and other tree nodes for computations */
-			void find_best_fruit(float *data, int *labels, const float colper, Question& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
+			void find_best_fruit(float *data, int *labels, const float colper, GiniQuestion& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
 				gain = 0.0f;
 				
@@ -224,9 +231,6 @@ namespace ML {
 				}
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 
-				int batch_modulo = (current_nbins - 1) % BATCH_BINS;
-				int last_batch = (batch_modulo != 0) ? batch_modulo : BATCH_BINS;
-
 				for (int i=0; i<colselector.size(); i++) {
 
 					GiniInfo local_split_info[3];
@@ -241,46 +245,38 @@ namespace ML {
 					float min, max;
 					min_and_max(sampledcolumn, n_sampled_rows, min, max, tempmem[streamid]);
 					float delta = (max - min)/ nbins ;
-					//If min == max, then delta would be zero, just go through one bin.
-					bool stop_loop = false;
 
-					for (int j = 1; (j < current_nbins) && !stop_loop; j += BATCH_BINS) {
-						float base_quesval = min + delta*j; //each subsequent quesval in this batch is +delta
+					// info_gain, local_split_info correspond to the best split
+					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
+					int batch_id = 0;
+					ASSERT(batch_bins <= BATCH_BINS, "Invalid batch_bins");
+					float base_quesval = min + delta; //each subsequent quesval in this batch is +delta
 
-						int batch_id = 0;
-						int batch_bins = (j + BATCH_BINS >= current_nbins) ? last_batch : BATCH_BINS;
-						
-						// info_gain, local_split_info correspond to the best split of this batch based on info gain
-						float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, base_quesval, delta,
-															batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-															&local_split_info[0], tempmem[streamid]);
+					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, base_quesval, delta,
+														batch_bins, batch_id, n_sampled_rows, n_unique_labels,
+														&local_split_info[0], tempmem[streamid]);
 
-						//ASSERT(info_gain + FLT_EPSILON >= 0.0f, "Cannot have negative info_gain %f", info_gain);
-						ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
+					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
-						// Find best info across batches
-						if (info_gain >= gain) {
-							gain = info_gain;
-							ques.value = base_quesval + batch_id * delta;
-							ques.column = colselector[i];
-							for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
-						}
+					// Find best info across batches
+					if (info_gain > gain) {
+						gain = info_gain;
+						ques.set_question_fields(colselector[i], batch_id, delta, base_quesval);
 
-						stop_loop = (min == max) ; // no need to go through the loop again
-
+						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
 				}
 				CUDA_CHECK(cudaDeviceSynchronize());
 			}
 
 
-			void split_branch(float *data, const Question ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
+			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
 				float *sampledcolumn = tempmem[0]->sampledcolumns;
 
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
-				make_split(sampledcolumn, ques.value, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
+				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
 
 				return;
 			}

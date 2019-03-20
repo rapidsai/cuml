@@ -35,6 +35,7 @@ struct TemporaryMemory
 	int *d_num_selected_out;
 	int *temprowids;
 	int *h_left_rows, *h_right_rows;
+	float * question_value;
 	
 	//Total temp mem
 	size_t totalmem = 0;
@@ -66,6 +67,7 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_left, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
+		CUDA_CHECK(cudaMalloc((void**) &question_value, sizeof(float)));
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
@@ -101,6 +103,7 @@ struct TemporaryMemory
 		cudaFree(d_flags_left);
 		cudaFree(d_flags_right);
 		cudaFree(temprowids);
+		cudaFree(question_value);
 		cudaFreeHost(h_left_rows);
 		cudaFreeHost(h_right_rows);
 		cudaFreeHost(h_min);

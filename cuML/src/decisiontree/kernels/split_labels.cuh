@@ -19,15 +19,20 @@
 #include "cub/cub.cuh"
 #include <thrust/sort.h>
 #include <algorithm>
+#include "gini.cuh"
 
-__global__ void flag_kernel(float* column,char* leftflag,char* rightflag,float quesval,const int nrows)
+__global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
+							const float ques_base_val, const int ques_batch_id, const float ques_delta,
+							float * ques_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if(tid < nrows)
+	if (tid < nrows)
 		{
-			char lflag,rflag;
+			char lflag, rflag;
 			float data = column[tid];
-			if(data <= quesval)
+			ques_val[0] = ques_base_val + ques_batch_id * ques_delta;
+
+			if (data <= ques_val[0])
 				{
 					lflag = 1;
 					rflag = 0;
@@ -51,14 +56,15 @@ int get_class_hist(std::vector<int> & node_hist) {
 	return classval;
 }
 
-void make_split(float *column,const float quesval,const int nrows,int& nrowsleft,int& nrowsright,unsigned int* rowids, const TemporaryMemory* tempmem)
+void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, const TemporaryMemory* tempmem)
 {
 
 	int *temprowids = tempmem->temprowids;
 	char *d_flags_left = tempmem->d_flags_left;
 	char *d_flags_right = tempmem->d_flags_right;
+	float * question_value = tempmem->question_value;
 	
-	flag_kernel<<< (int)(nrows/128) + 1,128>>>(column,d_flags_left,d_flags_right,quesval,nrows);
+	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.base_ques_val, ques.batch_id, ques.delta, question_value);
 	CUDA_CHECK(cudaGetLastError());
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;
@@ -67,15 +73,18 @@ void make_split(float *column,const float quesval,const int nrows,int& nrowsleft
 	int *d_num_selected_out = tempmem->d_num_selected_out;
 
 	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids,d_num_selected_out, nrows);
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);
 	
-	CUDA_CHECK(cudaMemcpy(&nrowsleft,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(&nrowsleft, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
 	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft],d_num_selected_out, nrows);
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows);
 	
-	CUDA_CHECK(cudaMemcpy(&nrowsright,d_num_selected_out,sizeof(int),cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(&nrowsright, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
 
-	CUDA_CHECK(cudaMemcpy(rowids,temprowids,nrows*sizeof(int),cudaMemcpyDeviceToDevice));
+	CUDA_CHECK(cudaMemcpy(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice));
+
+	// Copy GPU-computed question value to tree node.
+	CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(float), cudaMemcpyDeviceToHost));
 
 	return;
 }

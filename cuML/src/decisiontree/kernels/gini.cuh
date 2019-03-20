@@ -17,10 +17,35 @@
 #pragma once
 #include <utils.h>
 #include "cub/cub.cuh"
-#include <thrust/sort.h>
 #include "../memory.cuh"
 //#include <map>
 #include <vector>
+
+struct GiniQuestion {
+	int column;
+	float value;
+
+	/* value = base_ques_val + batch_id * delta.
+
+	Due to fp computation differences between GPU and CPU, we need to ensure
+	the question value is always computed on the GPU. Otherwise, the flag_kernel
+	called via make_split would make a split that'd be inconsistent with the one that
+	produced the histograms during the gini computation. This issue arises when there is
+	a data value close to the question that gets split differently in gini than in
+	flag_kernel.
+	*/
+	int batch_id;
+	float delta;
+	float base_ques_val;
+
+	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_delta, float cfg_base_ques_val) {
+		column = cfg_column;
+		batch_id = cfg_batch_id;
+		delta = cfg_delta;
+	    base_ques_val = cfg_base_ques_val;
+		value = 0.0f; // Will be udpate in make_split
+	};
+};
 
 struct GiniInfo {
 	float best_gini = -1.0f;
