@@ -28,21 +28,21 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # - Requirements ----------------------------------------------------------------------------------
 
 if(NOT DEFINED BLAS_LIBRARIES)
-    find_package( BLAS REQUIRED )
+  find_package( BLAS REQUIRED )
 else()
-	message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+  message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-    find_package(OpenMP)
+  find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 find_package(ZLIB REQUIRED)
 if(ZLIB_FOUND)
-    message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+  message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
 else()
-    message(FATAL_ERROR "ZLib not found, please check your settings.")
+  message(FATAL_ERROR "ZLib not found, please check your settings.")
 endif(ZLIB_FOUND)
 
 
@@ -80,8 +80,8 @@ option(DEBUG "Get a debug build" OFF)
 ## nvcc options
 
 if(OPENMP_FOUND)
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
 if(CMAKE_CXX_STANDARD STREQUAL "11")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
@@ -123,12 +123,12 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 if(NOT CMAKE_CXX11_ABI)
-        message(STATUS "Disabling the GLIBCXX11 ABI")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
+  message(STATUS "Disabling the GLIBCXX11 ABI")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
 elseif(CMAKE_CXX11_ABI)
-    message(STATUS "Enabling the GLIBCXX11 ABI")
+  message(STATUS "Enabling the GLIBCXX11 ABI")
 endif(NOT CMAKE_CXX11_ABI)
 
 
@@ -162,14 +162,14 @@ set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
 include_directories(src
-	    ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
-	    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-        ${GTEST_DIR}/include
-        ${MLPRIMS_DIR}/src
-        ${MLPRIMS_DIR}/test
-        ${CUTLASS_DIR}
-        ${CUB_DIR}
-        ${ZLIB_INCLUDE_DIRS$})
+  ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
+  ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
+  ${GTEST_DIR}/include
+  ${MLPRIMS_DIR}/src
+  ${MLPRIMS_DIR}/test
+  ${CUTLASS_DIR}
+  ${CUB_DIR}
+  ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
@@ -180,37 +180,37 @@ file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
-add_library(cuml SHARED
-            src/pca/pca.cu
-            src/tsvd/tsvd.cu
-            src/dbscan/dbscan.cu
-            src/kmeans/kmeans.cu
-            src/glm/glm.cu
-            src/knn/knn.cu
-            src/kalman_filter/lkf_py.cu
-            src/common/cumlHandle.cpp
-            src/common/cuml_api.cpp
-            src/umap/umap.cu
-	    src/solver/solver.cu
-            )
+set(CUML_CPP_TARGET "cuml++")
+add_library(${CUML_CPP_TARGET} SHARED
+  src/pca/pca.cu
+  src/tsvd/tsvd.cu
+  src/dbscan/dbscan.cu
+  src/kmeans/kmeans.cu
+  src/glm/glm.cu
+  src/knn/knn.cu
+  src/kalman_filter/lkf_py.cu
+  src/common/cumlHandle.cpp
+  src/common/cuml_api.cpp
+  src/umap/umap.cu
+  src/solver/solver.cu)
 
 set(CUML_LINK_LIBRARIES 
-	${CUDA_cublas_LIBRARY} 
-	${CUDA_curand_LIBRARY} 
-	${CUDA_cusolver_LIBRARY} 
-	${CUDA_CUDART_LIBRARY} 
-	${CUDA_cusparse_LIBRARY} 
-	${CUDA_nvgraph_LIBRARY} 
-	${ZLIB_LIBRARIES} 
-	gpufaisslib 
-	faisslib 
-	${BLAS_LIBRARIES})
+  ${CUDA_cublas_LIBRARY} 
+  ${CUDA_curand_LIBRARY} 
+  ${CUDA_cusolver_LIBRARY} 
+  ${CUDA_CUDART_LIBRARY} 
+  ${CUDA_cusparse_LIBRARY} 
+  ${CUDA_nvgraph_LIBRARY} 
+  ${ZLIB_LIBRARIES} 
+  gpufaisslib 
+  faisslib 
+  ${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
-    set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
+  set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
 
-target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
+target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
@@ -218,58 +218,50 @@ target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
-                      ${GTEST_LIBNAME}
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      gpufaisslib
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_nvgraph_LIBRARY}
-		                  gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      cuml
-                      pthread
-                      z)
-                      
-                      
+  ${GTEST_LIBNAME}
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  gpufaisslib
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  faisslib
+  ${BLAS_LIBRARIES}
+  ${CUML_CPP_TARGET}
+  pthread
+  z)
+
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
 add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_mg_test
-                      ${GTEST_LIBNAME}
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_nvgraph_LIBRARY}
-                      gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      cuml
-                      pthread
-                      ${ZLIB_LIBRARIES})
+  ${GTEST_LIBNAME}
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  gpufaisslib
+  faisslib
+  ${BLAS_LIBRARIES}
+  ${CUML_CPP_TARGET}
+  pthread
+  ${ZLIB_LIBRARIES})
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
 if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-    add_subdirectory(examples)
+  add_subdirectory(examples)
 endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
 
-install(TARGETS cuml
-        DESTINATION lib)
-        
-
-
-		
-
+install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
