@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
