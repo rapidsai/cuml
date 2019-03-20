@@ -20,7 +20,8 @@
 #include "../memory.cuh"
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const float base_quesval, const int batch_bins, const float delta, const int nrows, const int n_unique_labels, int* histout) {
+__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const float base_quesval, const int batch_bins, const float delta, const int nrows, const int n_unique_labels, int* histout)
+{
 	
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -41,76 +42,16 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
 			}
 		}
-
+		
 	}
-
+	
 	__syncthreads();
-
+	
 	// Merge shared mem histograms to the global memory hist
 	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
 		atomicAdd(&histout[i], shmemhist[i]);
 	}
 	
-}
-
-
-__global__ void evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const float quesval, const int nrows, const int nmax, int* histout)
-{
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	extern __shared__ unsigned int shmemhist[];
-	if(threadIdx.x < nmax)
-		shmemhist[threadIdx.x] = 0;
-
-	__syncthreads();
-
-	if(tid < nrows)
-		{
-			float data = column[tid];
-			int label = labels[tid];
-			if(data <= quesval)
-				{
-					atomicAdd(&shmemhist[label], 1);
-				}
-
-		}
-
-	__syncthreads();
-
-	if(threadIdx.x < nmax)
-		atomicAdd(&histout[threadIdx.x], shmemhist[threadIdx.x]);
-
-	return;
-}
-
-void evaluate_and_leftgini(const float *column, const int *labels, const float quesval, const int nrows, const int n_unique_labels, GiniInfo& split_info, int& lnrows, int& rnrows, TemporaryMemory* tempmem)
-{
-	int *dhist = tempmem->d_hist;
-	int *hhist = tempmem->h_hist;
-
-	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*n_unique_labels, tempmem->stream));
-	evaluate_kernel<<< (int)(nrows/128) + 1, 128, sizeof(int)*n_unique_labels, tempmem->stream>>>(column, labels, quesval, nrows, n_unique_labels, dhist);
-	CUDA_CHECK(cudaGetLastError());
-	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, sizeof(int)*n_unique_labels, cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
-	float gval = 1.0f;
-	lnrows = 0;
-	split_info.hist.resize(n_unique_labels, 0);
-
-	for(int i=0; i < n_unique_labels; i++) {
-		split_info.hist[i] = hhist[i];
-		lnrows += split_info.hist[i];
-	}
-
-	for(int i=0; i < n_unique_labels; i++) {
-		float prob_left = (float) (split_info.hist[i]) / lnrows; // gini left has to be divided by lnrows and not nrows
-		gval -= prob_left * prob_left;
-	}
-
-	rnrows = nrows - lnrows;
-	split_info.best_gini = gval; //Update gini val
-
-	return;
 }
 
 /* Compute best information gain for this batch. This code merges  gini_left and gini_right computation in  a single function.
@@ -124,7 +65,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const float ba
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
 	int n_hists_bytes = sizeof(int) * n_unique_labels * batch_bins;
-
+	
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, n_hists_bytes, tempmem->stream));
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
 	ASSERT((n_unique_labels <= 128), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
