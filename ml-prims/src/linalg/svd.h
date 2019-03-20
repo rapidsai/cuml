@@ -42,8 +42,8 @@ namespace LinAlg {
  * @param gen_right_vec: generate right eig vector. Not activated.
  * @param cusolverH cusolver handle
  * @param cublasH cublas handle
- * @param mgr device allocator for temporary buffers during computation
- * @{
+ * @param allocator device allocator for temporary buffers during computation
+ * @param stream cuda stream where to schedule work
  */
 // TODO: activate gen_left_vec and gen_right_vec options
 // TODO: couldn't template this function due to cusolverDnSgesvd and
@@ -52,62 +52,56 @@ template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
            T *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
            cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-           DeviceAllocator &mgr) {
+           std::shared_ptr<deviceAllocator>& allocator,
+           cudaStream_t stream) {
   const int m = n_rows;
   const int n = n_cols;
 
-  int *devInfo = (int *)mgr.alloc(sizeof(int));
+  device_buffer<int> devInfo(allocator, stream, 1);
   T *d_rwork = nullptr;
 
   // The transposed right singular vector
-  T *right_sing_vecs_trans = (T *)mgr.alloc(sizeof(T) * n * n);
+  device_buffer<T> right_sing_vecs_trans(allocator, stream, n * n);
 
   int lwork = 0;
   CUSOLVER_CHECK(
     cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
-  T *d_work = (T *)mgr.alloc(sizeof(T) * lwork);
+  device_buffer<T> d_work(allocator, stream, lwork);
 
   signed char jobu = 'A';
   signed char jobvt = 'A';
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
-                                 left_sing_vecs, m, right_sing_vecs_trans, n,
-                                 d_work, lwork, d_rwork, devInfo));
+                                 left_sing_vecs, m, right_sing_vecs_trans.data(),
+                                 n, d_work.data(), lwork, d_rwork, devInfo.data()));
 
   // Transpose the right singular vector back
-  transpose(right_sing_vecs_trans, right_sing_vecs, n, n, cublasH);
+  transpose(right_sing_vecs_trans.data(), right_sing_vecs, n, n, cublasH);
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
-  updateHost(&dev_info, devInfo, 1);
+  updateHost(&dev_info, devInfo.data(), 1);
   ASSERT(dev_info == 0,
          "svd.h: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
-  
-  ///@todo: what if stream from cusolver handle is different!?
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
-  mgr.free(right_sing_vecs_trans, stream);
-  mgr.free(devInfo, stream);
-  mgr.free(d_work, stream);
 }
 
 template <typename T>
 void svdEig(T* in, int n_rows, int n_cols, T* S,
-		   T* U, T* V, bool gen_left_vec,
+            T* U, T* V, bool gen_left_vec,
             cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-    DeviceAllocator &mgr) {
-
-	T *in_cross_mult;
+            std::shared_ptr<deviceAllocator>& allocator,
+            cudaStream_t stream) {
 	int len = n_cols * n_cols;
-	allocate(in_cross_mult, len);
+        device_buffer<T> in_cross_mult(allocator, stream, len);
 
 	T alpha = T(1);
 	T beta = T(0);
-	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
-             CUBLAS_OP_N, alpha, beta, cublasH);
+	gemm(in, n_rows, n_cols, in, in_cross_mult.data(), n_cols, n_cols,
+             CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
 
-	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, mgr);
+	eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, allocator,
+              stream);
 
 	Matrix::colReverse(V, n_cols, n_cols);
 	Matrix::rowReverse(S, n_cols, 1);
@@ -119,8 +113,6 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
              alpha, beta, cublasH);
     	Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true);
     }
-
-	CUDA_CHECK(cudaFree(in_cross_mult));
 }
 
 
@@ -140,7 +132,8 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
  * @param sweeps: number of sweeps in the Jacobi algorithm. The more the better
  * accuracy.
  * @param cusolverH cusolver handle
- * @param mgr device allocator for temporary buffers during computation
+ * @param allocator device allocator for temporary buffers during computation
+ * @param stream cuda stream where to schedule work
  * @{
  */
 
@@ -149,7 +142,8 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
                bool gen_left_vec, bool gen_right_vec, math_t tol,
                int max_sweeps, cusolverDnHandle_t cusolverH,
-               DeviceAllocator &mgr) {
+               std::shared_ptr<deviceAllocator>& allocator,
+               cudaStream_t stream) {
   gesvdjInfo_t gesvdj_params = NULL;
 
   CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
@@ -159,7 +153,7 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
   int m = n_rows;
   int n = n_cols;
 
-  int *devInfo = (int *)mgr.alloc(sizeof(int));
+  device_buffer<int> devInfo(allocator, stream, 1);
 
   int lwork = 0;
   int econ = 1;
@@ -168,18 +162,12 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
     left_sing_vecs, m, right_sing_vecs, n, &lwork, gesvdj_params));
 
-  math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
+  device_buffer<math_t> d_work(allocator, stream, lwork);
 
   CUSOLVER_CHECK(cusolverDngesvdj(cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m,
                                   n, in, m, sing_vals, left_sing_vecs, m,
-                                  right_sing_vecs, n, d_work, lwork, devInfo,
-                                  gesvdj_params));
-
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
-  mgr.free(devInfo, stream);
-  mgr.free(d_work);
-
+                                  right_sing_vecs, n, d_work.data(), lwork,
+                                  devInfo.data(), gesvdj_params));
   CUSOLVER_CHECK(cusolverDnDestroyGesvdjInfo(gesvdj_params));
 }
 

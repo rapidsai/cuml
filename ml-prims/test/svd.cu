@@ -46,6 +46,8 @@ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
+    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -85,9 +87,9 @@ protected:
     updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl);
     updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col);
 
-    auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, cusolverH, cublasH, mgr);
+          right_eig_vectors_trans_qr, true, true, cusolverH, cublasH, allocator,
+          stream);
   }
 
   void TearDown() override {
@@ -100,6 +102,7 @@ protected:
     CUDA_CHECK(cudaFree(sing_vals_ref));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
     CUBLAS_CHECK(cublasDestroy(cublasH));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
@@ -108,6 +111,7 @@ protected:
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
   cusolverDnHandle_t cusolverH = NULL;
   cublasHandle_t cublasH;
+  cudaStream_t stream;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {

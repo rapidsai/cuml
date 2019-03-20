@@ -76,14 +76,16 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 
 template<typename math_t>
 void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
-            math_t *explained_var, paramsTSVD prms, DeviceAllocator &mgr) {
+            math_t *explained_var, paramsTSVD prms) {
     if (prms.algorithm == solver::COV_EIG_JACOBI) {
         LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
                           explained_var, (math_t) prms.tol, prms.n_iterations,
-                          handle.getcusolverDnHandle(), mgr);
+                          handle.getcusolverDnHandle(), handle.getDeviceAllocator(),
+                          handle.getStream());
     } else {
         LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-                      handle.getcusolverDnHandle(), mgr);
+                      handle.getcusolverDnHandle(), handle.getDeviceAllocator(),
+                      handle.getStream());
     }
     Matrix::colReverse(components, prms.n_cols, prms.n_cols);
     LinAlg::transpose(components, prms.n_cols);
@@ -177,7 +179,7 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
                                             handle.getStream(), prms.n_cols);
 
     calEig(handle, input_cross_mult.data(), components_all.data(),
-           explained_var_all.data(), prms, mgr);
+           explained_var_all.data(), prms);
 
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols);
@@ -202,9 +204,6 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
                       math_t *trans_input, math_t *components,
                       math_t *explained_var, math_t *explained_var_ratio,
                       math_t *singular_vals, paramsTSVD prms) {
-    ///@todo: make this to be passed via the interface!
-    DeviceAllocator mgr = makeDefaultAllocator();
-
     tsvdFit(handle, input, components, singular_vals, prms);
     tsvdTransform(input, components, trans_input, prms, handle.getCublasHandle());
 

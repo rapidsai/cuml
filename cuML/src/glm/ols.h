@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,25 +27,8 @@
 #include <linalg/norm.h>
 #include <stats/sum.h>
 #include <matrix/math.h>
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-#include <matrix/matrix.h>
 #include "preprocess.h"
-#include <device_allocator.h>
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace GLM {
@@ -57,33 +40,41 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		math_t *intercept, bool fit_intercept, bool normalize,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
 		int algo = 0) {
+    ///@todo: make this function accept cumlHandle_impl!
+    cumlHandle h_;
+    cudaStream_t s_;
+    CUDA_CHECK(cudaStreamCreate(&s_));
+    h_.setStream(s_);
+    const auto& handle = h_.getImpl();
+    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.getStream();
 
 	ASSERT(n_cols > 0,
 			"olsFit: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"olsFit: number of rows cannot be less than two");
 
-	math_t *mu_input, *norm2_input, *mu_labels;
+        device_buffer<math_t> mu_input(allocator, stream);
+        device_buffer<math_t> norm2_input(allocator, stream);
+        device_buffer<math_t> mu_labels(allocator, stream);
 
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
-		if (normalize) {
-			allocate(norm2_input, n_cols);
-		}
-		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+            mu_input.resize(n_cols, stream);
+            mu_labels.resize(1, stream);
+            if (normalize) {
+                norm2_input.resize(n_cols, stream);
+            }
+            preProcessData(input, n_rows, n_cols, labels, intercept, mu_input.data(),
+                           mu_labels.data(), norm2_input.data(), fit_intercept,
+                           normalize, cublas_handle, cusolver_handle);
 	}
 
-        ///@todo: for perf reasons we should be using custom allocators!
-        DeviceAllocator mgr = makeDefaultAllocator();
 	if (algo == 0 || n_cols == 1) {
-		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr);
+            LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
+                             cublas_handle, allocator, stream);
 	} else if (algo == 1) {
-		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr);
+            LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
+                             cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
 				cublas_handle);
@@ -94,23 +85,14 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	}
 
 	if (fit_intercept) {
-		postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
-
-		if (normalize) {
-			if (norm2_input != NULL)
-				cudaFree(norm2_input);
-		}
-
-		if (mu_input != NULL)
-			cudaFree(mu_input);
-		if (mu_labels != NULL)
-			cudaFree(mu_labels);
+            postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input.data(),
+                            mu_labels.data(), norm2_input.data(), fit_intercept, normalize,
+                            cublas_handle, cusolver_handle);
 	} else {
 		*intercept = math_t(0);
 	}
-
+    CUDA_CHECK(cudaStreamSynchronize(s_));
+    CUDA_CHECK(cudaStreamDestroy(s_));
 }
 
 template<typename math_t>

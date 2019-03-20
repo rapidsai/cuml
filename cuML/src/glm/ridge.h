@@ -29,6 +29,7 @@
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 #include "preprocess.h"
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace GLM {
@@ -65,60 +66,52 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 
 template<typename math_t>
 void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
-		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, DeviceAllocator &mgr) {
-
+		int n_alpha, math_t *w, const cumlHandle_impl& handle) {
 	ASSERT(n_cols > 0,
 			"ridgeSVD: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"ridgeSVD: number of rows cannot be less than two");
-
-	math_t *S, *V, *U;
+        auto allocator = handle.getDeviceAllocator();
+        auto stream = handle.getStream();
+        auto cusolverH = handle.getcusolverDnHandle();
+        auto cublasH = handle.getCublasHandle();
 
 	int U_len = n_rows * n_rows;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
+        device_buffer<math_t> U(allocator, stream, U_len);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> S(allocator, stream, n_cols);
 
-	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH,
-                      cublasH, mgr);
-	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
-			cublasH);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
-
+	LinAlg::svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true,
+                      cusolverH, cublasH, allocator, stream);
+	ridgeSolve(S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w,
+                   cusolverH, cublasH);
 }
 
 template<typename math_t>
 void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
-		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, DeviceAllocator &mgr) {
-
+		int n_alpha, math_t *w, const cumlHandle_impl& handle) {
 	ASSERT(n_cols > 1,
 			"ridgeEig: number of columns cannot be less than two");
 	ASSERT(n_rows > 1,
 			"ridgeEig: number of rows cannot be less than two");
-
-	math_t *S, *V, *U;
+        auto allocator = handle.getDeviceAllocator();
+        auto stream = handle.getStream();
+        auto cusolverH = handle.getcusolverDnHandle();
+        auto cublasH = handle.getCublasHandle();
 
 	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
+        device_buffer<math_t> U(allocator, stream, U_len);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> S(allocator, stream, n_cols);
 
-	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
-	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
-			cublasH);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
+	LinAlg::svdEig(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, cublasH, cusolverH,
+                       allocator, stream);
+	ridgeSolve(S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
+                   cublasH);
 }
 
 template<typename math_t>
@@ -126,33 +119,41 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 		math_t *alpha, int n_alpha, math_t *coef, math_t *intercept,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle, int algo = 0) {
+    ///@todo: make this function accept cumlHandle_impl!
+    cumlHandle h_;
+    cudaStream_t s_;
+    CUDA_CHECK(cudaStreamCreate(&s_));
+    h_.setStream(s_);
+    const auto& handle = h_.getImpl();
+    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.getStream();
 
 	ASSERT(n_cols > 0,
 			"ridgeFit: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"ridgeFit: number of rows cannot be less than two");
 
-	math_t *mu_input, *norm2_input, *mu_labels;
+        device_buffer<math_t> mu_input(allocator, stream);
+        device_buffer<math_t> norm2_input(allocator, stream);
+        device_buffer<math_t> mu_labels(allocator, stream);
 
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
-		if (normalize) {
-			allocate(norm2_input, n_cols);
-		}
-		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+            mu_input.resize(n_cols, stream);
+            mu_labels.resize(1, stream);
+            if (normalize) {
+                norm2_input.resize(n_cols, stream);
+            }
+            preProcessData(input, n_rows, n_cols, labels, intercept, mu_input.data(),
+                           mu_labels.data(), norm2_input.data(), fit_intercept,
+                           normalize, cublas_handle, cusolver_handle);
 	}
-
-        auto mgr = makeDefaultAllocator();
 
 	if (algo == 0 || n_cols == 1) {
 		ridgeSVD(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-                         cusolver_handle, cublas_handle, mgr);
+                         handle);
 	} else if (algo == 1) {
 		ridgeEig(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-                         cusolver_handle, cublas_handle, mgr);
+                         handle);
 	} else if (algo == 2) {
 		ASSERT(false,
 				"ridgeFit: no algorithm with this id has been implemented");
@@ -162,23 +163,14 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 	}
 
 	if (fit_intercept) {
-		postProcessData(input, n_rows, n_cols, labels, coef, intercept,
-				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-				cublas_handle, cusolver_handle);
-
-		if (normalize) {
-			if (norm2_input != NULL)
-				cudaFree(norm2_input);
-		}
-
-		if (mu_input != NULL)
-			cudaFree(mu_input);
-		if (mu_labels != NULL)
-			cudaFree(mu_labels);
+            postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input.data(),
+                            mu_labels.data(), norm2_input.data(), fit_intercept, normalize,
+                            cublas_handle, cusolver_handle);
 	} else {
 		*intercept = math_t(0);
 	}
-
+    CUDA_CHECK(cudaStreamSynchronize(s_));
+    CUDA_CHECK(cudaStreamDestroy(s_));
 }
 
 template<typename math_t>

@@ -40,8 +40,7 @@ using namespace MLCommon;
 template<typename math_t>
 void truncCompExpVars(const cumlHandle_impl& handle, math_t *in,
                       math_t *components, math_t *explained_var,
-                      math_t *explained_var_ratio, paramsTSVD prms,
-                      DeviceAllocator &mgr) {
+                      math_t *explained_var_ratio, paramsTSVD prms) {
     int len = prms.n_cols * prms.n_cols;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
@@ -49,11 +48,11 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in,
     device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
     device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-    calEig(handle, in, components_all.data(), explained_var_all.data(), prms, mgr);
+    calEig(handle, in, components_all.data(), explained_var_all.data(), prms);
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
-                  prms.n_cols, mgr);
+                  prms.n_cols, allocator, stream);
     Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
                             explained_var, prms.n_components, 1);
     Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
@@ -77,9 +76,6 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
             paramsPCA prms) {
-    ///@todo: remove this!
-    DeviceAllocator mgr = makeDefaultAllocator();
-
     ASSERT(prms.n_cols > 1,
            "Parameter n_cols: number of columns cannot be less than two");
     ASSERT(prms.n_rows > 1,
@@ -96,7 +92,7 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
     Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
                handle.getCublasHandle());
     truncCompExpVars(handle, cov.data(), components, explained_var,
-                     explained_var_ratio, prms, mgr);
+                     explained_var_ratio, prms);
     math_t scalar = (prms.n_rows - 1);
     Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, true);
     Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
