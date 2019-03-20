@@ -22,17 +22,17 @@
 #include "gini.cuh"
 
 __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
-							const float ques_base_val, const int ques_batch_id, const float ques_delta,
-							float * ques_val)
+			    const float ques_base_val, const int ques_batch_id, const float ques_delta,
+			    float * ques_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows)
 		{
 			char lflag, rflag;
 			float data = column[tid];
-			ques_val[0] = ques_base_val + ques_batch_id * ques_delta;
+			float local_ques_val = ques_base_val + ques_batch_id * ques_delta;
 
-			if (data <= ques_val[0])
+			if (data <= local_ques_val)
 				{
 					lflag = 1;
 					rflag = 0;
@@ -44,6 +44,9 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 				}
 			leftflag[tid] = lflag;
 			rightflag[tid] = rflag;
+			
+			if(tid == 0)
+				ques_val[0] = local_ques_val;
 			
 		}
 	return;
