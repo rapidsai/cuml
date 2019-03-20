@@ -12,8 +12,25 @@ cdef extern from "hmm/hmm_variables.h" namespace "hmm":
 
 ctypedef HMM[float, GMM[float]] floatGMMHMM
 ctypedef HMM[double, GMM[double]] doubleGMMHMM
-ctypedef HMM[float, Multinomial[float]] floatMultinomial
-ctypedef HMM[double, Multinomial[double]] doubleMultinomial
+ctypedef HMM[float, Multinomial[float]] floatMultinomialHMM
+ctypedef HMM[double, Multinomial[double]] doubleMultinomialHMM
+
+ctypedef fused floatTHMM:
+    floatGMMHMM
+    floatMultinomialHMM
+
+ctypedef fused doubleTHMM:
+    doubleGMMHMM
+    doubleMultinomialHMM
+
+ctypedef fused floatTDist:
+    GMM[float]
+    Multinomial[float]
+
+ctypedef fused doubleTDist:
+    GMM[double]
+    Multinomial[double]
+
 
 cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void init_f64(doubleGMMHMM &hmm,
@@ -33,7 +50,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                                    bool doForward,
                                    bool doBackward)
 
-    cdef void init_f64(doubleMultinomial &hmm,
+    cdef void init_f64(doubleMultinomialHMM &hmm,
                        vector[Multinomial[double]] &gmms,
                        int nStates,
                        double* dT,
@@ -43,7 +60,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                        double* dGamma,
                        int lddgamma)
 
-    cdef void forward_backward_f64(doubleMultinomial &hmm,
+    cdef void forward_backward_f64(doubleMultinomialHMM &hmm,
                                    double* dX,
                                    int* dlenghts,
                                    int nSeq,

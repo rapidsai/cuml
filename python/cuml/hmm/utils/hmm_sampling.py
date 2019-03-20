@@ -20,7 +20,7 @@ covars = .5 * np.tile(np.identity(2), (4, 1, 1))
 
 
 class HMMSampler :
-    def __init__(self, n_seq, n_dim, n_mix, n_components,
+    def __init__(self, n_seq, n_dim, n_mix, n_components, hmm_type,
                  p=0.35, seq_len_ref=5, random_state=None):
         self.p = p
         self.random_state=random_state
@@ -31,6 +31,9 @@ class HMMSampler :
         self.n_dim = n_dim
         self.n_mix = n_mix
         self.n_components = n_components
+        self.hmm_type = hmm_type
+
+        self.model = None
 
     def _sample_lengths(self):
         lengths = np.random.geometric(p=self.p, size=self.n_seq)
@@ -69,9 +72,13 @@ class HMMSampler :
         lengths = self._sample_lengths()
 
         # Set HMM model
-        self.model = hmm.GMMHMM(n_components=self.n_components,
+        if self.hmm_type is 'gmm' :
+            self.model = hmm.GMMHMM(n_components=self.n_components,
                                      n_mix=self.n_mix,
                                 covariance_type=self.covariance_type)
+        if self.hmm_type is 'multinomial' :
+            self.model = hmm.GMMHMM(n_components=self.n_components)
+
         self._set_model_parameters()
 
         # Sample the sequences

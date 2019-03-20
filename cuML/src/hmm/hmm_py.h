@@ -35,3 +35,8 @@ void forward_backward_f64(HMM<double, gmm::GMM<double> > &hmm,
 //
 // void viterbi_f64(HMM<double>& hmm,
 //                  int* dStates, int* dlenghts, int nSeq);
+
+namespace multinomial {
+void init_multinomial_f64(HMM<double> &hmm,
+                          double* dPis, int nCl);
+}

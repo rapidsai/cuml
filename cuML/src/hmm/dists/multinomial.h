@@ -3,6 +3,8 @@
 #include <hmm/magma/b_likelihood.h>
 
 namespace multinomial {
+
+template <typename T>
 void update_llhd(T* dX, Multinomial<T>& multinomial){
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 MLCommon::multinomial_likelihood_batched(hmm.nObs,
@@ -14,5 +16,13 @@ void update_llhd(T* dX, Multinomial<T>& multinomial){
                                                          hmm.dists[stateId].lddLlhd,
                                                          false);
         }
+}
+
+template <typename T>
+void init_multinomial(Multinomial<T>& multinomial,
+                      T* dPis, int nCl) {
+        multinomial.dPis = dPis;
+        multinomial.nCl = nCl;
+
 }
 }

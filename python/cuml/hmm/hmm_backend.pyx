@@ -3,14 +3,14 @@ from libc.stdlib cimport  malloc
 from libcpp.vector cimport vector
 from libcpp cimport bool
 
-from cuml.hmm.base.hmm_base import _GMMHMM, _MultinomialHMM, _BaseHMM
-
+from cuml.hmm.hmm_extern cimport *
 from cuml.gmm.gaussian_mixture cimport GMM, _setup_gmm
-from cuml.hmm.hidden_markov_model cimport HMM, init_f64, forward_backward_f64, floatGMMHMM, doubleGMMHMM
+
 
 RUP_SIZE = 32
 
-cdef setup_hmm(self, HMM[float, GMM[float]]& hmm32, doubleGMMHMM& hmm64):
+
+cdef setup_gmmhmm(self, floatGMMHMM& hmm32, doubleGMMHMM& hmm64):
     cdef vector[GMM[float]] gmms32
     cdef vector[GMM[double]] gmms64
 
@@ -42,28 +42,57 @@ cdef setup_hmm(self, HMM[float, GMM[float]]& hmm32, doubleGMMHMM& hmm64):
                      <double*>_dGamma_ptr,
                      <int>lddgamma)
 
-class _BaseHMMBackend:
-    def __init__(self,
-                 n_components,
-                 n_mix,
-                 precision="double",
-                 covariance_type="full",
-                 random_state=None):
-        pass
+cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM& hmm64):
+    cdef vector[Multinomial[float]] multinomials32
+    cdef vector[Multinomial[double]] multinomials64
 
-        super().__init__(n_components=n_components,
-                         n_mix=n_mix,
-                         precision=precision,
-                         random_state=random_state)
+    cdef Multinomial[float] *ar_multinomials32 = <Multinomial[float] *>malloc(self.n_components * sizeof(Multinomial[float]))
+    cdef Multinomial[double] *ar_multinomials64 = <Multinomial[double] *>malloc(self.n_components * sizeof(Multinomial[double]))
+
+    cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
+    cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
+    cdef uintptr_t _dGamma_ptr = self.dGamma.device_ctypes_pointer.value
+
+    cdef int nStates = self.n_components
+    cdef int lddt = self.lddt
+    cdef int lddb = self.lddb
+    cdef int lddgamma = self.lddgamma
+
+    if self.precision == 'double':
+        for i in range(self.n_components):
+            _setup_multinomial(self.multinomials[i], ar_multinomials32[i], ar_multinomials64[i])
+            multinomials64.push_back(ar_multinomials64[i])
+
+        with nogil:
+            init_f64(hmm64,
+                     multinomials64,
+                     <int>nStates,
+                     <double*>_dT_ptr,
+                     <int>lddt,
+                     <double*>_dB_ptr,
+                     <int>lddb,
+                     <double*>_dGamma_ptr,
+                     <int>lddgamma)
+
+class _BaseHMMBackend:
+    def __init__(self):
+        pass
 
     def _forward_backward(self, X, lengths, do_forward, do_backward):
         self._set_dims(X, lengths)
         self._initialize()
         self._setup(X, lengths)
 
-        cdef floatGMMHMM hmm32
-        cdef doubleGMMHMM hmm64
-        setup_hmm(self, hmm32, hmm64)
+        cdef floatGMMHMM gmmhmm32
+        cdef doubleGMMHMM gmmhmm64
+
+        cdef floatMultinomialHMM multinomialhmm32
+        cdef doubleMultinomialHMM multinomialhmm64
+
+        if self.hmm_type is "gmm" :
+            setup_gmmhmm(self, gmmhmm32, gmmhmm64)
+        if self.hmm_type is 'multinomial':
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
@@ -73,19 +102,20 @@ class _BaseHMMBackend:
         cdef bool doForward = do_forward
         cdef bool doBackward = do_backward
 
-        for gmm in self.gmms :
-            gmm.init_step()
+        for dist in self.dists :
+            dist.init_step()
 
-        if self.dtype is "double" :
-            forward_backward_f64(hmm64,
-                                   <double*> _dX_ptr,
-                                   <int*> _dlengths_ptr,
-                                   <int> nSeq,
-                                   <bool> doForward,
-                                   <bool> doBackward)
-
-class MultinomialHMM(_BaseHMM, _MultinomialHMM, _BaseHMMBackend,):
-    def __init__(self):
-        _BaseHMM.__init__()
-        _MultinomialHMM.__init__()
-        _BaseHMMBackend.__init__()
+        if self.dtype is "double" and self.hmm_type is 'gmm':
+            forward_backward_f64(gmmhmm64,
+                                 <double*> _dX_ptr,
+                                 <int*> _dlengths_ptr,
+                                 <int> nSeq,
+                                 <bool> doForward,
+                                 <bool> doBackward)
+        if self.dtype is "double" and self.hmm_type is 'multinomial':
+            forward_backward_f64(multinomialhmm64,
+                                 <double*> _dX_ptr,
+                                 <int*> _dlengths_ptr,
+                                 <int> nSeq,
+                                 <bool> doForward,
+                                 <bool> doBackward)

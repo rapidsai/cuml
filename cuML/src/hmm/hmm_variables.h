@@ -22,9 +22,7 @@ enum DistOption {
 template <typename T>
 struct Multinomial {
         T *dPis, *dLlhd;
-        int lddPis, lddLlhd;
-
-        int nCl, nDim, nObs;
+        int nCl;
 };
 
 
