@@ -106,10 +106,6 @@ const std::vector<KmeansInputs<double> > inputsd2 = {
 
 // FIXME: These tests are disabled due to being too sensitive to RNG:
 // https://github.com/rapidsai/cuml/issues/71
-// From dantegd:
-// "Depending on the driver version it just fails due to the nature of
-// kmeans algo (so the test should be redone, expected with the new
-// kmeans)."
 typedef KmeansTest<float> KmeansTestF;
 TEST_P(KmeansTestF, DISABLED_Fit) {
 	ASSERT_TRUE(
