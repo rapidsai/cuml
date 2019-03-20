@@ -63,6 +63,7 @@
 - PR #357: Removing FAISS requirement from README
 - PR #362: Fix for matVecOp crashing on large input sizes
 - PR #366: Index arithmetic issue fix with TxN_t class
+- PR #376: Disabled kmeans tests after talking to @dantegd since they are currently too sensitive.
 
 
 # cuML 0.5.1 (05 Feb 2019)
