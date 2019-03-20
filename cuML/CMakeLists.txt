@@ -119,8 +119,16 @@ list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
 # Copy configuration file to faiss to compile for the correct GPU architectures
-file(COPY ${PROJECT_SOURCE_DIR}/makefile.inc.in
-     DESTINATION ${FAISS_DIR})
+if((CUDA_VERSION_MAJOR EQUAL 9))
+    file(COPY ${PROJECT_SOURCE_DIR}/makefile-cuda92.inc.in
+         DESTINATION ${FAISS_DIR})
+    file(RENAME ${FAISS_DIR}/makefile-cuda92.inc.in ${FAISS_DIR}/makefile.inc.in)
+endif()
+if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
+    file(COPY ${PROJECT_SOURCE_DIR}/makefile-cuda10.inc.in
+         DESTINATION ${FAISS_DIR})
+    file(RENAME ${FAISS_DIR}/makefile-cuda10.inc.in ${FAISS_DIR}/makefile.inc.in)
+endif()
 
 ## end nvcc options
 
