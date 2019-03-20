@@ -129,6 +129,8 @@ float batch_evaluate_gini(const float *column, const int *labels, const float ba
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
 	ASSERT((n_unique_labels <= 128), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
 
+	//FIXME TODO: if delta is 0 just go through one batch_bin. 
+
 	//Kernel launch
 	batch_evaluate_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels,
 		base_quesval, batch_bins, delta, nrows, n_unique_labels, dhist);
