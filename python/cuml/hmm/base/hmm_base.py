@@ -17,9 +17,10 @@ class _BaseCUML(ABC):
             'double': np.float64,
         }[precision]
 
-    def __init__(self, precision, align_size=32):
+    def __init__(self, precision, random_state, align_size=32):
         self.precision = precision
         self.dtype = self._get_dtype(precision)
+        self.random_state = random_state
 
         self.align_size = align_size
 
@@ -36,8 +37,9 @@ class _BaseHMM(_BaseCUML, _DevHMM):
                  random_state
                  ):
 
-        _BaseCUML.__init__(precision=precision)
-        self.random_state=random_state
+        _BaseCUML.__init__(self,
+                           precision=precision,
+                           random_state=random_state)
 
     def fit(self, X, lengths=None):
         self._fit(X, lengths)
@@ -51,7 +53,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     #     pass
 
     def predict_proba(self, X, lengths=None):
-        self._forward_backard(X, lengths, True, True)
+        self._forward_backward(X, lengths, True, True)
         self._compute_gammas(X, lengths)
         return self._gammas_
 
@@ -60,7 +62,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     #     pass
 
     def score(self, X, lengths=None):
-        self._forward_backard(X, lengths, True, False)
+        self._forward_backward(X, lengths, True, False)
         return self._score()
 
     def score_samples(self, X, lengths=None):

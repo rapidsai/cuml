@@ -15,4 +15,5 @@
 #
 
 
-from cuml.hmm.gmm_hmm import HiddenMarkovModel
+# from cuml.hmm import GMMHMM
+from cuml.hmm.multinomial_hmm import MultinomialHMM

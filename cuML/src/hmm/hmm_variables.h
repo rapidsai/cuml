@@ -14,15 +14,8 @@ enum TrainOption {
 };
 
 enum DistOption {
-        Multinomial,
+        MultinomialDist,
         GaussianMixture
-};
-
-
-template <typename T>
-struct Multinomial {
-        T *dPis, *dLlhd;
-        int nCl;
 };
 
 
@@ -50,11 +43,5 @@ struct HMM {
         TrainOption train;
         DistOption distOption;
 };
-
-// template <typename T>
-// struct HMM<T, gmm::GMM<T> > GMMHMM;
-//
-// template <typename T>
-// struct HMM<T, Multinomial<T> > MultinomialHMM {};
 
 }

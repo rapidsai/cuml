@@ -1,9 +1,9 @@
 #pragma once
 
-#include "hmm/prims/hmm_utils.h"
+#include "hmm/algorithms/hmm_utils.h"
 #include "gmm/gmm.h"
 #include "hmm/hmm_variables.h"
-#include "hmm/prims/dists.h"
+#include "hmm/dists/multinomial.h"
 
 #include "hmm/magma/magma_test_utils.h"
 #include "hmm/magma/magma_batched_wrappers.h"
@@ -13,19 +13,23 @@
 //
 
 namespace hmm {
-template <typename T, typename D>
-void _compute_emissions(T* dX, HMM<T, D> &hmm, cublasHandle_t cublasHandle){
+template <typename T>
+void _compute_emissions(T* dX,
+                        HMM<T, gmm::GMM<T> > &hmm,
+                        cublasHandle_t cublasHandle){
         // Compute the emissions likelihoods B
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle);
+        }
+}
 
-        if(hmm.type == GaussianMixture) {
-                for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-                        gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle);
-                        // Stores the likelihoods in dProbNorm which points to dB + offset
-                }
-        }
-        else if(hmm.type == Multinomial) {
-                multinomial::update_llhd(dX, hmm.dists[stateId]);
-        }
+
+template <typename T>
+void _compute_emissions(int *dX,
+                        HMM<T, multinomial::Multinomial<T> > &hmm,
+                        cublasHandle_t cublasHandle){
+        // Compute the emissions likelihoods B
+        multinomial::update_llhd(dX, hmm);
 }
 
 template <typename T>

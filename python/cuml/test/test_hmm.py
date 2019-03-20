@@ -13,46 +13,43 @@
 # limitations under the License.
 #
 
-import cuml
-from cuml.hmm.utils.hmm_sampling import HMMSampler
-import hmmlearn
+
+from cuml.hmm.utils.hmm_test_utils import *
+
+#
+# def test_gmmhmm():
+#     n_seq = 10
+#     n_dim = 3
+#     hmm_kwargs = {"n_components": 5,
+#                   "n_mix": 4,
+#                   "covariance_type": "full"}
+#     hmm_type = "gmm"
+#
+#     hmm_sampler = GMMHMMSampler(n_seq=n_seq,
+#                                 n_dim=n_dim,
+#                                 n_mix=hmm_kwargs["n_mix"],
+#                                 n_components=hmm_kwargs["n_components"])
+#     X, lengths = hmm_sampler.sample_sequences()
+#
+#     hmm_tester = GMMHMMTester(kwargs=hmm_kwargs, hmm_type=hmm_type)
+#     hmm_tester.test_workflow(X, lengths)
 
 
-from cuml.gmm.utils import *
+def test_multinomialhmm():
+    n_seq = 10
+    n_components = 5
+    n_features = 8
 
+    hmm_sampler = MultinomialHMMSampler(n_seq=n_seq,
+                                        n_components=n_components,
+                                        n_features=n_features)
+    X, lengths = hmm_sampler.sample_sequences()
 
-class HMMTester :
-    def __init__(self, kwargs):
-        self.kwargs = kwargs
-
-    def _reset(self):
-        self.sk = hmmlearn.hmm.GMMHMM(**self.kwargs)
-        self.cuml = cuml.hmm.HiddenMarkovModel(**self.kwargs)
-
-
-    def test_workflow(self, X, lengths):
-        self._reset()
-        self.cuml._forward_backward(X, lengths, False, False)
-        print(self.cuml.means_)
-
-    def test_score_samples(self, X, lengths):
-        cuml_out = self.cuml.score_samples(X, lengths)
-        sk_out = self.sk.score_samples(X, lengths)
-        return mae(cuml_out, sk_out)
+    hmm_tester = MultinomialHMMTester(n_components=n_components,
+                                      precision="double",
+                                      random_state=None)
+    hmm_tester.test_workflow(X, lengths)
 
 
 if __name__ == '__main__':
-    n_seq = 10
-    n_dim = 3
-    hmm_kwargs = {"n_components" : 5,
-                  "n_mix" : 4,
-                  "covariance_type" : "full"}
-
-    hmm_sampler = HMMSampler(n_seq=n_seq,
-                             n_dim=n_dim,
-                             n_mix=hmm_kwargs["n_mix"],
-                             n_components=hmm_kwargs["n_components"])
-    X, lengths = hmm_sampler.sample_sequences()
-
-    hmm_tester = HMMTester(hmm_kwargs)
-    hmm_tester.test_workflow(X, lengths)
+    test_multinomialhmm()

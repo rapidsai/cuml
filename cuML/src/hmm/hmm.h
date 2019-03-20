@@ -3,14 +3,14 @@
 #include <stdlib.h>
 
 #include "gmm/gmm.h"
-#include "hmm/prims/forward_backward.h"
-#include "hmm/prims/viterbi.h"
+#include "hmm/algorithms/forward_backward.h"
+#include "hmm/algorithms/viterbi.h"
 
 namespace hmm {
 
 template <typename T, typename D>
 void init(HMM<T, D> &hmm,
-          std::vector<gmm::GMM<T> > &gmms,
+          std::vector<D> &gmms,
           int nStates,
           T* dT, int lddt,
           T* dB, int lddb,
@@ -30,6 +30,13 @@ void init(HMM<T, D> &hmm,
 
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 hmm.dists[stateId].dLlhd = hmm.dB + hmm.nObs * stateId;
+        }
+
+        if(std::is_same<D, gmm::GMM<T> >::value) {
+                hmm.distOption = GaussianMixture;
+        }
+        if(std::is_same<D, multinomial::Multinomial<T> >::value) {
+                hmm.distOption = MultinomialDist;
         }
 }
 
@@ -55,9 +62,9 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq){
 //
 // }
 
-template <typename T, typename D>
+template <typename Tx, typename T, typename D>
 void forward_backward(HMM<T, D> &hmm,
-                      T* dX, int* dlenghts, int nSeq,
+                      Tx* dX, int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
                       bool doForward, bool doBackward){
 

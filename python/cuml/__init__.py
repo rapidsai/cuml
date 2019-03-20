@@ -23,7 +23,7 @@ from cuml.decomposition.tsvd import TruncatedSVD
 from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.gmm.gaussian_mixture import GaussianMixture
-from cuml.hmm import HiddenMarkovModel
+from cuml.hmm import MultinomialHMM
 
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.ridge import Ridge
