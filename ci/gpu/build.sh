@@ -55,7 +55,7 @@ logger "Clean up make..."
 make clean
 
 logger "Make libcuml..."
-cat CMakeFiles/Makefile2
+cat CMakeFiles/faiss.dir/build.make
 make -j${PARALLEL_LEVEL}
 
 logger "Install libcuml..."
