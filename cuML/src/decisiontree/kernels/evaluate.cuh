@@ -205,7 +205,7 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 		}
 	return;
 }
-__global__ void fireinthehole_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, float* globalminmax, int* histout)
+/*__global__ void fireinthehole_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, float* globalminmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -279,7 +279,7 @@ __global__ void fireinthehole_kernel(const float* __restrict__ data, const int* 
 		}
 	
 	return;
-}
+	}*/
 __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
