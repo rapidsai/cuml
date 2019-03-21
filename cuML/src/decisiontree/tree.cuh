@@ -172,7 +172,8 @@ namespace ML {
 
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
-					find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+					//find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 					condition = condition || (gain == 0.0f);
 				}
 				
@@ -293,9 +294,10 @@ namespace ML {
 				
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 				
-				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0]);
+				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques);
 
 			}
+
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
