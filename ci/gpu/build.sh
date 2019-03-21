@@ -31,7 +31,7 @@ nvidia-smi
 
 logger "Activate conda env..."
 source activate gdf
-sudo apt-get update && sudo apt-get install libopenblas-dev libomp-dev
+apt-get install libopenblas-dev libomp-dev
 conda install -c nvidia -c rapidsai/label/cuda$CUDA_REL -c rapidsai-nightly/label/cuda$CUDA_REL -c numba -c conda-forge -c defaults cudf=$CUDF_VERSION
 
 logger "Check versions..."
