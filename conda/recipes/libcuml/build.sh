@@ -17,6 +17,6 @@ cd cuML
 mkdir build
 cd build
 # configure
-cmake $CMAKE_COMMON_VARIABLES ..
+cmake $CMAKE_COMMON_VARIABLES -DBLAS_LIBRARIES=/conda/ends/gdf/lib/libopenblas.so ..
 # build
 make -j${PARALLEL_LEVEL} VERBOSE=1 install
