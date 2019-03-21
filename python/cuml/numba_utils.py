@@ -48,7 +48,7 @@ def row_matrix(df):
             return
         while _col_offsets[tid] < _col_major.shape[1]:
             col_idx = _col_offsets[tid]
-            _row_major[tid, col_idx = _col_major[tid, col_idx]
+            _row_major[tid, col_idx] = _col_major[tid, col_idx]
             _col_offsets[tid] += 1
 
     kernel[blocks_per_grid, threads_per_block](col_major, col_offsets, row_major)
