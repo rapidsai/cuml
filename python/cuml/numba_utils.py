@@ -22,9 +22,9 @@ import numpy as np
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
-    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass. If already on
-        the device, its stream will be used to perform the transpose (and to
-        copy `row_major` to the device if necessary).
+    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
+        If already on the device, its stream will be used to perform the
+        transpose (and to copy `row_major` to the device if necessary).
 
     To be replaced by CUDA ml-prim in upcoming version
     """
@@ -44,9 +44,11 @@ def row_matrix(df):
     @cuda.jit
     def kernel(_col_major, _col_offsets, _row_major):
         tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
-        if tid >= nrows: return
+        if tid >= nrows:
+            return
         while _col_offsets[tid] < _col_major.shape[1]:
-            _row_major[tid, _col_offsets[tid]] = _col_major[tid, _col_offsets[tid]]
+            col_idx = _col_offsets[tid]
+            _row_major[tid, col_idx = _col_major[tid, col_idx]
             _col_offsets[tid] += 1
 
     kernel[blocks_per_grid, threads_per_block](col_major, col_offsets, row_major)
