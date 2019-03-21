@@ -37,9 +37,9 @@ def row_matrix(df):
     col_major = df.as_gpu_matrix(order='F')
     row_major = rmm.device_array((nrows, ncols), dtype=dtype, order='C')
 
-    threads_per_block = driver.get_device().MAX_THREADS_PER_BLOCK
-    blocks_per_grid = (nrows + threads_per_block - 1) // threads_per_block
-    col_offsets = rmm.to_device(np.zeros(threads_per_block, dtype=np.int32))
+    tpb = driver.get_device().MAX_THREADS_PER_BLOCK
+    bpg = (nrows + tpb - 1) // tpb
+    col_offsets = rmm.to_device(np.zeros(tpb, dtype=np.int32))
 
     @cuda.jit
     def kernel(_col_major, _col_offsets, _row_major):
@@ -51,6 +51,6 @@ def row_matrix(df):
             _row_major[tid, col_idx] = _col_major[tid, col_idx]
             _col_offsets[tid] += 1
 
-    kernel[blocks_per_grid, threads_per_block](col_major, col_offsets, row_major)
+    kernel[bpg, tpb](col_major, col_offsets, row_major)
 
     return row_major
