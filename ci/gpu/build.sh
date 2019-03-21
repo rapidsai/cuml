@@ -3,7 +3,7 @@
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
-set -e
+set -ex
 
 # Logger function for build status output
 function logger() {
@@ -59,7 +59,6 @@ make -j${PARALLEL_LEVEL}
 
 logger "Install libcuml..."
 make -j${PARALLEL_LEVEL} install
-
 
 logger "Build cuML..."
 cd $WORKSPACE/python
