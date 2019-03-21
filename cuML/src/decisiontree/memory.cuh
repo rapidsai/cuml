@@ -46,7 +46,8 @@ struct TemporaryMemory
 	cudaStream_t stream;
 
 	//For min max;
-	thrust::pair<float *, float *> d_min_max; 
+	thrust::pair<float *, float *> d_min_max_thrust;
+	float * d_min_max;
 	float *d_ques_info, *h_ques_info; //holds delta and base_val
 	
 	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins)
@@ -72,12 +73,14 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**) &question_value, sizeof(float)));
 		CUDA_CHECK(cudaMalloc((void**) &d_ques_info, 2*sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**) &d_min_max, 2*sizeof(float)));
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_ques_info, 2*sizeof(float)));
 		
-		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 3*sizeof(float);
+		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 5*sizeof(float);
+
 
 		//For lot of temp data
 		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
@@ -85,6 +88,7 @@ struct TemporaryMemory
 		
 		//for min max
 		
+
 		//Create Streams
 		if(maxstr == 1)
 			stream = 0;
@@ -112,6 +116,7 @@ struct TemporaryMemory
 		cudaFree(temprowids);
 		cudaFree(question_value);
 		cudaFree(d_ques_info);
+		cudaFree(d_min_max);
 		cudaFreeHost(h_left_rows);
 		cudaFreeHost(h_right_rows);
 		cudaFreeHost(h_ques_info);

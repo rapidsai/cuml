@@ -237,10 +237,12 @@ namespace ML {
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 
 					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
-					get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
+					//get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
 						
 					// Populates tempmem[streamid]->d_min_max (thrust pair)
-					min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
+					//min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
+					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
+					//min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
 
 					// info_gain, local_split_info correspond to the best split
 					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
