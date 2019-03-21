@@ -205,6 +205,91 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 		}
 	return;
 }
+
+__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	float *minmaxshared = (float*)shmem;
+	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
+
+	for(int i=threadIdx.x;i<2*ncols;i += blockDim.x)
+		{
+			minmaxshared[i] = globalminmax[i];
+		}
+	
+	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x)
+		{
+			shmemhist[i] = 0;
+		}
+
+	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
+		{
+			int mycolid = (int) (i/nrows);
+			int coloffset = mycolid*n_unique_labels*nbins;
+			
+			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
+			float base_quesval = minmaxshared[mycolid] + delta;
+			
+			float localdata = data[i];
+			int label = labels[rowids[ i % nrows ]];
+			for(int j=0;j<nbins;j++)
+				{
+					float quesval = base_quesval + j * delta;
+					if (localdata <= quesval) {
+						atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+					}
+				}
+			
+		}
+	
+	__syncthreads();
+	
+	for(int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x)
+		{
+			atomicAdd(&histout[i], shmemhist[i]);
+		}
+	return;	
+}
+void lets_doit_all(const float *data,const unsigned int* rowids,const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem)
+{
+	int* d_colids = tempmem->d_colids;
+	float* globalminmax = tempmem->d_globalminmax;
+	float* h_globalminmax = tempmem->h_globalminmax;
+	int *d_histout = tempmem->d_histout;
+	int *h_histout = tempmem->h_histout;
+	
+	for(int i=0;i<colselector.size();i++)
+		{
+			h_globalminmax[i] = FLT_MAX;
+			h_globalminmax[i + colselector.size()] = FLT_MIN;
+		}
+	
+	CUDA_CHECK(cudaMemset((void*)d_histout,0,sizeof(int) * nbins * colselector.size()));
+	CUDA_CHECK(cudaMemcpy(globalminmax,h_globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_colids,colselector.data(),sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
+	
+	unsigned int threads = 512;
+	unsigned int blocks  = (int)((nrows*colselector.size()) / threads) + 1;
+	if(blocks > 65536)
+		blocks = 65536;
+	
+	size_t shmemsize = sizeof(float) * 2 * colselector.size();
+	allcolsampler_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(data,rowids,d_colids,nrows,colselector.size(),rowoffset,&globalminmax[0],&globalminmax[colselector.size()],tempmem->temp_data);
+	CUDA_CHECK(cudaGetLastError());
+
+	
+	shmemsize = sizeof(float) * 2 * colselector.size();
+	shmemsize += nbins*n_unique_labels*colselector.size()*sizeof(int);
+	
+	letsdoitall_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(tempmem->temp_data,labels,rowids,nbins,nrows,colselector.size(),rowoffset,n_unique_labels,globalminmax,d_histout);
+	CUDA_CHECK(cudaGetLastError());
+	
+	CUDA_CHECK(cudaMemcpy(h_globalminmax,globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_histout,d_histout,sizeof(int) * nbins * colselector.size(), cudaMemcpyDeviceToHost));
+	
+}
+
 /*__global__ void fireinthehole_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, float* globalminmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -280,92 +365,3 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	
 	return;
 	}*/
-__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
-{
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	extern __shared__ char shmem[];
-	float *minmaxshared = (float*)shmem;
-	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
-
-	for(int i=threadIdx.x;i<2*ncols;i += blockDim.x)
-		{
-			minmaxshared[i] = globalminmax[i];
-		}
-	
-	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x)
-		{
-			shmemhist[i] = 0;
-		}
-
-	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
-		{
-			int mycolid = (int) (i/nrows);
-			int coloffset = mycolid*n_unique_labels*nbins;
-			
-			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
-			float base_quesval = minmaxshared[mycolid] + delta;
-			
-			float localdata = data[i];
-			int label = labels[rowids[ i % nrows ]];
-			for(int j=0;j<nbins;j++)
-				{
-					float quesval = base_quesval + j * delta;
-					if (localdata <= quesval) {
-						atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
-					}
-				}
-			
-		}
-	
-	__syncthreads();
-	
-	for(int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x)
-		{
-			atomicAdd(&histout[i], shmemhist[i]);
-		}
-	return;	
-}
-void lets_doit_all(const float *data,const unsigned int* rowids,const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem)
-{
-	int* d_colids;
-	float* globalminmax;
-	float* h_globalminmax = (float*)malloc(sizeof(float) * 2 * colselector.size());
-	int *d_histout;
-	int *h_histout = (int*)malloc(sizeof(int) * nbins * colselector.size());
-	
-	for(int i=0;i<colselector.size();i++)
-		{
-			h_globalminmax[i] = FLT_MAX;
-			h_globalminmax[i + colselector.size()] = FLT_MIN;
-		}
-	
-	CUDA_CHECK(cudaMalloc((void**)&d_colids,sizeof(int) * colselector.size()));
-	CUDA_CHECK(cudaMalloc((void**)&d_histout,sizeof(int) * nbins * colselector.size()));
-	CUDA_CHECK(cudaMemset((void*)d_histout,0,sizeof(int) * nbins * colselector.size()));
-	CUDA_CHECK(cudaMalloc((void**)&globalminmax,sizeof(float) * 2 * colselector.size()));
-	CUDA_CHECK(cudaMemcpy(globalminmax,h_globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_colids,colselector.data(),sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
-	
-	unsigned int threads = 256;
-	unsigned int blocks  = (int)((nrows*colselector.size()) / threads) + 1;
-	if(blocks > 65536)
-		blocks = 65536;
-	
-	size_t shmemsize = sizeof(float) * 2 * colselector.size();
-	allcolsampler_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(data,rowids,d_colids,nrows,colselector.size(),rowoffset,&globalminmax[0],&globalminmax[colselector.size()],tempmem->temp_data);
-	CUDA_CHECK(cudaGetLastError());
-
-	
-	shmemsize = sizeof(float) * 2 * colselector.size();
-	shmemsize += nbins*n_unique_labels*colselector.size()*sizeof(int);
-	
-	letsdoitall_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(tempmem->temp_data,labels,rowids,nbins,nrows,colselector.size(),rowoffset,n_unique_labels,globalminmax,d_histout);
-	CUDA_CHECK(cudaGetLastError());
-	
-	CUDA_CHECK(cudaMemcpy(h_globalminmax,globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyDeviceToHost));
-	CUDA_CHECK(cudaMemcpy(h_histout,d_histout,sizeof(int) * nbins * colselector.size(), cudaMemcpyDeviceToHost));
-	free(h_globalminmax);
-	free(h_histout);
-	CUDA_CHECK(cudaFree(globalminmax));
-	CUDA_CHECK(cudaFree(d_colids));
-}
