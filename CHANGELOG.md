@@ -11,6 +11,7 @@
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl 
 
 # cuML 0.6.0 (Date TBD)
 
@@ -76,6 +77,7 @@
 - PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
 - PR #357: Removing FAISS requirement from README
 - PR #362: Fix for matVecOp crashing on large input sizes
+- PR #366: Index arithmetic issue fix with TxN_t class
 
 
 # cuML 0.5.1 (05 Feb 2019)
