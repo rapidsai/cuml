@@ -304,7 +304,10 @@ class LinearRegressionMG:
             raise TypeError(msg)
 
         if (not np.isfortran(X)):
-            X = np.array(X, order='F')
+            X = np.array(X, order='F', dtype=X.dtype)
+
+        if (not np.isfortran(y)):
+            y = np.array(y, order='F', dtype=y.dtype)
 
         cdef uintptr_t X_ptr, y_ptr, gpu_ids_ptr, coef_ptr
 
@@ -313,7 +316,8 @@ class LinearRegressionMG:
 
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids).ctypes.data
+        gpu_id_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_id_32.ctypes.data
         coef_ptr = self.coef_.ctypes.data
 
         cdef float intercept32
@@ -355,7 +359,7 @@ class LinearRegressionMG:
         n_gpus = len(gpu_ids)
 
         if (not np.isfortran(X)):
-            X = np.array(X, order='F')
+            X = np.array(X, order='F', dtype=X.dtype)
 
         n_rows = X.shape[0]
         n_cols = X.shape[1]
@@ -376,7 +380,8 @@ class LinearRegressionMG:
 
         X_ptr = X.ctypes.data
         pred_ptr = pred.ctypes.data
-        gpu_ids_ptr = np.array(gpu_ids).ctypes.data
+        gpu_id_32 = np.array(gpu_ids, dtype=np.int32)
+        gpu_ids_ptr = gpu_id_32.ctypes.data
         coef_ptr = self.coef_.ctypes.data
 
         if self.gdf_datatype.type == np.float32:
