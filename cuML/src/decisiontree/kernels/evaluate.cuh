@@ -18,6 +18,9 @@
 #include <utils.h>
 #include "gini.cuh"
 #include "../memory.cuh"
+#include "atomic_minmax.h"
+#include <float.h>
+#include <cooperative_groups.h>
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
 __global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout,
@@ -78,7 +81,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, n_hists_bytes, tempmem->stream));
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
 	ASSERT((n_unique_labels <= 128), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
-
+	
 	//FIXME TODO: if delta is 0 just go through one batch_bin. 
 
 	//Kernel launch
@@ -167,4 +170,201 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 
 	return gain;
 
+}
+
+__global__ void allcolsampler_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* globalmin, float* globalmax,float* sampledcols)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	float *minshared = (float*)shmem;
+	float *maxshared = (float*)(shmem + sizeof(float) * ncols);
+	if(threadIdx.x < ncols)
+		{
+			minshared[threadIdx.x] = FLT_MAX;
+			maxshared[threadIdx.x] = FLT_MIN;
+		}
+	
+	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
+		{
+			int mycolid = (int)(i / nrows);
+			int myrowstart = colids[mycolid] * rowoffset;
+			int index = rowids[ i % nrows] + myrowstart;
+			float coldata = data[index];
+			atomicMinFloat(&minshared[mycolid],coldata);
+			atomicMaxFloat(&maxshared[mycolid],coldata);
+			__syncthreads();
+			
+			if(threadIdx.x < ncols)
+				{
+					atomicMinFloat(&globalmin[threadIdx.x],minshared[threadIdx.x]);
+					atomicMaxFloat(&globalmax[threadIdx.x],maxshared[threadIdx.x]);
+				}
+			
+			sampledcols[i] = coldata;
+		}
+	return;
+}
+__global__ void fireinthehole_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, float* globalminmax, int* histout)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	float *minmaxshared = (float*)shmem;
+	if(threadIdx.x < ncols)
+		{
+			minmaxshared[threadIdx.x] = FLT_MAX;
+			minmaxshared[threadIdx.x + ncols] = FLT_MIN;
+		}
+	
+	float coldata;
+	int rowid;
+	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
+		{
+			int mycolid = (int)(i / nrows);
+			int myrowstart = colids[mycolid] * rowoffset;
+			rowid = rowids[ i % nrows];
+			coldata = data[myrowstart + rowid];
+			
+			atomicMinFloat(&minmaxshared[mycolid],coldata);
+			atomicMaxFloat(&minmaxshared[mycolid + ncols],coldata);
+			__syncthreads();
+			
+			if(threadIdx.x < ncols)
+				{
+					atomicMinFloat(&globalminmax[threadIdx.x],minmaxshared[threadIdx.x]);
+					atomicMaxFloat(&globalminmax[threadIdx.x + ncols],minmaxshared[threadIdx.x + ncols]);
+				}
+		
+		}
+
+	cooperative_groups::this_grid().sync();
+	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
+
+	for(int i=threadIdx.x;i<2*ncols;i += blockDim.x)
+		{
+			minmaxshared[i] = globalminmax[i];
+		}
+	
+	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x)
+		{
+			shmemhist[i] = 0;
+		}
+	
+	__syncthreads();
+	
+	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
+		{
+			int mycolid = (int) (i/nrows);
+			int coloffset = mycolid*n_unique_labels*nbins;
+			
+			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
+			float base_quesval = minmaxshared[mycolid] + delta;
+			int label = labels[rowid];
+			
+			for(int j=0;j<nbins;j++)
+				{
+					float quesval = base_quesval + j * delta;
+					if (coldata <= quesval) {
+						atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+					}
+				}
+			
+		}
+	
+	__syncthreads();
+	
+	for(int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x)
+		{
+			atomicAdd(&histout[i], shmemhist[i]);
+		}
+	
+	return;
+}
+__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	float *minmaxshared = (float*)shmem;
+	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
+
+	for(int i=threadIdx.x;i<2*ncols;i += blockDim.x)
+		{
+			minmaxshared[i] = globalminmax[i];
+		}
+	
+	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x)
+		{
+			shmemhist[i] = 0;
+		}
+
+	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
+		{
+			int mycolid = (int) (i/nrows);
+			int coloffset = mycolid*n_unique_labels*nbins;
+			
+			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
+			float base_quesval = minmaxshared[mycolid] + delta;
+			
+			float localdata = data[i];
+			int label = labels[rowids[ i % nrows ]];
+			for(int j=0;j<nbins;j++)
+				{
+					float quesval = base_quesval + j * delta;
+					if (localdata <= quesval) {
+						atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+					}
+				}
+			
+		}
+	
+	__syncthreads();
+	
+	for(int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x)
+		{
+			atomicAdd(&histout[i], shmemhist[i]);
+		}
+	return;	
+}
+void lets_doit_all(const float *data,const unsigned int* rowids,const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem)
+{
+	int* d_colids;
+	float* globalminmax;
+	float* h_globalminmax = (float*)malloc(sizeof(float) * 2 * colselector.size());
+	int *d_histout;
+	int *h_histout = (int*)malloc(sizeof(int) * nbins * colselector.size());
+	
+	for(int i=0;i<colselector.size();i++)
+		{
+			h_globalminmax[i] = FLT_MAX;
+			h_globalminmax[i + colselector.size()] = FLT_MIN;
+		}
+	
+	CUDA_CHECK(cudaMalloc((void**)&d_colids,sizeof(int) * colselector.size()));
+	CUDA_CHECK(cudaMalloc((void**)&d_histout,sizeof(int) * nbins * colselector.size()));
+	CUDA_CHECK(cudaMemset((void*)d_histout,0,sizeof(int) * nbins * colselector.size()));
+	CUDA_CHECK(cudaMalloc((void**)&globalminmax,sizeof(float) * 2 * colselector.size()));
+	CUDA_CHECK(cudaMemcpy(globalminmax,h_globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(d_colids,colselector.data(),sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
+	
+	unsigned int threads = 256;
+	unsigned int blocks  = (int)((nrows*colselector.size()) / threads) + 1;
+	if(blocks > 65536)
+		blocks = 65536;
+	
+	size_t shmemsize = sizeof(float) * 2 * colselector.size();
+	allcolsampler_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(data,rowids,d_colids,nrows,colselector.size(),rowoffset,&globalminmax[0],&globalminmax[colselector.size()],tempmem->temp_data);
+	CUDA_CHECK(cudaGetLastError());
+
+	
+	shmemsize = sizeof(float) * 2 * colselector.size();
+	shmemsize += nbins*n_unique_labels*colselector.size()*sizeof(int);
+	
+	letsdoitall_kernel<<<blocks,threads,shmemsize,tempmem->stream>>>(tempmem->temp_data,labels,rowids,nbins,nrows,colselector.size(),rowoffset,n_unique_labels,globalminmax,d_histout);
+	CUDA_CHECK(cudaGetLastError());
+	
+	CUDA_CHECK(cudaMemcpy(h_globalminmax,globalminmax,sizeof(float) * 2 * colselector.size(), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_histout,d_histout,sizeof(int) * nbins * colselector.size(), cudaMemcpyDeviceToHost));
+	free(h_globalminmax);
+	free(h_histout);
+	CUDA_CHECK(cudaFree(globalminmax));
+	CUDA_CHECK(cudaFree(d_colids));
 }

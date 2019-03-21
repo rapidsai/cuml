@@ -37,6 +37,7 @@ struct TemporaryMemory
 	int *temprowids;
 	int *h_left_rows, *h_right_rows;
 	float * question_value;
+	float *temp_data;
 	
 	//Total temp mem
 	size_t totalmem = 0;
@@ -48,7 +49,7 @@ struct TemporaryMemory
 	thrust::pair<float *, float *> d_min_max; 
 	float *d_ques_info, *h_ques_info; //holds delta and base_val
 	
-	TemporaryMemory(int N, int maxstr, int n_unique, int n_bins)
+	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins)
 	{
 
 		int n_hist_bytes = n_unique * n_bins * sizeof(int);
@@ -78,6 +79,10 @@ struct TemporaryMemory
 		
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 3*sizeof(float);
 
+		//For lot of temp data
+		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
+		totalmem += sizeof(float)*Ncols*N;
+		
 		//for min max
 		
 		//Create Streams
@@ -95,7 +100,7 @@ struct TemporaryMemory
 
 	~TemporaryMemory()
 	{
-		
+		cudaFree(temp_data);
 		cudaFree(d_hist);
 		cudaFreeHost(h_hist);
 		cudaFree(sampledcolumns);
