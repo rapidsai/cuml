@@ -55,6 +55,7 @@ logger "Clean up make..."
 make clean
 
 logger "Make libcuml..."
+cat Makefile
 make -j${PARALLEL_LEVEL}
 
 logger "Install libcuml..."
