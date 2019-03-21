@@ -20,10 +20,9 @@
 #include "../memory.cuh"
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout,
-float *col_min, float *col_max, float * ques_info) 
-{
-	
+//__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min_max, float * ques_info) {
+__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
+
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ unsigned int shmemhist[];
@@ -83,7 +82,9 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 
 	//Kernel launch
 	batch_evaluate_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels,
-		batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max.first, tempmem->d_min_max.second, tempmem->d_ques_info);
+		//batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max, tempmem->d_ques_info);
+		//batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max_thrust.first, tempmem->d_min_max_thrust.second, tempmem->d_ques_info);
+		batch_bins, nbins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, n_hists_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
