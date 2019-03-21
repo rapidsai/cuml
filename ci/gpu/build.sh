@@ -33,6 +33,10 @@ logger "Activate conda env..."
 source activate gdf
 conda install -c nvidia -c rapidsai/label/cuda$CUDA_REL -c rapidsai-nightly/label/cuda$CUDA_REL -c numba -c conda-forge -c defaults cudf=$CUDF_VERSION
 
+logger "Force remove/install openblas..."
+conda uninstall blas --force
+conda install "blas=*=openblas"
+
 logger "Check versions..."
 python --version
 $CC --version
@@ -55,7 +59,6 @@ logger "Clean up make..."
 make clean
 
 logger "Make libcuml..."
-cat CMakeFiles/faiss.dir/build.make
 make -j${PARALLEL_LEVEL}
 
 logger "Install libcuml..."
