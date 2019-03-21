@@ -77,7 +77,7 @@ setup(name=name,
       ],
       packages=find_packages(where='python'),
       package_dir={
-          'cuML': 'python/cuml'
+          'cuml': 'python/cuml'
       },
       author="NVIDIA Corporation",
       license='Apache 2.0',
