@@ -64,6 +64,7 @@
 - PR #362: Fix for matVecOp crashing on large input sizes
 - PR #366: Index arithmetic issue fix with TxN_t class
 - PR #371: Fix for long import time issue
+- PR #376: Disabled kmeans tests since they are currently too sensitive to driver version (see #71)
 
 
 # cuML 0.5.1 (05 Feb 2019)
