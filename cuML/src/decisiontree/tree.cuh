@@ -122,8 +122,7 @@ namespace ML {
 
 				for(int i = 0;i<MAXSTREAMS;i++)
 					{
-						tempmem[i] = new TemporaryMemory(n_sampled_rows, MAXSTREAMS, unique_labels, BATCH_BINS);
-
+						tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, BATCH_BINS);
 					}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
@@ -228,7 +227,7 @@ namespace ML {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
-
+					      
 				for (int i=0; i<colselector.size(); i++) {
 
 					GiniInfo local_split_info[3];
@@ -249,8 +248,8 @@ namespace ML {
 					ASSERT(batch_bins <= BATCH_BINS, "Invalid batch_bins");
 
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
-														batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-														&local_split_info[0], tempmem[streamid]);
+									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
+									      &local_split_info[0], tempmem[streamid]);
 
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
@@ -271,12 +270,35 @@ namespace ML {
 				CUDA_CHECK(cudaDeviceSynchronize());
 			}
 
+			/* depth is used to distinguish between root and other tree nodes for computations */
+			void find_best_fruit_all(float *data, int *labels, const float colper, GiniQuestion& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
+			{
+				gain = 0.0f;
+				
+				// Bootstrap columns
+				std::vector<int> colselector(dinfo.Ncols);
+				std::iota(colselector.begin(), colselector.end(), 0);
+				std::random_shuffle(colselector.begin(), colselector.end());
+				colselector.resize((int)(colper * dinfo.Ncols ));
+				
+				int *labelptr = tempmem[0]->sampledlabels;
+				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
+				
+				// Optimize ginibefore; no need to compute except for root.
+				if (depth == 0) {
+					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
+				}
+				
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
+				
+				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0]);
 
+			}
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
 				float *sampledcolumn = tempmem[0]->sampledcolumns;
-
+				
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
 
