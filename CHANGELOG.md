@@ -66,6 +66,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 
+
 # cuML 0.5.1 (05 Feb 2019)
 
 ## Bug Fixes
