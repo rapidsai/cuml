@@ -79,6 +79,7 @@
 - PR #362: Fix for matVecOp crashing on large input sizes
 - PR #366: Index arithmetic issue fix with TxN_t class
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
+- PR #385: Fix for long import cuml time in containers and fix for setup_pip
 
 
 # cuML 0.5.1 (05 Feb 2019)
