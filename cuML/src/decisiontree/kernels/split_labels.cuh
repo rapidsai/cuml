@@ -22,7 +22,7 @@
 #include "gini.cuh"
 
 __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
-			    const float ques_base_val, const int ques_batch_id, const float ques_delta,
+			    const float ques_min, const float ques_max, const int ques_nbins, const int ques_batch_id,
 			    float * ques_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -30,7 +30,9 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 		{
 			char lflag, rflag;
 			float data = column[tid];
-			float local_ques_val = ques_base_val + ques_batch_id * ques_delta;
+			float delta = (ques_max - ques_min) / ques_nbins;
+			float ques_base_val = ques_min + delta;
+			float local_ques_val = ques_base_val + ques_batch_id * delta;
 
 			if (data <= local_ques_val)
 				{
@@ -67,7 +69,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	char *d_flags_right = tempmem->d_flags_right;
 	float * question_value = tempmem->question_value;
 	
-	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.base_ques_val, ques.batch_id, ques.delta, question_value);
+	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
 	CUDA_CHECK(cudaGetLastError());
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;

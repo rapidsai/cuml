@@ -25,7 +25,10 @@ struct GiniQuestion {
 	int column;
 	float value;
 
-	/* value = base_ques_val + batch_id * delta.
+	/* 
+	   delta = (max - min) /nbins
+	   base_ques_val = min + delta
+	   value = base_ques_val + batch_id * delta.
 
 	Due to fp computation differences between GPU and CPU, we need to ensure
 	the question value is always computed on the GPU. Otherwise, the flag_kernel
@@ -35,13 +38,15 @@ struct GiniQuestion {
 	flag_kernel.
 	*/
 	int batch_id;
-	float min,max;
+	float min, max;
+	int nbins;
 	
-	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_min, float cfg_max) {
+	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_min, float cfg_max, int cfg_nbins) {
 		column = cfg_column;
 		batch_id = cfg_batch_id;
 		min = cfg_min;
 		max = cfg_max;
+		nbins = cfg_nbins;
 		value = 0.0f; // Will be udpate in make_split
 	};
 };

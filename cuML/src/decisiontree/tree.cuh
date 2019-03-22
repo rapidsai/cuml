@@ -242,12 +242,7 @@ namespace ML {
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 
 					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
-					//get_sampled_column(&data[dinfo.NLocalrows*colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]->stream);
-						
-					// Populates tempmem[streamid]->d_min_max (thrust pair)
-					//min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
 					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
-					//min_and_max(sampledcolumn, n_sampled_rows, tempmem[streamid]);
 
 					// info_gain, local_split_info correspond to the best split
 					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
@@ -266,10 +261,10 @@ namespace ML {
 						// Need to get the delta and base_quesval info from device memory
 						CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-						float delta = tempmem[streamid]->h_ques_info[0];
-						float base_quesval = tempmem[streamid]->h_ques_info[1];
+						float ques_min = tempmem[streamid]->h_ques_info[0];
+						float ques_max = tempmem[streamid]->h_ques_info[1];
 
-						ques.set_question_fields(colselector[i], batch_id, delta, base_quesval);
+						ques.set_question_fields(colselector[i], batch_id, ques_min, ques_max, batch_bins);
 
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}

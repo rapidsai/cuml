@@ -23,7 +23,6 @@
 #include <cooperative_groups.h>
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-//__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min_max, float * ques_info) {
 __global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
 
 	// Reset shared memory histograms
@@ -59,8 +58,8 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 	}
 
 	if (tid == 0) {
-		ques_info[0] = delta;
-		ques_info[1] = base_quesval;
+		ques_info[0] = *col_min;
+		ques_info[1] = *col_max;
 	}
 	
 }
@@ -209,7 +208,7 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	return;
 }
 
-__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout, float * ques_info)
+__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -236,10 +235,6 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
 			float base_quesval = minmaxshared[mycolid] + delta;
 
-			//FIXME This is bad. Do this once..
-			ques_info[mycolid*2 ] = delta;
-			ques_info[mycolid*2 + 1] = base_quesval;
-			
 			float localdata = data[i];
 			int label = labels[rowids[ i % nrows ]];
 			for(int j=0;j<nbins;j++)
@@ -334,7 +329,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 			split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * batch_bins + best_bin_id * n_unique_labels + j];
 			split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
 		}
-	ques.set_question_fields(col_selector[best_col_id],best_bin_id,tempmem->h_globalminmax[ best_col_id ],tempmem->h_globalminmax[ best_col_id + n_cols]);
+	ques.set_question_fields(col_selector[best_col_id], best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], batch_bins);
 	
 	return;
 }
@@ -377,7 +372,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 
 	shmemsize = col_minmax_bytes + n_hist_bytes;
 	
-	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, nbins, nrows, colselector.size(), rowoffset, n_unique_labels, globalminmax, d_histout, tempmem->d_ques_info_all_cols);
+	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, nbins, nrows, colselector.size(), rowoffset, n_unique_labels, globalminmax, d_histout);
 	CUDA_CHECK(cudaGetLastError());
 	
 	CUDA_CHECK(cudaMemcpyAsync(h_globalminmax, globalminmax, col_minmax_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
