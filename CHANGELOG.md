@@ -11,6 +11,7 @@
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl 
 
 # cuML 0.6.0 (Date TBD)
 
@@ -22,6 +23,8 @@
 - PR #261: UMAP Algorithm
 - PR #290: NearestNeighbors numpy MG Support
 - PR #303: Reusable spectral embedding / clustering
+- PR #325: Initial support for single process multi-GPU OLS and tSVD
+- PR #271: Initial support for hyperparameter optimization with dask for many models
 
 ## Improvements
 
@@ -52,7 +55,10 @@
 - PR #275: Kmeans use of faster gpu_matrix
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #312: Last minute cleanup before release
+- PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
+- PR #342 Change default ABI to ON
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 ## Bug Fixes
@@ -66,6 +72,15 @@
 - PR #279: Removing faiss-gpu references in README
 - PR #321: Fix release script typo
 - PR #327: Update conda requirements for version 0.6 requirements
+- PR #352: Correctly calculating numpy chunk sizing for kNN
+- PR #345: Run python import as part of package build to trigger compilation
+- PR #347: Lowering memory usage of kNN.
+- PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
+- PR #357: Removing FAISS requirement from README
+- PR #362: Fix for matVecOp crashing on large input sizes
+- PR #366: Index arithmetic issue fix with TxN_t class
+- PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
+
 
 # cuML 0.5.1 (05 Feb 2019)
 
