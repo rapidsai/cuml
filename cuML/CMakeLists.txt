@@ -19,8 +19,6 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -120,7 +118,7 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=comp
 
 ## other compiler options
 
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" OFF)
+option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
 
 if(NOT CMAKE_CXX11_ABI)
         message(STATUS "Disabling the GLIBCXX11 ABI")
@@ -135,13 +133,13 @@ endif(NOT CMAKE_CXX11_ABI)
 ## end of other compiler options
 
 ###################################################################################################
-# - include paths ---------------------------------------------`------------------------------------
+# - include paths ---------------------------------------------------------------------------------
 
 
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)

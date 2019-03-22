@@ -288,7 +288,7 @@ struct TxN_t {
    * @defgroup LoadsStores Global/Shared vectored loads or stores
    *
    * @brief Perform vectored loads/stores on this structure
-   *
+   * @tparam idx_t index data type
    * @param ptr base pointer from where to load (or store) the data. It must
    *  be aligned to 'sizeof(io_t)'!
    * @param idx the offset from the base pointer which will be loaded
@@ -299,17 +299,20 @@ struct TxN_t {
    * case of stores, the data in the val.data will be stored to that location.
    * @{
    */
-  DI void load(const math_t *ptr, int idx) {
+  template <typename idx_t = int>
+  DI void load(const math_t *ptr, idx_t idx) {
     const io_t *bptr = reinterpret_cast<const io_t *>(&ptr[idx]);
     val.internal = __ldg(bptr);
   }
 
-  DI void load(math_t *ptr, int idx) {
+  template <typename idx_t = int>
+  DI void load(math_t *ptr, idx_t idx) {
     io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
     val.internal = *bptr;
   }
 
-  DI void store(math_t *ptr, int idx) {
+  template <typename idx_t = int>
+  DI void store(math_t *ptr, idx_t idx) {
     io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
     *bptr = val.internal;
   }
@@ -328,9 +331,12 @@ struct TxN_t<math_, 0> {
   } val;
 
   DI void fill(math_t _val) {}
-  DI void load(const math_t *ptr, int idx) {}
-  DI void load(math_t *ptr, int idx) {}
-  DI void store(math_t *ptr, int idx) {}
+  template <typename idx_t = int>
+  DI void load(const math_t *ptr, idx_t idx) {}
+  template <typename idx_t = int>
+  DI void load(math_t *ptr, idx_t idx) {}
+  template <typename idx_t = int>
+  DI void store(math_t *ptr, idx_t idx) {}
 };
 
 }; // namespace MLCommon
