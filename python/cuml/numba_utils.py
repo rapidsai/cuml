@@ -39,18 +39,18 @@ def row_matrix(df):
 
     tpb = driver.get_device().MAX_THREADS_PER_BLOCK
     bpg = (nrows + tpb - 1) // tpb
-    col_offsets = rmm.to_device(np.zeros(tpb, dtype=np.int32))
 
     @cuda.jit
-    def kernel(_col_major, _col_offsets, _row_major):
+    def kernel(_col_major, _row_major):
         tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
         if tid >= nrows:
             return
-        while _col_offsets[tid] < _col_major.shape[1]:
-            col_idx = _col_offsets[tid]
+        _col_offset = 0
+        while _col_offset < _col_major.shape[1]:
+            col_idx = _col_offset
             _row_major[tid, col_idx] = _col_major[tid, col_idx]
-            _col_offsets[tid] += 1
+            _col_offset += 1
 
-    kernel[bpg, tpb](col_major, col_offsets, row_major)
+    kernel[bpg, tpb](col_major, row_major)
 
     return row_major
