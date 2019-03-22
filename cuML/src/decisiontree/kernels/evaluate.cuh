@@ -84,9 +84,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 
 	//Kernel launch
 	batch_evaluate_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
-		//batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max, tempmem->d_ques_info);
-		//batch_bins, nbins,  nrows, n_unique_labels, dhist, tempmem->d_min_max_thrust.first, tempmem->d_min_max_thrust.second, tempmem->d_ques_info);
-		batch_bins, nbins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
+		nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, n_hists_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
@@ -184,7 +182,7 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 			maxshared[threadIdx.x] = -FLT_MAX;
 		}
 
-	__syncthreads(); //added
+	__syncthreads();
 	
 	for(unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
