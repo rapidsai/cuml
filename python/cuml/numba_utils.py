@@ -16,8 +16,6 @@
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 from librmm_cffi import librmm as rmm
-import numpy as np
-
 
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
