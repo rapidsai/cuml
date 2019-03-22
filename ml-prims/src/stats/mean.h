@@ -88,7 +88,7 @@ void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, RowsPerBlk), ceildiv(D, ColsPerBlk));
+    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
     meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
       mu, data, D, N);
