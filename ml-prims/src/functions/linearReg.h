@@ -37,20 +37,20 @@ namespace Functions {
 template<typename math_t>
 void linearRegH(const math_t *input, int n_rows, int n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
-		 cublasHandle_t cublas_handle) {
+		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle);
 
 	if (intercept != math_t(0))
-		LinAlg::addScalar(pred, pred, intercept, n_rows);
+		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
 
 }
 
 template<typename math_t>
 void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *grads, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
@@ -58,7 +58,7 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 	math_t *input_t = NULL;
 	allocate(input_t, n_rows * n_cols);
 
-	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
+	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
 	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows);
 
@@ -100,7 +100,7 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 template<typename math_t>
 void linearRegLoss(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *loss, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
@@ -108,7 +108,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle);
 
-	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
+	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
 	LinAlg::subtract(labels_pred, labels, labels_pred, n_rows);
 	Matrix::power(labels_pred, n_rows);

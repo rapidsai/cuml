@@ -96,6 +96,9 @@ void sgdFit(float *input,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	sgdFit(input,
 			       n_rows,
 				   n_cols,
@@ -116,10 +119,12 @@ void sgdFit(float *input,
 				   tol,
 				   n_iter_no_change,
 				   cublas_handle,
-				   cusolver_handle);
+				   cusolver_handle,
+				   stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -189,6 +194,9 @@ void sgdFit(double *input,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	sgdFit(input,
 			       n_rows,
 				   n_cols,
@@ -209,10 +217,12 @@ void sgdFit(double *input,
 				   tol,
 				   n_iter_no_change,
 				   cublas_handle,
-				   cusolver_handle);
+				   cusolver_handle,
+				   stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -234,9 +244,13 @@ void sgdPredict(const float *input, int n_rows, int n_cols, const float *coef,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -258,9 +272,13 @@ void sgdPredict(const double *input, int n_rows, int n_cols,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -282,9 +300,13 @@ void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const flo
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -306,9 +328,15 @@ void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+	// should probably do a stream sync before destroy
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 

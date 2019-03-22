@@ -61,13 +61,13 @@ void hingeLossSubtract(math_t* out, const math_t* in, math_t scalar, int len) {
 template<typename math_t>
 void hingeH(const math_t *input, int n_rows, int n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
-		 cublasHandle_t cublas_handle) {
+		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle);
 
 	if (intercept != math_t(0))
-		LinAlg::addScalar(pred, pred, intercept, n_rows);
+		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
 
 	sign(pred, pred, math_t(1.0), n_rows);
 
