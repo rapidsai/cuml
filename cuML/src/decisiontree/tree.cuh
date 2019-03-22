@@ -172,8 +172,11 @@ namespace ML {
 
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
-					//find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+#ifndef ALL_COLS
+					find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+#else
 					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+#endif
 					condition = condition || (gain == 0.0f);
 				}
 				
@@ -276,13 +279,16 @@ namespace ML {
 			/* depth is used to distinguish between root and other tree nodes for computations */
 			void find_best_fruit_all(float *data, int *labels, const float colper, GiniQuestion& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
-				gain = 0.0f;
+
 				
 				// Bootstrap columns
 				std::vector<int> colselector(dinfo.Ncols);
 				std::iota(colselector.begin(), colselector.end(), 0);
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
+
+				// Copy sampled column IDs to device memory
+				CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
 				
 				int *labelptr = tempmem[0]->sampledlabels;
 				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
@@ -294,7 +300,7 @@ namespace ML {
 				
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 				
-				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques);
+				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain);
 
 			}
 

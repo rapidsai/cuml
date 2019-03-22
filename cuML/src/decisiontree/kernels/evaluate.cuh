@@ -8,7 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an "AS IS" BASIS, 
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -179,11 +179,13 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	extern __shared__ char shmem[];
 	float *minshared = (float*)shmem;
 	float *maxshared = (float*)(shmem + sizeof(float) * ncols);
-	if(threadIdx.x < ncols)
+	if (threadIdx.x < ncols)
 		{
 			minshared[threadIdx.x] = FLT_MAX;
-			maxshared[threadIdx.x] = FLT_MIN;
+			maxshared[threadIdx.x] = -FLT_MAX;
 		}
+
+	__syncthreads(); //added
 	
 	for(unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
@@ -191,6 +193,7 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 			int myrowstart = colids[mycolid] * rowoffset;
 			int index = rowids[ i % nrows] + myrowstart;
 			float coldata = data[index];
+
 			atomicMinFloat(&minshared[mycolid], coldata);
 			atomicMaxFloat(&maxshared[mycolid], coldata);
 			__syncthreads();
@@ -222,9 +225,9 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 		{
 			shmemhist[i] = 0;
 		}
-	
+
 	__syncthreads();
-	
+
 	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
 			int mycolid = (int) (i/nrows);
@@ -258,9 +261,9 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 	return;	
 }
 
-void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques) {
+void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques, float & gain) {
 
-	float gain = 0.0f;
+	gain = 0.0f;
 	int batch_id = 0;
 
 	int n_cols = col_selector.size();
@@ -313,7 +316,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 	
 			// Compute best information col_gain so far
 			if (info_gain > col_gain) {
-				gain = info_gain;
+				col_gain = info_gain;
 				col_best_batch_id = i;
 				local_split_info[1].best_gini = tmp_gini_left;
 				local_split_info[2].best_gini = tmp_gini_right;
@@ -351,8 +354,8 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 	}
 }
 
-
-void lets_doit_all(const float *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem, GiniInfo split_info[3], GiniQuestion & ques)
+//rowoffset appears to be NLocalrows which is nrows. Why?
+void lets_doit_all(const float *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem, GiniInfo split_info[3], GiniQuestion & ques, float & gain)
 {
 	int* d_colids = tempmem->d_colids;
 	float* globalminmax = tempmem->d_globalminmax;
@@ -360,36 +363,44 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	int *d_histout = tempmem->d_histout;
 	int *h_histout = tempmem->h_histout;
 
-	for(int i=0;i<colselector.size();i++)
+	int ncols = colselector.size();
+	int col_minmax_bytes = sizeof(float) * 2 * ncols;
+	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
+
+	for (int i=0; i < ncols; i++)
 		{
 			h_globalminmax[i] = FLT_MAX;
-			h_globalminmax[i + colselector.size()] = FLT_MIN;
+			h_globalminmax[i + ncols] = -FLT_MAX;
 		}
 	
-	CUDA_CHECK(cudaMemset((void*)d_histout, 0, sizeof(int) * nbins * colselector.size()));
-	CUDA_CHECK(cudaMemcpy(globalminmax, h_globalminmax, sizeof(float) * 2 * colselector.size(), cudaMemcpyHostToDevice));
-	CUDA_CHECK(cudaMemcpy(d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemset((void*)d_histout, 0, n_hist_bytes));
+	CUDA_CHECK(cudaMemcpy(globalminmax, h_globalminmax, col_minmax_bytes, cudaMemcpyHostToDevice));
 	
 	unsigned int threads = 512;
-	unsigned int blocks  = (int)((nrows*colselector.size()) / threads) + 1;
+	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
 	if(blocks > 65536)
 		blocks = 65536;
 	
-	size_t shmemsize = sizeof(float) * 2 * colselector.size();
-	allcolsampler_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, colselector.size(), rowoffset, &globalminmax[0], &globalminmax[colselector.size()], tempmem->temp_data);
+	/* Kernel allcolsampler_kernel:
+		- populates tempmem->tempdata with the sampled column data,
+		- and computes min max histograms in tempmem->d_globalminmax
+	   across all columns.
+	*/
+	size_t shmemsize = col_minmax_bytes;
+	allcolsampler_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &globalminmax[0], &globalminmax[colselector.size()], tempmem->temp_data);
 	CUDA_CHECK(cudaGetLastError());
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 
-	
-	shmemsize = sizeof(float) * 2 * colselector.size();
-	shmemsize += nbins*n_unique_labels*colselector.size()*sizeof(int);
+	shmemsize = col_minmax_bytes + n_hist_bytes;
 	
 	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, nbins, nrows, colselector.size(), rowoffset, n_unique_labels, globalminmax, d_histout, tempmem->d_ques_info_all_cols);
 	CUDA_CHECK(cudaGetLastError());
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 	
-	CUDA_CHECK(cudaMemcpy(h_globalminmax, globalminmax, sizeof(float) * 2 * colselector.size(), cudaMemcpyDeviceToHost));
-	CUDA_CHECK(cudaMemcpy(h_histout, d_histout, sizeof(int) * nbins * colselector.size(), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_globalminmax, globalminmax, col_minmax_bytes, cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpy(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost));
 
-	find_best_split(tempmem, nbins - 1, n_unique_labels, colselector, &split_info[0], nrows, ques);
+	find_best_split(tempmem, nbins - 1, n_unique_labels, colselector, &split_info[0], nrows, ques, gain);
 	
 }
 
@@ -402,7 +413,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	if(threadIdx.x < ncols)
 		{
 			minmaxshared[threadIdx.x] = FLT_MAX;
-			minmaxshared[threadIdx.x + ncols] = FLT_MIN;
+			minmaxshared[threadIdx.x + ncols] = -FLT_MAX;
 		}
 	
 	float coldata;
