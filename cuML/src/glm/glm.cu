@@ -62,9 +62,14 @@ void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+	// cumlHandle_impl will set stream instead of creating
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -74,9 +79,14 @@ void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+	// cumlHandle_impl will set stream instead of creating
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -90,11 +100,15 @@ void ridgeFit(float *input, int n_rows, int n_cols, float *labels, float *alpha,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
-			fit_intercept, normalize, cublas_handle, cusolver_handle, algo);
+			fit_intercept, normalize, cublas_handle, cusolver_handle, stream, algo);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -108,11 +122,15 @@ void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
-			fit_intercept, normalize, cublas_handle, cusolver_handle, algo);
+			fit_intercept, normalize, cublas_handle, cusolver_handle, stream, algo);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -122,9 +140,14 @@ void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+	// cumlHandle_impl will set stream instead of creating
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -134,9 +157,14 @@ void ridgePredict(const double *input, int n_rows, int n_cols, const double *coe
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle);
+	// cumlHandle_impl will set stream instead of creating
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 

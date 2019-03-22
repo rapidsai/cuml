@@ -115,7 +115,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 
 template<typename math_t>
 void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, cublasHandle_t cublas_handle) {
+		math_t intercept, math_t *preds, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"olsPredict: number of columns cannot be less than one");
@@ -127,7 +127,7 @@ void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
                      CUBLAS_OP_N, alpha, beta, cublas_handle);
 
-	LinAlg::addScalar(preds, preds, intercept, n_rows);
+	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 
 }
 
