@@ -222,7 +222,9 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 		{
 			shmemhist[i] = 0;
 		}
-
+	
+	__syncthreads();
+	
 	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
 			int mycolid = (int) (i/nrows);
