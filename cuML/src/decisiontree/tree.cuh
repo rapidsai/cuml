@@ -258,13 +258,13 @@ namespace ML {
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
-						// Need to get the delta and base_quesval info from device memory
+						// Need to get the min, max from device memory; needed for question val computation
 						CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 						float ques_min = tempmem[streamid]->h_ques_info[0];
 						float ques_max = tempmem[streamid]->h_ques_info[1];
 
-						ques.set_question_fields(colselector[i], batch_id, ques_min, ques_max, batch_bins);
+						ques.set_question_fields(colselector[i], batch_id, ques_min, ques_max, current_nbins);
 
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
