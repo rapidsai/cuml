@@ -86,7 +86,7 @@ void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, RowsPerBlk), ceildiv(D, ColsPerBlk));
+    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
     sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
       output, input, D, N);
