@@ -264,94 +264,79 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques, float & gain) {
 
 	gain = 0.0f;
-	int batch_id = 0;
-
+	int best_col_id = -1;
+	int best_bin_id = -1;
+	
 	int n_cols = col_selector.size();
-	for (int col_id = 0; col_id < n_cols; col_id++) {
-
-		GiniInfo local_split_info[3];
-		local_split_info[0] = split_info[0];
-
-		float col_gain = 0.0f;
-		int col_best_batch_id = 0;
-		int col_hist_base_index = col_id * batch_bins * n_unique_labels;
-	
-		// tempmem->h_histout holds n_cols histograms of batch_bins of n_unique_labels each.
-		for (int i = 0; i < batch_bins; i++) {
-	
-			// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
-			// matter as it won't count in the info_gain computation.
-			float tmp_gini_left = 1.0f;
-			float tmp_gini_right = 1.0f;
-			int tmp_lnrows = 0;
-	
-			//separate loop for now to avoid overflow.
-			for (int j = 0; j < n_unique_labels; j++) {
-				int hist_index = i * n_unique_labels + j;
-				tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
-			}
-			int tmp_rnrows = nrows - tmp_lnrows;
-	
-			// Compute gini right and gini left value for each bin.
-			for (int j = 0; j < n_unique_labels; j++) {
-				int hist_index = i * n_unique_labels + j;
-	
-				if (tmp_lnrows != 0) {
-					float prob_left = (float) (tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_lnrows;
-					tmp_gini_left -= prob_left * prob_left;
+	for (int col_id = 0; col_id < n_cols; col_id++)
+		{
+			int col_hist_base_index = col_id * batch_bins * n_unique_labels;			
+			// tempmem->h_histout holds n_cols histograms of batch_bins of n_unique_labels each.
+			for (int i = 0; i < batch_bins; i++)
+				{
+					
+					// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
+					// matter as it won't count in the info_gain computation.
+					float tmp_gini_left = 1.0f;
+					float tmp_gini_right = 1.0f;
+					int tmp_lnrows = 0;
+					
+					//separate loop for now to avoid overflow.
+					for (int j = 0; j < n_unique_labels; j++)
+						{
+							int hist_index = i * n_unique_labels + j;
+							tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
+						}
+					int tmp_rnrows = nrows - tmp_lnrows;
+					
+					if(tmp_lnrows == 0 || tmp_rnrows == 0)
+						continue;
+					
+					// Compute gini right and gini left value for each bin.
+					for (int j = 0; j < n_unique_labels; j++)
+						{
+							int hist_index = i * n_unique_labels + j;
+							
+							float prob_left = (float) (tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_lnrows;
+							tmp_gini_left -= prob_left * prob_left;
+							
+							float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_rnrows;
+							tmp_gini_right -=  prob_right * prob_right;
+							
+						}
+					
+					ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
+					ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
+					
+					float impurity = (tmp_lnrows * 1.0f/nrows) * tmp_gini_left + (tmp_rnrows * 1.0f/nrows) * tmp_gini_right;
+					float info_gain = split_info[0].best_gini - impurity;
+					
+					
+					// Compute best information col_gain so far
+					if (info_gain > gain)
+						{
+							gain = info_gain;
+							best_bin_id = i;
+							best_col_id = col_id;
+							split_info[1].best_gini = tmp_gini_left;
+							split_info[2].best_gini = tmp_gini_right;
+						}
 				}
-	
-				if (tmp_rnrows != 0) {
-					float prob_right = (float) (local_split_info[0].hist[j] - tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_rnrows;
-					tmp_gini_right -=  prob_right * prob_right;
-				}
-			}
-	
-			ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
-			ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
-	
-			float impurity = (tmp_lnrows * 1.0f/nrows) * tmp_gini_left + (tmp_rnrows * 1.0f/nrows) * tmp_gini_right;
-			float info_gain = local_split_info[0].best_gini - impurity;
-	
-	
-			// Compute best information col_gain so far
-			if (info_gain > col_gain) {
-				col_gain = info_gain;
-				col_best_batch_id = i;
-				local_split_info[1].best_gini = tmp_gini_left;
-				local_split_info[2].best_gini = tmp_gini_right;
-			}
 		}
 	
+	if(best_col_id == -1 || best_bin_id == -1)
+		return;
 	
-		// The batch id best_batch_id, within the batch, resulted in the best split. Update split_info accordingly.
-		// This code is to avoid the hist copy every time within above loop.
+	split_info[1].hist.resize(n_unique_labels);
+	split_info[2].hist.resize(n_unique_labels);
+	for (int j = 0; j < n_unique_labels; j++)
+		{
+			split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * batch_bins + best_bin_id * n_unique_labels + j];
+			split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
+		}
+	ques.set_question_fields(col_selector[best_col_id],best_bin_id,tempmem->h_globalminmax[ best_col_id ],tempmem->h_globalminmax[ best_col_id + n_cols]);
 	
-		// The best_batch_id and rest info is dummy if we didn't go through the if-statement above. But that's OK because this will be treated as a leaf?
-		// FIXME What should best_gini vals be in that case?
-		local_split_info[1].hist.resize(n_unique_labels);
-		local_split_info[2].hist.resize(n_unique_labels);
-		for (int j = 0; j < n_unique_labels; j++) {
-			local_split_info[1].hist[j] = tempmem->h_histout[ col_hist_base_index + col_best_batch_id * n_unique_labels + j];
-			local_split_info[2].hist[j] = local_split_info[0].hist[j] - tempmem->h_histout[ col_hist_base_index + col_best_batch_id * n_unique_labels + j];
-		}
-		batch_id = col_best_batch_id;
-		//--------------------------------------------------
-
-		//Find gain across columns
-		if (col_gain > gain) {
-			gain = col_gain;
-			// Need to get the delta and base_quesval info from device memory
-			CUDA_CHECK(cudaMemcpyAsync(tempmem->h_ques_info, &tempmem->d_ques_info_all_cols[col_id*2], 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
-			CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-			float delta = tempmem->h_ques_info[0];
-			float base_quesval = tempmem->h_ques_info[1];
-
-			ques.set_question_fields(col_selector[col_id], batch_id, delta, base_quesval);
-
-			for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
-		}
-	}
+	return;
 }
 
 //rowoffset appears to be NLocalrows which is nrows. Why?
@@ -362,7 +347,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	float* h_globalminmax = tempmem->h_globalminmax;
 	int *d_histout = tempmem->d_histout;
 	int *h_histout = tempmem->h_histout;
-
+	
 	int ncols = colselector.size();
 	int col_minmax_bytes = sizeof(float) * 2 * ncols;
 	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
@@ -373,8 +358,8 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 			h_globalminmax[i + ncols] = -FLT_MAX;
 		}
 	
-	CUDA_CHECK(cudaMemset((void*)d_histout, 0, n_hist_bytes));
-	CUDA_CHECK(cudaMemcpy(globalminmax, h_globalminmax, col_minmax_bytes, cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
+	CUDA_CHECK(cudaMemcpyAsync(globalminmax, h_globalminmax, col_minmax_bytes, cudaMemcpyHostToDevice, tempmem->stream));
 	
 	unsigned int threads = 512;
 	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
@@ -389,17 +374,16 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	size_t shmemsize = col_minmax_bytes;
 	allcolsampler_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &globalminmax[0], &globalminmax[colselector.size()], tempmem->temp_data);
 	CUDA_CHECK(cudaGetLastError());
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 
 	shmemsize = col_minmax_bytes + n_hist_bytes;
 	
 	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, nbins, nrows, colselector.size(), rowoffset, n_unique_labels, globalminmax, d_histout, tempmem->d_ques_info_all_cols);
 	CUDA_CHECK(cudaGetLastError());
+	
+	CUDA_CHECK(cudaMemcpyAsync(h_globalminmax, globalminmax, col_minmax_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
+	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 	
-	CUDA_CHECK(cudaMemcpy(h_globalminmax, globalminmax, col_minmax_bytes, cudaMemcpyDeviceToHost));
-	CUDA_CHECK(cudaMemcpy(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost));
-
 	find_best_split(tempmem, nbins - 1, n_unique_labels, colselector, &split_info[0], nrows, ques, gain);
 	
 }

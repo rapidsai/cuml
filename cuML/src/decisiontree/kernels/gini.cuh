@@ -35,14 +35,13 @@ struct GiniQuestion {
 	flag_kernel.
 	*/
 	int batch_id;
-	float delta;
-	float base_ques_val;
-
-	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_delta, float cfg_base_ques_val) {
+	float min,max;
+	
+	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_min, float cfg_max) {
 		column = cfg_column;
 		batch_id = cfg_batch_id;
-		delta = cfg_delta;
-	    base_ques_val = cfg_base_ques_val;
+		min = cfg_min;
+		max = cfg_max;
 		value = 0.0f; // Will be udpate in make_split
 	};
 };
