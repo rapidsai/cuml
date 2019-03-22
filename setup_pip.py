@@ -39,8 +39,8 @@ install_requires = [
     'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
-exc_list = ['cuml/linear_model/linear_regression_mg.pyx',
-            'cuml/decomposition/tsvd_mg.pyx']
+exc_list = ['python/cuml/linear_model/linear_regression_mg.pyx',
+            'python/cuml/decomposition/tsvd_mg.pyx']
 
 cython_files = ['python/cuml/*/*.pyx']
 
@@ -77,7 +77,7 @@ setup(name=name,
       ],
       packages=find_packages(where='python'),
       package_dir={
-          'cuML': 'python/cuml'
+          'cuml': 'python/cuml'
       },
       author="NVIDIA Corporation",
       license='Apache 2.0',
