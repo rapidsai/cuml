@@ -32,17 +32,18 @@
 
 namespace ML {
 	namespace DecisionTree {
-
+		
 		struct Question {
 			int column;
 			float value;
 
-			void update(GiniQuestion ques) {
+			void update(GiniQuestion ques)
+			{
 				column = ques.column;
 				value = ques.value;
 			};
 		};
-
+		
 		struct TreeNode
 		{
 			TreeNode *left = NULL;
