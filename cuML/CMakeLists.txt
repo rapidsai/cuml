@@ -160,13 +160,13 @@ endif(NOT CMAKE_CXX11_ABI)
 ## end of other compiler options
 
 ###################################################################################################
-# - include paths ---------------------------------------------`------------------------------------
+# - include paths ---------------------------------------------------------------------------------
 
 
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
