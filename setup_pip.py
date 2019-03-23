@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,22 +39,29 @@ install_requires = [
     'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
+exc_list = ['python/cuml/linear_model/linear_regression_mg.pyx',
+            'python/cuml/decomposition/tsvd_mg.pyx']
 
-cython_files = ['python/cuML/cuml.pyx']
+cython_files = ['python/cuml/*/*.pyx']
+
+cuda_include_dir = '/usr/local/cuda/include'
+cuda_lib_dir = "/usr/local/cuda/lib"
 
 extensions = [
     CMakeExtension('cuml', 'cuML'),
-    Extension("cuml",
+    Extension("*",
               sources=cython_files,
               include_dirs=['cuML/src',
+                            'cuML/external',
                             'cuML/external/ml-prims/src',
                             'cuML/external/ml-prims/external/cutlass',
                             'cuML/external/cutlass',
-                            'cuML/external/ml-prims/external/cub'],
+                            'cuML/external/ml-prims/external/cub',
+                            cuda_include_dir],
               library_dirs=[get_python_lib(), distutils_dir_name('lib')],
               libraries=['cuml'],
               language='c++',
-              runtime_library_dirs=['$ORIGIN'],
+              runtime_library_dirs=['$ORIGIN', cuda_lib_dir],
               extra_compile_args=['-std=c++11'])
 ]
 
@@ -75,13 +82,14 @@ setup(name=name,
       ],
       packages=find_packages(where='python'),
       package_dir={
-          'cuML': 'python/cuML'
+          'cuml': 'python/cuml'
       },
       author="NVIDIA Corporation",
       license='Apache 2.0',
       install_requires=install_requires,
       python_requires='>=3.6,<3.8',
-      ext_modules=cythonize(extensions),
+      ext_modules=cythonize(extensions,
+                            exclude=exc_list),
       cmdclass={
           'build_ext': CMakeBuildExt,
           'install_headers': InstallHeaders

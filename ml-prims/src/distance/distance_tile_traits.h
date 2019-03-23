@@ -17,31 +17,34 @@
 #pragma once
 
 #include <cutlass/coord.h>
-#include <cutlass/gemm/gemm_operand.h>
 #include <cutlass/gemm/gemm_global_tile.h>
+#include <cutlass/gemm/gemm_operand.h>
 #include <cutlass/matrix_traits.h>
 #include <cutlass/shape.h>
 
 namespace MLCommon {
 namespace Distance {
 
-template <typename Scalar_, typename Tile_, typename Threads_, int kStrideH_, int kAccessSize_>
+/**
+ * @brief Traits class to configure the iterator which accesses
+ *  A^2 column vector
+ * @tparam Scalar_ the type of each element in A^2
+ * @tparam Tile_ the tile shape
+ * @tparam Threads_ the thread shape of each thread block
+   @tparam kStrideH_ elements we jump over at each iteration
+   @tparam kAccessSize_ the number of scalars accessed
+ */
+template <typename Scalar_, typename Tile_, typename Threads_, int kStrideH_,
+          int kAccessSize_>
 struct DistanceGlobalTileAATraits
-    : public cutlass::gemm::GemmGlobalTileTraits<
-      cutlass::GemmOperand::kA,
-      cutlass::MatrixLayout::kRowMajor,
-      Scalar_,
-      Tile_,
-      Threads_,
-      kAccessSize_> {
+  : public cutlass::gemm::GemmGlobalTileTraits<
+      cutlass::GemmOperand::kA, cutlass::MatrixLayout::kRowMajor, Scalar_,
+      Tile_, Threads_, kAccessSize_> {
   /// The base class.
-  typedef cutlass::gemm::GemmGlobalTileTraits<cutlass::GemmOperand::kA,
-                               cutlass::MatrixLayout::kRowMajor,
-                               Scalar_,
-                               Tile_,
-                               Threads_,
-                               kAccessSize_>
-      Base;
+  typedef cutlass::gemm::GemmGlobalTileTraits<
+    cutlass::GemmOperand::kA, cutlass::MatrixLayout::kRowMajor, Scalar_, Tile_,
+    Threads_, kAccessSize_>
+    Base;
 
   /// The stride in the H dimension.
   static int const kStrideH = kStrideH_;
@@ -49,8 +52,9 @@ struct DistanceGlobalTileAATraits
   typedef cutlass::Shape<0, 0, 0, Base::Delta::kC> Delta;
 
   /// Override the number of iterations needed to load/store the tile.
-  typedef cutlass::Shape<1, Tile_::kH / Threads_::kH, 1, Tile_::kC / kAccessSize_>
-      Iterations;
+  typedef cutlass::Shape<1, Tile_::kH / Threads_::kH, 1,
+                         Tile_::kC / kAccessSize_>
+    Iterations;
 
   typedef typename Base::Threads Threads;
 
@@ -62,7 +66,8 @@ struct DistanceGlobalTileAATraits
   struct ThreadOffset {
     CUTLASS_HOST_DEVICE
     cutlass::Coord<4> operator()() const {
-      int thread_offset_h = threadIdx.x / Threads::kW * kStrideH * Iterations::kH;
+      int thread_offset_h =
+        threadIdx.x / Threads::kW * kStrideH * Iterations::kH;
       int thread_offset_w = 0;
 
       return cutlass::make_Coord(0, thread_offset_h, thread_offset_w, 0);
@@ -70,23 +75,24 @@ struct DistanceGlobalTileAATraits
   };
 };
 
+/**
+ * @brief Traits class to configure the iterator which accesses
+ *  B^2 row vector
+ * @tparam Scalar_ the type of each element in B^2
+ * @tparam Tile_ the tile shape
+ * @tparam Threads_ the thread shape of each thread block
+   @tparam kAccessSize_ the number of scalars accessed
+ */
 template <typename Scalar_, typename Tile_, typename Threads_, int kAccessSize_>
 struct DistanceGlobalTileBBTraits
-    : public cutlass::gemm::GemmGlobalTileTraits<
-      cutlass::GemmOperand::kB,
-      cutlass::MatrixLayout::kColumnMajor,
-      Scalar_,
-      Tile_,
-      Threads_,
-      kAccessSize_> {
+  : public cutlass::gemm::GemmGlobalTileTraits<
+      cutlass::GemmOperand::kB, cutlass::MatrixLayout::kColumnMajor, Scalar_,
+      Tile_, Threads_, kAccessSize_> {
   /// The base class.
-  typedef cutlass::gemm::GemmGlobalTileTraits<cutlass::GemmOperand::kB,
-                               cutlass::MatrixLayout::kColumnMajor,
-                               Scalar_,
-                               Tile_,
-                               Threads_,
-                               kAccessSize_>
-      Base;
+  typedef cutlass::gemm::GemmGlobalTileTraits<
+    cutlass::GemmOperand::kB, cutlass::MatrixLayout::kColumnMajor, Scalar_,
+    Tile_, Threads_, kAccessSize_>
+    Base;
 
   /// The stride in the H dimension.
   static int const kStrideH = 0;
@@ -94,8 +100,9 @@ struct DistanceGlobalTileBBTraits
   typedef cutlass::Shape<0, 0, Base::Delta::kW, Base::Delta::kC> Delta;
 
   /// Override the number of iterations needed to load/store the tile.
-  typedef cutlass::Shape<1, 1, Tile_::kW / Threads_::kW, Tile_::kC / kAccessSize_>
-      Iterations;
+  typedef cutlass::Shape<1, 1, Tile_::kW / Threads_::kW,
+                         Tile_::kC / kAccessSize_>
+    Iterations;
 
   typedef typename Base::Threads Threads;
 

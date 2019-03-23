@@ -17,74 +17,52 @@
 #pragma once
 
 #include "cuda_utils.h"
-#include "vectorized.h"
 #include "linalg/matrix_vector_op.h"
+#include "vectorized.h"
 
 namespace MLCommon {
 namespace Stats {
 
-using namespace MLCommon;
-
 /**
  * @brief Center the input matrix wrt its mean
- *
- * Mean operation is assumed to be performed on a given column.
- *
  * @tparam Type the data type
  * @tparam TPB threads per block of the cuda kernel launched
- * @param data matrix which needs to be centered (currently assumed to be row-major)
+ * @param out the output mean-centered matrix
+ * @param data input matrix
  * @param mu the mean vector
  * @param D number of columns of data
  * @param N number of rows of data
  * @param rowMajor whether input is row or col major
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ * @param stream cuda stream where to launch work
  */
-template <typename Type, int TPB=256>
-void meanCenter(Type* data, const Type* mu, int D, int N, bool rowMajor) {
-	LinAlg::matrixVectorOp(data, mu, D, N, rowMajor,
-		        		       [] __device__ (Type a, Type b) {
-		        		                 return a - b;
-		        		            });
-}
-
-template <typename Type, int TPB=256>
-void meanCenterMG(TypeMG<Type>* data, TypeMG<Type>* mu, int D, int N, int n_gpus, bool rowMajor,
-		bool row_split = false, bool sync = false) {
-
-	LinAlg::matrixVectorOpMG(data, mu, D, N, n_gpus, rowMajor,
-		        		       [] __device__ (Type a, Type b) {
-		        		                 return a - b;
-		        		            }, row_split, sync);
+template <typename Type, typename IdxType = int, int TPB = 256>
+void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
+                bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
+  LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
+                         [] __device__(Type a, Type b) { return a - b; },
+                         stream);
 }
 
 /**
  * @brief Add the input matrix wrt its mean
- *
- * Mean operation is assumed to be performed on a given column.
- *
  * @tparam Type the data type
  * @tparam TPB threads per block of the cuda kernel launched
- * @param data matrix which needs to be centered (currently assumed to be row-major)
+ * @param out the output mean-added matrix
+ * @param data input matrix
  * @param mu the mean vector
  * @param D number of columns of data
  * @param N number of rows of data
  * @param rowMajor whether input is row or col major
+ * @param bcastAlongRows whether to broadcast vector along rows or columns
+ * @param stream cuda stream where to launch work
  */
-template <typename Type, int TPB=256>
-void meanAdd(Type* data, const Type* mu, int D, int N, bool rowMajor) {
-	LinAlg::matrixVectorOp(data, mu, D, N, rowMajor,
-		        		       [] __device__ (Type a, Type b) {
-		        		                 return a + b;
-		        		            });
-}
-
-template <typename Type, int TPB=256>
-void meanAddMG(TypeMG<Type>* data, TypeMG<Type>* mu, int D, int N, int n_gpus, bool rowMajor,
-		bool row_split = false, bool sync = false) {
-
-	LinAlg::matrixVectorOpMG(data, mu, D, N, n_gpus, rowMajor,
-		        		       [] __device__ (Type a, Type b) {
-		        		                 return a + b;
-		        		            }, row_split, sync);
+template <typename Type, typename IdxType = int, int TPB = 256>
+void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
+             bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
+  LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
+                         [] __device__(Type a, Type b) { return a + b; },
+                         stream);
 }
 
 }; // end namespace Stats

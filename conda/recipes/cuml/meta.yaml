@@ -28,12 +28,12 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.12.4
-    - cudf 0.5*
+    - cudf 0.6*
     - libcuml={{ version }}
   run:
     - python x.x
     - setuptools
-    - cudf 0.5*
+    - cudf 0.6*
     - libcuml={{ version }}
 
 about:

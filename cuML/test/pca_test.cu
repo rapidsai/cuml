@@ -58,7 +58,7 @@ protected:
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
+		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
 
 		allocate(data, len);
@@ -125,7 +125,7 @@ protected:
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
-		Random::Rng<T> r(params.seed);
+		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
 
 		paramsPCA prms;
