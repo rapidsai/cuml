@@ -19,139 +19,203 @@
 #include "cuda_utils.h"
 #include "vectorized.h"
 
+
 namespace MLCommon {
 namespace LinAlg {
 
-using namespace MLCommon;
 
-template<typename Type, int veclen_, typename Lambda, int TPB>
-__global__ void matrixVectorOpKernelRowMajor(Type* matrix, const Type* vec,
-		int D, int N, Lambda op) {
-	typedef TxN_t<Type, veclen_> VecType;
-	VecType a, b;
-	int rowStart = blockIdx.x * D;
-	const int stride = TPB * VecType::Ratio;
-	for (int i = threadIdx.x * VecType::Ratio; i < D; i += stride) {
-		a.load(matrix, i + rowStart);
-		b.load(vec, i);
+template <typename Type, int veclen_, typename Lambda, typename IdxType>
+__global__ void
+  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector,
+                       IdxType D, IdxType N, bool rowMajor, bool bcastAlongRows,
+                       Lambda op) {
+  typedef TxN_t<Type, veclen_> VecType;
+  IdxType len = N * D;
+  IdxType idx = threadIdx.x;
+  idx += (IdxType)blockIdx.x * (IdxType)blockDim.x;
+  idx *= VecType::Ratio;
+  if (idx >= len)
+    return;
+  IdxType vIdx;
+  VecType mat, vec;
+  ///@todo: yikes! use fast-int-div here.
+  ///@todo: shared mem for vector could help with perf
+  if (rowMajor && bcastAlongRows) {
+    vIdx = idx % D;
+    vec.load(vector, vIdx);
+  } else if (!rowMajor && !bcastAlongRows) {
+    vIdx = idx % N;
+    vec.load(vector, vIdx);
+  } else if (rowMajor && !bcastAlongRows) {
+    vIdx = idx / D;
+    vec.fill(vector[vIdx]);
+  } else {
+    vIdx = idx / N;
+    vec.fill(vector[vIdx]);
+  }
+  mat.load(matrix, idx);
 #pragma unroll
-		for (int j = 0; j < VecType::Ratio; ++j)
-			a.val.data[j] = op(a.val.data[j], b.val.data[j]);
-		a.store(matrix, i + rowStart);
-	}
+  for (int i = 0; i < VecType::Ratio; ++i)
+    mat.val.data[i] = op(mat.val.data[i], vec.val.data[i]);
+  mat.store(out, idx);
 }
 
-template<typename Type, int veclen_, typename Lambda, int TPB>
-__global__ void matrixVectorOpKernelColMajor(Type* matrix, const Type* vec,
-		int D, int N, Lambda op) {
-	typedef TxN_t<Type, veclen_> VecType;
-	VecType a;
-	Type b = vec[blockIdx.x];
-	int colStart = blockIdx.x * N;
-	const int stride = TPB * VecType::Ratio;
-	for (int i = threadIdx.x * VecType::Ratio; i < N; i += stride) {
-		a.load(matrix, i + colStart);
-#pragma unroll
-		for (int j = 0; j < VecType::Ratio; ++j)
-			a.val.data[j] = op(a.val.data[j], b);
-		a.store(matrix, i + colStart);
-	}
-}
-
-template<typename Type, int veclen_, typename Lambda, int TPB>
-void matrixVectorOpImpl(Type* matrix, const Type* vec, int D, int N,
-		bool rowMajor, Lambda op, cudaStream_t stream = 0) {
-	if (rowMajor) {
-		matrixVectorOpKernelRowMajor<Type, veclen_, Lambda, TPB> <<<N, TPB, 0,
-				stream>>>(matrix, vec, D, N, op);
-	} else {
-		matrixVectorOpKernelColMajor<Type, veclen_, Lambda, TPB> <<<D, TPB, 0,
-				stream>>>(matrix, vec, D, N, op);
-	}
-	CUDA_CHECK(cudaPeekAtLastError());
+template <typename Type, int veclen_, typename Lambda, typename IdxType,
+          int TPB>
+void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
+                        IdxType D, IdxType N, bool rowMajor,
+                        bool bcastAlongRows, Lambda op,
+                        cudaStream_t stream = 0) {
+  IdxType len = N * D;
+  IdxType nblks = ceildiv(veclen_? len / veclen_ : veclen_, (IdxType)TPB);
+  matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
+    <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
+                                bcastAlongRows, op);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
  * @brief Operations for all the columns or rows with a given vector.
- *
- * Operations for all the columns or rows with a given vector.
- *
- * @tparam Type: the matrix type
- * @tparam TPB: threads per block of the cuda kernel launched
- * @param matrix: matrix which needs to be centered (currently assumed to be row-major)
- * @param vec: the mean vector
- * @param D: number of columns of matrix
- * @param N: number of rows of matrix
- * @param rowMajor: whether input is row or col major
- * @param op:the mathematical operations
+ * @tparam Type the matrix/vector type
+ * @tparam Lambda a device function which represents a binary operator
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param out the output matrix (passing out = matrix makes it in-place)
+ * @param matrix the input matrix
+ * @param vec the vector
+ * @param D number of columns of matrix
+ * @param N number of rows of matrix
+ * @param rowMajor whether input is row or col major
+ * @param bcastAlongRows whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns
+ * @param op the mathematical operation
+ * @param stream cuda stream where to launch work
  */
-template<typename Type, typename Lambda, int TPB = 256>
-void matrixVectorOp(Type* matrix, const Type* vec, int D, int N, bool rowMajor,
-		Lambda op, cudaStream_t stream = 0) {
-	int stride = rowMajor ? D : N;
-	size_t bytes = stride * sizeof(Type);
-	if (16 / sizeof(Type) && bytes % 16 == 0) {
-		matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, TPB>(matrix, vec, D,
-				N, rowMajor, op, stream);
-	} else if (8 / sizeof(Type) && bytes % 8 == 0) {
-		matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, TPB>(matrix, vec, D,
-				N, rowMajor, op, stream);
-	} else if (4 / sizeof(Type) && bytes % 4 == 0) {
-		matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, TPB>(matrix, vec, D,
-				N, rowMajor, op, stream);
-	} else if (2 / sizeof(Type) && bytes % 2 == 0) {
-		matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, TPB>(matrix, vec, D,
-				N, rowMajor, op, stream);
-	} else if (1 / sizeof(Type)) {
-		matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, TPB>(matrix, vec, D,
-				N, rowMajor, op, stream);
-	} else {
-		matrixVectorOpImpl<Type, 1, Lambda, TPB>(matrix, vec, D, N, rowMajor,
-				op, stream);
-	}
+template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
+void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
+                    IdxType N, bool rowMajor, bool bcastAlongRows, Lambda op,
+                    cudaStream_t stream = 0) {
+  IdxType stride = rowMajor ? D : N;
+  size_t bytes = stride * sizeof(Type);
+  if (16 / sizeof(Type) && bytes % 16 == 0) {
+    matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (8 / sizeof(Type) && bytes % 8 == 0) {
+    matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (4 / sizeof(Type) && bytes % 4 == 0) {
+    matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (2 / sizeof(Type) && bytes % 2 == 0) {
+    matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (1 / sizeof(Type)) {
+    matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else {
+    matrixVectorOpImpl<Type, 1, Lambda, IdxType, TPB>(
+      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+  }
 }
 
 
+///@todo: come up with a cleaner interface to support these cases in future!
+
+template <typename Type, int veclen_, typename Lambda, typename IdxType>
+__global__ void
+  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector1,
+                       const Type *vector2, IdxType D, IdxType N, bool rowMajor,
+                       bool bcastAlongRows, Lambda op) {
+  typedef TxN_t<Type, veclen_> VecType;
+  IdxType len = N * D;
+  IdxType idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
+  if (idx >= len)
+    return;
+  IdxType vIdx;
+  VecType mat, vec1, vec2;
+  ///@todo: yikes! use fast-int-div here.
+  ///@todo: shared mem for vector could help with perf
+  if (rowMajor && bcastAlongRows) {
+    vIdx = idx % D;
+    vec1.load(vector1, vIdx);
+    vec2.load(vector2, vIdx);
+  } else if (!rowMajor && !bcastAlongRows) {
+    vIdx = idx % N;
+    vec1.load(vector1, vIdx);
+    vec2.load(vector2, vIdx);
+  } else if (rowMajor && !bcastAlongRows) {
+    vIdx = idx / D;
+    vec1.fill(vector1[vIdx]);
+    vec2.fill(vector2[vIdx]);
+  } else {
+    vIdx = idx / N;
+    vec1.fill(vector1[vIdx]);
+    vec2.fill(vector2[vIdx]);
+  }
+  mat.load(matrix, idx);
+#pragma unroll
+  for (int i = 0; i < VecType::Ratio; ++i)
+    mat.val.data[i] = op(mat.val.data[i], vec1.val.data[i], vec2.val.data[i]);
+  mat.store(out, idx);
+}
+
+template <typename Type, int veclen_, typename Lambda, typename IdxType,
+          int TPB>
+void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
+                        const Type *vec2, IdxType D, IdxType N, bool rowMajor,
+                        bool bcastAlongRows, Lambda op,
+                        cudaStream_t stream = 0) {
+  IdxType nblks = ceildiv(N * D, (IdxType)TPB);
+  matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
+    <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
+                                bcastAlongRows, op);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
 
 /**
- * @brief Multi-GPU operations for all the columns or rows with a given vector.
- *
- * Multi-GPU operations for all the columns or rows with a given vector.
- *
- * @tparam Type: the matrix type
- * @tparam TPB: threads per block of the cuda kernel launched
- * @param matrix: matrix which needs to be centered (currently assumed to be row-major)
- * @param vec: the mean vector
- * @param D: number of columns of matrix
- * @param N: number of rows of matrix
- * @param rowMajor: whether input is row or col major
- * @param op:the mathematical operations
- * @param row_split: true if the data is broken by row
- * @param sync: synch the streams if it's true
+ * @brief Operations for all the columns or rows with the given vectors.
+ * @tparam Type the matrix/vector type
+ * @tparam Lambda a device function which represents a binary operator
+ * @tparam IdxType Integer type used to for addressing
+ * @tparam TPB threads per block of the cuda kernel launched
+ * @param out the output matrix (passing out = matrix makes it in-place)
+ * @param matrix the input matrix
+ * @param vec1 the first vector
+ * @param vec2 the second vector
+ * @param D number of columns of matrix
+ * @param N number of rows of matrix
+ * @param rowMajor whether input is row or col major
+ * @param bcastAlongRows whether the broadcast of vector needs to happen along
+ * the rows of the matrix or columns
+ * @param op the mathematical operation
+ * @param stream cuda stream where to launch work
  */
-template<typename Type, typename Lambda>
-void matrixVectorOpMG(TypeMG<Type>* matrix, const TypeMG<Type>* vec, int D,
-		             int N, int n_gpus, bool rowMajor, Lambda op, bool row_split = false,
-		             bool sync = false) {
-
-	if (row_split) {
-		ASSERT(false, "matrixVectorOpMG: row split is not supported");
-	} else {
-		for (int i = 0; i < n_gpus; i++) {
-			CUDA_CHECK(cudaSetDevice(matrix[i].gpu_id));
-
-			matrixVectorOp(matrix[i].d_data, vec[i].d_data, matrix[i].n_cols,
-					matrix[i].n_rows, rowMajor, op, matrix[i].stream);
-		}
-	}
-
-	if (sync)
-		streamSyncMG(matrix, n_gpus);
+template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
+void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
+                    const Type *vec2, IdxType D, IdxType N, bool rowMajor,
+                    bool bcastAlongRows, Lambda op, cudaStream_t stream = 0) {
+  IdxType stride = rowMajor ? D : N;
+  size_t bytes = stride * sizeof(Type);
+  if (16 / sizeof(Type) && bytes % 16 == 0) {
+    matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (8 / sizeof(Type) && bytes % 8 == 0) {
+    matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (4 / sizeof(Type) && bytes % 4 == 0) {
+    matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (2 / sizeof(Type) && bytes % 2 == 0) {
+    matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else if (1 / sizeof(Type)) {
+    matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  } else {
+    matrixVectorOpImpl<Type, 1, Lambda, IdxType, TPB>(
+      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+  }
 }
 
-}
-;
-// end namespace Stats
-}
-;
-// end namespace MLCommon
+}; // end namespace LinAlg
+}; // end namespace MLCommon

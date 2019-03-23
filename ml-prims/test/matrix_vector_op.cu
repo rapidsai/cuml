@@ -15,8 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "stats/mean.h"
-#include "linalg/matrix_vector_op.h"
+#include "matrix_vector_op.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
@@ -24,110 +23,155 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
-struct MVInputs {
-    T tolerance, mean;
-    int rows, cols;
-    bool sample, rowMajor;
-    unsigned long long int seed;
+template <typename T, typename IdxType>
+struct MatVecOpInputs {
+  T tolerance;
+  int rows, cols;
+  bool rowMajor, bcastAlongRows, useTwoVectors;
+  unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const MVInputs<T>& dims) {
-    return os;
+template <typename T, typename IdxType>
+::std::ostream &operator<<(::std::ostream &os,
+                           const MatVecOpInputs<T, IdxType> &dims) {
+  return os;
 }
 
 // Or else, we get the following compilation error
-// for an extended __device__ lambda cannot have private or protected access within its class
-template <typename T>
-void matrixVectorOpLaunch(T* data, const T* mu, int cols, int rows, bool rowMajor) {
-	matrixVectorOp(data, mu, cols, rows, rowMajor,
-	        		       [] __device__ (T a, T b) {
-	        		                 return a - b;
-	        		            });
+// for an extended __device__ lambda cannot have private or protected access
+// within its class
+template <typename T, typename IdxType>
+void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
+                          IdxType D, IdxType N, bool rowMajor,
+                          bool bcastAlongRows, bool useTwoVectors) {
+  if(useTwoVectors) {
+    matrixVectorOp(out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
+                   [] __device__(T a, T b, T c) { return a + b + c; });
+  } else {
+    matrixVectorOp(out, in, vec1, D, N, rowMajor, bcastAlongRows,
+                   [] __device__(T a, T b) { return a + b; });
+  }
 }
 
-template <typename T>
-class MVOpTest: public ::testing::TestWithParam<MVInputs<T> > {
+template <typename T, typename IdxType>
+class MatVecOpTest :
+  public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
 protected:
-    void SetUp() override {
-        params = ::testing::TestWithParam<MVInputs<T>>::GetParam();
-        Random::Rng<T> r(params.seed);
-        int rows = params.rows, cols = params.cols;
-        int len = rows * cols;
-        allocate(data, len);
-        allocate(mean_act, cols);
-        r.normal(data, len, params.mean, (T)1.0);
-        Stats::mean(mean_act, data, cols, rows, params.sample, params.rowMajor);
-        matrixVectorOpLaunch(data, mean_act, cols, rows, params.rowMajor);
-        Stats::mean(mean_act, data, cols, rows, params.sample, params.rowMajor);
+  void SetUp() override {
+      params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
+    Random::Rng r(params.seed);
+    IdxType N = params.rows, D = params.cols;
+    IdxType len = N * D;
+    allocate(in, len);
+    allocate(out_ref, len);
+    allocate(out, len);
+    IdxType vecLen = params.bcastAlongRows ? D : N;
+    allocate(vec1, vecLen);
+    allocate(vec2, vecLen);
+    r.uniform(in, len, (T)-1.0, (T)1.0);
+    r.uniform(vec1, vecLen, (T)-1.0, (T)1.0);
+    r.uniform(vec2, vecLen, (T)-1.0, (T)1.0);
+    if(params.useTwoVectors) {
+      naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
+                  params.bcastAlongRows, (T)1.0);
+    } else {
+      naiveMatVec(out_ref, in, vec1, D, N, params.rowMajor,
+                  params.bcastAlongRows, (T)1.0);
     }
+    matrixVectorOpLaunch(out, in, vec1, vec2, D, N, params.rowMajor,
+                         params.bcastAlongRows, params.useTwoVectors);
+  }
 
-    void TearDown() override {
-        CUDA_CHECK(cudaFree(data));
-        CUDA_CHECK(cudaFree(mean_act));
-    }
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(vec1));
+    CUDA_CHECK(cudaFree(vec2));
+    CUDA_CHECK(cudaFree(out));
+    CUDA_CHECK(cudaFree(out_ref));
+    CUDA_CHECK(cudaFree(in));
+  }
 
 protected:
-    MVInputs<T> params;
-    T *data, *mean_act;
+  MatVecOpInputs<T, IdxType> params;
+  T *in, *out, *out_ref, *vec1, *vec2;
 };
 
-const std::vector<MVInputs<float> > inputsf = {
-    {0.05f,  1.f, 1024,  32,  true, false, 1234ULL},
-    {0.05f,  1.f, 1024,  64,  true, false, 1234ULL},
-    {0.05f,  1.f, 1024, 128,  true, false, 1234ULL},
-    {0.05f,  1.f, 1024, 256,  true, false, 1234ULL},
-    {0.05f, -1.f, 1024,  32, false, false, 1234ULL},
-    {0.05f, -1.f, 1024,  64, false, false, 1234ULL},
-    {0.05f, -1.f, 1024, 128, false, false, 1234ULL},
-    {0.05f, -1.f, 1024, 256, false, false, 1234ULL},
-    {0.05f,  1.f, 1024,  32,  true,  true, 1234ULL},
-    {0.05f,  1.f, 1024,  64,  true,  true, 1234ULL},
-    {0.05f,  1.f, 1024, 128,  true,  true, 1234ULL},
-    {0.05f,  1.f, 1024, 256,  true,  true, 1234ULL},
-    {0.05f, -1.f, 1024,  32, false,  true, 1234ULL},
-    {0.05f, -1.f, 1024,  64, false,  true, 1234ULL},
-    {0.05f, -1.f, 1024, 128, false,  true, 1234ULL},
-    {0.05f, -1.f, 1024, 256, false,  true, 1234ULL}
-};
 
-const std::vector<MVInputs<double> > inputsd = {
-    {0.05,  1.0, 1024,  32,  true, false, 1234ULL},
-    {0.05,  1.0, 1024,  64,  true, false, 1234ULL},
-    {0.05,  1.0, 1024, 128,  true, false, 1234ULL},
-    {0.05,  1.0, 1024, 256,  true, false, 1234ULL},
-    {0.05, -1.0, 1024,  32, false, false, 1234ULL},
-    {0.05, -1.0, 1024,  64, false, false, 1234ULL},
-    {0.05, -1.0, 1024, 128, false, false, 1234ULL},
-    {0.05, -1.0, 1024, 256, false, false, 1234ULL},
-    {0.05,  1.0, 1024,  32,  true,  true, 1234ULL},
-    {0.05,  1.0, 1024,  64,  true,  true, 1234ULL},
-    {0.05,  1.0, 1024, 128,  true,  true, 1234ULL},
-    {0.05,  1.0, 1024, 256,  true,  true, 1234ULL},
-    {0.05, -1.0, 1024,  32, false,  true, 1234ULL},
-    {0.05, -1.0, 1024,  64, false,  true, 1234ULL},
-    {0.05, -1.0, 1024, 128, false,  true, 1234ULL},
-    {0.05, -1.0, 1024, 256, false,  true, 1234ULL}
-};
+const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
+  {0.00001f, 1024, 32, true, true, false, 1234ULL},
+  {0.00001f, 1024, 64, true, true, false, 1234ULL},
+  {0.00001f, 1024, 32, true, false, false, 1234ULL},
+  {0.00001f, 1024, 64, true, false, false, 1234ULL},
+  {0.00001f, 1024, 32, false, true, false, 1234ULL},
+  {0.00001f, 1024, 64, false, true, false, 1234ULL},
+  {0.00001f, 1024, 32, false, false, false, 1234ULL},
+  {0.00001f, 1024, 64, false, false, false, 1234ULL},
 
-typedef MVOpTest<float> MVOpTestF;
-TEST_P(MVOpTestF, Result) {
-    ASSERT_TRUE(devArrMatch(0.f, mean_act, params.cols,
-                            CompareApprox<float>(params.tolerance)));
+  {0.00001f, 1024, 32, true, true, true, 1234ULL},
+  {0.00001f, 1024, 64, true, true, true, 1234ULL},
+  {0.00001f, 1024, 32, true, false, true, 1234ULL},
+  {0.00001f, 1024, 64, true, false, true, 1234ULL},
+  {0.00001f, 1024, 32, false, true, true, 1234ULL},
+  {0.00001f, 1024, 64, false, true, true, 1234ULL},
+  {0.00001f, 1024, 32, false, false, true, 1234ULL},
+  {0.00001f, 1024, 64, false, false, true, 1234ULL}};
+typedef MatVecOpTest<float, int> MatVecOpTestF_i32;
+TEST_P(MatVecOpTestF_i32, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<float>(params.tolerance)));
 }
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
+                        ::testing::ValuesIn(inputsf_i32));
 
-typedef MVOpTest<double> MVOpTestD;
-TEST_P(MVOpTestD, Result){
-    ASSERT_TRUE(devArrMatch(0.0, mean_act, params.cols,
-                            CompareApprox<double>(params.tolerance)));
+
+const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
+  {0.00001f, 2500000, 250, false, false, false, 1234ULL},
+  {0.00001f, 2500000, 250, false, false, true, 1234ULL}};
+typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
+TEST_P(MatVecOpTestF_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<float>(params.tolerance)));
 }
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64,
+                        ::testing::ValuesIn(inputsf_i64));
 
-INSTANTIATE_TEST_CASE_P(MVOpTests, MVOpTestF,
-                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MVOpTests, MVOpTestD,
-                        ::testing::ValuesIn(inputsd));
+const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
+  {0.0000001, 1024, 32, true, true, false, 1234ULL},
+  {0.0000001, 1024, 64, true, true, false, 1234ULL},
+  {0.0000001, 1024, 32, true, false, false, 1234ULL},
+  {0.0000001, 1024, 64, true, false, false, 1234ULL},
+  {0.0000001, 1024, 32, false, true, false, 1234ULL},
+  {0.0000001, 1024, 64, false, true, false, 1234ULL},
+  {0.0000001, 1024, 32, false, false, false, 1234ULL},
+  {0.0000001, 1024, 64, false, false, false, 1234ULL},
 
-} // end namespace Stats
+  {0.0000001, 1024, 32, true, true, true, 1234ULL},
+  {0.0000001, 1024, 64, true, true, true, 1234ULL},
+  {0.0000001, 1024, 32, true, false, true, 1234ULL},
+  {0.0000001, 1024, 64, true, false, true, 1234ULL},
+  {0.0000001, 1024, 32, false, true, true, 1234ULL},
+  {0.0000001, 1024, 64, false, true, true, 1234ULL},
+  {0.0000001, 1024, 32, false, false, true, 1234ULL},
+  {0.0000001, 1024, 64, false, false, true, 1234ULL}};
+typedef MatVecOpTest<double, int> MatVecOpTestD_i32;
+TEST_P(MatVecOpTestD_i32, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
+                        ::testing::ValuesIn(inputsd_i32));
+
+
+const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
+  {0.0000001, 2500000, 250, false, false, false, 1234ULL},
+  {0.0000001, 2500000, 250, false, false, true, 1234ULL}};
+typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
+TEST_P(MatVecOpTestD_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
+                        ::testing::ValuesIn(inputsd_i64));
+
+} // end namespace LinAlg
 } // end namespace MLCommon

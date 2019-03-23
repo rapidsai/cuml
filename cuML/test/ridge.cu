@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "glm/ridge.h"
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
@@ -59,10 +75,10 @@ protected:
 		T coef_ref_h[params.n_col] = { 0.39999998, 0.4 };
 		updateDevice(coef_ref, coef_ref_h, params.n_col);
 
-		T coef2_ref_h[params.n_col] = { 0.3454546 , 0.34545454 };
+		T coef2_ref_h[params.n_col] = { 0.3454546, 0.34545454 };
 		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
 
-		T coef3_ref_h[params.n_col] = { 0.3799999 , 0.38000008 };
+		T coef3_ref_h[params.n_col] = { 0.3799999, 0.38000008 };
 		updateDevice(coef3_ref, coef3_ref_h, params.n_col);
 
 		T pred_data_h[len2] = { 0.5, 2.0, 0.2, 1.0 };
@@ -80,37 +96,72 @@ protected:
 		intercept = T(0);
 
 		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef,
-				&intercept, false, false, cublas_handle,
-				cusolver_handle, params.algo);
+				&intercept, false, false, cublas_handle, cusolver_handle,
+				params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef, intercept, pred,
-				cublas_handle);
-
+		ridgePredict(pred_data, params.n_row_2, params.n_col, coef, intercept,
+				pred, cublas_handle);
 
 		updateDevice(data, data_h, len);
 		updateDevice(labels, labels_h, params.n_row);
 
 		intercept2 = T(0);
 		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
-				&intercept2, true, false, cublas_handle,
-						cusolver_handle, params.algo);
+				&intercept2, true, false, cublas_handle, cusolver_handle,
+				params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef2, intercept2, pred2,
-						cublas_handle);
-
+		ridgePredict(pred_data, params.n_row_2, params.n_col, coef2, intercept2,
+				pred2, cublas_handle);
 
 		updateDevice(data, data_h, len);
 		updateDevice(labels, labels_h, params.n_row);
 
 		intercept3 = T(0);
 		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
-				&intercept3, true, true, cublas_handle,
-				cusolver_handle, params.algo);
+				&intercept3, true, true, cublas_handle, cusolver_handle,
+				params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef3, intercept3, pred3,
-				   cublas_handle);
+		ridgePredict(pred_data, params.n_row_2, params.n_col, coef3, intercept3,
+				pred3, cublas_handle);
 
+		CUBLAS_CHECK(cublasDestroy(cublas_handle));
+		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 
+	}
+
+	void basicTest2() {
+		params = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
+		int len = params.n_row * params.n_col;
+
+		cublasHandle_t cublas_handle;
+		CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+		cusolverDnHandle_t cusolver_handle = NULL;
+		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+		allocate(data_sc, len);
+		allocate(labels_sc, len);
+		allocate(coef_sc, 1);
+		allocate(coef_sc_ref, 1);
+
+		std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0};
+		data_h.resize(len);
+		updateDevice(data_sc, data_h.data(), len);
+
+		std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0};
+		labels_h.resize(len);
+		updateDevice(labels_sc, labels_h.data(), len);
+
+		std::vector<T> coef_sc_ref_h = {1.8};
+		coef_sc_ref_h.resize(1);
+		updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1);
+
+		T intercept_sc = T(0);
+		T alpha_sc = T(1.0);
+
+		ridgeFit(data_sc, len, 1, labels_sc, &alpha_sc, 1, coef_sc,
+						&intercept_sc, true, false, cublas_handle, cusolver_handle,
+						params.algo);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -119,6 +170,7 @@ protected:
 
 	void SetUp() override {
 		basicTest();
+		basicTest2();
 	}
 
 	void TearDown() override {
@@ -138,6 +190,12 @@ protected:
 		CUDA_CHECK(cudaFree(pred3));
 		CUDA_CHECK(cudaFree(pred3_ref));
 
+		CUDA_CHECK(cudaFree(data_sc));
+		CUDA_CHECK(cudaFree(labels_sc));
+		CUDA_CHECK(cudaFree(coef_sc));
+		CUDA_CHECK(cudaFree(coef_sc_ref));
+
+
 	}
 
 protected:
@@ -145,6 +203,7 @@ protected:
 	T *data, *labels, *coef, *coef_ref, *pred_data, *pred, *pred_ref;
 	T *coef2, *coef2_ref, *pred2, *pred2_ref;
 	T *coef3, *coef3_ref, *pred3, *pred3_ref;
+	T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
 	T intercept, intercept2, intercept3;
 };
 
@@ -165,8 +224,7 @@ TEST_P(RidgeTestF, Fit) {
 
 	ASSERT_TRUE(
 			devArrMatch(coef2_ref, coef2, params.n_col,
-				    CompareApproxAbs<float>(params.tol)));
-
+					CompareApproxAbs<float>(params.tol)));
 
 	ASSERT_TRUE(
 			devArrMatch(coef3_ref, coef3, params.n_col,
@@ -180,9 +238,12 @@ TEST_P(RidgeTestF, Fit) {
 			devArrMatch(pred2_ref, pred2, params.n_row_2,
 					CompareApproxAbs<float>(params.tol)));
 
-
 	ASSERT_TRUE(
 			devArrMatch(pred3_ref, pred3, params.n_row_2,
+					CompareApproxAbs<float>(params.tol)));
+
+	ASSERT_TRUE(
+			devArrMatch(coef_sc_ref, coef_sc, 1,
 					CompareApproxAbs<float>(params.tol)));
 }
 
@@ -194,12 +255,11 @@ TEST_P(RidgeTestD, Fit) {
 					CompareApproxAbs<double>(params.tol)));
 
 	ASSERT_TRUE(
-				devArrMatch(coef2_ref, coef2, params.n_col,
+			devArrMatch(coef2_ref, coef2, params.n_col,
 					CompareApproxAbs<double>(params.tol)));
 
-
 	ASSERT_TRUE(
-				devArrMatch(coef3_ref, coef3, params.n_col,
+			devArrMatch(coef3_ref, coef3, params.n_col,
 					CompareApproxAbs<double>(params.tol)));
 
 	ASSERT_TRUE(
@@ -210,9 +270,12 @@ TEST_P(RidgeTestD, Fit) {
 			devArrMatch(pred2_ref, pred2, params.n_row_2,
 					CompareApproxAbs<double>(params.tol)));
 
-
 	ASSERT_TRUE(
 			devArrMatch(pred3_ref, pred3, params.n_row_2,
+					CompareApproxAbs<double>(params.tol)));
+
+	ASSERT_TRUE(
+			devArrMatch(coef_sc_ref, coef_sc, 1,
 					CompareApproxAbs<double>(params.tol)));
 }
 
