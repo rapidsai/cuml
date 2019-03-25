@@ -1,3 +1,18 @@
+# cuML 0.7.0 (Date TBD)
+
+## New Features
+
+- PR #277: Added row- and column-wise weighted mean primitive
+
+## Improvements
+
+- PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+
+## Bug Fixes
+
+- PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+
 # cuML 0.6.0 (22 Mar 2019)
 
 ## New Features
