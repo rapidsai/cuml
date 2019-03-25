@@ -95,7 +95,7 @@ namespace ML {
 			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 1;
-			const int BATCH_BINS = 8;
+			int n_batch_bins;
 			int n_unique_labels = -1; // number of unique labels in dataset
 			double construct_time;
 		public:
@@ -118,13 +118,11 @@ namespace ML {
 				maxleaves = max_leaf_nodes;
 				tempmem.resize(MAXSTREAMS);
 				n_unique_labels = unique_labels;
+				n_batch_bins = n_bins;
 
-				ASSERT((BATCH_BINS <= n_bins), "BATCH_BINS %d should not be > n_bins %d", BATCH_BINS, n_bins);
-
-				for(int i = 0;i<MAXSTREAMS;i++)
-					{
-						tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, BATCH_BINS);
-					}
+				for(int i = 0; i<MAXSTREAMS; i++) {
+					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins);
+				}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
 				GiniInfo split_info;
@@ -248,7 +246,7 @@ namespace ML {
 					// info_gain, local_split_info correspond to the best split
 					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
 					int batch_id = 0;
-					ASSERT(batch_bins <= BATCH_BINS, "Invalid batch_bins");
+					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
 
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
