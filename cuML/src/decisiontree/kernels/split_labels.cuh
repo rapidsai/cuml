@@ -21,10 +21,22 @@
 #include <algorithm>
 #include "gini.cuh"
 
+#ifdef SINGLE_COL
 __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
 			    const float ques_min, const float ques_max, const int ques_nbins, const int ques_batch_id,
 			    float * ques_val)
+#else
+__global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
+			    float * d_ques_min, float * d_ques_max, const int ques_nbins, const int ques_batch_id,
+			    float * ques_val)
+#endif
 {
+#ifndef SINGLE_COL
+	float ques_max = *d_ques_max;
+	float ques_min = *d_ques_min;
+#endif
+
+
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows)
 		{
@@ -53,6 +65,7 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 		}
 	return;
 }
+
 /* node_hist[i] holds the # times label i appear in current data. The vector is computed during gini
    computation. */
 int get_class_hist(std::vector<int> & node_hist) {
@@ -69,7 +82,11 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	char *d_flags_right = tempmem->d_flags_right;
 	float *question_value = tempmem->question_value;
 	
+#ifdef SINGLE_COL
 	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
+#else
+	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
+#endif
 	CUDA_CHECK(cudaGetLastError());
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;

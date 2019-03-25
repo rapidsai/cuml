@@ -28,8 +28,8 @@ struct TemporaryMemory
 	//Below are for gini & get_class functions
 	int *d_hist, *h_hist; // for histograms in gini
 
-	//Host histograms and host minmaxs
-	float *h_globalminmax, *d_globalminmax;
+	//Host/Device histograms and device minmaxs
+	float *d_globalminmax;
 	int *h_histout, *d_histout;
 	int *d_colids;
 	
@@ -92,13 +92,12 @@ struct TemporaryMemory
 		
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 5*sizeof(float);
 
-		CUDA_CHECK(cudaMallocHost((void**)&h_globalminmax,sizeof(float)*Ncols*2));
 		CUDA_CHECK(cudaMallocHost((void**)&h_histout,sizeof(int)*n_bins*n_unique*Ncols));
 		
 		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax,sizeof(float)*Ncols*2));
 		CUDA_CHECK(cudaMalloc((void**)&d_histout,sizeof(int)*n_bins*n_unique*Ncols));
 		CUDA_CHECK(cudaMalloc((void**)&d_colids,sizeof(int)*Ncols));
-		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(float)*Ncols*2;
+		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(float)*Ncols;
 		
 		//Create Streams
 		if(maxstr == 1)
@@ -131,7 +130,6 @@ struct TemporaryMemory
 		cudaFreeHost(h_left_rows);
 		cudaFreeHost(h_right_rows);
 		cudaFreeHost(h_ques_info);
-		cudaFreeHost(h_globalminmax);
 		cudaFreeHost(h_histout);
 		if(stream != 0)
 			cudaStreamDestroy(stream);
