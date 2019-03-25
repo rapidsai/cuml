@@ -16,8 +16,7 @@ void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                      int nStates,
                      double* dStartProb, int lddsp,
                      double* dT, int lddt,
-                     double* dB, int lddb,
-                     double* dGamma, int lddgamma
+                     double* dB, int lddb
                      );
 
 void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm);
@@ -31,8 +30,7 @@ void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    int nStates,
                    double* dStartProb, int lddsp,
                    double* dT, int lddt,
-                   double* dB, int lddb,
-                   double* dGamma, int lddgamma
+                   double* dB, int lddb
                    );
 
 void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,

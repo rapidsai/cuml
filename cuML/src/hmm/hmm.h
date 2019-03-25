@@ -16,13 +16,11 @@ void init(HMM<T, D> &hmm,
           int nStates,
           T* dStartProb, int lddsp,
           T* dT, int lddt,
-          T* dB, int lddb,
-          T* dGamma, int lddgamma
+          T* dB, int lddb
           ) {
 
         hmm.dT = dT;
         hmm.dB = dB;
-        hmm.dGamma = dGamma;
         hmm.dStartProb = dStartProb;
 
         hmm.lddt = lddt;
@@ -30,7 +28,7 @@ void init(HMM<T, D> &hmm,
         // TODO : align
         hmm.lddalpha = nStates;
         hmm.lddbeta = nStates;
-        hmm.lddgamma = lddgamma;
+        hmm.lddgamma = nStates;
         hmm.lddsp = lddsp;
 
         hmm.nStates = nStates;
@@ -58,6 +56,7 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq){
 
         allocate(hmm.dAlpha, hmm.lddalpha * nObs);
         allocate(hmm.dBeta, hmm.lddbeta * nObs);
+        allocate(hmm.dGamma, hmm.lddgamma * nObs);
         allocate(hmm.dcumlenghts_exc, nSeq);
         allocate(hmm.dcumlenghts_inc, nSeq);
 
@@ -101,27 +100,14 @@ void forward_backward(HMM<T, D> &hmm,
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
                             dlenghts, nSeq);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
-        print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
-        print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
-        print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
+        // if (doGamma) {
+        _update_gammas(hmm);
+        // }
+        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
+        // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
 }
-
-// template <typename T>
-// void update_gammas(HMM<T> &hmm,
-//                    T* dX, int* dlenghts, int nSeq){
-//         dim3 block(32, 32, 1);
-//         dim3 grid(ceildiv(hmm.nStates, (int)block.x),
-//                   ceildiv(n_seq, (int)block.y),
-//                   1);
-//
-//         int numThreads_x = grid.x * block.x;
-//         int numThreads_y = grid.y * block.y;
-//
-//         _computeGammasKernel<T> <<< grid, block >>>();
-//         cudaDeviceSynchronize();
-//         CUDA_CHECK(cudaPeekAtLastError());
-// }
-
 
 // template <typename T>
 // void createViterbiWs(){

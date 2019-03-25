@@ -92,7 +92,8 @@ __global__
 void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                             int* dlenghts, int* dcumlengths_inc,
                             int* dcumlengths_exc,
-                            T* dO, int lddo,
+                            T* dAlpha, int lddalpha,
+                            T* dBeta, int lddbeta,
                             T* dStartProb, int lddsp,
                             T* dT, int lddt,
                             T* dB, int lddb,
@@ -109,21 +110,21 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                                 if (doForward) {
                                         obsId = dcumlengths_exc[seqId] + tau;
                                         if (tau == 0) {
-                                                dO[IDX(stateId, obsId, lddo)] = std::log(dStartProb[stateId]) + dB[IDX(stateId, obsId, lddb)];
+                                                dAlpha[IDX(stateId, obsId, lddalpha)] = std::log(dStartProb[stateId]) + dB[IDX(stateId, obsId, lddb)];
                                         }
                                         else {
-                                                temp = _forward_dot(dT, lddt, dO + IDX(0, obsId - 1, lddo), nStates, stateId);
-                                                dO[IDX(stateId, obsId, lddo)] = dB[IDX(stateId, obsId, lddb)] + temp;
+                                                temp = _forward_dot(dT, lddt, dAlpha + IDX(0, obsId - 1, lddalpha), nStates, stateId);
+                                                dAlpha[IDX(stateId, obsId, lddalpha)] = dB[IDX(stateId, obsId, lddb)] + temp;
                                         }
                                 }
 
                                 if (doBackward) {
                                         obsId = dcumlengths_inc[seqId] - tau - 1;
                                         if (tau == 0) {
-                                                dO[IDX(stateId, obsId, lddo)] = 0;
+                                                dBeta[IDX(stateId, obsId, lddbeta)] = 0;
                                         }
                                         else{
-                                                dO[IDX(stateId, obsId, lddo)] = _backward_dot(dT, lddt, dO + IDX(0, obsId + 1, lddo), dB + IDX(0, obsId + 1, lddb), nStates, stateId);;
+                                                dBeta[IDX(stateId, obsId, lddbeta)] = _backward_dot(dT, lddt, dBeta + IDX(0, obsId + 1, lddbeta), dB + IDX(0, obsId + 1, lddb), nStates, stateId);;
                                         }
                                 }
 
@@ -150,32 +151,63 @@ void _forward_backward(HMM<T, D> &hmm,
                                                       dlenghts, hmm.dcumlenghts_inc,
                                                       hmm.dcumlenghts_exc,
                                                       hmm.dAlpha, hmm.lddalpha,
+                                                      hmm.dBeta, hmm.lddbeta,
                                                       hmm.dStartProb, hmm.lddsp,
                                                       hmm.dT, hmm.lddt,
                                                       hmm.dB, hmm.lddb,
                                                       doForward, doBackward,
                                                       numThreads_x, numThreads_y, numThreads_z);
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha matrix after");
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB matrix");
-        print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT matrix");
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dBeta");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB matrix");
+        // print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT matrix");
 
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
-// template <typename T>
-// _updateGammasKernel(){
-//         for (size_t obsId = 0; obsId < nObs; obsId++) {
-//                 for (size_t stateId = 0; stateId < nStates; stateId++) {
-//                         dGamma[IDX(stateId, obsId, lddgamma)] = std::log(dAlpha[IDX(stateId, obsId, lddalpha)]) + std::log(dBeta[IDX(stateId, obsId, lddalpha)]) + std::log(dT[IDX(stateId, obsId, lddalpha)]);
-//                 }
-//
-//         }
-// }
+template <typename T>
+__global__
+void _updateGammasKernel(int nObs, int nStates,
+                         T* dGamma, int lddgamma,
+                         T* dAlpha, int lddalpha,
+                         T* dBeta, int lddbeta,
+                         int numThreads_x, int numThreads_y){
+        T _sum;
+        int obsId_start = threadIdx.x + blockDim.x * blockIdx.x;
+        // int seqId_start = threadIdx.y + blockDim.y * blockIdx.y;
+        for (size_t obsId = obsId_start; obsId < nObs; obsId+=numThreads_x) {
+                _sum = 0;
+                for (size_t stateId = 0; stateId < nStates; stateId++) {
+                        dGamma[IDX(stateId, obsId, lddgamma)] = std::exp(dAlpha[IDX(stateId, obsId, lddalpha)] + dBeta[IDX(stateId, obsId, lddbeta)]);
+                        _sum += dGamma[IDX(stateId, obsId, lddgamma)];
+                }
+                for (size_t stateId = 0; stateId < nStates; stateId++) {
+                        dGamma[IDX(stateId, obsId, lddgamma)] /= _sum;
+                }
+        }
+}
 
 
+template <typename T, typename D>
+void _update_gammas(HMM<T, D> &hmm){
+        dim3 block(32, 1, 1);
+        dim3 grid(ceildiv(hmm.nObs, (int)block.x),
+                  1,
+                  1);
 
+        int numThreads_x = grid.x * block.x;
+        int numThreads_y = grid.y * block.y;
+
+        _updateGammasKernel<T> <<< grid, block >>>(hmm.nObs, hmm.nStates,
+                                                   hmm.dGamma, hmm.lddgamma,
+                                                   hmm.dAlpha, hmm.lddalpha,
+                                                   hmm.dBeta, hmm.lddbeta,
+                                                   numThreads_x, numThreads_y);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+}
 
 
 }
