@@ -64,7 +64,7 @@ void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_
     dim3 threads(TPB_X, 1, 1);
     while(countFa > 0) {
         bfs_device<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
-        cudaDeviceSynchronize();
+        cudaStreamSynchronize(stream);
         countFa = count(device, data.fa, data.fa + N, true);
     }
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
