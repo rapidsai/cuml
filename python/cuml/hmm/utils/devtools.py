@@ -8,7 +8,7 @@ class _DevHMM(ABC):
     def _get_gamma(self):
         gamma = self.dGamma.copy_to_host()
         gamma = deallign(gamma, self.n_components, self.nObs, self.lddgamma)
-        return gamma
+        return gamma.T
 
     def _set_gamma(self, gamma):
         self.lddgamma = roundup(self.n_components, self.align_size)
@@ -23,5 +23,15 @@ class _DevHMM(ABC):
         self.lddb = roundup(self.n_components, self.align_size)
         self.dB = process_parameter(B, self.lddb, self.dtype)
 
-    _gamma_ = property(_get_gamma, _set_gamma)
+    def _get_llhd(self):
+        B = self.dLlhd.copy_to_host()
+        B = B.flatten()
+        return B
+
+    def _set_llhd(self, llhd):
+        self.dLlhd = process_parameter(llhd[:, None], self.nSeq, self.dtype)
+
+
+    _gammas_ = property(_get_gamma, _set_gamma)
     _B_ = property(_get_B, _set_B)
+    _llhd = property(_get_llhd, _set_llhd)

@@ -54,6 +54,7 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
     cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
     cdef uintptr_t _dGamma_ptr = self.dGamma.device_ctypes_pointer.value
     cdef uintptr_t _dStartProb_ptr = self.dstartProb.device_ctypes_pointer.value
+    cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
 
     cdef int nStates = self.n_components
     cdef int lddt = self.lddt
@@ -84,13 +85,14 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                           <int>lddgamma)
             setup_mhmm_f64(hmm64,
                            <int> nObs,
-                           <int> nSeq)
+                           <int> nSeq,
+                           <double*> _dLlhd_ptr)
 
 class _BaseHMMBackend:
     def __init__(self):
         pass
 
-    def _forward_backward(self, X, lengths, do_forward, do_backward):
+    def _forward_backward(self, X, lengths, do_forward, do_backward, do_gamma):
         self._set_dims(X, lengths)
         self._initialize()
         self._setup(X, lengths)
@@ -108,11 +110,13 @@ class _BaseHMMBackend:
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
+
         cdef int nObs = self.nObs
         cdef int nSeq = self.nSeq
 
         cdef bool doForward = do_forward
         cdef bool doBackward = do_backward
+        cdef bool doGamma = do_gamma
 
         # for dist in self.dists :
         #     dist.init_step()
@@ -131,4 +135,5 @@ class _BaseHMMBackend:
                                       <int*> _dlengths_ptr,
                                       <int> nSeq,
                                       <bool> doForward,
-                                      <bool> doBackward)
+                                      <bool> doBackward,
+                                      <bool> doGamma)

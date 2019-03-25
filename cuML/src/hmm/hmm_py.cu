@@ -8,19 +8,19 @@ void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                      int nStates,
                      double* dStartProb, int lddsp,
                      double* dT, int lddt,
-                     double* dB, int lddb
-                     ){
+                     double* dB, int lddb,
+                     double* dGamma, int lddgamma){
         init(hmm, gmms, nStates, dStartProb, lddsp,
-             dT, lddt, dB, lddb);
+             dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
-void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm, int nObs, int nSeq) {
-        setup(hmm, nObs, nSeq);
+void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm, int nObs, int nSeq, double* dLlhd) {
+        setup(hmm, nObs, nSeq, dLlhd);
 }
 
 void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                                  double* dX, int* dlenghts, int nSeq,
-                                 bool doForward, bool doBackward){
+                                 bool doForward, bool doBackward, bool doGamma){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -32,7 +32,7 @@ void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 
         forward_backward(hmm, dX, dlenghts, nSeq,
                          cublasHandle, queue,
-                         doForward, doBackward);
+                         doForward, doBackward, doGamma);
 
         // workspaceFree(hmm);
 
@@ -43,20 +43,20 @@ void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    int nStates,
                    double* dStartProb, int lddsp,
                    double* dT, int lddt,
-                   double* dB, int lddb
-                   ){
+                   double* dB, int lddb,
+                   double* dGamma, int lddgamma){
         init(hmm, gmms, nStates, dStartProb, lddsp,
-             dT, lddt, dB, lddb);
+             dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
 void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                    int nObs, int nSeq) {
-        setup(hmm, nObs, nSeq);
+                    int nObs, int nSeq, double* dLlhd) {
+        setup(hmm, nObs, nSeq, dLlhd);
 }
 
 void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                                int* dX, int* dlenghts, int nSeq,
-                               bool doForward, bool doBackward){
+                               bool doForward, bool doBackward, bool doGamma){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -68,7 +68,7 @@ void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &h
 
         forward_backward(hmm, dX, dlenghts, nSeq,
                          cublasHandle, queue,
-                         doForward, doBackward);
+                         doForward, doBackward, doGamma);
 
         // workspaceFree(hmm);
 

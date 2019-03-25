@@ -26,3 +26,5 @@ log
 
 ## Pycharm
 .idea
+
+python/cuml/hmm/tests/*

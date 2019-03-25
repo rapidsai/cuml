@@ -52,24 +52,26 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     #                                bool doBackward)
 
     cdef void init_mhmm_f64(doubleMultinomialHMM &hmm,
-                       vector[Multinomial[double]] &multinomials,
-                       int nStates,
-                       double* dStartProb,
-                       int lddsp,
-                       double* dT,
-                       int lddt,
-                       double* dB,
-                       int lddb,
-                       double* dGamma,
-                       int lddgamma)
+                            vector[Multinomial[double]] &multinomials,
+                            int nStates,
+                            double* dStartProb,
+                            int lddsp,
+                            double* dT,
+                            int lddt,
+                            double* dB,
+                            int lddb,
+                            double* dGamma,
+                            int lddgamma)
 
     cdef void forward_backward_mhmm_f64(doubleMultinomialHMM &hmm,
-                                   int* dX,
-                                   int* dlenghts,
-                                   int nSeq,
-                                   bool doForward,
-                                   bool doBackward)
+                                        int* dX,
+                                        int* dlenghts,
+                                        int nSeq,
+                                        bool doForward,
+                                        bool doBackward,
+                                        bool doGamma)
 
     cdef void setup_mhmm_f64(doubleMultinomialHMM &hmm,
-                    int nObs,
-                   int nSeq)
+                             int nObs,
+                             int nSeq,
+                             double* dLlhd)

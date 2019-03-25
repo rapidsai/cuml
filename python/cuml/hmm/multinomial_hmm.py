@@ -67,6 +67,9 @@ class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
         Gamma = np.zeros((self.nStates, self.nObs), dtype=self.dtype)
         self._set_gamma(Gamma)
 
+        Llhd = np.zeros(self.nSeq, dtype=self.dtype)
+        self._set_llhd(Llhd)
+
         self.dX = X.T
         self.lddx = 1
         # Align flatten, cast and copy to device
@@ -82,6 +85,8 @@ class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
         for dist in self.dists :
             dist._setup(X)
 
+    def _score(self):
+        return sum(self._llhd)
 
 
 # TODO : Process and propagate int type

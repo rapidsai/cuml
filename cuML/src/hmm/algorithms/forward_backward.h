@@ -88,10 +88,20 @@ T _backward_dot(T* dT, int lddt, T* prevdist, T* nextdB, int nStates, int stateI
 }
 
 template <typename T>
+__device__
+void sum_llhd(T* dO, int len, T* darray){
+        for (size_t i = 0; i < len; i++) {
+                *dO += std :: exp(darray[i]);
+        }
+        *dO = std::log(*dO);
+}
+
+template <typename T>
 __global__
 void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                             int* dlenghts, int* dcumlengths_inc,
                             int* dcumlengths_exc,
+                            T* dLlhd,
                             T* dAlpha, int lddalpha,
                             T* dBeta, int lddbeta,
                             T* dStartProb, int lddsp,
@@ -116,6 +126,12 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                                                 temp = _forward_dot(dT, lddt, dAlpha + IDX(0, obsId - 1, lddalpha), nStates, stateId);
                                                 dAlpha[IDX(stateId, obsId, lddalpha)] = dB[IDX(stateId, obsId, lddb)] + temp;
                                         }
+                                        if (tau == dcumlengths_inc[seqId] - 1) {
+                                                // Compute the log likelihoods
+                                                sum_llhd(dLlhd + seqId, nStates,
+                                                         dAlpha + IDX(0, obsId, lddalpha));
+                                        }
+
                                 }
 
                                 if (doBackward) {
@@ -150,6 +166,7 @@ void _forward_backward(HMM<T, D> &hmm,
         _ForwardBackwardKernel<T> <<< grid, block >>>(hmm.nStates, nSeq, hmm.nObs,
                                                       dlenghts, hmm.dcumlenghts_inc,
                                                       hmm.dcumlenghts_exc,
+                                                      hmm.dLlhd,
                                                       hmm.dAlpha, hmm.lddalpha,
                                                       hmm.dBeta, hmm.lddbeta,
                                                       hmm.dStartProb, hmm.lddsp,
@@ -157,8 +174,8 @@ void _forward_backward(HMM<T, D> &hmm,
                                                       hmm.dB, hmm.lddb,
                                                       doForward, doBackward,
                                                       numThreads_x, numThreads_y, numThreads_z);
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dBeta");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB matrix");
         // print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT matrix");
 

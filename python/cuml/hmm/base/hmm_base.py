@@ -55,21 +55,20 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     #     pass
 
     def predict_proba(self, X, lengths=None):
-        self._forward_backward(X, lengths, True, True)
-        # self._compute_gammas(X, lengths)
-        # return self._gammas_
+        self._forward_backward(X, lengths, True, True, True)
+        return self._gammas_
 
     # @abstractmethod
     # def sample(self, n_samples=1, random_state=None):
     #     pass
 
     def score(self, X, lengths=None):
-        self._forward_backward(X, lengths, True, False)
+        self._forward_backward(X, lengths, True, False, False)
         return self._score()
 
     def score_samples(self, X, lengths=None):
         posteriors = self.predict_proba(X, lengths)
-        logprob = np.sum(posteriors)
+        logprob = self._score()
         return logprob, posteriors
 
 

@@ -29,6 +29,7 @@ struct HMM {
         int lddsp, lddt, lddb, lddalpha, lddbeta, lddgamma;
 
         int nObs, nSeq, max_len;
+        T* dLlhd;
 
         T **dAlpha_array, **dBeta_array, **dB_array, **dPi_array;
 

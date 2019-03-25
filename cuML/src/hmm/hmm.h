@@ -16,19 +16,21 @@ void init(HMM<T, D> &hmm,
           int nStates,
           T* dStartProb, int lddsp,
           T* dT, int lddt,
-          T* dB, int lddb
+          T* dB, int lddb,
+          T* dGamma, int lddgamma
           ) {
 
         hmm.dT = dT;
         hmm.dB = dB;
         hmm.dStartProb = dStartProb;
+        hmm.dGamma = dGamma;
 
         hmm.lddt = lddt;
         hmm.lddb = lddb;
         // TODO : align
         hmm.lddalpha = nStates;
         hmm.lddbeta = nStates;
-        hmm.lddgamma = nStates;
+        hmm.lddgamma = lddgamma;
         hmm.lddsp = lddsp;
 
         hmm.nStates = nStates;
@@ -50,13 +52,15 @@ void init(HMM<T, D> &hmm,
 
 
 template <typename T, typename D>
-void setup(HMM<T, D> &hmm, int nObs, int nSeq){
+void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         hmm.nObs = nObs;
         hmm.nSeq = nSeq;
 
+        hmm.dLlhd = dLlhd;
+
         allocate(hmm.dAlpha, hmm.lddalpha * nObs);
         allocate(hmm.dBeta, hmm.lddbeta * nObs);
-        allocate(hmm.dGamma, hmm.lddgamma * nObs);
+        // allocate(hmm.dGamma, hmm.lddgamma * nObs);
         allocate(hmm.dcumlenghts_exc, nSeq);
         allocate(hmm.dcumlenghts_inc, nSeq);
 
@@ -69,15 +73,6 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq){
         }
         updateDevice(hmm.dPi_array, Pi_array, hmm.nStates);
         free(Pi_array);
-
-
-        //
-        // allocate(hmm.dAlpha_array, nSeq);
-        // allocate(hmm.dBeta_array, nSeq);
-        // for (size_t seqId = 0; seqId < nSeq; seqId++) {
-        //         hmm.dAlpha_array[seqId] = hmm.dAlpha + seqId * hmm.lddalpha;
-        //         hmm.dBeta_array[seqId] = hmm.dBeta + seqId * hmm.lddalpha;
-        // }
 }
 
 // template <typename T>
@@ -94,15 +89,15 @@ template <typename Tx, typename T, typename D>
 void forward_backward(HMM<T, D> &hmm,
                       Tx* dX, int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
-                      bool doForward, bool doBackward){
+                      bool doForward, bool doBackward, bool doGamma){
 
         _compute_emissions(dX, hmm, cublasHandle);
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
                             dlenghts, nSeq);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
-        // if (doGamma) {
-        _update_gammas(hmm);
-        // }
+        if (doGamma) {
+                _update_gammas(hmm);
+        }
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
