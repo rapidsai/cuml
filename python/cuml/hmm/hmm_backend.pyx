@@ -43,37 +43,48 @@ RUP_SIZE = 32
 #                      <double*>_dGamma_ptr,
 #                      <int>lddgamma)
 
-# cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM& hmm64):
-#     cdef vector[Multinomial[float]] multinomials32
-#     cdef vector[Multinomial[double]] multinomials64
-#
-#     cdef Multinomial[float] *ar_multinomials32 = <Multinomial[float] *>malloc(self.n_components * sizeof(Multinomial[float]))
-#     cdef Multinomial[double] *ar_multinomials64 = <Multinomial[double] *>malloc(self.n_components * sizeof(Multinomial[double]))
-#
-#     cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
-#     cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
-#     cdef uintptr_t _dGamma_ptr = self.dGamma.device_ctypes_pointer.value
-#
-#     cdef int nStates = self.n_components
-#     cdef int lddt = self.lddt
-#     cdef int lddb = self.lddb
-#     cdef int lddgamma = self.lddgamma
-#
-#     if self.precision == 'double':
-#         for i in range(self.n_components):
-#             _setup_multinomial(self.multinomials[i], ar_multinomials32[i], ar_multinomials64[i])
-#             multinomials64.push_back(ar_multinomials64[i])
-#
-#         with nogil:
-#             init_mhmm_f64(hmm64,
-#                           multinomials64,
-#                           <int>nStates,
-#                           <double*>_dT_ptr,
-#                           <int>lddt,
-#                           <double*>_dB_ptr,
-#                           <int>lddb,
-#                           <double*>_dGamma_ptr,
-#                           <int>lddgamma)
+cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM& hmm64):
+    cdef vector[Multinomial[float]] multinomials32
+    cdef vector[Multinomial[double]] multinomials64
+
+    cdef Multinomial[float] *ar_multinomials32 = <Multinomial[float] *>malloc(self.n_components * sizeof(Multinomial[float]))
+    cdef Multinomial[double] *ar_multinomials64 = <Multinomial[double] *>malloc(self.n_components * sizeof(Multinomial[double]))
+
+    cdef uintptr_t _dB_ptr = self.dB.device_ctypes_pointer.value
+    cdef uintptr_t _dT_ptr = self.dT.device_ctypes_pointer.value
+    cdef uintptr_t _dGamma_ptr = self.dGamma.device_ctypes_pointer.value
+    cdef uintptr_t _dStartProb_ptr = self.dstartProb.device_ctypes_pointer.value
+
+    cdef int nStates = self.n_components
+    cdef int lddt = self.lddt
+    cdef int lddb = self.lddb
+    cdef int lddgamma = self.lddgamma
+    cdef int lddsp = self.lddsp
+
+    cdef int nObs = self.nObs
+    cdef int nSeq = self.nSeq
+    # cdef int nFeatures = self.nFeatures
+
+    if self.precision == 'double':
+        for i in range(self.n_components):
+            _setup_multinomial(self.dists[i], ar_multinomials32[i], ar_multinomials64[i])
+            multinomials64.push_back(ar_multinomials64[i])
+
+        with nogil:
+            init_mhmm_f64(hmm64,
+                          multinomials64,
+                          <int>nStates,
+                          <double*>_dStartProb_ptr,
+                          <int>lddsp,
+                          <double*>_dT_ptr,
+                          <int>lddt,
+                          <double*>_dB_ptr,
+                          <int>lddb,
+                          <double*>_dGamma_ptr,
+                          <int>lddgamma)
+            setup_mhmm_f64(hmm64,
+                           <int> nObs,
+                           <int> nSeq)
 
 class _BaseHMMBackend:
     def __init__(self):
@@ -84,25 +95,25 @@ class _BaseHMMBackend:
         self._initialize()
         self._setup(X, lengths)
 
-        # cdef floatGMMHMM gmmhmm32
-        # cdef doubleGMMHMM gmmhmm64
-        #
-        # cdef floatMultinomialHMM multinomialhmm32
-        # cdef doubleMultinomialHMM multinomialhmm64
-        #
-        # # if self.hmm_type is "gmm" :
-        # # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
-        # if self.hmm_type is 'multinomial':
-        #     setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
-        #
-        # cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
-        # cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
-        # cdef int nObs = self.nObs
-        # cdef int nSeq = self.nSeq
-        #
-        # cdef bool doForward = do_forward
-        # cdef bool doBackward = do_backward
-        #
+        cdef floatGMMHMM gmmhmm32
+        cdef doubleGMMHMM gmmhmm64
+
+        cdef floatMultinomialHMM multinomialhmm32
+        cdef doubleMultinomialHMM multinomialhmm64
+
+        # if self.hmm_type is "gmm" :
+        # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
+        if self.hmm_type is 'multinomial':
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
+
+        cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
+        cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
+        cdef int nObs = self.nObs
+        cdef int nSeq = self.nSeq
+
+        cdef bool doForward = do_forward
+        cdef bool doBackward = do_backward
+
         # for dist in self.dists :
         #     dist.init_step()
 
@@ -113,10 +124,11 @@ class _BaseHMMBackend:
         #                          <int> nSeq,
         #                          <bool> doForward,
         #                          <bool> doBackward)
-        # if self.dtype is "double" and self.hmm_type is 'multinomial':
-        #     forward_backward_mhmm_f64(multinomialhmm64,
-        #                               <int*> _dX_ptr,
-        #                               <int*> _dlengths_ptr,
-        #                               <int> nSeq,
-        #                               <bool> doForward,
-        #                               <bool> doBackward)
+
+        if self.precision is "double" and self.hmm_type is 'multinomial':
+            forward_backward_mhmm_f64(multinomialhmm64,
+                                      <int*> _dX_ptr,
+                                      <int*> _dlengths_ptr,
+                                      <int> nSeq,
+                                      <bool> doForward,
+                                      <bool> doBackward)

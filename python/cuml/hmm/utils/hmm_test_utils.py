@@ -86,8 +86,6 @@ class MultinomialHMMSampler(_Sampler):
         self.n_features = n_features
 
     def _set_model_parameters(self):
-        # self.model.n_features = self.n_dim
-
         self.model.startprob_ = sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
         self.model.transmat_ = sample_matrix(self.n_components, self.n_components, self.random_state,
                                       isRowNorm=True)
@@ -102,7 +100,9 @@ class _Tester(ABC):
 
     def test_workflow(self, X, lengths):
         self._reset()
-        self.cuml_model._forward_backward(X, lengths, False, False)
+
+
+        self.cuml_model._forward_backward(X, lengths, True, False)
         print(self.cuml_model.emissionprob_)
 
     def test_score_samples(self, X, lengths):

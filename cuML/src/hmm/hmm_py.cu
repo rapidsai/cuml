@@ -6,10 +6,11 @@ namespace hmm {
 void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                      std::vector<gmm::GMM<double> > &gmms,
                      int nStates,
+                     double* dStartProb, int lddsp,
                      double* dT, int lddt,
                      double* dB, int lddb,
                      double* dGamma, int lddgamma){
-        init(hmm, gmms, nStates,
+        init(hmm, gmms, nStates, dStartProb, lddsp,
              dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
@@ -40,14 +41,16 @@ void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    std::vector<multinomial::Multinomial<double> > &gmms,
                    int nStates,
+                   double* dStartProb, int lddsp,
                    double* dT, int lddt,
                    double* dB, int lddb,
                    double* dGamma, int lddgamma){
-        init(hmm, gmms, nStates,
+        init(hmm, gmms, nStates, dStartProb, lddsp,
              dT, lddt, dB, lddb, dGamma, lddgamma);
 }
 
-void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm, int nObs, int nSeq) {
+void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                    int nObs, int nSeq) {
         setup(hmm, nObs, nSeq);
 }
 

@@ -14,6 +14,7 @@ namespace hmm {
 void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                      std::vector<gmm::GMM<double> > &gmms,
                      int nStates,
+                     double* dStartProb, int lddsp,
                      double* dT, int lddt,
                      double* dB, int lddb,
                      double* dGamma, int lddgamma
@@ -28,12 +29,14 @@ void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    std::vector<multinomial::Multinomial<double> > &gmms,
                    int nStates,
+                   double* dStartProb, int lddsp,
                    double* dT, int lddt,
                    double* dB, int lddb,
                    double* dGamma, int lddgamma
                    );
 
-void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm);
+void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                    int nObs, int nSeq);
 
 void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                                int* dX, int* dlenghts, int nSeq,

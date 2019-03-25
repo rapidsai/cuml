@@ -9,52 +9,63 @@ from cuml.gmm.sample_utils import *
 class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
     def __init__(self,
                  n_components,
-                 precision,
-                 random_state
+                 init_params="ste",
+                 precision="double",
+                 random_state=None
                  ):
 
         _BaseHMM.__init__(self, precision=precision,
-                          random_state=random_state)
+                          random_state=random_state,
+                          init_params=init_params)
         _BaseHMMBackend.__init__(self)
 
         self.n_components = n_components
         self.hmm_type = "multinomial"
         self.x_type = np.int32
 
-    def _initialize(self):
-        # Align flatten, cast and copy to device
-        self.dT = sample_matrix(self.n_components, self.n_components, random_state=self.random_state, isRowNorm=True)
-        self.lddt = roundup(self.n_components, self.align_size)
-        self.dT = process_parameter(self.dT, self.lddt, self.dtype)
-
-        self.dists = [_Multinomial(n_features=self.n_features,
-                                   precision=self.precision,
+        self.dists = [_Multinomial(init_params=self.init_params,
+            precision=self.precision,
                                    random_state=self.random_state)
                       for _ in range(self.n_components)]
+
+    def _initialize(self):
+        # Align flatten, cast and copy to device
+        if 't' in self.init_params :
+            init_value = 1 / self.n_components
+            T = np.full((self.n_components, self.n_components), init_value)
+            self._set_transmat(T)
+
+        if 's' in self.init_params :
+            init_value = 1 / self.n_components
+            sp = np.full(self.n_components, init_value)
+            self._set_startprob_(sp)
+
         for dist in self.dists:
             dist._initialize()
 
     def _set_dims(self, X, lengths):
         self.nObs = X.shape[0]
-        self.n_features = np.max(X)
         self.nStates = self.n_components
+        # self.nFeatures = np.max(X)
 
         if lengths is None:
             self.nSeq = 1
         else:
             self.nSeq = lengths.shape[0]
 
+        for dist in self.dists :
+            dist._set_dims(X)
+
     def _setup(self, X, lengths):
-        self.dB = sample_matrix(self.n_components,
+
+        B = sample_matrix(self.n_components,
                                 self.nObs,
                                 random_state=self.random_state,
                                 isColNorm=True)
-        self.lddb = roundup(self.n_components, self.align_size)
-        self.dB = process_parameter(self.dB, self.lddb, self.dtype)
+        self._set_B(B)
 
-        self.dGamma = np.zeros((self.nStates, self.nObs), dtype=self.dtype)
-        self.lddgamma = roundup(self.nStates, self.align_size)
-        self.dGamma = process_parameter(self.dGamma, self.lddgamma, self.dtype)
+        Gamma = np.zeros((self.nStates, self.nObs), dtype=self.dtype)
+        self._set_gamma(Gamma)
 
         self.dX = X.T
         self.lddx = 1
@@ -68,12 +79,9 @@ class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
         lengths = lengths.astype(int)
         self.dlengths = cuda.to_device(lengths)
 
-    def _get_emissionprob_(self):
-        return np.array([dist.emissionprob_ for dist in self.dists])
+        for dist in self.dists :
+            dist._setup(X)
 
-    def _set_emissionprob_(self):
-        pass
 
-    emissionprob_ = property(_get_emissionprob_, _set_emissionprob_)
 
 # TODO : Process and propagate int type

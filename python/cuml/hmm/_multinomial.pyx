@@ -9,29 +9,39 @@ RUP_SIZE = 32
 cdef _setup_multinomial(self,
                         floatMultinomial& multinomial32,
                         doubleMultinomial& multinomial64):
-    cdef uintptr_t _dPis_ptr = self.dParams["pis"].device_ctypes_pointer.value
-    cdef int lddLlhd =self.lddllhd
+    cdef uintptr_t _dPis_ptr = self.dPis.device_ctypes_pointer.value
 
-    cdef int nCl = self.nCl
-
+    cdef int n_features = self.n_features
     if self.precision == 'double':
         with nogil:
             init_multinomial_f64(multinomial64,
                                  <double*> _dPis_ptr,
-                                 <int> nCl)
+                                 <int> n_features)
 
 class _Multinomial(_BaseCUML):
-    def __init__(self, n_features, precision, random_state):
+    def __init__(self, init_params, precision, random_state):
         super().__init__(precision=precision, random_state=random_state)
-        self.n_features = n_features
+        self.init_params = init_params
 
     def _initialize(self):
-        self.dPis = sample_matrix(self.n_features, 1, random_state=self.random_state, isColNorm=True)
-        self.lddpi = self.n_features
-        self.dPis = process_parameter(self.dPis, self.lddpi, self.dtype)
+        if "e" in self.init_params :
+            dPis = sample_matrix(self.n_features, 1, random_state=self.random_state, isColNorm=True)
+            self.set_emissionprob_(dPis)
 
-    @property
-    def emissionprob_(self):
+    def _set_dims(self, X):
+        self.n_features = np.max(X)
+
+    def _setup(self, X):
+        pass
+        # self.n_features = np.max(X)
+
+    def get_emissionprob_(self):
         pis = self.dPis.copy_to_host()
         pis = pis.flatten()
         return pis
+
+    def set_emissionprob_(self, prob):
+        self.n_features = prob.shape[0]
+        self.dPis = process_parameter(prob[:, None], self.n_features, self.dtype)
+
+    _emissionprob_ = property(get_emissionprob_, set_emissionprob_)

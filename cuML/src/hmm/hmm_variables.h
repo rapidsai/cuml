@@ -25,12 +25,12 @@ struct HMM {
         int nStates;
         std::vector<D> dists;
         // All dLlhd point to dGamma
-        T *dT, *dB, *dAlpha, *dBeta, *dGamma;
-        int lddt, lddb, lddalpha, lddbeta, lddgamma;
+        T *dStartProb, *dT, *dB, *dAlpha, *dBeta, *dGamma;
+        int lddsp, lddt, lddb, lddalpha, lddbeta, lddgamma;
 
         int nObs, nSeq, max_len;
 
-        T **dAlpha_array, **dBeta_array, **dB_array;
+        T **dAlpha_array, **dBeta_array, **dB_array, **dPi_array;
 
         int** dMaxPath_array;
 
@@ -39,6 +39,9 @@ struct HMM {
         int **dV_idx_array;
         T **dV_array;
         T **dT_pows;
+
+        int nFeatures;
+        int *dcumlenghts_inc, *dcumlenghts_exc;
 
         TrainOption train;
         DistOption distOption;

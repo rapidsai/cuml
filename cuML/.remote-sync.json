@@ -3,7 +3,7 @@
     "title": "Remote Sync"
   },
   "transport": "scp",
-  "uploadOnSave": true,
+  "uploadOnSave": false,
   "useAtomicWrites": false,
   "deleteLocal": false,
   "hostname": "ssh 10.20.170.88",

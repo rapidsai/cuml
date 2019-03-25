@@ -6,12 +6,15 @@
 #include "hmm/algorithms/forward_backward.h"
 #include "hmm/algorithms/viterbi.h"
 
+#include <hmm/magma/magma_test_utils.h>
+
 namespace hmm {
 
 template <typename T, typename D>
 void init(HMM<T, D> &hmm,
           std::vector<D> &gmms,
           int nStates,
+          T* dStartProb, int lddsp,
           T* dT, int lddt,
           T* dB, int lddb,
           T* dGamma, int lddgamma
@@ -20,10 +23,15 @@ void init(HMM<T, D> &hmm,
         hmm.dT = dT;
         hmm.dB = dB;
         hmm.dGamma = dGamma;
+        hmm.dStartProb = dStartProb;
 
         hmm.lddt = lddt;
         hmm.lddb = lddb;
+        // TODO : align
+        hmm.lddalpha = nStates;
+        hmm.lddbeta = nStates;
         hmm.lddgamma = lddgamma;
+        hmm.lddsp = lddsp;
 
         hmm.nStates = nStates;
         hmm.dists = gmms;
@@ -40,16 +48,37 @@ void init(HMM<T, D> &hmm,
         }
 }
 
+
+
+
 template <typename T, typename D>
 void setup(HMM<T, D> &hmm, int nObs, int nSeq){
-        allocate(hmm.dAlpha, hmm.lddalpha * nObs);
-        allocate(hmm.dBeta, hmm.lddbeta * nObs);
-
-        allocate(hmm.dAlpha_array, nSeq);
-        allocate(hmm.dBeta_array, nSeq);
-
         hmm.nObs = nObs;
         hmm.nSeq = nSeq;
+
+        allocate(hmm.dAlpha, hmm.lddalpha * nObs);
+        allocate(hmm.dBeta, hmm.lddbeta * nObs);
+        allocate(hmm.dcumlenghts_exc, nSeq);
+        allocate(hmm.dcumlenghts_inc, nSeq);
+
+        // Create Pi array
+        allocate(hmm.dPi_array, hmm.nStates);
+        T **Pi_array;
+        Pi_array = (T **)malloc(sizeof(T*) * nSeq);
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                Pi_array[stateId] = hmm.dists[stateId].dPis;
+        }
+        updateDevice(hmm.dPi_array, Pi_array, hmm.nStates);
+        free(Pi_array);
+
+
+        //
+        // allocate(hmm.dAlpha_array, nSeq);
+        // allocate(hmm.dBeta_array, nSeq);
+        // for (size_t seqId = 0; seqId < nSeq; seqId++) {
+        //         hmm.dAlpha_array[seqId] = hmm.dAlpha + seqId * hmm.lddalpha;
+        //         hmm.dBeta_array[seqId] = hmm.dBeta + seqId * hmm.lddalpha;
+        // }
 }
 
 // template <typename T>
@@ -69,9 +98,12 @@ void forward_backward(HMM<T, D> &hmm,
                       bool doForward, bool doBackward){
 
         _compute_emissions(dX, hmm, cublasHandle);
-        _matrix_powers(hmm.nStates, hmm.dT_pows, hmm.max_len,
-                       hmm.dT, hmm.lddt, queue);
+        _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
+                            dlenghts, nSeq);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
+        print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
+        print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
 }
 
 // template <typename T>

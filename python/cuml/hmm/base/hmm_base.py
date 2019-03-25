@@ -34,12 +34,14 @@ class _BaseGMM(_BaseCUML):
 class _BaseHMM(_BaseCUML, _DevHMM):
     def __init__(self,
                  precision,
-                 random_state
+                 random_state,
+                 init_params
                  ):
 
         _BaseCUML.__init__(self,
                            precision=precision,
                            random_state=random_state)
+        self.init_params = init_params
 
     def fit(self, X, lengths=None):
         self._fit(X, lengths)
@@ -54,8 +56,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
 
     def predict_proba(self, X, lengths=None):
         self._forward_backward(X, lengths, True, True)
-        self._compute_gammas(X, lengths)
-        return self._gammas_
+        # self._compute_gammas(X, lengths)
+        # return self._gammas_
 
     # @abstractmethod
     # def sample(self, n_samples=1, random_state=None):
@@ -66,8 +68,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         return self._score()
 
     def score_samples(self, X, lengths=None):
-        logprob = self.score(X, lengths)
         posteriors = self.predict_proba(X, lengths)
+        logprob = np.sum(posteriors)
         return logprob, posteriors
 
 
@@ -77,19 +79,24 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         return T
 
     def _set_transmat(self, transmat):
-        for i in range(len(transmat.shape[0])):
-            self.dists[i].set_means(transmat[i])
+        self.lddt = roundup(self.n_components, self.align_size)
+        self.dT = process_parameter(transmat, self.lddt, self.dtype)
 
-    def _get_gamma(self):
-        gamma = self.dGamma.copy_to_host()
-        gamma = deallign(gamma, self.nStates, self.nObs, self.lddgamma)
-        return gamma
+    def _get_emissionprob_(self):
+        return np.array([dist._emissionprob_ for dist in self.dists])
 
-    def _set_gamma(self, gamma):
-        pass
+    def _set_emissionprob_(self, emissionprob):
+        for i in range(emissionprob.shape[0]) :
+            self.dists[i]._emissionprob_ = emissionprob[i]
 
+    def _get_startprob_(self):
+        startProb = self.dstartProb.copy_to_host()
+        return startProb
+
+    def _set_startprob_(self, startProb):
+        self.lddsp = startProb.shape[0]
+        self.dstartProb = process_parameter(startProb[:, None], self.lddsp, self.dtype)
 
     transmat_ = property(_get_transmat, _set_transmat)
-    _gamma_ = property(_get_gamma, _set_gamma)
-    
-
+    emissionprob_ = property(_get_emissionprob_, _set_emissionprob_)
+    startprob_ = property(_get_startprob_, _set_startprob_)

@@ -54,6 +54,8 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void init_mhmm_f64(doubleMultinomialHMM &hmm,
                        vector[Multinomial[double]] &multinomials,
                        int nStates,
+                       double* dStartProb,
+                       int lddsp,
                        double* dT,
                        int lddt,
                        double* dB,
@@ -67,3 +69,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                                    int nSeq,
                                    bool doForward,
                                    bool doBackward)
+
+    cdef void setup_mhmm_f64(doubleMultinomialHMM &hmm,
+                    int nObs,
+                   int nSeq)
