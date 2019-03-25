@@ -135,7 +135,8 @@ This ensures the stream ordering behavior described above.
 To ensure that thrust algorithms are executed in the intended stream the `thrust::cuda::par` execution policy should be used (see [Using Thrust](# AllocationsThrust) in [Device and Host memory allocations](# Device and Host memory allocations)).
 
 ## CUDA Resources
-Do not create reusable CUDA resources directly in Implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl ` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
+
+Do not create reusable CUDA resources directly in implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
 The resources can be obtained like this
 ```cpp
 void foo(const ML::cumlHandle_impl& h, ...)
@@ -148,8 +149,24 @@ void foo(const ML::cumlHandle_impl& h, ...)
 }
 ```
 
+### `ML::cumlHandle` and `ML::cumlHandle_impl`
+
+The purpose of `ML::cumlHandle` is to be the public interface of cuML, i.e. it is meant to be used by developers using cuML in their application. This is differentiated from `ML::cumlHandle_impl` to avoid that the public interface of cuML depends on cuML internals, such as CUDA library handles, e.g. for cuBLAS. This is implemented via the "Pointer to implementation" or [pImpl](https://en.cppreference.com/w/cpp/language/pimpl) idiom. From a `ML::cumlHandle` the implementation `ML::cumlHandle_impl` can be obtained by calling `ML::cumlHandle::getImpl()`. The implementation of cuML should use `ML::cumlHandle_impl` and not `ML::cumlHandle`. E.g. for the function `ml_algo` from the public cuML interface an implementation calling the internal functions `foo` and `bar` could look like this:
+
+```cpp
+void ml_algo(const ML::cumlHandle& handle, ...)
+{
+    const ML::cumlHandle_impl& h = handle.getImpl();
+    ...
+    foo(h, ...);
+    ...
+    bar(h, ...);
+    ...
+}
+```
+
 ## Multi GPU
- 
+
 The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any dependencies to any communication library. A multi GPU implementation can assume the following:
 * The user of cuML has initialized MPI and created a communicator that can be used by the ML algorithm.
 * All processes in the MPI communicator call into the ML algorithm cooperatively.
