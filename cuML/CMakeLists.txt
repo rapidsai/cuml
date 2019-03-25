@@ -19,8 +19,6 @@ set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
 project(cuML VERSION 0.5.0 LANGUAGES CXX CUDA)
 
-project(cuML VERSION 0.4.0 LANGUAGES CXX CUDA)
-
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -62,7 +60,7 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
   "Path to the cutlass repo")
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
-  
+
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
 
@@ -116,6 +114,33 @@ endforeach()
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
+# Configuration of faiss for the correct architectures
+
+file(READ ${FAISS_DIR}/makefile.inc.in CONFIG_FILE)
+    string(REPLACE "-Xcudafe --diag_suppress=unrecognized_attribute"
+           "--disable-warnings"
+           CONFIG_FILE ${CONFIG_FILE})
+    string(REPLACE "compute_35,code=\"compute_35\"" "compute_60,code=\"sm_60\""
+           CONFIG_FILE ${CONFIG_FILE})
+    string(REPLACE "compute_52,code=\"compute_52\"" "compute_61,code=\"sm_61\""
+           CONFIG_FILE ${CONFIG_FILE})
+    string(REPLACE "compute_60,code=\"compute_60\"" "compute_70,code=\"sm_70\""
+           CONFIG_FILE ${CONFIG_FILE})
+
+if((CUDA_VERSION_MAJOR EQUAL 9))
+    # Do not generate Turing on 9.2
+    string(REPLACE "-gencode arch=compute_61,code=\"compute_61\" " ""
+           CONFIG_FILE ${CONFIG_FILE})
+
+endif()
+if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
+    string(REPLACE "compute_61,code=\"compute_61\"" "compute_70,code=\"sm_75\""
+           CONFIG_FILE ${CONFIG_FILE})
+    file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
+endif()
+
+file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
+
 ## end nvcc options
 
 ## other compiler options
@@ -135,13 +160,13 @@ endif(NOT CMAKE_CXX11_ABI)
 ## end of other compiler options
 
 ###################################################################################################
-# - include paths ---------------------------------------------`------------------------------------
+# - include paths ---------------------------------------------------------------------------------
 
 
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
@@ -195,16 +220,16 @@ add_library(cuml SHARED
 	    src/solver/solver.cu
             )
 
-set(CUML_LINK_LIBRARIES 
-	${CUDA_cublas_LIBRARY} 
-	${CUDA_curand_LIBRARY} 
-	${CUDA_cusolver_LIBRARY} 
-	${CUDA_CUDART_LIBRARY} 
-	${CUDA_cusparse_LIBRARY} 
-	${CUDA_nvgraph_LIBRARY} 
-	${ZLIB_LIBRARIES} 
-	gpufaisslib 
-	faisslib 
+set(CUML_LINK_LIBRARIES
+	${CUDA_cublas_LIBRARY}
+	${CUDA_curand_LIBRARY}
+	${CUDA_cusolver_LIBRARY}
+	${CUDA_CUDART_LIBRARY}
+	${CUDA_cusparse_LIBRARY}
+	${CUDA_nvgraph_LIBRARY}
+	${ZLIB_LIBRARIES}
+	gpufaisslib
+	faisslib
 	${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
@@ -234,8 +259,8 @@ target_link_libraries(ml_test
                       cuml
                       pthread
                       z)
-                      
-                      
+
+
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------
 
@@ -269,8 +294,8 @@ endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 install(TARGETS cuml
         DESTINATION lib)
-        
 
 
-		
+
+
 
