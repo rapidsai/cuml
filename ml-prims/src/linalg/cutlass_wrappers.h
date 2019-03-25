@@ -311,8 +311,6 @@ struct CustomGemm : public BaseClass {
   typedef typename BaseClass::Traits Traits;
   /// The shared storage.
   typedef typename Traits::SharedStorage SharedStorage;
-  /// params
-  typedef typename BaseClass::Params Params;
 
   /// The scalar for A.
   typedef typename Traits::ScalarA ScalarA;
@@ -326,6 +324,39 @@ struct CustomGemm : public BaseClass {
   typedef typename Traits::Epilogue::ScalarD ScalarD;
   /// The index.
   typedef typename Traits::Index Index;
+
+  /// params
+  struct Params : public BaseClass::Params {
+    CUTLASS_HOST_DEVICE int initialize(Index m,
+                                       Index n,
+                                       Index k,
+                                       ScalarEpilogue alpha,
+                                       void const* d_a,
+                                       Index lda,
+                                       void const* d_b,
+                                       Index ldb,
+                                       ScalarEpilogue beta,
+                                       void const* d_c,
+                                       Index ldc,
+                                       void* d_d,
+                                       Index ldd) {
+      cutlass::gemm::GemmDesc<ScalarEpilogue, Index> desc;
+      desc.m = m;
+      desc.n = n;
+      desc.k = k;
+      desc.alpha = alpha;
+      desc.beta = beta;
+      desc.d_a = d_a;
+      desc.lda = lda;
+      desc.d_b = d_b;
+      desc.ldb = ldb;
+      desc.d_c = d_c;
+      desc.ldc = ldc;
+      desc.d_d = d_d;
+      desc.ldd = ldd;
+      return Traits::Params::initialize(desc);
+    }
+  };
 
   /// Launch the kernel.
   template <typename FinalLambda>
