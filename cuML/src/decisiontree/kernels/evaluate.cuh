@@ -186,13 +186,13 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	
 	for(unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
-			int mycolid = colids [ (int)(i / nrows) ];
-			int myrowstart = mycolid * rowoffset;
+			int newcolid = (int)(i / nrows);
+			int myrowstart = colids[ newcolid ] * rowoffset;
 			int index = rowids[ i % nrows] + myrowstart;
 			float coldata = data[index];
 
-			atomicMinFloat(&minshared[mycolid], coldata);
-			atomicMaxFloat(&maxshared[mycolid], coldata);
+			atomicMinFloat(&minshared[newcolid], coldata);
+			atomicMaxFloat(&maxshared[newcolid], coldata);
 			sampledcols[i] = coldata;
 		}
 
@@ -228,7 +228,7 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 
 	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
 		{
-			int mycolid = colids[ (int) (i/nrows) ];
+			int mycolid = (int)( i / nrows);
 			int coloffset = mycolid*n_unique_labels*nbins;
 			
 			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
@@ -255,7 +255,7 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 	return;	
 }
 
-void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques, float & gain) {
+void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques, float & gain) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -264,9 +264,9 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 	int n_cols = col_selector.size();
 	for (int col_id = 0; col_id < n_cols; col_id++)
 		{
-			int col_hist_base_index = col_id * batch_bins * n_unique_labels;			
-			// tempmem->h_histout holds n_cols histograms of batch_bins of n_unique_labels each.
-			for (int i = 0; i < batch_bins; i++)
+			int col_hist_base_index = col_id * nbins * n_unique_labels;			
+			// tempmem->h_histout holds n_cols histograms of nbins of n_unique_labels each.
+			for (int i = 0; i < nbins; i++)
 				{
 					
 					// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
@@ -282,7 +282,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 							tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
 						}
 					int tmp_rnrows = nrows - tmp_lnrows;
-					std::cout << nrows << "  " << tmp_lnrows << "  " << tmp_rnrows << std::endl;
+
 					if(tmp_lnrows == 0 || tmp_rnrows == 0)
 						continue;
 					
@@ -325,12 +325,12 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 	split_info[2].hist.resize(n_unique_labels);
 	for (int j = 0; j < n_unique_labels; j++)
 		{
-			split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * batch_bins + best_bin_id * n_unique_labels + j];
+			split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
 			split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
 		}
-	ques.set_question_fields(best_col_id, best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], batch_bins);
-	std::cout << "best column  " << best_col_id << "best bin  " << best_bin_id  << " value  " << tempmem->h_globalminmax[ best_col_id ] << "value  max   " << tempmem->h_globalminmax[ best_col_id + n_cols] << " batched n bins    " << batch_bins << std::endl;
-	int lnr = 0;
+	ques.set_question_fields( best_col_id, col_selector[best_col_id], best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], nbins);
+	//std::cout << "best column  " << best_col_id << " cole selector  "<< col_selector[best_col_id] << "best bin  " << best_bin_id  << " value  " << tempmem->h_globalminmax[ best_col_id ] << "value  max   " << tempmem->h_globalminmax[ best_col_id + n_cols] << " batched n bins    " << nbins << std::endl;
+	/*int lnr = 0;
 	int rnr = 0;
 	for (int j = 0; j < n_unique_labels; j++)
 		{
@@ -338,6 +338,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int batch_bins, cons
 			rnr += split_info[2].hist[j];
 		}
 	std::cout << "left and right rows   " << lnr << "   " << rnr << std::endl;
+	*/
 	return;
 }
 
@@ -386,7 +387,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 	
-	find_best_split(tempmem, nbins - 1, n_unique_labels, colselector, &split_info[0], nrows, ques, gain);
+	find_best_split(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain);
 	
 }
 

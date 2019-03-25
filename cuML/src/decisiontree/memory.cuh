@@ -24,7 +24,7 @@ struct TemporaryMemory
 	//Below four are for tree building
 	int *sampledlabels;
 	float *sampledcolumns;
-
+	
 	//Below are for gini & get_class functions
 	int *d_hist, *h_hist; // for histograms in gini
 
@@ -41,7 +41,7 @@ struct TemporaryMemory
 	int *d_num_selected_out;
 	int *temprowids;
 	int *h_left_rows, *h_right_rows;
-	float * question_value;
+	float *question_value;
 	float *temp_data;
 	
 	//Total temp mem
