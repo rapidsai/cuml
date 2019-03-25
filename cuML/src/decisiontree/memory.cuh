@@ -62,10 +62,16 @@ struct TemporaryMemory
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
+#ifdef SINGLE_COL
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N*sizeof(float)));
+		totalmem += N*sizeof(float);
+#else
+		//For lot of temp data
+		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
+		totalmem += sizeof(float)*Ncols*N;
+#endif
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
-		
-		totalmem += N*sizeof(int) + N*sizeof(float) + n_hist_bytes;
+		totalmem += N*sizeof(int) + n_hist_bytes;
 		
 		
 		//Allocate Temporary for split functions
@@ -76,9 +82,9 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_left, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**) &question_value, sizeof(float)));
-		CUDA_CHECK(cudaMalloc((void**) &d_ques_info, 2*sizeof(float)));
-		CUDA_CHECK(cudaMalloc((void**) &d_min_max, 2*sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**)&question_value, sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**)&d_ques_info, 2*sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**)&d_min_max, 2*sizeof(float)));
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
@@ -93,13 +99,7 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_histout,sizeof(int)*n_bins*n_unique*Ncols));
 		CUDA_CHECK(cudaMalloc((void**)&d_colids,sizeof(int)*Ncols));
 		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(float)*Ncols*2;
-		//For lot of temp data
-		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
-		totalmem += sizeof(float)*Ncols*N;
 		
-		//for min max
-		
-
 		//Create Streams
 		if(maxstr == 1)
 			stream = 0;
