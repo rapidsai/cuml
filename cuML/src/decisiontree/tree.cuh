@@ -288,11 +288,10 @@ namespace ML {
 				// Copy sampled column IDs to device memory
 				CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
 				
-				int *labelptr = tempmem[0]->sampledlabels;
-				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
-				
 				// Optimize ginibefore; no need to compute except for root.
 				if (depth == 0) {
+					int *labelptr = tempmem[0]->sampledlabels;
+					get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				
