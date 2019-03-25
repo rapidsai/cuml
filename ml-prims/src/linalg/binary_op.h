@@ -22,12 +22,13 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename math_t, int veclen_, typename Lambda>
+template <typename math_t, int veclen_, typename Lambda, typename IdxType>
 __global__ void binaryOpKernel(math_t *out, const math_t *in1,
-                               const math_t *in2, int len, Lambda op) {
+                               const math_t *in2, IdxType len, Lambda op) {
   typedef TxN_t<math_t, veclen_> VecType;
   VecType a, b;
-  int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
+  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
+  idx *= VecType::Ratio;
   if (idx >= len)
     return;
   a.load(in1, idx);
@@ -39,11 +40,11 @@ __global__ void binaryOpKernel(math_t *out, const math_t *in1,
   a.store(out, idx);
 }
 
-template <typename math_t, int veclen_, typename Lambda, int TPB>
-void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, int len,
+template <typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
+void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
                   Lambda op, cudaStream_t stream = 0) {
-  const int nblks = ceildiv(veclen_ ? len / veclen_ : len, TPB);
-  binaryOpKernel<math_t, veclen_, Lambda><<<nblks, TPB, 0, stream>>>(
+  const IdxType nblks = ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
+  binaryOpKernel<math_t, veclen_, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
     out, in1, in2, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -52,6 +53,7 @@ void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, int len,
  * @brief perform element-wise binary operation on the input arrays
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam Lambda the device-lambda performing the actual operation
+ * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads-per-block in the final kernel launched
  * @param out the output array
  * @param in1 the first input array
@@ -60,27 +62,27 @@ void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, int len,
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-template <typename math_t, typename Lambda, int TPB = 256>
-void binaryOp(math_t *out, const math_t *in1, const math_t *in2, int len,
+template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
+void binaryOp(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
               Lambda op, cudaStream_t stream = 0) {
   size_t bytes = len * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
-    binaryOpImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(out, in1, in2, len,
-                                                           op, stream);
+    binaryOpImpl<math_t, 16 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,
+                                                                    op, stream);
   } else if (8 / sizeof(math_t) && bytes % 8 == 0) {
-    binaryOpImpl<math_t, 8 / sizeof(math_t), Lambda, TPB>(out, in1, in2, len,
-                                                          op, stream);
+    binaryOpImpl<math_t, 8 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,
+                                                                   op, stream);
   } else if (4 / sizeof(math_t) && bytes % 4 == 0) {
-    binaryOpImpl<math_t, 4 / sizeof(math_t), Lambda, TPB>(out, in1, in2, len,
-                                                          op, stream);
+    binaryOpImpl<math_t, 4 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,
+                                                                   op, stream);
   } else if (2 / sizeof(math_t) && bytes % 2 == 0) {
-    binaryOpImpl<math_t, 2 / sizeof(math_t), Lambda, TPB>(out, in1, in2, len,
-                                                          op, stream);
+    binaryOpImpl<math_t, 2 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,
+                                                                   op, stream);
   } else if (1 / sizeof(math_t)) {
-    binaryOpImpl<math_t, 1 / sizeof(math_t), Lambda, TPB>(out, in1, in2, len,
-                                                          op, stream);
+    binaryOpImpl<math_t, 1 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,
+                                                                   op, stream);
   } else {
-    binaryOpImpl<math_t, 1, Lambda, TPB>(out, in1, in2, len, op, stream);
+    binaryOpImpl<math_t, 1, Lambda, IdxType, TPB>(out, in1, in2, len, op, stream);
   }
 }
 
