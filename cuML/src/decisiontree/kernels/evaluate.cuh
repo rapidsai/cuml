@@ -231,7 +231,8 @@ __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __
 			int mycolid = (int)( i / nrows);
 			int coloffset = mycolid*n_unique_labels*nbins;
 			
-			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / nbins;
+			// nbins is # batched bins. Use (batched bins + 1) for delta computation.
+			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins + 1);
 			float base_quesval = minmaxshared[mycolid] + delta;
 			
 			float localdata = data[i];
@@ -323,22 +324,11 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 	
 	split_info[1].hist.resize(n_unique_labels);
 	split_info[2].hist.resize(n_unique_labels);
-	for (int j = 0; j < n_unique_labels; j++)
-		{
-			split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
-			split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
-		}
-	ques.set_question_fields( best_col_id, col_selector[best_col_id], best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], nbins);
-	//std::cout << "best column  " << best_col_id << " cole selector  "<< col_selector[best_col_id] << "best bin  " << best_bin_id  << " value  " << tempmem->h_globalminmax[ best_col_id ] << "value  max   " << tempmem->h_globalminmax[ best_col_id + n_cols] << " batched n bins    " << nbins << std::endl;
-	/*int lnr = 0;
-	int rnr = 0;
-	for (int j = 0; j < n_unique_labels; j++)
-		{
-			lnr += split_info[1].hist[j];
-			rnr += split_info[2].hist[j];
-		}
-	std::cout << "left and right rows   " << lnr << "   " << rnr << std::endl;
-	*/
+	for (int j = 0; j < n_unique_labels; j++) {
+		split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
+		split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
+	}
+	ques.set_question_fields( best_col_id, col_selector[best_col_id], best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], nbins+1);
 	return;
 }
 
