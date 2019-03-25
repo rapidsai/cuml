@@ -202,7 +202,7 @@ namespace ML {
 						int nrowsleft, nrowsright;
 						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids); // populates ques.value
 						node_ques.update(ques);
-						//std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.column << std::endl;
+						std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.column << std::endl;
 						node->question = node_ques;
 						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
@@ -294,20 +294,21 @@ namespace ML {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
-				
+				//int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
+				int current_nbins = nbins;
 				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain);
 
 			}
 
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
+				//float *temp_data = tempmem[0]->temp_data;
+				//float *sampledcolumn = &temp_data[n_sampled_rows * ques.column];
 				float *colptr = &data[dinfo.NLocalrows * ques.column];
 				float *sampledcolumn = tempmem[0]->sampledcolumns;
-				
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
-
+				std::cout << "question min " << ques.min << "qyestion max  " << ques.max << "val   " << ques.value << std::endl;
 				return;
 			}
 

@@ -33,7 +33,7 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 			float delta = (ques_max - ques_min) / ques_nbins;
 			float ques_base_val = ques_min + delta;
 			float local_ques_val = ques_base_val + ques_batch_id * delta;
-
+			
 			if (data <= local_ques_val)
 				{
 					lflag = 1;
@@ -67,7 +67,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	int *temprowids = tempmem->temprowids;
 	char *d_flags_left = tempmem->d_flags_left;
 	char *d_flags_right = tempmem->d_flags_right;
-	float * question_value = tempmem->question_value;
+	float *question_value = tempmem->question_value;
 	
 	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
 	CUDA_CHECK(cudaGetLastError());
