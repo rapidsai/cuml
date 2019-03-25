@@ -173,7 +173,7 @@ namespace ML {
 				
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
-#ifndef ALL_COLS
+#ifdef SINGLE_COL
 					find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 #else
 					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
@@ -203,7 +203,7 @@ namespace ML {
 						int nrowsleft, nrowsright;
 						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids); // populates ques.value
 						node_ques.update(ques);
-						std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.original_column << std::endl;
+						//std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.original_column << std::endl;
 						node->question = node_ques;
 						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
@@ -304,17 +304,15 @@ namespace ML {
 
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
-#ifdef ALL_COLS
-				float *temp_data = tempmem[0]->temp_data;
-				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
-#else
+#ifdef SINGLE_COL
 				float *colptr = &data[dinfo.NLocalrows * ques.original_column];
 				float *sampledcolumn = tempmem[0]->sampledcolumns;
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
+#else
+				float *temp_data = tempmem[0]->temp_data;
+				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 #endif
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
-				std::cout << "question min " << ques.min << "qyestion max  " << ques.max << "val   " << ques.value << std::endl;
-				return;
 			}
 
 
