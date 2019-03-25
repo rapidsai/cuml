@@ -39,7 +39,7 @@ namespace ML {
 
 			void update(GiniQuestion ques)
 			{
-				column = ques.column;
+				column = ques.original_column;
 				value = ques.value;
 			};
 		};
@@ -170,7 +170,7 @@ namespace ML {
 				float gain = 0.0;
 				GiniInfo split_info[3]; // basis, left, right. Populate this
 				split_info[0] = prev_split_info;
-
+				
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
 #ifndef ALL_COLS
@@ -178,6 +178,7 @@ namespace ML {
 #else
 					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 #endif
+					
 					condition = condition || (gain == 0.0f);
 				}
 				
@@ -202,7 +203,7 @@ namespace ML {
 						int nrowsleft, nrowsright;
 						split_branch(data, ques, n_sampled_rows, nrowsleft, nrowsright, rowids); // populates ques.value
 						node_ques.update(ques);
-						std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.column << std::endl;
+						std::cout << "split branch: " << n_sampled_rows << ", " << nrowsleft << ", " << nrowsright <<  ", ques (value, column) " << ques.value << ", " << ques.original_column << std::endl;
 						node->question = node_ques;
 						node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 						node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
@@ -264,7 +265,8 @@ namespace ML {
 						float ques_min = tempmem[streamid]->h_ques_info[0];
 						float ques_max = tempmem[streamid]->h_ques_info[1];
 
-						ques.set_question_fields(colselector[i], batch_id, ques_min, ques_max, current_nbins);
+						
+						ques.set_question_fields(i,colselector[i], batch_id, ques_min, ques_max, current_nbins);
 
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
@@ -294,19 +296,22 @@ namespace ML {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				
-				//int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
-				int current_nbins = nbins;
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
+				current_nbins -= 1;
 				lets_doit_all(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain);
 
 			}
 
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
-				//float *temp_data = tempmem[0]->temp_data;
-				//float *sampledcolumn = &temp_data[n_sampled_rows * ques.column];
-				float *colptr = &data[dinfo.NLocalrows * ques.column];
+#ifdef ALL_COLS
+				float *temp_data = tempmem[0]->temp_data;
+				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
+#else
+				float *colptr = &data[dinfo.NLocalrows * ques.original_column];
 				float *sampledcolumn = tempmem[0]->sampledcolumns;
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
+#endif
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
 				std::cout << "question min " << ques.min << "qyestion max  " << ques.max << "val   " << ques.value << std::endl;
 				return;

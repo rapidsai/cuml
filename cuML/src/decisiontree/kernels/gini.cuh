@@ -22,7 +22,8 @@
 #include <vector>
 
 struct GiniQuestion {
-	int column;
+	int bootstrapped_column;
+	int original_column;
 	float value;
 
 	/* 
@@ -41,8 +42,9 @@ struct GiniQuestion {
 	float min, max;
 	int nbins;
 	
-	void set_question_fields(int cfg_column, int cfg_batch_id, float cfg_min, float cfg_max, int cfg_nbins) {
-		column = cfg_column;
+	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, float cfg_min, float cfg_max, int cfg_nbins) {
+		bootstrapped_column = cfg_bootcolumn;
+		original_column = cfg_column;
 		batch_id = cfg_batch_id;
 		min = cfg_min;
 		max = cfg_max;
