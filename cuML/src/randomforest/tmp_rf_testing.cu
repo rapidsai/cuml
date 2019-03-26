@@ -22,10 +22,6 @@
 #include <sstream>
 #include <string>
 
-#define HIGGS_DATA "/gpfs/fs1/myrtop/rapids_repos/HIGGS.csv"
-//#define HIGGS_COLS 28 // + 1 for label (it's the first per csv line)
-//#define TRAIN_RATIO 0.8
-
 //Modified version of TIMEIT_LOOP from test_utils.h
 #define TIMEIT_LOOP(ms, count, func)			\
 	do {										\
@@ -46,12 +42,24 @@
 using namespace MLCommon;
 using namespace std;
 
-void parse_csv(int n_cols, std::vector<float> & data, std::vector<int> & labels, int train_cnt,
+void parse_csv(string dataset_name, int n_cols, std::vector<float> & data, std::vector<int> & labels, int train_cnt,
 			   std::vector<float> & test_data, std::vector<int> & test_labels, int test_cnt, bool test_is_train) {
+
+	string data_file;
+	int col_offset = 0;
+	int label_id =  0; // column that is the label (i.e., target feature)
+	if (dataset_name == "higgs") {
+		data_file = "/gpfs/fs1/myrtop/rapids_repos/HIGGS.csv";
+		col_offset = 1; //because the first column in higgs is the label
+		label_id = 0;
+	} else if (dataset_name == "airline") {
+		data_file = "/gpfs/fs1/myrtop/rapids_repos/airline_14col.data_modified";
+		label_id = n_cols;
+	}
 
 	cout << "train_cnt " << train_cnt << " test_cnt " << test_cnt << endl;
 	ifstream myfile;
-	myfile.open(HIGGS_DATA);
+	myfile.open(data_file);
 	string line;
 
 	int counter = 0;
@@ -74,18 +82,20 @@ void parse_csv(int n_cols, std::vector<float> & data, std::vector<int> & labels,
 			}
 			for (int col = 0; col < n_cols; col++) {
 				if (counter < train_cnt)  {
-					data[counter + col * train_cnt] = row[col + 1]; // 1st column is label; train data should be col major
+					data[counter + col * train_cnt] = row[col + col_offset]; //train data should be col major
 					if (test_is_train) 
-						test_data[counter*n_cols + col] = row[col + 1]; // test data should be row major
+						test_data[counter*n_cols + col] = row[col + col_offset]; // test data should be row major
 				} else if (!test_is_train)
-					test_data[(counter - train_cnt)*n_cols + col] = row[col + 1]; // test data should be row major
+					test_data[(counter - train_cnt)*n_cols + col] = row[col + col_offset]; // test data should be row major
 			}
-			ASSERT((row[0] == 0) || (row[0] == 1), "Invalid higgs label of %d", row[0]);
+
+			// In airline, the row[label_id] > 0 convert the delay to categorical data.
+			// No effect for higgs that has 0, 1 labels.
 			if (counter < train_cnt)  {
-				labels[counter] = (int) row[0];
+				labels[counter] = (int) (row[label_id] > 0);
 				if (test_is_train) test_labels[counter] = labels[counter];
 			} else if (!test_is_train)
-				test_labels[counter - train_cnt] = (int) row[0];
+				test_labels[counter - train_cnt] = (int) (row[label_id] > 0);
 			counter++;
 		}
 	cout << "Lines processed " << counter << endl;  
@@ -99,16 +109,18 @@ struct RF_inputs {
 	int n_trees, max_depth, max_leaves, n_bins;
 	float max_features, rows_sample, train_ratio;
 	bool bootstrap, test_is_train;
+	string dataset;
 
 	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features, 
 			  	float cfg_rows_sample, float cfg_train_ratio, int cfg_max_depth, 
-				int cfg_max_leaves, bool cfg_bootstrap, bool cfg_test_is_train, int cfg_n_bins) {
+				int cfg_max_leaves, bool cfg_bootstrap, bool cfg_test_is_train, int cfg_n_bins,
+				string cfg_dataset) {
 
 		train_ratio = cfg_train_ratio;
 		test_is_train = cfg_test_is_train;
 
 		n_rows = test_is_train ? cfg_n_rows : train_ratio * cfg_n_rows;
-	 	n_cols = cfg_n_cols;
+	 	n_cols = cfg_n_cols; // Will be overwriten based on dataset 
 		n_trees = cfg_n_trees;
 		max_features = cfg_max_features;
 		rows_sample = cfg_rows_sample;
@@ -117,7 +129,18 @@ struct RF_inputs {
 		bootstrap = cfg_bootstrap;
 		n_inference_rows = test_is_train ? cfg_n_rows : (1.0f -train_ratio) * cfg_n_rows;
 		n_bins = cfg_n_bins;
-		cout << "Train ratio " << train_ratio << " test_is_train " << test_is_train << ", n_rows " << n_rows << ", n_cols " << n_cols << " n_trees " << n_trees << " col_per " << max_features << " row_per " << rows_sample << " max_depth " << max_depth << " max_leaves " << max_leaves  << " bootstrap " << bootstrap << " n_inference_rows " << n_inference_rows << " n_bins " << n_bins << endl;
+		dataset = cfg_dataset;
+
+		if (dataset == "higgs") {
+			n_cols = 28;
+		} else  if (dataset == "airline") {
+			n_cols = 13;
+		} else {
+			cerr << "Invalid dataset " << dataset << endl;
+			exit(1);
+		}
+
+		cout << "Dataset " << dataset << ", train ratio " << train_ratio << " test_is_train " << test_is_train << ", n_rows " << n_rows << ", n_cols " << n_cols << " n_trees " << n_trees << " col_per " << max_features << " row_per " << rows_sample << " max_depth " << max_depth << " max_leaves " << max_leaves  << " bootstrap " << bootstrap << " n_inference_rows " << n_inference_rows << " n_bins " << n_bins << endl;
 	}
 
 };
@@ -136,46 +159,47 @@ int main(int argc, char **argv) {
 		- bootstrap
 		- test_is_train (otherwise 80% of rows is used for training and 20% for testing)
 		- n_bins
+		- dataset name
 	*/
 
 	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
 
-	if (argc != 12) {
-		cout << "Error! 11 args are needed\n";
+	if (argc != 13) {
+		cout << "Error! 12 args are needed\n";
 		return 0;
 	}
-	RF_inputs params(stoi(argv[1]), stoi(argv[2]), stoi(argv[3]), stof(argv[4]), stof(argv[5]), stof(argv[6]), stoi(argv[7]), stoi(argv[8]), (strcmp(argv[9], "true") == 0), (strcmp(argv[10], "true") == 0), stoi(argv[11]));
+	RF_inputs params(stoi(argv[1]), stoi(argv[2]), stoi(argv[3]), stof(argv[4]), stof(argv[5]), stof(argv[6]), stoi(argv[7]), stoi(argv[8]), (strcmp(argv[9], "true") == 0), (strcmp(argv[10], "true") == 0), stoi(argv[11]), argv[12]);
 
-	float * higgs_data;
-	int * higgs_labels;
+	float * input_data;
+	int * input_labels;
 
-    int higgs_data_len = params.n_rows * params.n_cols;
-    allocate(higgs_data, higgs_data_len);
-    allocate(higgs_labels, params.n_rows);
+    int input_data_len = params.n_rows * params.n_cols;
+    allocate(input_data, input_data_len);
+    allocate(input_labels, params.n_rows);
 
-	std::vector<float> h_higgs_data, inference_data;
-	std::vector<int> h_higgs_labels, inference_labels;
+	std::vector<float> h_input_data, inference_data;
+	std::vector<int> h_input_labels, inference_labels;
 
 	// Populate labels and data
-	parse_csv(params.n_cols, h_higgs_data, h_higgs_labels, params.n_rows, inference_data, inference_labels, params.n_inference_rows, params.test_is_train); //last arg makes test same as training
+	parse_csv(params.dataset, params.n_cols, h_input_data, h_input_labels, params.n_rows, inference_data, inference_labels, params.n_inference_rows, params.test_is_train); //last arg makes test same as training
 
 	//Preprocess labels 
-	ML::preprocess_labels(params.n_rows, h_higgs_labels, labels_map);
+	ML::preprocess_labels(params.n_rows, h_input_labels, labels_map);
 	int n_unique_labels = labels_map.size();
 	std::cout << "Dataset has " << n_unique_labels << " labels." << std::endl;
 
-	updateDevice(higgs_data, h_higgs_data.data(), higgs_data_len);
-	updateDevice(higgs_labels, h_higgs_labels.data(), params.n_rows);
+	updateDevice(input_data, h_input_data.data(), input_data_len);
+	updateDevice(input_labels, h_input_labels.data(), params.n_rows);
 	cout << "Finished populating device labels and data\n";
 
-	// Classify higgs_dataset
+	// Classify input_dataset
 	ML::rfClassifier * rf_classifier;
  	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
 	cout << "Called RF constructor\n";
-	//rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels);
+	//rf_classifier->fit(input_data, params.n_rows, params.n_cols, input_labels);
 
 	float ms;
-	TIMEIT_LOOP(ms, 1, rf_classifier->fit(higgs_data, params.n_rows, params.n_cols, higgs_labels, n_unique_labels));
+	TIMEIT_LOOP(ms, 1, rf_classifier->fit(input_data, params.n_rows, params.n_cols, input_labels, n_unique_labels));
 
 	rf_classifier->print_rf_detailed();
 	cout << "Planted the random forest in " << ms << " ms, " << ms /1000.0 << " s." << endl;
@@ -186,7 +210,7 @@ int main(int argc, char **argv) {
 		std::cout << "Random forest predicted " << predictions[i] << std::endl;
 	}*/
 
-	ML::postprocess_labels(params.n_rows, h_higgs_labels, labels_map);
+	ML::postprocess_labels(params.n_rows, h_input_labels, labels_map);
 	ML::preprocess_labels(params.n_inference_rows, inference_labels, labels_map); //use same map as labels
 
 	cout << "Will start testing\n";
@@ -196,8 +220,8 @@ int main(int argc, char **argv) {
 	ML::postprocess_labels(params.n_inference_rows, inference_labels, labels_map); 
 
 	cout << "Free memory\n";
-	CUDA_CHECK(cudaFree(higgs_data));
-	CUDA_CHECK(cudaFree(higgs_labels));
+	CUDA_CHECK(cudaFree(input_data));
+	CUDA_CHECK(cudaFree(input_labels));
 	delete rf_classifier;
 
 	return 0;
