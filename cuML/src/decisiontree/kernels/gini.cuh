@@ -43,7 +43,7 @@ struct GiniQuestion {
 	int nbins;
 	int ncols;
 	
-	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, float cfg_min=FLT_MAX, float cfg_max=-FLT_MIN, float cfg_value=0.0f) {
+	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, float cfg_min=FLT_MAX, float cfg_max=-FLT_MAX, float cfg_value=0.0f) {
 		bootstrapped_column = cfg_bootcolumn;
 		original_column = cfg_column;
 		batch_id = cfg_batch_id;
@@ -51,7 +51,7 @@ struct GiniQuestion {
 		max = cfg_max;
 		nbins = cfg_nbins;
 		ncols = cfg_ncols;
-		value = cfg_value; // Will be udpate in make_split
+		value = cfg_value; // Will be updated in make_split
 	};
 };
 
