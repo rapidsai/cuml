@@ -23,7 +23,7 @@
 #include <cooperative_groups.h>
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
+__global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
 
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -64,6 +64,40 @@ __global__ void batch_evaluate_kernel(const float* __restrict__ column, const in
 	
 }
 
+/* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
+__global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const float* __restrict__ quantile, float * ques_info) {
+
+	// Reset shared memory histograms
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ unsigned int shmemhist[];
+	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+		shmemhist[i] = 0;
+	}
+	
+	__syncthreads();
+	
+	if (tid < nrows) {
+		float data = column[tid];
+		int label = labels[tid];
+		// Each thread evaluates batch_bins questions and populates respective buckets.
+		for (int i = 0; i < batch_bins; i++) {
+			float quesval = quantile[i];
+			if (data <= quesval) {
+				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
+			}
+		}
+		
+	}
+	
+	__syncthreads();
+	
+	// Merge shared mem histograms to the global memory hist
+	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+		atomicAdd(&histout[i], shmemhist[i]);
+	}
+	
+}
+
 /* Compute best information gain for this batch. This code merges  gini_left and gini_right computation in  a single function.
    Outputs: split_info[1] and split_info[2] are updated with the correct info for the best split among the considered batch.
    batch_id specifies which question (bin) within the batch  gave the best split.
@@ -83,8 +117,13 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	//FIXME TODO: if delta is 0 just go through one batch_bin.
 
 	//Kernel launch
-	batch_evaluate_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
+#ifdef QUANTILE
+	batch_evaluate_quantile_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
+		batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
+#else
+	batch_evaluate_minmax_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
 		nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
+#endif
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, n_hists_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
@@ -165,7 +204,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 		split_info[2].hist[j] = split_info[0].hist[j] - hhist[ best_batch_id * n_unique_labels + j];
 	}
 	batch_id = best_batch_id;
-
+	
 	return gain;
 
 }

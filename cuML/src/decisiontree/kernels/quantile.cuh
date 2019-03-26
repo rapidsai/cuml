@@ -44,7 +44,7 @@ __global__ void get_quantiles(const float* __restrict__ column,float* quantile,c
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if(tid < nbins) {		
-		int myoff = (int)(nrows/(nbins+1));
+		int myoff = (int)(nrows/nbins);
 		quantile[tid] = column[(tid+1)*myoff - 1];
 	}	
 	return;
@@ -58,7 +58,7 @@ void get_sampled_column_quantile(const float *column, float *outcolumn, unsigned
 	CUDA_CHECK(cudaMemcpyAsync(temp_sampcol,outcolumn,n_sampled_rows*sizeof(float),cudaMemcpyDeviceToDevice,tempmem->stream));
 	thrust::sort(thrust::cuda::par.on(tempmem->stream),temp_sampcol,temp_sampcol+n_sampled_rows);
 	int threads = 128;
-	get_quantiles<<< (int)((nbins-1)/threads) + 1, threads,0,tempmem->stream >>>(temp_sampcol, tempmem->d_quantile, n_sampled_rows, nbins-1);
+	get_quantiles<<< (int)(nbins/threads) + 1, threads,0,tempmem->stream >>>(temp_sampcol, tempmem->d_quantile, n_sampled_rows, nbins);
 	
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 }
