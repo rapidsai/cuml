@@ -212,7 +212,10 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 
 	return;
 }
-
+/* 
+   The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
+   column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
+ */
 __global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
