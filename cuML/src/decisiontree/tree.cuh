@@ -22,6 +22,7 @@
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate.cuh"
+#include "kernels/quantile.cuh"
 #include "memory.cuh"
 #include "Timer.h"
 #include <vector>
@@ -239,10 +240,10 @@ namespace ML {
 					int streamid = i % MAXSTREAMS;
 					float *sampledcolumn = tempmem[streamid]->sampledcolumns;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
-
+#ifdef QUANTILE
 					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
+					get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
 					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
-
 					// info_gain, local_split_info correspond to the best split
 					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
 					int batch_id = 0;
@@ -251,7 +252,19 @@ namespace ML {
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
 									      &local_split_info[0], tempmem[streamid]);
-
+#else
+					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
+					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
+					
+					// info_gain, local_split_info correspond to the best split
+					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
+					int batch_id = 0;
+					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
+					
+					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
+									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
+									      &local_split_info[0], tempmem[streamid]);
+#endif
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
 					// Find best info across batches

@@ -16,60 +16,7 @@
 
 #pragma once
 #include <thrust/sort.h>
-
-template <class type>
-__global__ void get_sampled_column_kernel(const type *column,type *outcolumn,unsigned int* rowids,const int N)
-{
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if(tid < N)
-		{
-			int index = rowids[tid];
-			outcolumn[tid] = column[index];
-		}
-	return;
-}
-
-void get_sampled_column(const float *column,float *outcolumn,unsigned int* rowids,const int n_sampled_rows,const cudaStream_t stream = 0)
-{
-	get_sampled_column_kernel<float><<<(int)(n_sampled_rows / 128) + 1,128,0,stream>>>(column,outcolumn,rowids,n_sampled_rows);
-	CUDA_CHECK(cudaStreamSynchronize(stream));
-	return;
-}
-
-
-void get_sampled_labels(const int *labels,int *outlabels,unsigned int* rowids,const int n_sampled_rows,const cudaStream_t stream = 0)
-{
-	get_sampled_column_kernel<int><<<(int)(n_sampled_rows / 128) + 1,128,0,stream>>>(labels,outlabels,rowids,n_sampled_rows);
-	CUDA_CHECK(cudaStreamSynchronize(stream));
-	return;
-}
-
-
-__device__ __forceinline__ float atomic_max_fp(float* address, float val) {
-
-    int* address_as_int = (int*) address;
-    int old = *address_as_int, assumed;
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_int, assumed,
-            __float_as_int(fmaxf(val, __int_as_float(assumed))));
-    } while (assumed != old);
-
-    return __int_as_float(old);
-}
-
-__device__ __forceinline__ float atomic_min_fp(float* address, float val) {
-
-    int* address_as_int = (int*) address;
-    int old = *address_as_int, assumed;
-    do {
-        assumed = old;
-        old = atomicCAS(address_as_int, assumed,
-            __float_as_int(fminf(val, __int_as_float(assumed))));
-    } while (assumed != old);
-
-    return __int_as_float(old);
-}
+#include "atomic_minmax.h"
 
 /* Merged kernel: gets sampled column and also produces min and max values. */
 __global__ void get_sampled_column_minmax_kernel(const float *column, float *outcolumn, const unsigned int* rowids, float * col_min_max, const int N) {
@@ -100,16 +47,16 @@ __global__ void get_sampled_column_minmax_kernel(const float *column, float *out
 
 	// Min - max reduction within each block.
 	if (tid < N) {
-		atomic_min_fp(&shmem_min_max[0], column_val);
-		atomic_max_fp(&shmem_min_max[1], column_val);
+		atomicMinFloat(&shmem_min_max[0], column_val);
+		atomicMaxFloat(&shmem_min_max[1], column_val);
 	}
 
 	__syncthreads();
 
 	// Min - max reduction across blocks.
 	if (threadIdx.x == 0) {
-		atomic_min_fp(&col_min_max[0], shmem_min_max[0]);
-		atomic_max_fp(&col_min_max[1], shmem_min_max[1]);
+		atomicMinFloat(&col_min_max[0], shmem_min_max[0]);
+		atomicMaxFloat(&col_min_max[1], shmem_min_max[1]);
 	}
 
 }

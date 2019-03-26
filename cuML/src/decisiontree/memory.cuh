@@ -54,12 +54,16 @@ struct TemporaryMemory
 	thrust::pair<float *, float *> d_min_max_thrust;
 	float * d_min_max;
 	float *d_ques_info, *h_ques_info; //holds min, max.
+
+	//For quantiles
+	float *d_quantile;
+	float *d_temp_sampledcolumn;
 	
 	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins)
 	{
 
 		int n_hist_bytes = n_unique * n_bins * sizeof(int);
-
+		
 		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
 #ifdef SINGLE_COL
@@ -73,7 +77,10 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
 		totalmem += N*sizeof(int) + n_hist_bytes;
 		
-		
+#ifdef QUANTILE
+		CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins*sizeof(float)));
+		CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N*sizeof(float)));
+#endif
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
 		
@@ -120,6 +127,10 @@ struct TemporaryMemory
 		cudaFree(sampledcolumns);
 #else
 		cudaFree(temp_data);
+#endif
+#ifdef QUANTILE
+		cudaFree(d_quantile);
+		cudaFree(d_temp_sampledcolumn);
 #endif
 		cudaFree(sampledlabels);
 		cudaFree(d_split_temp_storage);
