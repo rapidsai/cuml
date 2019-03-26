@@ -264,7 +264,7 @@ namespace ML {
 						float ques_max = tempmem[streamid]->h_ques_info[1];
 
 						
-						ques.set_question_fields(i,colselector[i], batch_id, ques_min, ques_max, current_nbins);
+						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max);
 
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
