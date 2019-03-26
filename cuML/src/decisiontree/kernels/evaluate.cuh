@@ -176,11 +176,17 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	extern __shared__ char shmem[];
 	float *minshared = (float*)shmem;
 	float *maxshared = (float*)(shmem + sizeof(float) * ncols);
-	for (int i = threadIdx.x; i < ncols; i += blockDim.x)
-		{
-			minshared[i] = FLT_MAX;
-			maxshared[i] = -FLT_MAX;
-		}
+
+	for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
+		minshared[i] = FLT_MAX;
+		maxshared[i] = -FLT_MAX;
+	}
+
+	// Initialize min max in  global memory
+	if (tid < ncols) {
+		globalmin[tid] = FLT_MAX;
+		globalmax[tid] = -FLT_MAX;
+	}
 
 	__syncthreads();
 	
@@ -331,7 +337,8 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 		split_info[1].hist[j] = tempmem->h_histout[  best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
 		split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
 	}
-	ques.set_question_fields( best_col_id, col_selector[best_col_id], best_bin_id, tempmem->h_globalminmax[ best_col_id ], tempmem->h_globalminmax[best_col_id + n_cols], nbins+1);
+
+	ques.set_question_fields( best_col_id, col_selector[best_col_id], best_bin_id, nbins+1, n_cols);
 	return;
 }
 
@@ -340,7 +347,6 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 {
 	int* d_colids = tempmem->d_colids;
 	float* d_globalminmax = tempmem->d_globalminmax;
-	float* h_globalminmax = tempmem->h_globalminmax;
 	int *d_histout = tempmem->d_histout;
 	int *h_histout = tempmem->h_histout;
 	
@@ -348,14 +354,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	int col_minmax_bytes = sizeof(float) * 2 * ncols;
 	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
 
-	for (int i=0; i < ncols; i++)
-		{
-			h_globalminmax[i] = FLT_MAX;
-			h_globalminmax[i + ncols] = -FLT_MAX;
-		}
-	
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(d_globalminmax, h_globalminmax, col_minmax_bytes, cudaMemcpyHostToDevice, tempmem->stream));
 	
 	unsigned int threads = 512;
 	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
@@ -376,7 +375,6 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
 	CUDA_CHECK(cudaGetLastError());
 	
-	CUDA_CHECK(cudaMemcpyAsync(h_globalminmax, d_globalminmax, col_minmax_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 	
