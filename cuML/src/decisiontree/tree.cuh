@@ -243,9 +243,8 @@ namespace ML {
 #ifdef QUANTILE
 					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
 					get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
-					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
 					// info_gain, local_split_info correspond to the best split
-					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
+					int batch_bins = current_nbins; //TODO batch_bins is always nbins - 1. 
 					int batch_id = 0;
 					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
 
@@ -270,15 +269,20 @@ namespace ML {
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
+#ifdef QUANTILE
+						float ques_val;
+						float *dqua = tempmem[streamid]->d_quantile;
+						CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
+						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
+#else
 						// Need to get the min, max from device memory; needed for question val computation
 						CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 						float ques_min = tempmem[streamid]->h_ques_info[0];
 						float ques_max = tempmem[streamid]->h_ques_info[1];
-
-						
-						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max);
-
+						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, 0.0f);
+#endif
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
 				}
