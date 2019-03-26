@@ -114,10 +114,13 @@ struct TemporaryMemory
 
 	~TemporaryMemory()
 	{
-		cudaFree(temp_data);
-		cudaFree(d_hist);
 		cudaFreeHost(h_hist);
+		cudaFree(d_hist);
+#ifdef SINGLE_COL
 		cudaFree(sampledcolumns);
+#else
+		cudaFree(temp_data);
+#endif
 		cudaFree(sampledlabels);
 		cudaFree(d_split_temp_storage);
 		cudaFree(d_num_selected_out);
@@ -131,6 +134,11 @@ struct TemporaryMemory
 		cudaFreeHost(h_right_rows);
 		cudaFreeHost(h_ques_info);
 		cudaFreeHost(h_histout);
+
+		cudaFree(d_globalminmax);
+		cudaFree(d_histout);
+		cudaFree(d_colids);
+
 		if(stream != 0)
 			cudaStreamDestroy(stream);
 	}
