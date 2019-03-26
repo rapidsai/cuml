@@ -1,17 +1,20 @@
 #!/bin/bash
 
-rows=1000
-cols=28 #for higgs
+dataset="higgs"
+#dataset="airline"
+cols=28 #Note doesn't matter will be fixed in tmp_rf_testing
+rows=10000
 trees=1
 col_per=1.0
 row_per=1.0
 train_ratio=0.8
 
-max_depth=-1
+max_depth=8
 max_leaves=-1
-bootstrap=true
-test_is_train=true
+bootstrap=false
+test_is_train=false
+#test_is_train=true
 n_bins=8
 
-
-./rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins
+echo "./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset"
+./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset
