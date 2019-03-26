@@ -45,6 +45,7 @@ class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
 
     def _set_dims(self, X, lengths):
         self.nObs = X.shape[0]
+
         self.nStates = self.n_components
         # self.nFeatures = np.max(X)
 
@@ -66,6 +67,9 @@ class MultinomialHMM(_BaseHMM, _BaseHMMBackend):
 
         Gamma = np.zeros((self.nStates, self.nObs), dtype=self.dtype)
         self._set_gamma(Gamma)
+
+        dVStates = np.zeros(self.nObs, dtype=int)
+        self._set_dVStates(dVStates)
 
         Llhd = np.zeros(self.nSeq, dtype=self.dtype)
         self._set_llhd(Llhd)

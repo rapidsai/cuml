@@ -31,15 +31,10 @@ struct HMM {
         int nObs, nSeq, max_len;
         T* dLlhd;
 
-        T **dAlpha_array, **dBeta_array, **dB_array, **dPi_array;
+        T **dB_array, **dPi_array;
 
-        int** dMaxPath_array;
-
-        T* alphaScaleCoefs;
-
-        int **dV_idx_array;
-        T **dV_array;
-        T **dT_pows;
+        T *dV;
+        int lddv;
 
         int nFeatures;
         int *dcumlenghts_inc, *dcumlenghts_exc;

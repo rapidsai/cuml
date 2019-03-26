@@ -46,9 +46,11 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     def fit(self, X, lengths=None):
         self._fit(X, lengths)
 
-    # @abstractmethod
-    # def decode(self, X, lengths=None, algorithm=None):
-    #     pass
+    def decode(self, X, lengths=None, algorithm=None):
+        self._viterbi(X, lengths)
+        state_sequence = self._dVStates_
+        llhd = self._llhd
+        return llhd, state_sequence
 
     # @abstractmethod
     # def predict(self, X, lengths=None):

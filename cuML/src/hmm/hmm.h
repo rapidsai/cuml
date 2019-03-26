@@ -32,6 +32,7 @@ void init(HMM<T, D> &hmm,
         hmm.lddbeta = nStates;
         hmm.lddgamma = lddgamma;
         hmm.lddsp = lddsp;
+        hmm.lddv = nStates;
 
         hmm.nStates = nStates;
         hmm.dists = gmms;
@@ -60,6 +61,7 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
 
         allocate(hmm.dAlpha, hmm.lddalpha * nObs);
         allocate(hmm.dBeta, hmm.lddbeta * nObs);
+        allocate(hmm.dV, hmm.lddv * nObs);
         // allocate(hmm.dGamma, hmm.lddgamma * nObs);
         allocate(hmm.dcumlenghts_exc, nSeq);
         allocate(hmm.dcumlenghts_inc, nSeq);
@@ -114,24 +116,20 @@ void forward_backward(HMM<T, D> &hmm,
 //
 // }
 
-// template <typename T>
-// void viterbi(HMM<T>& hmm,
-//              int* dStates, int* dlenghts, int nSeq){
-//
-//         // TODO : Fix the block grid sizes projectwise
-//
-//         dim3 block(32,32);
-//         dim3 grid(ceildiv(n, (int)block.x),
-//                   ceildiv(n, (int)block.y),
-//                   1);
-//         int nThreads_x = grid.x * block.x;
-//         int nThreads_y = grid.y * block.y;
-//         int nThreads_z = grid.z * block.z;
-//
-//         viterbiKernel<T> <<< grid, block >>>();
-//         cudaDeviceSynchronize();
-//         CUDA_CHECK(cudaPeekAtLastError());
-// }
+template <typename Tx, typename T, typename D>
+void viterbi(HMM<T, D> &hmm, int* dVStates,
+             Tx* dX, int* dlenghts, int nSeq,
+             cublasHandle_t cublasHandle){
+
+        _compute_emissions(dX, hmm, cublasHandle);
+        _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
+                            dlenghts, nSeq);
+        _viterbi(hmm, dVStates, dlenghts, nSeq);
+        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
+        // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+}
 
 //
 // template <typename T>

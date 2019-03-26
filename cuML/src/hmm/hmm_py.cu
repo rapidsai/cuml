@@ -69,9 +69,16 @@ void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &h
         forward_backward(hmm, dX, dlenghts, nSeq,
                          cublasHandle, queue,
                          doForward, doBackward, doGamma);
+}
 
-        // workspaceFree(hmm);
+void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                      int* dVStates, int* dX, int* dlenghts, int nSeq){
 
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+        viterbi(hmm, dVStates,
+                dX, dlenghts, nSeq,
+                cublasHandle);
 }
 
 }

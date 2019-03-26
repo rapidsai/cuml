@@ -18,7 +18,7 @@ void elementwise(T out, T in_a, T in_b, int len){
 
 template <typename T>
 __device__
-int arg_max(T array, int len){
+int arg_max(T* array, int len){
         T maxVal = array[0];
         int max_idx = 0;
         for (size_t i = 0; i < len; i++) {

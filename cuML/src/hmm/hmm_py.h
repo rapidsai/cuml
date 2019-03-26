@@ -42,6 +42,9 @@ void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &h
                                int* dX, int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma);
 
+void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                      int* dVstates, int* dX, int* dlenghts, int nSeq);
+
 
 
 }

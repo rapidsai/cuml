@@ -2,7 +2,7 @@ from abc import ABC
 from cuml.gmm.sample_utils import *
 
 class _DevHMM(ABC):
-    def __init__(self, precision):
+    def __init__(self):
         pass
 
     def _get_gamma(self):
@@ -31,7 +31,15 @@ class _DevHMM(ABC):
     def _set_llhd(self, llhd):
         self.dLlhd = process_parameter(llhd[:, None], self.nSeq, self.dtype)
 
+    def _get_dVStates(self):
+        dVStates = self.dVStates.copy_to_host()
+        dVStates = dVStates.flatten()
+        return dVStates
+
+    def _set_dVStates(self, dVStates):
+        self.dVStates = process_parameter(dVStates[:, None], self.nObs, np.int64)
 
     _gammas_ = property(_get_gamma, _set_gamma)
     _B_ = property(_get_B, _set_B)
     _llhd = property(_get_llhd, _set_llhd)
+    _dVStates_ = property(_get_dVStates, _set_dVStates)

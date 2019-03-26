@@ -35,7 +35,7 @@ from cuml.hmm.utils.hmm_test_utils import *
 #     hmm_tester.test_workflow(X, lengths)
 
 
-def test_multinomialhmm():
+def test_multinomialhmm_decode():
     n_seq = 10
     n_components = 5
     n_features = 8
