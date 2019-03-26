@@ -7,6 +7,7 @@
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 ## Bug Fixes
 
@@ -59,7 +60,6 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342 Change default ABI to ON
-- PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 ## Bug Fixes
 
