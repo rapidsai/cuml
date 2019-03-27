@@ -86,6 +86,7 @@ namespace ML {
 		class DecisionTreeClassifier
 		{
 		private:
+			bool quantileflag;
 			TreeNode *root = NULL;
 			int nbins;
 			DataInfo dinfo;
@@ -103,14 +104,15 @@ namespace ML {
 			// Expects column major float dataset, integer labels
 			// data, labels are both device ptr.
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
+			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, bool quantile_flag = false)
 			{
-				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins);
+				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, quantile_flag);
 			}
 
 			// Same as above fit, but planting is better for a tree then fitting.
-			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8)
+			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, bool quantile_flag = false)
 			{
+				quantileflag = quantile_flag;
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
 				dinfo.Ncols = ncols;
@@ -122,7 +124,7 @@ namespace ML {
 				n_batch_bins = n_bins;
 
 				for(int i = 0; i<MAXSTREAMS; i++) {
-					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins);
+					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins, quantileflag);
 				}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
@@ -231,11 +233,11 @@ namespace ML {
 				if (depth == 0) {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-
 				int extra_offset = 1;
-#ifdef QUANTILE
-				extra_offset = 0;
-#endif
+				if (quantileflag) {
+					extra_offset = 0;
+				} 
+
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
 					      
 				for (int i=0; i<colselector.size(); i++) {
@@ -245,49 +247,47 @@ namespace ML {
 					int streamid = i % MAXSTREAMS;
 					float *sampledcolumn = tempmem[streamid]->sampledcolumns;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
-#ifdef QUANTILE
-					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
-					get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
-					// info_gain, local_split_info correspond to the best split
-					int batch_bins = current_nbins; //TODO batch_bins is always nbins - 1. 
-					int batch_id = 0;
-					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
-
-					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
-									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-									      &local_split_info[0], tempmem[streamid]);
-#else
-					// Note: we could  potentially merge get_sampled_column and min_and_max work into a single kernel
-					get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
 					
-					// info_gain, local_split_info correspond to the best split
-					int batch_bins = current_nbins - 1; //TODO batch_bins is always nbins - 1. 
+					if(quantileflag) {
+						
+						get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
+						// info_gain, local_split_info correspond to the best split
+					} else {
+						
+						get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
+					}
+					int batch_bins;
+					if (quantileflag) {
+						batch_bins = current_nbins; //TODO batch_bins is always nbins - 1.
+					} else {
+						batch_bins = current_nbins - 1;
+					}
 					int batch_id = 0;
 					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
 					
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-									      &local_split_info[0], tempmem[streamid]);
-#endif
+									      &local_split_info[0], tempmem[streamid], quantileflag);
+					
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
-#ifdef QUANTILE
-						float ques_val;
-						float *dqua = tempmem[streamid]->d_quantile;
-						CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
-						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
-#else
-						// Need to get the min, max from device memory; needed for question val computation
-						CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
-						CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-						float ques_min = tempmem[streamid]->h_ques_info[0];
-						float ques_max = tempmem[streamid]->h_ques_info[1];
-						ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, 0.0f);
-#endif
+						if(quantileflag) {
+							float ques_val;
+							float *dqua = tempmem[streamid]->d_quantile;
+							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
+							ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
+						} else {
+							// Need to get the min, max from device memory; needed for question val computation
+							CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
+							float ques_min = tempmem[streamid]->h_ques_info[0];
+							float ques_max = tempmem[streamid]->h_ques_info[1];
+							ques.set_question_fields(i,colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, 0.0f);
+						}
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
 				}

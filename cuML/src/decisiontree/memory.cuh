@@ -56,10 +56,10 @@ struct TemporaryMemory
 	float *d_ques_info, *h_ques_info; //holds min, max.
 
 	//For quantiles
-	float *d_quantile;
-	float *d_temp_sampledcolumn;
+	float *d_quantile = NULL;
+	float *d_temp_sampledcolumn = NULL; 
 	
-	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins)
+	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const bool quantile)
 	{
 
 		int n_hist_bytes = n_unique * n_bins * sizeof(int);
@@ -69,21 +69,25 @@ struct TemporaryMemory
 #ifdef SINGLE_COL
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N*sizeof(float)));
 		totalmem += N*sizeof(float);
+		if(quantile) {
+			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins*sizeof(float)));
+			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N*sizeof(float)));
+			totalmem += (n_bins+N)*sizeof(float);
+		}
 #else
 		//For lot of temp data
 		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
 		totalmem += sizeof(float)*Ncols*N;
+		if(quantile) {
+			CUDA_CHECK(cudaMalloc((void**)&d_quantile, Ncols*n_bins*sizeof(float)));
+			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, Ncols*N*sizeof(float)));
+			totalmem += Ncols*(n_bins+N)*sizeof(float);
+		}
+
 #endif
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
 		totalmem += N*sizeof(int) + n_hist_bytes;
-		
-#ifdef QUANTILE
-		#ifndef SINGLE_COL
-		ASSERT(false, "QUANTILE needs SINGLE_COL defined too!");
-		#endif
-		CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins*sizeof(float)));
-		CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N*sizeof(float)));
-#endif
+
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
 		
@@ -131,10 +135,12 @@ struct TemporaryMemory
 #else
 		cudaFree(temp_data);
 #endif
-#ifdef QUANTILE
-		cudaFree(d_quantile);
-		cudaFree(d_temp_sampledcolumn);
-#endif
+		
+		if (d_quantile != NULL)
+			cudaFree(d_quantile);
+		if(d_temp_sampledcolumn != NULL)
+			cudaFree(d_temp_sampledcolumn);
+
 		cudaFree(sampledlabels);
 		cudaFree(d_split_temp_storage);
 		cudaFree(d_num_selected_out);
