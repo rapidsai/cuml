@@ -61,13 +61,10 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
   }
 }
 
-// TODO these could be macros..
-void cuml_glm_fit_logistic_qn_d(double *X, double *y, int N, int D,
-                                bool fit_intercept, double l1, double l2,
-                                int max_iter, double grad_tol,
-                                int linesearch_max_iter, int lbfgs_memory,
-                                int verbosity, double *w0, double *f,
-                                int *num_iters, bool X_col_major) {
+void logisticFitQN(double *X, double *y, int N, int D, bool fit_intercept,
+                   double l1, double l2, int max_iter, double grad_tol,
+                   int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                   double *w0, double *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -83,15 +80,14 @@ void cuml_glm_fit_logistic_qn_d(double *X, double *y, int N, int D,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
-void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
-                                bool fit_intercept, float l1, float l2,
-                                int max_iter, float grad_tol,
-                                int linesearch_max_iter, int lbfgs_memory,
-                                int verbosity, float *w0, float *f,
-                                int *num_iters, bool X_col_major) {
+void logisticFitQN(float *X, float *y, int N, int D, bool fit_intercept,
+                   float l1, float l2, int max_iter, float grad_tol,
+                   int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                   float *w0, float *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -107,15 +103,14 @@ void cuml_glm_fit_logistic_qn_s(float *X, float *y, int N, int D,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
-void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
-                              bool fit_intercept, double l1, double l2,
-                              int max_iter, double grad_tol,
-                              int linesearch_max_iter, int lbfgs_memory,
-                              int verbosity, double *w0, double *f,
-                              int *num_iters, bool X_col_major) {
+void linearFitQN(double *X, double *y, int N, int D, bool fit_intercept,
+                 double l1, double l2, int max_iter, double grad_tol,
+                 int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                 double *w0, double *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -131,15 +126,14 @@ void cuml_glm_fit_linear_qn_d(double *X, double *y, int N, int D,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
-void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D,
-                              bool fit_intercept, float l1, float l2,
-                              int max_iter, float grad_tol,
-                              int linesearch_max_iter, int lbfgs_memory,
-                              int verbosity, float *w0, float *f,
-                              int *num_iters, bool X_col_major) {
+void linearFitQN(float *X, float *y, int N, int D, bool fit_intercept, float l1,
+                 float l2, int max_iter, float grad_tol,
+                 int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                 float *w0, float *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -155,15 +149,14 @@ void cuml_glm_fit_linear_qn_s(float *X, float *y, int N, int D,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
-void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
-                               bool fit_intercept, double l1, double l2,
-                               int max_iter, double grad_tol,
-                               int linesearch_max_iter, int lbfgs_memory,
-                               int verbosity, double *w0, double *f,
-                               int *num_iters, bool X_col_major) {
+void softmaxFitQN(double *X, double *y, int N, int D, int C, bool fit_intercept,
+                  double l1, double l2, int max_iter, double grad_tol,
+                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                  double *w0, double *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -179,15 +172,14 @@ void cuml_glm_fit_softmax_qn_d(double *X, double *y, int N, int D, int C,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
-void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
-                               bool fit_intercept, float l1, float l2,
-                               int max_iter, float grad_tol,
-                               int linesearch_max_iter, int lbfgs_memory,
-                               int verbosity, float *w0, float *f,
-                               int *num_iters, bool X_col_major) {
+void softmaxFitQN(float *X, float *y, int N, int D, int C, bool fit_intercept,
+                  float l1, float l2, int max_iter, float grad_tol,
+                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                  float *w0, float *f, int *num_iters, bool X_col_major) {
 
   // TODO this will come from the cuml handle
   cublasHandle_t cublas;
@@ -203,7 +195,8 @@ void cuml_glm_fit_softmax_qn_s(float *X, float *y, int N, int D, int C,
 
   qn_fit<Real, LossFunction>(loss, X, y, z.data, N, fit_intercept, l1, l2,
                              max_iter, grad_tol, linesearch_max_iter,
-                             lbfgs_memory, verbosity, w0, f, num_iters, ord, stream);
+                             lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                             stream);
 }
 
 }; // namespace GLM
