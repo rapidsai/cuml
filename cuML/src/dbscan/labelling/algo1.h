@@ -62,13 +62,12 @@ void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_
     dim3 threads(TPB_X, 1, 1);
     while(countFa > 0) {
         bfs_device<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
-        cudaStreamSynchronize(stream);
         ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
         auto execution_policy = thrust::cuda::par(alloc).on(stream);
         countFa = count(execution_policy, data.fa, data.fa + N, true);
     }
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
-    cudaStreamSynchronize(stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     for(int i=0; i<N; i++) {
         if(host_xa[i]) {
             host_db_cluster[i] = cluster;
@@ -89,13 +88,14 @@ void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int sta
 
     MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, batchSize, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
-    cudaStreamSynchronize(stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
     MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, batchSize, stream);
     MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
     MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
     MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for(int i=0; i<batchSize; i++) {
         if(!host_visited[i + startVertexId] && host_core_pts[i]) {
