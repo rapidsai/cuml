@@ -62,14 +62,11 @@ There is a new cuML branch called 'branch-0.7', where we will be merging the PRs
 
 ### Steps for feature development
 
-1. Create a new branch based on `branch-x.y` named following the format `<type>-<int/ext>-<name>`
+1. Create a new branch based on `branch-x.y` named following the format `<type>-<ext>-<name>`
     - Type: 
         - fea - For if the branch is for a new feature(s)
         - enh - For if the branch is an enhancement of an existing feature(s)
         - bug - For if the branch is for fixing a bug(s) or regression(s)
-    - Int/Ext: 
-        - int - For if the branch has proprietary code that will not be open-sourced
-        - ext - For if the branch will be open-sourced
     - Name: 
         - A name to convey what is being worked on
         - Please use dashes or underscores between words as opposed to spaces.
