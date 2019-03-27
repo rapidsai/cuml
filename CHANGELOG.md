@@ -7,6 +7,7 @@
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #395: Edited the CONTRIBUTING.md file
 
 ## Bug Fixes
 
