@@ -96,25 +96,24 @@ int get_class_hist(std::vector<int> & node_hist) {
 	int classval =  std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
 	return classval;
 }
-
-void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, const TemporaryMemory* tempmem)
+ 
+void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, bool qflag, const TemporaryMemory* tempmem)
 {
 
 	int *temprowids = tempmem->temprowids;
 	char *d_flags_left = tempmem->d_flags_left;
 	char *d_flags_right = tempmem->d_flags_right;
-	
-
-#ifdef QUANTILE
-	flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
-#else
 	float *question_value = tempmem->question_value;
+	
 #ifdef SINGLE_COL
-	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
+	if(qflag) {
+		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
+	} else {
+		
+		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
+	}
 #else
 	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
-#endif
-
 #endif
 	CUDA_CHECK(cudaGetLastError());
 
@@ -135,10 +134,8 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	CUDA_CHECK(cudaMemcpy(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice));
 
 	// Copy GPU-computed question value to tree node.
-#ifdef QUANTILE
+	if (!qflag) 
+		CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(float), cudaMemcpyDeviceToHost));
 
-#else
-	CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(float), cudaMemcpyDeviceToHost));
-#endif
 	return;
 }
