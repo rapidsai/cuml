@@ -71,6 +71,7 @@ add_executable(mlcommon_test
   penalty.cu
   sigmoid.cu
   weighted_mean.cu
+  columnSort.cu
   )
 
 target_link_libraries(mlcommon_test
