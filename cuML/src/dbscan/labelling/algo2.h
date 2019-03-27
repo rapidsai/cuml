@@ -139,6 +139,7 @@ void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId
         MLCommon::updateDeviceAsync(data.xa, host_fa.data(), N, stream);
         //** Updating m *
         MLCommon::updateHostAsync(&host_m, data.m, 1, stream);
+        cudaStreamSynchronize(stream);
     } while(host_m);
 }
 
