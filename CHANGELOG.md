@@ -14,6 +14,7 @@
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
 
 # cuML 0.6.0 (22 Mar 2019)
 
