@@ -20,7 +20,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
-#include <glm/glm_vectors.h>
+#include <matrix/simple_mat.h>
 
 namespace ML {
 namespace GLM {

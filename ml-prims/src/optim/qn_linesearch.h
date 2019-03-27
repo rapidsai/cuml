@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <glm/qn_util.h>
+#include <optim/qn_util.h>
 
 /*
  * Linesearch functions

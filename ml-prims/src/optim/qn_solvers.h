@@ -41,9 +41,9 @@
  */
 
 #include <cuda_utils.h>
-#include <glm/glm_vectors.h>
-#include <glm/qn_linesearch.h>
-#include <glm/qn_util.h>
+#include <matrix/simple_mat.h>
+#include <optim/qn_linesearch.h>
+#include <optim/qn_util.h>
 
 namespace ML {
 namespace GLM {

@@ -22,7 +22,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
-#include <glm/glm_vectors.h>
+#include <matrix/simple_mat.h>
 #include <linalg/matrix_vector_op.h>
 #include <vector>
 
