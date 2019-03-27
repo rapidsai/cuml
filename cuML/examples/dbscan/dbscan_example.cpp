@@ -279,7 +279,6 @@ int main(int argc, char * argv[])
     CUDA_RT_CALL( cudaMemcpyAsync(h_labels.data(), d_labels, nRows*sizeof(int),
                   cudaMemcpyDeviceToHost, stream) );
     CUDA_RT_CALL( cudaStreamSynchronize(stream) );
-    CUDA_RT_CALL( cudaStreamDestroy(stream) );
 
     std::map<int, size_t> histogram;
     for(int row = 0; row < nRows; row++)
@@ -317,6 +316,7 @@ int main(int argc, char * argv[])
 
     CUDA_RT_CALL( cudaFree(d_labels) );
     CUDA_RT_CALL( cudaFree(d_inputData) );
+    CUDA_RT_CALL( cudaStreamDestroy(stream) );
     CUDA_RT_CALL( cudaDeviceSynchronize() );
     return 0;
 }
