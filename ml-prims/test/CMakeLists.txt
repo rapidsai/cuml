@@ -40,6 +40,7 @@ add_executable(mlcommon_test
   eltwise.cu
   eltwise2d.cu
   gemm.cu
+  grid_sync.cu
   kselection.cu
   map_then_reduce.cu
   math.cu
