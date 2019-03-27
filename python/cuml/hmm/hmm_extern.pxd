@@ -81,3 +81,8 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                              int nObs,
                              int nSeq,
                              double* dLlhd)
+
+    cdef void m_step_mhmm_f64(doubleMultinomialHMM &hmm,
+                                        int* dX,
+                                        int* dlenghts,
+                                        int nSeq)

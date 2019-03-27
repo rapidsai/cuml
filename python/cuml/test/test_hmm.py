@@ -14,42 +14,66 @@
 #
 
 
-from cuml.hmm.utils.hmm_test_utils import *
-
-#
-# def test_gmmhmm():
-#     n_seq = 10
-#     n_dim = 3
-#     hmm_kwargs = {"n_components": 5,
-#                   "n_mix": 4,
-#                   "covariance_type": "full"}
-#     hmm_type = "gmm"
-#
-#     hmm_sampler = GMMHMMSampler(n_seq=n_seq,
-#                                 n_dim=n_dim,
-#                                 n_mix=hmm_kwargs["n_mix"],
-#                                 n_components=hmm_kwargs["n_components"])
-#     X, lengths = hmm_sampler.sample_sequences()
-#
-#     hmm_tester = GMMHMMTester(kwargs=hmm_kwargs, hmm_type=hmm_type)
-#     hmm_tester.test_workflow(X, lengths)
+import hmmlearn
+import cuml
+from cuml.hmm.utils.hmm_test_utils import MultinomialHMMSampler
+import numpy as np
 
 
-def test_multinomialhmm_decode():
-    n_seq = 10
-    n_components = 5
-    n_features = 8
+class TestMultinomialHMM:
+    def setup_method(self, method):
+        self.n_components = 2
+        self.n_features = 3
+        self.hmm_sampler = MultinomialHMMSampler(n_seq=1,
+                                            n_components=self.n_components,
+                                            n_features=self.n_features)
+        self.precision = "double"
+        self.random_state = None
+        self.seed = 0
 
-    hmm_sampler = MultinomialHMMSampler(n_seq=n_seq,
-                                        n_components=n_components,
-                                        n_features=n_features)
-    X, lengths = hmm_sampler.sample_sequences()
+    def _reset(self):
+        self.ref_model = hmmlearn.hmm.MultinomialHMM(self.n_components,
+                                                     random_state=self.random_state,
+                                                     )
+        self.cuml_model = cuml.hmm.MultinomialHMM(self.n_components,
+                                                  precision=self.precision,
+                                                  random_state=self.random_state,
+                                                  init_params='')
 
-    hmm_tester = MultinomialHMMTester(n_components=n_components,
-                                      precision="double",
-                                      random_state=None)
-    hmm_tester.test_workflow(X, lengths)
+        self.X, self.lengths = self.hmm_sampler.sample_sequences()
+
+        self.ref_model = self.hmm_sampler._set_model_parameters(self.ref_model)
+        self.cuml_model= self.hmm_sampler._set_model_parameters(self.cuml_model)
+
+    def test_score_samples(self):
+        self._reset()
+        ref_ll, ref_posteriors = self.ref_model.score_samples(self.X, self.lengths)
+        cuml_ll, cuml_posteriors = self.cuml_model.score_samples(self.X, self.lengths)
+
+        assert abs(ref_ll - cuml_ll) < 1e-10
+
+    def test_decode(self):
+        self._reset()
+        ref_llhd, ref_state_seq = self.ref_model.score_samples(self.X, self.lengths)
+        cuml_llhd, cuml_state_seq = self.cuml_model.score_samples(self.X, self.lengths)
+
+    def test_fit(self):
+        self._reset()
+        self.ref_model.fit(self.X, self.lengths)
+        self.cuml_model.fit(self.X, self.lengths)
+
+    def test_predict_proba(self):
+        self._reset()
+        self.ref_model.predict_proba(self.X, self.lengths)
+        self.cuml_model.predict_proba(self.X, self.lengths)
+
+    def score(self):
+        self._reset()
+        self.ref_model.score(self.X, self.lengths)
+        self.cuml_model.score(self.X, self.lengths)
 
 
 if __name__ == '__main__':
-    test_multinomialhmm()
+    Tester = TestMultinomialHMM()
+    Tester.setup_method(None)
+    Tester.test_score_samples()

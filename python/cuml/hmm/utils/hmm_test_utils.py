@@ -8,6 +8,7 @@ import hmmlearn
 import cuml
 from cuml.gmm.utils import *
 
+
 class _Sampler(ABC):
     def __init__(self, n_seq, p=0.35, seq_len_ref=5, random_state=None):
         self.p = p
@@ -26,7 +27,7 @@ class _Sampler(ABC):
         # Sample lengths
         lengths = self._sample_lengths()
 
-        self._set_model_parameters()
+        self.model = self._set_model_parameters(self.model)
 
         # Sample the sequences
         samples = [self.model.sample(lengths[sId])[0]
@@ -34,6 +35,14 @@ class _Sampler(ABC):
         samples = np.concatenate(samples, axis=0)
         lengths = np.array(lengths)
         return samples, lengths
+
+    def sample_startprob(self):
+        return sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
+
+    def sample_transmat(self):
+        return sample_matrix(self.n_components, self.n_components, self.random_state,
+                                      isRowNorm=True)
+
 
 class GMMHMMSampler(_Sampler):
     def __init__(self, n_seq, n_dim, n_mix, n_components,
@@ -66,15 +75,15 @@ class GMMHMMSampler(_Sampler):
                       for _ in range(self.n_components)]
             return np.array(covars)
 
-    def _set_model_parameters(self):
-        self.model.n_features = self.n_dim
+    def _set_model_parameters(self, model):
+        model.n_features = self.n_dim
 
-        self.model.startprob_ = sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
-        self.model.transmat_ = sample_matrix(self.n_components, self.n_components, self.random_state,
-                                      isRowNorm=True)
-        self.model.means_ = self._sample_means()
-        self.model.covars_ = self._sample_covars()
-        self.model.weights_ = self._sample_weights()
+        model.startprob_ = self.sample_startprob()
+        model.transmat_ = self.sample_transmat()
+        model.means_ = self._sample_means()
+        model.covars_ = self._sample_covars()
+        model.weights_ = self._sample_weights()
+        return model
 
 
 class MultinomialHMMSampler(_Sampler):
@@ -85,48 +94,15 @@ class MultinomialHMMSampler(_Sampler):
         self.n_components = n_components
         self.n_features = n_features
 
-    def _set_model_parameters(self):
-        self.model.startprob_ = sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
-        self.model.transmat_ = sample_matrix(self.n_components, self.n_components, self.random_state,
+    def sample_emissionprob(self):
+        return sample_matrix(self.n_components,
+                             self.n_features,
+                             self.random_state,
                                       isRowNorm=True)
-        self.model.emissionprob_ = sample_matrix(self.n_components, self.n_features, self.random_state,
+
+    def _set_model_parameters(self, model):
+        model.startprob_ = sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
+        model.transmat_ = sample_matrix(self.n_components, self.n_components, self.random_state,
                                       isRowNorm=True)
-
-
-class _Tester(ABC):
-    def __init__(self, precision, random_state):
-        self.precision = precision
-        self.random_state = random_state
-
-    def test_workflow(self, X, lengths):
-        self._reset()
-
-
-        self.cuml_model._forward_backward(X, lengths, True, False)
-        print(self.cuml_model.emissionprob_)
-
-    def test_score_samples(self, X, lengths):
-        sk_out = self.ref_model.score_samples(X, lengths)
-        cuml_out = self.cuml_model.score_samples(X, lengths)
-        return mae(cuml_out, sk_out)
-
-# class GMMHMMTester(_Tester) :
-#     def __init__(self, n_components):
-#         super().__init__()
-#         self.n_components =n_components
-#
-#     def _reset(self):
-#             self.sk = hmmlearn.hmm.GMMHMM(self.n_components)
-#             self.cuml = cuml.hmm.GMMHMM(self.n_components)
-
-class MultinomialHMMTester(_Tester):
-    def __init__(self, n_components, precision, random_state):
-        super().__init__(precision, random_state)
-        self.n_components = n_components
-
-    def _reset(self):
-        self.ref_model = hmmlearn.hmm.MultinomialHMM(self.n_components)
-        self.cuml_model = cuml.hmm.MultinomialHMM(self.n_components,
-                                            precision=self.precision,
-                                            random_state=self.random_state)
-
+        model.emissionprob_ = self.sample_emissionprob()
+        return model

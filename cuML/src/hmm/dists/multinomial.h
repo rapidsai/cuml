@@ -78,4 +78,50 @@ void init_multinomial(Multinomial<T>& multinomial,
         multinomial.nFeatures = nFeatures;
 
 }
+
+
+template <typename T>
+__global__
+void m_stepKernel(int nDim, int nObs, int nStates,
+                  int* dX,
+                  T** dPi_array, T* dGamma, int lddgamma,
+                  int nThreads_x){
+        int start = threadIdx.x + blockDim.x * blockIdx.x;
+        T sumVal;
+
+        for (size_t stateId = start; stateId < nStates; stateId+=nThreads_x) {
+                sumVal = 0;
+                printf("%d\n", nDim);
+                for (size_t dimId = 0; dimId < nDim; dimId++) {
+                        dPi_array[stateId][dimId]=0;
+                }
+                for (size_t obsId = 0; obsId < nObs; obsId++) {
+                        dPi_array[stateId][dX[obsId]] += dGamma[IDX(stateId, obsId, lddgamma)];
+                }
+
+                for (size_t dimId = 0; dimId < nDim; dimId++) {
+                        sumVal += dPi_array[stateId][dimId];
+                }
+                for (size_t dimId = 0; dimId < nDim; dimId++) {
+                        dPi_array[stateId][dimId] /= sumVal;
+                }
+        }
+}
+
+template <typename T>
+void _m_step(hmm::HMM<T, Multinomial<T> >& hmm, int* dX) {
+
+        dim3 block(32);
+        dim3 grid(1, 1, 1);
+        int nThreads_x = grid.x * block.x;
+        // Run on different streams
+        m_stepKernel<T> <<< grid, block >>>(hmm.dists[0].nFeatures, hmm.nObs, hmm.nStates,
+                                            dX,
+                                            hmm.dPi_array, hmm.dGamma, hmm.lddgamma,
+                                            nThreads_x);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
 }

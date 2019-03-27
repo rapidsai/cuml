@@ -46,5 +46,6 @@ void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                       int* dVstates, int* dX, int* dlenghts, int nSeq);
 
 
-
+void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                     int* dX, int* dlenghts, int nSeq);
 }

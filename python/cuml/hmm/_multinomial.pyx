@@ -1,6 +1,6 @@
 from libc.stdint cimport uintptr_t
 
-from cuml.hmm.base.hmm_base import _BaseCUML
+from cuml.hmm.core.hmm_base import _BaseCUML
 from cuml.gmm.sample_utils import *
 from cuml.hmm._multinomial cimport *
 
@@ -25,7 +25,7 @@ class _Multinomial(_BaseCUML):
 
     def _initialize(self):
         if "e" in self.init_params :
-            dPis = sample_matrix(self.n_features, 1, random_state=self.random_state, isColNorm=True)
+            dPis = sample_matrix(1, self.n_features, random_state=self.random_state, isRowNorm=True)[0]
             self.set_emissionprob_(dPis)
 
     def _set_dims(self, X):

@@ -100,10 +100,13 @@ void forward_backward(HMM<T, D> &hmm,
         if (doGamma) {
                 _update_gammas(hmm);
         }
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
+
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
 }
 
 // template <typename T>
@@ -128,7 +131,16 @@ void viterbi(HMM<T, D> &hmm, int* dVStates,
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+}
+
+template <typename Tx, typename T, typename D>
+void m_step(HMM<T, D> &hmm,
+            Tx* dX, int* dlenghts, int nSeq,
+            cublasHandle_t cublasHandle, magma_queue_t queue
+            ){
+        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+        _m_step(hmm, dX);
+
 }
 
 //

@@ -81,6 +81,21 @@ void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                 cublasHandle);
 }
 
+void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                     int* dX, int* dlenghts, int nSeq){
+
+        cublasHandle_t cublasHandle;
+        CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        m_step(hmm,
+               dX, dlenghts, nSeq,
+               cublasHandle, queue);
+}
+
 }
 
 namespace multinomial {
