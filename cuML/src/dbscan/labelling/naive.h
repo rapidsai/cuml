@@ -29,7 +29,7 @@ namespace Naive {
 
 using namespace std; 
 template <typename Type>
-void bfs(const ML::cumlHandle_impl& handle, int id, Type *host_adj_graph, 
+void bfs(int id, Type *host_adj_graph,
 	 Type *host_ex_scan, Type *host_vd, bool *host_visited,
          Type *host_db_cluster, Type cluster, bool *host_xa, size_t N) {
      queue<int> q;
@@ -84,7 +84,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVerte
         if((!host_visited[i]) && host_core_pts[i]) {
 	    host_visited[i] = true;
             host_db_cluster[i] = cluster;
-            bfs(handle, i, host_adj_graph.data(), host_ex_scan.data(), host_vd.data(), 
+            bfs(i, host_adj_graph.data(), host_ex_scan.data(), host_vd.data(), 
                 host_visited.data(), host_db_cluster.data(), cluster, host_xa.data(), N);
             cluster++; 
 	}

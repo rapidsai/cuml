@@ -32,7 +32,7 @@ void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* x, Type* d
     switch(algo) {
 
     case 0:
-       Naive::launcher(handle, data, startVertexId, batchSize, stream);
+       Naive::launcher(data, startVertexId, batchSize, stream);
     	break;
 
     case 1:
