@@ -3,6 +3,7 @@
 ## New Features
 
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #396: Exposing cumlHandle to the cuML interface and python world
 
 ## Improvements
 
