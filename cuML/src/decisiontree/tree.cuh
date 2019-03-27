@@ -331,7 +331,7 @@ namespace ML {
 				float *temp_data = tempmem[0]->temp_data;
 				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 #endif
-				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, tempmem[0]);
+				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, quantileflag, tempmem[0]);
 			}
 
 
