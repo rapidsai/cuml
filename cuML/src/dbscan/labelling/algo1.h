@@ -89,6 +89,7 @@ void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int sta
 
     MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, batchSize, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
+    cudaStreamSynchronize(stream);
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
     MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, batchSize, stream);
