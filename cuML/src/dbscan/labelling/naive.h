@@ -70,6 +70,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVerte
     //CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*N, stream));
     MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, N, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, N+1, stream);
+    cudaStreamSynchronize(stream);
     size_t adjgraph_size = size_t(host_vd[N]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
     MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, N, stream);
