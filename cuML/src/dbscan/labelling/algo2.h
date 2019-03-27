@@ -163,6 +163,7 @@ void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t st
     MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, sizeof(Type)*N);
     memset(host_map_id.data(), 0, N*sizeof(Type));
     MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    cudaStreamSynchronize(stream);
     sort(host, host_db_cluster.data(), host_db_cluster.data() + N);
     Type *uid = unique(host, host_db_cluster.data(), host_db_cluster.data() + N, equal_to<Type>());
     Type num_clusters = uid - host_db_cluster.data();
