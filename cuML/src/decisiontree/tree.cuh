@@ -231,7 +231,12 @@ namespace ML {
 				if (depth == 0) {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
+
+				int extra_offset = 1;
+#ifdef QUANTILE
+				extra_offset = 0;
+#endif
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
 					      
 				for (int i=0; i<colselector.size(); i++) {
 
