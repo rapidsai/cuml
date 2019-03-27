@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <thrust/scan.h>
-#include <thrust/device_ptr.h>
 #include <thrust/count.h>
 #include <cuda_utils.h>
 #include "pack.h"
@@ -65,7 +63,9 @@ void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_
     while(countFa > 0) {
         bfs_device<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         cudaStreamSynchronize(stream);
-        countFa = count(device, data.fa, data.fa + N, true);
+        ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+        auto execution_policy = thrust::cuda::par(alloc).on(stream);
+        countFa = count(execution_policy, data.fa, data.fa + N, true);
     }
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
     cudaStreamSynchronize(stream);
