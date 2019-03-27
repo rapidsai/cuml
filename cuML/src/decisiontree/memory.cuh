@@ -78,6 +78,9 @@ struct TemporaryMemory
 		totalmem += N*sizeof(int) + n_hist_bytes;
 		
 #ifdef QUANTILE
+		#ifndef SINGLE_COL
+		ASSERT(false, "QUANTILE needs SINGLE_COL defined too!");
+		#endif
 		CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins*sizeof(float)));
 		CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N*sizeof(float)));
 #endif
