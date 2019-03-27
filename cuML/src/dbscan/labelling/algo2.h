@@ -131,7 +131,6 @@ void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId
     do {
         CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) ); 
         label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
-        cudaStreamSynchronize(stream);
         //** swapping F1 and F2
         MLCommon::updateHostAsync(host_fa.data(), data.fa, N, stream);
         MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
