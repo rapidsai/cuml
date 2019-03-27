@@ -20,7 +20,7 @@
 # cython: language_level = 3
 
 
-class CudaRtError(RuntimeError):
+class CudaRuntimeError(RuntimeError):
     def __init__(self, extraMsg=None):
         cdef _Error e = cudaGetLastError()
         cdef bytes errMsg = cudaGetErrorString(e)
@@ -28,7 +28,7 @@ class CudaRtError(RuntimeError):
         msg = "Error! %s reason='%s'" % (errName.decode(), errMsg.decode())
         if extraMsg is not None:
             msg += " extraMsg='%s'" % extraMsg
-        super(CudaRtError, self).__init__(msg)
+        super(CudaRuntimeError, self).__init__(msg)
 
 
 cdef class Stream:
@@ -50,7 +50,7 @@ cdef class Stream:
         cdef _Stream stream;
         cdef _Error e = cudaStreamCreate(&stream)
         if e != 0:
-            raise CudaRtError("Stream create")
+            raise CudaRuntimeError("Stream create")
         self.s = <size_t>stream
 
     def __dealloc__(self):
@@ -58,7 +58,7 @@ cdef class Stream:
         cdef _Stream stream = <_Stream>self.s
         cdef _Error e = cudaStreamDestroy(stream)
         if e != 0:
-            raise CudaRtError("Stream destroy")
+            raise CudaRuntimeError("Stream destroy")
 
     def sync(self):
         """
@@ -68,7 +68,7 @@ cdef class Stream:
         cdef _Stream stream = <_Stream>self.s
         cdef _Error e = cudaStreamSynchronize(stream)
         if e != 0:
-            raise CudaRtError("Stream sync")
+            raise CudaRuntimeError("Stream sync")
 
     def getStream(self):
         return self.s

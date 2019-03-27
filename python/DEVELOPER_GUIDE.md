@@ -22,13 +22,13 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cuML/DEVELO
 5. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
 
 ## Error handling
-If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRtError`. For example:
+If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRuntimeError`. For example:
 ```python
-from cuml.common.cuda import Stream, CudaRtError
+from cuml.common.cuda import Stream, CudaRuntimeError
 try:
     s = Stream()
     s.sync
-except CudaRtError as cre:
+except CudaRuntimeError as cre:
     print("Cuda Error! '%s'" % str(cre))
 ```
 
