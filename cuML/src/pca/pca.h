@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@
 #include <matrix/math.h>
 #include "ml_utils.h"
 #include "tsvd/tsvd.h"
+#include "cuML.hpp"
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 
@@ -69,6 +71,7 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
  * @output param explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
@@ -77,14 +80,11 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFit(math_t *input, math_t *components, math_t *explained_var,
+void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *explained_var,
 		math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
-		math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+		math_t *noise_vars, paramsPCA prms) {
     ///@todo: make this to be passed via the interface
     DeviceAllocator mgr = makeDefaultAllocator();
 
@@ -97,6 +97,9 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 
 	if (prms.n_components > prms.n_cols)
 		prms.n_components = prms.n_cols;
+
+        auto cublas_handle = handle.getCublasHandle();
+        auto cusolver_handle = handle.getcusolverDnHandle();
 
 	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
 
@@ -119,6 +122,7 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 
 /**
  * @brief perform fit and transform operations for the pca. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param trans_input: the transformed data. Size n_rows * n_components.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
@@ -128,23 +132,16 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
  */
 template<typename math_t>
-void pcaFitTransform(math_t *input, math_t *trans_input, math_t *components,
+void pcaFitTransform(const cumlHandle_impl& handle, math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
-		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
-
-	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
-			mu, noise_vars, prms, cublas_handle, cusolver_handle);
-
-	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle);
-
-	signFlip(trans_input, prms.n_rows, prms.n_components, components,
-			prms.n_cols);
+		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms) {
+    pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
+           mu, noise_vars, prms);
+    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
+    signFlip(trans_input, prms.n_rows, prms.n_components, components,
+             prms.n_cols);
 }
 
 // TODO: implement pcaGetCovariance function
@@ -161,19 +158,18 @@ void pcaGetPrecision() {
 
 /**
  * @brief performs inverse transform operation for the pca. Transforms the transformed data back to original data.
+ * @input param handle: the internal cuml handle object
  * @input param trans_input: the data is fitted to PCA. Size n_rows x n_components.
  * @input param components: transpose of the principal components of the input data. Size n_components * n_cols.
  * @input param singular_vals: singular values of the data. Size n_components * 1
  * @input param mu: mean of features (every column).
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 
 template<typename math_t>
-void pcaInverseTransform(math_t *trans_input, math_t *components,
-		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
+		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -190,7 +186,7 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
                                                        prms.n_rows, prms.n_components, true, true);
 	}
 
-	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle);
+	tsvdInverseTransform(trans_input, components, input, prms, handle.getCublasHandle());
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 
 	if (prms.whiten) {
@@ -216,17 +212,16 @@ void pcaScoreSamples() {
 
 /**
  * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @output param trans_input:  the transformed data. Size n_rows * n_components.
  * @input param singular_vals: singular values of the data. Size n_components * 1.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 template<typename math_t>
-void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
-		math_t *singular_vals, math_t *mu, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
+		math_t *singular_vals, math_t *mu, paramsPCA prms) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -244,7 +239,7 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 	}
 
 	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle);
+	tsvdTransform(input, components, trans_input, prms, handle.getCublasHandle());
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
 
 	if (prms.whiten) {
