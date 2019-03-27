@@ -103,27 +103,27 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
    batch_id specifies which question (bin) within the batch  gave the best split.
 */
 float batch_evaluate_gini(const float *column, const int *labels, const int nbins, 
-							const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels, 
-							GiniInfo split_info[3], TemporaryMemory* tempmem) {
-
+			  const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels, 
+			  GiniInfo split_info[3], TemporaryMemory* tempmem, bool qflag) {
+	int threads = 128;
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
 	int n_hists_bytes = sizeof(int) * n_unique_labels * batch_bins;
 	
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, n_hists_bytes, tempmem->stream));
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
-	ASSERT((n_unique_labels <= 128), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
+	ASSERT((n_unique_labels <= threads), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
 	
 	//FIXME TODO: if delta is 0 just go through one batch_bin.
 
 	//Kernel launch
-#ifdef QUANTILE
-	batch_evaluate_quantile_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
-		batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
-#else
-	batch_evaluate_minmax_kernel<<< (int)(nrows /128) + 1, 128, n_hists_bytes, tempmem->stream>>>(column, labels, 
-		nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
-#endif
+	if( qflag) {
+		batch_evaluate_quantile_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
+														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
+	} else {
+		batch_evaluate_minmax_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
+													      nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
+	}
 
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, n_hists_bytes, cudaMemcpyDeviceToHost, tempmem->stream));

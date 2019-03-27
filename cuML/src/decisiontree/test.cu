@@ -60,11 +60,11 @@ int main()
 	cudaMemcpy(d_data,data.data(),N*COLS*sizeof(float),cudaMemcpyHostToDevice);
 	cudaMemcpy(d_labels,labels.data(),N*sizeof(int),cudaMemcpyHostToDevice);
 	cudaMemcpy(rowids,h_rowids,N*sizeof(unsigned int),cudaMemcpyHostToDevice);
-
+	
 	ML::DecisionTree::DecisionTreeClassifier model;
-	model.plant(d_data,COLS,N,d_labels,rowids,N,3,depth);
+	model.plant(d_data,COLS,N,d_labels,rowids,N,3,depth,-1,1.0,8,true);
 	model.print();
-
+	
 	for(int i = 0;i<N;i++)
 		{
 			vector<float> infer_data;
