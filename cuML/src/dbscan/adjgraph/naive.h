@@ -36,6 +36,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*batchSize);
     MLCommon::updateHostAsync(host_adj.data(), data.adj, batchSize*N, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
+    cudaStreamSynchronize(stream);
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
     for(int i=0; i<batchSize; i++) {
