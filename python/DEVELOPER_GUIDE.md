@@ -17,8 +17,9 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cuML/DEVELO
 ## Creating class for a new ML algo
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
 2. Create a corresponding algoName.pyx file inside `python/cuml` folder.
-3. We try to match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
-4. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
+3. Note that the folder structure inside here should reflect sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
+4. We try to match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
+5. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
 
 ## Error handling
 If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRtError`. For example:
