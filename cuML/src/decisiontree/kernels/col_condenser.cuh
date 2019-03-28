@@ -61,11 +61,31 @@ __global__ void get_sampled_column_minmax_kernel(const float *column, float *out
 
 }
 
+__global__ void get_sampled_column_kernel(const float *column, float *outcolumn, const unsigned int* rowids, const int N) {
 
-void get_sampled_column_minmax(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem) {
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+	if (tid < N) {
+		int index = rowids[tid];
+		outcolumn[tid] = column[index];
+	}
+}
+
+/*void get_sampled_column_minmax(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem) {
 
 	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
 	get_sampled_column_minmax_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, tempmem->d_min_max, n_sampled_rows);
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+}*/
+
+void get_sampled_column(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem, const int split_algo) {
+
+	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
+	if (split_algo == 0) { // Histograms
+		get_sampled_column_minmax_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, tempmem->d_min_max, n_sampled_rows);
+	} else { //Global Quantile; split_algo should be 2
+		get_sampled_column_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, n_sampled_rows);
+	}
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 }
 
