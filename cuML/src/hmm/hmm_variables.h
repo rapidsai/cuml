@@ -37,7 +37,7 @@ struct HMM {
         int lddv;
 
         int nFeatures;
-        int *dcumlenghts_inc, *dcumlenghts_exc;
+        unsigned short int *dcumlenghts_inc, *dcumlenghts_exc;
 
         TrainOption train;
         DistOption distOption;

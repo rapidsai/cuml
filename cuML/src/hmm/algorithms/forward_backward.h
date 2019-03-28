@@ -15,8 +15,8 @@
 namespace hmm {
 
 __global__
-void _cumlenghtsKernel(int *dcumlenghts_inc, int *dcumlenghts_exc,
-                       int *dlenghts, int nSeq){
+void _cumlenghtsKernel(unsigned short int *dcumlenghts_inc, unsigned short int *dcumlenghts_exc,
+                       unsigned short int *dlenghts, int nSeq){
         if (threadIdx.x == 0) {
                 dcumlenghts_exc[0] = 0;
                 for (size_t i = 1; i < nSeq; i++) {
@@ -32,8 +32,8 @@ void _cumlenghtsKernel(int *dcumlenghts_inc, int *dcumlenghts_exc,
 
 }
 
-void _compute_cumlengths(int *dcumlenghts_inc, int *dcumlenghts_exc,
-                         int *dlenghts, int nSeq){
+void _compute_cumlengths(unsigned short int *dcumlenghts_inc, unsigned short int *dcumlenghts_exc,
+                         unsigned short int *dlenghts, int nSeq){
         dim3 block(32, 1, 1);
         dim3 grid(1, 1, 1);
         _cumlenghtsKernel<<< grid, block >>>(dcumlenghts_inc, dcumlenghts_exc,
@@ -54,7 +54,7 @@ void _compute_emissions(T* dX,
 
 
 template <typename T>
-void _compute_emissions(int *dX,
+void _compute_emissions(unsigned short int *dX,
                         HMM<T, multinomial::Multinomial<T> > &hmm,
                         cublasHandle_t cublasHandle){
         // Compute the emissions likelihoods B
@@ -90,17 +90,19 @@ T _backward_dot(T* dT, int lddt, T* prevdist, T* nextdB, int nStates, int stateI
 template <typename T>
 __device__
 void sum_llhd(T* dO, int len, T* darray){
+        T sumVal;
         for (size_t i = 0; i < len; i++) {
-                *dO += std :: exp(darray[i]);
+                sumVal += std :: exp(darray[i]);
         }
-        *dO = std::log(*dO);
+        *dO = std::log(sumVal);
 }
 
 template <typename T>
 __global__
 void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
-                            int* dlenghts, int* dcumlengths_inc,
-                            int* dcumlengths_exc,
+                            unsigned short int* dlenghts,
+                            unsigned short int* dcumlengths_inc,
+                            unsigned short int* dcumlengths_exc,
                             T* dLlhd,
                             T* dAlpha, int lddalpha,
                             T* dBeta, int lddbeta,
@@ -108,16 +110,16 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                             T* dT, int lddt,
                             T* dB, int lddb,
                             bool doForward, bool doBackward,
-                            int numThreads_x, int numThreads_y, int numThreads_z){
+                            int numThreads_x, int numThreads_y){
         int stateId_start = threadIdx.x + blockDim.x * blockIdx.x;
         int seqId_start = threadIdx.y + blockDim.y * blockIdx.y;
 
         int obsId;
         T temp;
         for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
-                for (size_t tau = 0; tau < dcumlengths_inc[seqId]; tau++) {
-                        for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
-                                if (doForward) {
+                for (size_t tau = 0; tau < dlenghts[seqId]; tau++) {
+                        if (doForward) {
+                                for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
                                         obsId = dcumlengths_exc[seqId] + tau;
                                         if (tau == 0) {
                                                 dAlpha[IDX(stateId, obsId, lddalpha)] = std::log(dStartProb[stateId]) + dB[IDX(stateId, obsId, lddb)];
@@ -126,21 +128,25 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                                                 temp = _forward_dot(dT, lddt, dAlpha + IDX(0, obsId - 1, lddalpha), nStates, stateId);
                                                 dAlpha[IDX(stateId, obsId, lddalpha)] = dB[IDX(stateId, obsId, lddb)] + temp;
                                         }
-                                        if (tau == dcumlengths_inc[seqId] - 1) {
+                                }
+                                if (threadIdx.x == 0) {
+                                        if (tau == dlenghts[seqId] - 1) {
                                                 // Compute the log likelihoods
                                                 sum_llhd(dLlhd + seqId, nStates,
                                                          dAlpha + IDX(0, obsId, lddalpha));
                                         }
-
                                 }
 
-                                if (doBackward) {
+                        }
+                        if (doBackward) {
+                                for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
                                         obsId = dcumlengths_inc[seqId] - tau - 1;
                                         if (tau == 0) {
                                                 dBeta[IDX(stateId, obsId, lddbeta)] = 0;
                                         }
                                         else{
-                                                dBeta[IDX(stateId, obsId, lddbeta)] = _backward_dot(dT, lddt, dBeta + IDX(0, obsId + 1, lddbeta), dB + IDX(0, obsId + 1, lddb), nStates, stateId);;
+                                                // dBeta[IDX(stateId, obsId, lddbeta)] =obsId;
+                                                dBeta[IDX(stateId, obsId, lddbeta)] = _backward_dot(dT, lddt, dBeta + IDX(0, obsId + 1, lddbeta), dB + IDX(0, obsId + 1, lddb), nStates, stateId);
                                         }
                                 }
 
@@ -151,17 +157,15 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
 
 template <typename T, typename D>
 void _forward_backward(HMM<T, D> &hmm,
-                       int* dlenghts, int nSeq,
+                       unsigned short int* dlenghts, int nSeq,
                        bool doForward, bool doBackward ){
-        dim3 block(32, 1, 1);
-        dim3 grid(1, 1, 1);
-        // dim3 grid(ceildiv(hmm.nStates, (int)block.x),
-        //           ceildiv(nSeq, (int)block.y),
-        //           ceildiv(hmm.nObs, (int)block.z));
+        dim3 block(8, 8);
+        dim3 grid(1, 1);
+        // dim3 grid(ceildiv(nSeq, (int)block.x),
+        //           ceildiv(hmm.nStates, (int)block.y));
 
         int numThreads_x = grid.x * block.x;
         int numThreads_y = grid.y * block.y;
-        int numThreads_z = grid.z * block.z;
 
         _ForwardBackwardKernel<T> <<< grid, block >>>(hmm.nStates, nSeq, hmm.nObs,
                                                       dlenghts, hmm.dcumlenghts_inc,
@@ -173,7 +177,7 @@ void _forward_backward(HMM<T, D> &hmm,
                                                       hmm.dT, hmm.lddt,
                                                       hmm.dB, hmm.lddb,
                                                       doForward, doBackward,
-                                                      numThreads_x, numThreads_y, numThreads_z);
+                                                      numThreads_x, numThreads_y);
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB matrix");
@@ -209,9 +213,9 @@ void _updateGammasKernel(int nObs, int nStates,
 
 template <typename T, typename D>
 void _update_gammas(HMM<T, D> &hmm){
-        dim3 block(32, 1, 1);
-        dim3 grid(ceildiv(hmm.nObs, (int)block.x),
-                  1,
+        dim3 block(16, 16, 1);
+        dim3 grid(16,
+                  16,
                   1);
 
         int numThreads_x = grid.x * block.x;

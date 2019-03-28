@@ -116,9 +116,6 @@ class _BaseHMMBackend:
         cdef bool doBackward = do_backward
         cdef bool doGamma = do_gamma
 
-        # for dist in self.dists :
-        #     dist.init_step()
-
         # if self.dtype is "double" and self.hmm_type is 'gmm':
         #     forward_backward_f64(gmmhmm64,
         #                          <double*> _dX_ptr,
@@ -129,8 +126,8 @@ class _BaseHMMBackend:
 
         if self.precision is "double" and self.hmm_type is 'multinomial':
             forward_backward_mhmm_f64(multinomialhmm64,
-                                      <int*> _dX_ptr,
-                                      <int*> _dlengths_ptr,
+                                      <unsigned short int*> _dX_ptr,
+                                      <unsigned short int*> _dlengths_ptr,
                                       <int> nSeq,
                                       <bool> doForward,
                                       <bool> doBackward,
@@ -156,9 +153,9 @@ class _BaseHMMBackend:
 
         if self.precision is "double" and self.hmm_type is 'multinomial':
             viterbi_mhmm_f64(multinomialhmm64,
-                             <int*> _dVStates_ptr,
-                                      <int*> _dX_ptr,
-                                      <int*> _dlengths_ptr,
+                             <unsigned short int*> _dVStates_ptr,
+                                      <unsigned short int*> _dX_ptr,
+                                      <unsigned short int*> _dlengths_ptr,
                                       <int> nSeq)
 
     def _m_step(self, X, lengths):
@@ -180,6 +177,6 @@ class _BaseHMMBackend:
 
         if self.precision is "double" and self.hmm_type is 'multinomial':
             m_step_mhmm_f64(multinomialhmm64,
-                                      <int*> _dX_ptr,
-                                      <int*> _dlengths_ptr,
+                                      <unsigned short int*> _dX_ptr,
+                                      <unsigned short int*> _dlengths_ptr,
                                       <int> nSeq)

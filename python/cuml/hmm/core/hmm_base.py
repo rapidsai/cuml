@@ -59,15 +59,17 @@ class _DevHMM(ABC):
         return dVStates
 
     def _set_dVStates(self, dVStates):
-        self.dVStates = process_parameter(dVStates[:, None], self.nObs, np.int64)
+        self.dVStates = process_parameter(dVStates[:, None], self.nObs, self.int_type)
 
     _gammas_ = property(_get_gamma, _set_gamma)
     _B_ = property(_get_B, _set_B)
     _llhd = property(_get_llhd, _set_llhd)
     _dVStates_ = property(_get_dVStates, _set_dVStates)
 
+
 class _BaseHMM(_BaseCUML, _DevHMM):
     def __init__(self,
+                 n_components,
                  precision,
                  random_state,
                  init_params,
@@ -80,6 +82,13 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self.init_params = init_params
         self.n_iter = n_iter
 
+        self.n_components = n_components
+
+        if self.n_components > 65535 :
+            raise Exception('The number of states should not exceed 65,535. The value of n_components was: {}'.format(n_components))
+
+        self.int_type = np.uint16
+
     def fit(self, X, lengths=None):
         self._set_dims(X, lengths)
         self._initialize()
@@ -87,7 +96,6 @@ class _BaseHMM(_BaseCUML, _DevHMM):
 
         for step in range(self.n_iter):
             self._forward_backward(X, lengths, True, True, True)
-            # print(self._gammas_)
             self._m_step(X, lengths)
 
     def decode(self, X, lengths=None, algorithm=None):
@@ -109,6 +117,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self._reset()
 
         self._forward_backward(X, lengths, True, True, True)
+        # self._forward_backward(X, lengths, False, False, False)
         return self._gammas_
 
     # @abstractmethod
@@ -182,7 +191,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         if lengths is None:
             lengths = np.array([self.nObs])
         # Check leading dimension
-        lengths = lengths.astype(int)
+        lengths = lengths.astype(self.int_type)
         self.dlengths = cuda.to_device(lengths)
 
         for dist in self.dists :
@@ -198,7 +207,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         Gamma = np.zeros((self.n_components, self.nObs), dtype=self.dtype)
         self._set_gamma(Gamma)
 
-        dVStates = np.zeros(self.nObs, dtype=int)
+        dVStates = np.zeros(self.nObs, dtype=self.int_type)
         self._set_dVStates(dVStates)
 
         Llhd = np.zeros(self.nSeq, dtype=self.dtype)

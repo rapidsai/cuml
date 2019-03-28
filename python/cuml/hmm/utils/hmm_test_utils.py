@@ -27,7 +27,7 @@ class _Sampler(ABC):
         # Sample lengths
         lengths = self._sample_lengths()
 
-        self.model = self._set_model_parameters(self.model)
+        self.model = self._set_model_parameters(self.model, self.random_state)
 
         # Sample the sequences
         samples = [self.model.sample(lengths[sId])[0]
@@ -36,11 +36,11 @@ class _Sampler(ABC):
         lengths = np.array(lengths)
         return samples, lengths
 
-    def sample_startprob(self):
-        return sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
+    def sample_startprob(self, random_state):
+        return sample_matrix(1, self.n_components, random_state, isRowNorm=True)[0]
 
-    def sample_transmat(self):
-        return sample_matrix(self.n_components, self.n_components, self.random_state,
+    def sample_transmat(self, random_state):
+        return sample_matrix(self.n_components, self.n_components, random_state,
                                       isRowNorm=True)
 
 
@@ -58,31 +58,31 @@ class GMMHMMSampler(_Sampler):
                                 n_mix=self.n_mix,
                                 covariance_type=self.covariance_type)
 
-    def _sample_weights(self):
-        weights = [sample_matrix(1, self.n_mix, self.random_state, isRowNorm=True)[0]
+    def _sample_weights(self, random_state):
+        weights = [sample_matrix(1, self.n_mix, random_state, isRowNorm=True)[0]
                       for _ in range(self.n_components)]
         return np.array(weights)
 
-    def _sample_means(self):
-        means = [[sample_matrix(1, self.n_dim, self.random_state)[0]
+    def _sample_means(self, random_state):
+        means = [[sample_matrix(1, self.n_dim, random_state)[0]
                       for _ in range(self.n_mix)]
                       for _ in range(self.n_components)]
         return np.array(means)
 
-    def _sample_covars(self):
-            covars = [[sample_matrix(self.n_dim, self.n_dim, self.random_state, isSymPos=True)
+    def _sample_covars(self, random_state):
+            covars = [[sample_matrix(self.n_dim, self.n_dim, random_state, isSymPos=True)
                       for _ in range(self.n_mix)]
                       for _ in range(self.n_components)]
             return np.array(covars)
 
-    def _set_model_parameters(self, model):
+    def _set_model_parameters(self, model, random_state):
         model.n_features = self.n_dim
 
-        model.startprob_ = self.sample_startprob()
-        model.transmat_ = self.sample_transmat()
-        model.means_ = self._sample_means()
-        model.covars_ = self._sample_covars()
-        model.weights_ = self._sample_weights()
+        model.startprob_ = self.sample_startprob(random_state)
+        model.transmat_ = self.sample_transmat(random_state)
+        model.means_ = self._sample_means(random_state)
+        model.covars_ = self._sample_covars(random_state)
+        model.weights_ = self._sample_weights(random_state)
         return model
 
 
@@ -94,15 +94,14 @@ class MultinomialHMMSampler(_Sampler):
         self.n_components = n_components
         self.n_features = n_features
 
-    def sample_emissionprob(self):
+    def sample_emissionprob(self, random_state):
         return sample_matrix(self.n_components,
                              self.n_features,
-                             self.random_state,
-                                      isRowNorm=True)
+                             random_state,
+                             isRowNorm=True)
 
-    def _set_model_parameters(self, model):
-        model.startprob_ = sample_matrix(1, self.n_components, self.random_state, isRowNorm=True)[0]
-        model.transmat_ = sample_matrix(self.n_components, self.n_components, self.random_state,
-                                      isRowNorm=True)
-        model.emissionprob_ = self.sample_emissionprob()
+    def _set_model_parameters(self, model, random_state):
+        model.startprob_ = self.sample_startprob(random_state)
+        model.transmat_ = self.sample_transmat(random_state)
+        model.emissionprob_ = self.sample_emissionprob(random_state)
         return model

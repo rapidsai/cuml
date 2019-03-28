@@ -40,11 +40,12 @@ T _forward_max(T* dV_prev, T* dT, int lddt, int nStates, int stateId){
 template <typename T>
 __global__
 void _ViterbiKernel(int nStates, int nSeq, int nObs,
-                    int* dlenghts, int* dcumlengths_inc,
-                    int* dcumlengths_exc,
+                    unsigned short int* dlenghts,
+                    unsigned short int* dcumlengths_inc,
+                    unsigned short int* dcumlengths_exc,
                     T* dLlhd,
                     T* dV, int lddv,
-                    int* dVStates,
+                    unsigned short int* dVStates,
                     T* dStartProb, int lddsp,
                     T* dT, int lddt,
                     T* dB, int lddb,
@@ -97,8 +98,8 @@ void _ViterbiKernel(int nStates, int nSeq, int nObs,
 }
 
 template <typename T, typename D>
-void _viterbi(HMM<T, D> &hmm, int* dVStates,
-              int* dlenghts, int nSeq){
+void _viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
+              unsigned short int* dlenghts, int nSeq){
         dim3 block(32, 1, 1);
         dim3 grid(1, 1, 1);
         // dim3 grid(ceildiv(hmm.nStates, (int)block.x),
@@ -120,8 +121,8 @@ void _viterbi(HMM<T, D> &hmm, int* dVStates,
                                               hmm.dT, hmm.lddt,
                                               hmm.dB, hmm.lddb,
                                               numThreads_x, numThreads_y, numThreads_z);
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dV, hmm.lddv, "dV");
-        print_matrix_device(1, hmm.nObs, dVStates, 1, "dVStates");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dV, hmm.lddv, "dV");
+        // print_matrix_device(1, hmm.nObs, dVStates, 1, "dVStates");
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB matrix");
         // print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT matrix");
 

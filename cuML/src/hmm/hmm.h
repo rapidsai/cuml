@@ -62,14 +62,13 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         allocate(hmm.dAlpha, hmm.lddalpha * nObs);
         allocate(hmm.dBeta, hmm.lddbeta * nObs);
         allocate(hmm.dV, hmm.lddv * nObs);
-        // allocate(hmm.dGamma, hmm.lddgamma * nObs);
         allocate(hmm.dcumlenghts_exc, nSeq);
         allocate(hmm.dcumlenghts_inc, nSeq);
 
         // Create Pi array
         allocate(hmm.dPi_array, hmm.nStates);
         T **Pi_array;
-        Pi_array = (T **)malloc(sizeof(T*) * nSeq);
+        Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 Pi_array[stateId] = hmm.dists[stateId].dPis;
         }
@@ -89,9 +88,10 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
 
 template <typename Tx, typename T, typename D>
 void forward_backward(HMM<T, D> &hmm,
-                      Tx* dX, int* dlenghts, int nSeq,
+                      Tx* dX, unsigned short int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
                       bool doForward, bool doBackward, bool doGamma){
+        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
 
         _compute_emissions(dX, hmm, cublasHandle);
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
@@ -100,13 +100,14 @@ void forward_backward(HMM<T, D> &hmm,
         if (doGamma) {
                 _update_gammas(hmm);
         }
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
-
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
+        // // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB");
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
         // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+        // print_matrix_device(1, nSeq, hmm.dLlhd, 1, "dLlhd");
 }
 
 // template <typename T>
@@ -120,8 +121,8 @@ void forward_backward(HMM<T, D> &hmm,
 // }
 
 template <typename Tx, typename T, typename D>
-void viterbi(HMM<T, D> &hmm, int* dVStates,
-             Tx* dX, int* dlenghts, int nSeq,
+void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
+             Tx* dX, unsigned short int* dlenghts, int nSeq,
              cublasHandle_t cublasHandle){
 
         _compute_emissions(dX, hmm, cublasHandle);
@@ -135,12 +136,11 @@ void viterbi(HMM<T, D> &hmm, int* dVStates,
 
 template <typename Tx, typename T, typename D>
 void m_step(HMM<T, D> &hmm,
-            Tx* dX, int* dlenghts, int nSeq,
+            Tx* dX, unsigned short int* dlenghts, int nSeq,
             cublasHandle_t cublasHandle, magma_queue_t queue
             ){
-        print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
         _m_step(hmm, dX);
-
 }
 
 //

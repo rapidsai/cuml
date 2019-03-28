@@ -11,7 +11,7 @@ namespace multinomial {
 template <typename T>
 __global__
 void multinomial_likelihood_batched_kernel(int nObs, int batchCount,
-                                           int* dX,
+                                           unsigned short int* dX,
                                            T** dPb_array,
                                            T* dO, int lddo,
                                            bool isLog,
@@ -39,7 +39,7 @@ void multinomial_likelihood_batched_kernel(int nObs, int batchCount,
 
 template <typename T>
 void multinomial_likelihood_batched(int nObs, int batchCount,
-                                    int* dX,
+                                    unsigned short int* dX,
                                     T** dPb_array,
                                     T* dO, int lddo,
                                     bool isLog){
@@ -61,7 +61,7 @@ void multinomial_likelihood_batched(int nObs, int batchCount,
 }
 
 template <typename T>
-void update_llhd(int* dX, hmm::HMM<T, Multinomial<T> >& hmm, bool isLog){
+void update_llhd(unsigned short int* dX, hmm::HMM<T, Multinomial<T> >& hmm, bool isLog){
         multinomial_likelihood_batched(hmm.nObs,
                                        hmm.nStates,
                                        dX,
@@ -83,7 +83,7 @@ void init_multinomial(Multinomial<T>& multinomial,
 template <typename T>
 __global__
 void m_stepKernel(int nDim, int nObs, int nStates,
-                  int* dX,
+                  unsigned short int* dX,
                   T** dPi_array, T* dGamma, int lddgamma,
                   int nThreads_x){
         int start = threadIdx.x + blockDim.x * blockIdx.x;
@@ -109,7 +109,7 @@ void m_stepKernel(int nDim, int nObs, int nStates,
 }
 
 template <typename T>
-void _m_step(hmm::HMM<T, Multinomial<T> >& hmm, int* dX) {
+void _m_step(hmm::HMM<T, Multinomial<T> >& hmm, unsigned short int* dX) {
 
         dim3 block(32);
         dim3 grid(1, 1, 1);

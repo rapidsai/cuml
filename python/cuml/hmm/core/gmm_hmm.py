@@ -15,12 +15,15 @@ class GMMHMM(_BaseHMM, _BaseHMMBackend):
                  n_iter=10
                  ):
 
-        _BaseHMM.__init__(self, precision=precision,
+        _BaseHMM.__init__(self,
+                          n_components=n_components,
+                          precision=precision,
                           random_state=random_state,
                           init_params=init_params,
                           n_iter=n_iter)
         self.n_components = n_components
         self.n_mix = n_mix
+        self.hmm_type = "gmm"
 
         self.x_type = np.int32
 

@@ -64,14 +64,14 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                             int lddgamma)
 
     cdef void viterbi_mhmm_f64(doubleMultinomialHMM &hmm,
-                                        int* dVStates,
-                                        int* dX,
-                                        int* dlenghts,
+                                        unsigned short int* dVStates,
+                                        unsigned short int* dX,
+                                        unsigned short int* dlenghts,
                                         int nSeq)
 
     cdef void forward_backward_mhmm_f64(doubleMultinomialHMM &hmm,
-                                    int* dX,
-                                    int* dlenghts,
+                                    unsigned short int* dX,
+                                    unsigned short int* dlenghts,
                                     int nSeq,
                                     bool doForward,
                                     bool doBackward,
@@ -83,6 +83,6 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                              double* dLlhd)
 
     cdef void m_step_mhmm_f64(doubleMultinomialHMM &hmm,
-                                        int* dX,
-                                        int* dlenghts,
+                                        unsigned short int* dX,
+                                        unsigned short int* dlenghts,
                                         int nSeq)
