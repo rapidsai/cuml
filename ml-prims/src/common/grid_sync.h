@@ -111,7 +111,7 @@ private:
      */
     DI void markArrived() {
         __syncthreads();
-        if(threadIdx.x == 0) {
+        if(masterThread()) {
             __threadfence();
             atomicAdd(arrivalTracker, updateValue);
             __threadfence();
@@ -125,7 +125,7 @@ private:
      * @note All threads of all threadblocks must call this unconditionally!
      */
     DI void waitForOthers() {
-        if(threadIdx.x == 0) {
+        if(masterThread()) {
             int arrivedBlks = -1;
             volatile int* gmemArrivedBlks = (volatile int*)arrivalTracker;
             do {
@@ -134,6 +134,10 @@ private:
             __threadfence();
         }
         __syncthreads();
+    }
+
+    DI bool masterThread() const {
+        return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0;
     }
 };
 
