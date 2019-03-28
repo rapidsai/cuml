@@ -211,7 +211,7 @@ add_library(cuml SHARED
             src/dbscan/dbscan.cu
             src/kmeans/kmeans.cu
             src/glm/glm.cu
-            src/glm/qn_c.cu
+            src/glm/qn/qn_c.cu
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
             src/common/cumlHandle.cpp

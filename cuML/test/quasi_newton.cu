@@ -1,8 +1,7 @@
 #include "test_utils.h"
-#include <glm/glm_linear.h>
-#include <glm/glm_logistic.h>
-#include <glm/glm_softmax.h>
-#include <glm/lbfgs.h>
+#include <glm/qn/glm_linear.h>
+#include <glm/qn/glm_logistic.h>
+#include <glm/qn/glm_softmax.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <vector>

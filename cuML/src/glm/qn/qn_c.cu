@@ -15,12 +15,12 @@
  */
 
 #include <cstdio>
-#include <glm/glm_base.h>
-#include <glm/glm_linear.h>
-#include <glm/glm_logistic.h>
-#include <glm/glm_regularizer.h>
-#include <glm/glm_softmax.h>
-#include <glm/qn_c.h>
+#include <glm/qn/glm_base.h>
+#include <glm/qn/glm_linear.h>
+#include <glm/qn/glm_logistic.h>
+#include <glm/qn/glm_regularizer.h>
+#include <glm/qn/glm_softmax.h>
+#include <glm/qn/qn_c.h>
 #include <optim/qn_solvers.h>
 
 /*
