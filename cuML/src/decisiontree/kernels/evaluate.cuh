@@ -53,7 +53,7 @@ __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, c
 	__syncthreads();
 	
 	// Merge shared mem histograms to the global memory hist
-	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
 		atomicAdd(&histout[i], shmemhist[i]);
 	}
 
@@ -92,7 +92,7 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
 	__syncthreads();
 	
 	// Merge shared mem histograms to the global memory hist
-	for(int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
 		atomicAdd(&histout[i], shmemhist[i]);
 	}
 	
@@ -117,7 +117,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	//FIXME TODO: if delta is 0 just go through one batch_bin.
 
 	//Kernel launch
-	if( qflag) {
+	if (qflag) {
 		batch_evaluate_quantile_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
 														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
 	} else {
@@ -229,25 +229,23 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 
 	__syncthreads();
 	
-	for(unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x)
-		{
-			int newcolid = (int)(i / nrows);
-			int myrowstart = colids[ newcolid ] * rowoffset;
-			int index = rowids[ i % nrows] + myrowstart;
-			float coldata = data[index];
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int newcolid = (int)(i / nrows);
+		int myrowstart = colids[ newcolid ] * rowoffset;
+		int index = rowids[ i % nrows] + myrowstart;
+		float coldata = data[index];
 
-			atomicMinFloat(&minshared[newcolid], coldata);
-			atomicMaxFloat(&maxshared[newcolid], coldata);
-			sampledcols[i] = coldata;
-		}
+		atomicMinFloat(&minshared[newcolid], coldata);
+		atomicMaxFloat(&maxshared[newcolid], coldata);
+		sampledcols[i] = coldata;
+	}
 
 	__syncthreads();
 	
-	for(int j = threadIdx.x; j < ncols; j+= blockDim.x)
-		{
-			atomicMinFloat(&globalmin[j], minshared[j]);
-			atomicMaxFloat(&globalmax[j], maxshared[j]);
-		}
+	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
+		atomicMinFloat(&globalmin[j], minshared[j]);
+		atomicMaxFloat(&globalmax[j], maxshared[j]);
+	}
 
 	return;
 }
@@ -255,52 +253,47 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
-__global__ void letsdoitall_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout)
-{
+__global__ void all_cols_histograms_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout) {
+
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
 	float *minmaxshared = (float*)shmem;
 	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
 
-	for(int i=threadIdx.x;i<2*ncols;i += blockDim.x)
-		{
-			minmaxshared[i] = globalminmax[i];
-		}
+	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
+		minmaxshared[i] = globalminmax[i];
+	}
 	
-	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x)
-		{
-			shmemhist[i] = 0;
-		}
+	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
+		shmemhist[i] = 0;
+	}
 
 	__syncthreads();
 
-	for(unsigned int i = tid;i < nrows*ncols; i += blockDim.x*gridDim.x)
-		{
-			int mycolid = (int)( i / nrows);
-			int coloffset = mycolid*n_unique_labels*nbins;
-			
-			// nbins is # batched bins. Use (batched bins + 1) for delta computation.
-			float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins + 1);
-			float base_quesval = minmaxshared[mycolid] + delta;
-			
-			float localdata = data[i];
-			int label = labels[ rowids[ i % nrows ] ];
-			for(int j=0;j<nbins;j++)
-				{
-					float quesval = base_quesval + j * delta;
-					if (localdata <= quesval) {
-						atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
-					}
-				}
-			
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int mycolid = (int)( i / nrows);
+		int coloffset = mycolid*n_unique_labels*nbins;
+
+		// nbins is # batched bins. Use (batched bins + 1) for delta computation.
+		float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins + 1);
+		float base_quesval = minmaxshared[mycolid] + delta;
+
+		float localdata = data[i];
+		int label = labels[ rowids[ i % nrows ] ];
+		for (int j=0; j < nbins; j++) {
+			float quesval = base_quesval + j * delta;
+			if (localdata <= quesval) {
+				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+			}
 		}
+
+	}
 	
 	__syncthreads();
 	
-	for(int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x)
-		{
-			atomicAdd(&histout[i], shmemhist[i]);
-		}
+	for (int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x) {
+		atomicAdd(&histout[i], shmemhist[i]);
+	}
 	return;	
 }
 
@@ -311,63 +304,58 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 	int best_bin_id = -1;
 	
 	int n_cols = col_selector.size();
-	for (int col_id = 0; col_id < n_cols; col_id++)
-		{
-			int col_hist_base_index = col_id * nbins * n_unique_labels;			
-			// tempmem->h_histout holds n_cols histograms of nbins of n_unique_labels each.
-			for (int i = 0; i < nbins; i++)
-				{
-					
-					// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
-					// matter as it won't count in the info_gain computation.
-					float tmp_gini_left = 1.0f;
-					float tmp_gini_right = 1.0f;
-					int tmp_lnrows = 0;
-					
-					//separate loop for now to avoid overflow.
-					for (int j = 0; j < n_unique_labels; j++)
-						{
-							int hist_index = i * n_unique_labels + j;
-							tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
-						}
-					int tmp_rnrows = nrows - tmp_lnrows;
+	for (int col_id = 0; col_id < n_cols; col_id++) {
 
-					if(tmp_lnrows == 0 || tmp_rnrows == 0)
-						continue;
-					
-					// Compute gini right and gini left value for each bin.
-					for (int j = 0; j < n_unique_labels; j++)
-						{
-							int hist_index = i * n_unique_labels + j;
-							
-							float prob_left = (float) (tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_lnrows;
-							tmp_gini_left -= prob_left * prob_left;
-							
-							float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_rnrows;
-							tmp_gini_right -=  prob_right * prob_right;
-							
-						}
-					
-					ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
-					ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
-					
-					float impurity = (tmp_lnrows * 1.0f/nrows) * tmp_gini_left + (tmp_rnrows * 1.0f/nrows) * tmp_gini_right;
-					float info_gain = split_info[0].best_gini - impurity;
-					
-					
-					// Compute best information col_gain so far
-					if (info_gain > gain)
-						{
-							gain = info_gain;
-							best_bin_id = i;
-							best_col_id = col_id;
-							split_info[1].best_gini = tmp_gini_left;
-							split_info[2].best_gini = tmp_gini_right;
-						}
-				}
+		int col_hist_base_index = col_id * nbins * n_unique_labels;			
+		// tempmem->h_histout holds n_cols histograms of nbins of n_unique_labels each.
+		for (int i = 0; i < nbins; i++) {
+
+			// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
+			// matter as it won't count in the info_gain computation.
+			float tmp_gini_left = 1.0f;
+			float tmp_gini_right = 1.0f;
+			int tmp_lnrows = 0;
+
+			//separate loop for now to avoid overflow.
+			for (int j = 0; j < n_unique_labels; j++) {
+				int hist_index = i * n_unique_labels + j;
+				tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
+			}
+			int tmp_rnrows = nrows - tmp_lnrows;
+
+			if (tmp_lnrows == 0 || tmp_rnrows == 0)
+				continue;
+
+			// Compute gini right and gini left value for each bin.
+			for (int j = 0; j < n_unique_labels; j++) {
+				int hist_index = i * n_unique_labels + j;
+
+				float prob_left = (float) (tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_lnrows;
+				tmp_gini_left -= prob_left * prob_left;
+
+				float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_rnrows;
+				tmp_gini_right -=  prob_right * prob_right;
+			}
+
+			ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
+			ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
+
+			float impurity = (tmp_lnrows * 1.0f/nrows) * tmp_gini_left + (tmp_rnrows * 1.0f/nrows) * tmp_gini_right;
+			float info_gain = split_info[0].best_gini - impurity;
+
+
+			// Compute best information col_gain so far
+			if (info_gain > gain) {
+				gain = info_gain;
+				best_bin_id = i;
+				best_col_id = col_id;
+				split_info[1].best_gini = tmp_gini_left;
+				split_info[2].best_gini = tmp_gini_right;
+			}
 		}
+	}
 	
-	if(best_col_id == -1 || best_bin_id == -1)
+	if (best_col_id == -1 || best_bin_id == -1)
 		return;
 	
 	split_info[1].hist.resize(n_unique_labels);
@@ -382,7 +370,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 }
 
 //rowoffset appears to be NLocalrows which is nrows. Why?
-void lets_doit_all(const float *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem, GiniInfo split_info[3], GiniQuestion & ques, float & gain)
+void best_split_all_cols(const float *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem, GiniInfo split_info[3], GiniQuestion & ques, float & gain)
 {
 	int* d_colids = tempmem->d_colids;
 	float* d_globalminmax = tempmem->d_globalminmax;
@@ -397,7 +385,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 	
 	unsigned int threads = 512;
 	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
-	if(blocks > 65536)
+	if (blocks > 65536)
 		blocks = 65536;
 	
 	/* Kernel allcolsampler_kernel:
@@ -411,7 +399,7 @@ void lets_doit_all(const float *data, const unsigned int* rowids, const int *lab
 
 	shmemsize = col_minmax_bytes + n_hist_bytes;
 	
-	letsdoitall_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
+	all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
 	CUDA_CHECK(cudaGetLastError());
 	
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));

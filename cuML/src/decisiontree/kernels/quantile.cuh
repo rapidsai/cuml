@@ -20,7 +20,7 @@ template <class type>
 __global__ void get_sampled_column_kernel(const type* __restrict__ column, type *outcolumn, const unsigned int* __restrict__ rowids, const int N) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if(tid < N) {
+	if (tid < N) {
 		int index = rowids[tid];
 		outcolumn[tid] = column[index];
 	}
@@ -43,7 +43,7 @@ void get_sampled_labels(const int *labels, int *outlabels, unsigned int* rowids,
 __global__ void get_quantiles(const float* __restrict__ column, float* quantile, const int nrows, const int nbins) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if(tid < nbins) {		
+	if (tid < nbins) {		
 		int myoff = (int)(nrows/nbins);
 		quantile[tid] = column[(tid+1)*myoff - 1];
 	}	
