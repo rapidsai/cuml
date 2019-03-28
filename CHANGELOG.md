@@ -2,6 +2,10 @@
 
 ## New Features
 
+- PR #405: Quasi-Newton GLM Solvers
+
+## New Features
+
 - PR #277: Added row- and column-wise weighted mean primitive
 
 ## Improvements
