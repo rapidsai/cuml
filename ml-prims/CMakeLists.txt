@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}) # Path to the root of ml-prims project
 set(CMAKE_MODULE_PATH ${MLPRIMS_DIR}/cmake)
 
-find_package(CUDA 8.0 REQUIRED)
+find_package(CUDA 9.0 REQUIRED)
 find_package(OpenMP REQUIRED)
 # TODO: enable this when we are ready!
 #find_package(ClangFormat REQUIRED)
