@@ -15,6 +15,7 @@ bootstrap=false
 test_is_train=false
 #test_is_train=true
 n_bins=8
+use_quantile=false
 
-echo "./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset"
-./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset
+echo "./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset $use_quantile"
+./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset $use_quantile

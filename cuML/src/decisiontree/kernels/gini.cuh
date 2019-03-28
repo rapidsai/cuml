@@ -26,7 +26,7 @@ struct GiniQuestion {
 	int original_column;
 	float value;
 
-	/* 
+	/*
 	   delta = (max - min) /nbins
 	   base_ques_val = min + delta
 	   value = base_ques_val + batch_id * delta.
@@ -57,29 +57,28 @@ struct GiniQuestion {
 
 struct GiniInfo {
 	float best_gini = -1.0f;
-	//std::map<int, int> hist; 
+	//std::map<int, int> hist;
 	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
 
 };
-__global__ void gini_kernel(const int* __restrict__ labels,const int nrows, const int nmax, int* histout)
+__global__ void gini_kernel(const int* __restrict__ labels, const int nrows, const int nmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ unsigned int shmemhist[];
-	if(threadIdx.x < nmax)
+	if (threadIdx.x < nmax)
 		shmemhist[threadIdx.x] = 0;
 	
 	__syncthreads();
 	
-	if(tid < nrows)
-		{
-			int label = labels[tid];
-			atomicAdd(&shmemhist[label],1);			  
-		}
+	if (tid < nrows) {
+		int label = labels[tid];
+		atomicAdd(&shmemhist[label], 1);			 
+	}
 	
 	__syncthreads();
 	
-	if(threadIdx.x < nmax)
-		atomicAdd(&histout[threadIdx.x],shmemhist[threadIdx.x]);
+	if (threadIdx.x < nmax)
+		atomicAdd(&histout[threadIdx.x], shmemhist[threadIdx.x]);
 	
 	return;
 }
@@ -89,17 +88,17 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniI
 	int *hhist = tempmem->h_hist;
 	float gval =1.0;
 	
-	CUDA_CHECK(cudaMemsetAsync(dhist,0,sizeof(int)*unique_labels,tempmem->stream));
-	gini_kernel<<< (int)(nrows/128) + 1, 128,sizeof(int)*unique_labels,tempmem->stream>>>(labels_in,nrows,unique_labels,dhist);
+	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
+	gini_kernel<<< (int)(nrows/128) + 1, 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
 	CUDA_CHECK(cudaGetLastError());
-	CUDA_CHECK(cudaMemcpyAsync(hhist,dhist,sizeof(int)*unique_labels,cudaMemcpyDeviceToHost,tempmem->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));	   
+	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, sizeof(int)*unique_labels, cudaMemcpyDeviceToHost, tempmem->stream));
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));	  
 	
 	split_info.hist.resize(unique_labels, 0);
-	for(int i=0; i < unique_labels; i++) {
+	for (int i=0; i < unique_labels; i++) {
 		split_info.hist[i] = hhist[i]; //update_gini_hist
 		float prob = ((float)hhist[i]) / nrows;
-		gval -= prob*prob; 
+		gval -= prob*prob;
 	}
 	
 	split_info.best_gini = gval; //Update gini val
@@ -107,7 +106,7 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniI
 	return;
 }
 
-/* Compute gini info from parent and left node histograms. On CPU for now. */ 
+/* Compute gini info from parent and left node histograms. On CPU for now. */
 void gini_right_node(const int nrows, GiniInfo & parent_info, GiniInfo & left_node_info, GiniInfo & right_node_info, int & unique_labels, const cudaStream_t stream = 0) {
 
 	float gval = 1.0;
@@ -115,7 +114,7 @@ void gini_right_node(const int nrows, GiniInfo & parent_info, GiniInfo & left_no
 	for (int i = 0; i < unique_labels; i++) {
 	    right_node_info.hist[i] = parent_info.hist[i] - left_node_info.hist[i];	
 		float prob = ((float) right_node_info.hist[i]) / nrows;
-		gval -= prob*prob; 
+		gval -= prob*prob;
 	}
 	right_node_info.best_gini = gval;
 	return;

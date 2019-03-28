@@ -57,7 +57,7 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 		leftflag[tid] = lflag;
 		rightflag[tid] = rflag;
 		
-		if(tid == 0)
+		if (tid == 0)
 			ques_val[0] = local_ques_val;
 		
 	}
@@ -106,7 +106,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	float *question_value = tempmem->question_value;
 	
 #ifdef SINGLE_COL
-	if(qflag) {
+	if (qflag) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
 		

@@ -66,25 +66,24 @@ struct TemporaryMemory
 		
 		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
+
+		int extra_bytes = Ncols * sizeof(float);
 #ifdef SINGLE_COL
-		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N*sizeof(float)));
-		totalmem += N*sizeof(float);
-		if(quantile) {
-			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins*sizeof(float)));
-			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N*sizeof(float)));
-			totalmem += (n_bins+N)*sizeof(float);
-		}
+		extra_bytes = sizeof(float);
+		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N * extra_bytes));
 #else
-		//For lot of temp data
-		CUDA_CHECK(cudaMalloc((void**)&temp_data,sizeof(float)*Ncols*N));
-		totalmem += sizeof(float)*Ncols*N;
-		if(quantile) {
-			CUDA_CHECK(cudaMalloc((void**)&d_quantile, Ncols*n_bins*sizeof(float)));
-			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, Ncols*N*sizeof(float)));
-			totalmem += Ncols*(n_bins+N)*sizeof(float);
+		ASSERT(!quantile, "Quantile based splits not supported for all cols. Compile w/ -DSINGLE_COL.");
+		//For a lot of temp data
+		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
+#endif
+		totalmem += N * extra_bytes;
+
+		if (quantile) {
+			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * extra_bytes));
+			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N * extra_bytes));
+			totalmem += (n_bins + N) * extra_bytes;
 		}
 
-#endif
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
 		totalmem += N*sizeof(int) + n_hist_bytes;
 
@@ -106,15 +105,15 @@ struct TemporaryMemory
 		
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 5*sizeof(float);
 
-		CUDA_CHECK(cudaMallocHost((void**)&h_histout,sizeof(int)*n_bins*n_unique*Ncols));
+		CUDA_CHECK(cudaMallocHost((void**)&h_histout, sizeof(int)*n_bins*n_unique*Ncols));
 		
-		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax,sizeof(float)*Ncols*2));
-		CUDA_CHECK(cudaMalloc((void**)&d_histout,sizeof(int)*n_bins*n_unique*Ncols));
-		CUDA_CHECK(cudaMalloc((void**)&d_colids,sizeof(int)*Ncols));
+		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax, sizeof(float)*Ncols*2));
+		CUDA_CHECK(cudaMalloc((void**)&d_histout, sizeof(int)*n_bins*n_unique*Ncols));
+		CUDA_CHECK(cudaMalloc((void**)&d_colids, sizeof(int)*Ncols));
 		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(float)*Ncols;
 		
 		//Create Streams
-		if(maxstr == 1)
+		if (maxstr == 1)
 			stream = 0;
 		else
 			CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
@@ -138,7 +137,7 @@ struct TemporaryMemory
 		
 		if (d_quantile != NULL)
 			cudaFree(d_quantile);
-		if(d_temp_sampledcolumn != NULL)
+		if (d_temp_sampledcolumn != NULL)
 			cudaFree(d_temp_sampledcolumn);
 
 		cudaFree(sampledlabels);
@@ -159,7 +158,7 @@ struct TemporaryMemory
 		cudaFree(d_histout);
 		cudaFree(d_colids);
 
-		if(stream != 0)
+		if (stream != 0)
 			cudaStreamDestroy(stream);
 	}
 	
