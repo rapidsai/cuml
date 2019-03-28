@@ -70,7 +70,7 @@ conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
 ```
 
 #### Pip
-cuML can also be installed using pip. Select the package based on your version of CUDA.
+cuML can also be installed using pip. Python 3.6 and later is required for pip install. Select the package based on your version of CUDA.
 
 
 ```bash
