@@ -39,6 +39,7 @@ add_executable(mlcommon_test
   eig.cu
   eltwise.cu
   eltwise2d.cu
+  gather.cu
   gemm.cu
   kselection.cu
   map_then_reduce.cu
