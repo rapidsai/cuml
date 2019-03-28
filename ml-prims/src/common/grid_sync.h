@@ -39,6 +39,34 @@ enum SyncType {
  * @note This does NOT provide synchronization across any arbitrary group of
  * threadblocks! Make sure you have read the documentation of SyncType enum to
  * know the list of supported synchronization 'modes'.
+ *
+ * @code{.cu}
+ * __global__ void kernel(void* workspace, SyncType type, ...) {
+ *   GridSync gs(workspace, type);
+ *   // do pre-sync work here
+ *   // ...
+ *   gs.sync();
+ *   // do post-sync work here
+ *   // ...
+ * }
+ *
+ * SyncType type = ACROSS_ALL; // full grid-wide sync
+ * char* workspace;
+ * // allocate the workspace by getting to know the right size needed
+ * size_t workspaceSize = GridSync::computeWorkspaceSize(gridDim, type);
+ * CUDA_CHECK(cudaMalloc((void**)&workspace, workspaceSize);
+ * // before the first usage of this workspace, initialize this to 0
+ * // this is a one-time thing and if you're passing the same workspace
+ * // to the same GridSync object inside the kernel and this workspace is
+ * // exclusive, then subsequent memset calls are not needed
+ * CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
+ * kernel<<<gridDim, blockDim>>>(workspace, type, ...);
+ * CUDA_CHECK(cudaFree(workspace));
+ * @endcode
+ *
+ * @todo Implement the lock-free synchronization approach described in this
+ * paper: https://synergy.cs.vt.edu/pubs/papers/xiao-ipdps2010-gpusync.pdf
+ * Probably cleaner to implement this as a separate class?
  */
 struct GridSync {
     /**
