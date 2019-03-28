@@ -15,6 +15,7 @@
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
 - PR #398: Fix CI scripts to allow nightlies to be uploaded
+- PR #399: Skip PCA tests to allow CI to run with driver 418
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -61,7 +62,7 @@
 - PR #312: Last minute cleanup before release
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
-- PR #342 Change default ABI to ON
+- PR #342: Change default ABI to ON
 
 ## Bug Fixes
 
