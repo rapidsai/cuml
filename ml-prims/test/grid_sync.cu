@@ -35,20 +35,29 @@ __global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
     atomicAdd(out, val);
 }
 
-void gridSyncTest(int* out, dim3 gridDim, dim3 blockDim, SyncType type) {
-    size_t workspaceSize = GridSync::computeWorkspaceSize(gridDim, type);
+struct GridSyncInputs {
+    dim3 gridDim, blockDim;
+    bool checkWorkspaceReuse;
+    SyncType type;
+};
+
+void gridSyncTest(int* out, int* out1, const GridSyncInputs& params) {
+    size_t workspaceSize = GridSync::computeWorkspaceSize(params.gridDim,
+                                                          params.type);
     char* workspace;
     allocate(workspace, workspaceSize);
     CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-    gridSyncTestKernel<<<gridDim, blockDim>>>(workspace, out, type);
+    gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out,
+                                                            params.type);
     CUDA_CHECK(cudaPeekAtLastError());
+    if(params.checkWorkspaceReuse) {
+        CUDA_CHECK(cudaDeviceSynchronize());
+        gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out1,
+                                                                params.type);
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
     CUDA_CHECK(cudaFree(workspace));
 }
-
-struct GridSyncInputs {
-    dim3 gridDim, blockDim;
-    SyncType type;
-};
 
 ::std::ostream &operator<<(::std::ostream &os, const GridSyncInputs &dims) {
     return os;
@@ -59,16 +68,18 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     allocate(out, 1);
-    gridSyncTest(out, params.gridDim, params.blockDim, params.type);
+    allocate(out1, 1);
+    gridSyncTest(out, out1, params);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(out));
+    CUDA_CHECK(cudaFree(out1));
   }
 
 protected:
   GridSyncInputs params;
-  int *out;
+  int *out, *out1;
 };
 
 
@@ -86,23 +97,38 @@ template <typename L>
 
 
 const std::vector<GridSyncInputs> inputs = {
-  {{2, 1, 1}, {32, 1, 1}, ACROSS_ALL},
-  {{2, 1, 1}, {32, 2, 1}, ACROSS_ALL},
-  {{2, 1, 1}, {32, 2, 4}, ACROSS_ALL},
-  {{2, 1, 1}, {32, 1, 1}, ACROSS_X},
-  {{2, 2, 1}, {32, 1, 1}, ACROSS_X},
-  {{2, 2, 2}, {32, 1, 1}, ACROSS_X},
-  {{2, 1, 1}, {32, 2, 1}, ACROSS_X},
-  {{2, 2, 1}, {32, 2, 1}, ACROSS_X},
-  {{2, 2, 2}, {32, 2, 1}, ACROSS_X},
-  {{2, 1, 1}, {32, 2, 4}, ACROSS_X},
-  {{2, 2, 1}, {32, 2, 4}, ACROSS_X},
-  {{2, 2, 2}, {32, 2, 4}, ACROSS_X}};
+  {{2, 1, 1}, {32, 1, 1}, false, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 1}, false, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 4}, false, ACROSS_ALL},
+  {{2, 1, 1}, {32, 1, 1}, true, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 1}, true, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 4}, true, ACROSS_ALL},
+  {{2, 1, 1}, {32, 1, 1}, false, ACROSS_X},
+  {{2, 2, 1}, {32, 1, 1}, false, ACROSS_X},
+  {{2, 2, 2}, {32, 1, 1}, false, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 1}, false, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 1}, false, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 1}, false, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 4}, false, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 4}, false, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 4}, false, ACROSS_X},
+  {{2, 1, 1}, {32, 1, 1}, true, ACROSS_X},
+  {{2, 2, 1}, {32, 1, 1}, true, ACROSS_X},
+  {{2, 2, 2}, {32, 1, 1}, true, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 1}, true, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 1}, true, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 1}, true, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 4}, true, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 4}, true, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 4}, true, ACROSS_X}};
 TEST_P(GridSyncTest, Result) {
   int nblks = params.gridDim.x * params.gridDim.y * params.gridDim.z;
   int nthreads = params.blockDim.x * params.blockDim.y * params.blockDim.z;
   int expected = (nblks * nthreads) + 1;
   ASSERT_TRUE(devArrMatchSingle(out, expected, Compare<int>()));
+  if(params.checkWorkspaceReuse) {
+    ASSERT_TRUE(devArrMatchSingle(out1, expected, Compare<int>()));
+  }
 }
 INSTANTIATE_TEST_CASE_P(GridSyncTests, GridSyncTest, ::testing::ValuesIn(inputs));
 
