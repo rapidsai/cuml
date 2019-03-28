@@ -231,7 +231,7 @@ namespace ML {
 				if (depth == 0) {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-				int extra_offset = (split_algo > 0) ? 0 : 1;
+				int extra_offset = (split_algo != SPLIT_ALGO::HIST) ? 0 : 1;
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
 					      
 				for (int i=0; i<colselector.size(); i++) {
@@ -242,13 +242,11 @@ namespace ML {
 					float *sampledcolumn = tempmem[streamid]->sampledcolumns;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 					
-					if (split_algo > 0) {
-						
+					if (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) {
 						get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
 						// info_gain, local_split_info correspond to the best split
 					} else {
-						
-						get_sampled_column_minmax(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid]);
+						get_sampled_column(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid], split_algo);
 					}
 					int batch_bins = current_nbins - extra_offset;
 					int batch_id = 0;
@@ -263,7 +261,7 @@ namespace ML {
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
-						if (split_algo > 0) {
+						if (split_algo != SPLIT_ALGO::HIST) {
 							float ques_val;
 							float *dqua = tempmem[streamid]->d_quantile;
 							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
@@ -305,7 +303,7 @@ namespace ML {
 				
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
 				current_nbins -= 1;
-				best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain);
+				best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain, split_algo);
 
 			}
 
