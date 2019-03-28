@@ -84,8 +84,8 @@ namespace ML {
 	class rf {
 		protected:
 			int n_trees, n_bins, rf_type;
-			int max_depth, max_leaves; 
-			bool bootstrap, quantile_flag;
+			int max_depth, max_leaves, split_algo; 
+			bool bootstrap;
 			float rows_sample, max_features; // ratio of n_rows used per tree
          	//max_features	number of features to consider per split (default = sqrt(n_cols))
 
@@ -93,7 +93,7 @@ namespace ML {
 		
 		public:
 			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, bool cfg_quantile_flag=false) {
+			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, bool cfg_split_algo=SPLIT_ALGO::HIST) {
 
 					n_trees = cfg_n_trees;
 					max_depth = cfg_max_depth;
@@ -104,7 +104,7 @@ namespace ML {
 					n_bins = cfg_n_bins;
 					rows_sample = cfg_rows_sample;
 					max_features = cfg_max_features;
-					quantile_flag = cfg_quantile_flag;
+					split_algo = cfg_split_algo;
 
 					ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
 					ASSERT((cfg_n_bins > 0), "Invalid n_bins %d", cfg_n_bins);
@@ -153,8 +153,8 @@ namespace ML {
 		public:
 
 		rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, bool cfg_quantile_flag=false) 
-					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_quantile_flag) {};
+						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST)
+					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
 
 
         /** 
@@ -207,7 +207,7 @@ namespace ML {
 					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
 				*/
 				//std::cout << "Fitting tree # " << i << std::endl;
-				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, max_depth, max_leaves, max_features, n_bins, quantile_flag);
+				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, max_depth, max_leaves, max_features, n_bins, split_algo);
 
 				//Cleanup
 				CUDA_CHECK(cudaFree(selected_rows));
