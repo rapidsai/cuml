@@ -10,7 +10,7 @@
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
 - PR #395: Edited the CONTRIBUTING.md file
-
+- PR #407: Test files to run stress, correctness and unit tests for cuml algos
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
