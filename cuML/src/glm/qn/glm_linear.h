@@ -17,7 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
-#include "glm/glm_base.h"
+#include "glm/qn/glm_base.h"
 #include "linalg/binary_op.h"
 #include <matrix/simple_mat.h>
 

@@ -19,7 +19,7 @@
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
 #include <matrix/simple_mat.h>
-#include "glm/glm_base.h"
+#include "glm/qn/glm_base.h"
 
 namespace ML {
 namespace GLM {
