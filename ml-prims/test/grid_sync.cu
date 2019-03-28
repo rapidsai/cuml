@@ -23,8 +23,8 @@ namespace MLCommon {
 
 __global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
     GridSync gs(workspace, type);
-    if(threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0 &&
-       blockIdx.z == 0) {
+    if(threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0 &&
+       blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0) {
         out[0] = 1;
         __threadfence();
     }
@@ -35,19 +35,18 @@ __global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
     atomicAdd(out, val);
 }
 
-void gridSyncTest(int* out, dim3 gridDim, SyncType type) {
-    constexpr int blkDim = 32;
+void gridSyncTest(int* out, dim3 gridDim, dim3 blockDim, SyncType type) {
     size_t workspaceSize = GridSync::computeWorkspaceSize(gridDim, type);
     char* workspace;
     allocate(workspace, workspaceSize);
     CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-    gridSyncTestKernel<<<gridDim, blkDim>>>(workspace, out, type);
+    gridSyncTestKernel<<<gridDim, blockDim>>>(workspace, out, type);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(workspace));
 }
 
 struct GridSyncInputs {
-    dim3 gridDim;
+    dim3 gridDim, blockDim;
     SyncType type;
 };
 
@@ -60,7 +59,7 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     allocate(out, 1);
-    gridSyncTest(out, params.gridDim, params.type);
+    gridSyncTest(out, params.gridDim, params.blockDim, params.type);
   }
 
   void TearDown() override {
@@ -87,12 +86,22 @@ template <typename L>
 
 
 const std::vector<GridSyncInputs> inputs = {
-  {{2, 1, 1}, ACROSS_ALL},
-  {{2, 1, 1}, ACROSS_X},
-  {{2, 2, 1}, ACROSS_X},
-  {{2, 2, 2}, ACROSS_X}};
+  {{2, 1, 1}, {32, 1, 1}, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 1}, ACROSS_ALL},
+  {{2, 1, 1}, {32, 2, 4}, ACROSS_ALL},
+  {{2, 1, 1}, {32, 1, 1}, ACROSS_X},
+  {{2, 2, 1}, {32, 1, 1}, ACROSS_X},
+  {{2, 2, 2}, {32, 1, 1}, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 1}, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 1}, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 1}, ACROSS_X},
+  {{2, 1, 1}, {32, 2, 4}, ACROSS_X},
+  {{2, 2, 1}, {32, 2, 4}, ACROSS_X},
+  {{2, 2, 2}, {32, 2, 4}, ACROSS_X}};
 TEST_P(GridSyncTest, Result) {
-  int expected = (params.gridDim.x * params.gridDim.y * params.gridDim.z * 32) + 1;
+  int nblks = params.gridDim.x * params.gridDim.y * params.gridDim.z;
+  int nthreads = params.blockDim.x * params.blockDim.y * params.blockDim.z;
+  int expected = (nblks * nthreads) + 1;
   ASSERT_TRUE(devArrMatchSingle(out, expected, Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(GridSyncTests, GridSyncTest, ::testing::ValuesIn(inputs));
