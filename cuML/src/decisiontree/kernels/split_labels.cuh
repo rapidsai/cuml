@@ -97,7 +97,7 @@ int get_class_hist(std::vector<int> & node_hist) {
 	return classval;
 }
  
-void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, bool qflag, const TemporaryMemory* tempmem)
+void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const TemporaryMemory* tempmem)
 {
 
 	int *temprowids = tempmem->temprowids;
@@ -106,7 +106,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	float *question_value = tempmem->question_value;
 	
 #ifdef SINGLE_COL
-	if (qflag) {
+	if (split_algo > 0) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
 		
@@ -134,7 +134,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	CUDA_CHECK(cudaMemcpy(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice));
 
 	// Copy GPU-computed question value to tree node.
-	if (!qflag) 
+	if (split_algo == 0) 
 		CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(float), cudaMemcpyDeviceToHost));
 
 	return;

@@ -104,7 +104,7 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
 */
 float batch_evaluate_gini(const float *column, const int *labels, const int nbins, 
 			  const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels, 
-			  GiniInfo split_info[3], TemporaryMemory* tempmem, bool qflag) {
+			  GiniInfo split_info[3], TemporaryMemory* tempmem, int split_algo) {
 	int threads = 128;
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
@@ -117,7 +117,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	//FIXME TODO: if delta is 0 just go through one batch_bin.
 
 	//Kernel launch
-	if (qflag) {
+	if (split_algo > 0) {
 		batch_evaluate_quantile_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
 														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
 	} else {

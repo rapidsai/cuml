@@ -16,6 +16,7 @@
 
 #pragma once
 #include <utils.h>
+#include "algo_helper.h"
 #include "histogram/histogram.cuh"
 #include "kernels/gini.cuh"
 #include "kernels/minmax.cuh"
@@ -86,7 +87,7 @@ namespace ML {
 		class DecisionTreeClassifier
 		{
 		private:
-			bool quantileflag;
+			int split_algo;
 			TreeNode *root = NULL;
 			int nbins;
 			DataInfo dinfo;
@@ -104,15 +105,16 @@ namespace ML {
 			// Expects column major float dataset, integer labels
 			// data, labels are both device ptr.
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, bool quantile_flag = false)
+			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST)
 			{
-				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, quantile_flag);
+				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
 
 			// Same as above fit, but planting is better for a tree then fitting.
-			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, bool quantile_flag = false)
+			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST)
+
 			{
-				quantileflag = quantile_flag;
+				split_algo = split_algo_flag;
 				dinfo.NLocalrows = nrows;
 				dinfo.NGlobalrows = nrows;
 				dinfo.Ncols = ncols;
@@ -124,7 +126,7 @@ namespace ML {
 				n_batch_bins = n_bins;
 
 				for (int i = 0; i<MAXSTREAMS; i++) {
-					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins, quantileflag);
+					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins, split_algo);
 				}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
@@ -229,7 +231,7 @@ namespace ML {
 				if (depth == 0) {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-				int extra_offset = quantileflag ? 0 : 1;
+				int extra_offset = (split_algo > 0) ? 0 : 1;
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
 					      
 				for (int i=0; i<colselector.size(); i++) {
@@ -240,7 +242,7 @@ namespace ML {
 					float *sampledcolumn = tempmem[streamid]->sampledcolumns;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 					
-					if (quantileflag) {
+					if (split_algo > 0) {
 						
 						get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
 						// info_gain, local_split_info correspond to the best split
@@ -254,14 +256,14 @@ namespace ML {
 					
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-									      &local_split_info[0], tempmem[streamid], quantileflag);
+									      &local_split_info[0], tempmem[streamid], split_algo);
 					
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
 					// Find best info across batches
 					if (info_gain > gain) {
 						gain = info_gain;
-						if (quantileflag) {
+						if (split_algo > 0) {
 							float ques_val;
 							float *dqua = tempmem[streamid]->d_quantile;
 							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
@@ -317,7 +319,7 @@ namespace ML {
 				float *temp_data = tempmem[0]->temp_data;
 				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 #endif
-				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, quantileflag, tempmem[0]);
+				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, split_algo, tempmem[0]);
 			}
 
 

@@ -106,15 +106,15 @@ void parse_csv(string dataset_name, int n_cols, std::vector<float> & data, std::
 
 struct RF_inputs {
 	int n_rows, n_cols, n_inference_rows;
-	int n_trees, max_depth, max_leaves, n_bins;
+	int n_trees, max_depth, max_leaves, n_bins, split_algo;
 	float max_features, rows_sample, train_ratio;
-	bool bootstrap, test_is_train, quantile_flag;
+	bool bootstrap, test_is_train;
 	string dataset;
 
 	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features, 
 			  	float cfg_rows_sample, float cfg_train_ratio, int cfg_max_depth, 
 				int cfg_max_leaves, bool cfg_bootstrap, bool cfg_test_is_train, int cfg_n_bins,
-				string cfg_dataset, bool cfg_quantile_flag) {
+				string cfg_dataset, int cfg_split_algo) {
 
 		train_ratio = cfg_train_ratio;
 		test_is_train = cfg_test_is_train;
@@ -130,7 +130,7 @@ struct RF_inputs {
 		n_inference_rows = test_is_train ? cfg_n_rows : (1.0f -train_ratio) * cfg_n_rows;
 		n_bins = cfg_n_bins;
 		dataset = cfg_dataset;
-		quantile_flag = cfg_quantile_flag;
+		split_algo = cfg_split_algo;
 
 		if (dataset == "higgs") {
 			n_cols = 28;
@@ -141,7 +141,9 @@ struct RF_inputs {
 			exit(1);
 		}
 
-		cout << "Dataset " << dataset << ", train ratio " << train_ratio << " test_is_train " << test_is_train << ", n_rows " << n_rows << ", n_cols " << n_cols << " n_trees " << n_trees << " col_per " << max_features << " row_per " << rows_sample << " max_depth " << max_depth << " max_leaves " << max_leaves  << " bootstrap " << bootstrap << " n_inference_rows " << n_inference_rows << " n_bins " << n_bins << " use quantile " << quantile_flag << endl;
+		ASSERT((split_algo >= 0) && (split_algo < 3), "Unsupported split_algo %d option. Not in [0, 2].", split_algo);
+
+		cout << "Dataset " << dataset << ", train ratio " << train_ratio << " test_is_train " << test_is_train << ", n_rows " << n_rows << ", n_cols " << n_cols << " n_trees " << n_trees << " col_per " << max_features << " row_per " << rows_sample << " max_depth " << max_depth << " max_leaves " << max_leaves  << " bootstrap " << bootstrap << " n_inference_rows " << n_inference_rows << " n_bins " << n_bins << " split_algo " << split_algo << endl;
 	}
 
 };
@@ -161,7 +163,7 @@ int main(int argc, char **argv) {
 		- test_is_train (otherwise 80% of rows is used for training and 20% for testing)
 		- n_bins
 		- dataset name
-		- quantile_flag
+		- split_algo
 	*/
 
 	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
@@ -170,7 +172,7 @@ int main(int argc, char **argv) {
 		cout << "Error! 13 args are needed\n";
 		return 0;
 	}
-	RF_inputs params(stoi(argv[1]), stoi(argv[2]), stoi(argv[3]), stof(argv[4]), stof(argv[5]), stof(argv[6]), stoi(argv[7]), stoi(argv[8]), (strcmp(argv[9], "true") == 0), (strcmp(argv[10], "true") == 0), stoi(argv[11]), argv[12], strcmp(argv[13], "true") == 0);
+	RF_inputs params(stoi(argv[1]), stoi(argv[2]), stoi(argv[3]), stof(argv[4]), stof(argv[5]), stof(argv[6]), stoi(argv[7]), stoi(argv[8]), (strcmp(argv[9], "true") == 0), (strcmp(argv[10], "true") == 0), stoi(argv[11]), argv[12], stoi(argv[13]));
 
 	float * input_data;
 	int * input_labels;
@@ -196,7 +198,7 @@ int main(int argc, char **argv) {
 
 	// Classify input_dataset
 	ML::rfClassifier * rf_classifier;
- 	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.quantile_flag);
+ 	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo);
 	cout << "Called RF constructor\n";
 	//rf_classifier->fit(input_data, params.n_rows, params.n_cols, input_labels);
 

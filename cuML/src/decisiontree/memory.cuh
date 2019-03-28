@@ -59,7 +59,7 @@ struct TemporaryMemory
 	float *d_quantile = NULL;
 	float *d_temp_sampledcolumn = NULL; 
 	
-	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const bool quantile)
+	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
 	{
 
 		int n_hist_bytes = n_unique * n_bins * sizeof(int);
@@ -72,13 +72,13 @@ struct TemporaryMemory
 		extra_bytes = sizeof(float);
 		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N * extra_bytes));
 #else
-		ASSERT(!quantile, "Quantile based splits not supported for all cols. Compile w/ -DSINGLE_COL.");
+		ASSERT(split_algo == 0, "Quantile based splits not supported for all cols. Compile w/ -DSINGLE_COL.");
 		//For a lot of temp data
 		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
 #endif
 		totalmem += N * extra_bytes;
 
-		if (quantile) {
+		if (split_algo > 0) {
 			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * extra_bytes));
 			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N * extra_bytes));
 			totalmem += (n_bins + N) * extra_bytes;
