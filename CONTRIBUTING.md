@@ -58,11 +58,11 @@ The cuML repository has two main branches:
     
 ### Additional details
 
-There is a new cuML branch called 'branch-0.7', where we will be merging the PRs before the next release. The exceptions to this are the 'hotfixes' which target the issues raised by the Github users and are directly merged to the Master branch. While trying to path an issue which requires a 'hotfix', please state the intent in the PR. A few days before release the current development branch (branch-0.7) will freeze and a new branch, 'branch-0.8' will be created to continue merges.
+There is a new cuML branch called 'branch-0.7', where we will be merging the PRs before the next release. The exceptions to this are the 'hotfixes' which target the issues raised by the Github users and are directly merged to the Master branch. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. The solution of non-hotfix issues, your development should be pushed into your branch (created using the naming instructions below) and then create a merge request when the code is ready. A few days before release the current development branch (branch-0.7) will freeze and a new branch, 'branch-0.8' will be created to continue merges.
 
 ### Steps for feature development
 
-1. Create a new branch based on `branch-x.y` named following the format `<type>-<ext>-<name>`
+1. Create a new branch based on `branch-x.y` named following the format `<type>-<name>`
     - Type: 
         - fea - For if the branch is for a new feature(s)
         - enh - For if the branch is an enhancement of an existing feature(s)
@@ -70,24 +70,8 @@ There is a new cuML branch called 'branch-0.7', where we will be merging the PRs
     - Name: 
         - A name to convey what is being worked on
         - Please use dashes or underscores between words as opposed to spaces.
-    
-2. Push whatever development you do to this branch as you would normally and when ready for review create a merge request to the appropriate branch
 
-3. Link your code reviewer to the merge request for them to review, if unsure who should review the code, contact the relevant PIC who will either review themselves or delegate the review down to someone else:
-
-    - cuML/C++ - @Onur Yilmaz (temporary)
-    - Cython/Python - @Dante Gama Dessavre
-
-Also, add a line to the `changelog.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. This will be compulsory once GPUCI is fully integrated into the repository.
-
-4. If changes are requested to the pull request from the community repeat step 3, and when the review is completed push to your public fork to update the code for the pull request
-
-5. When the pull request is merged into the public repository master it will automatically get pulled into our internal `branch-x.y` and `nvidia` branches
-
-6. Close the merge request on the internal repository
-
-7. Delete your development branch unless you have plans to further extend it in the future
-
+2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML CI will require this change before a pull request can be merged
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
