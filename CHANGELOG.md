@@ -15,7 +15,7 @@
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
 - PR #399: Skip PCA tests to allow CI to run with driver 418
-- PR #405: Add entry to gitmodules to ignore build artifacts
+- PR #409: Add entry to gitmodules to ignore build artifacts
 
 # cuML 0.6.0 (22 Mar 2019)
 
