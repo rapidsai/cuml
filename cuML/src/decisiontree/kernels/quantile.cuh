@@ -16,6 +16,9 @@
 
 #pragma once
 #include <thrust/sort.h>
+#include "cub/cub.cuh"
+#include "col_condenser.cuh"
+
 template <class type>
 __global__ void get_sampled_column_kernel(const type* __restrict__ column, type *outcolumn, const unsigned int* __restrict__ rowids, const int N) {
 
@@ -44,8 +47,8 @@ __global__ void get_quantiles(const float* __restrict__ column, float* quantile,
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nbins) {		
-		int myoff = (int)(nrows/nbins);
-		quantile[tid] = column[(tid+1)*myoff - 1];
+		int binoff = (int)(nrows/nbins);
+		quantile[tid] = column[ (tid + 1) * binoff - 1];
 	}	
 	return;
 }
@@ -63,4 +66,62 @@ void get_sampled_column_quantile(const float *column, float *outcolumn, unsigned
 	get_quantiles<<< (int)(nbins/threads) + 1, threads, 0, tempmem->stream >>>(temp_sampcol, tempmem->d_quantile, n_sampled_rows, nbins);
 	
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	return;
+}
+
+__global__ void set_sorting_offset(const int nrows, const int ncols, int* offsets) {
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	if (tid <= ncols) 
+		offsets[tid] = tid*nrows;
+	
+	return;
+}
+__global__ void get_all_quantiles(const float* __restrict__ data, float* quantile, const int nrows, const int ncols, const int nbins) {
+
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	if (tid < nbins*ncols) {		
+		int binoff = (int)(nrows/nbins);
+		int coloff = (int)(tid/nbins) * nrows;
+		quantile[tid] = data[ ( (tid%nbins) + 1 ) * binoff - 1 + coloff];
+	}	
+	return;
+}
+	
+void preprocess_quantile(const float* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, TemporaryMemory* tempmem) {
+
+	int threads = 128;
+	int  num_items = n_sampled_rows;
+	int  num_segments = ncols;
+	int  *d_offsets;         
+	float  *d_keys_in = tempmem->temp_data;         
+	float  *d_keys_out;        
+	int *colids = NULL;
+
+	CUDA_CHECK(cudaMalloc((void**)&d_offsets,(ncols+1)*sizeof(int)));
+	CUDA_CHECK(cudaMalloc((void**)&d_keys_out,ncols*n_sampled_rows*sizeof(float)));
+	
+	int blocks = (int) ( (ncols * n_sampled_rows) / threads) + 1;
+	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in);
+	blocks = (int)((ncols+1)/threads) + 1;
+	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets);
+
+	// Determine temporary device storage requirements
+	void     *d_temp_storage = NULL;
+	size_t   temp_storage_bytes = 0;
+	cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
+						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(float), tempmem->stream);
+	// Allocate temporary storage
+	CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+	// Run sorting operation
+	cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
+						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(float), tempmem->stream);
+
+	blocks = (int)( (ncols*nbins) / threads) + 1;
+	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile, n_sampled_rows, ncols, nbins);
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	CUDA_CHECK(cudaFree(d_keys_out));
+	CUDA_CHECK(cudaFree(d_offsets));
+	CUDA_CHECK(cudaFree(d_temp_storage));
+
+	return;
 }
