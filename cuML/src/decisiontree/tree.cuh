@@ -305,8 +305,9 @@ namespace ML {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows+1 : nbins;
-				current_nbins -= 1;
+				int extra_offset = (split_algo != SPLIT_ALGO::HIST) ? 0 : 1;
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
+
 				best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain, split_algo);
 
 			}
