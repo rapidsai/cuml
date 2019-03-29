@@ -12,10 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+
+"""
+Please install UMAP before running the code 
+use 'conda install -c conda-forge umap-learn' command to install it
+"""
+
 import pytest
+from cuml.test.utils import array_equal
 
-from cuml.manifold.umap import UMAP
-
+from cuml.manifold.umap import UMAP as UMAP_cuml
+import umap
 import cudf
 import pandas as pd
 import numpy as np
@@ -23,7 +32,7 @@ from sklearn import datasets
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
-
+from sklearn.datasets.samples_generator import make_blobs
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
@@ -41,18 +50,24 @@ def test_umap_fit_transform_score(run_stress, run_correctness_test):
         n_samples = 500
         n_features = 10
 
-    data, labels = datasets.make_blobs(n_samples=n_samples, n_features=n_features, centers=10, random_state=42)
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features, centers=10, random_state=42)
 
-    model = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+    model = umap.UMAP(n_neighbors=10, min_dist=0.1)
+    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
 
     embedding = model.fit_transform(data)
-    
-    score = adjusted_rand_score(labels,
-                                KMeans(10).fit_predict(embedding))
-    assert score == 1.0
+    cuml_embedding = cuml_model.fit_transform(data)
+
+    cuml_score = adjusted_rand_score(labels,
+                                KMeans(10).fit_predict(cuml_embedding))
+    score = adjusted_rand_score(labels, 
+                                KMeans(10).fit_predict(cuml_embedding))
+
+
+    assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_umap_fit_transform_trust(name):
+def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
 
     if name == 'iris':
         iris = datasets.load_iris()
@@ -68,13 +83,18 @@ def test_umap_fit_transform_trust(name):
         wine = datasets.load_wine()
         data = wine.data
         labels = wine.target
-    
-    model = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+    else:
+        data, labels = make_blobs(n_samples=5000, n_features=100, centers=10, random_state=42)
 
+    model = umap.UMAP(n_neighbors=10, min_dist=0.01)
+    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
     embedding = model.fit_transform(data)
+    cuml_embedding = cuml_model.fit_transform(data)
     
     trust = trustworthiness(data, embedding, 10)
-    assert trust >= 0.96
+    cuml_trust = trustworthiness(data, cuml_embedding, 10)
+
+    assert array_equal(trust, cuml_trust, 1e-2, with_sign=True)
 
 
 @pytest.mark.parametrize('should_downcast', [True, False])
@@ -95,7 +115,7 @@ def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctn
         digits = datasets.load_digits(n_class=9)
         X = digits["data"].astype(dtype)
 
-    umap = UMAP(n_neighbors=3, n_components=2,
+    umap = UMAP_cuml(n_neighbors=3, n_components=2,
                 should_downcast=should_downcast)
 
     if input_type == 'dataframe':
@@ -123,7 +143,7 @@ def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
         X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
-    umap = UMAP(should_downcast=False)
+    umap = UMAP_cuml(should_downcast=False)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
@@ -133,7 +153,7 @@ def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
     # Test fit() fails when downcast corrupted data
     X = np.array([[np.finfo(np.float32).max]], dtype=np.float64)
 
-    umap = UMAP(should_downcast=True)
+    umap = UMAP_cuml(should_downcast=True)
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
