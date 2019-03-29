@@ -3,7 +3,7 @@
 dataset="higgs"
 #dataset="airline"
 cols=28 #Note doesn't matter will be fixed in tmp_rf_testing
-rows=10000
+rows=1000000
 trees=1
 col_per=1.0
 row_per=1.0
@@ -15,7 +15,7 @@ bootstrap=false
 test_is_train=false
 #test_is_train=true
 n_bins=8
-split_algo=0 #0 means hist, 1 means local quantile (i.e., per node split), 2 means global quantiles
+split_algo=2 #0 means hist, 1 means local quantile (i.e., per node split), 2 means global quantiles
 
 echo "./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset $split_algo"
 ./tmp_rf_testing $rows $cols $trees $col_per $row_per $train_ratio $max_depth $max_leaves $bootstrap $test_is_train $n_bins $dataset $split_algo

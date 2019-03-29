@@ -93,7 +93,7 @@ namespace ML {
 		
 		public:
 			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, bool cfg_split_algo=SPLIT_ALGO::HIST) {
+			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST) {
 
 					n_trees = cfg_n_trees;
 					max_depth = cfg_max_depth;
