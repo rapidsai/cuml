@@ -127,6 +127,9 @@ namespace ML {
 
 				for (int i = 0; i<MAXSTREAMS; i++) {
 					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins, split_algo);
+					if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
+						preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins, tempmem[i]);
+					}
 				}
 				total_temp_mem = tempmem[0]->totalmem;
 				total_temp_mem *= MAXSTREAMS;
