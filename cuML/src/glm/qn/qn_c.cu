@@ -21,7 +21,7 @@
 #include <glm/qn/glm_regularizer.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn_c.h>
-#include <optim/qn_solvers.h>
+#include <glm/qn/qn_solvers.h>
 
 /*
  * Implementation of the quasi newton C api
