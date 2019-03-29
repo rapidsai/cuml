@@ -24,13 +24,13 @@ namespace MLCommon {
 namespace Selection {
 
 template <typename T>
-  std::vector<int> sort_indexes(const vector<T> &v) {
+  std::vector<int>* sort_indexes(const vector<T> &v) {
   // initialize original index locations
-  std::vector<int> idx(v.size());
-  std::iota(idx.begin(), idx.end(), 0);
+  std::vector<int> *idx = new std::vector<int>(v.size());
+  std::iota((*idx).begin(), (*idx).end(), 0);
 
   // sort indexes based on comparing values in v
-  std::sort(idx.begin(), idx.end(), [&v](int i1, int i2) {return v[i1] < v[i2]; });
+  std::sort((*idx).begin(), (*idx).end(), [&v](int i1, int i2) {return v[i1] < v[i2]; });
   return idx;
 }
 
@@ -64,37 +64,43 @@ protected:
     for (int i = 0; i < params.n_row; i++) {
       std::vector<T> tmp(vals.begin() + i*params.n_col, vals.begin() + (i+1)*params.n_col);
       auto cpuOut = sort_indexes(tmp);
-
-      std::copy(cpuOut.begin(), cpuOut.end(), cGolden.begin() + i*params.n_col);
+      std::copy((*cpuOut).begin(), (*cpuOut).end(), cGolden.begin() + i*params.n_col);
+      delete cpuOut;
     }
-    
+
     updateDevice(in, &vals[0], len);
     updateDevice(golden, &cGolden[0], len);
 
-    sortColumnsPerRow(in, out, params.n_row, params.n_col, false, false, NULL, 0);
-    //CUDA_CHECK(cudaDeviceSynchronize());
-
-    // T *dbg = (T *)malloc(len * sizeof(T));
-    // CUDA_CHECK(cudaMemcpy(dbg, in, len*sizeof(T), cudaMemcpyDeviceToHost));
-    // int *dbg = (int *)malloc(len * sizeof(int));
-    // CUDA_CHECK(cudaMemcpy(dbg, out, len*sizeof(int), cudaMemcpyDeviceToHost));
-    // for (int i = 0; i < params.n_col; i++)
-    //   std::cout << dbg[i] << " " << cGolden[i] << std::endl;
+    bool isColumnMajor = false;
+    bool needWorkspace = false;
+    size_t workspaceSize = 0;
+    sortColumnsPerRow(in, out, params.n_row, params.n_col, isColumnMajor, needWorkspace, NULL, workspaceSize);
+    if (needWorkspace) {
+      allocate(workspacePtr, workspaceSize);
+      sortColumnsPerRow(in, out, params.n_row, params.n_col, isColumnMajor, needWorkspace, 
+                            workspacePtr, workspaceSize);
+    }    
 }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(out));
     CUDA_CHECK(cudaFree(golden));
+    if (!workspacePtr)
+      CUDA_CHECK(cudaFree(workspacePtr));
 }
 
 protected:
   columnSort<T> params;
   T *in;
   int *out, *golden;
+  char *workspacePtr=NULL;
 };
 
-const std::vector<columnSort<float>> inputsf2 = {{0.000001f, 1024, 5000}};
+const std::vector<columnSort<float>> inputsf1 = {
+  {0.000001f, 503, 2000},
+  {0.000001f, 128, 20000},
+  {0.000001f, 128, 100000}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
@@ -103,8 +109,7 @@ ASSERT_TRUE(devArrMatch(out, golden, params.n_row * params.n_col,
 }
 
 INSTANTIATE_TEST_CASE_P(ColumnSortTests, ColumnSortF,
-                ::testing::ValuesIn(inputsf2));
-
+                ::testing::ValuesIn(inputsf1));
 
 } // end namespace Selection
 } // end namespace MLCommon
