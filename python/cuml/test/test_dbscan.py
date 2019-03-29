@@ -16,13 +16,12 @@
 import pytest
 from cuml import DBSCAN as cuDBSCAN
 from sklearn.cluster import DBSCAN as skDBSCAN
-from sklearn.datasets.samples_generator import make_blobs
-import pandas as pd
 import cudf
 import numpy as np
-from sklearn.preprocessing import StandardScaler
-from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
+from sklearn.preprocessing import StandardScaler
+
+from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
                  'no_structure']
@@ -30,77 +29,72 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_dbscan_predict(datatype, input_type, run_stress, run_correctness_test):
+def test_dbscan_predict(datatype, input_type):
 
-    n_samples = 10000
-    n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
-
-    if run_correctness_test==True:
-        X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
-
-    else:
-        X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
+    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                  dtype=datatype)
-
-    skdbscan = skDBSCAN(eps=3, min_samples=10)
+    skdbscan = skDBSCAN(eps=3, min_samples=2)
     sk_labels = skdbscan.fit_predict(X)
 
-    cudbscan = cuDBSCAN(eps=3, min_samples=10)
+    cudbscan = cuDBSCAN(eps=3, min_samples=2)
 
     if input_type == 'dataframe':
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X) 
-        cu_labels = cudbscan.fit_predict(X_cudf)
+        gdf = cudf.DataFrame()
+        gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
+        gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
+        cu_labels = cudbscan.fit_predict(gdf)
     else:
         cu_labels = cudbscan.fit_predict(X)
 
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
 
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+def test_dbscan_predict_numpy(datatype):
+    gdf = cudf.DataFrame()
+    gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
+    gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
+
+    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
+                 dtype=datatype)
+
+    print("Calling fit_predict")
+    cudbscan = cuDBSCAN(eps=3, min_samples=2)
+    cu_labels = cudbscan.fit_predict(gdf)
+    skdbscan = skDBSCAN(eps=3, min_samples=2)
+    sk_labels = skdbscan.fit_predict(X)
+    print(X.shape[0])
+    for i in range(X.shape[0]):
+        assert cu_labels[i] == sk_labels[i]
+
+
 @pytest.mark.parametrize("name", [
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
 @pytest.mark.stress
-def test_dbscan_sklearn_comparison(name, run_stress, run_correctness_test):
+def test_dbscan_sklearn_comparison(name):
 
     # Skipping datasets of known discrepancies in PR83 while they are corrected
-
     default_base = {'quantile': .3,
                     'eps': .3,
                     'damping': .9,
                     'preference': -200,
                     'n_neighbors': 10,
-                    'n_clusters': 20}
-    n_samples = 10000
-    n_feats = 50
-    if run_stress==True:
-        pat = get_pattern(name, n_samples*50)
-        params = default_base.copy()
-        params.update(pat[1])
-        train_rows = np.int32(n_samples*8)
-        X, y = pat[0]
+                    'n_clusters': 3}
 
-    if run_correctness_test==True:
-        pat = get_pattern(name, n_samples)
-        params = default_base.copy()
-        params.update(pat[1])
-        train_rows = np.int32(n_samples*0.8)
-        #pdb.set_trace()
-        X, y = pat[0] 
+    pat = get_pattern(name, 1500)
 
-    else:
-        pat = get_pattern(name, np.int32(n_samples/2))
-        params = default_base.copy()
-        params.update(pat[1])
-        X, y = pat[0]
-
-    X = StandardScaler().fit_transform(X)
+    params = default_base.copy()
+    params.update(pat[1])
 
     dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
 
     clustering_algorithms = (
         ('sk_DBSCAN', dbscan),
