@@ -19,8 +19,9 @@
 #include "gini.cuh"
 #include "../memory.cuh"
 #include "atomic_minmax.h"
+#include "col_condenser.cuh"
 #include <float.h>
-#include <cooperative_groups.h>
+
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
 __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
@@ -250,18 +251,6 @@ __global__ void allcolsampler_minmax_kernel(const float* __restrict__ data, cons
 	return;
 }
 
-__global__ void allcolsampler_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* sampledcols)
-{
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
-	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-		int newcolid = (int)(i / nrows);
-		int myrowstart = colids[ newcolid ] * rowoffset;
-		int index = rowids[ i % nrows] + myrowstart;
-		sampledcols[i] = data[index];
-	}
-}
-
 
 /* 
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
@@ -455,7 +444,7 @@ void best_split_all_cols(const float *data, const unsigned int* rowids, const in
 	if (split_algo == 0) { // Histograms (min, max)
 		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data);
 	} else if (split_algo == 2) { // Global quantiles; just col condenser
-		allcolsampler_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
+		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
 	}
 	CUDA_CHECK(cudaGetLastError());
 

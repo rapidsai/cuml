@@ -58,7 +58,7 @@ __global__ void get_sampled_column_minmax_kernel(const float *column, float *out
 		atomicMinFloat(&col_min_max[0], shmem_min_max[0]);
 		atomicMaxFloat(&col_min_max[1], shmem_min_max[1]);
 	}
-
+	return;
 }
 
 __global__ void get_sampled_column_kernel(const float *column, float *outcolumn, const unsigned int* rowids, const int N) {
@@ -69,6 +69,7 @@ __global__ void get_sampled_column_kernel(const float *column, float *outcolumn,
 		int index = rowids[tid];
 		outcolumn[tid] = column[index];
 	}
+	return;
 }
 
 /*void get_sampled_column_minmax(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem) {
@@ -77,6 +78,25 @@ __global__ void get_sampled_column_kernel(const float *column, float *outcolumn,
 	get_sampled_column_minmax_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, tempmem->d_min_max, n_sampled_rows);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 }*/
+
+
+__global__ void allcolsampler_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* sampledcols)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int newcolid = (int)(i / nrows);
+		int myrowstart;
+		if( colids != NULL)
+			myrowstart = colids[ newcolid ] * rowoffset;
+		else
+			myrowstart = newcolid * rowoffset;
+		
+		int index = rowids[ i % nrows] + myrowstart;
+		sampledcols[i] = data[index];
+	}
+	return;
+}
 
 void get_sampled_column(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem, const int split_algo) {
 
@@ -87,6 +107,7 @@ void get_sampled_column(const float *column, float *outcolumn, unsigned int* row
 		get_sampled_column_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, n_sampled_rows);
 	}
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	return;
 }
 
 
