@@ -45,7 +45,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	math_t *S, *V, *U;
 	math_t *UT_b;
 
-	int U_len = n_rows * n_rows;
+	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
 	allocate(U, U_len);
@@ -53,11 +53,10 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(S, n_cols);
 	allocate(UT_b, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH, cublasH, mgr);
+	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, mgr);
 
-	gemv(U, n_rows, n_rows, b, UT_b, true, cublasH);
+	gemv(U, n_rows, n_cols, b, w, true, cublasH);
 
-	Matrix::truncZeroOrigin(UT_b, n_rows, w, n_cols, 1);
 	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true);
 
 	gemv(V, n_cols, n_cols, w, w, false, cublasH);
