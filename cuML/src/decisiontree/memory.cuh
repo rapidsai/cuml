@@ -23,7 +23,6 @@ struct TemporaryMemory
 {
 	//Below four are for tree building
 	int *sampledlabels;
-	float *sampledcolumns;
 	
 	//Below are for gini & get_class functions
 	int *d_hist, *h_hist; // for histograms in gini
@@ -68,18 +67,17 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
 
 		int extra_bytes = Ncols * sizeof(float);
+		int quantile_bytes = (split_algo == 2) ? extra_bytes : sizeof(float);
 #ifdef SINGLE_COL
 		extra_bytes = sizeof(float);
-		CUDA_CHECK(cudaMalloc((void**)&sampledcolumns, N * extra_bytes));
 #else
 		ASSERT(split_algo != 1, "Local quantile based splits (split_algo %d) not supported for all cols. Compile w/ -DSINGLE_COL.", split_algo);
-		//For a lot of temp data
-		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
 #endif
+		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
 		totalmem += N * extra_bytes;
 
 		if (split_algo > 0) {
-			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * extra_bytes));
+			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * quantile_bytes));
 			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N * extra_bytes));
 			totalmem += (n_bins + N) * extra_bytes;
 		}
@@ -129,11 +127,7 @@ struct TemporaryMemory
 	{
 		cudaFreeHost(h_hist);
 		cudaFree(d_hist);
-#ifdef SINGLE_COL
-		cudaFree(sampledcolumns);
-#else
 		cudaFree(temp_data);
-#endif
 		
 		if (d_quantile != NULL)
 			cudaFree(d_quantile);
