@@ -66,7 +66,7 @@ __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, c
 }
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const float* __restrict__ quantile, float * ques_info) {
+__global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const float* __restrict__ quantile, float * ques_info, const int quantile_offset) {
 
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -82,7 +82,7 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
 		int label = labels[tid];
 		// Each thread evaluates batch_bins questions and populates respective buckets.
 		for (int i = 0; i < batch_bins; i++) {
-			float quesval = quantile[i];
+			float quesval = quantile[quantile_offset + i];
 			if (data <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
 			}
@@ -105,7 +105,7 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
 */
 float batch_evaluate_gini(const float *column, const int *labels, const int nbins,
 			  const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels,
-			  GiniInfo split_info[3], TemporaryMemory* tempmem, int split_algo) {
+			  GiniInfo split_info[3], TemporaryMemory* tempmem, int split_algo, int bootstrapped_col_id) {
 	int threads = 128;
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
@@ -114,13 +114,14 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, n_hists_bytes, tempmem->stream));
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
 	ASSERT((n_unique_labels <= threads), "Error! Kernel cannot support %d labels. Current limit is 128", n_unique_labels);
-	
+
 	//FIXME TODO: if delta is 0 just go through one batch_bin.
 
 	//Kernel launch
 	if (split_algo != 0) { // Quantile split: local or global
+		int quantile_offset = (split_algo == 2) ? bootstrapped_col_id * batch_bins : 0;
 		batch_evaluate_quantile_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels,
-														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info);
+														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info, quantile_offset);
 	} else {
 		batch_evaluate_minmax_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
 													      nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
@@ -408,7 +409,7 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 	} else if (split_algo == 2) { // Global quantile
 		float ques_val;
 		float *d_quantile = tempmem->d_quantile;
-		int q_index = col_selector[best_col_id] * n_cols  + best_bin_id;
+		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
 		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins+1, n_cols, FLT_MAX, -FLT_MAX, ques_val);

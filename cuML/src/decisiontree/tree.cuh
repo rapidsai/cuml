@@ -242,7 +242,7 @@ namespace ML {
 					GiniInfo local_split_info[3];
 					local_split_info[0] = split_info[0];
 					int streamid = i % MAXSTREAMS;
-					float *sampledcolumn = tempmem[streamid]->sampledcolumns;
+					float *sampledcolumn = tempmem[streamid]->temp_data;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 					
 					if (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) {
@@ -257,7 +257,7 @@ namespace ML {
 					
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
 									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
-									      &local_split_info[0], tempmem[streamid], split_algo);
+									      &local_split_info[0], tempmem[streamid], split_algo, colselector[i]);
 					
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
 
@@ -267,7 +267,8 @@ namespace ML {
 						if (split_algo != SPLIT_ALGO::HIST) {
 							float ques_val;
 							float *dqua = tempmem[streamid]->d_quantile;
-							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+							int quantile_offset = (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) ? 0 : colselector[i] * batch_bins;
+							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[quantile_offset + batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
 						} else {
@@ -314,7 +315,7 @@ namespace ML {
 			{
 #ifdef SINGLE_COL
 				float *colptr = &data[dinfo.NLocalrows * ques.original_column];
-				float *sampledcolumn = tempmem[0]->sampledcolumns;
+				float *sampledcolumn = tempmem[0]->temp_data;
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
 #else
 				float *temp_data = tempmem[0]->temp_data;
