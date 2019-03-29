@@ -19,88 +19,108 @@ from cuml.manifold.umap import UMAP
 import cudf
 import pandas as pd
 import numpy as np
-
 from sklearn import datasets
 from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
 
 
-def test_blobs_cluster():
-    data, labels = datasets.make_blobs(
-        n_samples=500, n_features=10, centers=5)
-    embedding = UMAP().fit_transform(data)
+dataset_names = ['iris', 'digits', 'wine', 'blobs']
+
+#@pytest.mark.parametrize('name', dataset_names)
+def test_umap_fit_transform_score(run_stress, run_correctness_test):
+
+    if run_stress == True:
+        n_samples = 500000
+        n_features = 1000
+
+    elif run_correctness_test == True:
+        n_samples = 5000
+        n_features = 100
+    else:
+        n_samples = 500
+        n_features = 10
+
+    data, labels = datasets.make_blobs(n_samples=n_samples, n_features=n_features, centers=10, random_state=42)
+
+    model = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
+
+    embedding = model.fit_transform(data)
+    
     score = adjusted_rand_score(labels,
-                                KMeans(5).fit_predict(embedding))
+                                KMeans(10).fit_predict(embedding))
     assert score == 1.0
 
+@pytest.mark.parametrize('name', dataset_names)
+def test_umap_fit_transform_trust(name):
 
-def test_umap_transform_on_iris():
-    iris = datasets.load_iris()
-    iris_selection = np.random.choice(
-        [True, False], 150, replace=True, p=[0.75, 0.25])
-    data = iris.data[iris_selection]
+    if name == 'iris':
+        iris = datasets.load_iris()
+        data = iris.data
+        labels = iris.target
 
-    fitter = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
-    fitter.fit(data)
+    if name == 'digits':
+        digits = datasets.load_digits(n_class=5)
+        data = digits.data
+        labels = digits.target
+      
+    if name == 'wine':
+        wine = datasets.load_wine()
+        data = wine.data
+        labels = wine.target
+    
+    model = UMAP(n_neighbors=10, min_dist=0.01, verbose=True)
 
-    new_data = iris.data[~iris_selection]
-    embedding = fitter.transform(new_data)
-
-    trust = trustworthiness(new_data, embedding, 10)
-    assert trust >= 0.90
-
-
-def test_umap_trustworthiness_on_iris():
-    iris = datasets.load_iris()
-    data = iris.data
-    embedding = UMAP(n_neighbors=10, min_dist=0.01).fit_transform(data)
-    trust = trustworthiness(iris.data, embedding, 10)
-
-    # We are doing a spectral embedding but not a
-    # multi-component layout (which is marked experimental).
-    # As a result, our score drops by 0.006.
-    assert trust >= 0.964
-
-
-def test_umap_trustworthiness_on_iris_random_init():
-    iris = datasets.load_iris()
-    data = iris.data
-    embedding = UMAP(
-        n_neighbors=10, min_dist=0.01,  init="random"
-    ).fit_transform(data)
-    trust = trustworthiness(iris.data, embedding, 10)
-    assert trust >= 0.95
+    embedding = model.fit_transform(data)
+    
+    trust = trustworthiness(data, embedding, 10)
+    assert trust >= 0.96
 
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_data_formats(input_type, should_downcast):
+def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctness_test):
 
     dtype = np.float32 if not should_downcast else np.float64
+    n_samples = 50000
+    n_feats = 50
+    if run_stress==True:
+        X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
 
-    # For now, FAISS based nearest_neighbors only supports single precision
-    digits = datasets.load_digits(n_class=9)
-    X = digits["data"].astype(dtype)
+    if run_correctness_test==True:
+        X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
+    
+    else:
+        # For now, FAISS based nearest_neighbors only supports single precision
+        digits = datasets.load_digits(n_class=9)
+        X = digits["data"].astype(dtype)
 
     umap = UMAP(n_neighbors=3, n_components=2,
                 should_downcast=should_downcast)
 
     if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-        embeds = umap.fit_transform(X)
-
+        X_pd = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X_pd)
+        embeds = umap.fit_transform(X_cudf)
         assert type(embeds) == cudf.DataFrame
+
     else:
         embeds = umap.fit_transform(X)
-
         assert type(embeds) == np.ndarray
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_downcast_fails(input_type):
+def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
+    n_samples = 50000
+    n_feats = 50
+    if run_stress==True:
+        X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
 
-    X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
+    if run_correctness_test==True:
+        X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
+    
+    else:
+        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
     umap = UMAP(should_downcast=False)
