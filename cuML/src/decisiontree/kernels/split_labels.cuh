@@ -105,16 +105,15 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 	char *d_flags_right = tempmem->d_flags_right;
 	float *question_value = tempmem->question_value;
 	
-#ifdef SINGLE_COL
-	if (split_algo > 0) {
+	if (split_algo != 0) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
-		
+#ifdef SINGLE_COL
 		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
-	}
 #else
-	flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
+		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
 #endif
+	}
 	CUDA_CHECK(cudaGetLastError());
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;

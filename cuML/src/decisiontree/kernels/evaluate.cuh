@@ -319,7 +319,7 @@ __global__ void all_cols_histograms_global_quantile_kernel(const float* __restri
 		float localdata = data[i];
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
-			int quantile_index = mycolid * nbins + j; //TODO FIXME Is this valid? Confirm if there's any issue w/ bins vs. batch bins
+			int quantile_index = colids[mycolid] * nbins + j; //TODO FIXME Is this valid? Confirm if there's any issue w/ bins vs. batch bins
 			float quesval = quantile[quantile_index];
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
