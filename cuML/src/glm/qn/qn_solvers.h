@@ -41,7 +41,7 @@
  */
 
 #include <cuda_utils.h>
-#include <matrix/simple_mat.h>
+#include <glm/qn/simple_mat.h>
 #include <glm/qn/qn_linesearch.h>
 #include <glm/qn/qn_util.h>
 

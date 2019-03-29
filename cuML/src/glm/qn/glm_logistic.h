@@ -18,7 +18,7 @@
 
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
-#include <matrix/simple_mat.h>
+#include <glm/qn/simple_mat.h>
 #include "glm/qn/glm_base.h"
 
 namespace ML {
