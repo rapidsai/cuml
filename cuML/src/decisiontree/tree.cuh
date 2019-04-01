@@ -98,9 +98,11 @@ namespace ML {
 			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 1;
-
+			size_t max_shared_mem;
+			size_t shmem_used = 0;
 			int n_unique_labels = -1; // number of unique labels in dataset
 			double construct_time;
+			
 		public:
 			// Expects column major float dataset, integer labels
 			// data, labels are both device ptr.
@@ -123,6 +125,21 @@ namespace ML {
 				maxleaves = max_leaf_nodes;
 				tempmem.resize(MAXSTREAMS);
 				n_unique_labels = unique_labels;
+
+				cudaDeviceProp prop;
+				CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
+				max_shared_mem = prop.sharedMemPerBlock;
+				
+				if (split_algo == SPLIT_ALGO::HIST) {
+					shmem_used += 2 * sizeof(float) * ncols;
+					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
+				} else {
+					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
+				}
+#ifdef SINGLE_COL
+				shmem_used = (size_t)(shmem_used / ncols);
+#endif
+				ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 				
 				for (int i = 0; i<MAXSTREAMS; i++) {
 					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
@@ -156,6 +173,7 @@ namespace ML {
 				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
 				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
 				std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
+				std::cout << " Shared memory used --> " << shmem_used << "  bytes " << std::endl;
 			}
 
 			// Printing utility for debug and looking at nodes and leaves.
