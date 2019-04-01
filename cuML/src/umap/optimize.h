@@ -72,7 +72,8 @@ namespace UMAPAlgo {
          * to a smooth function based on exponential decay
          */
         template<typename T, int TPB_X>
-        void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads, UMAPParams *params) {
+        void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
+                          UMAPParams *params, cudaStream_t stream=0) {
 
             dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -84,7 +85,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(residuals, n_rows);
 
             f<T, TPB_X>(input, n_rows, coef, residuals);
-            MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows);
+            MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -100,7 +101,7 @@ namespace UMAPAlgo {
                     }
             );
 
-            MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals , n_rows);
+            MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals , n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -119,7 +120,7 @@ namespace UMAPAlgo {
             /**
              * Multiply partial derivs by residuals
              */
-            MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows);
+            MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -141,7 +142,8 @@ namespace UMAPAlgo {
          */
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-6, int max_epochs = 25000) {
+                T *coef, UMAPParams *params, float tolerance = 1e-6,
+                int max_epochs = 25000, cudaStream_t stream=0) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
@@ -156,8 +158,8 @@ namespace UMAPAlgo {
 
                 abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params);
 
-                MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2);
-                MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2);
+                MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2, stream);
+                MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
 
                 T * grads_h = (T*)malloc(2 * sizeof(T));
                 MLCommon::updateHost(grads_h, grads, 2);

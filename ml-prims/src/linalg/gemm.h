@@ -123,7 +123,7 @@ template <
 void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
           int k, OType alpha, IType const *A, int lda, IType const *B, int ldb,
           OType beta, OType const *C, int ldc, OType *D,
-          cudaStream_t stream = 0) {
+          cudaStream_t stream) {
   typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
                            AccumulatorsPerThread_, MainLoopFunctor_>
       GemmConfig_;

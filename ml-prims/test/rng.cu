@@ -375,6 +375,9 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
     float* std_result;
     int len = num_samples*num_experiments;
 
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     allocate(data, len);
     allocate(mean_result, num_experiments);
     allocate(std_result, num_experiments);
@@ -385,7 +388,7 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
       r.normal(data, len, 3.3f, 0.23f);
       // r.uniform(data, len, -1.0, 2.0);
       Stats::mean(mean_result, data, num_samples, num_experiments, false, false);
-      Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false, false);
+      Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false, false, stream);
       std::vector<float> h_mean_result(num_experiments);
       std::vector<float> h_std_result(num_experiments);
       updateHost(h_mean_result.data(), mean_result, num_experiments);
@@ -404,6 +407,7 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
       ASSERT_TRUE((diff_expected_vs_measured_mean_error/d_std_of_mean_analytical < 0.5));
     }
+    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(mean_result));
     CUDA_CHECK(cudaFree(std_result));

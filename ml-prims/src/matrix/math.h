@@ -35,13 +35,13 @@ namespace Matrix {
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, math_t scalar, int len) {
+void power(math_t *in, math_t *out, math_t scalar, int len, cudaStream_t stream) {
   auto d_src = in;
   auto d_dest = out;
 
   MLCommon::LinAlg::binaryOp(d_dest, d_src, d_src, len,
                              [=] __device__(math_t a, math_t b)
-                             {return scalar * a * b;});
+                             {return scalar * a * b;}, stream);
 
 }
 
@@ -54,8 +54,8 @@ void power(math_t *in, math_t *out, math_t scalar, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *inout, math_t scalar, int len) {
-  power(inout, inout, scalar, len);
+void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
+  power(inout, inout, scalar, len, stream);
 }
 
 /**
@@ -66,9 +66,9 @@ void power(math_t *inout, math_t scalar, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *inout, int len) {
+void power(math_t *inout, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  power(inout, scalar, len);
+  power(inout, scalar, len, stream);
 }
 
 /**
@@ -80,9 +80,9 @@ void power(math_t *inout, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, int len) {
+void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  power(in, out, scalar, len);
+  power(in, out, scalar, len, stream);
 }
 
 
@@ -337,35 +337,38 @@ void signFlip(math_t *inout, int n_rows, int n_cols) {
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMult(Type *data, const Type *vec, IdxType n_row,
-                            IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                            cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a * b; });
+                 [] __device__(Type a, Type b) { return a * b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, IdxType n_row,
                                     IdxType n_col, bool rowMajor,
-                                    bool bcastAlongRows) {
+                                    bool bcastAlongRows, cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) {
                    if (b == Type(0))
                      return a;
                    else
                      return a * b;
-                 });
+                 },
+                 stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDiv(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a / b; });
+                 [] __device__(Type a, Type b) { return a / b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB=256>
 void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
                                    IdxType n_col, bool rowMajor, bool bcastAlongRows,
-                                   bool return_zero = false) {
+                                   cudaStream_t stream, bool return_zero = false) {
 
 	if (return_zero) {
             LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
@@ -374,7 +377,8 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return Type(0);
 				                       else
                                                            return a / b;
-				        		    });
+                		    },
+                        stream);
 	} else {
 	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 		        		       [] __device__ (Type a, Type b) {
@@ -382,22 +386,25 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return a;
 				                       else
                                                            return a / b;
-				        		    });
+                        },
+                        stream);
 	}
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryAdd(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a + b; });
+                 [] __device__(Type a, Type b) { return a + b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinarySub(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a - b; });
+                 [] __device__(Type a, Type b) { return a - b; }, stream);
 }
 
 }; // end namespace Matrix

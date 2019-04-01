@@ -41,7 +41,7 @@ __global__ void unaryOpKernel(math_t *out, const math_t *in,
 
 template <typename math_t, int veclen_, typename Lambda, int TPB>
 void unaryOpImpl(math_t *out, const math_t *in, int len,
-                 Lambda op, cudaStream_t stream = 0) {
+                 Lambda op, cudaStream_t stream) {
   const int nblks = ceildiv(veclen_ ? len / veclen_ : len, TPB);
   unaryOpKernel<math_t, veclen_, Lambda><<<nblks, TPB, 0, stream>>>(
     out, in, len, op);

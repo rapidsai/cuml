@@ -35,7 +35,7 @@ namespace LinAlg {
  */
 template <typename math_t>
 void powerScalar(math_t *out, const math_t *in, math_t scalar, int len,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return myPow(in, scalar); },
           stream);
@@ -53,7 +53,7 @@ void powerScalar(math_t *out, const math_t *in, math_t scalar, int len,
  */
 template <typename math_t>
 void power(math_t *out, const math_t *in1, const math_t *in2, int len,
-         cudaStream_t stream = 0) {
+         cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return myPow(a, b); }, stream);
 }

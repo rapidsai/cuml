@@ -37,10 +37,10 @@ __global__ void naiveReductionKernel(Type *dots, const Type *data, int D, int N)
 }
 
 template <typename Type>
-void naiveReduction(Type *dots, const Type *data, int D, int N) {
+void naiveReduction(Type *dots, const Type *data, int D, int N, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(N, TPB);
-  naiveReductionKernel<Type><<<nblks, TPB>>>(dots, data, D, N);
+  naiveReductionKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -62,9 +62,9 @@ template <typename T>
 // within its class
 template <typename T>
 void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
-                              bool inplace = false) {
+                              cudaStream_t stream, bool inplace = false) {
   coalescedReduction(dots, data, cols, rows, (T)0,
-                     inplace, 0,
+                     stream, inplace,
                      [] __device__(T in, int i) { return in * in; });
 }
 
@@ -76,16 +76,19 @@ protected:
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0));
-    naiveReduction(dots_exp, data, cols, rows);
+    naiveReduction(dots_exp, data, cols, rows, stream);
 
     // Perform reduction with default inplace = false first
-    coalescedReductionLaunch(dots_act, data, cols, rows);
+    coalescedReductionLaunch(dots_act, data, cols, rows, stream);
     // Add to result with inplace = true next
-    coalescedReductionLaunch(dots_act, data, cols, rows, true);
+    coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

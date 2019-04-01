@@ -39,16 +39,16 @@ enum NormType { L1Norm = 0, L2Norm };
  */
 template <typename Type>
 void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          cudaStream_t stream = 0) {
+          cudaStream_t stream) {
   switch (type) {
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
+                                 stream, false,
                                  [] __device__(Type in, int i) { return myAbs(in); });
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
+                                 stream, false,
                                  [] __device__(Type in, int i) { return in * in; });
       break;
     default:
@@ -75,17 +75,17 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  */
 template <typename Type, typename Lambda>
 void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+          Lambda fin_op, cudaStream_t stream) {
   switch (type) {
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
+                                 stream, false,
                                  [] __device__(Type in, int i) { return myAbs(in); }, 
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
+                                 stream, false,
                                  [] __device__(Type in, int i) { return in * in; },
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
@@ -107,16 +107,16 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  */
 template <typename Type>
 void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          cudaStream_t stream = 0) {
+          cudaStream_t stream) {
   switch (type) {
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
+                               stream, false,
                                [] __device__(Type v, int i) { return myAbs(v); });
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
+                               stream, false,
                                [] __device__(Type v, int i) { return v * v; });
       break;
     default:
@@ -137,18 +137,18 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
  */
 template <typename Type, typename Lambda>
 void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+          Lambda fin_op, cudaStream_t stream) {
   switch (type) {
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
+                               stream, false,
                                [] __device__(Type v, int i) { return myAbs(v); },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
+                               stream, false,
                                [] __device__(Type v, int i) { return v * v; },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);

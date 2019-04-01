@@ -135,13 +135,13 @@ template<typename math_t>
 void pcaFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
+		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
 
 	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
 			mu, noise_vars, prms, cublas_handle, cusolver_handle);
 
 	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle);
+			cublas_handle, stream);
 
 	signFlip(trans_input, prms.n_rows, prms.n_components, components,
 			prms.n_cols);
@@ -173,7 +173,7 @@ void pcaGetPrecision() {
 template<typename math_t>
 void pcaInverseTransform(math_t *trans_input, math_t *components,
 		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+		cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -185,7 +185,7 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 	if (prms.whiten) {
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
                                                        prms.n_rows, prms.n_components, true, true);
 	}
@@ -195,10 +195,10 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true);
+                                                      prms.n_rows, prms.n_components, true, true, stream);
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 	}
 }
 
@@ -226,7 +226,7 @@ void pcaScoreSamples() {
 template<typename math_t>
 void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 		math_t *singular_vals, math_t *mu, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+		cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -238,9 +238,9 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 	if (prms.whiten) {
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true);
+                                                      prms.n_rows, prms.n_components, true, true, stream);
 	}
 
 	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
@@ -252,7 +252,7 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
                                                        prms.n_rows, prms.n_components, true, true);
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 	}
 
 }

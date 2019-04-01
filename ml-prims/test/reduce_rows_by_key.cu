@@ -43,13 +43,13 @@ __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
 template <typename Type>
 void naiveReduceRowsByKey( Type* d_A, int lda, 
                           uint32_t *d_keys,char *d_char_keys, int nrows, 
-                          int ncols, int nkeys, Type *d_sums) 
+                          int ncols, int nkeys, Type *d_sums, cudaStream_t stream)
 {
     cudaMemset(d_sums, 0, sizeof(Type) * nkeys*ncols);
 
     naiveReduceRowsByKeyKernel
           <<< dim3((ncols+31)/32, nkeys ),
-              dim3(32, 1) >>>
+              dim3(32, 1), 0, stream>>>
                       (d_A,lda,d_keys,d_char_keys,nrows,ncols,nkeys,d_sums);
 }
 
@@ -75,6 +75,8 @@ protected:
         params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
         Random::Rng r(params.seed);
         Random::Rng r_int(params.seed);
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
         int nobs = params.nobs;
         uint32_t cols = params.cols;
         uint32_t nkeys = params.nkeys;
@@ -86,9 +88,10 @@ protected:
         r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
         r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys);
         naiveReduceRowsByKey(in1, cols, in2, chars2,
-                               nobs, cols, nkeys, out_ref );
+                               nobs, cols, nkeys, out_ref, stream);
         reduce_rows_by_key(in1, cols, in2, chars2, 
-                               nobs, cols, nkeys, out );
+                               nobs, cols, nkeys, out, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     void TearDown() override {

@@ -32,10 +32,10 @@ __global__ void nativePowerKernel(Type *in, Type *out, int len) {
 }
 
 template <typename Type>
-void naivePower(Type *in, Type *out, int len) {
+void naivePower(Type *in, Type *out, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  nativePowerKernel<Type><<<nblks, TPB>>>(in, out, len);
+  nativePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -123,6 +123,9 @@ protected:
     allocate(in_sign_flip, len);
     allocate(out_sign_flip_ref, len);
 
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
     updateDevice(in_ratio, in_ratio_h, 4);
@@ -136,8 +139,8 @@ protected:
     // r.uniform(in_ratio, len, T(0.0), T(1.0));
     r.uniform(in_sign_flip, len, T(-100.0), T(100.0));
 
-    naivePower(in_power, out_power_ref, len);
-    power(in_power, len);
+    naivePower(in_power, out_power_ref, len, stream);
+    power(in_power, len, stream);
 
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
     seqRoot(in_sqrt, len);
@@ -172,6 +175,7 @@ protected:
     updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4);
     setSmallValuesZero(out_smallzero, in_smallzero, 4);
     setSmallValuesZero(in_smallzero, 4);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 
   }
 

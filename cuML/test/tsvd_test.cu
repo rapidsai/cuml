@@ -95,7 +95,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -126,13 +129,14 @@ protected:
 		allocate(singular_vals2, prms.n_components);
 
 		tsvdFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, prms, cublas_handle, cusolver_handle);
+				singular_vals2, prms, cublas_handle, cusolver_handle, stream);
 
 		allocate(data2_back, len);
 		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {

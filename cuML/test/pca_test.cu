@@ -55,7 +55,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -108,12 +111,14 @@ protected:
 				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle);
 
 		pcaTransform(data, components, trans_data, singular_vals, mean,
-				     prms, cublas_handle);
+				     prms, cublas_handle, stream);
 
-		pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, prms, cublas_handle);
+    pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, 
+                          prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
@@ -122,7 +127,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -155,13 +163,15 @@ protected:
 		allocate(noise_vars2, 1);
 
 		pcaFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle);
+				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle, stream);
 
 		allocate(data2_back, len);
-		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back, prms, cublas_handle);
+    pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
+                          prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {
