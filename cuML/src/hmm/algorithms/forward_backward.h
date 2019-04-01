@@ -5,8 +5,8 @@
 #include "hmm/hmm_variables.h"
 #include "hmm/dists/multinomial.h"
 
-#include "hmm/magma/magma_test_utils.h"
-#include "hmm/magma/magma_batched_wrappers.h"
+#include "magma/magma_test_utils.h"
+#include "magma/magma_batched_wrappers.h"
 
 // References :
 // http://www.cs.sjsu.edu/~stamp/RUA/HMM.pdf

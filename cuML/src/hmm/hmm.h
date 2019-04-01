@@ -7,7 +7,7 @@
 #include "hmm/algorithms/viterbi.h"
 #include "hmm/algorithms/em.h"
 
-#include <hmm/magma/magma_test_utils.h>
+#include <magma/magma_test_utils.h>
 
 namespace hmm {
 

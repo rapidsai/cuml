@@ -1,6 +1,6 @@
 #pragma once
 
-#include <hmm/magma/b_likelihood.h>
+#include <magma/b_likelihood.h>
 #include <hmm/dists/dists_variables.h>
 #include <hmm/hmm_variables.h>
 

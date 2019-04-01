@@ -1,6 +1,6 @@
 # pragma once
 
-#include "hmm/magma/magma_batched_wrappers.h"
+#include "magma/magma_batched_wrappers.h"
 
 using namespace MLCommon::LinAlg;
 

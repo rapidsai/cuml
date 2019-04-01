@@ -74,9 +74,9 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
-option(MEMCHECK "Enable cudamemcheck function symbol backtrace in nvcc" ON)
+option(BACKTRACE "Enable backtrace in nvcc" OFF)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
-option(DEBUG "Get a debug build" ON)
+option(DEBUG "Get a debug build" OFF)
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
@@ -195,7 +195,7 @@ file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 # file(GLOB_RECURSE magma_debug_sources "${MLPRIMS_DIR}/test/hmm/magma/*")
 file(GLOB_RECURSE magma_debug_sources "test/gmm_test.cu")
-file(GLOB_RECURSE magma_prims_test_sources "${MLPRIMS_DIR}/test/hmm/magma/*.cu")
+file(GLOB_RECURSE magma_prims_test_sources "${MLPRIMS_DIR}/test/magma/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -258,9 +258,9 @@ target_link_libraries(ml_test
 # ###################################################################################################
 # # - build examples -------------------------------------------------------------------------
 #
-# if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-#     add_subdirectory(examples)
-# endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
