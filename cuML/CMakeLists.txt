@@ -59,17 +59,12 @@ set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
 set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
   "Path to the cutlass repo")
-<<<<<<< HEAD
-set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
-  "Path to nvGraph lib")
-=======
 
 
 set(CONDA_ENV_DIR /home/mehdia/miniconda3/envs/cuml-0128 CACHE STRING
 "Path to the conda env")
 set(MAGMA_LIBRARY ${CONDA_ENV_DIR}/lib/libmagma.a CACHE STRING
 "Path to the magma library")
->>>>>>> origin/fea-hmm
 
 ###################################################################################################
 # - User Options  ---------------------------------------------------------------------------------
@@ -79,11 +74,7 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
-<<<<<<< HEAD
-option(MEMCHECK "Enable cudamemcheck function symbol backtrace in nvcc" OFF)
-=======
 option(BACKTRACE "Enable backtrace in nvcc" OFF)
->>>>>>> origin/fea-hmm
 option(KERNELINFO "Enable kernel resource usage info" OFF)
 option(DEBUG "Get a debug build" OFF)
 
@@ -192,12 +183,7 @@ include_directories(src
         ${CUTLASS_DIR}
         ${CUB_DIR}
         ${ZLIB_INCLUDE_DIRS$},
-<<<<<<< HEAD
-        # TODO : Fix the path
-        /home/mehdia/miniconda3/envs/cuml-0128/include
-=======
         ${CONDA_ENV_DIR}/include
->>>>>>> origin/fea-hmm
         ${ZLIB_INCLUDE_DIRS$})
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
@@ -222,46 +208,19 @@ add_library(cuml SHARED
             src/glm/glm.cu
             src/knn/knn.cu
             src/kalman_filter/lkf_py.cu
-<<<<<<< HEAD
-            src/common/cumlHandle.cpp
-            src/common/cuml_api.cpp
-            src/umap/umap.cu
-	    src/solver/solver.cu
-            )
-
-set(CUML_LINK_LIBRARIES
-	${CUDA_cublas_LIBRARY}
-	${CUDA_curand_LIBRARY}
-	${CUDA_cusolver_LIBRARY}
-	${CUDA_CUDART_LIBRARY}
-	${CUDA_cusparse_LIBRARY}
-	${CUDA_nvgraph_LIBRARY}
-	${ZLIB_LIBRARIES}
-	gpufaisslib
-	faisslib
-	${BLAS_LIBRARIES})
-
-=======
             src/gmm/gmm_py.cu
             src/hmm/hmm_py.cu
             )
 
 set(CUML_LINK_LIBRARIES ${MAGMA_LIBRARY} ${CUDA_cublas_LIBRARY} ${CUDA_curand_LIBRARY} ${CUDA_cusolver_LIBRARY} ${CUDA_CUDART_LIBRARY} cusparse ${ZLIB_LIBRARIES} gpufaisslib faisslib ${BLAS_LIBRARIES})
->>>>>>> origin/fea-hmm
 if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
 
 target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
 
-<<<<<<< HEAD
-
-###################################################################################################
-# - build test executable -------------------------------------------------------------------------
-=======
 # ###################################################################################################
 # # - build test executable -------------------------------------------------------------------------
->>>>>>> origin/fea-hmm
 
 add_executable(magma_test_prims ${magma_prims_test_sources})
 
@@ -289,50 +248,14 @@ target_link_libraries(ml_test
                       ${CUDA_cusolver_LIBRARY}
                       ${CUDA_cusparse_LIBRARY}
                       ${CUDA_CUDART_LIBRARY}
-<<<<<<< HEAD
-                      gpufaisslib
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_nvgraph_LIBRARY}
-=======
->>>>>>> origin/fea-hmm
 		                  gpufaisslib
                       faisslib
                       ${BLAS_LIBRARIES}
                       cuml
                       pthread
                       z)
-<<<<<<< HEAD
 
 
-###################################################################################################
-# - build test executable -------------------------------------------------------------------------
-
-add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
-
-target_link_libraries(ml_mg_test
-                      ${GTEST_LIBNAME}
-                      ${CUDA_cublas_LIBRARY}
-                      ${CUDA_curand_LIBRARY}
-                      ${CUDA_cusolver_LIBRARY}
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_CUDART_LIBRARY}
-                      ${CUDA_cusparse_LIBRARY}
-                      ${CUDA_nvgraph_LIBRARY}
-                      gpufaisslib
-                      faisslib
-                      ${BLAS_LIBRARIES}
-                      cuml
-                      pthread
-                      ${ZLIB_LIBRARIES})
-=======
->>>>>>> origin/fea-hmm
-
-
-<<<<<<< HEAD
-# if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-#     add_subdirectory(examples)
-# endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-=======
 # ###################################################################################################
 # # - build test executable -------------------------------------------------------------------------
 #
@@ -357,15 +280,12 @@ target_link_libraries(ml_mg_test
 if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
     add_subdirectory(examples)
 endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
->>>>>>> origin/fea-hmm
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
 
 install(TARGETS cuml
         DESTINATION lib)
-<<<<<<< HEAD
-=======
 
 
 ###################################################################################################
@@ -399,4 +319,3 @@ target_link_libraries(magma_test_prims
 #                      ${CUDA_CUDART_LIBRARY}
 #                      ${BLAS_LIBRARIES}
 #                     )
->>>>>>> origin/fea-hmm
