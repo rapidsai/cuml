@@ -88,13 +88,15 @@ void bilinear_batched_kernel(magma_int_t m, magma_int_t n,
 template <typename T>
 void naive_bilinear_batched(magma_int_t m, magma_int_t n,
                             T **dX_array, T** dA_array, magma_int_t ldda,
-                            T **dY_array, T *dO, magma_int_t batchCount){
+                            T **dY_array, T *dO, magma_int_t batchCount,
+                            cudaStream_t stream=0){
         dim3 block(32, 1, 1);
         dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
         int numThreads = grid.x * block.x;
-        bilinear_batched_kernel<T> <<< grid, block >>>(m, n, dX_array, dA_array,
-                                                       ldda, dY_array, dO, batchCount,
-                                                       numThreads);
+        bilinear_batched_kernel<T> <<< grid, block, 0, stream>>>(m, n, dX_array,
+                                                                 dA_array, ldda,
+                                                                 dY_array, dO, batchCount,
+                                                                 numThreads);
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -112,7 +114,10 @@ void bilinear_batched(magma_int_t m, magma_int_t n,
         magma_int_t incx = 1, incy = 1;
 
         // Batched gemv
-        magmablas_gemv_batched(MagmaTrans, m, n, alpha, dA_array, ldda, dX_array, incx, beta, dT_array, incy, batchCount, queue);
+        magmablas_gemv_batched(MagmaTrans, m, n,
+                               alpha, dA_array, ldda,
+                               dX_array, incx, beta, dT_array, incy,
+                               batchCount, queue);
 
         // Batched dot
         dot_batched(n, dT_array, dY_array, dO, batchCount);
