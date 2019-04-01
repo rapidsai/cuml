@@ -75,14 +75,14 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 
 	math_t *S, *V, *U;
 
-	int U_len = n_rows * n_rows;
+	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
 	allocate(U, U_len);
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH,
+	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
                       cublasH, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH);
