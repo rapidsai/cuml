@@ -29,9 +29,9 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
     if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+        X,y = make_blobs(n_samples=n_samples*5,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
 
     else:
@@ -80,7 +80,7 @@ def test_nn_downcast_fails(input_type, run_stress, run_correctness_test):
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
 
     else:
