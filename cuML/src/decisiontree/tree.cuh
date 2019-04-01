@@ -98,7 +98,7 @@ namespace ML {
 			std::vector<TemporaryMemory*> tempmem;
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 1;
-			int n_batch_bins;
+
 			int n_unique_labels = -1; // number of unique labels in dataset
 			double construct_time;
 		public:
@@ -123,10 +123,9 @@ namespace ML {
 				maxleaves = max_leaf_nodes;
 				tempmem.resize(MAXSTREAMS);
 				n_unique_labels = unique_labels;
-				n_batch_bins = n_bins;
-
+				
 				for (int i = 0; i<MAXSTREAMS; i++) {
-					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_batch_bins, split_algo);
+					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 					if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
 						preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins, tempmem[i]);
 					}
@@ -234,9 +233,9 @@ namespace ML {
 				if (depth == 0) {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-				int extra_offset = (split_algo != SPLIT_ALGO::HIST) ? 0 : 1;
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
-					      
+				
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
+				
 				for (int i=0; i<colselector.size(); i++) {
 
 					GiniInfo local_split_info[3];
@@ -251,12 +250,10 @@ namespace ML {
 					} else {
 						get_sampled_column(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid], split_algo);
 					}
-					int batch_bins = current_nbins - extra_offset;
+
 					int batch_id = 0;
-					ASSERT(batch_bins <= n_batch_bins, "Invalid batch_bins");
-					
 					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
-									      batch_bins, batch_id, n_sampled_rows, n_unique_labels,
+									      batch_id, n_sampled_rows, n_unique_labels,
 									      &local_split_info[0], tempmem[streamid], split_algo, colselector[i]);
 					
 					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
@@ -267,7 +264,7 @@ namespace ML {
 						if (split_algo != SPLIT_ALGO::HIST) {
 							float ques_val;
 							float *dqua = tempmem[streamid]->d_quantile;
-							int quantile_offset = (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) ? 0 : colselector[i] * batch_bins;
+							int quantile_offset = (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) ? 0 : colselector[i] * nbins;
 							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[quantile_offset + batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
 							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
@@ -294,7 +291,8 @@ namespace ML {
 				std::iota(colselector.begin(), colselector.end(), 0);
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
-
+				
+				CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 				// Copy sampled column IDs to device memory
 				CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
 				
@@ -305,11 +303,13 @@ namespace ML {
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
 				
-				int extra_offset = (split_algo != SPLIT_ALGO::HIST) ? 0 : 1;
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows + extra_offset : nbins;
-
+				
+				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
+				
 				best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain, split_algo);
-
+				
+				//Unregister
+				CUDA_CHECK(cudaHostUnregister(colselector.data()));
 			}
 
 			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
