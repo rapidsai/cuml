@@ -16,6 +16,7 @@
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
 - PR #398: Fix CI scripts to allow nightlies to be uploaded
 - PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
 
 # cuML 0.6.0 (22 Mar 2019)
