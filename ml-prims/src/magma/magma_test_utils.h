@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <stdio.h>
@@ -198,7 +214,6 @@ void zeroOutValues(T * A, size_t m, size_t n, size_t N, size_t ldda)
                                                    numThreads_x,
                                                    numThreads_y,
                                                    numThreads_z);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -342,7 +357,6 @@ void symetrize_batched(magma_int_t m, magma_int_t batchCount,
         symetrizeBatchedKernel<T> <<< grid, block >>>(m, m, batchCount,
                                                       dA, ldda,
                                                       nThreads_x, nThreads_y, nThreads_z);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
