@@ -24,26 +24,26 @@
 
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
+__global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
 
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ unsigned int shmemhist[];
-	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+	for (int i = threadIdx.x; i < n_unique_labels*nbins; i += blockDim.x) {
 		shmemhist[i] = 0;
 	}
 	
 	__syncthreads();
-
+	
 	float delta = (*col_max - *col_min) / nbins;
 	float base_quesval = *col_min + delta;
-	
 	if (tid < nrows) {
 		float data = column[tid];
 		int label = labels[tid];
 		// Each thread evaluates batch_bins questions and populates respective buckets.
-		for (int i = 0; i < batch_bins; i++) {
+		for (int i = 0; i < nbins; i++) {
 			float quesval = base_quesval + i * delta;
+			
 			if (data <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
 			}
@@ -54,7 +54,7 @@ __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, c
 	__syncthreads();
 	
 	// Merge shared mem histograms to the global memory hist
-	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
+	for (int i = threadIdx.x; i < n_unique_labels*nbins; i += blockDim.x) {
 		atomicAdd(&histout[i], shmemhist[i]);
 	}
 
@@ -104,12 +104,13 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
    batch_id specifies which question (bin) within the batch  gave the best split.
 */
 float batch_evaluate_gini(const float *column, const int *labels, const int nbins,
-			  const int batch_bins, int & batch_id, const int nrows, const int n_unique_labels,
+			  int& batch_id, const int nrows, const int n_unique_labels,
 			  GiniInfo split_info[3], TemporaryMemory* tempmem, int split_algo, int bootstrapped_col_id) {
+		
 	int threads = 128;
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
-	int n_hists_bytes = sizeof(int) * n_unique_labels * batch_bins;
+	int n_hists_bytes = sizeof(int) * n_unique_labels * nbins;
 	
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, n_hists_bytes, tempmem->stream));
 	// Each thread does more work: it answers batch_bins questions for the same column data. Could change this in the future.
@@ -119,12 +120,12 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 
 	//Kernel launch
 	if (split_algo != 0) { // Quantile split: local or global
-		int quantile_offset = (split_algo == 2) ? bootstrapped_col_id * batch_bins : 0;
+		int quantile_offset = (split_algo == 2) ? bootstrapped_col_id * nbins : 0;
 		batch_evaluate_quantile_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels,
-														batch_bins,  nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info, quantile_offset);
+															nbins, nrows, n_unique_labels, dhist, tempmem->d_quantile, tempmem->d_ques_info, quantile_offset);
 	} else {
 		batch_evaluate_minmax_kernel<<< (int)(nrows /threads) + 1, threads, n_hists_bytes, tempmem->stream>>>(column, labels, 
-													      nbins, batch_bins,  nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
+														      nbins, nrows, n_unique_labels, dhist, &tempmem->d_min_max[0], &tempmem->d_min_max[1], tempmem->d_ques_info);
 	}
 
 	CUDA_CHECK(cudaGetLastError());
@@ -136,7 +137,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 
 	// hhist holds batch_bins of n_unique_labels each.
 	// Todo note: we could do some of these computations on the gpu side too.
-	for (int i = 0; i < batch_bins; i++) {
+	for (int i = 0; i < nbins; i++) {
 
 		// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
 		// matter as it won't count in the info_gain computation.
@@ -167,8 +168,8 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 		}
 
 		/*std::cout << "\nBatch id is " << i <<  ":\n";
-		std::cout << "nrows/lnrows/rnrows " << nrows << ", " << tmp_lnrows << ", " << tmp_rnrows << std::endl;
-		std::cout << "Gini parent/left/right " << split_info[0].best_gini << ", " << tmp_gini_left << ", " << tmp_gini_right << std::endl;*/
+		  std::cout << "nrows/lnrows/rnrows " << nrows << ", " << tmp_lnrows << ", " << tmp_rnrows << std::endl;
+		  std::cout << "Gini parent/left/right " << split_info[0].best_gini << ", " << tmp_gini_left << ", " << tmp_gini_right << std::endl;*/
 
 		ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
 		ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
@@ -183,7 +184,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 		// initialization to zero.
 		*/
 
-
+		
 		// Compute best information gain so far in the batch.
 		if (info_gain > gain) {
 			gain = info_gain;
@@ -208,7 +209,7 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	batch_id = best_batch_id;
 	
 	return gain;
-
+	
 }
 
 __global__ void allcolsampler_minmax_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* globalmin, float* globalmax, float* sampledcols)
@@ -271,7 +272,7 @@ __global__ void all_cols_histograms_kernel(const float* __restrict__ data, const
 	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
 		shmemhist[i] = 0;
 	}
-
+	
 	__syncthreads();
 
 	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
@@ -279,13 +280,14 @@ __global__ void all_cols_histograms_kernel(const float* __restrict__ data, const
 		int coloffset = mycolid*n_unique_labels*nbins;
 
 		// nbins is # batched bins. Use (batched bins + 1) for delta computation.
-		float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins + 1);
+		float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins);
 		float base_quesval = minmaxshared[mycolid] + delta;
 
 		float localdata = data[i];
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
 			float quesval = base_quesval + j * delta;
+			
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
 			}
@@ -405,14 +407,14 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 	}
 
 	if (split_algo == 0) { // HIST
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins+1, n_cols);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols);
 	} else if (split_algo == 2) { // Global quantile
 		float ques_val;
 		float *d_quantile = tempmem->d_quantile;
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
 		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins+1, n_cols, FLT_MAX, -FLT_MAX, ques_val);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, FLT_MAX, -FLT_MAX, ques_val);
 	}
 	return;
 }
@@ -448,7 +450,7 @@ void best_split_all_cols(const float *data, const unsigned int* rowids, const in
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
 	}
 	CUDA_CHECK(cudaGetLastError());
-
+	
 	shmemsize = n_hist_bytes;
 	
 	if (split_algo == 0) {
