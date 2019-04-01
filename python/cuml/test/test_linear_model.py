@@ -41,7 +41,7 @@ def test_ols(datatype, X_type, y_type, algorithm,run_stress,run_correctness_test
         X_train = np.array(X[0:train_rows,:]).astype(datatype)
         y_train = np.array(y[0:train_rows,]).astype(datatype)
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         train_rows = np.int32(nrows*0.8)
         X,y = make_regression(n_samples=nrows,n_features=int(ncols/2),n_informative=int(n_info/2), random_state=0) 
         X_test = np.array(X[train_rows:,0:]).astype(datatype)
@@ -101,7 +101,7 @@ def test_ridge(datatype, X_type, y_type, algorithm,run_stress,run_correctness_te
         X_train = np.asarray(X[0:train_rows,:]).astype(datatype)
         y_train = np.asarray(y[0:train_rows,]).astype(datatype)
 
-    if run_correctness_test == True:
+    elif run_correctness_test == True:
         train_rows = np.int32(nrows*0.8)
         X,y = make_regression(n_samples=nrows,n_features=ncols,n_informative=n_info, random_state=0) 
         X_test = np.asarray(X[train_rows:,0:]).astype(datatype)
