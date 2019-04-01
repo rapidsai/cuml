@@ -14,8 +14,9 @@
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
-- PR #384: Index arithmetic updates to the kernels inside Stats namespace of ml-prims
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
 - PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #384: Index arithmetic updates to the kernels inside Stats namespace of ml-prims
 
 # cuML 0.6.0 (22 Mar 2019)
 
