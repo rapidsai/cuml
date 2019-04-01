@@ -95,7 +95,6 @@ void naive_bilinear_batched(magma_int_t m, magma_int_t n,
         bilinear_batched_kernel<T> <<< grid, block >>>(m, n, dX_array, dA_array,
                                                        ldda, dY_array, dO, batchCount,
                                                        numThreads);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 

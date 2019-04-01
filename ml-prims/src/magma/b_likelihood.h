@@ -132,7 +132,6 @@ void subtract_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                                                      dX_array, lddx,
                                                      dY_array, lddy,
                                                      nThreads_x, nThreads_y, nThreads_z);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -184,7 +183,6 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
                                                    dInvdet_array, dBil_batches,
                                                    dLlhd, lddLlhd, isLog,
                                                    nThreads_x, nThreads_y);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 
 }
