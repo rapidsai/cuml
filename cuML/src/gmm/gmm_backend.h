@@ -113,7 +113,7 @@ void normalizeMatrixKernel(size_t m, size_t n,
                                 dA[IDX(i, j, ldda)] /= x[j];
                         }
                         else{
-                                dA[IDX(i, j, ldda)] = x[i];
+                                dA[IDX(i, j, ldda)] /= x[i];
                         }
                 }
         }

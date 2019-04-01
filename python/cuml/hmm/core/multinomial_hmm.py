@@ -16,7 +16,7 @@ class _Multinomial(_BaseCUML):
             self.set_emissionprob_(dPis)
 
     def _set_dims(self, X):
-        self.n_features = np.max(X)
+        self.n_features = np.max(X) + 1
 
     def _setup(self, X):
         pass

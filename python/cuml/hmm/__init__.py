@@ -15,5 +15,5 @@
 #
 
 
-# from cuml.hmm import GMMHMM
 from cuml.hmm.core.multinomial_hmm import MultinomialHMM
+from cuml.hmm.core.gmm_hmm import GMMHMM

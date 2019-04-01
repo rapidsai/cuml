@@ -61,10 +61,18 @@ class _DevHMM(ABC):
     def _set_dVStates(self, dVStates):
         self.dVStates = process_parameter(dVStates[:, None], self.nObs, self.int_type)
 
+    def _get_logllhd(self):
+        return self.dlogllhd.copy_to_host()[0]
+
+    def _set_logllhd(self, logllhd):
+        logllhd_array = np.array(logllhd, dtype=self.dtype)
+        self.dlogllhd = cuda.to_device(logllhd_array)
+
     _gammas_ = property(_get_gamma, _set_gamma)
     _B_ = property(_get_B, _set_B)
     _llhd = property(_get_llhd, _set_llhd)
     _dVStates_ = property(_get_dVStates, _set_dVStates)
+    _logllhd_ = property(_get_logllhd, _set_logllhd)
 
 
 class _BaseHMM(_BaseCUML, _DevHMM):
@@ -95,7 +103,7 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self._reset()
 
         for step in range(self.n_iter):
-            self._forward_backward(X, lengths, True, True, True)
+            # self._forward_backward(X, lengths, True, True, True)
             self._m_step(X, lengths)
 
     def decode(self, X, lengths=None, algorithm=None):
@@ -170,6 +178,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         for dist in self.dists:
             dist._initialize()
 
+        self._set_logllhd(0)
+
     def _set_dims(self, X, lengths):
         self.nObs = X.shape[0]
 
@@ -214,4 +224,4 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self._set_llhd(Llhd)
 
     def _score(self):
-        return sum(self._llhd)
+        return self._logllhd_

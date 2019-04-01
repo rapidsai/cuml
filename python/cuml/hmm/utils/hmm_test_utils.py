@@ -10,7 +10,7 @@ from cuml.gmm.utils import *
 
 
 class _Sampler(ABC):
-    def __init__(self, n_seq, p=0.35, seq_len_ref=5, random_state=None):
+    def __init__(self, n_seq, p=0.35, seq_len_ref=1, random_state=None):
         self.p = p
         self.random_state = random_state
         self.seq_len_ref = seq_len_ref
@@ -33,7 +33,11 @@ class _Sampler(ABC):
         samples = [self.model.sample(lengths[sId])[0]
                    for sId in range(len(lengths))]
         samples = np.concatenate(samples, axis=0)
-        lengths = np.array(lengths)
+
+        if self.n_seq != 1 :
+            lengths = np.array(lengths)
+        else :
+            lengths = None
         return samples, lengths
 
     def sample_startprob(self, random_state):
@@ -67,7 +71,7 @@ class GMMHMMSampler(_Sampler):
         means = [[sample_matrix(1, self.n_dim, random_state)[0]
                       for _ in range(self.n_mix)]
                       for _ in range(self.n_components)]
-        return np.array(means)
+        return np.array(means)[0]
 
     def _sample_covars(self, random_state):
             covars = [[sample_matrix(self.n_dim, self.n_dim, random_state, isSymPos=True)

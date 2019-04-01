@@ -30,6 +30,7 @@ struct HMM {
 
         int nObs, nSeq, max_len;
         T* dLlhd;
+        T* logllhd;
 
         T **dB_array, **dPi_array;
 

@@ -61,7 +61,8 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                             double* dB,
                             int lddb,
                             double* dGamma,
-                            int lddgamma)
+                            int lddgamma,
+                            double* logllhd)
 
     cdef void viterbi_mhmm_f64(doubleMultinomialHMM &hmm,
                                         unsigned short int* dVStates,

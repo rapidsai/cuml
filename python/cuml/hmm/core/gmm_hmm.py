@@ -27,7 +27,7 @@ class GMMHMM(_BaseHMM, _BaseHMMBackend):
 
         self.x_type = np.int32
 
-        self.dists = [GaussianMixture(init_params=self.init_params,
+        self.dists = [GaussianMixture(n_components=n_mix,
                                    precision=self.precision,
                                    random_state=self.random_state)
                       for _ in range(self.n_components)]

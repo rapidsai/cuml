@@ -56,6 +56,8 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
     cdef uintptr_t _dStartProb_ptr = self.dstartProb.device_ctypes_pointer.value
     cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
 
+    cdef uintptr_t _logllhd_ptr = self.dlogllhd.device_ctypes_pointer.value
+
     cdef int nStates = self.n_components
     cdef int lddt = self.lddt
     cdef int lddb = self.lddb
@@ -82,7 +84,8 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                           <double*>_dB_ptr,
                           <int>lddb,
                           <double*>_dGamma_ptr,
-                          <int>lddgamma)
+                          <int>lddgamma,
+                          <double*>_logllhd_ptr)
             setup_mhmm_f64(hmm64,
                            <int> nObs,
                            <int> nSeq,

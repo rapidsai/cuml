@@ -90,11 +90,23 @@ T _backward_dot(T* dT, int lddt, T* prevdist, T* nextdB, int nStates, int stateI
 template <typename T>
 __device__
 void sum_llhd(T* dO, int len, T* darray){
-        T sumVal;
+        T sumVal=0;
+
         for (size_t i = 0; i < len; i++) {
                 sumVal += std :: exp(darray[i]);
         }
         *dO = std::log(sumVal);
+}
+
+template <typename T>
+__device__
+void _sum(T* dO, int len, T* darray){
+        T sumVal=0;
+
+        for (size_t i = 0; i < len; i++) {
+                sumVal += darray[i];
+        }
+        *dO = sumVal;
 }
 
 template <typename T>
@@ -103,7 +115,7 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                             unsigned short int* dlenghts,
                             unsigned short int* dcumlengths_inc,
                             unsigned short int* dcumlengths_exc,
-                            T* dLlhd,
+                            T* dLlhd, T* logllhd,
                             T* dAlpha, int lddalpha,
                             T* dBeta, int lddbeta,
                             T* dStartProb, int lddsp,
@@ -116,9 +128,9 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
 
         int obsId;
         T temp;
-        for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
-                for (size_t tau = 0; tau < dlenghts[seqId]; tau++) {
-                        if (doForward) {
+        if (doForward) {
+                for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
+                        for (size_t tau = 0; tau < dlenghts[seqId]; tau++) {
                                 for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
                                         obsId = dcumlengths_exc[seqId] + tau;
                                         if (tau == 0) {
@@ -129,16 +141,23 @@ void _ForwardBackwardKernel(int nStates, int nSeq, int nObs,
                                                 dAlpha[IDX(stateId, obsId, lddalpha)] = dB[IDX(stateId, obsId, lddb)] + temp;
                                         }
                                 }
-                                if (threadIdx.x == 0) {
-                                        if (tau == dlenghts[seqId] - 1) {
-                                                // Compute the log likelihoods
-                                                sum_llhd(dLlhd + seqId, nStates,
-                                                         dAlpha + IDX(0, obsId, lddalpha));
-                                        }
-                                }
-
                         }
-                        if (doBackward) {
+                        if (stateId_start == 0 && stateId_start == 0) {
+                                // Compute the log likelihoods
+                                sum_llhd(dLlhd + seqId, nStates,
+                                         dAlpha + IDX(0, obsId, lddalpha));
+                        }
+                }
+
+                __syncthreads();
+
+                if (stateId_start == 0 && seqId_start == 0) {
+                        _sum(logllhd, nSeq, dLlhd);
+                }
+        }
+        if (doBackward) {
+                for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
+                        for (size_t tau = 0; tau < dlenghts[seqId]; tau++) {
                                 for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
                                         obsId = dcumlengths_inc[seqId] - tau - 1;
                                         if (tau == 0) {
@@ -160,17 +179,17 @@ void _forward_backward(HMM<T, D> &hmm,
                        unsigned short int* dlenghts, int nSeq,
                        bool doForward, bool doBackward ){
         dim3 block(8, 8);
-        dim3 grid(1, 1);
+        dim3 grid(1);
         // dim3 grid(ceildiv(nSeq, (int)block.x),
         //           ceildiv(hmm.nStates, (int)block.y));
 
         int numThreads_x = grid.x * block.x;
-        int numThreads_y = grid.y * block.y;
+        int numThreads_y = grid.x * block.y;
 
         _ForwardBackwardKernel<T> <<< grid, block >>>(hmm.nStates, nSeq, hmm.nObs,
                                                       dlenghts, hmm.dcumlenghts_inc,
                                                       hmm.dcumlenghts_exc,
-                                                      hmm.dLlhd,
+                                                      hmm.dLlhd, hmm.logllhd,
                                                       hmm.dAlpha, hmm.lddalpha,
                                                       hmm.dBeta, hmm.lddbeta,
                                                       hmm.dStartProb, hmm.lddsp,
@@ -194,7 +213,7 @@ void _updateGammasKernel(int nObs, int nStates,
                          T* dGamma, int lddgamma,
                          T* dAlpha, int lddalpha,
                          T* dBeta, int lddbeta,
-                         int numThreads_x, int numThreads_y){
+                         int numThreads_x){
         T _sum;
         int obsId_start = threadIdx.x + blockDim.x * blockIdx.x;
         // int seqId_start = threadIdx.y + blockDim.y * blockIdx.y;
@@ -213,19 +232,17 @@ void _updateGammasKernel(int nObs, int nStates,
 
 template <typename T, typename D>
 void _update_gammas(HMM<T, D> &hmm){
-        dim3 block(16, 16, 1);
-        dim3 grid(16,
-                  16,
-                  1);
+        dim3 block(16);
+        dim3 grid(16);
 
         int numThreads_x = grid.x * block.x;
-        int numThreads_y = grid.y * block.y;
+        // int numThreads_y = grid.y * block.y;
 
         _updateGammasKernel<T> <<< grid, block >>>(hmm.nObs, hmm.nStates,
                                                    hmm.dGamma, hmm.lddgamma,
                                                    hmm.dAlpha, hmm.lddalpha,
                                                    hmm.dBeta, hmm.lddbeta,
-                                                   numThreads_x, numThreads_y);
+                                                   numThreads_x);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }

@@ -5,6 +5,7 @@
 #include "gmm/gmm.h"
 #include "hmm/algorithms/forward_backward.h"
 #include "hmm/algorithms/viterbi.h"
+#include "hmm/algorithms/em.h"
 
 #include <hmm/magma/magma_test_utils.h>
 
@@ -17,7 +18,8 @@ void init(HMM<T, D> &hmm,
           T* dStartProb, int lddsp,
           T* dT, int lddt,
           T* dB, int lddb,
-          T* dGamma, int lddgamma
+          T* dGamma, int lddgamma,
+          T* logllhd
           ) {
 
         hmm.dT = dT;
@@ -36,6 +38,8 @@ void init(HMM<T, D> &hmm,
 
         hmm.nStates = nStates;
         hmm.dists = gmms;
+
+        hmm.logllhd = logllhd;
 
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 hmm.dists[stateId].dLlhd = hmm.dB + hmm.nObs * stateId;
@@ -64,6 +68,8 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         allocate(hmm.dV, hmm.lddv * nObs);
         allocate(hmm.dcumlenghts_exc, nSeq);
         allocate(hmm.dcumlenghts_inc, nSeq);
+
+        // allocate(hmm.logllhd, 1);
 
         // Create Pi array
         allocate(hmm.dPi_array, hmm.nStates);
@@ -128,9 +134,9 @@ void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
         _compute_emissions(dX, hmm, cublasHandle);
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
                             dlenghts, nSeq);
-        _viterbi(hmm, dVStates, dlenghts, nSeq);
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        _viterbi(hmm, dVStates, dlenghts, nSeq);
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
 }
 
@@ -139,8 +145,13 @@ void m_step(HMM<T, D> &hmm,
             Tx* dX, unsigned short int* dlenghts, int nSeq,
             cublasHandle_t cublasHandle, magma_queue_t queue
             ){
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
-        _m_step(hmm, dX);
+        forward_backward(hmm, dX, dlenghts, nSeq,
+                         cublasHandle, queue,
+                         true, true, true);
+        print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT");
+
+        _m_step(hmm, dX, dlenghts, nSeq);
 }
 
 //
