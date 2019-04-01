@@ -34,7 +34,7 @@ def test_pca_fit(datatype, input_type, run_stress, run_correctness_test):
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         iris = datasets.load_iris()
         X = iris.data 
 
@@ -78,7 +78,7 @@ def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_tes
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         iris = datasets.load_iris()
         X = iris.data  
 
@@ -109,7 +109,7 @@ def test_pca_inverse_transform(datatype, input_type, run_stress, run_correctness
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         iris = datasets.load_iris()
         X = iris.data  
 
