@@ -42,7 +42,7 @@ def test_kmeans_sklearn_comparison(name, run_stress, run_correctness_test):
         train_rows = np.int32(n_samples*8)
         X, y = pat[0]
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         pat = get_pattern(name, n_samples)
         params = default_base.copy()
         params.update(pat[1])
