@@ -91,7 +91,7 @@ void mean(Type *mu, const Type *data, int D, int N, bool sample, bool rowMajor,
       mu, data, D, N);
     CUDA_CHECK(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::scalarMultiply(mu, mu, ratio, D);
+    LinAlg::scalarMultiply(mu, mu, ratio, D, stream);
   } else {
     meanKernelColMajor<Type, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
   }

@@ -314,7 +314,7 @@ void sum_rows_by_key_large_nkeys_rowmajor( const DataType *d_A, int lda,
 template <typename DataType, typename KeyType>
 void reduce_rows_by_key(const DataType *d_A, int lda, KeyType *d_keys, 
                         char *d_keys_char, int nrows, int ncols, int nkeys, 
-                        DataType *d_sums, cudaStream_t stream = 0) {
+                        DataType *d_sums, cudaStream_t stream) {
     // Following kernel needs memset
     cudaMemsetAsync(d_sums, 0, ncols * nkeys * sizeof(int), stream);
    

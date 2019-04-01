@@ -49,11 +49,11 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	Matrix::setSmallValuesZero(S, n_cols, thres);
 	allocate(S_nnz, n_cols, true);
 	copy(S_nnz, S, n_cols);
-	Matrix::power(S_nnz, n_cols);
+	Matrix::power(S_nnz, n_cols, stream);
 	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
-	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, true);
+	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, stream, true);
 
-	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true);
+	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
 	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta,
 			cublasH);
 
@@ -142,7 +142,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 		}
 		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
         auto mgr = makeDefaultAllocator();
@@ -164,7 +164,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 	if (fit_intercept) {
 		postProcessData(input, n_rows, n_cols, labels, coef, intercept,
 				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		if (normalize) {
 			if (norm2_input != NULL)

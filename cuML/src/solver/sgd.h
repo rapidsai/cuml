@@ -80,7 +80,7 @@ void sgdFit(math_t *input,
 
 		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, false, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
 	math_t *grads = NULL;
@@ -142,7 +142,7 @@ void sgdFit(math_t *input,
 										coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
 				Functions::hingeLossGrads(input_batch, cbs, n_cols, labels_batch,
-														coef, grads, penalty, alpha, l1_ratio, cublas_handle);
+														coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else {
 				ASSERT(false,
 						"sgd.h: Other loss functions have not been implemented yet!");
@@ -151,7 +151,7 @@ void sgdFit(math_t *input,
 			if (lr_type != ML::lr_type::ADAPTIVE)
 			    learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols);
+			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols, stream);
 			LinAlg::subtract(coef, coef, grads, n_cols);
 
 			j = j + cbs;
@@ -167,7 +167,7 @@ void sgdFit(math_t *input,
 						penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
 				Functions::hingeLoss(input, n_rows, n_cols, labels, coef, loss_value,
-						penalty, alpha, l1_ratio, cublas_handle);
+						penalty, alpha, l1_ratio, cublas_handle, stream);
 			}
 
 			updateHost(&curr_loss_value, loss_value, 1);
@@ -206,7 +206,7 @@ void sgdFit(math_t *input,
 	if (fit_intercept) {
 		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
 				mu_input, mu_labels, norm2_input, fit_intercept, false,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		if (mu_input != NULL)
 			CUDA_CHECK(cudaFree(mu_input));

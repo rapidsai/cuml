@@ -43,13 +43,13 @@ template <typename T, typename IdxType>
 template <typename T, typename IdxType>
 void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
                           IdxType D, IdxType N, bool rowMajor,
-                          bool bcastAlongRows, bool useTwoVectors) {
+                          bool bcastAlongRows, bool useTwoVectors, cudaStream_t stream=0) {
   if(useTwoVectors) {
     matrixVectorOp(out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
-                   [] __device__(T a, T b, T c) { return a + b + c; });
+                   [] __device__(T a, T b, T c) { return a + b + c; }, stream);
   } else {
     matrixVectorOp(out, in, vec1, D, N, rowMajor, bcastAlongRows,
-                   [] __device__(T a, T b) { return a + b; });
+                   [] __device__(T a, T b) { return a + b; }, stream);
   }
 }
 

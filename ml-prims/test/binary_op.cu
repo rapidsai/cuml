@@ -28,8 +28,9 @@ namespace LinAlg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void binaryOpLaunch(T *out, const T *in1, const T *in2, int len) {
-  binaryOp(out, in1, in2, len, [] __device__(T a, T b) { return a + b; });
+void binaryOpLaunch(T *out, const T *in1, const T *in2, int len, cudaStream_t stream) {
+  binaryOp(out, in1, in2, len, [] __device__(T a, T b) { return a + b; },
+            stream);
 }
 
 template <typename T>
@@ -39,6 +40,8 @@ protected:
     params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);
     allocate(in2, len);
     allocate(out_ref, len);
@@ -46,7 +49,8 @@ protected:
     r.uniform(in1, len, T(-1.0), T(1.0));
     r.uniform(in2, len, T(-1.0), T(1.0));
     naiveAdd(out_ref, in1, in2, len);
-    binaryOpLaunch(out, in1, in2, len);
+    binaryOpLaunch(out, in1, in2, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

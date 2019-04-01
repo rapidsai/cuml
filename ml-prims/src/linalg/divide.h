@@ -33,7 +33,7 @@ namespace LinAlg {
  */
 template <typename math_t>
 void divideScalar(math_t *out, const math_t *in, math_t scalar, int len,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in / scalar; },
           stream);

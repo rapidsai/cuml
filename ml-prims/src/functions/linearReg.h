@@ -64,11 +64,11 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 
 	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
 	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
-	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true);
+	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true, stream);
 	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false);
-	LinAlg::scalarMultiply(grads, grads, math_t(2), n_cols);
+	LinAlg::scalarMultiply(grads, grads, math_t(2), n_cols, stream);
 
 	math_t *pen_grads = NULL;
 
@@ -76,15 +76,15 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 		allocate(pen_grads, n_cols);
 
 	if (pen == penalty::L1) {
-		lassoGrad(pen_grads, coef, n_cols, alpha);
+		lassoGrad(pen_grads, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridgeGrad(pen_grads, coef, n_cols, alpha);
+		ridgeGrad(pen_grads, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio);
+		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(grads, grads, pen_grads, n_cols);
+	    LinAlg::add(grads, grads, pen_grads, n_cols, stream);
 	    if (pen_grads != NULL)
 	        CUDA_CHECK(cudaFree(pen_grads));
 	}
@@ -111,7 +111,7 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
 	LinAlg::subtract(labels_pred, labels, labels_pred, n_rows);
-	Matrix::power(labels_pred, n_rows);
+	Matrix::power(labels_pred, n_rows, stream);
 	Stats::mean(loss, labels_pred, 1, n_rows, false, false);
 
 	math_t *pen_val = NULL;
@@ -120,15 +120,15 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	    allocate(pen_val, 1);
 
 	if (pen == penalty::L1) {
-		lasso(pen_val, coef, n_cols, alpha);
+		lasso(pen_val, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridge(pen_val, coef, n_cols, alpha);
+		ridge(pen_val, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio);
+		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(loss, loss, pen_val, 1);
+	    LinAlg::add(loss, loss, pen_val, 1, stream);
 	    if (pen_val != NULL)
 	        CUDA_CHECK(cudaFree(pen_val));
 	}

@@ -60,10 +60,10 @@ __global__ void naiveRowNormKernel(Type *dots, const Type *data, int D, int N,
 
 template <typename Type>
 void naiveRowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-               bool do_sqrt) {
+               bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(N, TPB);
-  naiveRowNormKernel<Type><<<nblks, TPB>>>(dots, data, D, N, type, do_sqrt);
+  naiveRowNormKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -74,17 +74,20 @@ public:
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0));
-    naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt);
+    naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      rowNorm(dots_act, data, cols, rows, params.type, fin_op);
+      rowNorm(dots_act, data, cols, rows, params.type, fin_op, stream);
     } else {
-      rowNorm(dots_act, data, cols, rows, params.type);
+      rowNorm(dots_act, data, cols, rows, params.type, stream);
     }
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -117,10 +120,10 @@ __global__ void naiveColNormKernel(Type *dots, const Type *data, int D, int N,
 
 template <typename Type>
 void naiveColNorm(Type *dots, const Type *data, int D, int N, NormType type,
-               bool do_sqrt) {
+               bool do_sqrt, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(D, TPB);
-  naiveColNormKernel<Type><<<nblks,TPB>>>(dots, data, D, N, type, do_sqrt);
+  naiveColNormKernel<Type><<<nblks,TPB, 0, stream>>>(dots, data, D, N, type, do_sqrt);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -132,18 +135,21 @@ public:
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     r.uniform(data, len, T(-1.0), T(1.0));
     allocate(dots_exp, cols);
     allocate(dots_act, cols);
 
-    naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt);
+    naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
     if(params.do_sqrt){
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      colNorm(dots_act, data, cols, rows, params.type, fin_op);
+      colNorm(dots_act, data, cols, rows, params.type, fin_op, stream);
     }else{
-      colNorm(dots_act, data, cols, rows, params.type);
+      colNorm(dots_act, data, cols, rows, params.type, stream);
     }
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

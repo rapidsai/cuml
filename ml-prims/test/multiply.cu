@@ -30,13 +30,16 @@ protected:
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0));
-    naiveScale(out_ref, in, params.scalar, len);
-    multiplyScalar(out, in, params.scalar, len);
+    naiveScale(out_ref, in, params.scalar, len, stream);
+    multiplyScalar(out, in, params.scalar, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

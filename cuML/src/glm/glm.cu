@@ -29,14 +29,17 @@ void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-			normalize, cublas_handle, cusolver_handle, algo);
+			normalize, cublas_handle, cusolver_handle, stream, algo);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
@@ -46,14 +49,17 @@ void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-			normalize, cublas_handle, cusolver_handle, algo);
+			normalize, cublas_handle, cusolver_handle, stream, algo);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,

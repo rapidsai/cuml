@@ -34,8 +34,9 @@ struct stridedReductionInputs {
 };
 
 template <typename T>
-void stridedReductionLaunch(T *dots, const T *data, int cols, int rows) {
-  stridedReduction(dots, data, cols, rows, (T)0, false, 0,
+void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
+                              cudaStream_t stream) {
+  stridedReduction(dots, data, cols, rows, (T)0, stream, false,
                    [] __device__(T in, int i) { return in * in; });
 }
 
@@ -76,6 +77,8 @@ protected:
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows*cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     allocate(data, len);
     allocate(dots_exp, cols); //expected dot products (from test)
@@ -83,7 +86,8 @@ protected:
     r.uniform(data, len, T(-1.0), T(1.0)); //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows);
-    stridedReductionLaunch(dots_act, data, cols, rows);
+    stridedReductionLaunch(dots_act, data, cols, rows, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

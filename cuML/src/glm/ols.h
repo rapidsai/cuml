@@ -56,7 +56,7 @@ template<typename math_t>
 void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		math_t *intercept, bool fit_intercept, bool normalize,
 		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
-		int algo = 0) {
+		cudaStream_t stream, int algo = 0) {
 
 	ASSERT(n_cols > 0,
 			"olsFit: number of columns cannot be less than one");
@@ -73,17 +73,17 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		}
 		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
         ///@todo: for perf reasons we should be using custom allocators!
         DeviceAllocator mgr = makeDefaultAllocator();
 	if (algo == 0 || n_cols == 1) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr);
+                                 cublas_handle, mgr, stream);
 	} else if (algo == 1) {
 		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr);
+                                 cublas_handle, mgr, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
 				cublas_handle);
@@ -96,7 +96,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	if (fit_intercept) {
 		postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 
 		if (normalize) {
 			if (norm2_input != NULL)

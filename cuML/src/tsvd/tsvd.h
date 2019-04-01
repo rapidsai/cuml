@@ -211,7 +211,7 @@ template<typename math_t>
 void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, paramsTSVD prms, cublasHandle_t cublas_handle,
-                      cusolverDnHandle_t cusolver_handle) {
+                      cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
     ///@todo: make this to be passed via the interface!
     DeviceAllocator mgr = makeDefaultAllocator();
 
@@ -227,7 +227,7 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	Stats::mean(mu_trans, trans_input, prms.n_components, prms.n_rows, true,
 			false);
 	Stats::vars(explained_var, trans_input, mu_trans, prms.n_components,
-			prms.n_rows, true, false);
+			prms.n_rows, true, false, stream);
 
 	math_t *mu;
 	allocate(mu, prms.n_cols);
@@ -235,7 +235,7 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	allocate(vars, prms.n_cols);
 
 	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
-	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false);
+	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false, stream);
 
 	math_t *total_vars;
 	allocate(total_vars, 1);
@@ -246,7 +246,7 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	math_t scalar = math_t(1) / total_vars_h;
 
 	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-			prms.n_components);
+			prms.n_components, stream);
 
 	CUDA_CHECK(cudaFree(mu_trans));
 	CUDA_CHECK(cudaFree(mu));

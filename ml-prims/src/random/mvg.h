@@ -60,10 +60,10 @@ void epsilonToZero(T *eig, T epsilon, int size) {
  */
 template <typename T>
 void matVecAdd(T *out, const T *in_m, const T *in_v, T scalar, int rows,
-               int cols) {
+               int cols, cudaStream_t stream = 0) {
   LinAlg::matrixVectorOp(
     out, in_m, in_v, cols, rows, true, true,
-    [=] __device__(T mat, T vec) { return mat + scalar * vec; });
+    [=] __device__(T mat, T vec) { return mat + scalar * vec; }, stream);
 }
 
 // helper kernels

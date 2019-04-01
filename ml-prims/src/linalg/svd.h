@@ -117,7 +117,8 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
     if (gen_left_vec) {
     	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
              alpha, beta, cublasH);
-    	Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true);
+      // @ToDo: Add stream param for below prim
+      Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, 0);
     }
 
 	CUDA_CHECK(cudaFree(in_cross_mult));

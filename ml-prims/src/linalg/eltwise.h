@@ -34,7 +34,7 @@ namespace LinAlg {
  */
 template <typename math_t>
 void scalarAdd(math_t *out, const math_t *in, math_t scalar, int len,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in + scalar; },
           stream);
@@ -42,7 +42,7 @@ void scalarAdd(math_t *out, const math_t *in, math_t scalar, int len,
 
 template <typename math_t>
 void scalarMultiply(math_t *out, const math_t *in, math_t scalar, int len,
-                    cudaStream_t stream = 0) {
+                    cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in * scalar; },
           stream);
@@ -61,28 +61,28 @@ void scalarMultiply(math_t *out, const math_t *in, math_t scalar, int len,
  */
 template <typename math_t>
 void eltwiseAdd(math_t *out, const math_t *in1, const math_t *in2, int len,
-                cudaStream_t stream = 0) {
+                cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a + b; }, stream);
 }
 
 template <typename math_t>
 void eltwiseSub(math_t *out, const math_t *in1, const math_t *in2, int len,
-                cudaStream_t stream = 0) {
+                cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a - b; }, stream);
 }
 
 template <typename math_t>
 void eltwiseMultiply(math_t *out, const math_t *in1, const math_t *in2, int len,
-                     cudaStream_t stream = 0) {
+                     cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a * b; }, stream);
 }
 
 template <typename math_t>
 void eltwiseDivide(math_t *out, const math_t *in1, const math_t *in2, int len,
-                   cudaStream_t stream = 0) {
+                   cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a / b; }, stream);
 }

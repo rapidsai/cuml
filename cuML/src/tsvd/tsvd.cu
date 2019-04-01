@@ -57,15 +57,18 @@ void tsvdFitTransform(float *input, float *trans_input, float *components,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	tsvdFitTransform(input, trans_input, components, explained_var,
 			explained_var_ratio, singular_vals, prms, cublas_handle,
-			cusolver_handle);
+			cusolver_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 void tsvdFitTransform(double *input, double *trans_input, double *components,
@@ -75,14 +78,18 @@ void tsvdFitTransform(double *input, double *trans_input, double *components,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	tsvdFitTransform(input, trans_input, components, explained_var,
 			explained_var_ratio, singular_vals, prms, cublas_handle,
-			cusolver_handle);
+			cusolver_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
