@@ -37,7 +37,7 @@ def test_dbscan_predict(datatype, input_type, run_stress, run_correctness_test):
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
 
     else:
