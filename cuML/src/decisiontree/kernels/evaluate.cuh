@@ -24,7 +24,8 @@
 
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int nbins, const int nrows, const int n_unique_labels, int* histout, float * col_min, float * col_max, float * ques_info) {
+template<typename T>
+__global__ void batch_evaluate_minmax_kernel(const T* __restrict__ column, const int* __restrict__ labels, const int nbins, const int nrows, const int n_unique_labels, int* histout, T * col_min, T * col_max, T * ques_info) {
 
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -35,14 +36,14 @@ __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, c
 	
 	__syncthreads();
 	
-	float delta = (*col_max - *col_min) / nbins;
-	float base_quesval = *col_min + delta;
+	T delta = (*col_max - *col_min) / nbins;
+	T base_quesval = *col_min + delta;
 	if (tid < nrows) {
-		float data = column[tid];
+		T data = column[tid];
 		int label = labels[tid];
 		// Each thread evaluates batch_bins questions and populates respective buckets.
 		for (int i = 0; i < nbins; i++) {
-			float quesval = base_quesval + i * delta;
+			T quesval = base_quesval + i * delta;
 			
 			if (data <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
@@ -66,7 +67,8 @@ __global__ void batch_evaluate_minmax_kernel(const float* __restrict__ column, c
 }
 
 /* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-__global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const float* __restrict__ quantile, float * ques_info, const int quantile_offset) {
+template<typename T>
+__global__ void batch_evaluate_quantile_kernel(const T* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const T* __restrict__ quantile, T * ques_info, const int quantile_offset) {
 
 	// Reset shared memory histograms
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -78,11 +80,11 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
 	__syncthreads();
 	
 	if (tid < nrows) {
-		float data = column[tid];
+		T data = column[tid];
 		int label = labels[tid];
 		// Each thread evaluates batch_bins questions and populates respective buckets.
 		for (int i = 0; i < batch_bins; i++) {
-			float quesval = quantile[quantile_offset + i];
+			T quesval = quantile[quantile_offset + i];
 			if (data <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
 			}
@@ -103,9 +105,10 @@ __global__ void batch_evaluate_quantile_kernel(const float* __restrict__ column,
    Outputs: split_info[1] and split_info[2] are updated with the correct info for the best split among the considered batch.
    batch_id specifies which question (bin) within the batch  gave the best split.
 */
-float batch_evaluate_gini(const float *column, const int *labels, const int nbins,
+template<typename T>
+float batch_evaluate_gini(const T *column, const int *labels, const int nbins,
 			  int& batch_id, const int nrows, const int n_unique_labels,
-			  GiniInfo split_info[3], TemporaryMemory* tempmem, int split_algo, int bootstrapped_col_id) {
+			  GiniInfo split_info[3], TemporaryMemory<T> * tempmem, int split_algo, int bootstrapped_col_id) {
 		
 	int threads = 128;
 	int *dhist = tempmem->d_hist;
@@ -212,12 +215,13 @@ float batch_evaluate_gini(const float *column, const int *labels, const int nbin
 	
 }
 
-__global__ void allcolsampler_minmax_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* globalmin, float* globalmax, float* sampledcols)
+template<typename T>
+__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
-	float *minshared = (float*)shmem;
-	float *maxshared = (float*)(shmem + sizeof(float) * ncols);
+	T *minshared = (T*)shmem;
+	T *maxshared = (T*)(shmem + sizeof(T) * ncols);
 
 	for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
 		minshared[i] = FLT_MAX;
@@ -236,18 +240,18 @@ __global__ void allcolsampler_minmax_kernel(const float* __restrict__ data, cons
 		int newcolid = (int)(i / nrows);
 		int myrowstart = colids[ newcolid ] * rowoffset;
 		int index = rowids[ i % nrows] + myrowstart;
-		float coldata = data[index];
+		T coldata = data[index];
 
-		atomicMinFloat(&minshared[newcolid], coldata);
-		atomicMaxFloat(&maxshared[newcolid], coldata);
+		atomicMinFD(&minshared[newcolid], coldata);
+		atomicMaxFD(&maxshared[newcolid], coldata);
 		sampledcols[i] = coldata;
 	}
 
 	__syncthreads();
 	
 	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
-		atomicMinFloat(&globalmin[j], minshared[j]);
-		atomicMaxFloat(&globalmax[j], maxshared[j]);
+		atomicMinFD(&globalmin[j], minshared[j]);
+		atomicMaxFD(&globalmax[j], maxshared[j]);
 	}
 
 	return;
@@ -258,12 +262,13 @@ __global__ void allcolsampler_minmax_kernel(const float* __restrict__ data, cons
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
-__global__ void all_cols_histograms_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const float* __restrict__ globalminmax, int* histout) {
+template<typename T>
+__global__ void all_cols_histograms_kernel(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
-	float *minmaxshared = (float*)shmem;
-	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(float));
+	T *minmaxshared = (T*)shmem;
+	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(T));
 
 	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
 		minmaxshared[i] = globalminmax[i];
@@ -280,13 +285,13 @@ __global__ void all_cols_histograms_kernel(const float* __restrict__ data, const
 		int coloffset = mycolid*n_unique_labels*nbins;
 
 		// nbins is # batched bins. Use (batched bins + 1) for delta computation.
-		float delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins);
-		float base_quesval = minmaxshared[mycolid] + delta;
+		T delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins);
+		T base_quesval = minmaxshared[mycolid] + delta;
 
-		float localdata = data[i];
+		T localdata = data[i];
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
-			float quesval = base_quesval + j * delta;
+			T quesval = base_quesval + j * delta;
 			
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
@@ -302,7 +307,8 @@ __global__ void all_cols_histograms_kernel(const float* __restrict__ data, const
 	}
 }
 
-__global__ void all_cols_histograms_global_quantile_kernel(const float* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const float* __restrict__ quantile) {
+template<typename T>
+__global__ void all_cols_histograms_global_quantile_kernel(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -319,11 +325,11 @@ __global__ void all_cols_histograms_global_quantile_kernel(const float* __restri
 		int coloffset = mycolid*n_unique_labels*nbins;
 
 		// nbins is # batched bins.
-		float localdata = data[i];
+		T localdata = data[i];
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
 			int quantile_index = colids[mycolid] * nbins + j; //TODO FIXME Is this valid? Confirm if there's any issue w/ bins vs. batch bins
-			float quesval = quantile[quantile_index];
+			T quesval = quantile[quantile_index];
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
 			}
@@ -338,7 +344,8 @@ __global__ void all_cols_histograms_global_quantile_kernel(const float* __restri
 	}
 }
 
-void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion & ques, float & gain, const int split_algo) {
+template<typename T>
+void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -407,28 +414,29 @@ void find_best_split(const TemporaryMemory * tempmem, const int nbins, const int
 	}
 
 	if (split_algo == 0) { // HIST
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
 	} else if (split_algo == 2) { // Global quantile
-		float ques_val;
-		float *d_quantile = tempmem->d_quantile;
+		T ques_val;
+		T *d_quantile = tempmem->d_quantile;
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
-		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
+		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, FLT_MAX, -FLT_MAX, ques_val);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
 	}
 	return;
 }
 
 //rowoffset appears to be NLocalrows which is nrows. Why?
-void best_split_all_cols(const float *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory* tempmem, GiniInfo split_info[3], GiniQuestion & ques, float & gain, const int split_algo)
+template<typename T>
+void best_split_all_cols(const T *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory<T> * tempmem, GiniInfo split_info[3], GiniQuestion<T> & ques, float & gain, const int split_algo)
 {
 	int* d_colids = tempmem->d_colids;
-	float* d_globalminmax = tempmem->d_globalminmax;
+	T* d_globalminmax = tempmem->d_globalminmax;
 	int *d_histout = tempmem->d_histout;
 	int *h_histout = tempmem->h_histout;
 	
 	int ncols = colselector.size();
-	int col_minmax_bytes = sizeof(float) * 2 * ncols;
+	int col_minmax_bytes = sizeof(T) * 2 * ncols;
 	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
 
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));

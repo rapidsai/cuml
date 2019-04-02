@@ -84,7 +84,7 @@ protected:
 		//tree_cf->print();
 
 
- 		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, 
+ 		rf_classifier = new ML::rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, 
 							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
 		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, labels_map.size());
 
@@ -154,7 +154,7 @@ protected:
 
 	
 	//DecisionTree::DecisionTreeClassifier * tree_cf;
-    rfClassifier * rf_classifier;
+    rfClassifier<T> * rf_classifier;
 
 };
 

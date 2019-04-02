@@ -19,7 +19,6 @@
 #include "algo_helper.h"
 #include "histogram/histogram.cuh"
 #include "kernels/gini.cuh"
-#include "kernels/minmax.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate.cuh"
@@ -35,25 +34,27 @@
 namespace ML {
 	namespace DecisionTree {
 		
+		template<class T>
 		struct Question {
 			int column;
-			float value;
+			T value;
 
-			void update(GiniQuestion ques)
+			void update(GiniQuestion<T> ques)
 			{
 				column = ques.original_column;
 				value = ques.value;
 			};
 		};
 		
+		template<class T>
 		struct TreeNode
 		{
 			TreeNode *left = NULL;
 			TreeNode *right = NULL;
 			int class_predict;
-			Question question;
+			Question<T> question;
 #ifdef PRINT_GINI
-			float gini_val;
+			T gini_val;
 #endif
 			void print(std::ostream& os)
 			{
@@ -72,7 +73,8 @@ namespace ML {
 				return;
 			}
 		};
-		std::ostream& operator<<(std::ostream& os, TreeNode* node)
+		template<typename T>
+		std::ostream& operator<<(std::ostream& os, TreeNode<T> * node)
 		{
 			node->print(os);
 			return os;
@@ -84,18 +86,19 @@ namespace ML {
 			unsigned int Ncols;
 		};
 
+		template<class T>
 		class DecisionTreeClassifier
 		{
 		private:
 			int split_algo;
-			TreeNode *root = NULL;
+			TreeNode<T> *root = NULL;
 			int nbins;
 			DataInfo dinfo;
 			int treedepth;
 			int depth_counter = 0;
 			int maxleaves;
 			int leaf_counter = 0;
-			std::vector<TemporaryMemory*> tempmem;
+			std::vector<TemporaryMemory<T>*> tempmem;
 			size_t total_temp_mem;
 			const int MAXSTREAMS = 1;
 			size_t max_shared_mem;
@@ -104,16 +107,16 @@ namespace ML {
 			double construct_time;
 			
 		public:
-			// Expects column major float dataset, integer labels
+			// Expects column major T dataset, integer labels
 			// data, labels are both device ptr.
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-			void fit(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST)
+			void fit(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST)
 			{
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
 
 			// Same as above fit, but planting is better for a tree then fitting.
-			void plant(float *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST)
+			void plant(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST)
 
 			{
 				split_algo = split_algo_flag;
@@ -131,7 +134,7 @@ namespace ML {
 				max_shared_mem = prop.sharedMemPerBlock;
 				
 				if (split_algo == SPLIT_ALGO::HIST) {
-					shmem_used += 2 * sizeof(float) * ncols;
+					shmem_used += 2 * sizeof(T) * ncols;
 					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
 				} else {
 					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
@@ -142,7 +145,7 @@ namespace ML {
 				ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 				
 				for (int i = 0; i<MAXSTREAMS; i++) {
-					tempmem[i] = new TemporaryMemory(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
+					tempmem[i] = new TemporaryMemory<T>(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 					if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
 						preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins, tempmem[i]);
 					}
@@ -162,14 +165,13 @@ namespace ML {
 			}
 			
 			/* Predict a label for single row for a given tree. */
-			int predict(const float * row, bool verbose=false) {
+			int predict(const T * row, bool verbose=false) {
 				ASSERT(root, "Cannot predict w/ empty tree!");
 				return classify(row, root, verbose);	
 			}
 
 			// Printing utility for high level tree info.
-			void print_tree_summary()
-			{
+			void print_tree_summary() {
 				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
 				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
 				std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
@@ -184,11 +186,11 @@ namespace ML {
 			}
 
 		private:
-			TreeNode* grow_tree(float *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info)
+			TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info)
 			{
-				TreeNode *node = new TreeNode();
-				GiniQuestion ques;
-				Question node_ques;
+				TreeNode<T> *node = new TreeNode<T>();
+				GiniQuestion<T> ques;
+				Question<T> node_ques;
 				float gain = 0.0;
 				GiniInfo split_info[3]; // basis, left, right. Populate this
 				split_info[0] = prev_split_info;
@@ -234,7 +236,7 @@ namespace ML {
 			}
 			
 			/* depth is used to distinguish between root and other tree nodes for computations */
-			void find_best_fruit(float *data, int *labels, const float colper, GiniQuestion& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
+			void find_best_fruit(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
 				gain = 0.0f;
 				
@@ -259,7 +261,7 @@ namespace ML {
 					GiniInfo local_split_info[3];
 					local_split_info[0] = split_info[0];
 					int streamid = i % MAXSTREAMS;
-					float *sampledcolumn = tempmem[streamid]->temp_data;
+					T *sampledcolumn = tempmem[streamid]->temp_data;
 					int *sampledlabels = tempmem[streamid]->sampledlabels;
 					
 					if (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) {
@@ -280,19 +282,19 @@ namespace ML {
 					if (info_gain > gain) {
 						gain = info_gain;
 						if (split_algo != SPLIT_ALGO::HIST) {
-							float ques_val;
-							float *dqua = tempmem[streamid]->d_quantile;
+							T ques_val;
+							T *dqua = tempmem[streamid]->d_quantile;
 							int quantile_offset = (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) ? 0 : colselector[i] * nbins;
-							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[quantile_offset + batch_id], sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[quantile_offset + batch_id], sizeof(T), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), FLT_MAX, -FLT_MAX, ques_val);
+							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), set_min_val<T>(), -set_min_val<T>(), ques_val);
 						} else {
 							// Need to get the min, max from device memory; needed for question val computation
-							CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(float), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
+							CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(T), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
 							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-							float ques_min = tempmem[streamid]->h_ques_info[0];
-							float ques_max = tempmem[streamid]->h_ques_info[1];
-							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, 0.0f);
+							T ques_min = tempmem[streamid]->h_ques_info[0];
+							T ques_max = tempmem[streamid]->h_ques_info[1];
+							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, (T) 0);
 						}
 						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
 					}
@@ -301,7 +303,7 @@ namespace ML {
 			}
 
 			/* depth is used to distinguish between root and other tree nodes for computations */
-			void find_best_fruit_all(float *data, int *labels, const float colper, GiniQuestion& ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
+			void find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
 
 				// Bootstrap columns
@@ -309,43 +311,41 @@ namespace ML {
 				std::iota(colselector.begin(), colselector.end(), 0);
 				std::random_shuffle(colselector.begin(), colselector.end());
 				colselector.resize((int)(colper * dinfo.Ncols ));
-				
+
 				CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 				// Copy sampled column IDs to device memory
 				CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
-				
+
 				// Optimize ginibefore; no need to compute except for root.
 				if (depth == 0) {
 					int *labelptr = tempmem[0]->sampledlabels;
 					get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
 					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 				}
-				
-				
+
 				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
-				
 				best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain, split_algo);
-				
+
 				//Unregister
 				CUDA_CHECK(cudaHostUnregister(colselector.data()));
 			}
 
-			void split_branch(float *data, GiniQuestion & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
+			void split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
 #ifdef SINGLE_COL
-				float *colptr = &data[dinfo.NLocalrows * ques.original_column];
-				float *sampledcolumn = tempmem[0]->temp_data;
+				T *colptr = &data[dinfo.NLocalrows * ques.original_column];
+				T *sampledcolumn = tempmem[0]->temp_data;
 				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
 #else
-				float *temp_data = tempmem[0]->temp_data;
-				float *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
+				T *temp_data = tempmem[0]->temp_data;
+				T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 #endif
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, split_algo, tempmem[0]);
 			}
 
 
-			int classify(const float * row, TreeNode * node, bool verbose=false) {
-				Question q = node->question;
+			int classify(const T * row, TreeNode<T> * node, bool verbose=false) {
+				Question<T> q = node->question;
 				if (node->left && (row[q.column] <= q.value)) {
 					if (verbose)
 						std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
@@ -361,7 +361,7 @@ namespace ML {
 				}
 			}
 
-			void print_node(const std::string& prefix, TreeNode* node, bool isLeft)
+			void print_node(const std::string& prefix, TreeNode<T>* node, bool isLeft)
 			{
 				if (node != NULL) {
 					std::cout << prefix;
