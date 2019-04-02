@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <vector>
+#include <glm/glm_c.h>
 
 namespace ML {
 namespace GLM {
@@ -108,6 +109,28 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
   return fx;
 }
 
+template <typename T>
+T run_api(int loss_type, int C, bool fit_intercept, DevUpload<T> &devUpload,
+          InputSpec &in, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity = 0,
+          cudaStream_t stream = 0) {
+
+  int max_iter = 100;
+  T grad_tol = 1e-8;
+  int linesearch_max_iter = 50;
+  int lbfgs_memory = 5;
+  int num_iters = 0;
+
+  SimpleVec<T> w0(w, in.n_col + fit_intercept);
+  w0.fill(T(0));
+  T fx;
+
+  qnFit(devUpload.devX.data, devUpload.devY.data, in.n_row, in.n_col, C,
+        fit_intercept, l1, l2, max_iter, grad_tol, linesearch_max_iter,
+        lbfgs_memory, verbosity, w, &fx, &num_iters, false, loss_type);
+
+  return fx;
+}
+
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
@@ -139,6 +162,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l1_b[0], &b_l1_b, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(0, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
   in.fit_intercept = true;
   double w_l2_b[2] = {-1.5339880402781370, 1.6788639581350926};
   double b_l2_b = 0.806087868102401;
@@ -152,6 +178,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l2_b[0], &b_l2_b, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(0, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
   in.fit_intercept = false;
   double w_l1_no_b[2] = {-1.6215035298864591, 2.3650868394981086};
   double obj_l1_no_b = 0.4769896009200278;
@@ -163,6 +192,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l1_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(0, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
   in.fit_intercept = false;
   double w_l2_no_b[2] = {-1.3931049893764620, 2.0140103094119621};
   double obj_l2_no_b = 0.47502098062114273;
@@ -173,6 +205,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l2_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
+
+  fx = run_api(0, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
@@ -205,12 +240,18 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
+  fx = run_api(2, C, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
   l1 = 0.0;
   l2 = alpha;
   in.fit_intercept = true;
   double obj_l2_b = 0.5721784062720949;
 
   fx = run(loss_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
+  fx = run_api(2, C, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   l1 = alpha;
@@ -221,6 +262,9 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
+  fx = run_api(2, C, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
   l1 = 0.0;
   l2 = alpha;
   in.fit_intercept = false;
@@ -228,6 +272,9 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   double obj_l2_no_b = 0.6597171282106854;
 
   fx = run(loss_no_b, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
+
+  fx = run_api(2, C, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
@@ -261,6 +308,9 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l1_b[0], &b_l1_b, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(1, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
   in.fit_intercept = true;
   l1 = 0.0;
   l2 = alpha;
@@ -273,6 +323,9 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l2_b[0], &b_l2_b, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(1, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
   in.fit_intercept = false;
   l1 = alpha;
   l2 = 0.0;
@@ -284,6 +337,9 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(checkParamsEqual(&w_l1_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
 
+  fx = run_api(1, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
   in.fit_intercept = false;
   l1 = 0.0;
   l2 = alpha;
@@ -294,6 +350,9 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(&w_l2_no_b[0], nobptr, w0.data, 1, in.n_col,
                                in.fit_intercept, compApprox));
+
+  fx = run_api(1, 1, in.fit_intercept, devUpload, in, l1, l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
 } // namespace GLM
