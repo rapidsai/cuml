@@ -39,6 +39,7 @@ struct columnSort {
   T tolerance;
   int n_row;
   int n_col;
+  bool testKeys;
 };
 
 template <typename T>
@@ -52,60 +53,88 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
-    allocate(in, len);
-    allocate(out, len);
-    allocate(golden, len);
+    allocate(keyIn, len);
+    allocate(valueOut, len);
+    allocate(goldenValOut, len);
+    if (params.testKeys) {
+      allocate(keySorted, len);
+      allocate(keySortGolden, len);
+    }
 
     std::vector<T> vals(len);
-    std::vector<int> cGolden(len);
+    std::vector<int> cValGolden(len);
     std::iota(vals.begin(), vals.end(), 1.0f);  //will have to change input param type
     std::random_shuffle(vals.begin(), vals.end());
+
+    std::vector<T> cKeyGolden(len);
 
     for (int i = 0; i < params.n_row; i++) {
       std::vector<T> tmp(vals.begin() + i*params.n_col, vals.begin() + (i+1)*params.n_col);
       auto cpuOut = sort_indexes(tmp);
-      std::copy((*cpuOut).begin(), (*cpuOut).end(), cGolden.begin() + i*params.n_col);
+      std::copy((*cpuOut).begin(), (*cpuOut).end(), cValGolden.begin() + i*params.n_col);
       delete cpuOut;
+
+      if (params.testKeys) {
+        std::sort(tmp.begin(), tmp.end());
+        std::copy(tmp.begin(), tmp.end(), cKeyGolden.begin() + i*params.n_col);
+      }
     }
 
-    updateDevice(in, &vals[0], len);
-    updateDevice(golden, &cGolden[0], len);
+    updateDevice(keyIn, &vals[0], len);
+    updateDevice(goldenValOut, &cValGolden[0], len);
+
+    if (params.testKeys)
+      updateDevice(keySortGolden, &cKeyGolden[0], len);
 
     bool isColumnMajor = false;
     bool needWorkspace = false;
     size_t workspaceSize = 0;
-    sortColumnsPerRow(in, out, params.n_row, params.n_col, isColumnMajor, needWorkspace, NULL, workspaceSize);
+    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor,
+                        needWorkspace, NULL, workspaceSize, keySorted);
     if (needWorkspace) {
       allocate(workspacePtr, workspaceSize);
-      sortColumnsPerRow(in, out, params.n_row, params.n_col, isColumnMajor, needWorkspace, 
-                            workspacePtr, workspaceSize);
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor, needWorkspace, 
+                            workspacePtr, workspaceSize, keySorted);
     }    
 }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(golden));
+    CUDA_CHECK(cudaFree(keyIn));
+    CUDA_CHECK(cudaFree(valueOut));
+    CUDA_CHECK(cudaFree(goldenValOut));
+    if (params.testKeys) {
+      CUDA_CHECK(cudaFree(keySorted));
+      CUDA_CHECK(cudaFree(keySortGolden));
+    }
     if (!workspacePtr)
       CUDA_CHECK(cudaFree(workspacePtr));
 }
 
 protected:
   columnSort<T> params;
-  T *in;
-  int *out, *golden;
+  T *keyIn;
+  T *keySorted = NULL;
+  T *keySortGolden = NULL;
+  int *valueOut, *goldenValOut;    // valueOut are indexes
   char *workspacePtr=NULL;
 };
 
 const std::vector<columnSort<float>> inputsf1 = {
-  {0.000001f, 503, 2000},
-  {0.000001f, 128, 20000},
-  {0.000001f, 128, 100000}};
+  {0.000001f, 503, 2000, false},
+  {0.000001f, 128, 20000, false},
+  {0.000001f, 128, 100000, false},
+  {0.000001f, 503, 2000, true},
+  {0.000001f, 128, 20000, true},
+  {0.000001f, 128, 100000, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
-ASSERT_TRUE(devArrMatch(out, golden, params.n_row * params.n_col,
-                CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(valueOut, goldenValOut, params.n_row * params.n_col,
+                  CompareApprox<float>(params.tolerance)));
+  if (params.testKeys) {
+    ASSERT_TRUE(devArrMatch(keySorted, keySortGolden, params.n_row * params.n_col,
+      CompareApprox<float>(params.tolerance)));
+  }
 }
 
 INSTANTIATE_TEST_CASE_P(ColumnSortTests, ColumnSortF,
