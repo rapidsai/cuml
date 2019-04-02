@@ -197,8 +197,8 @@ int main(int argc, char **argv) {
 	cout << "Finished populating device labels and data\n";
 
 	// Classify input_dataset
-	ML::rfClassifier * rf_classifier;
- 	rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo);
+	ML::rfClassifier<float> * rf_classifier;
+ 	rf_classifier = new ML::rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo);
 	cout << "Called RF constructor\n";
 	//rf_classifier->fit(input_data, params.n_rows, params.n_cols, input_labels);
 

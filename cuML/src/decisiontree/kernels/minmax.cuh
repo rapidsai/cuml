@@ -41,18 +41,4 @@ void min_and_max(float * d_samples, int num_samples, TemporaryMemory* tempmem) {
 
 	tempmem->d_min_max_thrust = thrust::minmax_element(thrust::cuda::par.on(tempmem->stream), d_samples, d_samples + num_samples);
 	
-/*	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	float thrust_min_max[2];
-	float our_min_max[2];
-	CUDA_CHECK(cudaMemcpyAsync(&thrust_min_max[0], tempmem->d_min_max_thrust.first, sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(&thrust_min_max[1], tempmem->d_min_max_thrust.second, sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(&our_min_max[0], &tempmem->d_min_max[0], sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(&our_min_max[1], &tempmem->d_min_max[1], sizeof(float), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	
-	//std::cout << "Thrust min max " << thrust_min_max[0] << " " << thrust_min_max[1] << std::endl;
-	//std::cout << "Our min max " << our_min_max[0] << " " << our_min_max[1] << std::endl;
-	ASSERT(thrust_min_max[0] == our_min_max[0], "Min mismatch thrust %f ours %f\n", thrust_min_max[0], our_min_max[0]);
-	ASSERT(thrust_min_max[1] == our_min_max[1], "Max mismatch thrust %f ours %f\n", thrust_min_max[1], our_min_max[1]);
-*/
 }

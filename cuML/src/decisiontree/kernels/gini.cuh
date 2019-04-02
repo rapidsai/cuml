@@ -21,10 +21,25 @@
 //#include <map>
 #include <vector>
 
+template<typename T>
+T set_min_val();
+
+template<>
+float set_min_val() {
+	return FLT_MAX;
+}
+
+template<>
+double set_min_val() {
+	return DBL_MAX;
+}
+
+
+template<class T>
 struct GiniQuestion {
 	int bootstrapped_column;
 	int original_column;
-	float value;
+	T value;
 
 	/*
 	   delta = (max - min) /nbins
@@ -39,11 +54,22 @@ struct GiniQuestion {
 	flag_kernel.
 	*/
 	int batch_id;
-	float min, max;
+	T min, max;
 	int nbins;
 	int ncols;
 	
 	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, float cfg_min=FLT_MAX, float cfg_max=-FLT_MAX, float cfg_value=0.0f) {
+		bootstrapped_column = cfg_bootcolumn;
+		original_column = cfg_column;
+		batch_id = cfg_batch_id;
+		min = cfg_min;
+		max = cfg_max;
+		nbins = cfg_nbins;
+		ncols = cfg_ncols;
+		value = cfg_value; // Will be updated in make_split
+	};
+
+	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, double cfg_min=DBL_MAX, double cfg_max=-DBL_MAX, double cfg_value=0.0) {
 		bootstrapped_column = cfg_bootcolumn;
 		original_column = cfg_column;
 		batch_id = cfg_batch_id;
@@ -82,7 +108,9 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 	
 	return;
 }
-void gini(int *labels_in, const int nrows, const TemporaryMemory* tempmem, GiniInfo & split_info, int & unique_labels, const cudaStream_t stream = 0)
+
+template<typename T>
+void gini(int *labels_in, const int nrows, const TemporaryMemory<T> * tempmem, GiniInfo & split_info, int & unique_labels, const cudaStream_t stream = 0)
 {
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;

@@ -19,10 +19,11 @@
 #include "atomic_minmax.h"
 
 /* Merged kernel: gets sampled column and also produces min and max values. */
-__global__ void get_sampled_column_minmax_kernel(const float *column, float *outcolumn, const unsigned int* rowids, float * col_min_max, const int N) {
+template<typename T>
+__global__ void get_sampled_column_minmax_kernel(const T *column, T *outcolumn, const unsigned int* rowids, T * col_min_max, const int N) {
 
-	__shared__ float shmem_min_max[2];
-	float column_val;
+	__shared__ T shmem_min_max[2];
+	T column_val;
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
 	if (tid < N) {
@@ -47,21 +48,23 @@ __global__ void get_sampled_column_minmax_kernel(const float *column, float *out
 
 	// Min - max reduction within each block.
 	if (tid < N) {
-		atomicMinFloat(&shmem_min_max[0], column_val);
-		atomicMaxFloat(&shmem_min_max[1], column_val);
+		atomicMinFD(&shmem_min_max[0], column_val);
+		atomicMaxFD(&shmem_min_max[1], column_val);
 	}
 
 	__syncthreads();
 
 	// Min - max reduction across blocks.
 	if (threadIdx.x == 0) {
-		atomicMinFloat(&col_min_max[0], shmem_min_max[0]);
-		atomicMaxFloat(&col_min_max[1], shmem_min_max[1]);
+		atomicMinFD(&col_min_max[0], shmem_min_max[0]);
+		atomicMaxFD(&col_min_max[1], shmem_min_max[1]);
 	}
 	return;
 }
 
-__global__ void get_sampled_column_kernel(const float *column, float *outcolumn, const unsigned int* rowids, const int N) {
+/*
+template<typename T>
+__global__ void get_sampled_column_kernel(const T *column, T *outcolumn, const unsigned int* rowids, const int N) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -70,17 +73,10 @@ __global__ void get_sampled_column_kernel(const float *column, float *outcolumn,
 		outcolumn[tid] = column[index];
 	}
 	return;
-}
-
-/*void get_sampled_column_minmax(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem) {
-
-	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
-	get_sampled_column_minmax_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, tempmem->d_min_max, n_sampled_rows);
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 }*/
 
-
-__global__ void allcolsampler_kernel(const float* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, float* sampledcols)
+template<typename T>
+__global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* sampledcols)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	
@@ -98,7 +94,8 @@ __global__ void allcolsampler_kernel(const float* __restrict__ data, const unsig
 	return;
 }
 
-void get_sampled_column(const float *column, float *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory* tempmem, const int split_algo) {
+template<typename T>
+void get_sampled_column(const T *column, T *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory<T> * tempmem, const int split_algo) {
 
 	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
 	if (split_algo == 0) { // Histograms

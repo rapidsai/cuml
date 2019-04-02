@@ -81,6 +81,7 @@ namespace ML {
 	}
 
 
+	template<class T>
 	class rf {
 		protected:
 			int n_trees, n_bins, rf_type;
@@ -89,7 +90,7 @@ namespace ML {
 			float rows_sample, max_features; // ratio of n_rows used per tree
          	//max_features	number of features to consider per split (default = sqrt(n_cols))
 
-			DecisionTree::DecisionTreeClassifier * trees;
+			DecisionTree::DecisionTreeClassifier<T> * trees;
 		
 		public:
 			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
@@ -146,15 +147,13 @@ namespace ML {
 
     };
 
-//FIXME: input could be of different type.
-//FIXME: labels for regression could be of different type too, potentially match input type. 
-
-	class rfClassifier : public rf {
+	template <class T>
+	class rfClassifier : public rf<T> {
 		public:
 
 		rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
 						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST)
-					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
+					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
 
 
         /** 
@@ -167,33 +166,23 @@ namespace ML {
 							    needed for current gini impl in decision tree
 		 * @param n_unique_labels	#unique label values (known during preprocessing)
         */
-		void fit(float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+		void fit(T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
-			ASSERT(!trees, "Cannot fit an existing forest.");
+			ASSERT(!this->trees, "Cannot fit an existing forest.");
 			ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 			ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-			rfClassifier::trees = new DecisionTree::DecisionTreeClassifier[n_trees];
-			int n_sampled_rows = rows_sample * n_rows;
+			rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->n_trees];
+			int n_sampled_rows = this->rows_sample * n_rows;
 			
-			for (int i = 0; i < n_trees; i++) {
+			for (int i = 0; i < this->n_trees; i++) {
 				// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 				unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 				CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
 				
-				if (bootstrap) {
+				if (this->bootstrap) {
 					MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 					r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows);
-					/*
-					//DBG
-					std::cout << "Bootstrapping for tree " << i << std::endl;
-					unsigned int h_selected_rows[n_sampled_rows];
-					CUDA_CHECK(cudaMemcpy(h_selected_rows, selected_rows, n_sampled_rows * sizeof(unsigned int), cudaMemcpyDeviceToHost));
-					for (int tmp = 0; tmp < n_sampled_rows; tmp++) {
-						std::cout << h_selected_rows[tmp] << " ";
-					}
-					std::cout << std::endl;
-					*/
 				} else {
 					std::vector<unsigned int> h_selected_rows(n_sampled_rows);
 					std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
@@ -207,7 +196,7 @@ namespace ML {
 					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
 				*/
 				//std::cout << "Fitting tree # " << i << std::endl;
-				trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, max_depth, max_leaves, max_features, n_bins, split_algo);
+				this->trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, this->max_depth, this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
 
 				//Cleanup
 				CUDA_CHECK(cudaFree(selected_rows));
@@ -218,8 +207,9 @@ namespace ML {
 
 
 		//Assuming input in row_major format. input is a CPU ptr.
-		int * predict(const float * input, int n_rows, int n_cols, bool verbose=false) {
-			ASSERT(trees, "Cannot predict! No trees in the forest.");
+		int * predict(const T * input, int n_rows, int n_cols, bool verbose=false) {
+
+			ASSERT(this->trees, "Cannot predict! No trees in the forest.");
 			int * preds = new int[n_rows];
 
 			int row_size = n_cols;
@@ -238,15 +228,15 @@ namespace ML {
 				int max_cnt_so_far = 0;
 				int majority_prediction = -1;
 
-				for (int i = 0; i < n_trees; i++) {
+				for (int i = 0; i < this->n_trees; i++) {
 					//Return prediction for one sample. 
 					if (verbose) {
 						std::cout << "Printing tree " << i << std::endl;
-						trees[i].print();
+						this->trees[i].print();
 					}
-					int prediction = trees[i].predict(&input[row_id * row_size], verbose);
+					int prediction = this->trees[i].predict(&input[row_id * row_size], verbose);
 
-  					ret = prediction_to_cnt.insert ( std::pair<int, int>(prediction, 1));
+  					ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
   					if (!(ret.second)) {
 						ret.first->second += 1;
 					}
@@ -258,13 +248,12 @@ namespace ML {
 
 				preds[row_id] = majority_prediction;
 			}
-
 			return preds;
 		}
 
 		
 		/* Predict input data and validate against ref_labels. input and ref_labels are both CPU ptrs. */
-		RF_metrics cross_validate(const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false) {
+		RF_metrics cross_validate(const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false) {
 
 			int * predictions = predict(input, n_rows, n_cols, verbose);
 
@@ -279,25 +268,26 @@ namespace ML {
 
 			/* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
 			   For non binary classification problems (i.e., one target and  > 2 labels), need avg for each of these metrics */
-
 			return stats;
 		}
 
-};
+	};
 
 
-	class rfRegressor : public rf {
+	template <class T>
+	class rfRegressor : public rf<T> {
 	    public:
 
 		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::REGRESSION, int cfg_n_bins=8, 
 						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) 
-					: rf::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {};
+					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {}
 
-		void fit(float * input, int n_rows, int n_cols, int * labels,
-                         int n_trees, float max_features, float rows_sample) {};
+		void fit(T * input, int n_rows, int n_cols, int * labels,
+                         int n_trees, float max_features, float rows_sample) {}
 
-		void predict(const float * input, int n_rows, int n_cols, int * preds) {};
+		void predict(const T * input, int n_rows, int n_cols, int * preds) {}
 	}; 
+
 
 
 };

@@ -21,19 +21,20 @@
 #include <algorithm>
 #include "gini.cuh"
 
+template<typename T>
 #ifdef SINGLE_COL
-__global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
-			    const float ques_min, const float ques_max, const int ques_nbins, const int ques_batch_id,
-			    float * ques_val) {
+__global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const int nrows,
+			    const T ques_min, const T ques_max, const int ques_nbins, const int ques_batch_id,
+			    T * ques_val) {
 #else
-__global__ void flag_kernel(float* column, char* leftflag, char* rightflag, const int nrows,
-			    float * d_ques_min, float * d_ques_max, const int ques_nbins, const int ques_batch_id,
-			    float * ques_val) {
+__global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const int nrows,
+			    T * d_ques_min, T * d_ques_max, const int ques_nbins, const int ques_batch_id,
+			    T * ques_val) {
 #endif
 	
 #ifndef SINGLE_COL
-	float ques_max = *d_ques_max;
-	float ques_min = *d_ques_min;
+	T ques_max = *d_ques_max;
+	T ques_min = *d_ques_min;
 #endif
 	
 	
@@ -41,10 +42,10 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 	if (tid < nrows) {
 		
 		char lflag, rflag;
-		float data = column[tid];
-		float delta = (ques_max - ques_min) / ques_nbins;
-		float ques_base_val = ques_min + delta;
-		float local_ques_val = ques_base_val + ques_batch_id * delta;
+		T data = column[tid];
+		T delta = (ques_max - ques_min) / ques_nbins;
+		T ques_base_val = ques_min + delta;
+		T local_ques_val = ques_base_val + ques_batch_id * delta;
 		
 		if (data <= local_ques_val) {
 			lflag = 1;
@@ -64,14 +65,15 @@ __global__ void flag_kernel(float* column, char* leftflag, char* rightflag, cons
 	return;
 }
 
-__global__ void flag_kernel_quantile(float* column, char* leftflag, char* rightflag, const int nrows,
-				     const float local_ques_val)
+template<typename T>
+__global__ void flag_kernel_quantile(T* column, char* leftflag, char* rightflag, const int nrows,
+				     const T local_ques_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows) {
 		
 		char lflag, rflag;
-		float data = column[tid];
+		T data = column[tid];
 		if (data <= local_ques_val) {
 			
 			lflag = 1;
@@ -97,13 +99,14 @@ int get_class_hist(std::vector<int> & node_hist) {
 	return classval;
 }
  
-void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const TemporaryMemory* tempmem)
+template<typename T>
+void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const TemporaryMemory<T> * tempmem)
 {
 
 	int *temprowids = tempmem->temprowids;
 	char *d_flags_left = tempmem->d_flags_left;
 	char *d_flags_right = tempmem->d_flags_right;
-	float *question_value = tempmem->question_value;
+	T *question_value = tempmem->question_value;
 	
 	if (split_algo != 0) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
@@ -134,7 +137,7 @@ void make_split(float *column, GiniQuestion & ques, const int nrows, int& nrowsl
 
 	// Copy GPU-computed question value to tree node.
 	if (split_algo == 0) 
-		CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(float), cudaMemcpyDeviceToHost));
+		CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(T), cudaMemcpyDeviceToHost));
 
 	return;
 }
