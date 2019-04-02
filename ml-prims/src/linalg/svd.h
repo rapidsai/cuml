@@ -50,7 +50,7 @@ namespace LinAlg {
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
-           T *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
+           T *right_sing_vecs, bool trans_right, bool gen_left_vec, bool gen_right_vec,
            cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
            DeviceAllocator &mgr) {
   const int m = n_rows;
@@ -59,23 +59,32 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   int *devInfo = (int *)mgr.alloc(sizeof(int));
   T *d_rwork = nullptr;
 
-  // The transposed right singular vector
-  T *right_sing_vecs_trans = (T *)mgr.alloc(sizeof(T) * n * n);
-
   int lwork = 0;
   CUSOLVER_CHECK(
     cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
   T *d_work = (T *)mgr.alloc(sizeof(T) * lwork);
 
-  signed char jobu = 'A';
-  signed char jobvt = 'A';
+  char jobu = 'S';
+  char jobvt = 'A';
+
+  if (!gen_left_vec) {
+	  char new_u = 'N';
+	  strcpy(&jobu, &new_u);
+  }
+
+  if (!gen_right_vec) {
+	  char new_vt = 'N';
+  	  strcpy(&jobvt, &new_vt);
+  }
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
-                                 left_sing_vecs, m, right_sing_vecs_trans, n,
+                                 left_sing_vecs, m, right_sing_vecs, n,
                                  d_work, lwork, d_rwork, devInfo));
 
   // Transpose the right singular vector back
-  transpose(right_sing_vecs_trans, right_sing_vecs, n, n, cublasH);
+  if (trans_right)
+	  transpose(right_sing_vecs, n_cols);
+
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -87,7 +96,6 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   ///@todo: what if stream from cusolver handle is different!?
   cudaStream_t stream;
   CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
-  mgr.free(right_sing_vecs_trans, stream);
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }

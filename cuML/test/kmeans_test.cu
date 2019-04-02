@@ -103,8 +103,11 @@ const std::vector<KmeansInputs<float> > inputsf2 = {
 const std::vector<KmeansInputs<double> > inputsd2 = {
 		{ 2, 0.05, 4, 2 }};
 
+
+// FIXME: These tests are disabled due to being too sensitive to RNG:
+// https://github.com/rapidsai/cuml/issues/71
 typedef KmeansTest<float> KmeansTestF;
-TEST_P(KmeansTestF, Fit) {
+TEST_P(KmeansTestF, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
 					CompareApproxAbs<float>(params.tol)));
@@ -114,7 +117,7 @@ TEST_P(KmeansTestF, Fit) {
 }
 
 typedef KmeansTest<double> KmeansTestD;
-TEST_P(KmeansTestD, Fit) {
+TEST_P(KmeansTestD, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
 					CompareApproxAbs<double>(params.tol)));
