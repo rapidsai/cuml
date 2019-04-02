@@ -27,20 +27,20 @@ namespace LinAlg {
 // Or else, we get the following compilation error
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
-template <typename T>
-void unaryOpLaunch(T *out, const T *in, T scalar, int len) {
+template <typename T, typename IdxType = int>
+void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len) {
   unaryOp(out, in, len,
           [scalar] __device__(T in) { return in * scalar; });
 }
 
-template <typename T>
-class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
+template <typename T, typename IdxType>
+class UnaryOpTest : public ::testing::TestWithParam<UnaryOpInputs<T, IdxType>> {
 protected:
   void SetUp() override {
-    params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
+    params = ::testing::TestWithParam<UnaryOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
-    int len = params.len;
-    T scalar = params.scalar;
+    auto len = params.len;
+    auto scalar = params.scalar;
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
@@ -56,29 +56,49 @@ protected:
   }
 
 protected:
-  UnaryOpInputs<T> params;
+  UnaryOpInputs<T, IdxType> params;
   T *in, *out_ref, *out;
 };
 
-const std::vector<UnaryOpInputs<float>> inputsf = {
+const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
   {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
-typedef UnaryOpTest<float> UnaryOpTestF;
-TEST_P(UnaryOpTestF, Result) {
+typedef UnaryOpTest<float, int> UnaryOpTestF_i32;
+TEST_P(UnaryOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i32,
+                        ::testing::ValuesIn(inputsf_i32));
 
-const std::vector<UnaryOpInputs<double>> inputsd = {
+const std::vector<UnaryOpInputs<float, size_t>> inputsf_i64 = {
+  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+typedef UnaryOpTest<float, size_t> UnaryOpTestF_i64;
+TEST_P(UnaryOpTestF_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+                          CompareApprox<float>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i64,
+                        ::testing::ValuesIn(inputsf_i64));
+
+const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
   {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
-typedef UnaryOpTest<double> UnaryOpTestD;
-TEST_P(UnaryOpTestD, Result) {
+typedef UnaryOpTest<double, int> UnaryOpTestD_i32;
+TEST_P(UnaryOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestD_i32,
+                        ::testing::ValuesIn(inputsd_i32));
+
+const std::vector<UnaryOpInputs<double, size_t>> inputsd_i64 = {
+  {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
+typedef UnaryOpTest<double, size_t> UnaryOpTestD_i64;
+TEST_P(UnaryOpTestD_i64, Result) {
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
+                          CompareApprox<double>(params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestD_i64,
+                        ::testing::ValuesIn(inputsd_i64));
 
 } // end namespace LinAlg
 } // end namespace MLCommon
