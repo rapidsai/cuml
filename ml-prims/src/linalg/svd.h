@@ -58,6 +58,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   const int n = n_cols;
 
   device_buffer<int> devInfo(allocator, stream, 1);
+  T *d_rwork = nullptr;
 
   int lwork = 0;
   CUSOLVER_CHECK(
