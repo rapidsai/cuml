@@ -92,11 +92,13 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 template<typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+             cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+             cudaStream_t stream) {
 
 	int m = n_rows;
 	int n = n_cols;
 
+        ///@todo: use deviceAllocator
 	math_t *d_tau = NULL;
 	int *d_info = NULL;
 	int info = 0;
@@ -128,12 +130,14 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 	lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
+        ///@todo: use deviceAllocator
 	CUDA_CHECK(cudaMalloc(&d_work, sizeof(math_t) * lwork));
 
 	CUSOLVER_CHECK(
 			cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau, d_work, lwork,
 					d_info));
 
+        ///@todo: use host async copy
 	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
 	ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
@@ -153,6 +157,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	        lwork,
 	        d_info));
 
+        ///@todo: use host async copy
 	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
@@ -170,9 +175,10 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              A,
              lda,
              b,
-             ldb));
+             ldb,
+             stream));
 
-    CUDA_CHECK(cudaMemcpy(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
 
     if (NULL != d_tau)   cudaFree(d_tau);
     if (NULL != d_info)  cudaFree(d_info);
@@ -180,9 +186,5 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 }
 
 
-}
-;
-// end namespace LinAlg
-}
-;
-// end namespace MLCommon
+}; // end namespace LinAlg
+}; // end namespace MLCommon

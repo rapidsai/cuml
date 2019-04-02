@@ -151,13 +151,13 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @param alpha scalar
  * @param beta scalar
  * @param cublas_h cublas handle
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
           math_t *c, int n_rows_c, int n_cols_c, cublasOperation_t trans_a,
           cublasOperation_t trans_b, math_t alpha, math_t beta,
-          cublasHandle_t cublas_h) {
+          cublasHandle_t cublas_h, cudaStream_t stream = 0) {
   int m = n_rows_c;
   int n = n_cols_c;
   int k = trans_a == CUBLAS_OP_T ? n_rows_a : n_cols_a;
@@ -165,19 +165,18 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
   int ldb = trans_b == CUBLAS_OP_T ? n : k;
   int ldc = m;
   CUBLAS_CHECK(LinAlg::cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha,
-                                  a, lda, b, ldb, &beta, c, ldc));
+                                  a, lda, b, ldb, &beta, c, ldc, stream));
 }
 
 template <typename math_t>
 void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
           math_t *c, int n_rows_c, int n_cols_c, cublasOperation_t trans_a,
-          cublasOperation_t trans_b, cublasHandle_t cublas_h) {
-
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
-
-	 gemm(a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
-	           trans_b, alpha, beta, cublas_h);
+          cublasOperation_t trans_b, cublasHandle_t cublas_h,
+          cudaStream_t stream = 0) {
+    math_t alpha = math_t(1);
+    math_t beta = math_t(0);
+    gemm(a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
+         trans_b, alpha, beta, cublas_h, stream);
 }
 
 } // end namespace LinAlg

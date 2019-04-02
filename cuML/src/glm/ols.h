@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,18 +36,13 @@ namespace GLM {
 using namespace MLCommon;
 
 template<typename math_t>
-void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
-		math_t *intercept, bool fit_intercept, bool normalize,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
-		int algo = 0) {
-    ///@todo: make this function accept cumlHandle_impl!
-    cumlHandle h_;
-    cudaStream_t s_;
-    CUDA_CHECK(cudaStreamCreate(&s_));
-    h_.setStream(s_);
-    const auto& handle = h_.getImpl();
+void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
+            math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+            bool normalize, int algo = 0) {
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(n_cols > 0,
 			"olsFit: number of columns cannot be less than one");
@@ -77,7 +72,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
                              cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle);
+				cublas_handle, stream);
 	} else if (algo == 3) {
 		ASSERT(false, "olsFit: no algorithm with this id has been implemented");
 	} else {
@@ -87,35 +82,31 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	if (fit_intercept) {
             postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input.data(),
                             mu_labels.data(), norm2_input.data(), fit_intercept, normalize,
-                            cublas_handle, cusolver_handle);
+                            cublas_handle, cusolver_handle, stream);
 	} else {
 		*intercept = math_t(0);
 	}
-    CUDA_CHECK(cudaStreamSynchronize(s_));
-    CUDA_CHECK(cudaStreamDestroy(s_));
 }
 
 template<typename math_t>
-void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, cublasHandle_t cublas_handle) {
+void olsPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
+                int n_cols, const math_t *coef, math_t intercept, math_t *preds) {
 
 	ASSERT(n_cols > 0,
 			"olsPredict: number of columns cannot be less than one");
 	ASSERT(n_rows > 0,
 			"olsPredict: number of rows cannot be less than one");
 
+        auto stream = handle.getStream();
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-                     CUBLAS_OP_N, alpha, beta, cublas_handle);
+                     CUBLAS_OP_N, alpha, beta, handle.getCublasHandle(), stream);
 
-	LinAlg::addScalar(preds, preds, intercept, n_rows);
+	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 
 }
 
 /** @} */
-}
-;
-}
-;
-// end namespace ML
+}; // end namespace GLM
+}; // end namespace ML
