@@ -7,12 +7,19 @@
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #390: Update docs version
+- PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
+- PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #409: Add entry to gitmodules to ignore build artifacts
+- PR #412: Fix for svdQR function in ml-prims
 
-# cuML 0.6.0 (Date TBD)
+# cuML 0.6.0 (22 Mar 2019)
 
 ## New Features
 
@@ -55,8 +62,9 @@
 - PR #288: Add n_neighbors to NearestNeighbors constructor
 - PR #302: Added FutureWarning for deprecation of current kmeans algorithm
 - PR #312: Last minute cleanup before release
+- PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
-- PR #342 Change default ABI to ON
+- PR #342: Change default ABI to ON
 
 ## Bug Fixes
 
@@ -73,6 +81,12 @@
 - PR #345: Run python import as part of package build to trigger compilation
 - PR #347: Lowering memory usage of kNN.
 - PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
+- PR #357: Removing FAISS requirement from README
+- PR #362: Fix for matVecOp crashing on large input sizes
+- PR #366: Index arithmetic issue fix with TxN_t class
+- PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
+- PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
+- PR #385: Fix for long import cuml time in containers and fix for setup_pip
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 
 # cuML 0.5.1 (05 Feb 2019)
