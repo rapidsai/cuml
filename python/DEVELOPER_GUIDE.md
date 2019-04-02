@@ -1,5 +1,5 @@
-# cuML python developer guide
-This document summarizes rules and best practices for contributions to the cuML python component of rapidsai/cuml. This is a living document and contributions for clarifications or fixes and issue reports are highly welcome.
+# cuML Python Developer Guide
+This document summarizes guidelines and best practices for contributions to the python component of the library cuML, the machine learning component of the RAPIDS ecosystem. This is an evolving document so contributions, clarifications and issue reports are highly welcome.
 
 ## General
 Please start by reading:
@@ -42,13 +42,13 @@ TBD
 We mostly follow [PEP 257](https://www.python.org/dev/peps/pep-0257/) style docstrings for documenting the interfaces.
 
 ## Testing and Unit Testing
-We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of these `cuml/test/test_*.py` files.
+We use [https://docs.pytest.org/en/latest/]() for writing and running tests. To see existing examples, refer to any of the `test_*.py` files in the folder `cuml/test`.
 
 ## Device and Host memory allocations
 TODO: talk about enabling RMM here when it is ready
 
 ## Asynchronous operations and stream ordering
-If you want to schedule 2 algos (for whatever reasons) concurrently, it is better to create 2 separate streams and assign them to 2 separate handles. Finally, schedule the 2 algos using these handles.
+If you want to schedule the execution of two algorithms concurrently, it is better to create two separate streams and assign them to separate handles. Finally, schedule the algorithms using these handles.
 ```python
 from cuml.common.cuda import Stream
 from cuml.common.handle import Handle

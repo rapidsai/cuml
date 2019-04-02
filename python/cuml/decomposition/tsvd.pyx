@@ -315,23 +315,23 @@ class TruncatedSVD(Base):
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                tsvdFit(h_[0],
+                tsvdFit(handle_[0],
                         <float*> input_ptr,
                         <float*> components_ptr,
                         <float*> singular_vals_ptr,
                         params)
             else:
-                tsvdFit(h_[0],
+                tsvdFit(handle_[0],
                         <double*> input_ptr,
                         <double*> components_ptr,
                         <double*> singular_vals_ptr,
                         params)
         else:
             if self.gdf_datatype.type == np.float32:
-                tsvdFitTransform(h_[0],
+                tsvdFitTransform(handle_[0],
                                  <float*> input_ptr,
                                  <float*> trans_input_ptr,
                                  <float*> components_ptr,
@@ -340,7 +340,7 @@ class TruncatedSVD(Base):
                                  <float*> singular_vals_ptr,
                                  params)
             else:
-                tsvdFitTransform(h_[0],
+                tsvdFitTransform(handle_[0],
                                  <double*> input_ptr,
                                  <double*> trans_input_ptr,
                                  <double*> components_ptr,

@@ -33,7 +33,7 @@ class Base:
 
     def __init__(self, handle=None, verbose=False):
         """
-        Constructor. All children must call init method of this base class!
+        Constructor. All children must call init method of this base class.
 
         Parameters
         ----------

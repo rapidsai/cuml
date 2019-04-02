@@ -390,10 +390,10 @@ class PCA(Base):
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                pcaFit(h_[0],
+                pcaFit(handle_[0],
                        <float*> input_ptr,
                        <float*> components_ptr,
                        <float*> explained_var_ptr,
@@ -403,7 +403,7 @@ class PCA(Base):
                        <float*> noise_vars_ptr,
                        params)
             else:
-                pcaFit(h_[0],
+                pcaFit(handle_[0],
                        <double*> input_ptr,
                        <double*> components_ptr,
                        <double*> explained_var_ptr,
@@ -415,7 +415,7 @@ class PCA(Base):
         else:
 
             if self.gdf_datatype.type == np.float32:
-                pcaFitTransform(h_[0],
+                pcaFitTransform(handle_[0],
                                 <float*> input_ptr,
                                 <float*> trans_input_ptr,
                                 <float*> components_ptr,
@@ -426,7 +426,7 @@ class PCA(Base):
                                 <float*> noise_vars_ptr,
                                 params)
             else:
-                pcaFitTransform(h_[0],
+                pcaFitTransform(handle_[0],
                                 <double*> input_ptr,
                                 <double*> trans_input_ptr,
                                 <double*> components_ptr,
@@ -522,9 +522,9 @@ class PCA(Base):
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaInverseTransform(h_[0],
+            pcaInverseTransform(handle_[0],
                                 <float*> trans_input_ptr,
                                 <float*> components_ptr,
                                 <float*> singular_vals_ptr,
@@ -532,7 +532,7 @@ class PCA(Base):
                                 <float*> input_ptr,
                                 params)
         else:
-            pcaInverseTransform(h_[0],
+            pcaInverseTransform(handle_[0],
                                 <double*> trans_input_ptr,
                                 <double*> components_ptr,
                                 <double*> singular_vals_ptr,
@@ -600,9 +600,9 @@ class PCA(Base):
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaTransform(h_[0],
+            pcaTransform(handle_[0],
                          <float*> input_ptr,
                          <float*> components_ptr,
                          <float*> trans_input_ptr,
@@ -610,7 +610,7 @@ class PCA(Base):
                          <float*> mean_ptr,
                          params)
         else:
-            pcaTransform(h_[0],
+            pcaTransform(handle_[0],
                          <double*> input_ptr,
                          <double*> components_ptr,
                          <double*> trans_input_ptr,

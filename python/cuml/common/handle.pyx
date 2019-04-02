@@ -71,7 +71,7 @@ cdef class Handle:
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setStream(<_Stream>s)
 
-    # TODO: in future, maybe we should just enable RMM by default!?
+    # TODO: in future, we should just enable RMM by default
     def enableRMM(self):
         """
         Enables to use RMM as the allocator for all device memory allocations
