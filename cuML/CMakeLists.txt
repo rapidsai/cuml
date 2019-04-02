@@ -307,15 +307,15 @@ install(TARGETS cuml
 #                       ${BLAS_LIBRARIES}
 #                      )
 #
-# add_executable(magma_debug ${magma_debug_sources})
-#
-# target_link_libraries(magma_debug
-#                      ${GTEST_LIBNAME}
-#                      ${MAGMA_LIBRARY}
-#                      ${CUDA_cublas_LIBRARY}
-#                      ${CUDA_cusparse_LIBRARY}
-#                      ${CUDA_curand_LIBRARY}
-#                      ${CUDA_cusolver_LIBRARY}
-#                      ${CUDA_CUDART_LIBRARY}
-#                      ${BLAS_LIBRARIES}
-#                     )
+add_executable(magma_debug ${magma_debug_sources})
+
+target_link_libraries(magma_debug
+                     ${GTEST_LIBNAME}
+                     ${MAGMA_LIBRARY}
+                     ${CUDA_cublas_LIBRARY}
+                     ${CUDA_cusparse_LIBRARY}
+                     ${CUDA_curand_LIBRARY}
+                     ${CUDA_cusolver_LIBRARY}
+                     ${CUDA_CUDART_LIBRARY}
+                     ${BLAS_LIBRARIES}
+                    )

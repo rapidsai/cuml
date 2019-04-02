@@ -109,7 +109,6 @@ void naiveAddElem(Type *out, const Type *in1, const Type in2, int len) {
 //
 //         regularizeKernel<T> <<< grid, block >>>(n, batchCount A, ldda, reg,
 //                                                 nThreads_x, nThreads_y, nThreads_z);
-//         cudaDeviceSynchronize();
 //         CUDA_CHECK(cudaPeekAtLastError());
 // }
 
@@ -161,7 +160,6 @@ void normalize_matrix(size_t m, size_t n,
         normalizeMatrixKernel<T> <<< grid, block >>>(m, n, dA, ldda,
                                                      sums, colwise,
                                                      numThreads_x, numThreads_y);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 
         CUDA_CHECK(cudaFree(sums));
@@ -212,7 +210,6 @@ void dgmm_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                                                  dX_array, lddx,
                                                  dD_array, lddd,
                                                  nThreads_x, nThreads_y, nThreads_z);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -252,7 +249,6 @@ void create_sigmas_batches(int nCl,
                                                          dsigma, lddsigma, lddsigma_full,
                                                          nThreads_x);
 
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 

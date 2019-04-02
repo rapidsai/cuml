@@ -232,7 +232,7 @@ void em_step(T* dX, int n_iter, GMM<T>& gmm,
 template <typename T>
 void fit(T* dX, int n_iter, GMM<T>& gmm,
          cublasHandle_t cublasHandle, magma_queue_t queue) {
-        em(dX, n_iter, gmm, cublasHandle, queue);
+        em_step(dX, n_iter, gmm, cublasHandle, queue);
 }
 
 template <typename T>

@@ -121,9 +121,13 @@ def print_info(true_params, sk_params, cuml_params):
     print(mse_dict_cuml)
 
 
-@pytest.mark.parametrize('n_iter', [100])
-@pytest.mark.parametrize('nCl', [5, 10])
-@pytest.mark.parametrize('nDim', [5, 10])
+# @pytest.mark.parametrize('n_iter', [100])
+# @pytest.mark.parametrize('nCl', [5, 10])
+# @pytest.mark.parametrize('nDim', [5, 10])
+# @pytest.mark.parametrize('nObs', [1000])
+@pytest.mark.parametrize('n_iter', [10])
+@pytest.mark.parametrize('nCl', [10])
+@pytest.mark.parametrize('nDim', [10])
 @pytest.mark.parametrize('nObs', [1000])
 @pytest.mark.parametrize('precision', ['double'])
 @pytest.mark.parametrize('tol', [1e-03])
@@ -133,11 +137,11 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
-    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
     cuml_params = run_cuml(X, n_iter, precision, nCl,
                            tol, reg_covar, random_state)
+    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
 
-    print_info(true_params, sk_params, cuml_params)
+    # print_info(true_params, sk_params, cuml_params)
     error_dict, error = compute_error(cuml_params, sk_params)
     if precision is "single":
         # I susspect that sklearn is implemented in double precision therefore the computational differences propagate and lead to different results at single precision

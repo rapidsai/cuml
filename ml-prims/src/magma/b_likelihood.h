@@ -187,6 +187,12 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
 
 }
 
+// template <typename T>
+// void createLlhdHandle(){
+//
+// }
+
+
 template <typename T>
 void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         magma_int_t nObs,

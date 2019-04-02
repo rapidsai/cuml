@@ -22,7 +22,7 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 {
         T *dX;
         // declaration:
-        T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
+        T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd, *cur_llhd;
         magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
         lddx = magma_roundup(nDim, RUP_SIZE);
         lddmu = magma_roundup(nDim, RUP_SIZE);
@@ -31,11 +31,9 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
         lddLlhd = magma_roundup(nCl, RUP_SIZE);
         lddPis = lddLlhd;
 
-        // Random parameters
-        T start=0;
-        T end = 1;
-        unsigned long long seed = 1234ULL;
+        T reg_covar = 0;
 
+        // Random parameters
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
 
@@ -49,23 +47,25 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
         allocate(dLlhd, lddLlhd * nObs);
         allocate(dPis, lddPis);
         allocate(dPis_inv, lddPis);
+        allocate(cur_llhd, 1);
 
-//         load_csv(dX, );
-//         load_csv(dmu, );
-//         load_csv(dsigma,);
-//         load_csv(dLlhd, );
-//         load_csv(dPis, );
-//         load_csv(dPis_inv, );
-//
-// // computation:
-//         GMM<T> gmm;
-//         init(gmm,
-//              dmu, dsigma, dPis, dPis_inv, dLlhd,
-//              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
-//              cur_llhd, reg_covar,
-//              nCl, nDim, nObs);
-//         setup(gmm);
-//         fit(dX, n_iter, gmm, cublasHandle, queue);
+        fill_matrix_gpu(nDim, nObs, dX, lddx);
+        fill_matrix_gpu(nDim, nCl, dmu, lddmu);
+        fill_matrix_gpu(nDim * nCl, nDim, dsigma, lddsigma);
+        fill_matrix_gpu(nDim, nObs, dLlhd, lddLlhd);
+        fill_matrix_gpu(nDim, 1, dPis, lddPis);
+        fill_matrix_gpu(nDim, 1, dPis_inv, lddPis);
+
+
+// computation:
+        GMM<T> gmm;
+        init(gmm,
+             dmu, dsigma, dPis, dPis_inv, dLlhd,
+             lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
+             cur_llhd, reg_covar,
+             nCl, nDim, nObs);
+        setup(gmm);
+        fit(dX, n_iter, gmm, cublasHandle, queue);
 
 // cleanup:
         // CUDA_CHECK(cudaFree(dX));
@@ -79,9 +79,9 @@ void SetUp() override {
         params = ::testing::TestWithParam<GMMInputs<T> >::GetParam();
         tolerance = params.tolerance;
 
-        magma_int_t nCl = 2;
-        magma_int_t nDim = 3;
-        magma_int_t nObs = 4;
+        magma_int_t nCl = 30;
+        magma_int_t nDim = 40;
+        magma_int_t nObs = 400;
         int n_iter = 5;
 
         run<T>(nCl, nDim, nObs, n_iter);
