@@ -19,6 +19,8 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
+#include "device_allocator.h"
+
 #include <iostream>
 
 namespace MLCommon {
@@ -48,8 +50,6 @@ TEST(MetricsTest, Result) {
 
     float result = MLCommon::Metrics::r_squared(d_y, d_y_hat, 5);
     ASSERT_TRUE(result == 0.98f);
-
-
 }
 }}
 
