@@ -17,9 +17,9 @@ import pytest
 import cudf
 
 import cuml
-from cuml.gmm.sample_utils import *
+from cuml.gmm.utils.sample_utils import *
 from sklearn.mixture import GaussianMixture
-from cuml.gmm.utils import timer, info
+from cuml.gmm.utils.utils import timer, info
 
 
 def np_to_dataframe(df):
@@ -92,7 +92,7 @@ def run_cuml(X, n_iter, precision, nCl, tol, reg_covar, random_state):
     gmm.fit(X)
 
     params = {"mus": gmm.means_,
-              "sigmas": gmm.covariances_,
+              "sigmas": gmm.covars_,
               "pis": gmm.weights_}
     return params
 

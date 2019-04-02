@@ -383,4 +383,9 @@ void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
 
 }
 
+// template <typename T>
+// void load_csv(T* dArray, const std::string& filename){
+//
+// }
+
 }

@@ -46,7 +46,7 @@ __global__ void ID_kernel (int n, T *A, int ldda,
 
 
 template <typename T>
-void make_ID_matrix(int n, T *A, int ldda) {
+void make_ID_matrix(int n, T *A, int ldda, cudaStream_t stream=0) {
         dim3 block(32,32);
         dim3 grid(ceildiv(n, (int)block.x),
                   ceildiv(n, (int)block.y),
@@ -54,8 +54,8 @@ void make_ID_matrix(int n, T *A, int ldda) {
         int nThreads_x = grid.x * block.x;
         int nThreads_y = grid.y * block.y;
 
-        ID_kernel<T> <<< grid, block >>>(n, A, ldda,
-                                         nThreads_x, nThreads_y);
+        ID_kernel<T> <<< grid, block, 0, stream >>>(n, A, ldda,
+                                                    nThreads_x, nThreads_y);
         CUDA_CHECK(cudaPeekAtLastError());
 }
 

@@ -1,12 +1,8 @@
 import numpy as np
-from abc import ABC, abstractmethod
+from abc import ABC
 
-
-from cuml.gmm.sample_utils import sample_matrix
+from cuml.gmm.utils.sample_utils import sample_matrix
 from hmmlearn import hmm
-import hmmlearn
-import cuml
-from cuml.gmm.utils import *
 
 
 class _Sampler(ABC):
@@ -17,6 +13,9 @@ class _Sampler(ABC):
 
         self.n_seq = n_seq
         self.model = None
+
+        self.hmm_function_maps = {"start_prob" : self.sample_startprob,
+                                  "transmat" : self.sample_transmat}
 
     def _sample_lengths(self):
         lengths = np.random.geometric(p=self.p, size=self.n_seq)
@@ -47,6 +46,13 @@ class _Sampler(ABC):
         return sample_matrix(self.n_components, self.n_components, random_state,
                                       isRowNorm=True)
 
+    def to_csv(self, path):
+        self.hmm_function_maps.update(self.dist_function_maps)
+        for key, sampler in self.hmm_function_maps :
+            full_path = path + key
+            data = sampler(self.random_state)
+            np.savetxt(data, full_path)
+
 
 class GMMHMMSampler(_Sampler):
     def __init__(self, n_seq, n_dim, n_mix, n_components,
@@ -61,6 +67,9 @@ class GMMHMMSampler(_Sampler):
         self.model = hmm.GMMHMM(n_components=self.n_components,
                                 n_mix=self.n_mix,
                                 covariance_type=self.covariance_type)
+        self.dist_function_maps = {"weights" : self._sample_weights,
+                              "means" : self._sample_means,
+                              "covars" : self._sample_covars}
 
     def _sample_weights(self, random_state):
         weights = [sample_matrix(1, self.n_mix, random_state, isRowNorm=True)[0]
@@ -97,6 +106,8 @@ class MultinomialHMMSampler(_Sampler):
         self.model = hmm.MultinomialHMM(n_components=n_components)
         self.n_components = n_components
         self.n_features = n_features
+
+        self.dist_function_maps = {"emission_prob": self.sample_emissionprob}
 
     def sample_emissionprob(self, random_state):
         return sample_matrix(self.n_components,
