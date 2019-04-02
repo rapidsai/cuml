@@ -21,6 +21,8 @@
 #include "linalg/subtract.h"
 #include "linalg/power.h"
 
+#include "common/cuml_allocator.hpp"
+
 #include <thrust/reduce.h>
 #include <thrust/device_ptr.h>
 
@@ -76,9 +78,6 @@ namespace MLCommon {
 
             return 1.0 - sse/ssto;
         }
-
-
-
     }
 }
 
