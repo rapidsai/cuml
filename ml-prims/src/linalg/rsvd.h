@@ -153,7 +153,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
                 true, true, tol, max_sweeps, cusolverH, allocator, stream);
     else
       svdQR(Rhat.data(), l, l, S_vec_tmp.data(), Uhat.data(), Vhat.data(), true,
-            true, cusolverH, cublasH, allocator, stream);
+            true, true, cusolverH, cublasH, allocator, stream);
     Matrix::sliceMatrix(S_vec_tmp.data(), 1, l, S_vec, 0, 0, 1,
                         k); // First k elements of S_vec
 

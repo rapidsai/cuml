@@ -42,7 +42,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	ASSERT(n_rows > 1,
 			"lstsq: number of rows cannot be less than two");
 
-	int U_len = n_rows * n_rows;
+	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
         device_buffer<math_t> U(allocator, stream, U_len);
@@ -50,12 +50,11 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
         device_buffer<math_t> S(allocator, stream, n_cols);
         device_buffer<math_t> UT_b(allocator, stream, n_rows);
 
-	svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true,
+	svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
               cusolverH, cublasH, allocator, stream);
 
-	gemv(U.data(), n_rows, n_rows, b, UT_b.data(), true, cublasH);
+	gemv(U.data(), n_rows, n_cols, b, w, true, cublasH);
 
-	Matrix::truncZeroOrigin(UT_b.data(), n_rows, w, n_cols, 1);
 	Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true);
 
 	gemv(V.data(), n_cols, n_cols, w, w, false, cublasH);

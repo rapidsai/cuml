@@ -50,7 +50,7 @@ namespace LinAlg {
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
-           T *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
+           T *right_sing_vecs, bool trans_right, bool gen_left_vec, bool gen_right_vec,
            cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
            std::shared_ptr<deviceAllocator>& allocator,
            cudaStream_t stream) {
@@ -58,25 +58,33 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   const int n = n_cols;
 
   device_buffer<int> devInfo(allocator, stream, 1);
-  T *d_rwork = nullptr;
-
-  // The transposed right singular vector
-  device_buffer<T> right_sing_vecs_trans(allocator, stream, n * n);
 
   int lwork = 0;
   CUSOLVER_CHECK(
     cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
   device_buffer<T> d_work(allocator, stream, lwork);
 
-  signed char jobu = 'A';
-  signed char jobvt = 'A';
+  char jobu = 'S';
+  char jobvt = 'A';
+
+  if (!gen_left_vec) {
+	  char new_u = 'N';
+	  strcpy(&jobu, &new_u);
+  }
+
+  if (!gen_right_vec) {
+	  char new_vt = 'N';
+  	  strcpy(&jobvt, &new_vt);
+  }
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
-                                 left_sing_vecs, m, right_sing_vecs_trans.data(),
+                                 left_sing_vecs, m, right_sing_vecs,
                                  n, d_work.data(), lwork, d_rwork, devInfo.data()));
 
   // Transpose the right singular vector back
-  transpose(right_sing_vecs_trans.data(), right_sing_vecs, n, n, cublasH);
+  if (trans_right)
+	  transpose(right_sing_vecs, n_cols);
+
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;

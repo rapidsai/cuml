@@ -76,14 +76,14 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
         auto cusolverH = handle.getcusolverDnHandle();
         auto cublasH = handle.getCublasHandle();
 
-	int U_len = n_rows * n_rows;
+	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
         device_buffer<math_t> U(allocator, stream, U_len);
         device_buffer<math_t> V(allocator, stream, V_len);
         device_buffer<math_t> S(allocator, stream, n_cols);
 
-	LinAlg::svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true,
+	LinAlg::svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
                       cusolverH, cublasH, allocator, stream);
 	ridgeSolve(S.data(), V.data(), U.data(), n_rows, n_cols, b, alpha, n_alpha, w,
                    cusolverH, cublasH);

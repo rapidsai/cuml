@@ -13,68 +13,43 @@
 # limitations under the License.
 #
 
-import numba
-from librmm_cffi import librmm as rmm
-from numba.cuda.cudadrv.driver import driver
-import math
 from numba import cuda
+from numba.cuda.cudadrv.driver import driver
+from librmm_cffi import librmm as rmm
 
 
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
-    This implements the algorithm documented in
-    http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/
-
-    :param a: an `np.ndarray` or a `DeviceNDArrayBase` subclass. If already on
-        the device its stream will be used to perform the transpose (and to
-        copy `b` to the device if necessary).
-
-    Adapted from numba:
-    https://github.com/numba/numba/blob/master/numba/cuda/kernels/transpose.py
+    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
+        If already on the device, its stream will be used to perform the
+        transpose (and to copy `row_major` to the device if necessary).
 
     To be replaced by CUDA ml-prim in upcoming version
     """
 
     cols = [df._cols[k] for k in df._cols]
-    ncol = len(cols)
-    nrow = len(df)
+    ncols = len(cols)
+    nrows = len(df)
     dtype = cols[0].dtype
 
-    a = df.as_gpu_matrix(order='F')
-    b = rmm.device_array((nrow, ncol), dtype=dtype, order='C')
-    dtype = numba.typeof(a)
+    col_major = df.as_gpu_matrix(order='F')
+    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order='C')
 
     tpb = driver.get_device().MAX_THREADS_PER_BLOCK
-
-    tile_width = int(math.pow(2, math.log(tpb, 2) / 2))
-    tile_height = int(tpb / tile_width)
-
-    tile_shape = (tile_height, tile_width + 1)
+    bpg = (nrows + tpb - 1) // tpb
 
     @cuda.jit
-    def kernel(input, output):
+    def kernel(_col_major, _row_major):
+        tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        if tid >= nrows:
+            return
+        _col_offset = 0
+        while _col_offset < _col_major.shape[1]:
+            col_idx = _col_offset
+            _row_major[tid, col_idx] = _col_major[tid, col_idx]
+            _col_offset += 1
 
-        tile = cuda.shared.array(shape=tile_shape, dtype=numba.float32)
+    kernel[bpg, tpb](col_major, row_major)
 
-        tx = cuda.threadIdx.x
-        ty = cuda.threadIdx.y
-        bx = cuda.blockIdx.x * cuda.blockDim.x
-        by = cuda.blockIdx.y * cuda.blockDim.y
-        y = by + tx
-        x = bx + ty
-
-        if by + ty < input.shape[0] and bx + tx < input.shape[1]:
-            tile[ty, tx] = input[by + ty, bx + tx]
-        cuda.syncthreads()
-        if y < output.shape[0] and x < output.shape[1]:
-            output[y, x] = tile[tx, ty]
-
-    # one block per tile, plus one for remainders
-    blocks = int((b.shape[1]) / tile_height + 1), int((b.shape[0]) /
-                                                      tile_width + 1)
-    # one thread per tile element
-    threads = tile_height, tile_width
-    kernel[blocks, threads](a, b)
-
-    return b
+    return row_major
