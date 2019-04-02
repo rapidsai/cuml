@@ -75,7 +75,9 @@ protected:
         params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
         Random::Rng r(params.seed);
         Random::Rng r_int(params.seed);
-        int nobs = params.nobs;
+  	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	int nobs = params.nobs;
         uint32_t cols = params.cols;
         uint32_t nkeys = params.nkeys;
         allocate(in1, nobs*cols);
@@ -88,7 +90,8 @@ protected:
         naiveReduceRowsByKey(in1, cols, in2, chars2,
                                nobs, cols, nkeys, out_ref );
         reduce_rows_by_key(in1, cols, in2, chars2, 
-                               nobs, cols, nkeys, out );
+			   nobs, cols, nkeys, out ,stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     void TearDown() override {
@@ -97,10 +100,11 @@ protected:
         CUDA_CHECK(cudaFree(chars2));
         CUDA_CHECK(cudaFree(out_ref));
         CUDA_CHECK(cudaFree(out));
-
+	CUDA_CHECK(cudaStreamDestroy(stream)); 
     }
 
 protected:
+  cudaStream_t stream;
     ReduceRowsInputs<T> params;
     T *in1, *out_ref, *out, *out_2;
     uint32_t *in2;
