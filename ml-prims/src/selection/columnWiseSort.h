@@ -112,7 +112,7 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
 template <typename InType, typename OutType>
 void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns, bool colMajor, 
                         bool &allocWorkspace, void *workspacePtr, size_t &workspaceSize, InType *sortedKeys=NULL,
-                        bool returnKeys=false, cudaStream_t stream=0) {
+                        cudaStream_t stream=0) {
   // assume non-square row-major matrices
   // 
   // current use-case: KNN, trustworthiness scores
@@ -238,8 +238,10 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
       else {
 
         size_t workspaceOffset = 0;
+        bool userKeyOutputBuffer = true;
 
         if (!sortedKeys) {
+          userKeyOutputBuffer = false;
           sortedKeys = reinterpret_cast<InType *>(workspacePtr);
           workspaceOffset = ALIGN_MEMORY(sizeof(InType) * (size_t)n_columns);
           workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
@@ -260,6 +262,9 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
 
           CUDA_CHECK(cub::DeviceRadixSort::SortPairs(workspacePtr, workspaceSize, rowIn, sortedKeys,
                                                   dValuesIn, rowOut, n_columns));
+
+          if (userKeyOutputBuffer)
+            sortedKeys = reinterpret_cast<InType *>((size_t)sortedKeys + sizeof(InType) * (size_t)n_columns);
         }
       }
   }
