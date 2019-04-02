@@ -42,5 +42,16 @@ void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
 void ridgePredict(const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds);
 
-}
-}
+//fit glms with quasi-newton solvers
+void qnFit(float *X, float *y, int N, int D, int C, bool fit_intercept,
+           float l1, float l2, int max_iter, float grad_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
+           float *f, int *num_iters, bool X_col_major, int loss_type);
+
+void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
+           double l1, double l2, int max_iter, double grad_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
+           double *f, int *num_iters, bool X_col_major, int loss_type);
+
+} // namespace GLM
+} // namespace ML

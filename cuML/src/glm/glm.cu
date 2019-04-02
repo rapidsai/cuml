@@ -171,6 +171,5 @@ void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
   CUBLAS_CHECK(cublasDestroy(cublas_handle));
 }
 
-
 } // namespace GLM
 } // namespace ML
