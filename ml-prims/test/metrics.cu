@@ -49,7 +49,7 @@ TEST(MetricsTestHighScore, Result) {
     MLCommon::updateDevice(d_y_hat, y_hat, 5);
     MLCommon::updateDevice(d_y, y, 5);
 
-    float result = MLCommon::Metrics::r_squared(d_y, d_y_hat, 5);
+    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5);
     ASSERT_TRUE(result == 0.98f);
 }
 
@@ -68,7 +68,7 @@ TEST(MetricsTestLowScore, Result) {
     MLCommon::updateDevice(d_y_hat, y_hat, 5);
     MLCommon::updateDevice(d_y, y, 5);
 
-    float result = MLCommon::Metrics::r_squared(d_y, d_y_hat, 5);
+    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5);
 
     std::cout << "Result: " << result - -3.4012f << std::endl;
     ASSERT_TRUE(result - -3.4012f < 0.00001);

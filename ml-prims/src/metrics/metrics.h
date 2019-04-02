@@ -44,7 +44,7 @@ namespace MLCommon {
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        math_t r_squared(math_t *y, math_t *y_hat, int n) {
+        math_t r2_score(math_t *y, math_t *y_hat, int n) {
 
             math_t *y_bar;
             MLCommon::allocate(y_bar, 1);
