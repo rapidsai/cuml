@@ -27,6 +27,21 @@
 namespace MLCommon {
     namespace Metrics {
         template<typename math_t>
+
+        /**
+         * Calculates the "Coefficient of Determination" (R-Squared) score
+         * normalizing the sum of squared errors by the total sum of squares.
+         *
+         * This score indicates the proportionate amount of variation in an
+         * expected response variable is explained by the independent variables
+         * in a linear regression model. The larger the R-squared value, the
+         * more variability is explained by the linear regression model.
+         *
+         * @param y: Array of ground-truth response variables
+         * @param y_hat: Array of predicted response variables
+         * @param n: Number of elements in y and y_hat
+         * @return: The R-squared value.
+         */
         math_t r_squared(math_t *y, math_t *y_hat, int n) {
 
             math_t *y_bar;
@@ -35,11 +50,11 @@ namespace MLCommon {
             MLCommon::Stats::mean(y_bar, y, 1, n, false, false);
             CUDA_CHECK(cudaPeekAtLastError());
 
-            math_t *ssr_arr;
-            MLCommon::allocate(ssr_arr, n);
+            math_t *sse_arr;
+            MLCommon::allocate(sse_arr, n);
 
-            MLCommon::LinAlg::eltwiseSub(ssr_arr, y, y_hat, n);
-            MLCommon::LinAlg::powerScalar(ssr_arr, ssr_arr, 2.0f, n);
+            MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n);
+            MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, 2.0f, n);
             CUDA_CHECK(cudaPeekAtLastError());
 
             math_t *ssto_arr;
@@ -49,17 +64,17 @@ namespace MLCommon {
             MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, 2.0f, n);
             CUDA_CHECK(cudaPeekAtLastError());
 
-            thrust::device_ptr<math_t> d_ssr = thrust::device_pointer_cast(ssr_arr);
+            thrust::device_ptr<math_t> d_sse = thrust::device_pointer_cast(sse_arr);
             thrust::device_ptr<math_t> d_ssto = thrust::device_pointer_cast(ssto_arr);
 
-            math_t ssr = thrust::reduce(d_ssr, d_ssr+n);
+            math_t sse = thrust::reduce(d_sse, d_sse+n);
             math_t ssto = thrust::reduce(d_ssto, d_ssto+n);
 
             CUDA_CHECK(cudaFree(y_bar));
-            CUDA_CHECK(cudaFree(ssr_arr));
+            CUDA_CHECK(cudaFree(sse_arr));
             CUDA_CHECK(cudaFree(ssto_arr));
 
-            return 1.0 - ssr/ssto;
+            return 1.0 - sse/ssto;
         }
 
 
