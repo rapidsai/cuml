@@ -37,8 +37,8 @@ namespace ML {
          * @return: The R-squared value.
          */
         template <typename T>
-        T r_squared(T *y, T *y_hat, int n) {
-            return MLCommon::Metrics::r_squared(y, y_hat, n);
+        T r2_score(T *y, T *y_hat, int n) {
+            return MLCommon::Metrics::r2_score(y, y_hat, n);
         }
     }
 }
