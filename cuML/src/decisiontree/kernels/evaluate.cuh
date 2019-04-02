@@ -216,7 +216,7 @@ float batch_evaluate_gini(const T *column, const int *labels, const int nbins,
 }
 
 template<typename T>
-__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols)
+__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols, T init_min_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -224,14 +224,14 @@ __global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const un
 	T *maxshared = (T*)(shmem + sizeof(T) * ncols);
 
 	for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-		minshared[i] = FLT_MAX;
-		maxshared[i] = -FLT_MAX;
+		minshared[i] = init_min_val;
+		maxshared[i] = -init_min_val;
 	}
 
 	// Initialize min max in  global memory
 	if (tid < ncols) {
-		globalmin[tid] = FLT_MAX;
-		globalmax[tid] = -FLT_MAX;
+		globalmin[tid] = init_min_val;
+		globalmax[tid] = -init_min_val;
 	}
 
 	__syncthreads();
@@ -426,7 +426,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 	return;
 }
 
-//rowoffset appears to be NLocalrows which is nrows. Why?
+
 template<typename T>
 void best_split_all_cols(const T *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory<T> * tempmem, GiniInfo split_info[3], GiniQuestion<T> & ques, float & gain, const int split_algo)
 {
@@ -453,7 +453,7 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	*/
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == 0) { // Histograms (min, max)
-		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data);
+		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data, set_min_val<T>());
 	} else if (split_algo == 2) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
 	}
