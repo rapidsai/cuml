@@ -23,10 +23,10 @@
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T, typename IdxType>
+template <typename T, typename IdxType = int>
 struct MatVecOpInputs {
   T tolerance;
-  int rows, cols;
+  IdxType rows, cols;
   bool rowMajor, bcastAlongRows, useTwoVectors;
   unsigned long long int seed;
 };
@@ -58,7 +58,7 @@ class MatVecOpTest :
   public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
 protected:
   void SetUp() override {
-      params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
+    params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
     IdxType N = params.rows, D = params.cols;
     IdxType len = N * D;
@@ -124,8 +124,8 @@ INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
 
 
 const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
-  {0.00001f, 2500000, 250, false, false, false, 1234ULL},
-  {0.00001f, 2500000, 250, false, false, true, 1234ULL}};
+  {0.00001f, 2500, 250, false, false, false, 1234ULL},
+  {0.00001f, 2500, 250, false, false, true, 1234ULL}};
 typedef MatVecOpTest<float, size_t> MatVecOpTestF_i64;
 TEST_P(MatVecOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
@@ -163,8 +163,8 @@ INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
 
 
 const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
-  {0.0000001, 2500000, 250, false, false, false, 1234ULL},
-  {0.0000001, 2500000, 250, false, false, true, 1234ULL}};
+  {0.0000001, 2500, 250, false, false, false, 1234ULL},
+  {0.0000001, 2500, 250, false, false, true, 1234ULL}};
 typedef MatVecOpTest<double, size_t> MatVecOpTestD_i64;
 TEST_P(MatVecOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.cols,
