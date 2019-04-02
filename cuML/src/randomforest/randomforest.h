@@ -19,7 +19,6 @@
 #include <iostream>
 #include <utils.h>
 #include "random/rng.h"
-#include "linalg/cublas_wrappers.h"
 #include <map>
 
 namespace ML {
@@ -87,8 +86,9 @@ namespace ML {
 			int n_trees, n_bins, rf_type;
 			int max_depth, max_leaves, split_algo; 
 			bool bootstrap;
-			float rows_sample, max_features; // ratio of n_rows used per tree
-         	//max_features	number of features to consider per split (default = sqrt(n_cols))
+			float rows_sample; 
+			float max_features; // ratio of number of features (columns) to consider per node split.
+         					    // TODO SKL's default is sqrt(n_cols)
 
 			DecisionTree::DecisionTreeClassifier<T> * trees;
 		
@@ -123,8 +123,9 @@ namespace ML {
 
 			void print_rf_summary() {
 
-				if (!trees) std::cout << "Empty forest" << std::endl;
-				else {
+				if (!trees) {
+					std::cout << "Empty forest" << std::endl;
+				} else {
 					std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
 					for (int i = 0; i < n_trees; i++) {
 						std::cout << "Tree #" << i << std::endl;
@@ -135,8 +136,9 @@ namespace ML {
 
 			void print_rf_detailed() {
 
-				if (!trees) std::cout << "Empty forest" << std::endl;
-				else {
+				if (!trees) {
+					std::cout << "Empty forest" << std::endl;
+				} else {
 					std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
 					for (int i = 0; i < n_trees; i++) {
 						std::cout << "Tree #" << i << std::endl;
@@ -155,17 +157,17 @@ namespace ML {
 						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST)
 					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
 
-
-        /** 
-         * Fit an RF classification model on input data with n_rows samples and n_cols features.
-         * @param input			data array in col major format for now (device ptr)
-         * @param n_rows		number of training data rows
-         * @param n_cols		number of features (i.e, columns)
-         * @param labels		list of target features (device ptr).
-								Assumption: labels were preprocessed to map to ascending numbers from 0;
-							    needed for current gini impl in decision tree
-		 * @param n_unique_labels	#unique label values (known during preprocessing)
-        */
+		/**
+		 * @brief Build (i.e., fit, train) random forest classifier for input data.  
+		 * @tparam T: data type for input data (float or double).
+		 * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
+		 * @param[in] n_rows: number of training data samples.
+		 * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
+		 * @param[in] labels: target features (int only). Device pointer in row-major format.
+							  Assumption: labels were preprocessed to map to ascending numbers from 0;
+							  needed for current gini impl in decision tree
+		 * @param[in] n_unique_labels: #unique label values (known during preprocessing)
+		 */
 		void fit(T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
 			ASSERT(!this->trees, "Cannot fit an existing forest.");
@@ -195,7 +197,6 @@ namespace ML {
 				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.  
 					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
 				*/
-				//std::cout << "Fitting tree # " << i << std::endl;
 				this->trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, this->max_depth, this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
 
 				//Cleanup
@@ -206,7 +207,14 @@ namespace ML {
 		}	
 
 
-		//Assuming input in row_major format. input is a CPU ptr.
+		/**
+		 * @brief Predict target feature for input data; n-ary classification for single feature supported.
+		 * @tparam T: data type for input data (float or double).
+		 * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+		 * @param[in] n_rows: number of  data samples.
+		 * @param[in] n_cols: number of features (excluding target feature).
+		 * @param[in] verbose: flag for debugging purposes.
+		 */
 		int * predict(const T * input, int n_rows, int n_cols, bool verbose=false) {
 
 			ASSERT(this->trees, "Cannot predict! No trees in the forest.");
@@ -252,7 +260,15 @@ namespace ML {
 		}
 
 		
-		/* Predict input data and validate against ref_labels. input and ref_labels are both CPU ptrs. */
+		/**
+		 * @brief Predict input data and validate against ref_labels.
+		 * @tparam T: data type for input data (float or double).
+		 * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+		 * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+		 * @param[in] n_rows: number of  data samples.
+		 * @param[in] n_cols: number of features (excluding target feature).
+		 * @param[in] verbose: flag for debugging purposes.
+		 */
 		RF_metrics cross_validate(const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false) {
 
 			int * predictions = predict(input, n_rows, n_cols, verbose);

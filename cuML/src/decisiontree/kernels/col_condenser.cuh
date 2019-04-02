@@ -62,19 +62,6 @@ __global__ void get_sampled_column_minmax_kernel(const T *column, T *outcolumn, 
 	return;
 }
 
-/*
-template<typename T>
-__global__ void get_sampled_column_kernel(const T *column, T *outcolumn, const unsigned int* rowids, const int N) {
-
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
-	if (tid < N) {
-		int index = rowids[tid];
-		outcolumn[tid] = column[index];
-	}
-	return;
-}*/
-
 template<typename T>
 __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* sampledcols)
 {

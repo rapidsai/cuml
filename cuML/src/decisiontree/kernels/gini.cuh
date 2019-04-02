@@ -83,10 +83,10 @@ struct GiniQuestion {
 
 struct GiniInfo {
 	float best_gini = -1.0f;
-	//std::map<int, int> hist;
 	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
 
 };
+
 __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, const int nmax, int* histout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -131,20 +131,6 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory<T> * tempmem, G
 	
 	split_info.best_gini = gval; //Update gini val
 
-	return;
-}
-
-/* Compute gini info from parent and left node histograms. On CPU for now. */
-void gini_right_node(const int nrows, GiniInfo & parent_info, GiniInfo & left_node_info, GiniInfo & right_node_info, int & unique_labels, const cudaStream_t stream = 0) {
-
-	float gval = 1.0;
-	right_node_info.hist.resize(unique_labels, 0);
-	for (int i = 0; i < unique_labels; i++) {
-	    right_node_info.hist[i] = parent_info.hist[i] - left_node_info.hist[i];	
-		float prob = ((float) right_node_info.hist[i]) / nrows;
-		gval -= prob*prob;
-	}
-	right_node_info.best_gini = gval;
 	return;
 }
 

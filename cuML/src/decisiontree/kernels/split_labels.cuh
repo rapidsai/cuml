@@ -17,7 +17,6 @@
 #pragma once
 #include <utils.h>
 #include "cub/cub.cuh"
-#include <thrust/sort.h>
 #include <algorithm>
 #include "gini.cuh"
 
