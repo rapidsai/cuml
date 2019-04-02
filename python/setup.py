@@ -21,7 +21,7 @@ import os
 import versioneer
 from distutils.sysconfig import get_python_lib
 import sys
-
+import numpy
 install_requires = [
     'numpy',
     'cython'
@@ -54,8 +54,9 @@ extensions = [
                             '../cuML/external/ml-prims/external/cutlass',
                             '../cuML/external/cutlass',
                             '../cuML/external/ml-prims/external/cub',
+                            numpy.get_include(),
                             cuda_include_dir],
-              library_dirs=[get_python_lib()],
+              library_dirs=[get_python_lib(), "../cuML/build/"],
               runtime_library_dirs=[cuda_lib_dir],
               libraries=libs,
               language='c++',
