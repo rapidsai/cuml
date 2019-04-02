@@ -145,7 +145,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       svdJacobi(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, tol, max_sweeps,
                 cusolverH, mgr);
     else
-      svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, cusolverH, cublasH,
+      svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH, cublasH,
             mgr);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, 0, 1,
                         k); // First k elements of S_vec
