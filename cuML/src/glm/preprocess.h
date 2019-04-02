@@ -52,8 +52,8 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
                 LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm,
                                 []__device__(math_t v){ return MLCommon::mySqrt(v); },
                                 stream);
-                ///@todo: pass stream
-                Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, true);
+                Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols,
+                                                      false, true, true, stream);
             }
 	}
 
@@ -75,10 +75,10 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	allocate(d_intercept, 1);
 
 	if (normalize) {
-            ///@todo: pass stream
-            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true);
-            ///@todo: pass stream
-            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true, true);
+            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols,
+                                           false, true, stream);
+            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
+                                                  false, true, true, stream);
 	}
 
 	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,

@@ -35,16 +35,17 @@ namespace Matrix {
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, math_t scalar, int len) {
+void power(math_t *in, math_t *out, math_t scalar, int len, cudaStream_t stream = 0) {
   auto d_src = in;
   auto d_dest = out;
 
   MLCommon::LinAlg::binaryOp(d_dest, d_src, d_src, len,
                              [=] __device__(math_t a, math_t b)
-                             {return scalar * a * b;});
+                                 {return scalar * a * b;},
+                             stream);
 
 }
 
@@ -54,11 +55,11 @@ void power(math_t *in, math_t *out, math_t scalar, int len) {
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar.
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, math_t scalar, int len) {
-  power(inout, inout, scalar, len);
+void power(math_t *inout, math_t scalar, int len, cudaStream_t stream = 0) {
+  power(inout, inout, scalar, len, stream);
 }
 
 /**
@@ -66,12 +67,12 @@ void power(math_t *inout, math_t scalar, int len) {
  * element in the input matrix
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *inout, int len) {
+void power(math_t *inout, int len, cudaStream_t stream = 0) {
   math_t scalar = 1.0;
-  power(inout, scalar, len);
+  power(inout, scalar, len, stream);
 }
 
 /**
@@ -80,12 +81,12 @@ void power(math_t *inout, int len) {
  * @param in: input matrix
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, int len) {
+void power(math_t *in, math_t *out, int len, cudaStream_t stream = 0) {
   math_t scalar = 1.0;
-  power(in, out, scalar, len);
+  power(in, out, scalar, len, stream);
 }
 
 
@@ -95,10 +96,11 @@ void power(math_t *in, math_t *out, int len) {
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
+void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false,
+             cudaStream_t stream = 0) {
 
 	auto d_src = in;
 	auto d_dest = out;
@@ -115,7 +117,8 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
                               } else {
                                 return sqrt(a * scalar);
                               }
-                            });
+                            },
+                            stream);
 }
 
 /**
@@ -123,11 +126,12 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
-  seqRoot(inout, inout, scalar, len, set_neg_zero);
+void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false,
+             cudaStream_t stream = 0) {
+  seqRoot(inout, inout, scalar, len, set_neg_zero, stream);
 }
 
 
@@ -136,24 +140,25 @@ void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void seqRoot(math_t* in, math_t* out, int len) {
+void seqRoot(math_t* in, math_t* out, int len, cudaStream_t stream = 0) {
 	math_t scalar = 1.0;
-	seqRoot(in, out, scalar, len);
+	seqRoot(in, out, scalar, len, false, stream);
 }
 
 template <typename math_t>
-void seqRoot(math_t* inout, int len) {
+void seqRoot(math_t* inout, int len, cudaStream_t stream = 0) {
 	math_t scalar = 1.0;
-	seqRoot(inout, inout, scalar, len);
+	seqRoot(inout, inout, scalar, len, false, stream);
 }
 
 
 
 template <typename math_t>
-void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15) {
+void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15,
+                        cudaStream_t stream = 0) {
   MLCommon::LinAlg::unaryOp(out, in, len, [=] __device__(math_t a)
                                              {
                                                if(a <= thres && -a <= thres) {
@@ -162,7 +167,8 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
                                                else {
                                                  return a;
                                                }
-                                             });  
+                                             },
+                            stream);  
 }
 
 /**
@@ -170,11 +176,11 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
  * @param thres: threshold
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
-  setSmallValuesZero(inout, inout, len, thres);
+void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15, cudaStream_t stream = 0) {
+  setSmallValuesZero(inout, inout, len, thres, stream);
 }
 
 
@@ -186,11 +192,11 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
-                bool setzero = false, math_t thres = 1e-15) {
+                bool setzero = false, math_t thres = 1e-15, cudaStream_t stream = 0) {
   auto d_src = in;
   auto d_dest = out;
 
@@ -205,7 +211,8 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
                                                   else {
                                                     return scalar / a;
                                                   }
-                                                });
+                                                },
+                            stream);
 }
 
 /**
@@ -216,12 +223,12 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @param len: number elements of input matrix
  * @param setzero: (default false) when true and |value|<thres, avoid dividing by (almost) zero
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
 void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
-                math_t thres = 1e-15) {
-  reciprocal(inout, inout, scalar, len, setzero, thres);
+                math_t thres = 1e-15, cudaStream_t stream = 0) {
+  reciprocal(inout, inout, scalar, len, setzero, thres, stream);
 }
 
 
@@ -230,12 +237,12 @@ void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
  * Reciprocal of every element in the input matrix
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void reciprocal(math_t *inout, int len) {
+void reciprocal(math_t *inout, int len, cudaStream_t stream = 0) {
   math_t scalar = 1.0;
-  reciprocal(inout, scalar, len);
+  reciprocal(inout, scalar, len, false, (math_t)1e-15, stream);
 }
 
 /**
@@ -244,12 +251,12 @@ void reciprocal(math_t *inout, int len) {
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void reciprocal(math_t *in, math_t *out, int len) {
+void reciprocal(math_t *in, math_t *out, int len, cudaStream_t stream = 0) {
   math_t scalar = 1.0;
-  reciprocal(in, out, scalar, len);
+  reciprocal(in, out, scalar, len, false, (math_t)1e-15, stream);
 }
 
 /**
@@ -317,56 +324,61 @@ __global__ void signFlipKernel(T* d_in, int D, int N) {
  * @param inout: input matrix. Result also stored in this parameter
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
- * @{
+ * @param stream cuda stream
  */
 template <typename math_t>
-void signFlip(math_t *inout, int n_rows, int n_cols) {  
+void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream = 0) {  
   int D = n_rows;
   int N = n_cols;
   auto data = inout;
   if (D <= 32) {
-    signFlipKernel<math_t, 32><<<N, 32>>>(data, D, N);
+    signFlipKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N);
   } else if(D <= 64) {
-    signFlipKernel<math_t, 64><<<N, 64>>>(data, D, N);
+    signFlipKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N);
   } else if(D <= 128) {
-    signFlipKernel<math_t, 128><<<N, 128>>>(data, D, N);
+    signFlipKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N);
   } else {
-    signFlipKernel<math_t, 256><<<N, 256>>>(data, D, N);
+    signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMult(Type *data, const Type *vec, IdxType n_row,
-                            IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                            cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a * b; });
+                           [] __device__(Type a, Type b) { return a * b; },
+                           stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, IdxType n_row,
                                     IdxType n_col, bool rowMajor,
-                                    bool bcastAlongRows) {
+                                    bool bcastAlongRows, cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) {
                    if (b == Type(0))
                      return a;
                    else
                      return a * b;
-                 });
+                 },
+                           stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDiv(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a / b; });
+                           [] __device__(Type a, Type b) { return a / b; },
+                           stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB=256>
 void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
                                    IdxType n_col, bool rowMajor, bool bcastAlongRows,
-                                   bool return_zero = false) {
+                                   bool return_zero = false, cudaStream_t stream = 0) {
 
 	if (return_zero) {
             LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
@@ -375,7 +387,8 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return Type(0);
 				                       else
                                                            return a / b;
-				        		    });
+                                                        },
+                                   stream);
 	} else {
 	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 		        		       [] __device__ (Type a, Type b) {
@@ -383,22 +396,25 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return a;
 				                       else
                                                            return a / b;
-				        		    });
+                                               },
+                                   stream);
 	}
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryAdd(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a + b; });
+                           [] __device__(Type a, Type b) { return a + b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinarySub(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream = 0) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a - b; });
+                           [] __device__(Type a, Type b) { return a - b; }, stream);
 }
 
 }; // end namespace Matrix
