@@ -58,7 +58,7 @@ protected:
     T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
     updateDevice(data, data_h, len);
 
-    int left_evl = params.n_row * params.n_row;
+    int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
 
     allocate(left_eig_vectors_qr, left_evl);
@@ -70,8 +70,7 @@ protected:
     // allocate(sing_vals_jacobi, params.n_col);
 
     T left_eig_vectors_ref_h[] = {-0.308219, -0.906133, -0.289695,
-                                  0.488195,  0.110706,  -0.865685,
-                                  0.816497,  -0.408248, 0.408248};
+                                  0.488195,  0.110706,  -0.865685};
 
     T right_eig_vectors_ref_h[] = {-0.638636, -0.769509, -0.769509, 0.638636};
 
@@ -87,7 +86,7 @@ protected:
 
     auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, cusolverH, cublasH, mgr);
+          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH, mgr);
   }
 
   void TearDown() override {
@@ -131,14 +130,14 @@ TEST_P(SvdTestValD, Result) {
 typedef SvdTest<float> SvdTestLeftVecF;
 TEST_P(SvdTestLeftVecF, Result) {
   ASSERT_TRUE(devArrMatch(left_eig_vectors_ref, left_eig_vectors_qr,
-                          params.n_row * params.n_row,
+                          params.n_row * params.n_col,
                           CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestLeftVecD;
 TEST_P(SvdTestLeftVecD, Result) {
   ASSERT_TRUE(devArrMatch(left_eig_vectors_ref, left_eig_vectors_qr,
-                          params.n_row * params.n_row,
+                          params.n_row * params.n_col,
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
@@ -146,14 +145,14 @@ TEST_P(SvdTestLeftVecD, Result) {
 typedef SvdTest<float> SvdTestRightVecF;
 TEST_P(SvdTestRightVecF, Result) {
   ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
-                          params.n_row * params.n_col,
+                          params.n_col * params.n_col,
                           CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SvdTest<double> SvdTestRightVecD;
 TEST_P(SvdTestRightVecD, Result) {
   ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, right_eig_vectors_trans_qr,
-                          params.n_row * params.n_col,
+                          params.n_col * params.n_col,
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
