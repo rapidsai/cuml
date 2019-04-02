@@ -11,23 +11,27 @@ Please start by reading:
 Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md#thread-safety)
 
 ## Coding style
-1. [PEP8](https://www.python.org/dev/peps/pep-0008)
+1. [PEP8](https://www.python.org/dev/peps/pep-0008) and [flake8](http://flake8.pycqa.org/en/latest/) is used to check the adherence to this style.
 2. [sklearn coding guidelines](https://scikit-learn.org/stable/developers/contributing.html#coding-guidelines)
 
 ## Creating class for a new ML algo
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
-2. Create a corresponding algoName.pyx file inside `python/cuml` folder.
-3. We try to match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
-4. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
+2. Refer to the [next section](./DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
+
+## Creating python wrapper class for an existing ML algo
+1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
+2. Note that the folder structure inside here should reflect that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
+. We try to match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
+3. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
 
 ## Error handling
-If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRtError`. For example:
+If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRuntimeError`. For example:
 ```python
-from cuml.common.cuda import Stream, CudaRtError
+from cuml.common.cuda import Stream, CudaRuntimeError
 try:
     s = Stream()
     s.sync
-except CudaRtError as cre:
+except CudaRuntimeError as cre:
     print("Cuda Error! '%s'" % str(cre))
 ```
 
@@ -62,6 +66,6 @@ algo2.fit(X2, y2)
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../cuML/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Multi GPU
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG).
+We currently have **S**ingle **P**rocess **M**ultiple **G**PU (SPMG) versions of KNN, OLS and tSVD. Our upcoming versions will concentrate on **O**ne **P**rocess per **G**PU (OPG) paradigm.
 
 TODO: Add more details.
