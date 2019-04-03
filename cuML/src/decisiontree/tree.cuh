@@ -105,7 +105,29 @@ namespace ML {
 			{
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
+			
+			/* Predict a label for single row for a given tree. */
+			int predict(const T * row, bool verbose=false) {
+				ASSERT(root, "Cannot predict w/ empty tree!");
+				return classify(row, root, verbose);	
+			}
 
+			// Printing utility for high level tree info.
+			void print_tree_summary() {
+				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
+				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
+				std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
+				std::cout << " Shared memory used --> " << shmem_used << "  bytes " << std::endl;
+			}
+
+			// Printing utility for debug and looking at nodes and leaves.
+			void print()
+			{
+				print_tree_summary();
+				print_node("", root, false);
+			}
+
+		private:
 			// Same as above fit, but planting is better for a tree then fitting.
 			void plant(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST)
 
@@ -151,29 +173,7 @@ namespace ML {
 				
 				return;
 			}
-			
-			/* Predict a label for single row for a given tree. */
-			int predict(const T * row, bool verbose=false) {
-				ASSERT(root, "Cannot predict w/ empty tree!");
-				return classify(row, root, verbose);	
-			}
 
-			// Printing utility for high level tree info.
-			void print_tree_summary() {
-				std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
-				std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
-				std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
-				std::cout << " Shared memory used --> " << shmem_used << "  bytes " << std::endl;
-			}
-
-			// Printing utility for debug and looking at nodes and leaves.
-			void print()
-			{
-				print_tree_summary();
-				print_node("", root, false);
-			}
-
-		private:
 			TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info)
 			{
 				TreeNode<T> *node = new TreeNode<T>();
