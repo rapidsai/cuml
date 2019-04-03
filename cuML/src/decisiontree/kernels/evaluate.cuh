@@ -421,7 +421,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
 		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), ques_val);
 	}
 	return;
 }

@@ -15,6 +15,7 @@
  */
 
 #pragma once
+//#include "cuda_utils.h"
 
 __device__ __forceinline__ float atomicMinFD(float * addr, float value) {
 
@@ -23,6 +24,10 @@ __device__ __forceinline__ float atomicMinFD(float * addr, float value) {
 		__uint_as_float(atomicMax((unsigned int *)addr, __float_as_uint(value)));
 	
 	return old;
+
+	// Potentially alternative impl?
+	// MLCommon::myAtomicReduce(addr, value, fminf);
+	// return *addr;
 }
 
 __device__ __forceinline__ float atomicMaxFD(float * addr, float value) {
@@ -42,14 +47,13 @@ __device__ __forceinline__ double atomicMaxFD(double* address, double val) {
     do {
         assumed = old;
         old = atomicCAS(address_as_ull, assumed,
-            __double_as_longlong(fmaxf(val, __longlong_as_double(assumed))));
+            __double_as_longlong(fmax(val, __longlong_as_double(assumed))));
     } while (assumed != old);
 	
     return __longlong_as_double(old);
 }
 	
 
-	
 __device__ __forceinline__ double atomicMinFD(double* address, double val) {
 	
     unsigned long long* address_as_ull = (unsigned long long*) address;
@@ -57,8 +61,9 @@ __device__ __forceinline__ double atomicMinFD(double* address, double val) {
     do {
         assumed = old;
         old = atomicCAS(address_as_ull, assumed,
-            __double_as_longlong(fminf(val, __longlong_as_double(assumed))));
+            __double_as_longlong(fmin(val, __longlong_as_double(assumed))));
     } while (assumed != old);
 	
     return __longlong_as_double(old);
 }
+
