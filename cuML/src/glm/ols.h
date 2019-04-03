@@ -26,7 +26,6 @@
 #include <linalg/subtract.h>
 #include <linalg/norm.h>
 #include <stats/sum.h>
-#include <matrix/math.h>
 #include "preprocess.h"
 #include "common/cumlHandle.hpp"
 
@@ -61,7 +60,7 @@ void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols
             }
             preProcessData(input, n_rows, n_cols, labels, intercept, mu_input.data(),
                            mu_labels.data(), norm2_input.data(), fit_intercept,
-                           normalize, cublas_handle, cusolver_handle);
+                           normalize, cublas_handle, cusolver_handle, stream);
 	}
 
 	if (algo == 0 || n_cols == 1) {
