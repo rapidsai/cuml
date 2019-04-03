@@ -17,7 +17,6 @@
 #pragma once
 #include <utils.h>
 #include "algo_helper.h"
-#include "histogram/histogram.cuh"
 #include "kernels/gini.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"

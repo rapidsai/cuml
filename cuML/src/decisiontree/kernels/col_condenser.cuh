@@ -18,47 +18,21 @@
 #include <thrust/sort.h>
 #include "atomic_minmax.h"
 
-/* Merged kernel: gets sampled column and also produces min and max values. */
 template<typename T>
-__global__ void get_sampled_column_minmax_kernel(const T *column, T *outcolumn, const unsigned int* rowids, T * col_min_max, const int N) {
+__global__ void get_sampled_column_kernel(const T* __restrict__ column, T *outcolumn, const unsigned int* __restrict__ rowids, const int N) {
 
-	__shared__ T shmem_min_max[2];
-	T column_val;
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-
 	if (tid < N) {
 		int index = rowids[tid];
-		column_val = column[index];
-		outcolumn[tid] = column_val;
-
-		//  Initialize min max values in shared memory
-		if (threadIdx.x == 0) { 
-			shmem_min_max[0] = column_val;
-			shmem_min_max[1] = column_val;
-		}
-
-		// Initialize min max values in global memory. 
-		if (tid == 0) {
-			col_min_max[0] = column_val;
-			col_min_max[1] = column_val;
-		}
+		outcolumn[tid] = column[index];
 	}
+	return;
+}
 
-	__syncthreads();
-
-	// Min - max reduction within each block.
-	if (tid < N) {
-		atomicMinFD(&shmem_min_max[0], column_val);
-		atomicMaxFD(&shmem_min_max[1], column_val);
-	}
-
-	__syncthreads();
-
-	// Min - max reduction across blocks.
-	if (threadIdx.x == 0) {
-		atomicMinFD(&col_min_max[0], shmem_min_max[0]);
-		atomicMaxFD(&col_min_max[1], shmem_min_max[1]);
-	}
+void get_sampled_labels(const int *labels, int *outlabels, unsigned int* rowids, const int n_sampled_rows, const cudaStream_t stream = 0) {
+	int threads = 128;
+	get_sampled_column_kernel<int><<<(int)(n_sampled_rows / threads) + 1, threads, 0, stream>>>(labels, outlabels, rowids, n_sampled_rows);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
 	return;
 }
 
@@ -82,16 +56,44 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned 
 }
 
 template<typename T>
-void get_sampled_column(const T *column, T *outcolumn, unsigned int* rowids, const int n_sampled_rows,  TemporaryMemory<T> * tempmem, const int split_algo) {
+__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols, T init_min_val)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	T *minshared = (T*)shmem;
+	T *maxshared = (T*)(shmem + sizeof(T) * ncols);
 
-	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
-	if (split_algo == 0) { // Histograms
-		get_sampled_column_minmax_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, tempmem->d_min_max, n_sampled_rows);
-	} else { //Global Quantile; split_algo should be 2
-		get_sampled_column_kernel<<<(int)(n_sampled_rows / 128) + 1, 128, 0, tempmem->stream>>>(column, outcolumn, rowids, n_sampled_rows);
+	for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
+		minshared[i] = init_min_val;
+		maxshared[i] = -init_min_val;
 	}
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
+	// Initialize min max in  global memory
+	if (tid < ncols) {
+		globalmin[tid] = init_min_val;
+		globalmax[tid] = -init_min_val;
+	}
+
+	__syncthreads();
+
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int newcolid = (int)(i / nrows);
+		int myrowstart = colids[ newcolid ] * rowoffset;
+		int index = rowids[ i % nrows] + myrowstart;
+		T coldata = data[index];
+
+		atomicMinFD(&minshared[newcolid], coldata);
+		atomicMaxFD(&maxshared[newcolid], coldata);
+		sampledcols[i] = coldata;
+	}
+
+	__syncthreads();
+	
+	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
+		atomicMinFD(&globalmin[j], minshared[j]);
+		atomicMaxFD(&globalmax[j], maxshared[j]);
+	}
+
 	return;
 }
-
 
