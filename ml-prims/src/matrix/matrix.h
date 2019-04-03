@@ -238,6 +238,7 @@ __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
  * @param n_cols: number of columns of input matrix
  * @param x1, y1: coordinate of the top-left point of the wanted area (0-based)
  * @param x2, y2: coordinate of the bottom-right point of the wanted area
+ * @param stream cuda stream
  * (1-based)
  * example: Slice the 2nd and 3rd columns of a 4x3 matrix: slice_matrix(M_d, 4,
  * 3, 0, 1, 4, 3);
@@ -245,11 +246,11 @@ __global__ void slice(m_t *src_d, int m, int n, m_t *dst_d, int x1, int y1,
  */
 template <typename m_t>
 void sliceMatrix(m_t *in, int n_rows, int n_cols, m_t *out, int x1, int y1,
-                 int x2, int y2) {
+                 int x2, int y2, cudaStream_t stream = 0) {
   // Slicing
   dim3 block(64);
   dim3 grid(((x2 - x1) * (y2 - y1) + block.x - 1) / block.x);
-  slice<<<grid, block>>>(in, n_rows, n_cols, out, x1, y1, x2, y2);
+  slice<<<grid, block, 0, stream>>>(in, n_rows, n_cols, out, x1, y1, x2, y2);
 }
 /** @} */
 
@@ -283,15 +284,16 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  * @param dst: output matrix with a size of kxk, k = min(n_rows, n_cols)
  * @param n_rows: number of rows of input matrix
  * @param n_cols: number of columns of input matrix
+ * @param stream cuda stream
  * @{
  */
 template <typename m_t>
-void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols) {
+void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols, cudaStream_t stream = 0) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   dim3 block(64);
   dim3 grid((m * n + block.x - 1) / block.x);
-  getUpperTriangular<<<grid, block>>>(src, dst, m, n, k);
+  getUpperTriangular<<<grid, block, 0, stream>>>(src, dst, m, n, k);
 }
 /** @} */
 
@@ -320,14 +322,15 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  * @param matrix: matrix of size n_rows x n_cols
  * @param n_rows: number of rows of the matrix
  * @param n_cols: number of columns of the matrix
+ * @param stream cuda stream
  * @{
  */
 template <typename m_t>
-void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols) {
+void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols, cudaStream_t stream = 0) {
   int k = min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
-  copyVectorToMatrixDiagonal<<<grid, block>>>(vec, matrix, n_rows, n_cols, k);
+  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
 }
 /** @} */
 
@@ -351,13 +354,14 @@ __global__ void matrixDiagonalInverse(m_t *in, int len) {
  * @defgroup Get a square matrix with elements on diagonal reversed (in-place)
  * @param in: square input matrix with size len x len
  * @param len: size of one side of the matrix
+ * @param stream cuda stream
  * @{
  */
 template <typename m_t>
-void getDiagonalInverseMatrix(m_t *in, int len) {
+void getDiagonalInverseMatrix(m_t *in, int len, cudaStream_t stream = 0) {
   dim3 block(64);
   dim3 grid((len + block.x - 1) / block.x);
-  matrixDiagonalInverse<m_t><<<grid, block>>>(in, len);
+  matrixDiagonalInverse<m_t><<<grid, block, 0, stream>>>(in, len);
 }
 /** @} */
 
@@ -366,12 +370,13 @@ void getDiagonalInverseMatrix(m_t *in, int len) {
  * @param in: input matrix/vector with totally size elements
  * @param len: size of the matrix/vector
  * @param cublasH cublas handle
+ * @param stream cuda stream
  * @{
  */
 template <typename m_t>
-m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH) {
+m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream = 0) {
   m_t normval = 0;
-  CUBLAS_CHECK(LinAlg::cublasnrm2(cublasH, size, in, 1, &normval));
+  CUBLAS_CHECK(LinAlg::cublasnrm2(cublasH, size, in, 1, &normval, stream));
   return normval;
 }
 /** @} */
