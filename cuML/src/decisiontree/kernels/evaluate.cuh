@@ -22,84 +22,6 @@
 #include "col_condenser.cuh"
 #include <float.h>
 
-/* Each kernel invocation produces left gini hists (histout) for batch_bins questions for specified column. */
-template<typename T>
-__global__ void batch_evaluate_quantile_kernel(const T* __restrict__ column, const int* __restrict__ labels, const int batch_bins, const int nrows, const int n_unique_labels, int* histout, const T* __restrict__ quantile, T * ques_info, const int quantile_offset) {
-
-	// Reset shared memory histograms
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	extern __shared__ unsigned int shmemhist[];
-	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
-		shmemhist[i] = 0;
-	}
-	
-	__syncthreads();
-	
-	if (tid < nrows) {
-		T data = column[tid];
-		int label = labels[tid];
-		// Each thread evaluates batch_bins questions and populates respective buckets.
-		for (int i = 0; i < batch_bins; i++) {
-			T quesval = quantile[quantile_offset + i];
-			if (data <= quesval) {
-				atomicAdd(&shmemhist[label + n_unique_labels * i], 1);
-			}
-		}
-		
-	}
-	
-	__syncthreads();
-	
-	// Merge shared mem histograms to the global memory hist
-	for (int i = threadIdx.x; i < n_unique_labels*batch_bins; i += blockDim.x) {
-		atomicAdd(&histout[i], shmemhist[i]);
-	}
-	
-}
-
-template<typename T>
-__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols, T init_min_val)
-{
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	extern __shared__ char shmem[];
-	T *minshared = (T*)shmem;
-	T *maxshared = (T*)(shmem + sizeof(T) * ncols);
-
-	for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-		minshared[i] = init_min_val;
-		maxshared[i] = -init_min_val;
-	}
-
-	// Initialize min max in  global memory
-	if (tid < ncols) {
-		globalmin[tid] = init_min_val;
-		globalmax[tid] = -init_min_val;
-	}
-
-	__syncthreads();
-
-	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-		int newcolid = (int)(i / nrows);
-		int myrowstart = colids[ newcolid ] * rowoffset;
-		int index = rowids[ i % nrows] + myrowstart;
-		T coldata = data[index];
-
-		atomicMinFD(&minshared[newcolid], coldata);
-		atomicMaxFD(&maxshared[newcolid], coldata);
-		sampledcols[i] = coldata;
-	}
-
-	__syncthreads();
-	
-	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
-		atomicMinFD(&globalmin[j], minshared[j]);
-		atomicMaxFD(&globalmax[j], maxshared[j]);
-	}
-
-	return;
-}
-
-
 /* 
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
@@ -315,6 +237,6 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
 	
 	find_best_split(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
-	
+	return;
 }
 

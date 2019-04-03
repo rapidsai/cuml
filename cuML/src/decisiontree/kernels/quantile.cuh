@@ -15,63 +15,9 @@
  */
 
 #pragma once
-#include <thrust/sort.h>
 #include "cub/cub.cuh"
 #include "col_condenser.cuh"
 
-template<typename T>
-__global__ void get_sampled_column_kernel(const T* __restrict__ column, T *outcolumn, const unsigned int* __restrict__ rowids, const int N) {
-
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tid < N) {
-		int index = rowids[tid];
-		outcolumn[tid] = column[index];
-	}
-	return;
-}
-
-template<typename T>
-void get_sampled_column(const T *column, T *outcolumn, unsigned int* rowids, const int n_sampled_rows, const cudaStream_t stream = 0) {
-	get_sampled_column_kernel<T><<<(int)(n_sampled_rows / 128) + 1, 128, 0, stream>>>(column, outcolumn, rowids, n_sampled_rows);
-	CUDA_CHECK(cudaStreamSynchronize(stream));
-	return;
-}
-
-
-void get_sampled_labels(const int *labels, int *outlabels, unsigned int* rowids, const int n_sampled_rows, const cudaStream_t stream = 0) {
-	get_sampled_column_kernel<int><<<(int)(n_sampled_rows / 128) + 1, 128, 0, stream>>>(labels, outlabels, rowids, n_sampled_rows);
-	CUDA_CHECK(cudaStreamSynchronize(stream));
-	return;
-}
-
-template<typename T>
-__global__ void get_quantiles(const T* __restrict__ column, T* quantile, const int nrows, const int nbins) {
-
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tid < nbins) {		
-		int binoff = (int)(nrows/nbins);
-		quantile[tid] = column[ (tid + 1) * binoff - 1];
-	}	
-	return;
-}
-
-template<typename T>
-void get_sampled_column_quantile(const T *column, T *outcolumn, unsigned int* rowids, const int n_sampled_rows, const int nbins, TemporaryMemory<T> * tempmem) {
-
-	ASSERT(n_sampled_rows != 0, "Column sampling for empty column\n");
-	// To protect against an illegal memory access in get_quantiles kernel
-	ASSERT(n_sampled_rows >= nbins, "n_sampled_rows %d needs to be >= nbins %d", n_sampled_rows, nbins);
-	get_sampled_column(column, outcolumn, rowids, n_sampled_rows, tempmem->stream);
-	
-	T *temp_sampcol = tempmem->d_temp_sampledcolumn;
-	CUDA_CHECK(cudaMemcpyAsync(temp_sampcol, outcolumn, n_sampled_rows*sizeof(T), cudaMemcpyDeviceToDevice, tempmem->stream));
-	thrust::sort(thrust::cuda::par.on(tempmem->stream), temp_sampcol, temp_sampcol+n_sampled_rows);
-	int threads = 128;
-	get_quantiles<<< (int)(nbins/threads) + 1, threads, 0, tempmem->stream >>>(temp_sampcol, tempmem->d_quantile, n_sampled_rows, nbins);
-	
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	return;
-}
 
 __global__ void set_sorting_offset(const int nrows, const int ncols, int* offsets) {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;

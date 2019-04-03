@@ -110,14 +110,10 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 	int *d_num_selected_out = tempmem->d_num_selected_out;
 
 	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);
-	
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);	
 	CUDA_CHECK(cudaMemcpy(&nrowsleft, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
-	
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows);
-	
 	CUDA_CHECK(cudaMemcpy(&nrowsright, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
-
 	CUDA_CHECK(cudaMemcpy(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice));
 
 	// Copy GPU-computed question value to tree node.
