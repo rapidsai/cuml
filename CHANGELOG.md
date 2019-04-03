@@ -5,6 +5,7 @@
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
+- PR #435: Exposing cumlhandle in cython + developer guide
 
 ## Improvements
 
