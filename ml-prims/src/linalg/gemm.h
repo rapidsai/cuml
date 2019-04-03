@@ -134,6 +134,7 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
            stream);
 }
 
+
 /**
  * @brief the wrapper of cublas gemm function
  *  It computes the following equation: D = alpha . opA(A) * opB(B) + beta . C
@@ -165,6 +166,18 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
   int ldc = m;
   CUBLAS_CHECK(LinAlg::cublasgemm(cublas_h, trans_a, trans_b, m, n, k, &alpha,
                                   a, lda, b, ldb, &beta, c, ldc));
+}
+
+template <typename math_t>
+void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
+          math_t *c, int n_rows_c, int n_cols_c, cublasOperation_t trans_a,
+          cublasOperation_t trans_b, cublasHandle_t cublas_h) {
+
+	math_t alpha = math_t(1);
+	math_t beta = math_t(0);
+
+	 gemm(a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
+	           trans_b, alpha, beta, cublas_h);
 }
 
 } // end namespace LinAlg

@@ -90,68 +90,128 @@ class TSVDparams:
 
 class TruncatedSVD:
     """
-    Create a DataFrame, fill it with data, and compute Truncated Singular Value Decomposition:
+    TruncatedSVD is used to compute the top K singular values and vectors of a large matrix X. 
+    It is much faster when n_components is small, such as in the use of PCA when 3 components is 
+    used for 3D visualization.
+
+    cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
+    Full (default) uses a full eigendecomposition then selects the top K singular vectors. 
+    The Jacobi algorithm is much faster as it iteratively tries to correct the top K singular
+    vectors, but might be less accurate.
+    
+    Examples
+    ---------
 
     .. code-block:: python
+            
+        # Both import methods supported
+        from cuml import TruncatedSVD
+        from cuml.decomposition import TruncatedSVD
 
-            from cuml import TruncatedSVD
-            import cudf
-            import numpy as np
+        import cudf
+        import numpy as np
 
-            gdf_float = cudf.DataFrame()
-            gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
-            gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-            gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+        gdf_float = cudf.DataFrame()
+        gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
+        gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
 
-            tsvd_float = TruncatedSVD(n_components = 2, algorithm="jacobi", n_iter=20, tol=1e-9)
-            tsvd_float.fit(gdf_float)
+        tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi", n_iter = 20, tol = 1e-9)
+        tsvd_float.fit(gdf_float)
 
-            print(f'components: {tsvd_float.components_}')
-            print(f'explained variance: {tsvd_float.explained_variance_}')
-            print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
-            print(f'singular values: {tsvd_float.singular_values_}')
+        print(f'components: {tsvd_float.components_}')
+        print(f'explained variance: {tsvd_float.explained_variance_}')
+        print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
+        print(f'singular values: {tsvd_float.singular_values_}')
 
-            trans_gdf_float = tsvd_float.transform(gdf_float)
-            print(f'Transformed matrix: {trans_gdf_float}')
+        trans_gdf_float = tsvd_float.transform(gdf_float)
+        print(f'Transformed matrix: {trans_gdf_float}')
 
-            input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
-            print(f'Input matrix: {input_gdf_float}')
+        input_gdf_float = tsvd_float.inverse_transform(trans_gdf_float)
+        print(f'Input matrix: {input_gdf_float}')
 
     Output:
 
     .. code-block:: python
 
-            components:            0           1          2
-            0 0.58725953  0.57233137  0.5723314
-            1 0.80939883 -0.41525528 -0.4152552
-            explained variance:
-            0  55.33908
-            1 16.660923
+        components:            0           1          2
+        0 0.58725953  0.57233137  0.5723314
+        1 0.80939883 -0.41525528 -0.4152552
+        explained variance:
+        0  55.33908
+        1 16.660923
 
-            explained variance ratio:
-            0  0.7685983
-            1 0.23140171
+        explained variance ratio:
+        0  0.7685983
+        1 0.23140171
 
-            singular values:
-            0  7.439024
-            1 4.0817795
+        singular values:
+        0  7.439024
+        1 4.0817795
 
-            Transformed matrix:           0            1
-            0 5.1659107    -2.512643
-            1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
+        Transformed matrix:           0            1
+        0 5.1659107    -2.512643
+        1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
 
-            Input matrix:           0         1         2
-            0       1.0  4.000001  4.000001
-            1 2.0000005 2.0000005 2.0000007
-            2  5.000001 0.9999999 1.0000004
+        Input matrix:           0         1         2
+        0       1.0  4.000001  4.000001
+        1 2.0000005 2.0000005 2.0000007
+        2  5.000001 0.9999999 1.0000004
 
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/tsvd_demo.ipynb>`_. For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+    Parameters
+    -----------
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
+    algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
+        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Jacobi is much faster as it iteratively corrects, but is less accurate.
+    n_iter : int (default = 15)
+        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    tol : float (default = 1e-7)
+        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
+        but the more slower the algorithm will get to converge.
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
 
+    Attributes
+    -----------
+    components_ : array
+        The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
+    explained_variance_ : array
+        How much each component explains the variance in the data given by S**2      
+    explained_variance_ratio_ : array
+        How much in % the variance is explained given by S**2/sum(S**2)
+    singular_values_ : array
+        The top K singular values. Remember all singular values >= 0
+
+    Notes
+    ------
+    TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number of components
+    you want is much smaller than the number of features. The approximation to the largest
+    singular values and vectors is very robust, however, this method loses a lot of accuracy
+    when you want many many components.
+    
+    **Applications of TruncatedSVD**
+        
+        TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
+        word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
+        same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
+        systems and data compression.
+
+    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_. 
+    For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
     def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
                  algorithm='full'):
+
+        self.n_components = n_components
+        self.tol = tol
+        self.n_iter = n_iter
+        self.random_state = random_state
+        self.algorithm = algorithm
         if algorithm in ['full', 'auto', 'jacobi']:
+            self.algorithm = algorithm
             c_algorithm = self._get_algorithm_c_name(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -204,7 +264,6 @@ class TruncatedSVD:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-
     def fit(self, X, _transform=True):
         """
             Fit LSI model on training cudf DataFrame X.
@@ -245,7 +304,6 @@ class TruncatedSVD:
         params.n_iterations = self.params.iterated_power
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
-
         self._initialize_arrays(self.params.n_components,
                                 self.params.n_rows, self.params.n_cols)
 
@@ -258,6 +316,9 @@ class TruncatedSVD:
         cdef uintptr_t singular_vals_ptr = self._get_column_ptr(
                                                 self.singular_values_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
+
+        if self.params.n_components> self.params.n_cols:
+            raise ValueError(' n_components must be < n_features')
 
         if not _transform:
             if self.gdf_datatype.type == np.float32:
@@ -325,7 +386,6 @@ class TruncatedSVD:
 
         return X_new
 
-
     def inverse_transform(self, X):
         """
             Transform X back to its original space.
@@ -384,8 +444,6 @@ class TruncatedSVD:
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         return X_original
-
-
 
     def transform(self, X):
         """
@@ -452,3 +510,41 @@ class TruncatedSVD:
         del(X_m)
         return X_new
 
+    def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
+        params = dict()
+        variables = ['n_components', 'algorithm', 'svd_solver', 'tol', 'n_iter', 'random_state','iterated_power','random_state', 'n_cols','n_rows']
+        for key in variables:
+            var_value = getattr(self.params,key,None)
+            params[key] = var_value   
+            if 'algorithm'==key:
+                params[key] = getattr(self, key, None) 
+        return params
+
+    def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
+        if not params:
+            return self
+        variables = ['n_components', 'algorithm', 'tol', 'svd_solver', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state']
+        for key, value in params.items():
+            if key not in variables:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                if 'algorithm' in params.keys() and key=='algorithm':
+                    setattr(self, key, value)
+                    setattr(self.params, 'svd_solver', self._get_algorithm_c_name(value) )
+                else:
+                    setattr(self.params, key, value)
+        return self.params

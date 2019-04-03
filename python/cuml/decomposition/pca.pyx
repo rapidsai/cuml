@@ -116,18 +116,32 @@ class PCAparams:
 
 class PCA:
     """
-    Create a DataFrame, fill it with data, and compute PCA:
+    PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
+    combine features in X in linear combinations such that each new component captures the most
+    information or variance of the data. N_components is usually small, say at 3, where it can be
+    used for data visualization, data compression and exploratory analysis.
+
+    cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
+    Full (default) uses a full eigendecomposition then selects the top K eigenvectors. 
+    The Jacobi algorithm is much faster as it iteratively tries to correct the top K eigenvectors,
+    but might be less accurate.
+    
+    Examples
+    ---------
 
     .. code-block:: python
 
-        import cudf
+        # Both import methods supported
         from cuml import PCA
+        from cuml.decomposition import PCA
+
+        import cudf
         import numpy as np
 
         gdf_float = cudf.DataFrame()
-        gdf_float['0']=np.asarray([1.0,2.0,5.0],dtype=np.float32)
-        gdf_float['1']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
-        gdf_float['2']=np.asarray([4.0,2.0,1.0],dtype=np.float32)
+        gdf_float['0'] = np.asarray([1.0,2.0,5.0], dtype = np.float32)
+        gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
+        gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
 
         pca_float = PCA(n_components = 2)
         pca_float.fit(gdf_float)
@@ -191,15 +205,69 @@ class PCA:
                     0 1.0000001 3.9999993       4.0
                     1       2.0 2.0000002 1.9999999
                     2 4.9999995 1.0000006       1.0
+    
+    Parameters
+    ----------
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
+    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
+        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Jacobi is much faster as it iteratively corrects, but is less accurate.
+    iterated_power : int (default = 15)
+        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    tol : float (default = 1e-7)
+        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
+        but the more slower the algorithm will get to converge.
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
+    copy : boolean (default = True)
+        If True, then copies data then removes mean from data. False might cause data to be
+        overwritten with its mean centered version.
+    whiten : boolean (default = False)
+        If True, de-correlates the components. This is done by dividing them by the corresponding
+        singular values then multiplying by sqrt(n_samples). Whitening allows each component
+        to have unit variance and removes multi-collinearity. It might be beneficial for downstream
+        tasks like LinearRegression where correlated features cause problems.
 
 
-    For an additional example see `the PCA notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/pca_demo.ipynb>`_. For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
+    Attributes
+    ----------
+    components_ : array
+        The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
+    explained_variance_ : array
+        How much each component explains the variance in the data given by S**2      
+    explained_variance_ratio_ : array
+        How much in % the variance is explained given by S**2/sum(S**2)
+    singular_values_ : array
+        The top K singular values. Remember all singular values >= 0
+    mean_ : array
+        The column wise mean of X. Used to mean - center the data first.
+    noise_variance_ : float
+        From Bishop 1999's Textbook. Used in later tasks like calculating the
+        estimated covariance of X.
 
+    Notes
+    ------
+    PCA considers linear combinations of features, specifically those that maximise global
+    variance structure. This means PCA is fantastic for global structure analyses, but weak
+    for local relationships. Consider UMAP or T-SNE for a locally important embedding.
+    
+    **Applications of PCA**
+        
+        PCA is used extensively in practice for data visualization and data compression. It has been used
+        to visualize extremely large word embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
+        datasets of everyday objects and images, and used to distinguish between cancerous cells from 
+        healthy cells.
+    
+    
+    For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_. 
+    For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
     def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
                  iterated_power=15, random_state=None, svd_solver='auto'):
         if svd_solver in ['full', 'auto', 'jacobi']:
+            self.svd_solver = svd_solver
             c_algorithm = self._get_algorithm_c_name(svd_solver)
         else:
             msg = "algorithm {!r} is not supported"
@@ -300,6 +368,9 @@ class PCA:
         params.tol = self.params.tol
         params.algorithm = self.params.svd_solver
 
+        if self.params.n_components> self.params.n_cols:
+            raise ValueError('Number of components should not be greater than the number of columns in the data')
+
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
@@ -375,7 +446,7 @@ class PCA:
 
         return self
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y=None):
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -383,6 +454,8 @@ class PCA:
         ----------
         X : cuDF DataFrame, shape (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+
+        y : ignored
 
         Returns
         -------
@@ -537,3 +610,38 @@ class PCA:
 
         del(X_m)
         return X_new
+
+
+    def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
+        params = dict()
+        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
+        for key in variables:
+            var_value = getattr(self.params,key,None)
+            params[key] = var_value
+            if 'svd_solver'== key:
+                params[key] = getattr(self, key, None)
+
+        return params
+
+
+    def set_params(self, **parameter):
+        if not parameter:
+            return self
+        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
+        for key, value in parameter.items():
+            if key not in variables:
+                raise ValueError('Invalid parameter %s for estimator')
+            else:
+                if 'svd_solver' in parameter.keys() and key=='svd_solver':
+                    setattr(self, key, value)
+                else:
+                    setattr(self.params, key, value)
+
+        return self
