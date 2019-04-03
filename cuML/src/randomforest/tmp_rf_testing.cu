@@ -37,7 +37,7 @@
 		ms = 0.f;								\
 		CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));	\
 		ms /= count;									\
-} while (0)	
+} while (0)
 
 using namespace MLCommon;
 using namespace std;
@@ -68,9 +68,9 @@ void parse_csv(string dataset_name, int n_cols, std::vector<float> & data, std::
 
 	test_data.resize(test_cnt * n_cols);
 	test_labels.resize(test_cnt);
-	
+
 	int break_cnt = (test_is_train) ? train_cnt : train_cnt + test_cnt;
-	
+
 	while (getline(myfile,line) && (counter < break_cnt)) {
 			stringstream str(line);
 			vector<float> row;
@@ -83,7 +83,7 @@ void parse_csv(string dataset_name, int n_cols, std::vector<float> & data, std::
 			for (int col = 0; col < n_cols; col++) {
 				if (counter < train_cnt)  {
 					data[counter + col * train_cnt] = row[col + col_offset]; //train data should be col major
-					if (test_is_train) 
+					if (test_is_train)
 						test_data[counter*n_cols + col] = row[col + col_offset]; // test data should be row major
 				} else if (!test_is_train)
 					test_data[(counter - train_cnt)*n_cols + col] = row[col + col_offset]; // test data should be row major
@@ -98,11 +98,11 @@ void parse_csv(string dataset_name, int n_cols, std::vector<float> & data, std::
 				test_labels[counter - train_cnt] = (int) (row[label_id] > 0);
 			counter++;
 		}
-	cout << "Lines processed " << counter << endl;  
+	cout << "Lines processed " << counter << endl;
 	myfile.close();
 
 }
-	
+
 
 struct RF_inputs {
 	int n_rows, n_cols, n_inference_rows;
@@ -111,8 +111,8 @@ struct RF_inputs {
 	bool bootstrap, test_is_train;
 	string dataset;
 
-	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features, 
-			  	float cfg_rows_sample, float cfg_train_ratio, int cfg_max_depth, 
+	RF_inputs(int cfg_n_rows, int cfg_n_cols, int cfg_n_trees, float cfg_max_features,
+				float cfg_rows_sample, float cfg_train_ratio, int cfg_max_depth,
 				int cfg_max_leaves, bool cfg_bootstrap, bool cfg_test_is_train, int cfg_n_bins,
 				string cfg_dataset, int cfg_split_algo) {
 
@@ -120,7 +120,7 @@ struct RF_inputs {
 		test_is_train = cfg_test_is_train;
 
 		n_rows = test_is_train ? cfg_n_rows : train_ratio * cfg_n_rows;
-	 	n_cols = cfg_n_cols; // Will be overwriten based on dataset 
+		n_cols = cfg_n_cols; // Will be overwritten based on dataset
 		n_trees = cfg_n_trees;
 		max_features = cfg_max_features;
 		rows_sample = cfg_rows_sample;
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
 	// Populate labels and data
 	parse_csv(params.dataset, params.n_cols, h_input_data, h_input_labels, params.n_rows, inference_data, inference_labels, params.n_inference_rows, params.test_is_train); //last arg makes test same as training
 
-	//Preprocess labels 
+	//Preprocess labels
 	ML::preprocess_labels(params.n_rows, h_input_labels, labels_map);
 	int n_unique_labels = labels_map.size();
 	std::cout << "Dataset has " << n_unique_labels << " labels." << std::endl;
@@ -198,7 +198,7 @@ int main(int argc, char **argv) {
 
 	// Classify input_dataset
 	ML::rfClassifier<float> * rf_classifier;
- 	rf_classifier = new ML::rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo);
+	rf_classifier = new ML::rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo);
 	cout << "Called RF constructor\n";
 	//rf_classifier->fit(input_data, params.n_rows, params.n_cols, input_labels);
 
@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
 	ML::RF_metrics metrics = rf_classifier->cross_validate(inference_data.data(), inference_labels.data(), params.n_inference_rows, params.n_cols, false);
 	metrics.print();
 
-	ML::postprocess_labels(params.n_inference_rows, inference_labels, labels_map); 
+	ML::postprocess_labels(params.n_inference_rows, inference_labels, labels_map);
 
 	cout << "Free memory\n";
 	CUDA_CHECK(cudaFree(input_data));

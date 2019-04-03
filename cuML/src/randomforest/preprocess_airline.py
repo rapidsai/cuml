@@ -1,7 +1,7 @@
 ##
 # Airline dataset has 13 cols + 1 for label
 #   - last column is label (ArrivalDelay). Need to convert to categorical. Value > 0 means delay (1), <= 0 means no delay (0).
-#   - First 13 cols are as follows. 
+#   - First 13 cols are as follows.
 #    (0) "Year"  => int, convert to float
 #    (1) "Month" => int, convert to float
 #    (2) "DayofMonth" => int, convert to float
@@ -16,7 +16,7 @@
 #    (11) "Distance" => int (miles) => convert to float
 #    (12) "Diverted" => int (0 or 1) => convert to float
 
-# Note: the label (target feature) is left unprocessed - just converted to float. 
+# Note: the label (target feature) is left unprocessed - just converted to float.
 # This is changed in tmp_rf_testing.cu under the RandomForest dir.
 
 # The readme_airlines_dicts is what was used to convert categorial data to floats.
@@ -34,7 +34,7 @@ def preprocess_file(airport_dict, flight_number_dict, orig_filename, modified_fi
 
 	orig_file = open(orig_filename)
 	output_file = open(modified_filename, 'w')
-	
+
 	for line in orig_file:
 		line_cols = line.strip().split(",")
 		new_line = ""
@@ -53,7 +53,7 @@ def preprocess_file(airport_dict, flight_number_dict, orig_filename, modified_fi
 				col_val = find_dict_val(col_val, airport_dict)
 			#elif col_id == 13: #label - convert to binary 1 if > 0
 			#	col_val = (int(col_val) > 0)
-	
+
 			# Convert to float
 			new_line += str(float(col_val)) + ","
 		#print(new_line[:-1])
@@ -64,7 +64,7 @@ def preprocess_file(airport_dict, flight_number_dict, orig_filename, modified_fi
 
 	print("flight_number_dict is:")
 	print(flight_number_dict)
-		
+
 	orig_file.close()
 	output_file.close()
 
@@ -87,7 +87,7 @@ def postprocess_file(airport_dict, flight_number_dict, modified_filename, reprod
 	inv_flight_number_dict = invert_dict(flight_number_dict)
 	inv_airport_dict = invert_dict(airport_dict)
 
-	
+
 	for line in my_file:
 		line_cols = line.strip().split(",")
 		new_line = ""
@@ -100,10 +100,10 @@ def postprocess_file(airport_dict, flight_number_dict, modified_filename, reprod
 				if hours != 0:
 					actual_time += str(hours)
 					if mins < 10:
-						actual_time += "0" 
+						actual_time += "0"
 				actual_time += str(mins)
 				col_val = actual_time
-				
+
 			elif col_id == 6:	# flight number
 				col_val = str(find_dict_val(int(float(col_val)), inv_flight_number_dict))
 			elif 9 <= col_id <= 10:	# origin or dest airport
@@ -112,11 +112,11 @@ def postprocess_file(airport_dict, flight_number_dict, modified_filename, reprod
 			#	col_val = (int(col_val) > 0)
 			else:
 				col_val = str(int(float(col_val)))
-	
+
 			# Convert to float
 			new_line += col_val + ","
 		output_file.write(new_line[:-1] + "\n")
-		
+
 	my_file.close()
 	output_file.close()
 

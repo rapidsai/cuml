@@ -22,7 +22,7 @@
 #include "col_condenser.cuh"
 #include <float.h>
 
-/* 
+/*
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
@@ -37,11 +37,11 @@ __global__ void all_cols_histograms_kernel(const T* __restrict__ data, const int
 	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
 		minmaxshared[i] = globalminmax[i];
 	}
-	
+
 	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
 		shmemhist[i] = 0;
 	}
-	
+
 	__syncthreads();
 
 	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
@@ -56,7 +56,7 @@ __global__ void all_cols_histograms_kernel(const T* __restrict__ data, const int
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
 			T quesval = base_quesval + j * delta;
-			
+
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
 			}
@@ -118,7 +118,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 	int n_cols = col_selector.size();
 	for (int col_id = 0; col_id < n_cols; col_id++) {
 
-		int col_hist_base_index = col_id * nbins * n_unique_labels;			
+		int col_hist_base_index = col_id * nbins * n_unique_labels;
 		// tempmem->h_histout holds n_cols histograms of nbins of n_unique_labels each.
 		for (int i = 0; i < nbins; i++) {
 
@@ -166,10 +166,10 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 			}
 		}
 	}
-	
+
 	if (best_col_id == -1 || best_bin_id == -1)
 		return;
-	
+
 	split_info[1].hist.resize(n_unique_labels);
 	split_info[2].hist.resize(n_unique_labels);
 	for (int j = 0; j < n_unique_labels; j++) {
@@ -198,18 +198,18 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	T* d_globalminmax = tempmem->d_globalminmax;
 	int *d_histout = tempmem->d_histout;
 	int *h_histout = tempmem->h_histout;
-	
+
 	int ncols = colselector.size();
 	int col_minmax_bytes = sizeof(T) * 2 * ncols;
 	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
 
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
-	
+
 	unsigned int threads = 512;
 	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
 	if (blocks > 65536)
 		blocks = 65536;
-	
+
 	/* Kernel allcolsampler_*_kernel:
 		- populates tempmem->tempdata with the sampled column data,
 		- and computes min max histograms in tempmem->d_globalminmax *if minmax in name
@@ -222,9 +222,9 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
 	}
 	CUDA_CHECK(cudaGetLastError());
-	
+
 	shmemsize = n_hist_bytes;
-	
+
 	if (split_algo == 0) {
 		shmemsize += col_minmax_bytes;
 		all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
@@ -232,10 +232,10 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 		all_cols_histograms_global_quantile_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile);
 	}
 	CUDA_CHECK(cudaGetLastError());
-	
+
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
-	
+
 	find_best_split(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
 	return;
 }

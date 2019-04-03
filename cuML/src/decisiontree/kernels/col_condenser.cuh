@@ -40,7 +40,7 @@ template<typename T>
 __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* sampledcols)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	
+
 	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
 		int newcolid = (int)(i / nrows);
 		int myrowstart;
@@ -48,7 +48,7 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned 
 			myrowstart = colids[ newcolid ] * rowoffset;
 		else
 			myrowstart = newcolid * rowoffset;
-		
+
 		int index = rowids[ i % nrows] + myrowstart;
 		sampledcols[i] = data[index];
 	}
@@ -88,7 +88,7 @@ __global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const un
 	}
 
 	__syncthreads();
-	
+
 	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
 		atomicMinFD(&globalmin[j], minshared[j]);
 		atomicMaxFD(&globalmax[j], maxshared[j]);

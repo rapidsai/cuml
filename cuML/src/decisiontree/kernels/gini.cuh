@@ -57,7 +57,7 @@ struct GiniQuestion {
 	T min, max;
 	int nbins;
 	int ncols;
-	
+
 	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, float cfg_min=FLT_MAX, float cfg_max=-FLT_MAX, float cfg_value=0.0f) {
 		bootstrapped_column = cfg_bootcolumn;
 		original_column = cfg_column;
@@ -93,19 +93,19 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 	extern __shared__ unsigned int shmemhist[];
 	if (threadIdx.x < nmax)
 		shmemhist[threadIdx.x] = 0;
-	
+
 	__syncthreads();
-	
+
 	if (tid < nrows) {
 		int label = labels[tid];
-		atomicAdd(&shmemhist[label], 1);			 
+		atomicAdd(&shmemhist[label], 1);
 	}
-	
+
 	__syncthreads();
-	
+
 	if (threadIdx.x < nmax)
 		atomicAdd(&histout[threadIdx.x], shmemhist[threadIdx.x]);
-	
+
 	return;
 }
 
@@ -115,20 +115,20 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory<T> * tempmem, G
 	int *dhist = tempmem->d_hist;
 	int *hhist = tempmem->h_hist;
 	float gval =1.0;
-	
+
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
 	gini_kernel<<< (int)(nrows/128) + 1, 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, sizeof(int)*unique_labels, cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));	  
-	
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+
 	split_info.hist.resize(unique_labels, 0);
 	for (int i=0; i < unique_labels; i++) {
 		split_info.hist[i] = hhist[i]; //update_gini_hist
 		float prob = ((float)hhist[i]) / nrows;
 		gval -= prob*prob;
 	}
-	
+
 	split_info.best_gini = gval; //Update gini val
 
 	return;
