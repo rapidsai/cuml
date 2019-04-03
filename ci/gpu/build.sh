@@ -14,7 +14,7 @@ function logger() {
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
-export CUDF_VERSION=0.6
+export CUDF_VERSION=0.7
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
@@ -80,3 +80,16 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
 logger "Python py.test for cuML..."
 cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+
+logger "GoogleTest for ml-prims..."
+mkdir -p $WORKSPACE/ml-prims/build
+cd $WORKSPACE/ml-prims/build
+logger "Run cmake ml-prims..."
+cmake ..
+logger "Clean up make..."
+make clean
+logger "Make ml-prims test..."
+make -j${PARALLEL_LEVEL}
+logger "Run ml-prims test..."
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./test/mlcommon_test
+
