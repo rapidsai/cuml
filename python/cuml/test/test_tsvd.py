@@ -32,7 +32,7 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
@@ -69,7 +69,7 @@ def test_tsvd_fit_transform(datatype, input_type, run_stress, run_correctness_te
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
@@ -103,7 +103,7 @@ def test_tsvd_inverse_transform(datatype, input_type, run_stress, run_correctnes
     if run_stress==True:
         X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
