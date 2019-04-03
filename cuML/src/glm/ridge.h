@@ -115,18 +115,13 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 }
 
 template<typename math_t>
-void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
-		math_t *alpha, int n_alpha, math_t *coef, math_t *intercept,
-		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle, int algo = 0) {
-    ///@todo: make this function accept cumlHandle_impl!
-    cumlHandle h_;
-    cudaStream_t s_;
-    CUDA_CHECK(cudaStreamCreate(&s_));
-    h_.setStream(s_);
-    const auto& handle = h_.getImpl();
+void ridgeFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
+              math_t *labels, math_t *alpha, int n_alpha, math_t *coef, math_t *intercept,
+              bool fit_intercept, bool normalize, int algo = 0) {
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(n_cols > 0,
 			"ridgeFit: number of columns cannot be less than one");
@@ -145,7 +140,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
             }
             preProcessData(input, n_rows, n_cols, labels, intercept, mu_input.data(),
                            mu_labels.data(), norm2_input.data(), fit_intercept,
-                           normalize, cublas_handle, cusolver_handle);
+                           normalize, cublas_handle, cusolver_handle, stream);
 	}
 
 	if (algo == 0 || n_cols == 1) {
@@ -165,37 +160,29 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 	if (fit_intercept) {
             postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input.data(),
                             mu_labels.data(), norm2_input.data(), fit_intercept, normalize,
-                            cublas_handle, cusolver_handle);
+                            cublas_handle, cusolver_handle, stream);
 	} else {
 		*intercept = math_t(0);
 	}
-    CUDA_CHECK(cudaStreamSynchronize(s_));
-    CUDA_CHECK(cudaStreamDestroy(s_));
 }
 
 template<typename math_t>
-void ridgePredict(const math_t *input, int n_rows, int n_cols,
-		const math_t *coef, math_t intercept, math_t *preds,
-		cublasHandle_t cublas_handle) {
+void ridgePredict(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols,
+                  const math_t *coef, math_t intercept, math_t *preds) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
+        auto stream = handle.getStream();
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-                     CUBLAS_OP_N, alpha, beta, cublas_handle);
-
-	LinAlg::addScalar(preds, preds, intercept, n_rows);
-
-
+                     CUBLAS_OP_N, alpha, beta, handle.getCublasHandle(), stream);
+	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 }
 
 /** @} */
-}
-;
-}
-;
-// end namespace ML
+}; // end namespace GLM
+}; // end namespace ML
