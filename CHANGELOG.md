@@ -22,6 +22,7 @@
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
 - PR #434: Fixing bug in CSR tests
+- PR #443: Remove defaults channel from ci scripts
 
 # cuML 0.6.0 (22 Mar 2019)
 
