@@ -21,6 +21,7 @@
 #include "atomic_minmax.h"
 #include "col_condenser.cuh"
 #include <float.h>
+#include "../algo_helper.h"
 
 /*
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
@@ -92,7 +93,7 @@ __global__ void all_cols_histograms_global_quantile_kernel(const T* __restrict__
 		T localdata = data[i];
 		int label = labels[ rowids[ i % nrows ] ];
 		for (int j=0; j < nbins; j++) {
-			int quantile_index = colids[mycolid] * nbins + j; //TODO FIXME Is this valid? Confirm if there's any issue w/ bins vs. batch bins
+			int quantile_index = colids[mycolid] * nbins + j;
 			T quesval = quantile[quantile_index];
 			if (localdata <= quesval) {
 				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
@@ -177,9 +178,9 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 		split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
 	}
 
-	if (split_algo == 0) { // HIST
+	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
-	} else if (split_algo == 2) { // Global quantile
+	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		T ques_val;
 		T *d_quantile = tempmem->d_quantile;
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
@@ -216,25 +217,25 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	   across all columns.
 	*/
 	size_t shmemsize = col_minmax_bytes;
-	if (split_algo == 0) { // Histograms (min, max)
+	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
 		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data, set_min_val<T>());
-	} else if (split_algo == 2) { // Global quantiles; just col condenser
+	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
 	}
 	CUDA_CHECK(cudaGetLastError());
 
 	shmemsize = n_hist_bytes;
 
-	if (split_algo == 0) {
+	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
 		all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
-	} else if (split_algo == 2) {
+	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		all_cols_histograms_global_quantile_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile);
 	}
 	CUDA_CHECK(cudaGetLastError());
 
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream)); //added
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
 	find_best_split(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
 	return;

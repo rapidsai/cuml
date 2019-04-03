@@ -46,16 +46,16 @@ namespace ML {
 		};
 
 		template<class T>
-		struct TreeNode
-		{
+		struct TreeNode {
+
 			TreeNode *left = NULL;
 			TreeNode *right = NULL;
 			int class_predict;
 			Question<T> question;
 			T gini_val;
 
-			void print(std::ostream& os)
-			{
+			void print(std::ostream& os) {
+
 				if (left == NULL && right == NULL)
 					os << "(leaf, " << class_predict << ", " << gini_val << ")" ;
 				else
@@ -103,6 +103,11 @@ namespace ML {
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
 			void fit(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST)
 			{
+				ASSERT((n_bins > 0), "Invalid n_bins %d", n_bins);
+				ASSERT((colper > 0) && (colper <= 1.0), "max_features value %f outside permitted (0, 1] range", colper);
+				ASSERT((split_algo >= 0) && (split_algo < SPLIT_ALGO::SPLIT_ALGO_END), "split_algo value %d outside permitted [0, %d) range", split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
+				ASSERT((maxdepth == -1) || (maxdepth > 0), "Invalid max depth %d", maxdepth);
+
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
 
