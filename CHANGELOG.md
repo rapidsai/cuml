@@ -21,6 +21,7 @@
 - PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
+- PR #438: Code that depended on FAISS was building everytime. 
 
 # cuML 0.6.0 (22 Mar 2019)
 
