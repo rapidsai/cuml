@@ -48,7 +48,7 @@ cuda_include_dir = '/usr/local/cuda/include'
 cuda_lib_dir = "/usr/local/cuda/lib"
 
 extensions = [
-    CMakeExtension('cuml', 'cuML'),
+    CMakeExtension('cuml++', 'cuML'),
     Extension("*",
               sources=cython_files,
               include_dirs=['cuML/src',
