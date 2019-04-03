@@ -32,7 +32,7 @@
 
 namespace ML {
 	namespace DecisionTree {
-		
+
 		template<class T>
 		struct Question {
 			int column;
@@ -44,7 +44,7 @@ namespace ML {
 				value = ques.value;
 			};
 		};
-		
+
 		template<class T>
 		struct TreeNode
 		{
@@ -53,7 +53,7 @@ namespace ML {
 			int class_predict;
 			Question<T> question;
 			T gini_val;
-			
+
 			void print(std::ostream& os)
 			{
 				if (left == NULL && right == NULL)
@@ -96,7 +96,7 @@ namespace ML {
 			size_t shmem_used = 0;
 			int n_unique_labels = -1; // number of unique labels in dataset
 			double construct_time;
-			
+
 		public:
 			// Expects column major T dataset, integer labels
 			// data, labels are both device ptr.
@@ -105,11 +105,11 @@ namespace ML {
 			{
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
-			
+
 			/* Predict a label for single row for a given tree. */
 			int predict(const T * row, bool verbose=false) {
 				ASSERT(root, "Cannot predict w/ empty tree!");
-				return classify(row, root, verbose);	
+				return classify(row, root, verbose);
 			}
 
 			// Printing utility for high level tree info.
@@ -145,7 +145,7 @@ namespace ML {
 				cudaDeviceProp prop;
 				CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
 				max_shared_mem = prop.sharedMemPerBlock;
-				
+
 				if (split_algo == SPLIT_ALGO::HIST) {
 					shmem_used += 2 * sizeof(T) * ncols;
 					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
@@ -153,7 +153,7 @@ namespace ML {
 					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
 				}
 				ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
-				
+
 				for (int i = 0; i<MAXSTREAMS; i++) {
 					tempmem[i] = new TemporaryMemory<T>(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 					if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
@@ -170,7 +170,7 @@ namespace ML {
 				for (int i = 0;i<MAXSTREAMS;i++) {
 					delete tempmem[i];
 				}
-				
+
 				return;
 			}
 
@@ -182,19 +182,19 @@ namespace ML {
 				float gain = 0.0;
 				GiniInfo split_info[3]; // basis, left, right. Populate this
 				split_info[0] = prev_split_info;
-				
+
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
 					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 					condition = condition || (gain == 0.0f);
 				}
-				
+
 				if (treedepth != -1)
 					condition = (condition || (depth == treedepth));
 
 				if (maxleaves != -1)
 					condition = (condition || (leaf_counter >= maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
-				
+
 				if (condition) {
 					node->class_predict = get_class_hist(split_info[0].hist);
 					node->gini_val = split_info[0].best_gini;
@@ -214,7 +214,7 @@ namespace ML {
 				}
 				return node;
 			}
-			
+
 			/* depth is used to distinguish between root and other tree nodes for computations */
 			void find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{

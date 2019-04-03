@@ -17,7 +17,7 @@
 #include <utils.h>
 //#include "tree.cuh"
 namespace ML {
-  
-  
+
+
 };
 // end namespace ML

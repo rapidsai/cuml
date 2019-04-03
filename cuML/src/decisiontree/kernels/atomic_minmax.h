@@ -22,7 +22,7 @@ __device__ __forceinline__ float atomicMinFD(float * addr, float value) {
 	float old;
 	old = (value >= 0) ? __int_as_float(atomicMin((int *)addr, __float_as_int(value))) :
 		__uint_as_float(atomicMax((unsigned int *)addr, __float_as_uint(value)));
-	
+
 	return old;
 
 	// Potentially alternative impl?
@@ -35,13 +35,13 @@ __device__ __forceinline__ float atomicMaxFD(float * addr, float value) {
 	float old;
 	old = (value >= 0) ? __int_as_float(atomicMax((int *)addr, __float_as_int(value))) :
 		__uint_as_float(atomicMin((unsigned int *)addr, __float_as_uint(value)));
-	
+
 	return old;
 }
 
 //FIXME TODO: Test the double overloaded impl.
 __device__ __forceinline__ double atomicMaxFD(double* address, double val) {
-	
+
     unsigned long long* address_as_ull = (unsigned long long *) address;
     unsigned long long old = *address_as_ull, assumed;
     do {
@@ -49,13 +49,13 @@ __device__ __forceinline__ double atomicMaxFD(double* address, double val) {
         old = atomicCAS(address_as_ull, assumed,
             __double_as_longlong(fmax(val, __longlong_as_double(assumed))));
     } while (assumed != old);
-	
+
     return __longlong_as_double(old);
 }
-	
+
 
 __device__ __forceinline__ double atomicMinFD(double* address, double val) {
-	
+
     unsigned long long* address_as_ull = (unsigned long long*) address;
     unsigned long long old = *address_as_ull, assumed;
     do {
@@ -63,7 +63,7 @@ __device__ __forceinline__ double atomicMinFD(double* address, double val) {
         old = atomicCAS(address_as_ull, assumed,
             __double_as_longlong(fmin(val, __longlong_as_double(assumed))));
     } while (assumed != old);
-	
+
     return __longlong_as_double(old);
 }
 

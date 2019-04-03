@@ -31,28 +31,28 @@ template<typename T>
 __global__ void get_all_quantiles(const T* __restrict__ data, T* quantile, const int nrows, const int ncols, const int nbins) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tid < nbins*ncols) {		
+	if (tid < nbins*ncols) {
 		int binoff = (int)(nrows/nbins);
 		int coloff = (int)(tid/nbins) * nrows;
 		quantile[tid] = data[ ( (tid%nbins) + 1 ) * binoff - 1 + coloff];
-	}	
+	}
 	return;
 }
-	
+
 template<typename T>
 void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, TemporaryMemory<T> * tempmem) {
 
 	int threads = 128;
 	int  num_items = n_sampled_rows * ncols; // number of items to sort across all segments (i.e., cols)
 	int  num_segments = ncols;
-	int  *d_offsets;         
-	T  *d_keys_in = tempmem->temp_data;         
-	T  *d_keys_out;        
+	int  *d_offsets;
+	T  *d_keys_in = tempmem->temp_data;
+	T  *d_keys_out;
 	int *colids = NULL;
 
 	CUDA_CHECK(cudaMalloc((void**)&d_offsets, (num_segments + 1) * sizeof(int)));
 	CUDA_CHECK(cudaMalloc((void**)&d_keys_out, num_items * sizeof(T)));
-	
+
 	int blocks = (int) ( (ncols * n_sampled_rows) / threads) + 1;
 	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in);
 	blocks = (int)((ncols+1)/threads) + 1;

@@ -24,18 +24,18 @@ template<typename T>
 __global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const int nrows,
 			    T * d_ques_min, T * d_ques_max, const int ques_nbins, const int ques_batch_id,
 			    T * ques_val) {
-	
+
 	T ques_max = *d_ques_max;
 	T ques_min = *d_ques_min;
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows) {
-		
+
 		char lflag, rflag;
 		T data = column[tid];
 		T delta = (ques_max - ques_min) / ques_nbins;
 		T ques_base_val = ques_min + delta;
 		T local_ques_val = ques_base_val + ques_batch_id * delta;
-		
+
 		if (data <= local_ques_val) {
 			lflag = 1;
 			rflag = 0;
@@ -46,10 +46,10 @@ __global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const in
 		}
 		leftflag[tid] = lflag;
 		rightflag[tid] = rflag;
-		
+
 		if (tid == 0)
 			ques_val[0] = local_ques_val;
-		
+
 	}
 	return;
 }
@@ -60,22 +60,22 @@ __global__ void flag_kernel_quantile(T* column, char* leftflag, char* rightflag,
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows) {
-		
+
 		char lflag, rflag;
 		T data = column[tid];
 		if (data <= local_ques_val) {
-			
+
 			lflag = 1;
 			rflag = 0;
 		}
 		else {
-			
+
 			lflag = 0;
 			rflag = 1;
 		}
 		leftflag[tid] = lflag;
 		rightflag[tid] = rflag;
-		
+
 	}
 	return;
 }
@@ -87,7 +87,7 @@ int get_class_hist(std::vector<int> & node_hist) {
 	int classval =  std::max_element(node_hist.begin(), node_hist.end()) - node_hist.begin();
 	return classval;
 }
- 
+
 template<typename T>
 void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const TemporaryMemory<T> * tempmem)
 {
@@ -96,7 +96,7 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 	char *d_flags_left = tempmem->d_flags_left;
 	char *d_flags_right = tempmem->d_flags_right;
 	T *question_value = tempmem->question_value;
-	
+
 	if (split_algo != 0) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
@@ -106,18 +106,18 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;
 	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
-	
+
 	int *d_num_selected_out = tempmem->d_num_selected_out;
 
-	
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);	
+
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);
 	CUDA_CHECK(cudaMemcpy(&nrowsleft, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows);
 	CUDA_CHECK(cudaMemcpy(&nrowsright, d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost));
 	CUDA_CHECK(cudaMemcpy(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice));
 
 	// Copy GPU-computed question value to tree node.
-	if (split_algo == 0) 
+	if (split_algo == 0)
 		CUDA_CHECK(cudaMemcpy(&(ques.value), question_value, sizeof(T), cudaMemcpyDeviceToHost));
 
 	return;

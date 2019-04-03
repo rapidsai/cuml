@@ -8,7 +8,7 @@
  *     http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, 
+ * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -24,7 +24,7 @@ struct TemporaryMemory
 {
 	//Below four are for tree building
 	int *sampledlabels;
-	
+
 	//Below are for gini & get_class functions
 	int *d_hist, *h_hist; // for histograms in gini
 
@@ -32,7 +32,7 @@ struct TemporaryMemory
 	T *d_globalminmax;
 	int *h_histout, *d_histout;
 	int *d_colids;
-	
+
 	//Below pointers are shared for split functions
 	char *d_flags_left;
 	char *d_flags_right;
@@ -43,7 +43,7 @@ struct TemporaryMemory
 	int *h_left_rows, *h_right_rows;
 	T *question_value;
 	T *temp_data;
-	
+
 	//Total temp mem
 	size_t totalmem = 0;
 
@@ -57,13 +57,13 @@ struct TemporaryMemory
 
 	//For quantiles
 	T *d_quantile = NULL;
-	T *d_temp_sampledcolumn = NULL; 
-	
+	T *d_temp_sampledcolumn = NULL;
+
 	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
 	{
 
 		int n_hist_bytes = n_unique * n_bins * sizeof(int);
-		
+
 		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
 
@@ -85,7 +85,7 @@ struct TemporaryMemory
 
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
-		
+
 		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
 		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out, sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_left, N*sizeof(char)));
@@ -98,16 +98,16 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
 		CUDA_CHECK(cudaMallocHost((void**)&h_ques_info, 2*sizeof(T)));
-		
+
 		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 5*sizeof(T);
 
 		CUDA_CHECK(cudaMallocHost((void**)&h_histout, sizeof(int)*n_bins*n_unique*Ncols));
-		
+
 		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax, sizeof(T)*Ncols*2));
 		CUDA_CHECK(cudaMalloc((void**)&d_histout, sizeof(int)*n_bins*n_unique*Ncols));
 		CUDA_CHECK(cudaMalloc((void**)&d_colids, sizeof(int)*Ncols));
 		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(T)*Ncols;
-		
+
 		//Create Streams
 		if (maxstr == 1)
 			stream = 0;
@@ -126,7 +126,7 @@ struct TemporaryMemory
 		cudaFreeHost(h_hist);
 		cudaFree(d_hist);
 		cudaFree(temp_data);
-		
+
 		if (d_quantile != NULL)
 			cudaFree(d_quantile);
 		if (d_temp_sampledcolumn != NULL)
@@ -153,5 +153,5 @@ struct TemporaryMemory
 		if (stream != 0)
 			cudaStreamDestroy(stream);
 	}
-	
+
 };

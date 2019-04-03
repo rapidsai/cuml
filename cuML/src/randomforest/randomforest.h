@@ -31,20 +31,20 @@ namespace ML {
 		void print() {
 			std::cout << "Accuracy: " << accuracy << std::endl;
 		}
-	};	
+	};
 
 	enum RF_type {
 		CLASSIFICATION, REGRESSION,
 	};
 
-	/* Update labels so they are unique from 0 to n_unique_vals. 
+	/* Update labels so they are unique from 0 to n_unique_vals.
    		Create an old_label to new_label map per random forest.
 	*/
 	void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false) {
-	
+
 		std::pair<std::map<int, int>::iterator, bool> ret;
 		int n_unique_labels = 0;
-	
+
 		if (verbose) std::cout << "Preprocessing labels\n";
 		for (int i = 0; i < n_rows; i++) {
 			ret = labels_map.insert(std::pair<int, int>(labels[i], n_unique_labels));
@@ -56,13 +56,13 @@ namespace ML {
 			if (verbose) std::cout << labels[i] << std::endl;
 		}
 		if (verbose) std::cout << "Finished preprocessing labels\n";
-	
+
 	}
 
 
 	/* Revert preprocessing effect, if needed. */
 	void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false) {
-	
+
 		if (verbose) std::cout << "Postrocessing labels\n";
 		std::map<int, int>::iterator it;
 		int n_unique_cnt = labels_map.size();
@@ -71,7 +71,7 @@ namespace ML {
 		for (auto it = labels_map.begin(); it != labels_map.end(); it++) {
 			reverse_map[it->second] = it->first;
 		}
-	
+
 		for (int i = 0; i < n_rows; i++) {
 			if (verbose) std::cout << "Mapping " << labels[i] << " back to " << reverse_map[labels[i]] << std::endl;
 			labels[i] = reverse_map[labels[i]];
@@ -84,14 +84,14 @@ namespace ML {
 	class rf {
 		protected:
 			int n_trees, n_bins, rf_type;
-			int max_depth, max_leaves, split_algo; 
+			int max_depth, max_leaves, split_algo;
 			bool bootstrap;
-			float rows_sample; 
+			float rows_sample;
 			float max_features; // ratio of number of features (columns) to consider per node split.
          					    // TODO SKL's default is sqrt(n_cols)
 
 			DecisionTree::DecisionTreeClassifier<T> * trees;
-		
+
 		public:
 			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
 			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST) {
@@ -99,7 +99,7 @@ namespace ML {
 					n_trees = cfg_n_trees;
 					max_depth = cfg_max_depth;
 					max_leaves = cfg_max_leaves;
-					trees = NULL; 
+					trees = NULL;
 					rf_type = cfg_rf_type;
 					bootstrap = cfg_bootstrap;
 					n_bins = cfg_n_bins;
@@ -158,7 +158,7 @@ namespace ML {
 					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
 
 		/**
-		 * @brief Build (i.e., fit, train) random forest classifier for input data.  
+		 * @brief Build (i.e., fit, train) random forest classifier for input data.
 		 * @tparam T: data type for input data (float or double).
 		 * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
 		 * @param[in] n_rows: number of training data samples.
@@ -176,12 +176,12 @@ namespace ML {
 
 			rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->n_trees];
 			int n_sampled_rows = this->rows_sample * n_rows;
-			
+
 			for (int i = 0; i < this->n_trees; i++) {
 				// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 				unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 				CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
-				
+
 				if (this->bootstrap) {
 					MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 					r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows);
@@ -194,8 +194,8 @@ namespace ML {
 				/* Build individual tree in the forest.
 				   - input is a pointer to orig data that have n_cols features and n_rows rows.
 				   - n_sampled_rows: # rows sampled for tree's bootstrap sample.
-				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.  
-					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data. 
+				   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
+					Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 				*/
 				this->trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, this->max_depth, this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
 
@@ -204,7 +204,7 @@ namespace ML {
 
 			}
 
-		}	
+		}
 
 
 		/**
@@ -223,7 +223,7 @@ namespace ML {
 			int row_size = n_cols;
 
 			for (int row_id = 0; row_id < n_rows; row_id++) {
-				
+
 				if (verbose) {
 					std::cout << "\n\n";
 					std::cout << "Predict for sample: ";
@@ -237,7 +237,7 @@ namespace ML {
 				int majority_prediction = -1;
 
 				for (int i = 0; i < this->n_trees; i++) {
-					//Return prediction for one sample. 
+					//Return prediction for one sample.
 					if (verbose) {
 						std::cout << "Printing tree " << i << std::endl;
 						this->trees[i].print();
@@ -250,8 +250,8 @@ namespace ML {
 					}
 					if (max_cnt_so_far < ret.first->second) {
 						max_cnt_so_far = ret.first->second;
-						majority_prediction = ret.first->first; 
-					}	
+						majority_prediction = ret.first->first;
+					}
 				}
 
 				preds[row_id] = majority_prediction;
@@ -259,7 +259,7 @@ namespace ML {
 			return preds;
 		}
 
-		
+
 		/**
 		 * @brief Predict input data and validate against ref_labels.
 		 * @tparam T: data type for input data (float or double).
@@ -294,15 +294,15 @@ namespace ML {
 	class rfRegressor : public rf<T> {
 	    public:
 
-		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::REGRESSION, int cfg_n_bins=8, 
-						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f) 
+		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::REGRESSION, int cfg_n_bins=8,
+						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f)
 					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {}
 
 		void fit(T * input, int n_rows, int n_cols, int * labels,
                          int n_trees, float max_features, float rows_sample) {}
 
 		void predict(const T * input, int n_rows, int n_cols, int * preds) {}
-	}; 
+	};
 
 
 
