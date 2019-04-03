@@ -21,7 +21,7 @@ def test_svd(datatype, lrate, input_type, penalty, loss, run_stress, run_correct
         X_train = np.array(X[0:train_rows,:]).astype(datatype)
         y_train = np.array(y[0:train_rows,]).astype(datatype)
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         iris = datasets.load_iris()
         X = iris.data 
         y = iris.target
