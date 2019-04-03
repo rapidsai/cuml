@@ -77,7 +77,6 @@ option(DEBUG "Get a debug build" OFF)
 
 ## nvcc options
 
-#set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DTHRUST_DEBUG") # FIXME remove
 if(OPENMP_FOUND)
     set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -201,9 +200,8 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
-#file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
-file(GLOB_RECURSE cuml_test_cuda_sources "test/rf_test.cu")
-#file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
+file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
+file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml shared library ------------------------------------------------------------------
@@ -219,6 +217,8 @@ add_library(cuml SHARED
             src/common/cuml_api.cpp
             src/umap/umap.cu
 	    src/solver/solver.cu
+            src/decisiontree/decisiontree.cu
+            src/randomforest/randomforest.cu
             )
 
 set(CUML_LINK_LIBRARIES
@@ -286,9 +286,9 @@ target_link_libraries(ml_mg_test
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-#if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
-#    add_subdirectory(examples)
-#endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+    add_subdirectory(examples)
+endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
