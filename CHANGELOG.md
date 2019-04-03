@@ -3,17 +3,27 @@
 ## New Features
 
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
 
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #390: Update docs version
+- PR #272: Add stream parameters to cublas and cusolver wrapper functions
 
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
-- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl 
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
+- PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #422: Issue in the PCA tests was solved and CI can run with driver 418
+- PR #409: Add entry to gitmodules to ignore build artifacts
+- PR #412: Fix for svdQR function in ml-prims
+- PR #434: Fixing bug in CSR tests
 
-# cuML 0.6.0 (Date TBD)
+# cuML 0.6.0 (22 Mar 2019)
 
 ## New Features
 
@@ -58,7 +68,7 @@
 - PR #312: Last minute cleanup before release
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
-- PR #342 Change default ABI to ON
+- PR #342: Change default ABI to ON
 
 ## Bug Fixes
 
