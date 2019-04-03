@@ -44,6 +44,7 @@ add_executable(mlcommon_test
   map_then_reduce.cu
   math.cu
   matrix.cu
+  batched_matrix.cu
   matrix_vector_op.cu
   mean.cu
   mean_center.cu

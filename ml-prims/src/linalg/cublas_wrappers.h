@@ -185,6 +185,53 @@ inline cublasStatus_t
 
 
 /**
+ * @defgroup gemmbatched cublas gemmbatched calls
+ * @{
+ */
+template <typename T>
+cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
+                                  cublasOperation_t transa, 
+                                  cublasOperation_t transb,
+                                  int m, int n, int k,
+                                  const T           *alpha,
+                                  const T           *Aarray[], int lda,
+                                  const T           *Barray[], int ldb,
+                                  const T           *beta,
+                                  T           *Carray[], int ldc, 
+                                  int batchCount, cudaStream_t stream = 0);
+
+template <>
+inline cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
+                                         cublasOperation_t transa, 
+                                         cublasOperation_t transb,
+                                         int m, int n, int k,
+                                         const float           *alpha,
+                                         const float           *Aarray[], int lda,
+                                         const float           *Barray[], int ldb,
+                                         const float           *beta,
+                                         float           *Carray[], int ldc, 
+                                         int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasSgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount);
+}
+
+template <>
+inline cublasStatus_t cublasgemmBatched(cublasHandle_t handle,
+                                        cublasOperation_t transa, 
+                                        cublasOperation_t transb,
+                                        int m, int n, int k,
+                                        const double           *alpha,
+                                        const double           *Aarray[], int lda,
+                                        const double           *Barray[], int ldb,
+                                        const double           *beta,
+                                        double           *Carray[], int ldc, 
+                                        int batchCount, cudaStream_t stream) {
+  CUBLAS_CHECK(cublasSetStream(handle, stream));
+  return cublasDgemmBatched(handle, transa, transb, m, n, k, alpha, Aarray, lda, Barray, ldb, beta, Carray, ldc, batchCount);
+}
+/** @} */
+
+/**
  * @defgroup geam cublas geam calls
  * @{
  */
