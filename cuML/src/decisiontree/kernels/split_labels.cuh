@@ -21,22 +21,12 @@
 #include "gini.cuh"
 
 template<typename T>
-#ifdef SINGLE_COL
-__global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const int nrows,
-			    const T ques_min, const T ques_max, const int ques_nbins, const int ques_batch_id,
-			    T * ques_val) {
-#else
 __global__ void flag_kernel(T* column, char* leftflag, char* rightflag, const int nrows,
 			    T * d_ques_min, T * d_ques_max, const int ques_nbins, const int ques_batch_id,
 			    T * ques_val) {
-#endif
 	
-#ifndef SINGLE_COL
 	T ques_max = *d_ques_max;
 	T ques_min = *d_ques_min;
-#endif
-	
-	
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	if (tid < nrows) {
 		
@@ -110,11 +100,7 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 	if (split_algo != 0) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
-#ifdef SINGLE_COL
-		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.min, ques.max, ques.nbins, ques.batch_id, question_value);
-#else
 		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
-#endif
 	}
 	CUDA_CHECK(cudaGetLastError());
 

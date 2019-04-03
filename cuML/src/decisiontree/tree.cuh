@@ -53,23 +53,15 @@ namespace ML {
 			TreeNode *right = NULL;
 			int class_predict;
 			Question<T> question;
-#ifdef PRINT_GINI
 			T gini_val;
-#endif
+			
 			void print(std::ostream& os)
 			{
 				if (left == NULL && right == NULL)
-#ifdef PRINT_GINI
 					os << "(leaf, " << class_predict << ", " << gini_val << ")" ;
-#else
-					os << "(leaf, " << class_predict << ")" ;
-#endif
 				else
-#ifdef PRINT_GINI
 					os << "(" << question.column << ", " << question.value << ", " << gini_val << ")" ;
-#else
-					os << "(" << question.column << ", " << question.value << ")" ;
-#endif
+
 				return;
 			}
 		};
@@ -139,9 +131,6 @@ namespace ML {
 				} else {
 					shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
 				}
-#ifdef SINGLE_COL
-				shmem_used = (size_t)(shmem_used / ncols);
-#endif
 				ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 				
 				for (int i = 0; i<MAXSTREAMS; i++) {
@@ -197,12 +186,7 @@ namespace ML {
 				
 				bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 				if (!condition)  {
-#ifdef SINGLE_COL
-					find_best_fruit(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
-#else
 					find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
-#endif
-					
 					condition = condition || (gain == 0.0f);
 				}
 				
@@ -214,9 +198,8 @@ namespace ML {
 				
 				if (condition) {
 					node->class_predict = get_class_hist(split_info[0].hist);
-#ifdef PRINT_GINI
 					node->gini_val = split_info[0].best_gini;
-#endif
+
 					leaf_counter++;
 					if (depth > depth_counter)
 						depth_counter = depth;
@@ -228,80 +211,11 @@ namespace ML {
 					node->question = node_ques;
 					node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 					node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
-#ifdef PRINT_GINI
 					node->gini_val = split_info[0].best_gini;
-#endif
 				}
 				return node;
 			}
 			
-			/* depth is used to distinguish between root and other tree nodes for computations */
-			void find_best_fruit(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
-			{
-				gain = 0.0f;
-				
-				// Bootstrap columns
-				std::vector<int> colselector(dinfo.Ncols);
-				std::iota(colselector.begin(), colselector.end(), 0);
-				std::random_shuffle(colselector.begin(), colselector.end());
-				colselector.resize((int)(colper * dinfo.Ncols ));
-
-				int *labelptr = tempmem[0]->sampledlabels;
-				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
-
-				// Optimize ginibefore; no need to compute except for root.
-				if (depth == 0) {
-					gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
-				}
-				
-				int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
-				
-				for (int i=0; i<colselector.size(); i++) {
-
-					GiniInfo local_split_info[3];
-					local_split_info[0] = split_info[0];
-					int streamid = i % MAXSTREAMS;
-					T *sampledcolumn = tempmem[streamid]->temp_data;
-					int *sampledlabels = tempmem[streamid]->sampledlabels;
-					
-					if (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) {
-						get_sampled_column_quantile(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, current_nbins, tempmem[streamid]);
-						// info_gain, local_split_info correspond to the best split
-					} else {
-						get_sampled_column(&data[dinfo.NLocalrows * colselector[i]], sampledcolumn, rowids, n_sampled_rows, tempmem[streamid], split_algo);
-					}
-
-					int batch_id = 0;
-					float info_gain = batch_evaluate_gini(sampledcolumn, labelptr, current_nbins,
-									      batch_id, n_sampled_rows, n_unique_labels,
-									      &local_split_info[0], tempmem[streamid], split_algo, colselector[i]);
-					
-					ASSERT(info_gain >= 0.0, "Cannot have negative info_gain %f", info_gain);
-
-					// Find best info across batches
-					if (info_gain > gain) {
-						gain = info_gain;
-						if (split_algo != SPLIT_ALGO::HIST) {
-							T ques_val;
-							T *dqua = tempmem[streamid]->d_quantile;
-							int quantile_offset = (split_algo == SPLIT_ALGO::LOCAL_QUANTILE) ? 0 : colselector[i] * nbins;
-							CUDA_CHECK(cudaMemcpyAsync(&ques_val, &dqua[quantile_offset + batch_id], sizeof(T), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
-							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), set_min_val<T>(), -set_min_val<T>(), ques_val);
-						} else {
-							// Need to get the min, max from device memory; needed for question val computation
-							CUDA_CHECK(cudaMemcpyAsync(tempmem[streamid]->h_ques_info, tempmem[streamid]->d_ques_info, 2 * sizeof(T), cudaMemcpyDeviceToHost, tempmem[streamid]->stream));
-							CUDA_CHECK(cudaStreamSynchronize(tempmem[streamid]->stream));
-							T ques_min = tempmem[streamid]->h_ques_info[0];
-							T ques_max = tempmem[streamid]->h_ques_info[1];
-							ques.set_question_fields(i, colselector[i], batch_id, current_nbins, colselector.size(), ques_min, ques_max, (T) 0);
-						}
-						for (int tmp = 0; tmp < 3; tmp++) split_info[tmp] = local_split_info[tmp];
-					}
-				}
-				CUDA_CHECK(cudaDeviceSynchronize());
-			}
-
 			/* depth is used to distinguish between root and other tree nodes for computations */
 			void find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 			{
@@ -332,14 +246,8 @@ namespace ML {
 
 			void split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids)
 			{
-#ifdef SINGLE_COL
-				T *colptr = &data[dinfo.NLocalrows * ques.original_column];
-				T *sampledcolumn = tempmem[0]->temp_data;
-				get_sampled_column(colptr, sampledcolumn, rowids, n_sampled_rows);
-#else
 				T *temp_data = tempmem[0]->temp_data;
 				T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
-#endif
 				make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, split_algo, tempmem[0]);
 			}
 
