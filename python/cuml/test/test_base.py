@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import pytest
 import cuml
 from cuml import Base, Handle
 
@@ -24,6 +23,7 @@ def test_base_class_usage():
     base_params = base.get_param_names()
     assert base_params == []
     del base
+
 
 def test_base_class_usage_with_handle():
     handle = Handle()
