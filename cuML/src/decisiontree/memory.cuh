@@ -69,11 +69,8 @@ struct TemporaryMemory
 
 		int extra_bytes = Ncols * sizeof(T);
 		int quantile_bytes = (split_algo == 2) ? extra_bytes : sizeof(T);
-#ifdef SINGLE_COL
-		extra_bytes = sizeof(T);
-#else
 		ASSERT(split_algo != 1, "Local quantile based splits (split_algo %d) not supported for all cols. Compile w/ -DSINGLE_COL.", split_algo);
-#endif
+
 		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
 		totalmem += N * extra_bytes;
 

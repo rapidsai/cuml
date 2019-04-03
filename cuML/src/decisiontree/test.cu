@@ -10,6 +10,7 @@
 #define N 150
 #define COLS 4
 #define depth -1
+#define BINS 8
 using namespace std;
 int main()
 {
@@ -61,8 +62,8 @@ int main()
 	cudaMemcpy(d_labels,labels.data(),N*sizeof(int),cudaMemcpyHostToDevice);
 	cudaMemcpy(rowids,h_rowids,N*sizeof(unsigned int),cudaMemcpyHostToDevice);
 	
-	ML::DecisionTree::DecisionTreeClassifier model;
-	model.plant(d_data,COLS,N,d_labels,rowids,N,3,depth,-1,1.0,8,true);
+	ML::DecisionTree::DecisionTreeClassifier<float> model;
+	model.plant(d_data,COLS,N,d_labels,rowids,N,3,depth,-1,1.0,BINS,2);
 	model.print();
 	
 	for(int i = 0;i<N;i++)
