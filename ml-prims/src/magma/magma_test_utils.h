@@ -267,18 +267,6 @@ void fill_pointer_array(magma_int_t batchCount, T **&dA_array, T *dB){
 }
 
 template <typename T>
-void split_to_batches(magma_int_t n, T **&dA_array, T *&dA, magma_int_t ldda){
-        T **A_array;
-        A_array = (T **)malloc(sizeof(T*) * n);
-        for (size_t bId = 0; bId < n; bId++) {
-                A_array[bId] = dA + IDX(0, bId, ldda);
-        }
-
-        updateDevice(dA_array, A_array, n);
-        free(A_array);
-}
-
-template <typename T>
 void copy_batched(magma_int_t batchCount, T **dA_dest_array, T **dA_src_array,
                   size_t len){
         T **A_dest_array, **A_src_array;

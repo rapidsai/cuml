@@ -39,7 +39,11 @@ void update_llhd_f32(float* dX, GMM<float>& gmm){
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
 
-        update_llhd(dX, gmm, cublasHandle);
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_llhd(dX, gmm, cublasHandle, queue);
 
         CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }
@@ -116,7 +120,11 @@ void update_llhd_f64(double* dX, GMM<double>& gmm){
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
 
-        update_llhd(dX, gmm, cublasHandle);
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
+        update_llhd(dX, gmm, cublasHandle, queue);
 
         CUBLAS_CHECK(cublasDestroy(cublasHandle));
 }

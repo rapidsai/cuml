@@ -115,7 +115,7 @@ void forward_backward(HMM<T, D> &hmm,
                       bool doForward, bool doBackward, bool doGamma){
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
 
-        _compute_emissions(dX, hmm, cublasHandle);
+        _compute_emissions(dX, hmm, cublasHandle, queue);
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
                             dlenghts, nSeq);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
@@ -145,9 +145,9 @@ void forward_backward(HMM<T, D> &hmm,
 template <typename Tx, typename T, typename D>
 void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
              Tx* dX, unsigned short int* dlenghts, int nSeq,
-             cublasHandle_t cublasHandle){
+             cublasHandle_t cublasHandle, magma_queue_t queue){
 
-        _compute_emissions(dX, hmm, cublasHandle);
+        _compute_emissions(dX, hmm, cublasHandle, queue);
         _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
                             dlenghts, nSeq);
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");

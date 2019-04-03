@@ -95,9 +95,14 @@ void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
+
+        int device = 0;
+        magma_queue_t queue;
+        magma_queue_create(device, &queue);
+
         viterbi(hmm, dVStates,
                 dX, dlenghts, nSeq,
-                cublasHandle);
+                cublasHandle, queue);
 }
 
 void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,

@@ -19,7 +19,7 @@
 #include <gmm/gmm_variables.h>
 
 #include <magma/magma_test_utils.h>
-#include <magma/b_likelihood.h>
+#include <gmm/likelihood/b_likelihood.h>
 
 #include <cuda.h>
 #include <linalg/cublas_wrappers.h>
@@ -258,5 +258,16 @@ void generate_trans_matrix(magma_int_t m, magma_int_t n, T* dA, magma_int_t lda,
         normalize_matrix(m, n, dA, lda, colwise);
 }
 
+template <typename T>
+void split_to_batches(magma_int_t n, T **&dA_array, T *&dA, magma_int_t ldda){
+        T **A_array;
+        A_array = (T **)malloc(sizeof(T*) * n);
+        for (size_t bId = 0; bId < n; bId++) {
+                A_array[bId] = dA + IDX(0, bId, ldda);
+        }
+
+        updateDevice(dA_array, A_array, n);
+        free(A_array);
+}
 
 }

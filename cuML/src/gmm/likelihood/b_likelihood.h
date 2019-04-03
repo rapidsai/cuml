@@ -22,6 +22,8 @@
 #include "magma/b_inverse.h"
 #include "magma/b_determinant.h"
 
+#include "gmm/likelihood/handle.h"
+
 #include <thrust/sort.h>
 #include <thrust/functional.h>
 #include <thrust/reduce.h>
@@ -31,7 +33,7 @@
 using namespace MLCommon;
 using namespace MLCommon::LinAlg;
 
-namespace MLCommon {
+namespace gmm {
 template <typename math_t>
 void log(math_t *out, const math_t *in, int len,
          cudaStream_t stream = 0) {
@@ -97,7 +99,6 @@ void subtractBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
         int k_start = threadIdx.z + blockDim.z * blockIdx.z;
 
         int idxO, idxX, idxY;
-        // TODO : Check the difference
 
         for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
                 for (size_t j = j_start; j < n; j+=nThreads_x) {
@@ -105,8 +106,6 @@ void subtractBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
                                 idxO = IDX(i, j, lddO);
                                 idxX = IDX(i, j, lddx);
                                 idxY = IDX(i, 0, lddy);
-                                // printf("%f\n", (float) dX_array[bId][idxX] - dY_array[bId][idxY]);
-                                // printf("%d\n", idxO);
                                 dO_array[bId][idxO] = dX_array[bId][idxX] - dY_array[bId][idxY];
                         }
                 }
@@ -187,11 +186,46 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
 
 }
 
-// template <typename T>
-// void createLlhdHandle(){
-//
-// }
+template <typename T>
+void createllhdHandle_t(llhdHandle_t<T>& llhd_handle,
+                        int nCl, int nObs, int nDim,
+                        int lddx, int lddsigma, int lddsigma_full){
+        magma_int_t batchCount = nObs * nCl;
 
+        allocate_pointer_array(llhd_handle.dInvSigma_array, lddsigma_full, nCl);
+        allocate(llhd_handle.dInvdet_array, nCl);
+
+        allocate(llhd_handle.dBil_batches, batchCount);
+        allocate(llhd_handle.dX_batches, batchCount);
+        allocate(llhd_handle.dmu_batches, batchCount);
+        allocate(llhd_handle.dInvSigma_batches, batchCount);
+        allocate_pointer_array(llhd_handle.dDiff_batches, lddx, batchCount);
+
+        createBilinearHandle_t(llhd_handle.bilinearHandle, nDim, batchCount);
+        createDeterminantHandle_t(llhd_handle.determinantHandle,
+                                  nDim, lddsigma, batchCount);
+        createInverseHandle_t(llhd_handle.inverseHandle,
+                              nCl, nDim, lddsigma);
+}
+
+template <typename T>
+void destroyllhdHandle_t(llhdHandle_t<T>& llhd_handle,
+                         int nCl, int nObs, int nDim){
+        int batchCount = nObs * nCl;
+
+        free_pointer_array(llhd_handle.dInvSigma_array, nCl);
+        free_pointer_array(llhd_handle.dDiff_batches, batchCount);
+
+        CUDA_CHECK(cudaFree(llhd_handle.dBil_batches));
+        CUDA_CHECK(cudaFree(llhd_handle.dInvdet_array));
+        CUDA_CHECK(cudaFree(llhd_handle.dX_batches));
+        CUDA_CHECK(cudaFree(llhd_handle.dmu_batches));
+        CUDA_CHECK(cudaFree(llhd_handle.dInvSigma_batches));
+
+        destroyBilinearHandle_t(llhd_handle.bilinearHandle, nCl);
+        destroyDeterminantHandle_t(llhd_handle.determinantHandle, nCl);
+        destroyInverseHandle_t(llhd_handle.inverseHandle, batchCount);
+}
 
 template <typename T>
 void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
@@ -200,68 +234,47 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         T** &dmu_array, int lddmu,
                         T** &dsigma_array, int lddsigma_full, int lddsigma,
                         T* dLlhd, int lddLlhd,
-                        bool isLog){
-        // Allocate
-        T **dInvSigma_array=NULL, *dInvdet_array=NULL;
-        T **dX_batches=NULL, **dmu_batches=NULL,
-        **dInvSigma_batches=NULL, **dDiff_batches=NULL;
-        T *dBil_batches=NULL;
-
-
+                        bool isLog,
+                        magma_queue_t queue,
+                        llhdHandle_t<T>& llhd_handle
+                        ){
         magma_int_t batchCount = nObs * nCl;
 
-        allocate_pointer_array(dInvSigma_array, lddsigma_full, nCl);
-        allocate(dInvdet_array, nCl);
-
-        allocate(dBil_batches, batchCount);
-        allocate(dX_batches, batchCount);
-        allocate(dmu_batches, batchCount);
-        allocate(dInvSigma_batches, batchCount);
-        allocate_pointer_array(dDiff_batches, lddx, batchCount);
-
-
-        int device = 0;      // CUDA device ID
-        magma_queue_t queue;
-        magma_queue_create(device, &queue);
-
         // Compute sigma inverses
-
-        inverse_batched(nDim, dsigma_array, lddsigma, dInvSigma_array, nCl, queue);
+        inverse_batched(nDim, dsigma_array, lddsigma,
+                        llhd_handle.dInvSigma_array, nCl,
+                        queue, llhd_handle.inverseHandle);
 
         // Compute sigma inv dets
-        det_batched(nDim, dInvSigma_array, lddsigma, dInvdet_array, nCl, queue);
+        det_batched(nDim, llhd_handle.dInvSigma_array, lddsigma,
+                    llhd_handle.dInvdet_array, nCl,
+                    queue, llhd_handle.determinantHandle);
 
         // Create batches
         create_llhd_batches(nObs, nCl,
-                            dX_batches, dmu_batches, dInvSigma_batches,
-                            dX_array, dmu_array, dInvSigma_array);
+                            llhd_handle.dX_batches,
+                            llhd_handle.dmu_batches,
+                            llhd_handle.dInvSigma_batches,
+                            dX_array, dmu_array, llhd_handle.dInvSigma_array);
 
         // Compute diffs
         subtract_batched(nDim, 1, batchCount,
-                         dDiff_batches, lddx,
-                         dX_batches, lddx,
-                         dmu_batches, lddmu);
+                         llhd_handle.dDiff_batches, lddx,
+                         llhd_handle.dX_batches, lddx,
+                         llhd_handle.dmu_batches, lddmu);
 
         // Compute bilinears
         bilinear_batched(nDim, nDim,
-                         dDiff_batches, dInvSigma_batches, lddsigma,
-                         dDiff_batches, dBil_batches, batchCount, queue);
-
+                         llhd_handle.dDiff_batches,
+                         llhd_handle.dInvSigma_batches, lddsigma,
+                         llhd_handle.dDiff_batches, llhd_handle.dBil_batches, batchCount,
+                         queue, llhd_handle.bilinearHandle);
 
         // Compute log likelihoods
         _likelihood_batched(nObs, nCl, nDim,
-                            dInvdet_array, dBil_batches, dLlhd, lddLlhd, isLog);
-
-        // free
-        free_pointer_array(dInvSigma_array, nCl);
-        free_pointer_array(dDiff_batches, batchCount);
-
-        CUDA_CHECK(cudaFree(dBil_batches));
-        CUDA_CHECK(cudaFree(dInvdet_array));
-        CUDA_CHECK(cudaFree(dX_batches));
-        CUDA_CHECK(cudaFree(dmu_batches));
-        CUDA_CHECK(cudaFree(dInvSigma_batches));
-
+                            llhd_handle.dInvdet_array,
+                            llhd_handle.dBil_batches,
+                            dLlhd, lddLlhd, isLog);
 }
 
 }

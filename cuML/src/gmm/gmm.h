@@ -46,6 +46,14 @@ void _print_gmm_data_bis(GMM<T> &gmm, const std::string& msg) {
         printf("\n..... ***************\n");
 }
 
+
+template <typename T>
+void create_GMMHandle(GMM<T> &gmm){
+        createllhdHandle_t(gmm.handle.llhd_handle,
+                           gmm.nCl, gmm.nObs, gmm.nDim,
+                           gmm.lddx, gmm.lddsigma, gmm.lddsigma_full);
+}
+
 template <typename T>
 void setup(GMM<T> &gmm) {
         allocate(gmm.dX_array, gmm.nObs);
@@ -54,6 +62,9 @@ void setup(GMM<T> &gmm) {
 
         gmm.lddprobnorm = gmm.nObs;
         allocate(gmm.dProbNorm, gmm.lddprobnorm);
+
+        create_GMMHandle(gmm);
+
         magma_init();
 }
 
@@ -93,7 +104,9 @@ void compute_lbow(GMM<T>& gmm){
 }
 
 template <typename T>
-void update_llhd(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
+void update_llhd(T* dX, GMM<T>& gmm,
+                 cublasHandle_t cublasHandle,
+                 magma_queue_t queue ){
         split_to_batches(gmm.nObs, gmm.dX_array, dX, gmm.lddx);
         split_to_batches(gmm.nCl, gmm.dmu_array, gmm.dmu, gmm.lddmu);
         split_to_batches(gmm.nCl, gmm.dsigma_array, gmm.dsigma, gmm.lddsigma_full);
@@ -103,7 +116,9 @@ void update_llhd(T* dX, GMM<T>& gmm, cublasHandle_t cublasHandle){
                            gmm.dmu_array, gmm.lddmu,
                            gmm.dsigma_array, gmm.lddsigma_full, gmm.lddsigma,
                            gmm.dLlhd, gmm.lddLlhd,
-                           false);
+                           false,
+                           queue,
+                           gmm.handle.llhd_handle);
 
         cublasdgmm(cublasHandle, CUBLAS_SIDE_LEFT, gmm.nCl, gmm.nObs,
                    gmm.dLlhd, gmm.lddLlhd, gmm.dPis, 1, gmm.dLlhd, gmm.lddLlhd);
@@ -225,7 +240,7 @@ void em_step(T* dX, int n_iter, GMM<T>& gmm,
         update_sigmas(dX, gmm, cublasHandle, queue);
 
         // Likelihood estimate
-        update_llhd(dX, gmm, cublasHandle);
+        update_llhd(dX, gmm, cublasHandle, queue);
         compute_lbow(gmm);
 }
 

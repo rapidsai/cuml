@@ -190,7 +190,6 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
-file(GLOB_RECURSE magma_prims_test_sources "${MLPRIMS_DIR}/test/hmm/magma/*.cu")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
@@ -243,6 +242,7 @@ add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
 target_link_libraries(ml_test
                       ${GTEST_LIBNAME}
+                      magma
                       ${CUDA_cublas_LIBRARY}
                       ${CUDA_curand_LIBRARY}
                       ${CUDA_cusolver_LIBRARY}
@@ -292,7 +292,7 @@ install(TARGETS cuml
 # - build test executable -------------------------------------------------------------------------
 
 
-# link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
+link_directories(${CONDA_ENV_DIR}/lib /usr/local/cuda-10.0/lib64)
 #
 # add_executable(magma_test_prims ${magma_prims_test_sources})
 #
@@ -311,7 +311,7 @@ add_executable(magma_debug ${magma_debug_sources})
 
 target_link_libraries(magma_debug
                      ${GTEST_LIBNAME}
-                     ${MAGMA_LIBRARY}
+                     magma
                      ${CUDA_cublas_LIBRARY}
                      ${CUDA_cusparse_LIBRARY}
                      ${CUDA_curand_LIBRARY}

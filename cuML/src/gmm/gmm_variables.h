@@ -18,9 +18,15 @@
 
 #include <stdlib.h>
 #include <vector>
-
+#include <gmm/likelihood/handle.h>
 
 namespace gmm {
+
+template <typename T>
+struct GMMHandle {
+        llhdHandle_t<T> llhd_handle;
+};
+
 template <typename T>
 struct GMM {
         T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd;
@@ -34,6 +40,7 @@ struct GMM {
 
         T* dProbNorm;
         int lddprobnorm;
+        GMMHandle<T> handle;
 };
 
 }

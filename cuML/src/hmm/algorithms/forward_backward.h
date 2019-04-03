@@ -61,10 +61,10 @@ void _compute_cumlengths(unsigned short int *dcumlenghts_inc, unsigned short int
 template <typename T>
 void _compute_emissions(T* dX,
                         HMM<T, gmm::GMM<T> > &hmm,
-                        cublasHandle_t cublasHandle){
+                        cublasHandle_t cublasHandle, magma_queue_t queue){
         // Compute the emissions likelihoods B
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-                gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle);
+                gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle, queue);
         }
 }
 
@@ -72,7 +72,7 @@ void _compute_emissions(T* dX,
 template <typename T>
 void _compute_emissions(unsigned short int *dX,
                         HMM<T, multinomial::Multinomial<T> > &hmm,
-                        cublasHandle_t cublasHandle){
+                        cublasHandle_t cublasHandle, magma_queue_t queue){
         // Compute the emissions likelihoods B
         multinomial::update_llhd(dX, hmm, true);
 }
