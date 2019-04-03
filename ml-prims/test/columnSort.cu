@@ -122,10 +122,10 @@ protected:
 const std::vector<columnSort<float>> inputsf1 = {
   {0.000001f, 503, 2000, false},
   {0.000001f, 128, 20000, false},
-  {0.000001f, 128, 100000, false},
+  {0.000001f, 20, 200000, false},
   {0.000001f, 503, 2000, true},
-  {0.000001f, 128, 20000, true},
-  {0.000001f, 128, 100000, true}};
+  {0.000001f, 113, 20000, true},
+  {0.000001f, 19, 200000, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
