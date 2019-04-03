@@ -4,12 +4,14 @@
 
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
 
 ## Improvements
 
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 
 ## Bug Fixes
 
@@ -20,6 +22,7 @@
 - PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
+- PR #434: Fixing bug in CSR tests
 
 # cuML 0.6.0 (22 Mar 2019)
 
