@@ -22,11 +22,11 @@
 template<class T>
 struct TemporaryMemory
 {
-	//Below four are for tree building
+	// Labels after boostrapping
 	int *sampledlabels;
 
-	//Below are for gini & get_class functions
-	int *d_hist, *h_hist; // for histograms in gini
+	// Used for gini histograms (root tree node)
+	int *d_hist, *h_hist;
 
 	//Host/Device histograms and device minmaxs
 	T *d_globalminmax;
@@ -40,7 +40,6 @@ struct TemporaryMemory
 	size_t split_temp_storage_bytes = 0;
 	int *d_num_selected_out;
 	int *temprowids;
-	int *h_left_rows, *h_right_rows;
 	T *question_value;
 	T *temp_data;
 
@@ -49,11 +48,6 @@ struct TemporaryMemory
 
 	//CUDA stream
 	cudaStream_t stream;
-
-	//For min max;
-	thrust::pair<T *, T *> d_min_max_thrust;
-	T * d_min_max;
-	T *d_ques_info, *h_ques_info; //holds min, max.
 
 	//For quantiles
 	T *d_quantile = NULL;
@@ -68,20 +62,19 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
 
 		int extra_bytes = Ncols * sizeof(T);
-		int quantile_bytes = (split_algo == 2) ? extra_bytes : sizeof(T);
-		ASSERT(split_algo != 1, "Local quantile based splits (split_algo %d) not supported for all cols. Compile w/ -DSINGLE_COL.", split_algo);
+		int quantile_bytes = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_bytes : sizeof(T);
 
 		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
-		totalmem += N * extra_bytes;
+		totalmem += n_hist_bytes + N * extra_bytes;
 
-		if (split_algo > 0) {
+		if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * quantile_bytes));
 			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N * extra_bytes));
 			totalmem += (n_bins + N) * extra_bytes;
 		}
 
 		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
-		totalmem += N*sizeof(int) + n_hist_bytes;
+		totalmem += N*sizeof(int);
 
 		//Allocate Temporary for split functions
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
@@ -92,21 +85,15 @@ struct TemporaryMemory
 		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
 		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
 		CUDA_CHECK(cudaMalloc((void**)&question_value, sizeof(T)));
-		CUDA_CHECK(cudaMalloc((void**)&d_ques_info, 2*sizeof(T)));
-		CUDA_CHECK(cudaMalloc((void**)&d_min_max, 2*sizeof(T)));
 
-		CUDA_CHECK(cudaMallocHost((void**)&h_left_rows, sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)&h_right_rows, sizeof(int)));
-		CUDA_CHECK(cudaMallocHost((void**)&h_ques_info, 2*sizeof(T)));
+		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
 
-		totalmem += split_temp_storage_bytes + sizeof(int) + N*sizeof(int) + 2*N*sizeof(char) + 5*sizeof(T);
-
-		CUDA_CHECK(cudaMallocHost((void**)&h_histout, sizeof(int)*n_bins*n_unique*Ncols));
+		CUDA_CHECK(cudaMallocHost((void**)&h_histout, n_hist_bytes * Ncols));
 
 		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax, sizeof(T)*Ncols*2));
-		CUDA_CHECK(cudaMalloc((void**)&d_histout, sizeof(int)*n_bins*n_unique*Ncols));
+		CUDA_CHECK(cudaMalloc((void**)&d_histout, n_hist_bytes * Ncols));
 		CUDA_CHECK(cudaMalloc((void**)&d_colids, sizeof(int)*Ncols));
-		totalmem += sizeof(int)*n_bins*n_unique*Ncols + sizeof(int)*Ncols + sizeof(T)*Ncols;
+		totalmem += (n_hist_bytes + sizeof(int) + 2*sizeof(T))* Ncols;
 
 		//Create Streams
 		if (maxstr == 1)
@@ -139,11 +126,6 @@ struct TemporaryMemory
 		cudaFree(d_flags_right);
 		cudaFree(temprowids);
 		cudaFree(question_value);
-		cudaFree(d_ques_info);
-		cudaFree(d_min_max);
-		cudaFreeHost(h_left_rows);
-		cudaFreeHost(h_right_rows);
-		cudaFreeHost(h_ques_info);
 		cudaFreeHost(h_histout);
 
 		cudaFree(d_globalminmax);

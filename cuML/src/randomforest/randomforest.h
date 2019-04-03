@@ -56,7 +56,6 @@ namespace ML {
 			if (verbose) std::cout << labels[i] << std::endl;
 		}
 		if (verbose) std::cout << "Finished preprocessing labels\n";
-
 	}
 
 
@@ -96,25 +95,23 @@ namespace ML {
 			rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
 			   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST) {
 
-					n_trees = cfg_n_trees;
-					max_depth = cfg_max_depth;
-					max_leaves = cfg_max_leaves;
-					trees = NULL;
-					rf_type = cfg_rf_type;
-					bootstrap = cfg_bootstrap;
-					n_bins = cfg_n_bins;
-					rows_sample = cfg_rows_sample;
-					max_features = cfg_max_features;
-					split_algo = cfg_split_algo;
+				n_trees = cfg_n_trees;
+				max_depth = cfg_max_depth;
+				max_leaves = cfg_max_leaves;
+				trees = NULL;
+				rf_type = cfg_rf_type;
+				bootstrap = cfg_bootstrap;
+				n_bins = cfg_n_bins;
+				rows_sample = cfg_rows_sample;
+				max_features = cfg_max_features;
+				split_algo = cfg_split_algo;
 
-					ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
-					ASSERT((cfg_n_bins > 0), "Invalid n_bins %d", cfg_n_bins);
-					ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
-					ASSERT((max_features > 0) && (max_features <= 1.0), "max_features value %f outside permitted (0, 1] range", max_features);
+				ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
+				ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
 			}
 
 			~rf() {
-					delete [] trees;
+				delete [] trees;
 			}
 
 			int get_ntrees() {
@@ -201,9 +198,7 @@ namespace ML {
 
 				//Cleanup
 				CUDA_CHECK(cudaFree(selected_rows));
-
 			}
-
 		}
 
 
@@ -288,22 +283,4 @@ namespace ML {
 		}
 
 	};
-
-
-	template <class T>
-	class rfRegressor : public rf<T> {
-	    public:
-
-		rfRegressor(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::REGRESSION, int cfg_n_bins=8,
-						float cfg_rows_sample=1.0f, float cfg_max_features=1.0f)
-					: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features) {}
-
-		void fit(T * input, int n_rows, int n_cols, int * labels,
-                         int n_trees, float max_features, float rows_sample) {}
-
-		void predict(const T * input, int n_rows, int n_cols, int * preds) {}
-	};
-
-
-
 };
