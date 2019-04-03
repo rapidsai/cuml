@@ -107,7 +107,7 @@ def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctn
     if run_stress==True:
         X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
     
     else:
@@ -136,7 +136,7 @@ def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
     if run_stress==True:
         X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
 
-    if run_correctness_test==True:
+    elif run_correctness_test==True:
         X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
     
     else:
