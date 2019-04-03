@@ -21,6 +21,7 @@
 #include <stats/mean_center.h>
 #include <stats/stddev.h>
 #include <linalg/norm.h>
+#include <linalg/gemm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 
@@ -35,8 +36,8 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
@@ -62,8 +63,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
 		cusolverDnHandle_t cusolver_handle) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
@@ -75,10 +76,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
             Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true, true);
 	}
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
 	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
-		    CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublas_handle);
+		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
 
 	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1);
 	updateHost(intercept, d_intercept, 1);

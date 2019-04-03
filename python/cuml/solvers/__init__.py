@@ -14,26 +14,4 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
-import numpy as np
-from libcpp cimport bool
-
-cdef extern from "knn/knn.h" namespace "ML":
-
-    cdef cppclass kNNParams:
-        float *ptr,
-        int N
-
-    cdef cppclass kNN:
-        kNN(int D) except +
-        void search(const float *search_items,
-                    int search_items_size,
-                    long *res_I,
-                    float *res_D,
-                    int k)
-        void fit(kNNParams *input,
-                 int N)
+from cuml.solvers.sgd import SGD

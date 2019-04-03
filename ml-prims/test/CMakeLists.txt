@@ -26,15 +26,21 @@ add_executable(mlcommon_test
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
+  coo.cu
   cov.cu
+  csr.cu
   decoupled_lookback.cu
-  distance.cu
-  # distance_adj.cu
+  dist_adj.cu
+  dist_cos.cu
+  dist_euc_exp.cu
+  dist_euc_unexp.cu
+  dist_l1.cu
   divide.cu
   eig.cu
   eltwise.cu
   eltwise2d.cu
   gemm.cu
+  grid_sync.cu
   kselection.cu
   map_then_reduce.cu
   math.cu
@@ -42,11 +48,13 @@ add_executable(mlcommon_test
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
+  metrics.cu
   mvg.cu
   multiply.cu
   norm.cu
   permute.cu
   power.cu
+  reduce_rows_by_key.cu
   rng.cu
   rng_int.cu
   rsvd.cu
@@ -57,7 +65,15 @@ add_executable(mlcommon_test
   sum.cu
   svd.cu
   transpose.cu
-  unary_op.cu)
+  unary_op.cu
+  hinge.cu
+  linearReg.cu
+  log.cu
+  logisticReg.cu
+  penalty.cu
+  sigmoid.cu
+  weighted_mean.cu
+  )
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}

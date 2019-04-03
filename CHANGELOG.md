@@ -1,8 +1,39 @@
-# cuML 0.6.0 (Date TBD)
+# cuML 0.7.0 (Date TBD)
 
 ## New Features
 
+- PR #277: Added row- and column-wise weighted mean primitive
+- PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
 
+## Improvements
+
+- PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
+- PR #390: Update docs version
+- PR #272: Add stream parameters to cublas and cusolver wrapper functions
+
+## Bug Fixes
+
+- PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
+- PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
+- PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #422: Issue in the PCA tests was solved and CI can run with driver 418
+- PR #409: Add entry to gitmodules to ignore build artifacts
+- PR #412: Fix for svdQR function in ml-prims
+
+# cuML 0.6.0 (22 Mar 2019)
+
+## New Features
+
+- PR #249: Single GPU Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
+- PR #247: Added "proper" CUDA API to cuML
+- PR #235: NearestNeighbors MG Support
+- PR #261: UMAP Algorithm
+- PR #290: NearestNeighbors numpy MG Support
+- PR #303: Reusable spectral embedding / clustering
+- PR #325: Initial support for single process multi-GPU OLS and tSVD
+- PR #271: Initial support for hyperparameter optimization with dask for many models
 
 ## Improvements
 
@@ -22,6 +53,21 @@
 - PR #234: Support for custom output type and passing index value to main_op in *Reduction kernels
 - PR #230: Refactored the cuda_utils header
 - PR #236: Refactored cuml python package structure to be more sklearn like
+- PR #232: Added reduce_rows_by_key
+- PR #246: Support for 2 vectors in the matrix vector operator
+- PR #244: Fix for single GPU OLS and Ridge to support one column training data
+- PR #271: Added get_params and set_params functions for linear and ridge regression
+- PR #253: Fix for issue #250-reduce_rows_by_key failed memcheck for small nkeys
+- PR #269: LinearRegression, Ridge Python docs update and cleaning
+- PR #322: set_params updated
+- PR #237: Update build instructions
+- PR #275: Kmeans use of faster gpu_matrix
+- PR #288: Add n_neighbors to NearestNeighbors constructor
+- PR #302: Added FutureWarning for deprecation of current kmeans algorithm
+- PR #312: Last minute cleanup before release
+- PR #315: Documentation updating and enhancements
+- PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
+- PR #342: Change default ABI to ON
 
 ## Bug Fixes
 
@@ -31,6 +77,19 @@
 - PR #201: Pass CMAKE CUDA path to faiss/configure script
 - PR #200 Avoid using numpy via cimport in KNN
 - PR #228: Bug fix: LinAlg::unaryOp with 0-length input
+- PR #279: Removing faiss-gpu references in README
+- PR #321: Fix release script typo
+- PR #327: Update conda requirements for version 0.6 requirements
+- PR #352: Correctly calculating numpy chunk sizing for kNN
+- PR #345: Run python import as part of package build to trigger compilation
+- PR #347: Lowering memory usage of kNN.
+- PR #355: Fixing issues with very large numpy inputs to SPMG OLS and tSVD.
+- PR #357: Removing FAISS requirement from README
+- PR #362: Fix for matVecOp crashing on large input sizes
+- PR #366: Index arithmetic issue fix with TxN_t class
+- PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
+- PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
+- PR #385: Fix for long import cuml time in containers and fix for setup_pip
 
 
 # cuML 0.5.1 (05 Feb 2019)

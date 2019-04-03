@@ -39,7 +39,6 @@ struct PcaInputs {
 	int n_col2;
 	unsigned long long int seed;
 	int algo;
-    bool whiten;
 };
 
 template<typename T>
@@ -129,19 +128,15 @@ protected:
 		int len = params.len2;
 
 		paramsPCA prms;
-	    prms.n_cols = params.n_col2;
+	        prms.n_cols = params.n_col2;
 		prms.n_rows = params.n_row2;
 		prms.n_components = params.n_col2;
-		prms.whiten = params.whiten;
+		prms.whiten = false;
 		if (params.algo == 0)
 			prms.algorithm = solver::COV_EIG_DQ;
 		else if (params.algo == 1)
 			prms.algorithm = solver::COV_EIG_JACOBI;
-		else if (params.algo == 2) {
-			prms.algorithm = solver::RANDOMIZED;
-			prms.n_components = params.n_col2 - 15;
-		}
-
+		
 		allocate(data2, len);
 		r.uniform(data2, len, T(-1.0), T(1.0));
 		allocate(data2_trans, prms.n_rows * prms.n_components);
@@ -205,14 +200,12 @@ protected:
 
 
 const std::vector<PcaInputs<float> > inputsf2 = {
-		{ 0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0, false },
-		{ 0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1, true },
-		{ 0.05f, 3 * 2, 3, 2, 256 * 64, 256, 64, 1234ULL, 2, true }};
+		{ 0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0 },
+		{ 0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1 }};
 
 const std::vector<PcaInputs<double> > inputsd2 = {
-		{ 0.01, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0, false },
-		{ 0.01, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1, true },
-		{ 0.05, 3 * 2, 3, 2, 256 * 64, 256, 64, 1234ULL, 2, true }};
+		{ 0.01, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0 },
+		{ 0.01, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1 }};
 
 
 
@@ -282,6 +275,8 @@ TEST_P(PcaTestDataVecSmallD, Result) {
 					CompareApproxAbs<double>(params.tolerance)));
 }
 
+// FIXME: These tests are disabled due to driver 418+ making them fail:
+// https://github.com/rapidsai/cuml/issues/379
 typedef PcaTest<float> PcaTestDataVecF;
 TEST_P(PcaTestDataVecF, Result) {
 	ASSERT_TRUE(

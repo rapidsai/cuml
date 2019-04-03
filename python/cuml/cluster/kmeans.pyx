@@ -22,8 +22,10 @@
 import ctypes
 import cudf
 import numpy as np
+import warnings
 
 from numba import cuda
+from cuml import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -87,11 +89,23 @@ cdef extern from "kmeans/kmeans_c.h" namespace "ML":
 class KMeans:
 
     """
-    Create a DataFrame, fill it with data, and compute Kmeans:
+    KMeans is a basic but powerful clustering method which is optimized via Expectation Maximization.
+    It randomnly selects K data points in X, and computes which samples are close to these points.
+    For every cluster of points, a mean is computed (hence the name), and this becomes the new
+    centroid.
+
+    cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
+    method is more stable than randomnly selecting K points.
+    
+    Examples
+    --------
 
     .. code-block:: python
 
+        # Both import methods supported
         from cuml import KMeans
+        from cuml.cluster import KMeans
+
         import cudf
         import numpy as np
         import pandas as pd
@@ -146,10 +160,54 @@ class KMeans:
              0    1
           0  3.5  2.5
           1  1.0  1.5
+    
+    Parameters
+    ----------
+    n_clusters : int (default = 8)
+        The number of centroids or clusters you want.
+    max_iter : int (default = 300)
+        The more iterations of EM, the more accurate, but slower.
+    tol : float (default = 1e-4)
+        Stopping criterion when centroid means do not change much.
+    verbose : boolean (default = 0)
+        If True, prints diagnositc information.
+    random_state : int (default = 1)
+        If you want results to be the same when you restart Python, select a state.
+    precompute_distances : boolean (default = 'auto')
+        Not supported yet.
+    init : 'kmeans++'
+        Uses fast and stable kmeans++ intialization. More options will be supported later.
+    n_init : int (default = 1)
+        Number of times intialization is run. More is slower, but can be better.
+    algorithm : "auto"
+        Currently uses full EM, but will support others later.
+    n_gpu : int (default = 1)
+        Number of GPUs to use. If -1 is used, uses all GPUs. More usage is faster.
+    gpu_id : int (default = 0)
+        Which GPU to use if n_gpu == 1.
 
 
+    Attributes
+    ----------
+    cluster_centers_ : array
+        The coordinates of the final clusters. This represents of "mean" of each data cluster.
+    labels_ : array
+        Which cluster each datapoint belongs to.    
+
+    Notes
+    ------
+    KMeans requires n_clusters to be specified. This means one needs to approximately guess or know
+    how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and 
+    visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
+    
+    **Applications of KMeans**
+    
+        The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
+        first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
+        approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
+    
+    
     For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
-
     """
 
     def __init__(self, n_clusters=8, max_iter=300, tol=1e-4, verbose=0, random_state=1, precompute_distances='auto', init='kmeans++', n_init=1, algorithm='auto', n_gpu=1, gpu_id=0):
@@ -168,6 +226,8 @@ class KMeans:
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
         self.gpu_id = gpu_id
+        warnings.warn("This version of K-means will be depricated in 0.7 for stability reasons. A new version based on our lessons learned will be available in 0.7. The current version will get no new bug fixes or improvements. The new version will follow the same API.",
+                      FutureWarning)
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -177,10 +237,6 @@ class KMeans:
 
     def _get_column_ptr(self, obj):
         return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        c = gdf.as_gpu_matrix(order='C').shape
-        return self._get_ctype_ptr(gdf.as_gpu_matrix(order='C'))
 
     def fit(self, X):
         """
@@ -196,7 +252,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -294,7 +350,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -310,7 +366,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
@@ -375,7 +431,7 @@ class KMeans:
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='C')
+            X_m = numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
@@ -391,7 +447,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = self.cluster_centers_.as_gpu_matrix(order='C')
+        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
@@ -443,3 +499,40 @@ class KMeans:
 
         """
         return self.fit(input_gdf).transform(input_gdf)
+
+    def get_params(self, deep=True):
+        """
+        Sklearn style return parameter state
+
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
+        params = dict()
+        variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
+        for key in variables:
+            var_value = getattr(self,key,None)
+            params[key] = var_value
+        return params
+
+
+    def set_params(self, **params):
+        """
+        Sklearn style set parameter state to dictionary of params.
+
+        Parameters
+        -----------
+        params : dict of new params
+        """
+        if not params:
+            return self
+        current_params = {"algorithm":self.algorithm,'copy_x':self.copy_x,'init':self.init,"max_iter":self.max_iter,
+            "n_clusters":self.n_clusters,"n_init":self.n_init,"n_jobs":self.n_jobs, "precompute_distances":self.precompute_distances,
+            "random_state":self.random_state,"tol":self.tol, "verbose":self.verbose}
+        for key, value in params.items():
+            if key not in current_params:
+                raise ValueError('Invalid parameter for estimator')
+            else:
+                setattr(self, key, value)
+                current_params[key] = value
+        return self

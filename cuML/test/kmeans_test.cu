@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #include "kmeans/kmeans.cu"
 #include <vector>
@@ -88,8 +103,11 @@ const std::vector<KmeansInputs<float> > inputsf2 = {
 const std::vector<KmeansInputs<double> > inputsd2 = {
 		{ 2, 0.05, 4, 2 }};
 
+
+// FIXME: These tests are disabled due to being too sensitive to RNG:
+// https://github.com/rapidsai/cuml/issues/71
 typedef KmeansTest<float> KmeansTestF;
-TEST_P(KmeansTestF, Fit) {
+TEST_P(KmeansTestF, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
 					CompareApproxAbs<float>(params.tol)));
@@ -99,7 +117,7 @@ TEST_P(KmeansTestF, Fit) {
 }
 
 typedef KmeansTest<double> KmeansTestD;
-TEST_P(KmeansTestD, Fit) {
+TEST_P(KmeansTestD, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
 					CompareApproxAbs<double>(params.tol)));
