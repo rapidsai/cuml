@@ -58,8 +58,7 @@ class Base:
         of parameter that it needs. This will simplify the `get_params` and
         `set_params` methods. (Refer below)
         """
-        return ["handle", "verbose"]
-
+        return []
 
     def get_params(self, deep=True):
         """
