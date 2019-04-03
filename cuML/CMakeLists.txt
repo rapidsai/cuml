@@ -218,6 +218,7 @@ add_library(cuml SHARED
             src/umap/umap.cu
 	          src/solver/solver.cu
             src/ts/kalman.cu
+            src/ts/batched_kalman.cu
             )
 
 set(CUML_LINK_LIBRARIES
