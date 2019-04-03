@@ -53,18 +53,19 @@ class Base:
 
     def get_param_names(self):
         """
-        Returns a list of parameter names owned by this class. It is expected
-        that every child class overrides this method and appends its extra set
-        of parameter that it needs. This will simplify the `get_params` and
-        `set_params` methods. (Refer below)
+        Returns a list of hyperparameter names owned by this class. It is
+        expected that every child class overrides this method and appends its
+        extra set of parameters that it in-turn owns. This is to simplify the
+        implementation of `get_params` and `set_params` methods.
         """
         return []
 
     def get_params(self, deep=True):
         """
         Returns a dict of all params owned by this class. If the child class has
-        appropriately overridden the `get_param_names` method, then it doesn't
-        have to override this method
+        appropriately overridden the `get_param_names` method and does not need
+        anything other than what is there in this method, then it doesn't have
+        to override this method
         """
         params = dict()
         variables = self.get_param_names()
@@ -78,7 +79,8 @@ class Base:
         """
         Accepts a dict of params and updates the corresponding ones owned by
         this class. If the child class has appropriately overridden the
-        `get_param_names` method, then it doesn't have to override this method
+        `get_param_names` method and does not need anything other than what is,
+        there in this method, then it doesn't have to override this method
         """
         if not params:
             return self

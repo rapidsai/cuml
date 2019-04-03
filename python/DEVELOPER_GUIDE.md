@@ -22,12 +22,12 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cuML/DEVELO
 1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
 2. Note that the folder structure inside here should reflect that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
 . We try to match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
-3. Always make sure to have your class inherit from `cuml.common.base.Base` class as your parent/ancestor.
+3. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
 
 ## Error handling
-If you are trying to call into cuda runtime APIs inside `cuml.common.cuda`, in case of any errors, they'll raise a `cuml.common.cuda.CudaRuntimeError`. For example:
+If you are trying to call into cuda runtime APIs inside `cuml.cuda`, in case of any errors, they'll raise a `cuml.cuda.CudaRuntimeError`. For example:
 ```python
-from cuml.common.cuda import Stream, CudaRuntimeError
+from cuml.cuda import Stream, CudaRuntimeError
 try:
     s = Stream()
     s.sync
@@ -50,13 +50,13 @@ TODO: talk about enabling RMM here when it is ready
 ## Asynchronous operations and stream ordering
 If you want to schedule the execution of two algorithms concurrently, it is better to create two separate streams and assign them to separate handles. Finally, schedule the algorithms using these handles.
 ```python
-from cuml.common.cuda import Stream
-from cuml.common.handle import Handle
+import cuml
+from cuml.cuda import Stream
 s1 = Stream()
-h1 = Handle()
+h1 = cuml.Handle()
 h1.setStream(s1)
 s2 = Stream()
-h2 = Handle()
+h2 = cuml.Handle()
 h2.setStream(s2)
 algo1 = cuml.Algo1(handle=h1, ...)
 algo2 = cuml.Algo2(handle=h2, ...)
