@@ -44,7 +44,6 @@ namespace ML {
      *        an array to return the output embeddings of size (n_samples, n_components)
      */
     void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
-        this->knn = new kNN(d);
         UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings);
     }
 

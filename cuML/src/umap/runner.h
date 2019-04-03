@@ -99,6 +99,79 @@ namespace UMAPAlgo {
         }
     }
 
+    template<typename T, int TPB_X>
+    void categorical_simplicial_set_intersection(
+         int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
+         T *target, float far_dist = 5.0, float unknown_dist = 1.0) {
+
+        dim3 grid_n(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+        dim3 blk(TPB_X, 1, 1);
+
+        fast_intersection<<<grid,blk>>>(
+                graph_rows,
+                graph_cols,
+                graph_vals,
+                nnz,
+                target,
+                unknown_dist,
+                far_dist
+        );
+
+        /**
+         * Eliminate zeros
+         */
+
+        /**
+         * reset_local_connectivity(rows, cols, vals, nnz)
+         */
+
+    }
+
+    template<typename T, int TPB_X>
+    void general_simplicial_set_intersection(
+        int rows1, int cols1, T *vals1, int nnz1,
+        int rows2, int cols2, T *vals2, int nnz2,
+        float weight
+    ) {
+        // result = Eltwise sum of 1 & 2
+        //   This means adding intersecting items but combining
+        //   rows & columns together.
+
+        // run ex_scan on left
+        // run ex_scan on right
+
+        /**
+         *
+         * left_min = max(data1.min() / 2.0, 1.0e-8)
+         * right_min = max(data2.min() / 2.0, 1.0e-8)
+         *
+         *     for idx in range(result_row.shape[0]):
+                    i = result_row[idx]
+                    j = result_col[idx]
+
+                    left_val = left_min
+                    for k in range(indptr1[i], indptr1[i + 1]):   <- Loops through items in same row.
+                        if indices1[k] == j:
+                            left_val = data1[k]
+
+                    right_val = right_min
+                    for k in range(indptr2[i], indptr2[i + 1]):    <- Loops through items in same row
+                        if indices2[k] == j:
+                            right_val = data2[k]
+
+                    if left_val > left_min or right_val > right_min:
+                        if mix_weight < 0.5:
+                            result_val[idx] = left_val * pow(
+                                right_val, mix_weight / (1.0 - mix_weight)
+                            )
+                        else:
+                            result_val[idx] = (
+                                pow(left_val, (1.0 - mix_weight) / mix_weight) * right_val
+                            )
+         *
+         */
+    }
+
 
     /**
      * Firt exponential decay curve to find the parameters
@@ -181,6 +254,146 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(rgraph_vals));
 
 		return 0;
+	}
+
+	size_t _fit(T *X,    // input matrix
+	            T *y,    // labels
+                int n,
+                int d,
+                kNN *knn,
+                UMAPParams *params,
+                T *embeddings) {
+
+	    if(params->target_n_neighbors == -1)
+	        params->target_n_neighbors = params->n_neighbors;
+
+        find_ab(params);
+
+        /**
+         * Allocate workspace for kNN graph
+         */
+        long *knn_indices;
+        T *knn_dists;
+
+        MLCommon::allocate(knn_indices, n*params->n_neighbors);
+        MLCommon::allocate(knn_dists, n*params->n_neighbors);
+
+        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        int *rgraph_rows, *rgraph_cols;
+        T *rgraph_vals;
+
+        /**
+         * Allocate workspace for fuzzy simplicial set.
+         */
+        MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2);
+        MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
+        MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
+
+
+        /**
+         * Run Fuzzy simplicial set
+         */
+        int nnz = 0;
+
+        FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists,
+                           rgraph_rows,
+                           rgraph_cols,
+                           rgraph_vals,
+                           params, &nnz,0);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        /**
+         * If target metric is 'categorical',
+         * run categorical_simplicial_set_intersection() on
+         * the current graph and target labels.
+         */
+        if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+            /**
+             * Set target weight
+             */
+            float far_dist = 1.0e12;
+            if(params->target_weights < 1.0)
+                far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
+
+            categorical_simplicial_set_intersection(
+                    rgraph_rows, rgraph_cols, rgraph_vals, nnz,
+                    y, far_dist);
+
+        /**
+         * Else, knn query labels & create fuzzy simplicial set w/ them:
+         * self.target_graph = fuzzy_simplicial_set(y, target_n_neighbors)
+         * general_simplicial_set_intersection(self.graph_, target_graph, self.target_weight)
+         * self.graph_ = reset_local_connectivity(self.graph_)
+         *
+         */
+        } else {
+
+            int *ygraph_rows, *ygraph_cols;
+            T *ygraph_vals;
+
+            /**
+             * Allocate workspace for fuzzy simplicial set.
+             */
+            MLCommon::allocate(ygraph_rows, n*params->target_n_neighbors*2);
+            MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2);
+            MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2);
+
+            KNN y_knn(1);
+            long *y_knn_indices;
+            T *y_knn_dists;
+
+            MLCommon::allocate(y_knn_indices, n*params->target_n_neighbors);
+            MLCommon::allocate(y_knn_dists, n*params->target_n_neighbors);
+
+            kNNGraph::run(y, n, 1, y_knn_indices, y_knn_dists, &y_knn, params);
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            int &ynnz = 0;
+            FuzzySimplSet::run<TPB_X, T>(n, y_knn_indices, y_knn_dists,
+                               ygraph_rows,
+                               ygraph_cols,
+                               ygraph_vals,
+                               params, &ynnz, 0);  // TODO: explicitly pass in n_neighbors so that target_n_neighbors can be used
+            CUDA_CHECK(cudaPeekAtLastError());
+
+
+
+        }
+
+
+
+
+
+
+
+
+
+        InitEmbed::run(X, n, d,
+                knn_indices, knn_dists,
+                rgraph_rows, rgraph_cols, rgraph_vals,
+                nnz,
+                params, embeddings, params->init);
+
+        /**
+         * Run simplicial set embedding to approximate low-dimensional representation
+         */
+
+        SimplSetEmbed::run<TPB_X, T>(
+                X, n, d,
+                rgraph_rows, rgraph_cols, rgraph_vals, nnz,
+                params, embeddings);
+
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        CUDA_CHECK(cudaFree(knn_dists));
+        CUDA_CHECK(cudaFree(knn_indices));
+        CUDA_CHECK(cudaFree(rgraph_rows));
+        CUDA_CHECK(cudaFree(rgraph_cols));
+        CUDA_CHECK(cudaFree(rgraph_vals));
+
+	    return 0;
 	}
 
 	/**
