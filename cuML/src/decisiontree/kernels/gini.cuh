@@ -18,11 +18,8 @@
 #include <utils.h>
 #include "cub/cub.cuh"
 #include "../memory.cuh"
-//#include <map>
 #include <vector>
-
-template<typename T>
-T set_min_val();
+#include "gini_def.h"
 
 template<>
 float set_min_val() {
@@ -36,56 +33,16 @@ double set_min_val() {
 
 
 template<class T>
-struct GiniQuestion {
-	int bootstrapped_column;
-	int original_column;
-	T value;
-
-	/*
-	   delta = (max - min) /nbins
-	   base_ques_val = min + delta
-	   value = base_ques_val + batch_id * delta.
-
-	Due to fp computation differences between GPU and CPU, we need to ensure
-	the question value is always computed on the GPU. Otherwise, the flag_kernel
-	called via make_split would make a split that'd be inconsistent with the one that
-	produced the histograms during the gini computation. This issue arises when there is
-	a data value close to the question that gets split differently in gini than in
-	flag_kernel.
-	*/
-	int batch_id;
-	T min, max;
-	int nbins;
-	int ncols;
-
-	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, float cfg_min=FLT_MAX, float cfg_max=-FLT_MAX, float cfg_value=0.0f) {
-		bootstrapped_column = cfg_bootcolumn;
-		original_column = cfg_column;
-		batch_id = cfg_batch_id;
-		min = cfg_min;
-		max = cfg_max;
-		nbins = cfg_nbins;
-		ncols = cfg_ncols;
-		value = cfg_value; // Will be updated in make_split
-	};
-
-	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, double cfg_min=DBL_MAX, double cfg_max=-DBL_MAX, double cfg_value=0.0) {
-		bootstrapped_column = cfg_bootcolumn;
-		original_column = cfg_column;
-		batch_id = cfg_batch_id;
-		min = cfg_min;
-		max = cfg_max;
-		nbins = cfg_nbins;
-		ncols = cfg_ncols;
-		value = cfg_value; // Will be updated in make_split
-	};
-};
-
-struct GiniInfo {
-	float best_gini = -1.0f;
-	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
-
-};
+void GiniQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
+	bootstrapped_column = cfg_bootcolumn;
+	original_column = cfg_column;
+	batch_id = cfg_batch_id;
+	min = cfg_min;
+	max = cfg_max;
+	nbins = cfg_nbins;
+	ncols = cfg_ncols;
+	value = cfg_value; // Will be updated in make_split
+}
 
 __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, const int nmax, int* histout)
 {
