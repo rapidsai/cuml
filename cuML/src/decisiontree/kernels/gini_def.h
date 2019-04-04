@@ -34,8 +34,7 @@ struct GiniQuestion {
 	   base_ques_val = min + delta
 	   value = base_ques_val + batch_id * delta.
 
-	Due to fp computation differences between GPU and CPU, we need to ensure
-	the question value is always computed on the GPU. Otherwise, the flag_kernel
+	We need to ensure the question value is always computed on the GPU. Otherwise, the flag_kernel
 	called via make_split would make a split that'd be inconsistent with the one that
 	produced the histograms during the gini computation. This issue arises when there is
 	a data value close to the question that gets split differently in gini than in
