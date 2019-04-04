@@ -20,6 +20,7 @@ public:
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
+    m_shape = std::make_pair(m, n);
     std::vector<double*> C_data;
     for(int i=0;i<num_batches;i++) {
       double* d_ptr;
@@ -116,6 +117,9 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
   // Create C(m,k)
   BatchedMatrix C(m, k, num_batches);
 
+  double alpha = 1.0;
+  double beta = 0.0;
+
   // [C1,C2,C3] = [A1*B1, A2*B2, A3*B3]
   CUBLAS_CHECK(cublasDgemmBatched(handle,
                                   opA, // A.T?
@@ -123,12 +127,12 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
                                   m, // rows op(A), C
                                   n, // cols of op(B), C
                                   k, // cols of op(A), rows of op(B)
-                                  nullptr, // non-used scalar
+                                  &alpha, // alpha * A * B
                                   A.data(),
                                   A.shape().first, // rows of A
                                   B.data(),
                                   B.shape().first, // rows of B
-                                  nullptr, // non-used scalar
+                                  &beta, // + beta * C
                                   C.data(),
                                   C.shape().first, // rows of C
                                   num_batches));
