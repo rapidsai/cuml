@@ -42,12 +42,15 @@ protected:
                         0.92204276,
                         /*       */0.32118359,
                         /*       */0.28488466};
+    // A = np.array([[0.22814838,0.32118359],[0.92204276,0.28488466]])
+
     // 2x2
     std::vector<T> B = {0.1741319,
                         0.19051178,
                         /*       */0.21628607,
                         /*       */0.35775104
     };
+    // B = np.array([[0.1741319,0.21628607],[0.19051178,0.35775104]])
 
     // 1x2
     std::vector<T> Z = {0.11387309, 0.21870136};
@@ -79,23 +82,46 @@ protected:
     allocate(d_ZBref, 4);
     updateDevice(d_ZBref, ZBref.data(), ZBref.size());
 
+    vector<T> ApBref = {
+                        0.40228028,
+                        1.11255454,
+                        /*       */ 0.53746966,
+                        /*       */ 0.6426357
+    };
+    T* d_ApBref;
+    allocate(d_ApBref, 4);
+    updateDevice(d_ApBref, ApBref.data(), ApBref.size());
+
+    vector<T> AmBref = {
+                        0.05401648,
+                        0.73153098,
+                        /*       */ 0.10489752,
+                        /*       */ -0.07286638
+    };
+    T* d_AmBref;
+    allocate(d_AmBref, 4);
+    updateDevice(d_AmBref, AmBref.data(), AmBref.size());
+
+    // A+B = array([[0.40228028, 0.53746966],[1.11255454, 0.6426357 ]])
+    // A-B = array([[ 0.05401648,  0.10489752],[ 0.73153098, -0.07286638]])
+
     //////////////////////////////////////////////////////////////
     // setup gpu memory
     int num_batches = 3;
     vector<T*> Ab;
     vector<T*> Bb;
     vector<T*> Zb;
+    T* Abi;
+    allocate(Abi, 4*num_batches);
+    T* Bbi;
+    allocate(Bbi, 4*num_batches);
+    T* Zbi;
+    allocate(Zbi, 2*num_batches);
     for(int i=0;i<num_batches;i++) {
-      T* Abi;
-      allocate(Abi, 4);
-      updateDevice(Abi, A.data(), A.size());
-      Ab.push_back(Abi);
-      T* Bbi;
-      allocate(Bbi, 4);
+      updateDevice(&Abi[4*i], A.data(), A.size());
+      Ab.push_back(&Abi[4*i]);
       Bb.push_back(Bbi);
       updateDevice(Bbi, B.data(), B.size());
-      T* Zbi;
-      allocate(Zbi, 2);
       Zb.push_back(Zbi);
       updateDevice(Zbi, Z.data(), Z.size());
     }
@@ -109,7 +135,8 @@ protected:
     BatchedMatrix ZB = ZbM*BbM;
     BatchedMatrix BZT = b_gemm(BbM,ZbM, false, true);
 
-    // vector<T*> 
+    BatchedMatrix A_p_B = AbM + BbM;
+    BatchedMatrix A_m_B = AbM - BbM;
 
     //////////////////////////////////////////////////////////////
     // compare answers
@@ -120,6 +147,10 @@ protected:
       devArrMatch(d_ZBref, ZB.A()[i], ZB.shape().first, ZB.shape().second,
                   CompareApprox<T>(params.tolerance));
       devArrMatch(d_BZTref, ZB.A()[i], ZB.shape().first, ZB.shape().second,
+                  CompareApprox<T>(params.tolerance));
+      devArrMatch(d_ApBref, A_p_B.A()[i], A_p_B.shape().first, A_p_B.shape().second,
+                  CompareApprox<T>(params.tolerance));
+      devArrMatch(d_AmBref, A_m_B.A()[i], A_m_B.shape().first, A_m_B.shape().second,
                   CompareApprox<T>(params.tolerance));
     }
   }

@@ -3,8 +3,11 @@
 #include <tuple>
 #include <vector>
 #include <stdexcept>
+#include <functional>
 
 #include <linalg/cublas_wrappers.h>
+#include <linalg/binary_op.h>
+
 
 namespace MLCommon {
 namespace Matrix {
@@ -16,16 +19,20 @@ public:
     init(A, shape, gpu);
   }
 
-  BatchedMatrix(int m, int n, int num_batches, bool gpu=true) : m_gpu(gpu) {
+  BatchedMatrix(int m, int n, int num_batches, bool initZero=false, bool gpu=true) : m_gpu(gpu) {
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
     m_shape = std::make_pair(m, n);
     std::vector<double*> C_data;
+    double* d_ptr;
+    CUDA_CHECK(cudaMalloc(&d_ptr, sizeof(double)*m*n*num_batches));
+    if (initZero) {
+      CUDA_CHECK(cudaMemset(d_ptr, 0.0, sizeof(double) * m * n));
+    }
     for(int i=0;i<num_batches;i++) {
-      double* d_ptr;
-      cudaMalloc(&d_ptr, sizeof(double)*m*n);
-      C_data.push_back(d_ptr);
+      double* d_ptr_i = &d_ptr[m*n*i];
+      C_data.push_back(d_ptr_i);
     }
     init(C_data, std::make_pair(m, n), gpu);
   }
@@ -33,15 +40,23 @@ public:
   bool onGPU() const { return m_gpu; }
   size_t batches() const { return m_num_batches; }
   const std::pair<int, int>& shape() const { return m_shape; }
+
+  // TODO: probably should add a const on returned type
   double** data() const {return m_A_data;}
 
-  const std::vector<double*>& A() {
+  void createA() {
     if (m_A.size() == 0) {
       double** h_ptr = new double*[m_num_batches];
       updateHost(h_ptr, m_A_data, m_num_batches);
       for(int i=0;i<m_num_batches;i++) {
         m_A.push_back(h_ptr[i]);
       }
+    }
+  }
+
+  const std::vector<double*>& A() const {
+    if (m_A.size() == 0) {
+      throw std::runtime_error("BatchedMatrix ERROR: uninitialized A. Call `BM.createA()` first.");
     }
     return m_A;
   }
@@ -139,14 +154,43 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
   return C;
 }
 
+template <typename F>
+BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
+                        F binary_op) {
+  if(A.shape().first != B.shape().first && A.shape().second != B.shape().second) {
+    throw std::runtime_error("Batched Matrix Addition ERROR: Matrices must be same size");
+  }
+  if(A.batches() != B.batches()) {
+    throw std::runtime_error("A & B must have same number of batches");
+  }
+
+  auto num_batches = A.batches();
+  int m = A.shape().first;
+  int n = A.shape().second;
+
+  BatchedMatrix C(m, n, num_batches);
+
+  for(int i=0; i<num_batches; i++) {
+    LinAlg::binaryOp(C.A()[i], A.A()[i], B.A()[i], m*n, binary_op);
+  }
+  return C;
+}
+
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
 // return [A1*B1, A2*B2, A3*B3]
-BatchedMatrix operator*(const BatchedMatrix& A,
-                        const BatchedMatrix& B) {
-
+BatchedMatrix
+operator*(const BatchedMatrix &A, const BatchedMatrix &B) {
   return b_gemm(A,B);
-
 }
+
+BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
+  return b_aA_op_B(A, B, [] __device__ (double a, double b) {return a + b;});
+}
+
+BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
+  return b_aA_op_B(A, B,  [] __device__ (double a, double b) {return a - b;});
+}
+
 }
 }
