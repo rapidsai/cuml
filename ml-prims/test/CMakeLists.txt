@@ -16,8 +16,6 @@
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(mlcommon_test LANGUAGES CXX CUDA)
 
-include_directories(${GTEST_DIR}/googletest/include)
-
 # single gpu unit-tests
 # (please keep the filenames in alphabetical order)
 add_executable(mlcommon_test
@@ -75,5 +73,6 @@ add_executable(mlcommon_test
   )
 
 target_link_libraries(mlcommon_test
-  ${GTEST_LIBNAME}
+  gtest
+  gtest_main
   ${MLPRIMS_LIBS})
