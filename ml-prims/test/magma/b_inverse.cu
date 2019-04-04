@@ -57,6 +57,9 @@ T run(magma_int_t n, magma_int_t batchCount)
         allocate_pointer_array(dA_array, ldda * n, batchCount);
         allocate_pointer_array(dinvA_array, ldda * n, batchCount);
 
+        inverseHandle_t<T> handle;
+        createInverseHandle_t(handle, batchCount, n, ldda);
+
         int device = 0;    // CUDA device ID
         magma_queue_t queue;
         magma_queue_create(device, &queue);
@@ -65,7 +68,8 @@ T run(magma_int_t n, magma_int_t batchCount)
         fill_matrix_gpu_batched(n, n, batchCount, dA_array, ldda );
 
         // computation:
-        inverse_batched(n, dA_array, ldda, dinvA_array, batchCount, queue);
+        inverse_batched(n, dA_array, ldda, dinvA_array, batchCount,
+                        queue, handle);
 
         // Error
         error = test_inverse(n, dA_array, ldda, dinvA_array, batchCount, queue);
@@ -73,6 +77,7 @@ T run(magma_int_t n, magma_int_t batchCount)
         // cleanup:
         free_pointer_array(dA_array, batchCount);
         free_pointer_array(dinvA_array, batchCount);
+        destroyInverseHandle_t(handle, batchCount);
         return error;
 }
 

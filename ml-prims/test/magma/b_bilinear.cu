@@ -31,6 +31,9 @@ T run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
         magma_int_t lddy = n;
         T *error_d, error = 0;
 
+        bilinearHandle_t<T> handle;
+        createBilinearHandle_t(handle, n, batchCount);
+
 // allocation:
         allocate_pointer_array(dA_array, ldda * n, batchCount);
         allocate_pointer_array(dX_array, m, batchCount);
@@ -51,7 +54,7 @@ T run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
 // computation:
         naive_bilinear_batched(m, n, dX_array, dA_array, ldda, dY_array, dO_naive, batchCount);
 
-        bilinear_batched(m, n, dX_array, dA_array, ldda, dY_array, dO_magma, batchCount, queue);
+        bilinear_batched(m, n, dX_array, dA_array, ldda, dY_array, dO_magma, batchCount, queue, handle);
 
         // Error
         meanSquaredError(error_d, dO_naive, dO_magma, batchCount);
@@ -63,6 +66,7 @@ T run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
         free_pointer_array(dY_array, batchCount);
         CUDA_CHECK(cudaFree(dO_naive));
         CUDA_CHECK(cudaFree(dO_magma));
+        destroyBilinearHandle_t(handle, batchCount);
 
         return error;
 }

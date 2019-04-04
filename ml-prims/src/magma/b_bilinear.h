@@ -20,8 +20,10 @@
 // #include "magma.h"
 // #include "magma_lapack.h"  // if you need BLAS & LAPACK
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
+#include "magma/b_handles.h"
+
 // #include "cuda_utils.h"
 
 using namespace MLCommon::LinAlg;
@@ -88,37 +90,45 @@ void bilinear_batched_kernel(magma_int_t m, magma_int_t n,
 template <typename T>
 void naive_bilinear_batched(magma_int_t m, magma_int_t n,
                             T **dX_array, T** dA_array, magma_int_t ldda,
-                            T **dY_array, T *dO, magma_int_t batchCount){
+                            T **dY_array, T *dO, magma_int_t batchCount,
+                            cudaStream_t stream=0){
         dim3 block(32, 1, 1);
         dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
         int numThreads = grid.x * block.x;
-        bilinear_batched_kernel<T> <<< grid, block >>>(m, n, dX_array, dA_array,
-                                                       ldda, dY_array, dO, batchCount,
-                                                       numThreads);
-        cudaDeviceSynchronize();
+        bilinear_batched_kernel<T> <<< grid, block, 0, stream>>>(m, n, dX_array,
+                                                                 dA_array, ldda,
+                                                                 dY_array, dO, batchCount,
+                                                                 numThreads);
         CUDA_CHECK(cudaPeekAtLastError());
+}
+
+template <typename T>
+void createBilinearHandle_t(bilinearHandle_t<T>& handle, int n, int batchCount){
+        allocate_pointer_array(handle.dT_array, n, batchCount);
 }
 
 
 template <typename T>
+void destroyBilinearHandle_t(bilinearHandle_t<T>& handle, int batchCount){
+        free_pointer_array(handle.dT_array, batchCount);
+}
+
+template <typename T>
 void bilinear_batched(magma_int_t m, magma_int_t n,
                       T **dX_array, T** dA_array, magma_int_t ldda,
-                      T **dY_array, T *dO, magma_int_t batchCount,  magma_queue_t queue)
+                      T **dY_array, T *dO, magma_int_t batchCount,
+                      magma_queue_t queue, bilinearHandle_t<T> handle)
 {
-        // // Allocate temporary memory
-        T **dT_array;
-        allocate_pointer_array(dT_array, n, batchCount);
-
         T alpha = 1, beta = 0;
         magma_int_t incx = 1, incy = 1;
 
         // Batched gemv
-        magmablas_gemv_batched(MagmaTrans, m, n, alpha, dA_array, ldda, dX_array, incx, beta, dT_array, incy, batchCount, queue);
+        magmablas_gemv_batched(MagmaTrans, m, n,
+                               alpha, dA_array, ldda,
+                               dX_array, incx, beta, handle.dT_array, incy,
+                               batchCount, queue);
 
         // Batched dot
-        dot_batched(n, dT_array, dY_array, dO, batchCount);
-
-        free_pointer_array(dT_array, batchCount);
-
+        dot_batched(n, handle.dT_array, dY_array, dO, batchCount);
 }
 }

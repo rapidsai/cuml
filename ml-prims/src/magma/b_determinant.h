@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
+
+#include "magma/b_handles.h"
+
 #include "utils.h"
 
 using namespace MLCommon;
@@ -53,8 +56,8 @@ void diag_batched_kernel(magma_int_t n, T** dU_array, magma_int_t lddu,
 template <typename T>
 void diag_product_batched(magma_int_t n, T** dU_array, magma_int_t lddu,
                           T* dDet_array, magma_int_t batchCount){
-        dim3 block(32, 1, 1);
-        dim3 grid(ceildiv(batchCount, (int)block.x), 1, 1);
+        dim3 block(32);
+        dim3 grid(ceildiv(batchCount, (int)block.x));
         int numThreads = grid.x * block.x;
 
         diag_batched_kernel<T> <<< grid, block >>>(n, dU_array, lddu,
@@ -63,21 +66,31 @@ void diag_product_batched(magma_int_t n, T** dU_array, magma_int_t lddu,
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
+template <typename T>
+void createDeterminantHandle_t(determinantHandle_t<T>& handle,
+                               int n, int ldda, int batchCount){
+        allocate_pointer_array(handle.dipiv_array, n, batchCount);
+        allocate_pointer_array(handle.dA_array_cpy, ldda * n, batchCount);
+        allocate(handle.info_array, batchCount);
+}
+
+template <typename T>
+void destroyDeterminantHandle_t(determinantHandle_t<T>& handle,
+                                int batchCount){
+        free_pointer_array(handle.dipiv_array, batchCount);
+        free_pointer_array(handle.dA_array_cpy, batchCount);
+        CUDA_CHECK(cudaFree(handle.info_array));
+}
 
 template <typename T>
 void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
-                 T* dDet_array, magma_int_t batchCount, magma_queue_t queue){
+                 T* dDet_array, magma_int_t batchCount,
+                 magma_queue_t queue, determinantHandle_t<T> handle){
+        copy_batched(handle.dA_array_cpy, dA_array, ldda * n, batchCount);
 
-        int **dipiv_array, *info_array;
-        T **dA_array_cpy;   // U and L are stored here after getrf
-        allocate_pointer_array(dipiv_array, n, batchCount);
-        allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
-        allocate(info_array, batchCount);
-
-        copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
-
-        magma_getrf_batched(n, n, dA_array_cpy, ldda,
-                            dipiv_array, info_array, batchCount, queue);
+        magma_getrf_batched(n, n, handle.dA_array_cpy, ldda,
+                            handle.dipiv_array, handle.info_array,
+                            batchCount, queue);
 
         // magma_potrf_batched(MagmaLower,
         //                     n,
@@ -89,12 +102,8 @@ void det_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
         //                     );
         // assert_batched(batchCount, info_array);
 
-        diag_product_batched(n, dA_array_cpy, ldda, dDet_array, batchCount);
-
-
-        free_pointer_array(dipiv_array, batchCount);
-        free_pointer_array(dA_array_cpy, batchCount);
-        CUDA_CHECK(cudaFree(info_array));
+        diag_product_batched(n, handle.dA_array_cpy, ldda,
+                             dDet_array, batchCount);
 }
 
 

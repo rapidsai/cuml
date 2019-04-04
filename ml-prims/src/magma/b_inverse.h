@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
+
+#include "magma/b_handles.h"
+
 
 using namespace MLCommon::LinAlg;
 
@@ -46,7 +49,7 @@ __global__ void ID_kernel (int n, T *A, int ldda,
 
 
 template <typename T>
-void make_ID_matrix(int n, T *A, int ldda) {
+void make_ID_matrix(int n, T *A, int ldda, cudaStream_t stream=0) {
         dim3 block(32,32);
         dim3 grid(ceildiv(n, (int)block.x),
                   ceildiv(n, (int)block.y),
@@ -54,41 +57,53 @@ void make_ID_matrix(int n, T *A, int ldda) {
         int nThreads_x = grid.x * block.x;
         int nThreads_y = grid.y * block.y;
 
-        ID_kernel<T> <<< grid, block >>>(n, A, ldda,
-                                         nThreads_x, nThreads_y);
+        ID_kernel<T> <<< grid, block, 0, stream >>>(n, A, ldda,
+                                                    nThreads_x, nThreads_y);
         CUDA_CHECK(cudaPeekAtLastError());
+}
+
+template <typename T>
+void createInverseHandle_t(inverseHandle_t<T>& handle,
+                           int batchCount, int n, int ldda){
+        allocate_pointer_array(handle.dipiv_array, n, batchCount);
+        allocate_pointer_array(handle.dA_array_cpy, ldda * n, batchCount);
+        allocate(handle.info_array, batchCount);
+}
+
+template <typename T>
+void destroyInverseHandle_t(inverseHandle_t<T>& handle,
+                            int batchCount){
+        free_pointer_array(handle.dipiv_array, batchCount);
+        free_pointer_array(handle.dA_array_cpy, batchCount);
+        CUDA_CHECK(cudaFree(handle.info_array));
 }
 
 template <typename T>
 void inverse_batched_magma(magma_int_t n, T** dA_array, magma_int_t ldda,
                            T**& dinvA_array, magma_int_t batchCount,
-                           magma_queue_t queue){
+                           magma_queue_t queue, inverseHandle_t<T> handle){
+        copy_batched(handle.dA_array_cpy, dA_array, ldda * n, batchCount);
 
-        int **dipiv_array, *info_array;
-        T **dA_array_cpy;
-        allocate_pointer_array(dipiv_array, n, batchCount);
-        allocate_pointer_array(dA_array_cpy, ldda * n, batchCount);
-        allocate(info_array, batchCount);
-        copy_batched(batchCount, dA_array_cpy, dA_array, ldda * n);
-
-        magma_getrf_batched(n, n, dA_array_cpy, ldda, dipiv_array, info_array,
+        magma_getrf_batched(n, n, handle.dA_array_cpy, ldda,
+                            handle.dipiv_array, handle.info_array,
                             batchCount, queue);
         // assert_batched(batchCount, info_array);
 
-        magma_getri_outofplace_batched(n, dA_array_cpy, ldda, dipiv_array,
-                                       dinvA_array, ldda, info_array,
+        magma_getri_outofplace_batched(n, handle.dA_array_cpy, ldda,
+                                       handle.dipiv_array,
+                                       dinvA_array, ldda, handle.info_array,
                                        batchCount, queue);
         // assert_batched(batchCount, info_array);
 
-        free_pointer_array(dipiv_array, batchCount);
-        free_pointer_array(dA_array_cpy, batchCount);
-        CUDA_CHECK(cudaFree(info_array));
+
 }
 
 template <typename T>
 void inverse_batched(magma_int_t n, T** dA_array, magma_int_t ldda,
-                     T** dinvA_array, magma_int_t batchCount, magma_queue_t queue){
-        inverse_batched_magma(n, dA_array, ldda, dinvA_array, batchCount, queue);
+                     T** dinvA_array, magma_int_t batchCount,
+                     magma_queue_t queue, inverseHandle_t<T> handle){
+        inverse_batched_magma(n, dA_array, ldda, dinvA_array, batchCount,
+                              queue, handle);
 
 }
 }
