@@ -40,7 +40,6 @@ namespace ML {
 
 	    try {
 	        if(this->owner) {
-
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
 	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
