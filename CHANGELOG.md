@@ -21,6 +21,9 @@
 - PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
+- PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
+- PR #434: Fixing bug in CSR tests
+- PR #443: Remove defaults channel from ci scripts
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -90,7 +93,6 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-
 
 # cuML 0.5.1 (05 Feb 2019)
 
