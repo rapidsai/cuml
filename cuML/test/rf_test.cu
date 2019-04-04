@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "randomforest/randomforest.h"
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
 #include <test_utils.h>
 #include "ml_utils.h"
+#include "randomforest/randomforest.h"
 
 namespace ML {
 
@@ -67,7 +67,7 @@ protected:
 		// Populate labels
 		labels_h = {0, 1, 0, 4};
 		labels_h.resize(params.n_rows);
-		ML::preprocess_labels(params.n_rows, labels_h, labels_map);
+		preprocess_labels(params.n_rows, labels_h, labels_map);
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
 		// Set selected rows: all for forest w/ single decision tree
@@ -76,15 +76,7 @@ protected:
 		selected_rows_h.resize(params.n_rows);
 		updateDevice(selected_rows, selected_rows_h.data(), params.n_rows);
 
-		// Train single decision tree.
-		//tree_cf = new DecisionTree::DecisionTreeClassifier();
-		//std::cout << "Config: " << params.n_cols << " " << params.n_rows << " " << params.max_depth << " " << params.max_leaves  << " " << params.max_features << " " << params.bootstrap << std::endl;
-		//tree_cf->fit(data, params.n_cols, params.n_rows, labels, selected_rows, params.n_rows, 
-		//				params.max_depth, params.max_leaves, params.max_features, params.n_bins);
-		//tree_cf->print();
-
-
- 		rf_classifier = new ML::rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth, 
+		rf_classifier = new rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth,
 							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
 		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, labels_map.size());
 
@@ -93,36 +85,6 @@ protected:
 		inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
 		inference_data_h.resize(inference_data_len);
 
-
-# if  0
-		int single_tree_inference_data_len = params.n_cols;
-		std::vector<T> single_tree_inference_data_h = {30.0f, 20.0f};
-		single_tree_inference_data_h.resize(single_tree_inference_data_len);
-		int predicted_val = tree_cf->predict(single_tree_inference_data_h.data());
-	    std::cout << "Predicted " << predicted_val << std::endl;
-
-
-		//--------------------------------------------------------
-		// Random Forest
-		//--------------------------------------------------------
-		
- 		rf_classifier = new ML::rfClassifier::rfClassifier(params.n_trees, params.bootstrap, params.max_depth , params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
-		rf_classifier->fit(data, params.n_rows, params.n_cols, labels);
-
-		int inference_data_len = params.n_inference_rows * params.n_cols;
-		std::vector<T> inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
-		inference_data_h.resize(inference_data_len);
-
-		predictions = rf_classifier->predict(inference_data_h.data(), params.n_inference_rows, params.n_cols, false);
-		for (int i = 0; i < params.n_inference_rows; i++) {
-			std::cout << "Random forest predicted " << predictions[i] << std::endl;
-		}
-
-		rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
-#endif
-
-
-		
     }
 
  	void SetUp() override {
@@ -130,7 +92,7 @@ protected:
 	}
 
 	void TearDown() override {
-		ML::postprocess_labels(params.n_rows, labels_h, labels_map);
+		postprocess_labels(params.n_rows, labels_h, labels_map);
 		inference_data_h.clear();
 		labels_h.clear();
 		labels_map.clear();
@@ -139,7 +101,6 @@ protected:
 		CUDA_CHECK(cudaFree(data));
 		CUDA_CHECK(cudaFree(selected_rows));
 		delete rf_classifier;
-		//delete tree_cf;
 	}
 
 protected:
@@ -152,10 +113,7 @@ protected:
 	unsigned int * selected_rows;
 	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
 
-	
-	//DecisionTree::DecisionTreeClassifier * tree_cf;
     rfClassifier<T> * rf_classifier;
-
 };
 
 
@@ -165,12 +123,10 @@ const std::vector<RfInputs<float> > inputsf2 = {
 };
 
 
-//FIXME Add tests for fit and predict. Identify what would make a comparison match (similar predictions?)
-// devArrMatch compares 2 device n-D arrays. See external/ml-prims/test/test_utils.h
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
-	ML::RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
-	rf_classifier->print_rf_detailed();
+	RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+	//rf_classifier->print_rf_detailed();
 	ASSERT_TRUE((tmp.accuracy == 1.0f));
 }
 
