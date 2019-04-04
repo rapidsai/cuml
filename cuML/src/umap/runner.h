@@ -127,6 +127,167 @@ namespace UMAPAlgo {
 
     }
 
+    __device__ int get_stop_idx(int row, int m, int *ind) {
+        int stop_idx = 0;
+        if(row < (m-1))
+            stop_idx = ind[row+1];
+        else
+            stop_idx = m;
+
+        return stop_idx;
+    }
+
+    /**
+     * Calculate how many unique columns per row
+     */
+    template<typename T, int TPB_X>
+    __global__ void add_calc_row_counts_kernel(
+            int *a_ind, int *a_indptr, T *a_val,
+            int *b_ind, int *b_indptr, T *b_val,
+            int nnz, int m,
+            int *out_rowcounts) {
+
+        // loop through columns in each set of rows and
+        // calculate number of unique cols across both rows
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+        if(row < m) {
+            int a_start_idx = a_ind[row];
+            int a_stop_idx = get_stop_idx(row, m, a_ind);
+
+            int b_start_idx = b_ind[row];
+            int b_stop_idx = get_stop_idx(row, m, b_ind);
+
+            int max_size = (a_stop_idx - a_start_idx) +
+                    (b_stop_idx - b_start_idx);
+
+            int arr[max_size];
+            int cur_arr_idx = 0;
+            for(int j = a_start_idx; j < a_stop_idx; j++) {
+                arr[cur_arr_idx] = a_indptr[j];
+                cur_arr_idx++;
+            }
+
+            int arr_size = curr_arr_idx;
+
+            for(int j = b_start_idx; j < b_stop_idx; j++) {
+
+                int cur_col = b_indptr[j];
+                bool found = false;
+                for(int k = 0; k < arr_size; k++) {
+                    if(arr[k] == cur_col)
+                        found = true;
+                }
+
+                if(!found)
+                    arr_size++;
+            }
+
+            out_rowcounts[row] = arr_size;
+            atomicAdd(out_rowcounts+m, arr_size);
+        }
+    }
+
+
+    template<typename T>
+    __global__ void add_kernel(
+           int *a_ind, int *a_indptr, T *a_val,
+           int *b_ind, int *b_indptr, T *b_val,
+           int nnz, int m,
+           int *out_ind, int *out_indptr, T *out_val) {
+
+        // 1 thread per row
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+        if(row < m) {
+            int a_start_idx = a_ind[row];
+            int a_stop_idx = get_stop_idx(row, m, a_ind);
+
+            int b_start_idx = b_ind[row];
+            int b_stop_idx = get_stop_idx(row, m, b_ind);
+
+            int o_idx = out_ind[row];
+
+            int cur_o_idx = 0;
+            for(int j = a_start_idx; j < a_stop_idx; j++) {
+                out_indptr[cur_o_idx] = a_indptr[j];
+                out_val[cur_o_idx] = a_val[j];
+                cur_o_idx++;
+            }
+
+            int arr_size = curr_o_idx;
+            for(int j = b_start_idx; j < b_stop_idx; j++) {
+                int cur_col = b_indptr[j];
+                bool found = false;
+                for(int k = 0; k < arr_size; k++) {
+                    // If we found a match, sum the two values
+                    if(out_indptr[k] == cur_col)
+                        out_val[k] += b_val[j];
+                }
+
+                // if we didn't find a match, add the value for b
+                if(!found) {
+                    out_indptr[arr_size] = cur_col;
+                    out_val[arr_size] = b_val[j];
+                }
+            }
+        }
+    }
+
+    template<typename T, int TPB_X>
+    void csr_add_calc_inds(
+        int *a_ind, int *a_indptr, int *a_val,
+        int *b_ind, int *b_indptr, int *b_val,
+        int nnz, int m,
+        int *out_nnz, int *out_ind
+    ) {
+
+        dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
+        dim3 blk(TPB_X, 1, 1);
+
+        int *row_counts;
+        MLCommon::allocate(row_counts, m+1, true);
+
+        int c_nnz = row_counts[m];
+
+        add_calc_row_counts_kernel<<<grid, blk>>>(
+            a_ind, a_indptr, a_val, b_ind, b_indptr, b_val,
+            nnz, m,
+            row_counts
+        );
+
+        int *c_ind;
+        MLCommon::allocate(c_ind, m);
+
+        // create csr compressed row index from row counts
+        thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
+        thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(c_ind);
+        exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
+    }
+
+    template<typename T, int TPB_X>
+    void csr_add_finalize(
+        int *a_ind, int *a_indptr, int *a_val,
+        int *b_ind, int *b_indptr, int *b_val,
+        int nnz, int m,
+        int *c_ind, int *c_indptr, int *c_val,
+        int c_nnz
+    ) {
+
+        int c_intptr;
+        T *c_val;
+
+        MLCommon::allocate(c_indptr, c_nnz);
+        MLCommon::allocate(c_val, c_nnz);
+
+        add_kernel<<<grid,blk>>>(
+            a_ind, a_indptr, a_val, b_ind, b_indptr, b_val,
+            nnz, m,
+            c_ind, c_indptr, c_val
+        );
+    }
+
+
     template<typename T, int TPB_X>
     void general_simplicial_set_intersection(
         int rows1, int cols1, T *vals1, int nnz1,
@@ -136,6 +297,15 @@ namespace UMAPAlgo {
         // result = Eltwise sum of 1 & 2
         //   This means adding intersecting items but combining
         //   rows & columns together.
+
+        //
+        // Sparse sum:
+
+        // CSR A
+        // CSR B
+
+        // a-ind=[0 5 9 10]
+        // b-ind=[0 1 2 10]
 
         // run ex_scan on left
         // run ex_scan on right
@@ -291,7 +461,6 @@ namespace UMAPAlgo {
         MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
         MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
 
-
         /**
          * Run Fuzzy simplicial set
          */
@@ -357,18 +526,7 @@ namespace UMAPAlgo {
                                ygraph_vals,
                                params, &ynnz, 0);  // TODO: explicitly pass in n_neighbors so that target_n_neighbors can be used
             CUDA_CHECK(cudaPeekAtLastError());
-
-
-
         }
-
-
-
-
-
-
-
-
 
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists,
