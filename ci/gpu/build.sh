@@ -80,3 +80,13 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
 logger "Python py.test for cuML..."
 cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+
+cd $WORKSPACE/ml-prims/build
+logger "Run cmake ml-prims..."
+cmake ..
+logger "Clean up make..."
+make clean
+logger "Make ml-prims test..."
+make -j${PARALLEL_LEVEL}
+logger "Run ml-prims test..."
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./test/mlcommon_test
