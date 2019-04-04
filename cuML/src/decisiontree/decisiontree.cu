@@ -25,7 +25,6 @@
 #include "memory.cuh"
 #include "Timer.h"
 #include "decisiontree.h"
-#include "decisiontree_c.h"
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -249,7 +248,10 @@ namespace ML {
 			}
 		}
 		
-		
+		//Class specializations
+		template class DecisionTreeClassifier<float>;
+		template class DecisionTreeClassifier<double>;
+
 	} //End namespace DecisionTree
 	
 } //End namespace ML
