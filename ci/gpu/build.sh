@@ -81,6 +81,9 @@ logger "Python py.test for cuML..."
 cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
+
+logger "GoogleTest for ml-prims..."
+mkdir -p $WORKSPACE/ml-prims/build
 cd $WORKSPACE/ml-prims/build
 logger "Run cmake ml-prims..."
 cmake ..
