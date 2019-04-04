@@ -16,31 +16,71 @@
 
 namespace ML {
 namespace GLM {
-
-// OLS
+/**
+ * @defgroup Functions fit an ordinary least squares model
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param labels        device pointer to label vector of length n_rows
+ * @param coef          device pointer to hold the solution for weights of size n_cols
+ * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param fit_intercept if true, fit intercept
+ * @param normalize     if true, normalize data to zero mean, unit variance
+ * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
+ * @{
+ */
 void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef,
-		float *intercept, bool fit_intercept, bool normalize, int algo = 0);
+            float *intercept, bool fit_intercept, bool normalize, int algo = 0);
 void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
-		double *intercept, bool fit_intercept, bool normalize, int algo = 0);
-void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
-		float intercept, float *preds);
-void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
-		double intercept, double *preds);
+            double *intercept, bool fit_intercept, bool normalize,
+            int algo = 0);
+/** @} */
 
-// Ridge
+/**
+ * @defgroup Functions fit a ridge regression model (l2 regularized least squares)
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param labels        device pointer to label vector of length n_rows
+ * @param alpha         device pointer to parameters of the l2 regularizer
+ * @param n_alpha       number of regularization parameters
+ * @param coef          device pointer to hold the solution for weights of size n_cols
+ * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param fit_intercept if true, fit intercept
+ * @param normalize     if true, normalize data to zero mean, unit variance
+ * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
+ * @{
+ */
 void ridgeFit(float *input, int n_rows, int n_cols, float *labels, float *alpha,
-		int n_alpha, float *coef, float *intercept, bool fit_intercept,
-		bool normalize, int algo = 0);
+              int n_alpha, float *coef, float *intercept, bool fit_intercept,
+              bool normalize, int algo = 0);
 
 void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
-		double *alpha, int n_alpha, double *coef, double *intercept,
-		bool fit_intercept, bool normalize, int algo = 0);
+              double *alpha, int n_alpha, double *coef, double *intercept,
+              bool fit_intercept, bool normalize, int algo = 0);
+/** @} */
+
+/**
+ * @defgroup Functions to make predictions with a fitted ordinary least squares and ridge regression model
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param coef          weights of the model
+ * @param intercept     bias term of the model
+ * @param preds         device pointer to store predictions of size n_rows
+ * @{
+ */
+void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
+                float intercept, float *preds);
+void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
+                double intercept, double *preds);
 
 void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
-		float intercept, float *preds);
+                  float intercept, float *preds);
 
 void ridgePredict(const double *input, int n_rows, int n_cols,
-		const double *coef, double intercept, double *preds);
+                  const double *coef, double intercept, double *preds);
+/** @} */
 
 /**
  * @defgroup functions to fit a GLM using quasi newton methods.
