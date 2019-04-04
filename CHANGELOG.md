@@ -3,6 +3,8 @@
 ## New Features
 
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
 
 ## Improvements
 
@@ -16,9 +18,11 @@
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
 - PR #398: Fix CI scripts to allow nightlies to be uploaded
 - PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
+- PR #434: Fixing bug in CSR tests
 
 # cuML 0.6.0 (22 Mar 2019)
 
