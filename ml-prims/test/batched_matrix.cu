@@ -136,5 +136,10 @@ TEST_P(BatchedMatrixTestD, Result) {
   std::cout << "Finished Test\n";
 }
 
+const std::vector<BatchedMatrixInputs<double>> inputsd = {{1e-8}};
+
+INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
+                        ::testing::ValuesIn(inputsd));
+
 }
 }
