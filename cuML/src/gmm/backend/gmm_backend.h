@@ -18,8 +18,9 @@
 
 #include <gmm/gmm_variables.h>
 
-#include <magma/magma_test_utils.h>
+#include <magma/magma_utils.h>
 #include <gmm/likelihood/b_likelihood.h>
+#include <gmm/backend/normalize.h>
 
 #include <cuda.h>
 #include <linalg/cublas_wrappers.h>
@@ -112,58 +113,7 @@ void naiveAddElem(Type *out, const Type *in1, const Type in2, int len) {
 //         CUDA_CHECK(cudaPeekAtLastError());
 // }
 
-template <typename T>
-__global__
-void normalizeMatrixKernel(size_t m, size_t n,
-                           T *dA, size_t ldda,
-                           T* x, bool colwise,
-                           int numThreads_x, int numThreads_y){
-        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
 
-        for (size_t j = j_start; j < n; j+=numThreads_y) {
-                for (size_t i = i_start; i < m; i+=numThreads_x) {
-                        if(colwise) {
-                                dA[IDX(i, j, ldda)] /= x[j];
-                        }
-                        else{
-                                dA[IDX(i, j, ldda)] /= x[i];
-                        }
-                }
-        }
-}
-
-template <typename T>
-void normalize_matrix(size_t m, size_t n,
-                      T *dA, size_t ldda,
-                      bool colwise)
-{
-        dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int)m, (int)block.x),
-                  ceildiv((int)n, (int)block.y),
-                  1);
-
-        int numThreads_x = grid.x * block.x;
-        int numThreads_y = grid.y * block.y;
-
-        T* sums;
-        if(colwise) {
-                allocate(sums, n);
-                MLCommon::Stats::sum(sums, dA, n, ldda, false);
-
-        }
-        else{
-                allocate(sums, ldda);
-                MLCommon::Stats::sum(sums, dA, ldda, n, true);
-        }
-
-        normalizeMatrixKernel<T> <<< grid, block >>>(m, n, dA, ldda,
-                                                     sums, colwise,
-                                                     numThreads_x, numThreads_y);
-        CUDA_CHECK(cudaPeekAtLastError());
-
-        CUDA_CHECK(cudaFree(sums));
-}
 
 template <typename T>
 __global__
@@ -258,16 +208,29 @@ void generate_trans_matrix(magma_int_t m, magma_int_t n, T* dA, magma_int_t lda,
         normalize_matrix(m, n, dA, lda, colwise);
 }
 
+
+template <typename T>
+__global__
+void split_to_batchesKernel(magma_int_t n,
+                            T **dA_array, T *dA, magma_int_t ldda,
+                            int nThreads_x){
+        int start = threadIdx.x + blockDim.x * blockIdx.x;
+        for (size_t bId = start; bId < n; bId+=nThreads_x) {
+                dA_array[bId] = dA + IDX(0, bId, ldda);
+        }
+}
+
 template <typename T>
 void split_to_batches(magma_int_t n, T **&dA_array, T *&dA, magma_int_t ldda){
-        T **A_array;
-        A_array = (T **)malloc(sizeof(T*) * n);
-        for (size_t bId = 0; bId < n; bId++) {
-                A_array[bId] = dA + IDX(0, bId, ldda);
-        }
+        dim3 block(32);
+        dim3 grid(ceildiv((int)n, (int) block.x));
 
-        updateDevice(dA_array, A_array, n);
-        free(A_array);
+        int nThreads_x = grid.x * block.x;
+
+        split_to_batchesKernel<T> <<< grid, block >>>(n,
+                                                      dA_array, dA, ldda,
+                                                      nThreads_x);
+        CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }

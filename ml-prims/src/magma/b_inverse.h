@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
 
 #include "magma/b_handles.h"
@@ -82,7 +82,7 @@ template <typename T>
 void inverse_batched_magma(magma_int_t n, T** dA_array, magma_int_t ldda,
                            T**& dinvA_array, magma_int_t batchCount,
                            magma_queue_t queue, inverseHandle_t<T> handle){
-        copy_batched(batchCount, handle.dA_array_cpy, dA_array, ldda * n);
+        copy_batched(handle.dA_array_cpy, dA_array, ldda * n, batchCount);
 
         magma_getrf_batched(n, n, handle.dA_array_cpy, ldda,
                             handle.dipiv_array, handle.info_array,

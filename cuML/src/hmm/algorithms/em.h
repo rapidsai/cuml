@@ -17,7 +17,7 @@
 #pragma once
 
 #include "hmm/dists/multinomial.h"
-#include "gmm/gmm_backend.h"
+#include "gmm/backend/gmm_backend.h"
 
 namespace hmm {
 

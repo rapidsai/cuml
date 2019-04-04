@@ -21,7 +21,7 @@
 #include "hmm/hmm_variables.h"
 #include "hmm/dists/multinomial.h"
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
 
 // References :

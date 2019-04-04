@@ -20,7 +20,7 @@
 // #include "magma.h"
 // #include "magma_lapack.h"  // if you need BLAS & LAPACK
 
-#include "magma/magma_test_utils.h"
+#include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
 #include "magma/b_handles.h"
 

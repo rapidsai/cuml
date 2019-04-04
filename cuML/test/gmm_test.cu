@@ -2,7 +2,7 @@
 
 // #include <magma_v2.h>
 #include "gmm/gmm.h"
-#include <magma/magma_test_utils.h>
+#include <magma/magma_utils.h>
 
 using namespace MLCommon;
 using namespace gmm;
@@ -82,11 +82,11 @@ void SetUp() override {
         magma_int_t nCl = 30;
         magma_int_t nDim = 40;
         magma_int_t nObs = 400;
-        int n_iter = 5;
+        int n_iter = 100;
 
         run<T>(nCl, nDim, nObs, n_iter);
 
-        error = 1;
+        error = 0;
 
         magma_finalize();
 }
