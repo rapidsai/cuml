@@ -42,12 +42,14 @@ void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
 
 
 template <typename T, typename GEMV_t>
-void unaryAndGemv(T *dots, const T *data, int cols, int rows, GEMV_t gemv){
+void unaryAndGemv(T *dots, const T *data, int cols, int rows, GEMV_t gemv,
+                    cudaStream_t stream){
     //computes a MLCommon unary op on data (squares it), then computes Ax
     //(A input matrix and x column vector) to sum columns
     thrust::device_vector<T> sq(cols*rows);
     unaryOp(thrust::raw_pointer_cast(sq.data()), data, cols*rows,
-            [] __device__(T v) { return v*v; });
+            [] __device__(T v) { return v*v; },
+            stream);
 
     cublasHandle_t handle;
     ASSERT_TRUE(cublasCreate(&handle) == CUBLAS_STATUS_SUCCESS);
@@ -60,12 +62,14 @@ void unaryAndGemv(T *dots, const T *data, int cols, int rows, GEMV_t gemv){
                 dots, 1) == CUBLAS_STATUS_SUCCESS);
 }
 
-void unaryAndGemv(float *dots, const float *data, int cols, int rows){
-    unaryAndGemv(dots, data, cols, rows, cublasSgemv);
+void unaryAndGemv(float *dots, const float *data, int cols, int rows,
+                    cudaStream_t stream){
+    unaryAndGemv(dots, data, cols, rows, cublasSgemv, stream);
 }
 
-void unaryAndGemv(double *dots, const double *data, int cols, int rows){
-    unaryAndGemv(dots, data, cols, rows, cublasDgemv);
+void unaryAndGemv(double *dots, const double *data, int cols, int rows,
+                    cudaStream_t stream){
+    unaryAndGemv(dots, data, cols, rows, cublasDgemv, stream);
 }
 
 
@@ -83,9 +87,9 @@ protected:
     allocate(data, len);
     allocate(dots_exp, cols); //expected dot products (from test)
     allocate(dots_act, cols); //actual dot products (from prim)
-    r.uniform(data, len, T(-1.0), T(1.0)); //initialize matrix to random
+    r.uniform(data, len, T(-1.0), T(1.0), stream); //initialize matrix to random
 
-    unaryAndGemv(dots_exp, data, cols, rows);
+    unaryAndGemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

@@ -43,7 +43,7 @@ namespace ML {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-            void fit(float *X, int n, int d, float *embeddings);
+            void fit(float *X, int n, int d, float *embeddings, cudaStream_t stream);
 
             /**
              * Project a set of X vectors into the embedding space.
@@ -62,7 +62,7 @@ namespace ML {
              */
             void transform(float *X, int n, int d,
                     float *embedding, int embedding_n,
-                    float *out);
+                    float *out, cudaStream_t stream);
 
             /**
              * Get the UMAPParams instance

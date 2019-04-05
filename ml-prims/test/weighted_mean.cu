@@ -73,8 +73,8 @@ protected:
     dact.resize(rows);
 
     //create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0));
-    r.uniform(dweights.data().get(), cols, T(-1.0), T(1.0));
+    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
+    r.uniform(dweights.data().get(), cols, T(-1.0), T(1.0), stream);
     
     //host-side data
     thrust::host_vector<T> hin = din;
@@ -139,8 +139,8 @@ class ColWeightedMeanTest : public ::testing::TestWithParam<WeightedMeanInputs<T
     dact.resize(cols);
 
     //create random matrix and weights
-    r.uniform(din.data().get(), len, T(-1.0), T(1.0));
-    r.uniform(dweights.data().get(), rows, T(-1.0), T(1.0));
+    r.uniform(din.data().get(), len, T(-1.0), T(1.0), stream);
+    r.uniform(dweights.data().get(), rows, T(-1.0), T(1.0), stream);
     
     //host-side data
     thrust::host_vector<T> hin = din;

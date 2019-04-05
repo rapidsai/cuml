@@ -32,13 +32,17 @@ void pcaFit(float *input, float *components, float *explained_var,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
-			mu, noise_vars, prms, cublas_handle, cusolver_handle);
+			mu, noise_vars, prms, cublas_handle, cusolver_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 void pcaFit(double *input, double *components, double *explained_var,
@@ -49,13 +53,17 @@ void pcaFit(double *input, double *components, double *explained_var,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
 	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
-			mu, noise_vars, prms, cublas_handle, cusolver_handle);
+			mu, noise_vars, prms, cublas_handle, cusolver_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 void pcaFitTransform(float *input, float *trans_input, float *components,

@@ -51,7 +51,7 @@ namespace LinAlg {
 template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
            T *right_sing_vecs, bool trans_right, bool gen_left_vec, bool gen_right_vec,
-           cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+           cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream,
            DeviceAllocator &mgr) {
   const int m = n_rows;
   const int n = n_cols;
@@ -83,7 +83,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 
   // Transpose the right singular vector back
   if (trans_right)
-	  transpose(right_sing_vecs, n_cols);
+	  transpose(right_sing_vecs, n_cols, stream);
 
   CUDA_CHECK(cudaGetLastError());
 
@@ -94,8 +94,8 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
          "This usually occurs when some of the features do not vary enough.");
   
   ///@todo: what if stream from cusolver handle is different!?
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
+  // cudaStream_t stream;
+  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }
@@ -104,7 +104,7 @@ template <typename T>
 void svdEig(T* in, int n_rows, int n_cols, T* S,
 		   T* U, T* V, bool gen_left_vec,
             cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-    DeviceAllocator &mgr) {
+            cudaStream_t stream, DeviceAllocator &mgr) {
 
 	T *in_cross_mult;
 	int len = n_cols * n_cols;
@@ -117,16 +117,16 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 
 	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, mgr);
 
-	Matrix::colReverse(V, n_cols, n_cols);
-	Matrix::rowReverse(S, n_cols, 1);
+	Matrix::colReverse(V, n_cols, n_cols, stream);
+	Matrix::rowReverse(S, n_cols, 1, stream);
 
-	Matrix::seqRoot(S, S, alpha, n_cols, true);
+	Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
     if (gen_left_vec) {
     	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
              alpha, beta, cublasH);
       // @ToDo: Add stream param for below prim
-      Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, 0);
+      Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, stream);
     }
 
 	CUDA_CHECK(cudaFree(in_cross_mult));
@@ -251,15 +251,15 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   math_t *S_mat = (math_t *)mgr.alloc(sizeof(math_t) * k * k);
   CUDA_CHECK(cudaMemsetAsync(S_mat, 0, sizeof(math_t) * k * k, stream));
 
-  Matrix::initializeDiagonalMatrix(S_vec, S_mat, k, k);
+  Matrix::initializeDiagonalMatrix(S_vec, S_mat, k, k, stream);
   svdReconstruction(U, S_mat, V, P_d, m, n, k, cublasH, mgr);
 
   // get norms of each
-  math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH);
-  math_t normU = Matrix::getL2Norm(U, m * k, cublasH);
-  math_t normS = Matrix::getL2Norm(S_mat, k * k, cublasH);
-  math_t normV = Matrix::getL2Norm(V, n * k, cublasH);
-  math_t normP = Matrix::getL2Norm(P_d, m * n, cublasH);
+  math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH, stream);
+  math_t normU = Matrix::getL2Norm(U, m * k, cublasH, stream);
+  math_t normS = Matrix::getL2Norm(S_mat, k * k, cublasH, stream);
+  math_t normV = Matrix::getL2Norm(V, n * k, cublasH, stream);
+  math_t normP = Matrix::getL2Norm(P_d, m * n, cublasH, stream);
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
@@ -269,7 +269,7 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, m, n, &alpha, A_d,
                           m, &beta, P_d, m, A_minus_P, m));
 
-  math_t norm_A_minus_P = Matrix::getL2Norm(A_minus_P, m * n, cublasH);
+  math_t norm_A_minus_P = Matrix::getL2Norm(A_minus_P, m * n, cublasH, stream);
   math_t percent_error = 100.0 * norm_A_minus_P / normA;
 
   mgr.free(A_minus_P, stream);

@@ -46,13 +46,13 @@ protected:
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(mean_act, cols);
     allocate(stddev_act, cols);
     allocate(vars_act, cols);
-    r.normal(data, len, params.mean, params.stddev);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    r.normal(data, len, params.mean, params.stddev, stream);
     stdVarSGtest(data, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -60,14 +60,14 @@ protected:
   void stdVarSGtest(T *data, cudaStream_t stream) {
     int rows = params.rows, cols = params.cols;
 
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor);
+    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
 
     stddev(stddev_act, data, mean_act, cols, rows, params.sample,
            params.rowMajor, stream);
 
     vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor, stream);
 
-    Matrix::seqRoot(vars_act, T(1), cols);
+    Matrix::seqRoot(vars_act, T(1), cols, stream);
   }
 
   void TearDown() override {

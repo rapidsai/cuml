@@ -103,7 +103,7 @@ void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
                                  R_full_nrows, tau, workspace, Lwork, devInfo));
   mgr.free(workspace, stream);
 
-  Matrix::copyUpperTriangular(R_full, R, m, n);
+  Matrix::copyUpperTriangular(R_full, R, m, n, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(Q, R_full, sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));

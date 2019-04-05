@@ -43,10 +43,11 @@ enum Filler : unsigned char {
  * @param size length of the array
  */
 template <typename T>
-void epsilonToZero(T *eig, T epsilon, int size) {
+void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
   LinAlg::unaryOp(eig, eig, size, [epsilon] __device__(T in) {
     return (in < epsilon && in > -epsilon) ? T(0.0) : in;
-  });
+  },
+  stream);
 }
 
 /**
@@ -121,6 +122,7 @@ private:
   cublasHandle_t cublasHandle;
   cusolverDnHandle_t cusolverHandle;
   cusolverEigMode_t jobz = CUSOLVER_EIG_MODE_VECTOR;
+  cudaStream_t cudaStream;
   bool deinitilized = false;
 
   size_t give_buffer_size() {
@@ -140,9 +142,11 @@ public: // functions
   MultiVarGaussian(const int dim, Decomposer method)
     : dim(dim), method(method) {}
 
-  size_t init(cublasHandle_t cublasH, cusolverDnHandle_t cusolverH) {
+  size_t init(cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
+                cudaStream_t stream) {
     cublasHandle = cublasH;
     cusolverHandle = cusolverH;
+    cudaStream = stream;
     CURAND_CHECK(curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT));
     CURAND_CHECK(curandSetPseudoRandomGeneratorSeed(gen, 28)); // SEED
     if (method == chol_decomp) {
@@ -201,7 +205,7 @@ public: // functions
                                       dim, nPoints, dim, &alfa, P, dim, X, dim,
                                       &beta, X, dim));
     } else {
-      epsilonToZero(eig, epsilon, dim);
+      epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
       dim3 grid(ceildiv(dim, (int)block.x));
       CUDA_CHECK(cudaMemset(info, 0, sizeof(int)));

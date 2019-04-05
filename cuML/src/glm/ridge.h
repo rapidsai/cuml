@@ -46,7 +46,7 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	math_t beta = math_t(0);
 	math_t thres = math_t(1e-10);
 
-	Matrix::setSmallValuesZero(S, n_cols, thres);
+	Matrix::setSmallValuesZero(S, n_cols, stream, thres);
 	allocate(S_nnz, n_cols, true);
 	copy(S_nnz, S, n_cols);
 	Matrix::power(S_nnz, n_cols, stream);
@@ -83,7 +83,7 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(S, n_cols);
 
 	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
-                      cublasH, mgr);
+                      cublasH, stream, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH, stream);
 
@@ -112,7 +112,7 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
+	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH, stream);
 

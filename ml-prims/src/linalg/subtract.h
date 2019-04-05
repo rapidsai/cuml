@@ -34,7 +34,7 @@ namespace LinAlg {
  */
 template <typename math_t>
 void subtractScalar(math_t *out, const math_t *in, math_t scalar, int len,
-                    cudaStream_t stream = 0) {
+                    cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in - scalar; },
           stream);
@@ -51,7 +51,7 @@ void subtractScalar(math_t *out, const math_t *in, math_t scalar, int len,
  */
 template <typename math_t>
 void subtract(math_t *out, const math_t *in1, const math_t *in2, int len,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a - b; }, stream);
 }
@@ -78,14 +78,15 @@ __global__ void subtract_dev_scalar_kernel(math_t* outDev, const math_t* inDev, 
  * @{
  */
 template <typename math_t, int TPB = 256>
-void subtractDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev, int len)
+void subtractDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev,
+                        int len, cudaStream_t stream)
 {
     // Just for the note - there is no way to express such operation with cuBLAS in effective way
     // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
     const int nblks = ceildiv(len, TPB);
     dim3 block(TPB);
     dim3 grid(nblks);
-    subtract_dev_scalar_kernel<math_t> <<<grid, block>>>(outDev, inDev, singleScalarDev, len);
+    subtract_dev_scalar_kernel<math_t> <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
     CUDA_CHECK(cudaPeekAtLastError());
 }
 

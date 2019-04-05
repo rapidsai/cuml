@@ -131,8 +131,8 @@ void sgdFit(math_t *input,
 				break;
 
 			updateDevice(indices, &rand_indices[j], cbs);
-			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs);
-			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs);
+			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs, stream);
+			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs, stream);
 
 			if (loss == ML::loss_funct::SQRD_LOSS) {
 				Functions::linearRegLossGrads(input_batch, cbs, n_cols, labels_batch,
@@ -152,7 +152,7 @@ void sgdFit(math_t *input,
 			    learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
 			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols, stream);
-			LinAlg::subtract(coef, coef, grads, n_cols);
+			LinAlg::subtract(coef, coef, grads, n_cols, stream);
 
 			j = j + cbs;
 			t = t + 1;
@@ -250,14 +250,16 @@ void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const ma
 		                                                  		  return math_t(1);
 		                                                  	  else
 		                                                  		  return math_t(0);
-	                                                    	});
+                                                        },
+                                                        stream);
 	} else if (loss == ML::loss_funct::HINGE) {
 		LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
 				                                              if (in >= math_t(0.0))
 				                                                  return math_t(1);
 				                                              else
 				                                                  return math_t(0);
-			                                                  });
+			                                                  },
+                                                        stream);
 	}
 
 }

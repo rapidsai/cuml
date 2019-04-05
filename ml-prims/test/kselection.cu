@@ -133,15 +133,18 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(arr, params.rows * params.cols);
     allocate(outk, params.rows * params.k);
     allocate(outv, params.rows * params.k);
-    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0));
+    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort = false;
     static const bool Greater = true;
     warpTopK<T, int, Greater, Sort>(outv, outk, arr, params.k, params.rows,
                                     params.cols);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

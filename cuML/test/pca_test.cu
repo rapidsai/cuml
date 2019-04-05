@@ -108,7 +108,7 @@ protected:
 
 
 		pcaFit(data, components, explained_vars, explained_var_ratio,
-				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle);
+				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle, stream);
 
 		pcaTransform(data, components, trans_data, singular_vals, mean,
 				     prms, cublas_handle, stream);
@@ -151,7 +151,7 @@ protected:
 		}
 
 		allocate(data2, len);
-		r.uniform(data2, len, T(-1.0), T(1.0));
+		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
 
 		int len_comp = params.n_col2 * prms.n_components;

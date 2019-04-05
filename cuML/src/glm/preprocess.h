@@ -42,11 +42,11 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 			"Parameter n_rows: number of rows cannot be less than two");
 
 	if (fit_intercept) {
-		Stats::mean(mu_input, input, n_cols, n_rows, false, false);
-		Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true);
+		Stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+		Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
 
-		Stats::mean(mu_labels, labels, 1, n_rows, false, false);
-		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true);
+		Stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
 		if (normalize) {
 			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm,
@@ -81,13 +81,13 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
 		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
 
-	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1);
+	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1, stream);
 	updateHost(intercept, d_intercept, 1);
 	if (d_intercept != NULL)
 		cudaFree(d_intercept);
 
-	Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true);
-	Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true);
+	Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
+	Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
 }
 

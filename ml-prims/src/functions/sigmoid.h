@@ -23,22 +23,24 @@ namespace MLCommon {
 namespace Functions {
 
 template <typename T>
-void sigmoid(T *out, T *in, int len);
+void sigmoid(T *out, T *in, int len, cudaStream_t stream);
 
 template <>
-inline void sigmoid(float *out, float *in, int len) {
+inline void sigmoid(float *out, float *in, int len, cudaStream_t stream) {
 	float scalar = float(1);
 	LinAlg::unaryOp(out, in, len, [scalar] __device__ (float in) {
 		                                         return 1.0 / (1.0 + expf(-in));
-		                                   });
+		                                   },
+                                       stream);
 }
 
 template <>
-inline void sigmoid(double *out, double *in, int len) {
+inline void sigmoid(double *out, double *in, int len, cudaStream_t stream) {
 	double scalar = double(1);
 	LinAlg::unaryOp(out, in, len, [scalar] __device__ (double in) {
 		                                         return 1.0 / (1.0 + exp(-in));
-		                                   });
+		                                   },
+                                       stream);
 }
 
 

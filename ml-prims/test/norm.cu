@@ -79,7 +79,7 @@ public:
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0));
+    r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
@@ -138,7 +138,7 @@ public:
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
-    r.uniform(data, len, T(-1.0), T(1.0));
+    r.uniform(data, len, T(-1.0), T(1.0), stream);
     allocate(dots_exp, cols);
     allocate(dots_act, cols);
 

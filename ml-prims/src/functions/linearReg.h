@@ -60,14 +60,14 @@ void linearRegLossGrads(math_t *input, int n_rows, int n_cols,
 
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
-	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows);
+	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows, stream);
 
 	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
+	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
 	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true, stream);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
+	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
 
-	Stats::mean(grads, input, n_cols, n_rows, false, false);
+	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 	LinAlg::scalarMultiply(grads, grads, math_t(2), n_cols, stream);
 
 	math_t *pen_grads = NULL;
@@ -110,9 +110,9 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
-	LinAlg::subtract(labels_pred, labels, labels_pred, n_rows);
+	LinAlg::subtract(labels_pred, labels, labels_pred, n_rows, stream);
 	Matrix::power(labels_pred, n_rows, stream);
-	Stats::mean(loss, labels_pred, 1, n_rows, false, false);
+	Stats::mean(loss, labels_pred, 1, n_rows, false, false, stream);
 
 	math_t *pen_val = NULL;
 

@@ -83,8 +83,8 @@ protected:
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(1.0), T(2.0));
-    r.uniform(in2, len, T(1.0), T(2.0));
+    r.uniform(in1, len, T(1.0), T(2.0), stream);
+    r.uniform(in2, len, T(1.0), T(2.0), stream);
 
     naivePowerElem(out_ref, in1, in2, len, stream);
     naivePowerScalar(out_ref, out_ref, T(2), len, stream);
