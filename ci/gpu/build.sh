@@ -81,12 +81,26 @@ logger "Python py.test for cuML..."
 cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
+#IF [(nvidia-smi | awk '{print $4}' | sed '8!d') == "GV100"
+
+GPU = nvidia-smi | awk '{print $4}' | sed '8!d'
+
+if [[ $GPU == *"P"* ]]; then
+  logger "Building for Pascal..."
+  GPU_ARCH = 60
+elif [[ $GPU == *"V"* ]]; then
+  logger "Building for Volta..."
+  GPU_ARCH = 70
+elif [[ $GPU == *"T"* ]]; then
+  logger "Building for Turing..."
+  GPU_ARCH = 75
+fi 
 
 logger "GoogleTest for ml-prims..."
 mkdir -p $WORKSPACE/ml-prims/build
 cd $WORKSPACE/ml-prims/build
 logger "Run cmake ml-prims..."
-cmake ..
+cmake .. -DGPU_ARCHS="$GPU_ARCH"
 logger "Clean up make..."
 make clean
 logger "Make ml-prims test..."
