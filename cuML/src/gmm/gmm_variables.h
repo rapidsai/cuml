@@ -25,11 +25,12 @@ namespace gmm {
 template <typename T>
 struct GMMHandle {
         llhdHandle_t<T> llhd_handle;
-        T **dX_batches=NULL, **dmu_batches=NULL, **dsigma_batches=NULL,
-        **dDiff_batches=NULL;
-        T **dX_array=NULL, **dmu_array=NULL, **dsigma_array=NULL;
+
+        T **dX_batches, **dmu_batches, **dsigma_batches, **dDiff_batches;
+        T **dX_array, **dmu_array, **dsigma_array;
         T* dProbNorm;
         int lddprobnorm;
+        T* llhdWs;
 };
 
 template <typename T>

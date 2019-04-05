@@ -23,6 +23,8 @@
 #include "magma/magma_utils.h"
 #include "magma/magma_batched_wrappers.h"
 #include "magma/b_handles.h"
+#include "magma/b_allocate.h"
+#include "magma/b_split.h"
 
 // #include "cuda_utils.h"
 
@@ -107,10 +109,28 @@ void createBilinearHandle_t(bilinearHandle_t<T>& handle, int n, int batchCount){
         allocate_pointer_array(handle.dT_array, n, batchCount);
 }
 
+template <typename T>
+void createBilinearHandle_t_new(bilinearHandle_t<T>& handle, void* workspace){
+        handle.dT_array = (T **)((size_t)handle.dT_array + (size_t)workspace);
+        handle.dT = (T *)((size_t)handle.dT + (size_t)workspace);
+
+        split_to_batches(handle.batchCount, handle.dT_array, handle.dT, handle.lddt);
+}
 
 template <typename T>
-void destroyBilinearHandle_t(bilinearHandle_t<T>& handle, int batchCount){
-        free_pointer_array(handle.dT_array, batchCount);
+void bilinear_bufferSize(bilinearHandle_t<T>& handle,
+                         int n, int lddt, int batchCount,
+                         size_t& workspaceSize){
+        workspaceSize = 0;
+        const size_t granularity = 256;
+
+        handle.dT_array = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount *sizeof(T*), granularity);
+        handle.dT = (T *)workspaceSize;
+        workspaceSize += alignTo(batchCount * n * sizeof(T*), granularity);
+
+        handle.lddt = lddt;
+        handle.batchCount = batchCount;
 }
 
 template <typename T>

@@ -8,15 +8,16 @@ namespace gmm {
 
 template <typename T>
 struct llhdHandle_t {
-        T **dInvSigma_array=NULL, *dInvdet_array=NULL,
-        **dX_batches=NULL, **dmu_batches=NULL,
-        **dInvSigma_batches=NULL, **dDiff_batches=NULL,
-        *dBil_batches=NULL;
+
+        T **dInvSigma_array, *dInvdet_array, **dX_batches, **dmu_batches, **dInvSigma_batches, **dDiff_batches, *dBil_batches;
+
+        T* dInvSigma, *dDiff;
+
+        T *bilinearWs, *determinantWs, *inverseWs;
 
         bilinearHandle_t<T> bilinearHandle;
         determinantHandle_t<T> determinantHandle;
         inverseHandle_t<T> inverseHandle;
-
 };
 
 }

@@ -208,29 +208,4 @@ void generate_trans_matrix(magma_int_t m, magma_int_t n, T* dA, magma_int_t lda,
         normalize_matrix(m, n, dA, lda, colwise);
 }
 
-
-template <typename T>
-__global__
-void split_to_batchesKernel(magma_int_t n,
-                            T **dA_array, T *dA, magma_int_t ldda,
-                            int nThreads_x){
-        int start = threadIdx.x + blockDim.x * blockIdx.x;
-        for (size_t bId = start; bId < n; bId+=nThreads_x) {
-                dA_array[bId] = dA + IDX(0, bId, ldda);
-        }
-}
-
-template <typename T>
-void split_to_batches(magma_int_t n, T **&dA_array, T *&dA, magma_int_t ldda){
-        dim3 block(32);
-        dim3 grid(ceildiv((int)n, (int) block.x));
-
-        int nThreads_x = grid.x * block.x;
-
-        split_to_batchesKernel<T> <<< grid, block >>>(n,
-                                                      dA_array, dA, ldda,
-                                                      nThreads_x);
-        CUDA_CHECK(cudaPeekAtLastError());
-}
-
 }

@@ -20,6 +20,9 @@
 #include "magma/magma_batched_wrappers.h"
 
 #include "magma/b_handles.h"
+#include "magma/b_copy.h"
+#include "magma/b_allocate.h"
+#include "magma/b_split.h"
 
 
 using namespace MLCommon::LinAlg;
@@ -66,30 +69,58 @@ template <typename T>
 void createInverseHandle_t(inverseHandle_t<T>& handle,
                            int batchCount, int n, int ldda){
         allocate_pointer_array(handle.dipiv_array, n, batchCount);
-        allocate_pointer_array(handle.dA_array_cpy, ldda * n, batchCount);
+        allocate_pointer_array(handle.dA_cpy_array, ldda * n, batchCount);
         allocate(handle.info_array, batchCount);
 }
 
 template <typename T>
-void destroyInverseHandle_t(inverseHandle_t<T>& handle,
-                            int batchCount){
-        free_pointer_array(handle.dipiv_array, batchCount);
-        free_pointer_array(handle.dA_array_cpy, batchCount);
-        CUDA_CHECK(cudaFree(handle.info_array));
+void createInverseHandle_t_new(inverseHandle_t<T>& handle, void* workspace){
+        handle.dipiv_array = (int **)((size_t)handle.dipiv_array + (size_t)workspace);
+        handle.dA_cpy_array = (T **)((size_t)handle.dA_cpy_array + (size_t)workspace);
+
+        handle.dipiv = (int *)((size_t)handle.dipiv + (size_t)workspace);
+        handle.dA_cpy = (T *)((size_t)handle.dA_cpy + (size_t)workspace);
+        handle.info_array = (int *)((size_t)handle.info_array + (size_t)workspace);
+
+        split_to_batches(handle.batchCount, handle.dipiv_array, handle.dipiv, handle.n);
+        split_to_batches(handle.batchCount, handle.dA_cpy_array, handle.dA_cpy, handle.ldda * handle.n);
+}
+
+template <typename T>
+void inverse_bufferSize(inverseHandle_t<T>& handle,
+                        int n, int ldda, int batchCount,
+                        size_t& workspaceSize){
+        workspaceSize = 0;
+        const size_t granularity = 256;
+
+        handle.dipiv_array = (int **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(int*), granularity);
+        handle.dA_cpy_array = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount *sizeof(T*), granularity);
+        handle.dipiv = (int *)workspaceSize;
+        workspaceSize += alignTo(n * batchCount * sizeof(int), granularity);
+        handle.info_array = (int *)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(int), granularity);
+        handle.dA_cpy = (T *)workspaceSize;
+        workspaceSize += alignTo(batchCount * ldda * n * sizeof(T), granularity);
+
+        handle.ldda = ldda;
+        handle.batchCount = batchCount;
+        handle.n = n;
 }
 
 template <typename T>
 void inverse_batched_magma(magma_int_t n, T** dA_array, magma_int_t ldda,
                            T**& dinvA_array, magma_int_t batchCount,
                            magma_queue_t queue, inverseHandle_t<T> handle){
-        copy_batched(handle.dA_array_cpy, dA_array, ldda * n, batchCount);
+        b_copy(handle.dA_cpy_array, dA_array, ldda * n, batchCount);
 
-        magma_getrf_batched(n, n, handle.dA_array_cpy, ldda,
+        magma_getrf_batched(n, n, handle.dA_cpy_array, ldda,
                             handle.dipiv_array, handle.info_array,
                             batchCount, queue);
         // assert_batched(batchCount, info_array);
 
-        magma_getri_outofplace_batched(n, handle.dA_array_cpy, ldda,
+        magma_getri_outofplace_batched(n, handle.dA_cpy_array, ldda,
                                        handle.dipiv_array,
                                        dinvA_array, ldda, handle.info_array,
                                        batchCount, queue);

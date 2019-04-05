@@ -19,6 +19,14 @@
 
 namespace gmm {
 
+// size_t get_workspace_size_f32(GMM<float> &gmm,
+// float *dmu,  float *dsigma,
+// float *dPis,  float *dPis_inv,  float *dLlhd,
+// int lddx, int lddmu, int lddsigma, int lddsigma_full,
+// int lddPis, int lddLlhd,
+// float *cur_llhd, float reg_covar,
+// int nCl, int nDim, int nObs);
+
 void init_f32(GMM<float> &gmm,
               float *dmu,  float *dsigma,
               float *dPis,  float *dPis_inv,  float *dLlhd,

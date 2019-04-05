@@ -31,32 +31,6 @@
 
 namespace MLCommon {
 
-
-template <typename T>
-void allocate_pointer_array(T **&dA_array, magma_int_t n, magma_int_t batchCount){
-        T **A_array;
-
-        A_array = (T **)malloc(sizeof(T*) * batchCount);
-        for(int i = 0; i < batchCount; i++) {
-                allocate(A_array[i], n);
-        }
-
-        allocate(dA_array, batchCount);
-        updateDevice(dA_array, A_array, batchCount);
-        free(A_array);
-}
-
-template <typename T>
-void free_pointer_array(T **&dA_array, magma_int_t batchCount){
-        T **A_array;
-        A_array = (T **)malloc(sizeof(T*) * batchCount);
-        updateHost(A_array, dA_array, batchCount);
-        for(int i = 0; i < batchCount; i++) {
-                CUDA_CHECK(cudaFree(A_array[i]));
-        }
-        CUDA_CHECK(cudaFree(dA_array));
-}
-
 template <typename T>
 void print_matrix_host(magma_int_t m, magma_int_t n, T *A, magma_int_t lda,
                        const std::string& msg){
@@ -266,37 +240,6 @@ void fill_pointer_array(magma_int_t batchCount, T **&dA_array, T *dB){
         free(A_array);
 }
 
-
-template <typename T>
-__global__
-void copy_batched_kernel(T **dA_dest_array, T **dA_src_array,
-                         size_t len, magma_int_t batchCount,
-                         int nThreads_x, int nThreads_y ){
-        int bId_start = threadIdx.x + blockDim.x * blockIdx.x;
-        int i_start = threadIdx.y + blockDim.y * blockIdx.y;
-        for (size_t bId = bId_start; bId < batchCount; bId+=nThreads_x) {
-                for (size_t i = i_start; i < len; i+=nThreads_y) {
-                        dA_dest_array[bId][i] = dA_src_array[bId][i];
-                }
-        }
-}
-
-template <typename T>
-void copy_batched(T **dA_dest_array, T **dA_src_array,
-                  int len, int batchCount,
-                  cudaStream_t stream = 0){
-        dim3 block(32, 32);
-        dim3 grid(ceildiv(batchCount, (int)block.x),
-                  ceildiv(len, (int)block.y));
-        int nThreads_x= grid.x * block.x;
-        int nThreads_y= grid.y * block.y;
-        copy_batched_kernel<T> <<< grid, block, 0, stream >>>(dA_dest_array, dA_src_array,
-                                                              len, batchCount,
-                                                              nThreads_x, nThreads_y );
-        CUDA_CHECK(cudaPeekAtLastError());
-}
-
-
 // void assert_batched(int batchCount, int *d_info_array){
 //         int *h_info_array;
 //         h_info_array = (int *)malloc(sizeof(int) * batchCount);
@@ -382,9 +325,16 @@ void random_matrix_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
 
 }
 
-// template <typename T>
-// void load_csv(T* dArray, const std::string& filename){
-//
-// }
+template <typename T>
+__device__
+T sign(T x){
+        if (x > 0)
+                return (T) 1;
+        else if (x < 0)
+                return (T) -1;
+        else
+                return 0;
+}
+
 
 }

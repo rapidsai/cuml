@@ -48,6 +48,71 @@ void _print_gmm_data_bis(GMM<T> &gmm, const std::string& msg) {
 
 
 template <typename T>
+void create_GMMHandle_new(GMM<T> &gmm, void* workspace){
+        gmm.llhd_handle.dX_array = (T **)((size_t)gmm.llhd_handle.dX_array + (size_t)workspace);
+        gmm.llhd_handle.dmu_array = (T **)((size_t)gmm.llhd_handle.dmu_array + (size_t)workspace);
+        gmm.llhd_handle.dsigma_array = (T **)((size_t)gmm.llhd_handle.dsigma_array + (size_t)workspace);
+        gmm.llhd_handle.dX_batches = (T **)((size_t)gmm.llhd_handle.dX_batches + (size_t)workspace);
+        gmm.llhd_handle.dmu_batches = (T **)((size_t)gmm.llhd_handle.dmu_batches + (size_t)workspace);
+        gmm.llhd_handle.dsigma_batches = (T **)((size_t)gmm.llhd_handle.dsigma_batches + (size_t)workspace);
+        gmm.llhd_handle.dDiff = (T *)((size_t)gmm.llhd_handle.dDiff + (size_t)workspace);
+        gmm.llhd_handle.dDiff_batches = (T **)((size_t)gmm.llhd_handle.dDiff_batches + (size_t)workspace);
+        gmm.llhd_handle.dProbNorm = (T *)((size_t)gmm.llhd_handle.dProbNorm + (size_t)workspace);
+
+        gmm.llhd_handle.llhdWs = (T *)((size_t)gmm.llhd_handle.llhdWs + (size_t)workspace);
+
+        split_to_batches(gmm.llhd_handle.batchCount, gmm.llhd_handle.dDiff_batches, gmm.llhd_handle.dDiff, gmm.llhd_handle.lddx);
+
+        createllhdHandle_t_new(gmm.gmm.llhd_handle.llhd_gmm.llhd_handle, gmm.llhdWs);
+}
+
+template <typename T>
+void gmm_bufferSize(GMM<T> &gmm,
+                    GMMHandle<T>& handle,
+                    size_t& workspaceSize){
+
+        workspaceSize = 0;
+        const size_t granularity = 256;
+        size_t tempWsSize;
+
+        handle.dX_array = (T **)workspaceSize;
+        workspaceSize += alignTo(gmm.nObs * sizeof(T*), granularity);
+
+        handle.dmu_array = (T **)workspaceSize;
+        workspaceSize += alignTo(gmm.nCl * sizeof(T*), granularity);
+
+        handle.dsigma_array = (T **)workspaceSize;
+        workspaceSize += alignTo(gmm.nCl * sizeof(T*), granularity);
+
+        int batchCount=gmm.nCl;
+
+        handle.dX_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dmu_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dsigma_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dDiff = (T *)workspaceSize;
+        workspaceSize += alignTo(gmm.lddx * gmm.nObs * sizeof(T), granularity);
+
+        handle.dDiff_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dProbNorm = (T *)workspaceSize;
+        workspaceSize += alignTo(gmm.handle.lddprobnorm * sizeof(T), granularity);
+
+        handle.llhdWs = (T *)workspaceSize;
+        llhd_bufferSize(gmm.handle.llhd_handle,
+                        gmm.nCl, gmm.nObs, gmm.nDim,
+                        gmm.lddx, gmm.lddsigma, gmm.lddsigma_full,
+                        tempWsSize);
+        workspaceSize += alignTo(tempWsSize, granularity);
+}
+
+template <typename T>
 void create_GMMHandle(GMM<T> &gmm){
         createllhdHandle_t(gmm.handle.llhd_handle,
                            gmm.nCl, gmm.nObs, gmm.nDim,
@@ -102,6 +167,8 @@ void init(GMM<T> &gmm,
         gmm.nObs=nObs;
 
         gmm.reg_covar = reg_covar;
+
+        // create_GMMHandle_new(GMM<T> &gmm);
 }
 
 
@@ -202,7 +269,6 @@ void update_sigmas(T* dX, GMM<T>& gmm,
         // regularize_sigmas(gmm.nDim, dsigma_batches, gmm.lddsigma, gmm.reg_covar);
 
         square(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
-
 }
 
 template <typename T>

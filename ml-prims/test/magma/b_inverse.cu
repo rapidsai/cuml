@@ -38,7 +38,7 @@ T test_inverse(magma_int_t n, T** dA_array, magma_int_t ldda, T** dinvA_array, m
         mse = array_mse_batched(n, n, batchCount, dO_array, ldda, dIdM_array, ldda);
 
 // free
-        free_pointer_array(dO_array, batchCount);
+        // free_pointer_array(dO_array, batchCount);
         CUDA_CHECK(cudaFree(dIdM_array));
         CUDA_CHECK(cudaFree(idMatrix));
 
@@ -57,8 +57,18 @@ T run(magma_int_t n, magma_int_t batchCount)
         allocate_pointer_array(dA_array, ldda * n, batchCount);
         allocate_pointer_array(dinvA_array, ldda * n, batchCount);
 
+        size_t workspaceSize;
+
         inverseHandle_t<T> handle;
-        createInverseHandle_t(handle, batchCount, n, ldda);
+        inverse_bufferSize(handle,
+                           n, ldda, batchCount,
+                           workspaceSize);
+
+        void *workspace;
+        CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
+        // createBilinearHandle_t_new(handle, n, batchCount);
+        createInverseHandle_t_new(handle, workspace);
+
 
         int device = 0;    // CUDA device ID
         magma_queue_t queue;
@@ -75,9 +85,9 @@ T run(magma_int_t n, magma_int_t batchCount)
         error = test_inverse(n, dA_array, ldda, dinvA_array, batchCount, queue);
 
         // cleanup:
-        free_pointer_array(dA_array, batchCount);
-        free_pointer_array(dinvA_array, batchCount);
-        destroyInverseHandle_t(handle, batchCount);
+        // free_pointer_array(dA_array, batchCount);
+        // free_pointer_array(dinvA_array, batchCount);
+        // destroyInverseHandle_t(handle, batchCount);
         return error;
 }
 

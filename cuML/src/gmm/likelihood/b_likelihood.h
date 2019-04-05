@@ -21,6 +21,8 @@
 #include "magma/b_bilinear.h"
 #include "magma/b_inverse.h"
 #include "magma/b_determinant.h"
+#include "magma/b_allocate.h"
+#include <magma/b_split.h>
 
 #include "gmm/likelihood/handle.h"
 
@@ -187,44 +189,102 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
 }
 
 template <typename T>
+void createLlhdHandle_t_new(llhdHandle_t<T>& handle, void* workspace){
+        handle.dInvSigma_array = (T **)((size_t)handle.dInvSigma_array + (size_t)workspace);
+        handle.dInvSigma = (T *)((size_t)handle.dInvSigma + (size_t)workspace);
+        handle.dInvdet_array = (T *)((size_t)handle.dInvdet_array + (size_t)workspace);
+        handle.dX_batches = (T **)((size_t)handle.dX_batches + (size_t)workspace);
+        handle.dmu_batches = (T **)((size_t)handle.dmu_batches + (size_t)workspace);
+        handle.dInvSigma_batches = (T **)((size_t)handle.dInvSigma_batches + (size_t)workspace);
+        handle.dDiff_batches = (T **)((size_t)handle.dDiff_batches + (size_t)workspace);
+        handle.dBil_batches = (T **)((size_t)handle.dBil_batches + (size_t)workspace);
+
+        handle.bilinearWs = (T *)((size_t)handle.bilinearWs + (size_t)workspace);
+        handle.determinantWs = (T *)((size_t)handle.determinantWs + (size_t)workspace);
+        handle.inverseWs = (T *)((size_t)handle.inverseWs + (size_t)workspace);
+
+        split_to_batches(handle.nCl, handle.dInvSigma_array, handle.dInvSigma, handle.lddsigma_full);
+        split_to_batches(handle.batchCount, handle.dDiff_batches, handle.dDiff, handle.lddx);
+
+        createDeterminantHandle_t_new(handle.determinantHandle, handle.bilinearWs);
+        createBilinearHandle_t_new(handle.bilinearHandle, handle.determinantWs);
+        createInverseHandle_t_new(handle.inverseHandle, handle.inverseWs);
+}
+
+template <typename T>
+void llhd_bufferSize(llhdHandle_t<T>& handle,
+                     int nCl, int nObs, int nDim,
+                     int lddx, int lddsigma, int lddsigma_full,
+                     size_t& workspaceSize){
+        workspaceSize = 0;
+        const size_t granularity = 256;
+        size_t tempWsSize;
+        magma_int_t batchCount = nObs * nCl;
+
+        handle.dInvSigma_array = (T **)workspaceSize;
+        workspaceSize += alignTo(nCl * sizeof(T*), granularity);
+
+        handle.dInvSigma = (T *)workspaceSize;
+        workspaceSize += alignTo(lddsigma_full * nCl * sizeof(T), granularity);
+
+        handle.dDiff_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dDiff = (T *)workspaceSize;
+        workspaceSize += alignTo(lddx * batchCount * sizeof(T), granularity);
+
+        handle.dBil_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dInvdet_array = (T **)workspaceSize;
+        workspaceSize += alignTo(nCl * sizeof(T*), granularity);
+
+        handle.dX_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.dmu_batches = (T **)workspaceSize;
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
+
+        handle.inverseWs = (T *)workspaceSize;
+        inverse_bufferSize(handle.inverseHandle,
+                           nDim, lddsigma, nCl,
+                           tempWsSize);
+        workspaceSize += alignTo(tempWsSize, granularity);
+
+        handle.bilinearWs = (T *)workspaceSize;
+        bilinear_bufferSize(handle.bilinearHandle,
+                            nDim, lddx, batchCount,
+                            tempWsSize);
+        workspaceSize += alignTo(tempWsSize, granularity);
+
+        handle.determinantWs = (T *)workspaceSize;
+        determinant_bufferSize(handle.determinantHandle,
+                               nDim, lddx, batchCount,
+                               tempWsSize);
+        workspaceSize += alignTo(tempWsSize, granularity);
+}
+
+
+template <typename T>
 void createllhdHandle_t(llhdHandle_t<T>& llhd_handle,
                         int nCl, int nObs, int nDim,
                         int lddx, int lddsigma, int lddsigma_full){
         magma_int_t batchCount = nObs * nCl;
 
         allocate_pointer_array(llhd_handle.dInvSigma_array, lddsigma_full, nCl);
-        allocate(llhd_handle.dInvdet_array, nCl);
+        allocate_pointer_array(llhd_handle.dDiff_batches, lddx, batchCount);
 
+        allocate(llhd_handle.dInvdet_array, nCl);
         allocate(llhd_handle.dBil_batches, batchCount);
         allocate(llhd_handle.dX_batches, batchCount);
         allocate(llhd_handle.dmu_batches, batchCount);
         allocate(llhd_handle.dInvSigma_batches, batchCount);
-        allocate_pointer_array(llhd_handle.dDiff_batches, lddx, batchCount);
 
         createBilinearHandle_t(llhd_handle.bilinearHandle, nDim, batchCount);
         createDeterminantHandle_t(llhd_handle.determinantHandle,
                                   nDim, lddsigma, batchCount);
         createInverseHandle_t(llhd_handle.inverseHandle,
                               nCl, nDim, lddsigma);
-}
-
-template <typename T>
-void destroyllhdHandle_t(llhdHandle_t<T>& llhd_handle,
-                         int nCl, int nObs, int nDim){
-        int batchCount = nObs * nCl;
-
-        free_pointer_array(llhd_handle.dInvSigma_array, nCl);
-        free_pointer_array(llhd_handle.dDiff_batches, batchCount);
-
-        CUDA_CHECK(cudaFree(llhd_handle.dBil_batches));
-        CUDA_CHECK(cudaFree(llhd_handle.dInvdet_array));
-        CUDA_CHECK(cudaFree(llhd_handle.dX_batches));
-        CUDA_CHECK(cudaFree(llhd_handle.dmu_batches));
-        CUDA_CHECK(cudaFree(llhd_handle.dInvSigma_batches));
-
-        destroyBilinearHandle_t(llhd_handle.bilinearHandle, nCl);
-        destroyDeterminantHandle_t(llhd_handle.determinantHandle, nCl);
-        destroyInverseHandle_t(llhd_handle.inverseHandle, batchCount);
 }
 
 template <typename T>
