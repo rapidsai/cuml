@@ -79,7 +79,7 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	}
 
 	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
-		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
+		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1, stream);
 	updateHost(intercept, d_intercept, 1);

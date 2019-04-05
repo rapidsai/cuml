@@ -143,7 +143,7 @@ protected:
     static const bool Sort = false;
     static const bool Greater = true;
     warpTopK<T, int, Greater, Sort>(outv, outk, arr, params.k, params.rows,
-                                    params.cols);
+                                    params.cols, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 

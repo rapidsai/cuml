@@ -162,7 +162,7 @@ namespace UMAPAlgo {
 		        knn_indices, knn_dists,
 		        rgraph_rows, rgraph_cols, rgraph_vals,
 		        nnz,
-		        params, embeddings, params->init);
+		        params, embeddings, stream, params->init);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
@@ -230,7 +230,7 @@ namespace UMAPAlgo {
         dim3 blk(TPB_X, 1, 1);
 
         FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                rhos, sigmas, params, adjusted_local_connectivity
+                rhos, sigmas, params, adjusted_local_connectivity, stream
         );
 
         /**

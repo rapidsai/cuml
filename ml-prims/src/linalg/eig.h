@@ -56,7 +56,8 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work, lwork, d_dev_info));
+                                 n_cols, eig_vals, d_work, lwork, d_dev_info,
+                                 stream));
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -126,7 +127,7 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   CUSOLVER_CHECK(cusolverDnsyevj(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
-    eig_vectors, n_cols, eig_vals, d_work, lwork, dev_info, syevj_params));
+    eig_vectors, n_cols, eig_vals, d_work, lwork, dev_info, syevj_params, stream));
 
   int executed_sweeps;
   CUSOLVER_CHECK(

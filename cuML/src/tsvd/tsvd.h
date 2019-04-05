@@ -175,7 +175,7 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
 			prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-                     cublas_handle);
+                     cublas_handle, stream);
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -278,7 +278,7 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, components, trans_input,
 			prms.n_rows, prms.n_components, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-			cublas_handle);
+			cublas_handle, stream);
 }
 
 /**
@@ -305,7 +305,7 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 
 	LinAlg::gemm(trans_input, prms.n_rows, prms.n_components, components, input,
 			prms.n_rows, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
-                     cublas_handle);
+                     cublas_handle, stream);
 
 }
 

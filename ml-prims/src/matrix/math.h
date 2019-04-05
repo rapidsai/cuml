@@ -354,7 +354,7 @@ void matrixVectorBinaryMult(Type *data, const Type *vec, IdxType n_row,
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, IdxType n_row,
                                     IdxType n_col, bool rowMajor,
-                                    bool bcastAlongRows, cudaStream_t stream = 0) {
+                                    bool bcastAlongRows, cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) {
                    if (b == Type(0))

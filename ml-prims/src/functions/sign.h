@@ -38,7 +38,7 @@ void sign(math_t *out, const math_t *in, const math_t scalar, const int len,
 }
 
 template<typename math_t>
-void sign(math_t *out, const math_t *in, const int n_len, cudaStream_t stream = 0) {
+void sign(math_t *out, const math_t *in, const int n_len, cudaStream_t stream) {
     math_t scalar = math_t(1);
     sign(out, in, scalar, n_len, stream);
 }

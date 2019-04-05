@@ -57,10 +57,10 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
     if (rowMajor) {
       CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
                                       &alpha, data, D, data, D, &beta, covar,
-                                      D));
+                                      D, stream));
     } else {
       LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
-                   alpha, beta, handle);
+                   alpha, beta, handle, stream);
     }
   } else {
     ///@todo: implement this using cutlass + customized epilogue!

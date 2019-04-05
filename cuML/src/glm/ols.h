@@ -86,7 +86,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
                                  cublas_handle, mgr, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle);
+				cublas_handle, stream);
 	} else if (algo == 3) {
 		ASSERT(false, "olsFit: no algorithm with this id has been implemented");
 	} else {
@@ -125,7 +125,7 @@ void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-                     CUBLAS_OP_N, alpha, beta, cublas_handle);
+                     CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
 
 	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 

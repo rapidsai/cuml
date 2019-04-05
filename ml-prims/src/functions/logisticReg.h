@@ -41,7 +41,7 @@ void logisticRegH(const math_t *input, int n_rows, int n_cols,
 		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
+			CUBLAS_OP_N, cublas_handle, stream);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);

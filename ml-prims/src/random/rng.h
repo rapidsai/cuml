@@ -214,7 +214,7 @@ public:
   }
   template <typename IntType, typename LenType = int>
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
-                  cudaStream_t stream = 0) {
+                  cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer type!");
     randImpl(offset, ptr, len,

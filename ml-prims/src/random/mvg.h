@@ -61,7 +61,7 @@ void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
  */
 template <typename T>
 void matVecAdd(T *out, const T *in_m, const T *in_v, T scalar, int rows,
-               int cols, cudaStream_t stream = 0) {
+               int cols, cudaStream_t stream) {
   LinAlg::matrixVectorOp(
     out, in_m, in_v, cols, rows, true, true,
     [=] __device__(T mat, T vec) { return mat + scalar * vec; }, stream);
@@ -175,15 +175,15 @@ public: // functions
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
       CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(cusolverHandle, uplo, dim, P, dim,
-                                             workspace_decomp, Lwork, info));
+                                             workspace_decomp, Lwork, info, cudaStream));
     } else if (method == jacobi) {
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevj(
         cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
-        info, syevj_params)); // vectors stored as cols. & col major
+        info, syevj_params, cudaStream)); // vectors stored as cols. & col major
     } else {                  // qr
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevd(cusolverHandle, jobz, uplo, dim, P,
                                              dim, eig, workspace_decomp, Lwork,
-                                             info));
+                                             info, cudaStream));
     }
     updateHost(&info_h, info, 1);
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0",
@@ -203,7 +203,7 @@ public: // functions
       // P is lower triangular chol decomp mtrx
       CUBLAS_CHECK(LinAlg::cublasgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                       dim, nPoints, dim, &alfa, P, dim, X, dim,
-                                      &beta, X, dim));
+                                      &beta, X, dim, cudaStream));
     } else {
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
@@ -220,12 +220,12 @@ public: // functions
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below
       CUBLAS_CHECK(LinAlg::cublasgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                       dim, nPoints, dim, &alfa, P, dim, X, dim,
-                                      &beta, X, dim));
+                                      &beta, X, dim, cudaStream));
     }
     // working to make mean not 0
     // since we are working with column-major, nPoints and dim are swapped
     if (x != NULL)
-      matVecAdd(X, X, x, T(1.0), nPoints, dim);
+      matVecAdd(X, X, x, T(1.0), nPoints, dim, cudaStream);
   }
 
   void deinit() {
