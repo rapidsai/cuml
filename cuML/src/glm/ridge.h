@@ -55,10 +55,10 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 
 	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
 	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta,
-			cublasH);
+			cublasH, stream);
 
 	LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, CUBLAS_OP_N, CUBLAS_OP_N, alp,
-			beta, cublasH);
+			beta, cublasH, stream);
 
 	CUDA_CHECK(cudaFree(S_nnz));
 }
@@ -194,7 +194,7 @@ void ridgePredict(const math_t *input, int n_rows, int n_cols,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-                     CUBLAS_OP_N, alpha, beta, cublas_handle);
+                     CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
 
 	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 

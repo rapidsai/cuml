@@ -79,7 +79,7 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
                                  left_sing_vecs, m, right_sing_vecs, n,
-                                 d_work, lwork, d_rwork, devInfo));
+                                 d_work, lwork, d_rwork, devInfo, stream));
 
   // Transpose the right singular vector back
   if (trans_right)
@@ -113,7 +113,7 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 	T alpha = T(1);
 	T beta = T(0);
 	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
-             CUBLAS_OP_N, alpha, beta, cublasH);
+             CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
 	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, mgr);
 
@@ -124,7 +124,7 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 
     if (gen_left_vec) {
     	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-             alpha, beta, cublasH);
+             alpha, beta, cublasH, stream);
       // @ToDo: Add stream param for below prim
       Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, stream);
     }
@@ -157,7 +157,7 @@ template <typename math_t>
 void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
                bool gen_left_vec, bool gen_right_vec, math_t tol,
-               int max_sweeps, cusolverDnHandle_t cusolverH,
+               int max_sweeps, cusolverDnHandle_t cusolverH, cudaStream_t stream,
                DeviceAllocator &mgr) {
   gesvdjInfo_t gesvdj_params = NULL;
 
@@ -182,10 +182,10 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
   CUSOLVER_CHECK(cusolverDngesvdj(cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m,
                                   n, in, m, sing_vals, left_sing_vecs, m,
                                   right_sing_vecs, n, d_work, lwork, devInfo,
-                                  gesvdj_params));
+                                  gesvdj_params, stream));
 
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
+  // cudaStream_t stream;
+  // CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
   mgr.free(devInfo, stream);
   mgr.free(d_work);
 
@@ -208,18 +208,18 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  */
 template <typename math_t>
 void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
-                       int n_cols, int k, cublasHandle_t cublasH,
+                       int n_cols, int k, cublasHandle_t cublasH, cudaStream_t stream,
                        DeviceAllocator &mgr) {
   const math_t alpha = 1.0, beta = 0.0;
   math_t *SVT = (math_t *)mgr.alloc(sizeof(math_t) * k * n_cols);
 
   gemm(S, k, k, V, SVT, k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-       cublasH);
+       cublasH, stream);
   gemm(U, n_rows, k, SVT, out, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
-       beta, cublasH);
+       beta, cublasH, stream);
 
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
+  // cudaStream_t stream;
+  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
   mgr.free(SVT, stream);
 }
 
@@ -240,10 +240,11 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
 template <typename math_t>
 bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
                          int n_rows, int n_cols, int k, math_t tol,
-                         cublasHandle_t cublasH, DeviceAllocator &mgr) {
+                         cublasHandle_t cublasH, cudaStream_t stream,
+                         DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
+  // cudaStream_t stream;
+  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
 
   // form product matrix
   math_t *P_d = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
@@ -252,7 +253,7 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUDA_CHECK(cudaMemsetAsync(S_mat, 0, sizeof(math_t) * k * k, stream));
 
   Matrix::initializeDiagonalMatrix(S_vec, S_mat, k, k, stream);
-  svdReconstruction(U, S_mat, V, P_d, m, n, k, cublasH, mgr);
+  svdReconstruction(U, S_mat, V, P_d, m, n, k, cublasH, stream, mgr);
 
   // get norms of each
   math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH, stream);
@@ -267,7 +268,7 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUDA_CHECK(cudaMemsetAsync(A_minus_P, 0, sizeof(math_t) * m * n, stream));
 
   CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, m, n, &alpha, A_d,
-                          m, &beta, P_d, m, A_minus_P, m));
+                          m, &beta, P_d, m, A_minus_P, m, stream));
 
   math_t norm_A_minus_P = Matrix::getL2Norm(A_minus_P, m * n, cublasH, stream);
   math_t percent_error = 100.0 * norm_A_minus_P / normA;

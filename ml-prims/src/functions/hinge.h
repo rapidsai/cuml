@@ -67,7 +67,7 @@ void hingeH(const math_t *input, int n_rows, int n_cols,
 		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
+			CUBLAS_OP_N, cublas_handle, stream);
 
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
@@ -87,7 +87,7 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 	allocate(input_t, n_rows * n_cols);
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
+			CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
 
@@ -133,7 +133,7 @@ void hingeLoss(math_t *input, int n_rows, int n_cols,
 	allocate(labels_pred, n_rows);
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
+			CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
 

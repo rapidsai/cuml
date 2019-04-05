@@ -31,7 +31,7 @@ namespace UMAPAlgo {
             template<typename T>
             void launcher(const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
-                          UMAPParams *params, T *embedding, cudaStream_t stream = 0) {
+                          UMAPParams *params, T *embedding, cudaStream_t stream) {
 
                 struct timeval tp;
                 gettimeofday(&tp, NULL);

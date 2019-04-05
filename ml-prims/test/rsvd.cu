@@ -233,20 +233,26 @@ typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result) {
   cublasHandle_t cublasH;
   CUBLAS_CHECK(cublasCreate(&cublasH));
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result) {
   cublasHandle_t cublasH;
   CUBLAS_CHECK(cublasCreate(&cublasH));
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF,

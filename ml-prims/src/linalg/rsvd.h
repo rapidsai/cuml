@@ -87,7 +87,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 
   // multiply to get matrix of random samples Y
   math_t *Y = (math_t *)mgr.alloc(sizeof(math_t) * m * l);
-  gemm(M, m, n, RN, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH);
+  gemm(M, m, n, RN, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
   // now build up (M M^T)^q R
   math_t *Z = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
@@ -102,17 +102,17 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     if ((2 * j - 2) % s == 0) {
       qrGetQ(Y, Yorth, m, l, cusolverH, mgr);
       gemm(M, m, n, Yorth, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-           cublasH);
+           cublasH, stream);
     } else {
-      gemm(M, m, n, Y, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
+      gemm(M, m, n, Y, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
 
     if ((2 * j - 1) % s == 0) {
       qrGetQ(Z, Zorth, n, l, cusolverH, mgr);
       gemm(M, m, n, Zorth, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
-           cublasH);
+           cublasH, stream);
     } else {
-      gemm(M, m, n, Z, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH);
+      gemm(M, m, n, Z, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
   }
 
@@ -126,7 +126,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // form Bt = Mt*Q : nxm * mxl = nxl
     math_t *Bt = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
     CUDA_CHECK(cudaMemsetAsync(Bt, 0, sizeof(math_t) * n * l, stream));
-    gemm(M, m, n, Q, Bt, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
+    gemm(M, m, n, Q, Bt, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
     // compute QR factorization of Bt
     // M is mxn ; Q is mxn ; R is min(m,n) x min(m,n) */
@@ -143,7 +143,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     CUDA_CHECK(cudaMemsetAsync(Vhat, 0, sizeof(math_t) * l * l, stream));
     if (use_jacobi)
       svdJacobi(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, tol, max_sweeps,
-                cusolverH, mgr);
+                cusolverH, stream, mgr);
     else
       svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH, cublasH,
             stream, mgr);
@@ -153,13 +153,13 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
       gemm(Q, m, l, Vhat, U, m, k /*used to be l and needs slicing*/,
-           CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH);
+           CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
 
     // Merge step 14 & 15 by calculating V = Qhat*Uhat[:,1:k] nxl * lxk = nxk
     if (gen_right_vec) {
       gemm(Qhat, n, l, Uhat, V, n, k /*used to be l and needs slicing*/,
-           CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH);
+           CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
 
     // clean up
@@ -173,10 +173,10 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // build the matrix B B^T = Q^T M M^T Q column by column
     // Bt = M^T Q ; nxm * mxk = nxk
     math_t *B = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
-    gemm(Q, m, l, M, B, l, n, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
+    gemm(Q, m, l, M, B, l, n, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
     math_t *BBt = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
-    gemm(B, l, n, B, BBt, l, l, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, cublasH);
+    gemm(B, l, n, B, BBt, l, l, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, cublasH, stream);
 
     // compute eigendecomposition of BBt
     math_t *Uhat = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
@@ -197,7 +197,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
       gemm(Q, m, l, Uhat + p * l, U, m, k, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
-           beta, cublasH);
+           beta, cublasH, stream);
       Matrix::colReverse(U, m, k, stream);
     }
 
@@ -212,8 +212,9 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       Matrix::initializeDiagonalMatrix(S_vec_tmp + p, Sinv, k, k, stream);
 
       gemm(Uhat + p * l, l, k, Sinv, UhatSinv, l, k, CUBLAS_OP_N, CUBLAS_OP_N,
-           alpha, beta, cublasH);
-      gemm(B, l, n, UhatSinv, V, n, k, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
+           alpha, beta, cublasH, stream);
+      gemm(B, l, n, UhatSinv, V, n, k, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
+            cublasH, stream);
       Matrix::colReverse(V, n, k, stream);
 
       mgr.free(Sinv, stream);
