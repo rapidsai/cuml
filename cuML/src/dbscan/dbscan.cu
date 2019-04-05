@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#include "utils.h"
 #include <cuML_api.h>
 #include "runner.h"
 #include "dbscan.hpp"
@@ -35,6 +35,31 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
 }
 
+// Following are two versions of dbscanFit, that do not take cumlHandle as
+// input arguments. The cumlHandle is created inside dbscanFit on each new call.
+
+void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
+               int *labels) {
+    cumlHandle handle;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.setStream(stream);
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+}
+
+void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
+               int *labels) {
+
+    cumlHandle handle;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    handle.setStream(stream);
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+}
 /** @} */
 
 };
