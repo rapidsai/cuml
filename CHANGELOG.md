@@ -3,9 +3,12 @@
 ## New Features
 
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
 
 ## Improvements
 
+- PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
@@ -16,8 +19,13 @@
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
 - PR #398: Fix CI scripts to allow nightlies to be uploaded
 - PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
+- PR #438: Code that depended on FAISS was building everytime. 
+- PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
+- PR #434: Fixing bug in CSR tests
+- PR #443: Remove defaults channel from ci scripts
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -87,7 +95,6 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-
 
 # cuML 0.5.1 (05 Feb 2019)
 
