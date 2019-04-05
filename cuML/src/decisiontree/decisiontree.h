@@ -46,9 +46,9 @@ namespace ML {
 			Question<T> question;
 			T gini_val;
 
-			void print(std::ostream& os); 
+			void print(std::ostream& os);
 		};
-		
+
 		struct DataInfo
 		{
 			unsigned int NLocalrows;
@@ -81,7 +81,7 @@ namespace ML {
 			// data, labels are both device ptr.
 			// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
 			void fit(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
-			
+
 			/* Predict a label for single row for a given tree. */
 			int predict(const T * row, bool verbose=false);
 
@@ -103,7 +103,7 @@ namespace ML {
 			int classify(const T * row, TreeNode<T> * node, bool verbose=false);
 			void print_node(const std::string& prefix, TreeNode<T>* node, bool isLeft);
 		}; // End DecisionTree Class
-		
+
 	} //End namespace DecisionTree
-	
+
 } //End namespace ML
