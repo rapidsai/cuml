@@ -50,7 +50,8 @@ protected:
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
-
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
@@ -86,7 +87,8 @@ protected:
 
     auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH, mgr);
+          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH, stream, mgr);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

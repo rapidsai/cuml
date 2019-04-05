@@ -81,7 +81,7 @@ protected:
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0));
+    r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveReduction(dots_exp, data, cols, rows, stream);
 
     // Perform reduction with default inplace = false first

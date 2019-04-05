@@ -52,7 +52,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -84,10 +87,11 @@ protected:
 		else
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
-		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle);
+		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void advancedTest() {
@@ -119,7 +123,7 @@ protected:
 
 
 		allocate(data2, len);
-		r.uniform(data2, len, T(-1.0), T(1.0));
+		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
 
 		int len_comp = params.n_col2 * prms.n_components;
@@ -132,7 +136,7 @@ protected:
 				singular_vals2, prms, cublas_handle, cusolver_handle, stream);
 
 		allocate(data2_back, len);
-		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle);
+		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));

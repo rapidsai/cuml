@@ -85,7 +85,7 @@ protected:
         allocate(chars2, nobs);
         allocate(out_ref, nkeys*cols);
         allocate(out, nkeys*cols);
-        r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
+        r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs), stream);
         r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys);
         naiveReduceRowsByKey(in1, cols, in2, chars2,
                                nobs, cols, nkeys, out_ref, stream);

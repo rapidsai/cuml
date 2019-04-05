@@ -45,6 +45,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
 protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
+    CUDA_CHECK(cudaStreamCreate(&stream));
     auto mgr = makeDefaultAllocator();
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
@@ -90,7 +91,7 @@ protected:
     allocate(eig_vals_large, params.n);
     allocate(eig_vals_jacobi_large, params.n);
 
-    r.uniform(cov_matrix_large, len, T(-1.0), T(1.0));
+    r.uniform(cov_matrix_large, len, T(-1.0), T(1.0), stream);
 
     eigDC(cov_matrix_large, params.n, params.n, eig_vectors_large,
           eig_vals_large, cusolverH, mgr);
@@ -107,6 +108,7 @@ protected:
     CUDA_CHECK(cudaFree(eig_vectors_ref));
     CUDA_CHECK(cudaFree(eig_vals_ref));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
@@ -118,6 +120,7 @@ protected:
     *eig_vals_large, *eig_vals_jacobi_large;
 
   cusolverDnHandle_t cusolverH = NULL;
+  cudaStream_t stream;
 };
 
 const std::vector<EigInputs<float>> inputsf2 = {

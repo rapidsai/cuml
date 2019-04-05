@@ -36,7 +36,7 @@ protected:
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0));
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, params.scalar, len, stream);
     multiplyScalar(out, in, params.scalar, len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

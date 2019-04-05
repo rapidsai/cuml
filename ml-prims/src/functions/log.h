@@ -24,21 +24,23 @@ namespace Functions {
 
 
 template <typename T>
-void f_log(T *out, T *in, T scalar, int len);
+void f_log(T *out, T *in, T scalar, int len, cudaStream_t stream);
 
 template <>
-inline void f_log(float *out, float *in, float scalar, int len) {
+inline void f_log(float *out, float *in, float scalar, int len, cudaStream_t stream) {
 	LinAlg::unaryOp(out, in, len, [scalar] __device__ (float in) {
 		                                         return logf(in) * scalar;
-		                                   });
+		                                   },
+                                       stream);
 
 }
 
 template <>
-inline void f_log(double *out, double *in, double scalar, int len) {
+inline void f_log(double *out, double *in, double scalar, int len, cudaStream_t stream) {
 	LinAlg::unaryOp(out, in, len, [scalar] __device__ (double in) {
 		                                         return log(in) * scalar;
-		                                   });
+		                                   },
+                                       stream);
 }
 
 

@@ -84,41 +84,44 @@ protected:
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 10;
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     Rng r(params.seed, params.gtype);
     allocate(data, params.len);
     allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Normal:
-        r.normal(data, params.len, params.start, params.end);
+        r.normal(data, params.len, params.start, params.end, stream);
         break;
       case RNG_LogNormal:
-        r.lognormal(data, params.len, params.start, params.end);
+        r.lognormal(data, params.len, params.start, params.end, stream);
         break;
       case RNG_Uniform:
-        r.uniform(data, params.len, params.start, params.end);
+        r.uniform(data, params.len, params.start, params.end, stream);
         break;
       case RNG_Gumbel:
-        r.gumbel(data, params.len, params.start, params.end);
+        r.gumbel(data, params.len, params.start, params.end, stream);
         break;
       case RNG_Logistic:
-        r.logistic(data, params.len, params.start, params.end);
+        r.logistic(data, params.len, params.start, params.end, stream);
         break;
       case RNG_Exp:
-        r.exponential(data, params.len, params.start);
+        r.exponential(data, params.len, params.start, stream);
         break;
       case RNG_Rayleigh:
-        r.rayleigh(data, params.len, params.start);
+        r.rayleigh(data, params.len, params.start, stream);
         break;
       case RNG_Laplace:
-        r.laplace(data, params.len, params.start, params.end);
+        r.laplace(data, params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
-    meanKernel<T, threads><<<ceildiv(params.len, threads), threads>>>(
+    meanKernel<T, threads><<<ceildiv(params.len, threads), threads, 0, stream>>>(
       stats, data, params.len);
     updateHost<T>(h_stats, stats, 2);
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -385,10 +388,11 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
 
     for(auto rtype : {Random::GenPhilox, Random::GenKiss99 /*, Random::GenTaps */}) {
       Random::Rng r(seed, rtype);
-      r.normal(data, len, 3.3f, 0.23f);
+      r.normal(data, len, 3.3f, 0.23f, stream);
       // r.uniform(data, len, -1.0, 2.0);
-      Stats::mean(mean_result, data, num_samples, num_experiments, false, false);
-      Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false, false, stream);
+      Stats::mean(mean_result, data, num_samples, num_experiments, false, false, stream);
+      Stats::stddev(std_result, data, mean_result, num_samples, num_experiments, false,
+                      false, stream);
       std::vector<float> h_mean_result(num_experiments);
       std::vector<float> h_std_result(num_experiments);
       updateHost(h_mean_result.data(), mean_result, num_experiments);

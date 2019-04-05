@@ -46,7 +46,7 @@ template<typename math_t>
 void lassoGrad(math_t *grad, const math_t *coef, const int len,
 		const math_t alpha, cudaStream_t stream) {
 
-	sign(grad, coef, alpha, len);
+	sign(grad, coef, alpha, len, stream);
 }
 
 template<typename math_t>

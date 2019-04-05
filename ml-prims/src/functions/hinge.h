@@ -72,7 +72,7 @@ void hingeH(const math_t *input, int n_rows, int n_cols,
 	if (intercept != math_t(0))
 		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
 
-	sign(pred, pred, math_t(1.0), n_rows);
+	sign(pred, pred, math_t(1.0), n_rows, stream);
 
 }
 
@@ -91,11 +91,11 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 
 	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
 
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
+	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
 	hingeLossGradMult(input_t, labels, labels_pred, n_cols, n_rows, stream);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
+	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
 
-	Stats::mean(grads, input, n_cols, n_rows, false, false);
+	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
 	math_t *pen_grads = NULL;
 
@@ -139,7 +139,7 @@ void hingeLoss(math_t *input, int n_rows, int n_cols,
 
 	hingeLossSubtract(labels_pred, labels_pred, math_t(1), n_rows, stream);
 
-	Stats::sum(loss, labels_pred, 1, n_rows, false);
+	Stats::sum(loss, labels_pred, 1, n_rows, false, stream);
 
 	math_t *pen_val = NULL;
 

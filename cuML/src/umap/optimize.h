@@ -126,8 +126,8 @@ namespace UMAPAlgo {
             /**
              * Finally, take the mean
              */
-            MLCommon::Stats::mean(grads,  a_deriv, 1, n_rows, false, false);
-            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false);
+            MLCommon::Stats::mean(grads,  a_deriv, 1, n_rows, false, false, stream);
+            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false, stream);
 
             CUDA_CHECK(cudaPeekAtLastError());
 

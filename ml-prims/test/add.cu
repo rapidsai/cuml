@@ -39,8 +39,8 @@ protected:
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0));
-    r.uniform(in2, len, T(-1.0), T(1.0));
+    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAddElem(out_ref, in1, in2, len);
     add(out, in1, in2, len, stream);
 

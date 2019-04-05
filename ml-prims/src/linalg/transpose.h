@@ -32,7 +32,7 @@ namespace LinAlg {
  */
 template <typename math_t>
 void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
-               cublasHandle_t cublas_h) {
+               cublasHandle_t cublas_h, cudaStream_t stream) {
   int out_n_rows = n_cols;
   int out_n_cols = n_rows;
 
@@ -50,7 +50,7 @@ void transpose(math_t *in, math_t *out, int n_rows, int n_cols,
  * @{
  */
 template <typename math_t>
-void transpose(math_t *inout, int n) {
+void transpose(math_t *inout, int n, cudaStream_t stream) {
   auto m = n;
   auto size = n * n;
   auto d_inout = inout;

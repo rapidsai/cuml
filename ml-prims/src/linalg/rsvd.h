@@ -58,13 +58,13 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
                    math_t *&U, math_t *&V, int k, int p, bool use_bbt,
                    bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
                    math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
-                   cublasHandle_t cublasH, DeviceAllocator &mgr) {
+                   cublasHandle_t cublasH, cudaStream_t stream, DeviceAllocator &mgr) {
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
 
   ///@todo: what if stream in cusolver/cublas handles are different!?
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
+  // cudaStream_t stream;
+  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
 
   int m = n_rows, n = n_cols;
   int l =
@@ -146,9 +146,9 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
                 cusolverH, mgr);
     else
       svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH, cublasH,
-            mgr);
+            stream, mgr);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, 0, 1,
-                        k); // First k elements of S_vec
+                        k, stream); // First k elements of S_vec
 
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -183,22 +183,22 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     CUDA_CHECK(cudaMemsetAsync(Uhat, 0, sizeof(math_t) * l * l, stream));
     math_t *Uhat_dup = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
     CUDA_CHECK(cudaMemsetAsync(Uhat_dup, 0, sizeof(math_t) * l * l, stream));
-    Matrix::copyUpperTriangular(BBt, Uhat_dup, l, l);
+    Matrix::copyUpperTriangular(BBt, Uhat_dup, l, l, stream);
     if (use_jacobi)
       eigJacobi(Uhat_dup, l, l, Uhat, S_vec_tmp, tol, max_sweeps, cusolverH,
                 mgr);
     else
       eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, mgr);
-    Matrix::seqRoot(S_vec_tmp, l);
+    Matrix::seqRoot(S_vec_tmp, l, stream);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1,
-                        l); // Last k elements of S_vec
-    Matrix::colReverse(S_vec, 1, k);
+                        l, stream); // Last k elements of S_vec
+    Matrix::colReverse(S_vec, 1, k, stream);
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
     if (gen_left_vec) {
       gemm(Q, m, l, Uhat + p * l, U, m, k, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
            beta, cublasH);
-      Matrix::colReverse(U, m, k);
+      Matrix::colReverse(U, m, k, stream);
     }
 
     // Merge step 14 & 15 by calculating V = B^T Uhat[:,(p+1):l] *
@@ -208,13 +208,13 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       CUDA_CHECK(cudaMemsetAsync(Sinv, 0, sizeof(math_t) * k * k, stream));
       math_t *UhatSinv = (math_t *)mgr.alloc(sizeof(math_t) * l * k);
       CUDA_CHECK(cudaMemsetAsync(UhatSinv, 0, sizeof(math_t) * l * k, stream));
-      Matrix::reciprocal(S_vec_tmp, l);
-      Matrix::initializeDiagonalMatrix(S_vec_tmp + p, Sinv, k, k);
+      Matrix::reciprocal(S_vec_tmp, l, stream);
+      Matrix::initializeDiagonalMatrix(S_vec_tmp + p, Sinv, k, k, stream);
 
       gemm(Uhat + p * l, l, k, Sinv, UhatSinv, l, k, CUBLAS_OP_N, CUBLAS_OP_N,
            alpha, beta, cublasH);
       gemm(B, l, n, UhatSinv, V, n, k, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH);
-      Matrix::colReverse(V, n, k);
+      Matrix::colReverse(V, n, k, stream);
 
       mgr.free(Sinv, stream);
       mgr.free(UhatSinv, stream);
@@ -258,13 +258,13 @@ void rsvdPerc(math_t *M, int n_rows, int n_cols, math_t *&S_vec, math_t *&U,
               math_t *&V, math_t PC_perc, math_t UpS_perc, bool use_bbt,
               bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
               math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, DeviceAllocator &mgr) {
+              cublasHandle_t cublasH, cudaStream_t stream, DeviceAllocator &mgr) {
   int k = max((int)(min(n_rows, n_cols) * PC_perc),
               1); // Number of singular values to be computed
   int p = max((int)(min(n_rows, n_cols) * UpS_perc), 1); // Upsamples
   rsvdFixedRank(M, n_rows, n_cols, S_vec, U, V, k, p, use_bbt, gen_left_vec,
                 gen_right_vec, use_jacobi, tol, max_sweeps, cusolverH, cublasH,
-                mgr);
+                stream, mgr);
 }
 
 }; // end namespace LinAlg

@@ -52,7 +52,7 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
   int *d_dev_info = (int *)mgr.alloc(sizeof(int));
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols);
+  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
@@ -122,7 +122,7 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
   int *dev_info = (int *)mgr.alloc(sizeof(int));
 
-  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols);
+  MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
   CUSOLVER_CHECK(cusolverDnsyevj(
     cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,

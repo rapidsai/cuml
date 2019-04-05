@@ -95,7 +95,8 @@ void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
  * @{
  */
 template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
+void seqRoot(math_t* in, math_t* out, math_t scalar, int len, cudaStream_t stream,
+              bool set_neg_zero = false) {
 
 	auto d_src = in;
 	auto d_dest = out;
@@ -112,7 +113,8 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
                               } else {
                                 return sqrt(a * scalar);
                               }
-                            });
+                            },
+                            stream);
 }
 
 /**
@@ -123,8 +125,9 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
  * @{
  */
 template <typename math_t>
-void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
-  seqRoot(inout, inout, scalar, len, set_neg_zero);
+void seqRoot(math_t* inout, math_t scalar, int len, cudaStream_t stream,
+              bool set_neg_zero = false) {
+  seqRoot(inout, inout, scalar, len, stream, set_neg_zero);
 }
 
 
@@ -136,21 +139,22 @@ void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
  * @{
  */
 template <typename math_t>
-void seqRoot(math_t* in, math_t* out, int len) {
+void seqRoot(math_t* in, math_t* out, int len, cudaStream_t stream) {
 	math_t scalar = 1.0;
-	seqRoot(in, out, scalar, len);
+	seqRoot(in, out, scalar, len, stream);
 }
 
 template <typename math_t>
-void seqRoot(math_t* inout, int len) {
+void seqRoot(math_t* inout, int len, cudaStream_t stream) {
 	math_t scalar = 1.0;
-	seqRoot(inout, inout, scalar, len);
+	seqRoot(inout, inout, scalar, len, stream);
 }
 
 
 
 template <typename math_t>
-void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15) {
+void setSmallValuesZero(math_t* out, const math_t* in, int len,
+                          cudaStream_t stream, math_t thres = 1e-15) {
   MLCommon::LinAlg::unaryOp(out, in, len, [=] __device__(math_t a)
                                              {
                                                if(a <= thres && -a <= thres) {
@@ -159,7 +163,8 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
                                                else {
                                                  return a;
                                                }
-                                             });  
+                                             },
+                                             stream);
 }
 
 /**
@@ -170,8 +175,9 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
  * @{
  */
 template <typename math_t>
-void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
-  setSmallValuesZero(inout, inout, len, thres);
+void setSmallValuesZero(math_t* inout, int len, cudaStream_t stream,
+                          math_t thres = 1e-15) {
+  setSmallValuesZero(inout, inout, len, stream, thres);
 }
 
 
@@ -187,7 +193,7 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
  */
 template <typename math_t>
 void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
-                bool setzero = false, math_t thres = 1e-15) {
+                cudaStream_t stream, bool setzero = false, math_t thres = 1e-15) {
   auto d_src = in;
   auto d_dest = out;
 
@@ -202,7 +208,8 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
                                                   else {
                                                     return scalar / a;
                                                   }
-                                                });
+                                                },
+                                                stream);
 }
 
 /**
@@ -216,9 +223,9 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @{
  */
 template <typename math_t>
-void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
-                math_t thres = 1e-15) {
-  reciprocal(inout, inout, scalar, len, setzero, thres);
+void reciprocal(math_t* inout, math_t scalar, int len, cudaStream_t stream,
+                bool setzero = false, math_t thres = 1e-15) {
+  reciprocal(inout, inout, scalar, len, stream, setzero, thres);
 }
 
 
@@ -230,9 +237,9 @@ void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
  * @{
  */
 template <typename math_t>
-void reciprocal(math_t *inout, int len) {
+void reciprocal(math_t *inout, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(inout, scalar, len);
+  reciprocal(inout, scalar, len, stream);
 }
 
 /**
@@ -244,9 +251,9 @@ void reciprocal(math_t *inout, int len) {
  * @{
  */
 template <typename math_t>
-void reciprocal(math_t *in, math_t *out, int len) {
+void reciprocal(math_t *in, math_t *out, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(in, out, scalar, len);
+  reciprocal(in, out, scalar, len, stream);
 }
 
 /**
@@ -261,7 +268,7 @@ void reciprocal(math_t *in, math_t *out, int len) {
 
 template <typename math_t>
 void ratio(math_t *src, math_t *dest, int len,
-           DeviceAllocator &mgr) {
+           DeviceAllocator &mgr, cudaStream_t stream) {
   auto d_src = src;
   auto d_dest = dest;
 
@@ -271,7 +278,8 @@ void ratio(math_t *src, math_t *dest, int len,
   MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, 0, src);
 
   MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=] __device__(math_t a)
-                                                { return a / (*d_sum); });
+                                                { return a / (*d_sum); },
+                                                stream);
 
   mgr.free(d_sum);
 }
@@ -319,18 +327,18 @@ __global__ void signFlipKernel(T* d_in, int D, int N) {
  * @{
  */
 template <typename math_t>
-void signFlip(math_t *inout, int n_rows, int n_cols) {  
+void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   auto data = inout;
   if (D <= 32) {
-    signFlipKernel<math_t, 32><<<N, 32>>>(data, D, N);
+    signFlipKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N);
   } else if(D <= 64) {
-    signFlipKernel<math_t, 64><<<N, 64>>>(data, D, N);
+    signFlipKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N);
   } else if(D <= 128) {
-    signFlipKernel<math_t, 128><<<N, 128>>>(data, D, N);
+    signFlipKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N);
   } else {
-    signFlipKernel<math_t, 256><<<N, 256>>>(data, D, N);
+    signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

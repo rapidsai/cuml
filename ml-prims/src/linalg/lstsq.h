@@ -53,7 +53,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(S, n_cols);
 	allocate(UT_b, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, mgr);
+	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, stream, mgr);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH);
 
@@ -86,7 +86,7 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
+	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream, mgr);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH);
 

@@ -28,9 +28,10 @@ namespace LinAlg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void unaryOpLaunch(T *out, const T *in, T scalar, int len) {
+void unaryOpLaunch(T *out, const T *in, T scalar, int len, cudaStream_t stream) {
   unaryOp(out, in, len,
-          [scalar] __device__(T in) { return in * scalar; });
+          [scalar] __device__(T in) { return in * scalar; },
+          stream);
 }
 
 template <typename T>
@@ -41,12 +42,15 @@ protected:
     Random::Rng r(params.seed);
     int len = params.len;
     T scalar = params.scalar;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0));
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
     naiveScale(out_ref, in, scalar, len);
-    unaryOpLaunch(out, in, scalar, len);
+    unaryOpLaunch(out, in, scalar, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
