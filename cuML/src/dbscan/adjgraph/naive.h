@@ -30,15 +30,15 @@ template <typename Type>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
     int k = 0;
     int N = data.N;
-    MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, sizeof(Type)*(batchSize+1));
-    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(bool)*(batchSize));
-    MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream, sizeof(bool)*batchSize*N);
-    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*batchSize);
+    MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, batchSize+1);
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, batchSize);
+    MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream, batchSize*N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, batchSize);
     MLCommon::updateHostAsync(host_adj.data(), data.adj, batchSize*N, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[batchSize]);
-    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
     for(int i=0; i<batchSize; i++) {
         for(int j=0; j<N; j++) {
             if(host_adj[i*N + j]) {

@@ -103,7 +103,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph.data() == NULL) {
 			adjlen = curradjlen;
-            adj_graph.resize(adjlen*sizeof(Type), stream);
+            adj_graph.resize(adjlen, stream);
 		}
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);

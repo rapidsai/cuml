@@ -50,8 +50,8 @@ template <typename Type>
 void bfs(const ML::cumlHandle_impl& handle, int id, Pack<Type> data, Type *host_adj_graph, Type *host_ex_scan, int *host_vd,
          bool *host_visited, Type *host_db_cluster, Type cluster, size_t N,
          int startVertexId, int batchSize, cudaStream_t stream) {
-    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
-    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, N);
     memset(host_xa.data(), false, sizeof(bool)*N);
     memset(host_fa.data(), false, sizeof(bool)*N);
     host_fa[id] = true;
@@ -80,17 +80,17 @@ template <typename Type>
 void identifyCluster(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     Type cluster = Type(1) + startVertexId;
     size_t N = (size_t)data.N;
-    MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, sizeof(int)*(batchSize+1));
-    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(int)*batchSize);
-    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, sizeof(bool)*N);
-    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*batchSize);
-    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, batchSize+1);
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, batchSize);
+    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, batchSize);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
 
     MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, batchSize, stream);
     MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[batchSize]);
-    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
     MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, batchSize, stream);
     MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
     MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
