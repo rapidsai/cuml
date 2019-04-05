@@ -7,10 +7,14 @@
 
 #include <linalg/cublas_wrappers.h>
 #include <linalg/binary_op.h>
-
+#include <memory>
 
 namespace MLCommon {
 namespace Matrix {
+
+template<typename T>
+void cudaFreeT(T *ptr) { CUDA_CHECK(cudaFree(ptr)); }
+
 class BatchedMatrix {
 public:
   // Create a BatchedMatrix.
@@ -49,12 +53,12 @@ public:
       double** h_ptr = new double*[m_num_batches];
       updateHost(h_ptr, m_A_data, m_num_batches);
       for(int i=0;i<m_num_batches;i++) {
-        m_A.push_back(h_ptr[i]);
+        m_A.push_back(std::shared_ptr<double>(h_ptr[i], cudaFreeT<double>));
       }
     }
   }
 
-  const std::vector<double*>& A() const {
+  const std::vector<std::shared_ptr<double>>& A() const {
     if (m_A.size() == 0) {
       throw std::runtime_error("BatchedMatrix ERROR: uninitialized A. Call `BM.createA()` first.");
     }
@@ -65,7 +69,9 @@ private:
 
   // shared initialization function
   void init(const std::vector<double*>& A, std::pair<int, int> shape, bool gpu=true) {
-    m_A = A;
+    for(auto ai: A) {
+      m_A.push_back(std::shared_ptr<double>(ai, cudaFreeT<double>));
+    }
     m_num_batches = A.size();
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
@@ -74,16 +80,15 @@ private:
     CUDA_CHECK(cudaMemcpy(m_A_data, A.data(), sizeof(double*) * m_num_batches, cudaMemcpyHostToDevice));
   }
 
-  // host-stored pointers to (device) matrices
-  std::vector<double*> m_A;
+  // host-stored pointers to (device) matrices. Shared pointers to free unused
+  // memory but only if no other references exist.
+  std::vector<std::shared_ptr<double>> m_A;
 
   // decides where data is stored and where operations are computed.
   bool m_gpu;
 
   // Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
   std::pair<int, int> m_shape;
-
-
 
   // Raw Data pointer to batched matrices. Is stored in CPU or GPU depending on `m_gpu`
   double** m_A_data;
@@ -171,7 +176,7 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
   BatchedMatrix C(m, n, num_batches);
 
   for(int i=0; i<num_batches; i++) {
-    LinAlg::binaryOp(C.A()[i], A.A()[i], B.A()[i], m*n, binary_op);
+    LinAlg::binaryOp(C.A()[i].get(), A.A()[i].get(), B.A()[i].get(), m*n, binary_op);
   }
   return C;
 }
