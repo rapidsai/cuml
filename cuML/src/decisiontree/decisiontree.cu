@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ namespace ML {
 			column = ques.original_column;
 			value = ques.value;
 		}
-		
+
 		template<class T>
 		void TreeNode<T>::print(std::ostream& os) {
 
@@ -47,10 +47,10 @@ namespace ML {
 				os << "(leaf, " << class_predict << ", " << gini_val << ")" ;
 			else
 				os << "(" << question.column << ", " << question.value << ", " << gini_val << ")" ;
-			
+
 			return;
 		}
-		
+
 		template<typename T>
 		std::ostream& operator<<(std::ostream& os, TreeNode<T> * node) {
 			node->print(os);
@@ -67,13 +67,13 @@ namespace ML {
 
 				return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 			}
-		
+
 		template<typename T>
 		int DecisionTreeClassifier<T>::predict(const T * row, bool verbose) {
 			ASSERT(root, "Cannot predict w/ empty tree!");
 			return classify(row, root, verbose);
 		}
-		
+
 		template<typename T>
 		void DecisionTreeClassifier<T>::print_tree_summary() {
 			std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
@@ -90,7 +90,7 @@ namespace ML {
 
 		template<typename T>
 		void DecisionTreeClassifier<T>::plant(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag)
-			
+
 		{
 			split_algo = split_algo_flag;
 			dinfo.NLocalrows = nrows;
@@ -101,11 +101,11 @@ namespace ML {
 			maxleaves = max_leaf_nodes;
 			tempmem.resize(MAXSTREAMS);
 			n_unique_labels = unique_labels;
-			
+
 			cudaDeviceProp prop;
 			CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
 			max_shared_mem = prop.sharedMemPerBlock;
-			
+
 			if (split_algo == SPLIT_ALGO::HIST) {
 				shmem_used += 2 * sizeof(T) * ncols;
 				shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
@@ -113,7 +113,7 @@ namespace ML {
 				shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
 			}
 			ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
-			
+
 			for (int i = 0; i<MAXSTREAMS; i++) {
 				tempmem[i] = new TemporaryMemory<T>(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 				if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
@@ -126,11 +126,11 @@ namespace ML {
 			Timer timer;
 			root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 			construct_time = timer.getElapsedSeconds();
-			
+
 			for (int i = 0;i<MAXSTREAMS;i++) {
 				delete tempmem[i];
 			}
-			
+
 			return;
 		}
 
@@ -143,23 +143,23 @@ namespace ML {
 			float gain = 0.0;
 			GiniInfo split_info[3]; // basis, left, right. Populate this
 			split_info[0] = prev_split_info;
-			
+
 			bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 			if (!condition)  {
 				find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 				condition = condition || (gain == 0.0f);
 			}
-			
+
 			if (treedepth != -1)
 				condition = (condition || (depth == treedepth));
-			
+
 			if (maxleaves != -1)
 				condition = (condition || (leaf_counter >= maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
-			
+
 			if (condition) {
 				node->class_predict = get_class_hist(split_info[0].hist);
 				node->gini_val = split_info[0].best_gini;
-				
+
 				leaf_counter++;
 				if (depth > depth_counter)
 					depth_counter = depth;
@@ -175,32 +175,32 @@ namespace ML {
 			}
 			return node;
 		}
-		
-		
+
+
 		template<typename T>
 		void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth)
 		{
-			
+
 			// Bootstrap columns
 			std::vector<int> colselector(dinfo.Ncols);
 			std::iota(colselector.begin(), colselector.end(), 0);
 			std::random_shuffle(colselector.begin(), colselector.end());
 			colselector.resize((int)(colper * dinfo.Ncols ));
-			
+
 			CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 			// Copy sampled column IDs to device memory
 			CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
-			
+
 			// Optimize ginibefore; no need to compute except for root.
 			if (depth == 0) {
 				int *labelptr = tempmem[0]->sampledlabels;
 				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
 				gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 			}
-			
+
 			int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
 			best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector, tempmem[0], &split_info[0], ques, gain, split_algo);
-			
+
 			//Unregister
 			CUDA_CHECK(cudaHostUnregister(colselector.data()));
 		}
@@ -212,7 +212,7 @@ namespace ML {
 			T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 			make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, split_algo, tempmem[0]);
 		}
-		
+
 		template<typename T>
 		int DecisionTreeClassifier<T>::classify(const T * row, TreeNode<T> * node, bool verbose) {
 			Question<T> q = node->question;
@@ -236,22 +236,22 @@ namespace ML {
 		{
 			if (node != NULL) {
 				std::cout << prefix;
-				
+
 				std::cout << (isLeft ? "├" : "└" );
-				
+
 				// print the value of the node
 				std::cout << node << std::endl;
-				
+
 				// enter the next tree level - left and right branch
 				print_node( prefix + (isLeft ? "│   " : "    "), node->left, true);
 				print_node( prefix + (isLeft ? "│   " : "    "), node->right, false);
 			}
 		}
-		
+
 		//Class specializations
 		template class DecisionTreeClassifier<float>;
 		template class DecisionTreeClassifier<double>;
 
 	} //End namespace DecisionTree
-	
+
 } //End namespace ML
