@@ -208,9 +208,6 @@ int main(int argc, char * argv[])
 #endif //HAVE_RMM
     cumlHandle.setDeviceAllocator( allocator );
 
-    cudaStream_t stream;
-    CUDA_RT_CALL( cudaStreamCreate( &stream ) );
-    cumlHandle.setStream( stream );
     std::vector<float> h_inputData;
 
     if(input == "")
@@ -256,8 +253,13 @@ int main(int argc, char * argv[])
                       << input << ", while expecting to read: "
                       << nRows*nCols << " (num_samples*num_features)"
                       << std::endl;
+            return 1;
         }
     }
+
+    cudaStream_t stream;
+    CUDA_RT_CALL( cudaStreamCreate( &stream ) );
+    cumlHandle.setStream( stream );
 
     std::vector<int> h_labels(nRows);
     int *d_labels = nullptr;
@@ -307,7 +309,7 @@ int main(int argc, char * argv[])
         }
         else
         {
-            noise = it->second;
+            noise += it->second;
         }
     }
 
