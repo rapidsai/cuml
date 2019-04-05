@@ -23,10 +23,8 @@ void vs_eq_ys_m_alpha00(double* d_vs,int it,const vector<double*>& ptr_ys_b,cons
   const int num_batches = alpha.batches();
   const int block_size = 16;
   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-  dim3 grid(num_blocks,1,1);
-  dim3 blk(block_size, 1, 1);
 
-  vs_eq_ys_m_alpha00_kernel<<<blk, grid>>>(d_vs, it, ptr_ys_b[it], alpha.data(), alpha.shape().first, num_batches);
+  vs_eq_ys_m_alpha00_kernel<<<num_blocks, block_size>>>(d_vs, it, ptr_ys_b[it], alpha.data(), alpha.shape().first, num_batches);
   
 }
 
@@ -42,25 +40,65 @@ void fs_it_P00(double* d_Fs, int it, const BatchedMatrix& P) {
   const int block_size = 16;
   const int num_batches = P.batches();
   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-  dim3 grid(num_blocks,1,1);
-  dim3 blk(block_size, 1, 1);
 
-  fs_it_P00_kernel<<<blk, grid>>>(d_Fs, it, P.data(), num_batches);
+  fs_it_P00_kernel<<<num_blocks, block_size>>>(d_Fs, it, P.data(), num_batches);
 
+}
+
+__global__ void _1_Fsit_TPZt_kernel(double* d_Fs, int it, double** TPZt,
+                                    int N_TPZt, // size of matrix TPZt
+                                    int num_batches,
+                                    double** K // output
+                                    ) {
+  
+  int batch_id = blockIdx.x;
+  for(int i=0;i<N_TPZt/blockDim.x;i++) {
+    int ij = threadIdx.x + i*blockDim.x;
+    if(ij < N_TPZt) {
+      K[batch_id][ij] = 1.0/d_Fs[batch_id + num_batches * it] * TPZt[batch_id][ij];
+    }
+  }
 }
 
 BatchedMatrix _1_Fsit_TPZt(double* d_Fs, int it, const BatchedMatrix& TPZt) {
   BatchedMatrix K(TPZt.shape().first, TPZt.shape().second, TPZt.batches());
 
-  const int block_size = 16;
+  const int TPZt_size = TPZt.shape().first * TPZt.shape().second;
+  const int block_size = (TPZt_size) % 128;
+  
   const int num_batches = TPZt.batches();
-  const int num_blocks = std::ceil((double)num_batches/(double)block_size);
-  dim3 grid(num_blocks,1,1);
-  dim3 blk(block_size, 1, 1);
+  const int num_blocks = num_batches;
 
   // call kernel
+  _1_Fsit_TPZt_kernel<<<num_blocks,block_size>>>(d_Fs, it, TPZt.data(), TPZt_size, num_batches, K.data());
 
   return K;
+}
+
+BatchedMatrix Kvs_it(const BatchedMatrix& K, double* d_vs, int it) {
+  throw std::runtime_error("Not implemtend");
+}
+
+__global__ void sumLogFs_kernel(double* d_Fs, int num_batches, int nobs, double* d_sumLogFs) {
+  double sum = 0.0;
+  int bid = threadIdx.x + blockIdx.x*blockDim.x;
+  if(bid < num_batches) {
+    for (int it = 0; it < nobs; it++) {
+      sum += log(d_Fs[bid]);
+    }
+    d_sumLogFs[bid] = sum;
+  }
+}
+
+double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
+
+  double* d_sumLogFs;
+  allocate(d_sumLogFs, num_batches);
+  // compute sum(log(Fs[0:nobs]))
+  const int block_size = 32;
+  const int num_blocks = std::ceil((double)num_batches/(double)block_size);
+  sumLogFs_kernel<<<num_blocks, block_size>>>(d_Fs, num_batches, nobs, d_sumLogFs);
+  return d_sumLogFs;
 }
 
 void batched_kalman_filter(const vector<double*>& ptr_ys_b,
@@ -73,7 +111,7 @@ void batched_kalman_filter(const vector<double*>& ptr_ys_b,
                            vector<double>& ptr_loglike_b,
                            vector<double>& ptr_sigma2_b) {
 
-  // just use single kalman for now
+
   const size_t num_batches = ptr_Zb.size();
   const size_t ys_len = ptr_ys_b.size();
 
@@ -111,7 +149,31 @@ void batched_kalman_filter(const vector<double*>& ptr_ys_b,
     BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
     BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
 
+    // 4.
+    // alpha = T*alpha + K*vs[it];
+    BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
+    alpha = Tb*alpha + Kvs;
+
+    // 5.
+    // MatrixT L = T - K*Z;
+    BatchedMatrix L = Tb - K*Zb;
+
+    // 6.
+    // P = T * P * L.transpose() + R * R.transpose();
+    P = Tb * b_gemm(P, L, false, true) + RRT;
+
   }
+
+  // 7.
+  // loglikelihood = sum(log(Fs[:]))
+  double* sumLogFs = sumLogFs(d_Fs, num_batches, ys_len);
+  
+  // 8.
+  // sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
+  // 9.
+  // loglike = -.5 * (loglikelihood + nobs * std::log(sigma2)) - nobs / 2. * (std::log(2 * M_PI) + 1);
+
+  //xfer results from GPU
 
   // for(int i=0; i<num_batches; i++) {
   //   kalman_filter(ptr_ys_b[i], ys_len[i], ptr_Zb[i], ptr_Rb[i], ptr_Tb[i], r,
