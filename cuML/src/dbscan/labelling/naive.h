@@ -59,12 +59,12 @@ void bfs(int id, Type *host_adj_graph,
 template <typename Type>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = (size_t)data.N;
-    MLCommon::host_buffer<Type> host_vd(handle.getHostAllocator(), stream, sizeof(Type)*(N+1));
-    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, sizeof(bool)*N);
-    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, sizeof(bool)*N);
-    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, sizeof(Type)*N);
-    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
-    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<Type> host_vd(handle.getHostAllocator(), stream, N+1);
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
     data.resetArray(stream);
     /** this line not in resetArray function because it interferes with algo2 */
     //CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*N, stream));
@@ -72,7 +72,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVerte
     MLCommon::updateHostAsync(host_vd.data(), data.vd, N+1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[N]);
-    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, sizeof(Type)*adjgraph_size);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
     MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, N, stream);
     MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
     MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);

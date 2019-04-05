@@ -120,8 +120,8 @@ template <typename Type>
 void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = data.N;
     bool host_m;
-    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, sizeof(bool)*N);
-    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, sizeof(bool)*N);
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
 
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
@@ -159,8 +159,8 @@ void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t st
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
-    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, sizeof(Type)*N);
-    MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, sizeof(Type)*N);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, N);
     memset(host_map_id.data(), 0, N*sizeof(Type));
     MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
