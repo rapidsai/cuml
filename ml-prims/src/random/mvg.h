@@ -197,7 +197,7 @@ public: // functions
       // upper part (0) being filled with 0.0
       dim3 block(32, 32);
       dim3 grid(ceildiv(dim, (int)block.x), ceildiv(dim, (int)block.y));
-      fill_uplo<T><<<grid, block>>>(dim, UPPER, (T)0.0, P);
+      fill_uplo<T><<<grid, block, 0, cudaStream>>>(dim, UPPER, (T)0.0, P);
       CUDA_CHECK(cudaPeekAtLastError());
 
       // P is lower triangular chol decomp mtrx
@@ -210,7 +210,7 @@ public: // functions
       dim3 grid(ceildiv(dim, (int)block.x));
       CUDA_CHECK(cudaMemset(info, 0, sizeof(int)));
       grid.x = ceildiv(dim * dim, (int)block.x);
-      combined_dot_product<T><<<grid, block>>>(dim, dim, eig, P, info);
+      combined_dot_product<T><<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
