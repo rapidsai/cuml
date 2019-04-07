@@ -17,6 +17,8 @@
 #pragma once
 
 #include <gmm/backend/gmm_backend.h>
+#include <gmm/backend/sigmas_backend.h>
+#include <gmm/likelihood/b_likelihood.h>
 
 using namespace MLCommon::LinAlg;
 using namespace MLCommon;
@@ -89,9 +91,6 @@ size_t gmm_bufferSize(GMM<T> &gmm){
         const size_t granularity = 256;
         size_t tempWsSize;
 
-        printf("\nComputing ws size\n");
-        printf("1 %d\n", (int) workspaceSize );
-
         gmm.handle.lddprobnorm = gmm.nObs;
         gmm.handle.batchCount = gmm.nCl;
 
@@ -106,20 +105,12 @@ size_t gmm_bufferSize(GMM<T> &gmm){
 
         gmm.handle.dX_batches = (T **)workspaceSize;
         workspaceSize += alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
-        printf("2 %d\n", (int) workspaceSize );
-
-        // tempWsSize = alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
-        // printf("gmm.handle.dX_batches size %d\n", (int) tempWsSize );
 
         gmm.handle.dmu_batches = (T **)workspaceSize;
         workspaceSize += alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
 
         gmm.handle.dsigma_batches = (T **)workspaceSize;
         workspaceSize += alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
-        printf("3 %d\n", (int) workspaceSize );
-
-        // gmm.handle.dDiff = (T *)workspaceSize;
-        // workspaceSize += alignTo(gmm.lddx * gmm.nObs * gmm.nCl * sizeof(T), granularity);
 
         gmm.handle.dDiff_batches = (T **)workspaceSize;
         workspaceSize += alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
@@ -127,10 +118,7 @@ size_t gmm_bufferSize(GMM<T> &gmm){
         gmm.handle.dProbNorm = (T *)workspaceSize;
         workspaceSize += alignTo(gmm.handle.lddprobnorm * sizeof(T), granularity);
 
-        printf("4 %d\n", (int) workspaceSize );
-
         tempWsSize = alignTo(gmm.handle.batchCount * sizeof(T*), granularity);
-        printf("gmm.handle.dProbNorm size %d\n", (int) tempWsSize );
 
         gmm.handle.llhdWs = (T *)workspaceSize;
         llhd_bufferSize(gmm.handle.llhd_handle,
@@ -138,13 +126,6 @@ size_t gmm_bufferSize(GMM<T> &gmm){
                         gmm.lddx, gmm.lddsigma, gmm.lddsigma_full,
                         tempWsSize);
         workspaceSize += alignTo(tempWsSize, granularity);
-        printf("Llhd Ws size %d\n", (int) tempWsSize );
-
-        printf("5 %d\n", (int) workspaceSize );
-
-        printf("\nComputing ws size ---------------------\n");
-
-
         return workspaceSize;
 }
 
@@ -261,35 +242,66 @@ void update_sigmas(T* dX, GMM<T>& gmm,
                    cublasHandle_t cublasHandle, magma_queue_t queue){
         int batchCount=gmm.nCl;
         int ldDiff= gmm.lddx;
+        int batch_nObs, batch_obs_offset;
+        int nBatches;
 
-        create_sigmas_batches(gmm.nCl,
-                              gmm.handle.dX_batches, gmm.handle.dmu_batches, gmm.handle.dsigma_batches,
-                              dX, gmm.lddx, gmm.dmu, gmm.lddmu, gmm.dsigma, gmm.lddsigma, gmm.lddsigma_full);
-
-        // Compute diffs
-        subtract_batched(gmm.nDim, gmm.nObs, batchCount,
-                         gmm.handle.dDiff_batches, ldDiff,
-                         gmm.handle.dX_batches, gmm.lddx,
-                         gmm.handle.dmu_batches, gmm.lddmu);
-
-        // Compute sigmas
+        CUDA_CHECK(cudaMemset(gmm.dsigma, 0, gmm.nCl * gmm.lddsigma_full));
         sqrt(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 
-        dgmm_batched(gmm.nDim, gmm.nObs, gmm.nCl,
-                     gmm.handle.dDiff_batches, ldDiff,
-                     gmm.handle.dDiff_batches, ldDiff,
-                     gmm.dLlhd, gmm.lddLlhd);
+        nBatches = ceil((float) (gmm.nObs * gmm.nCl) /
+                        (float) gmm.handle.llhd_handle.dDiff_size);
+        batch_obs_offset = 0;
+        batch_nObs = gmm.nObs;
 
-        // get the sum of all the covs
-        T alpha = (T) 1.0 / gmm.nObs, beta = (T)0.0;
-        magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
-                               gmm.nDim, gmm.nDim, gmm.nObs,
-                               alpha, gmm.handle.dDiff_batches, ldDiff,
-                               gmm.handle.dDiff_batches, ldDiff, beta,
-                               gmm.handle.dsigma_batches, gmm.lddsigma, gmm.nCl,
-                               queue);
+        for (size_t batchId = 0; batchId < nBatches; batchId++) {
+                if (batchId == nBatches - 1) {
+                        batch_nObs = (gmm.nObs * gmm.nCl) % gmm.handle.llhd_handle.dDiff_size;
+                        if (batch_nObs == 0) {
+                                batch_nObs = gmm.handle.llhd_handle.dDiff_size;
+                        }
+                }
+                else
+                {
+                        batch_nObs = gmm.handle.llhd_handle.dDiff_size;
+                }
+                batch_nObs /= gmm.nCl;
 
-        // Normalize with respect to N_k
+                create_sigmas_batches(gmm.nCl,
+                                      gmm.handle.dX_batches,
+                                      gmm.handle.dmu_batches,
+                                      gmm.handle.dsigma_batches,
+                                      // dX + IDX(0, batch_obs_offset, gmm.lddx), gmm.lddx,
+                                      dX, gmm.lddx,
+                                      gmm.dmu, gmm.lddmu,
+                                      gmm.dsigma, gmm.lddsigma, gmm.lddsigma_full);
+
+                // Compute diffs
+                subtract_batched(gmm.nDim, batch_nObs, gmm.nCl,
+                                 gmm.handle.dDiff_batches, ldDiff,
+                                 gmm.handle.dX_batches, gmm.lddx,
+                                 gmm.handle.dmu_batches, gmm.lddmu);
+
+                dgmm_batched(gmm.nDim, batch_nObs, gmm.nCl,
+                             gmm.handle.dDiff_batches, ldDiff,
+                             gmm.handle.dDiff_batches, ldDiff,
+                             gmm.dLlhd + IDX(0, batch_obs_offset, gmm.lddLlhd),
+                             gmm.lddLlhd);
+
+                // get the sum of all the covs
+                T alpha = (T) 1.0 / gmm.nObs;
+                T beta = (T)0.0;
+                // T beta = (T)1.0;
+                magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
+                                       gmm.nDim, gmm.nDim, gmm.nObs,
+                                       alpha, gmm.handle.dDiff_batches, ldDiff,
+                                       gmm.handle.dDiff_batches, ldDiff, beta,
+                                       gmm.handle.dsigma_batches, gmm.lddsigma, gmm.nCl,
+                                       queue);
+
+                batch_obs_offset += batch_nObs;
+        }
+
+// Normalize with respect to N_k
         inverse(gmm.dPis_inv, gmm.dPis, gmm.nCl);
 
         CUBLAS_CHECK(cublasdgmm(cublasHandle, CUBLAS_SIDE_RIGHT,
@@ -304,6 +316,90 @@ void update_sigmas(T* dX, GMM<T>& gmm,
 
         square(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
 }
+
+
+
+// template <typename T>
+// void update_sigmas(T* dX, GMM<T>& gmm,
+//                    cublasHandle_t cublasHandle, magma_queue_t queue){
+//         int batchCount=gmm.nCl;
+//         int ldDiff= gmm.lddx;
+//         // int batch_nObs, batch_obs_offset, nBatches;
+//
+//         sqrt(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
+//         create_sigmas_batches(gmm.nCl,
+//                               gmm.handle.dX_batches, gmm.handle.dmu_batches, gmm.handle.dsigma_batches,
+//                               dX, gmm.lddx, gmm.dmu, gmm.lddmu, gmm.dsigma, gmm.lddsigma, gmm.lddsigma_full);
+//
+//         // Compute sigmas
+//
+//         // nBatches = ceil((float) (gmm.nObs * gmm.nCl) /
+//         //                 (float) gmm.handle.llhd_handle.dDiff_size);
+//         // batch_obs_offset = 0;
+//         // for (size_t batchId = 0; batchId < nBatches; batchId++) {
+//         //         if (batchId == nBatches - 1) {
+//         //                 batch_nObs = gmm.nObs % gmm.handle.llhd_handle.dDiff_size;
+//         //                 if (batch_nObs == 0) {
+//         //                         batch_nObs = gmm.handle.llhd_handle.dDiff_size;
+//         //                 }
+//         //         }
+//         //         else
+//         //         {
+//         //                 batch_nObs = gmm.handle.llhd_handle.dDiff_size;
+//         //         }
+//         //         batchCount = batch_nObs * gmm.nCl;
+//
+//         // Compute diffs
+//         subtract_batched(gmm.nDim, gmm.nObs, batchCount,
+//                          gmm.handle.dDiff_batches, ldDiff,
+//                          gmm.handle.dX_batches, gmm.lddx,
+//                          gmm.handle.dmu_batches, gmm.lddmu);
+//         // subtract_batched(gmm.nDim, gmm.nObs, batchCount,
+//         //                  gmm.handle.dDiff_batches, ldDiff,
+//         //                  gmm.handle.dX_batches + batch_obs_offset, gmm.lddx,
+//         //                  gmm.handle.dmu_batches, gmm.lddmu);
+//
+//         dgmm_batched(gmm.nDim, gmm.nObs, gmm.nCl,
+//                      gmm.handle.dDiff_batches, ldDiff,
+//                      gmm.handle.dDiff_batches, ldDiff,
+//                      gmm.dLlhd, gmm.lddLlhd);
+//         // dgmm_batched(gmm.nDim, gmm.nObs, gmm.nCl,
+//         //              gmm.handle.dDiff_batches, ldDiff,
+//         //              gmm.handle.dDiff_batches, ldDiff,
+//         //              gmm.dLlhd + IDX(0, batch_obs_offset, gmm.lddLlhd), gmm.lddLlhd);
+//
+//         // get the sum of all the covs
+//         T alpha = (T) 1.0 / gmm.nObs;
+//         T beta = (T)0.0;
+//         // T beta = (T)1.0;
+//         magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
+//                                gmm.nDim, gmm.nDim, gmm.nObs,
+//                                alpha, gmm.handle.dDiff_batches, ldDiff,
+//                                gmm.handle.dDiff_batches, ldDiff, beta,
+//                                gmm.handle.dsigma_batches, gmm.lddsigma, gmm.nCl,
+//                                queue);
+//         // magmablas_gemm_batched(MagmaNoTrans, MagmaTrans,
+//         //                        gmm.nDim, gmm.nDim, gmm.nObs,
+//         //                        alpha, gmm.handle.dDiff_batches, ldDiff,
+//         //                        gmm.handle.dDiff_batches, ldDiff, beta,
+//         //                        gmm.handle.dsigma_batches, gmm.lddsigma, gmm.nCl,
+//         //                        queue);
+//         // }
+//         // Normalize with respect to N_k
+//         inverse(gmm.dPis_inv, gmm.dPis, gmm.nCl);
+//
+//         CUBLAS_CHECK(cublasdgmm(cublasHandle, CUBLAS_SIDE_RIGHT,
+//                                 gmm.lddsigma_full, gmm.nCl,
+//                                 gmm.dsigma, gmm.lddsigma_full,
+//                                 gmm.dPis_inv, 1,
+//                                 gmm.dsigma, gmm.lddsigma_full));
+//
+//         regularize_sigmas(gmm.nDim, gmm.nCl,
+//                           gmm.handle.dsigma_batches, gmm.lddsigma,
+//                           gmm.reg_covar);
+//
+//         square(gmm.dLlhd, gmm.dLlhd, gmm.lddLlhd * gmm.nObs);
+// }
 
 template <typename T>
 void update_pis(GMM<T>& gmm){

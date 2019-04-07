@@ -161,6 +161,9 @@ class _GaussianMixtureBackend :
 
         print(workspace_size)
 
+        cuda_context = cuda.current_context()
+        available_mem = cuda_context.get_memory_info()
+
         self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
         self._workspace_size = workspace_size
 

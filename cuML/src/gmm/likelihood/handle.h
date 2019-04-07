@@ -12,6 +12,7 @@ struct llhdHandle_t {
         T **dInvSigma_array, *dInvdet_array, **dX_batches, **dmu_batches, **dInvSigma_batches, **dDiff_batches, *dBil_batches;
 
         T* dInvSigma, *dDiff;
+        size_t dDiff_size;
 
         int nCl, lddx, lddsigma_full, batchCount;
 

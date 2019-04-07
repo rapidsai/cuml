@@ -128,7 +128,7 @@ def print_info(true_params, sk_params, cuml_params):
 @pytest.mark.parametrize('n_iter', [5])
 @pytest.mark.parametrize('nCl', [10, 40])
 @pytest.mark.parametrize('nDim', [50])
-@pytest.mark.parametrize('nObs', [5000])
+@pytest.mark.parametrize('nObs', [500])
 @pytest.mark.parametrize('precision', ['double'])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [1e-06])

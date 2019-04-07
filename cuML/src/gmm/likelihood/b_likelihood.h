@@ -24,6 +24,7 @@
 #include "magma/b_allocate.h"
 #include <magma/b_split.h>
 #include <magma/b_subtract.h>
+#include <magma/b_dgmm.h>
 
 #include "gmm/likelihood/handle.h"
 
@@ -209,6 +210,7 @@ void llhd_bufferSize(llhdHandle_t<T>& handle,
 
         handle.dDiff = (T *)workspaceSize;
         workspaceSize += alignTo(lddx * batchCount * sizeof(T), granularity);
+        handle.dDiff_size = batchCount;
 
         printf("handle.dDiff size %d\n", (int) alignTo(lddx * batchCount * sizeof(T), granularity) );
 
@@ -263,7 +265,7 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         bool isLog,
                         magma_queue_t queue,
                         llhdHandle_t<T>& llhd_handle){
-        magma_int_t batchCount = nObs * nCl;
+        int batch_nObs, batchCount, batch_obs_offset, nBatches;
 
         // Compute sigma inverses
         inverse_batched(nDim, dsigma_array, lddsigma,
@@ -282,24 +284,46 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                             llhd_handle.dInvSigma_batches,
                             dX_array, dmu_array, llhd_handle.dInvSigma_array);
 
-        // Compute diffs
-        subtract_batched(nDim, 1, batchCount,
-                         llhd_handle.dDiff_batches, lddx,
-                         llhd_handle.dX_batches, lddx,
-                         llhd_handle.dmu_batches, lddmu);
+        nBatches = ceil((float) (nObs * nCl) / (float) llhd_handle.dDiff_size);
+        printf("nbatches %d\n", nBatches);
+        printf("nObs %d\n", nObs);
+        printf("llhd_handle.dDiff_size %d\n", llhd_handle.dDiff_size );
 
-        // Compute bilinears
-        bilinear_batched(nDim, nDim,
-                         llhd_handle.dDiff_batches,
-                         llhd_handle.dInvSigma_batches, lddsigma,
-                         llhd_handle.dDiff_batches, llhd_handle.dBil_batches, batchCount,
-                         queue, llhd_handle.bilinearHandle);
+        batch_obs_offset = 0;
+        for (size_t batchId = 0; batchId < nBatches; batchId++) {
+                if (batchId == nBatches - 1) {
+                        batch_nObs = nObs % llhd_handle.dDiff_size;
+                        if (batch_nObs == 0) {
+                                batch_nObs = llhd_handle.dDiff_size;
+                        }
+                }
+                else
+                {
+                        batch_nObs = llhd_handle.dDiff_size;
+                }
+                batchCount = batch_nObs * nCl;
 
-        // Compute log likelihoods
-        _likelihood_batched(nObs, nCl, nDim,
-                            llhd_handle.dInvdet_array,
-                            llhd_handle.dBil_batches,
-                            dLlhd, lddLlhd, isLog);
+                subtract_batched(nDim, 1, batchCount,
+                                 llhd_handle.dDiff_batches, lddx,
+                                 llhd_handle.dX_batches + batch_obs_offset, lddx,
+                                 llhd_handle.dmu_batches, lddmu);
+
+                // Compute bilinears
+                bilinear_batched(nDim, nDim,
+                                 llhd_handle.dDiff_batches,
+                                 llhd_handle.dInvSigma_batches, lddsigma,
+                                 llhd_handle.dDiff_batches, llhd_handle.dBil_batches, batchCount,
+                                 queue, llhd_handle.bilinearHandle);
+
+                // Compute log likelihoods
+                _likelihood_batched(batch_nObs, nCl, nDim,
+                                    llhd_handle.dInvdet_array,
+                                    llhd_handle.dBil_batches,
+                                    dLlhd + IDX(0, batch_obs_offset, lddLlhd), lddLlhd,
+                                    isLog);
+
+                batch_obs_offset += batch_nObs;
+        }
 }
 
 }
