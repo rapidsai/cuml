@@ -103,14 +103,14 @@ cdef _setup_gmm(self, GMM[float]& gmm32, GMM[double]& gmm64, bool do_handle):
                 _ = get_workspace_size_f64(gmm64)
                 create_gmm_handle_f64(gmm64, <void*> _ws_ptr)
 
-    if self.precision == 'single':
-        with nogil:
-            # create_gmm_handle_f32(gmm32, <void*> _ws_ptr)
-            setup_f32(gmm32)
-    if self.precision == 'double':
-        with nogil:
-            setup_f64(gmm64)
-            # create_gmm_handle_f64(gmm64, <void*> _ws_ptr)
+    # if self.precision == 'single':
+    #     with nogil:
+    #         # create_gmm_handle_f32(gmm32, <void*> _ws_ptr)
+    #         setup_f32(gmm32)
+    # if self.precision == 'double':
+    #     with nogil:
+    #         setup_f64(gmm64)
+    #         # create_gmm_handle_f64(gmm64, <void*> _ws_ptr)
 
 class _GaussianMixtureBackend :
     def __init__(self) :
@@ -164,8 +164,7 @@ class _GaussianMixtureBackend :
         self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
         self._workspace_size = workspace_size
 
-        print(self.workspace)
-        print(self._workspace_size)
+        print("workspace size", self._workspace_size)
 
     def init_step(self):
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value

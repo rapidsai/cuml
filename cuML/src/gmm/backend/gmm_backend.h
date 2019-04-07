@@ -81,37 +81,38 @@ void naiveAddElem(Type *out, const Type *in1, const Type in2, int len) {
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
-// template <typename T>
-// __global__ void regularizeKernel (int n, int batchCount, T *A, int ldda, T reg, int nThreads_x, int nThreads_y, int nThreads_z) {
-//         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-//         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
-//         int k_start = threadIdx.z + blockDim.z * blockIdx.z;
-//
-//         for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
-//                 for (size_t j = j_start; j < n; j+=nThreads_y) {
-//                         for (size_t i = i_start; i <  n; i+=nThreads_x) {
-//                                 if (i == j)
-//                                         A[bId][IDX(i, j, ldda)] += eps;
-//                         }
-//                 }
-//         }
-// }
+template <typename T>
+__global__
+void regularizeKernel (int n, int batchCount,
+                       T **dA_array, int ldda,
+                       T reg,
+                       int nThreads_x, int nThreads_y) {
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+
+        for (size_t bId = j_start; bId < batchCount; bId+=nThreads_y) {
+                for (size_t i = i_start; i <  n; i+=nThreads_x) {
+                        dA_array[bId][IDX(i, i, ldda)] += reg;
+                }
+        }
+}
 
 
-// template <typename T>
-// void regularize_sigmas(int n, int batchCount, T** dA_array, int ldda, T reg) {
-//         dim3 block(32,32);
-//         dim3 grid(ceildiv(n, (int)block.x),
-//                   ceildiv(n, (int)block.y),
-//                   1);
-//         int nThreads_x = grid.x * block.x;
-//         int nThreads_y = grid.y * block.y;
-//         int nThreads_z = grid.z * block.z;
-//
-//         regularizeKernel<T> <<< grid, block >>>(n, batchCount A, ldda, reg,
-//                                                 nThreads_x, nThreads_y, nThreads_z);
-//         CUDA_CHECK(cudaPeekAtLastError());
-// }
+template <typename T>
+void regularize_sigmas(int n, int batchCount,
+                       T** dA_array, int ldda,
+                       T reg) {
+        dim3 block(32,32);
+        dim3 grid(ceildiv(n, (int)block.x),
+                  ceildiv(batchCount, (int)block.y));
+        int nThreads_x = grid.x * block.x;
+        int nThreads_y = grid.y * block.y;
+        regularizeKernel<T><<< grid, block >>>(n, batchCount,
+                                               dA_array, ldda,
+                                               reg,
+                                               nThreads_x, nThreads_y);
+        CUDA_CHECK(cudaPeekAtLastError());
+}
 
 
 

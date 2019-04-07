@@ -23,6 +23,7 @@
 #include "magma/b_determinant.h"
 #include "magma/b_allocate.h"
 #include <magma/b_split.h>
+#include <magma/b_subtract.h>
 
 #include "gmm/likelihood/handle.h"
 
@@ -88,53 +89,6 @@ void create_llhd_batches(int nObs, int nCl,
 }
 
 
-template <typename T>
-__global__
-void subtractBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                           T** dO_array, magma_int_t lddO,
-                           T** dX_array, magma_int_t lddx,
-                           T** dY_array, magma_int_t lddy,
-                           int nThreads_x, int nThreads_y, int nThreads_z){
-
-        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
-        int k_start = threadIdx.z + blockDim.z * blockIdx.z;
-
-        int idxO, idxX, idxY;
-
-        for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
-                for (size_t j = j_start; j < n; j+=nThreads_x) {
-                        for (size_t i = i_start; i < m; i+=nThreads_y) {
-                                idxO = IDX(i, j, lddO);
-                                idxX = IDX(i, j, lddx);
-                                idxY = IDX(i, 0, lddy);
-                                dO_array[bId][idxO] = dX_array[bId][idxX] - dY_array[bId][idxY];
-                        }
-                }
-        }
-}
-
-template <typename T>
-void subtract_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                      T** dO_array, magma_int_t lddO,
-                      T** dX_array, magma_int_t lddx,
-                      T** dY_array, magma_int_t lddy){
-        dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int)m, (int)block.x),
-                  ceildiv((int)n, (int)block.y),
-                  1);
-
-        int nThreads_x = grid.x * block.x;
-        int nThreads_y = grid.y * block.y;
-        int nThreads_z = grid.z * block.z;
-
-        subtractBatchedKernel<T> <<< grid, block >>>(m, n, batchCount,
-                                                     dO_array, lddO,
-                                                     dX_array, lddx,
-                                                     dY_array, lddy,
-                                                     nThreads_x, nThreads_y, nThreads_z);
-        CUDA_CHECK(cudaPeekAtLastError());
-}
 
 template <typename T>
 __host__ __device__
@@ -196,18 +150,18 @@ void createllhdHandle_t(llhdHandle_t<T>& llhd_handle,
                         int lddx, int lddsigma, int lddsigma_full){
         magma_int_t batchCount = nObs * nCl;
 
-        // allocate_pointer_array(llhd_handle.dInvSigma_array, lddsigma_full, nCl);
-        // allocate_pointer_array(llhd_handle.dDiff_batches, lddx, batchCount);
+        allocate_pointer_array(llhd_handle.dInvSigma_array, lddsigma_full, nCl);
+        allocate_pointer_array(llhd_handle.dDiff_batches, lddx, batchCount);
 
-        // allocate(llhd_handle.dInvdet_array, nCl);
-        // allocate(llhd_handle.dBil_batches, batchCount);
-        // allocate(llhd_handle.dX_batches, batchCount);
-        // allocate(llhd_handle.dmu_batches, batchCount);
-        // allocate(llhd_handle.dInvSigma_batches, batchCount);
+        allocate(llhd_handle.dInvdet_array, nCl);
+        allocate(llhd_handle.dBil_batches, batchCount);
+        allocate(llhd_handle.dX_batches, batchCount);
+        allocate(llhd_handle.dmu_batches, batchCount);
+        allocate(llhd_handle.dInvSigma_batches, batchCount);
 
-        // createBilinearHandle_t(llhd_handle.bilinearHandle, nDim, batchCount);
-        // createDeterminantHandle_t(llhd_handle.determinantHandle, nDim, lddsigma, batchCount);
-        // createInverseHandle_t(llhd_handle.inverseHandle, nCl, nDim, lddsigma);
+        createBilinearHandle_t(llhd_handle.bilinearHandle, nDim, batchCount);
+        createDeterminantHandle_t(llhd_handle.determinantHandle, nDim, lddsigma, batchCount);
+        createInverseHandle_t(llhd_handle.inverseHandle, nCl, nDim, lddsigma);
 }
 
 template <typename T>
@@ -255,6 +209,9 @@ void llhd_bufferSize(llhdHandle_t<T>& handle,
 
         handle.dDiff = (T *)workspaceSize;
         workspaceSize += alignTo(lddx * batchCount * sizeof(T), granularity);
+
+        printf("handle.dDiff size %d\n", (int) alignTo(lddx * batchCount * sizeof(T), granularity) );
+
 
         handle.dBil_batches = (T *)workspaceSize;
         workspaceSize += alignTo(batchCount * sizeof(T), granularity);
@@ -305,8 +262,7 @@ void likelihood_batched(magma_int_t nCl, magma_int_t nDim,
                         T* dLlhd, int lddLlhd,
                         bool isLog,
                         magma_queue_t queue,
-                        llhdHandle_t<T>& llhd_handle
-                        ){
+                        llhdHandle_t<T>& llhd_handle){
         magma_int_t batchCount = nObs * nCl;
 
         // Compute sigma inverses

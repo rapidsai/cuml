@@ -67,11 +67,14 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              cur_llhd, reg_covar,
              nCl, nDim, nObs);
+
         workspaceSize = gmm_bufferSize(gmm);
         CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
+        printf("%d\n", (int) workspaceSize);
         create_GMMHandle_new(gmm, workspace);
 
-        setup(gmm);
+        // setup(gmm);
+        // create_GMMHandle(gmm);
         fit(dX, n_iter, gmm, cublasHandle, queue);
 
 // cleanup:
@@ -87,9 +90,9 @@ void SetUp() override {
         tolerance = params.tolerance;
 
         magma_int_t nCl = 30;
-        magma_int_t nDim = 40;
-        magma_int_t nObs = 400;
-        int n_iter = 100;
+        magma_int_t nDim = 10;
+        magma_int_t nObs = 300;
+        int n_iter = 5;
 
         run<T>(nCl, nDim, nObs, n_iter);
 
@@ -125,8 +128,8 @@ TEST_P(GMMTestD, Result){
         EXPECT_LT(error, tolerance) << " error out of tol.";
 }
 
-INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestF,
-                        ::testing::ValuesIn(inputsf2));
+// INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestF,
+// ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(GMMTests, GMMTestD,
                         ::testing::ValuesIn(inputsd2));
