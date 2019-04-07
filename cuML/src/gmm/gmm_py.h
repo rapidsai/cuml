@@ -35,6 +35,10 @@ void init_f32(GMM<float> &gmm,
               float *cur_llhd, float reg_covar,
               int nCl, int nDim, int nObs);
 
+size_t get_workspace_size_f32(GMM<float> &gmm);
+
+void create_gmm_handle_f32(GMM<float> &gmm, void* workspace);
+
 void compute_lbow_f32(GMM<float> &gmm);
 
 void update_llhd_f32(float* dX, GMM<float>& gmm);
@@ -59,6 +63,10 @@ void init_f64(GMM<double> &gmm,
               int lddPis, int lddLlhd,
               double *cur_llhd, double reg_covar,
               int nCl, int nDim, int nObs);
+
+size_t get_workspace_size_f64(GMM<double> &gmm);
+
+void create_gmm_handle_f64(GMM<double> &gmm, void* workspace);
 
 void compute_lbow_f64(GMM<double> &gmm);
 

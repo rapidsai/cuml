@@ -20,6 +20,8 @@ cdef extern from "gmm/gmm_py.h" namespace "gmm" nogil:
                        int,
                        int)
 
+    cdef size_t get_workspace_size_f32(GMM[float]&)
+    cdef void create_gmm_handle_f32(GMM[float]&, void*)
     cdef void setup_f32(GMM[float]&)
     cdef void compute_lbow_f32(GMM[float]&)
     cdef void update_llhd_f32(float*, GMM[float]&)
@@ -45,7 +47,8 @@ cdef extern from "gmm/gmm_py.h" namespace "gmm" nogil:
                        int,
                        int,
                        int)
-
+    cdef size_t get_workspace_size_f64(GMM[double]&)
+    cdef void create_gmm_handle_f64(GMM[double]&, void*)
     cdef void setup_f64(GMM[double]&)
     cdef void compute_lbow_f64(GMM[double]&)
     cdef void update_llhd_f64(double*, GMM[double]&)

@@ -31,6 +31,14 @@ void init_f32(GMM<float> &gmm,
              nCl, nDim, nObs);
 }
 
+size_t get_workspace_size_f32(GMM<float>& gmm){
+        return gmm_bufferSize(gmm);
+}
+
+void create_gmm_handle_f32(GMM<float> &gmm, void* workspace){
+        create_GMMHandle_new(gmm, workspace);
+}
+
 void compute_lbow_f32(GMM<float>& gmm){
         compute_lbow(gmm);
 }
@@ -95,10 +103,6 @@ void setup_f32(GMM<float> &gmm) {
         setup(gmm);
 }
 
-void free_f32(GMM<float> &gmm) {
-        free(gmm);
-}
-
 
 void init_f64(GMM<double> &gmm,
               double *dmu, double *dsigma, double *dPis, double *dPis_inv, double *dLlhd,
@@ -110,6 +114,14 @@ void init_f64(GMM<double> &gmm,
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              cur_llhd, reg_covar,
              nCl, nDim, nObs);
+}
+
+size_t get_workspace_size_f64(GMM<double>& gmm){
+        return gmm_bufferSize(gmm);
+}
+
+void create_gmm_handle_f64(GMM<double> &gmm, void* workspace){
+        create_GMMHandle_new(gmm, workspace);
 }
 
 void compute_lbow_f64(GMM<double>& gmm){
@@ -174,10 +186,6 @@ void update_pis_f64(GMM<double>& gmm){
 
 void setup_f64(GMM<double> &gmm) {
         setup(gmm);
-}
-
-void free_f64(GMM<double> &gmm) {
-        free(gmm);
 }
 
 

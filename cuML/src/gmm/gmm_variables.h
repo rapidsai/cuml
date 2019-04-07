@@ -29,8 +29,9 @@ struct GMMHandle {
         T **dX_batches, **dmu_batches, **dsigma_batches, **dDiff_batches;
         T **dX_array, **dmu_array, **dsigma_array;
         T* dProbNorm;
-        int lddprobnorm;
+        int lddprobnorm, batchCount;
         T* llhdWs;
+        T* dDiff;
 };
 
 template <typename T>

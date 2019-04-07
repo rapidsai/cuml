@@ -21,6 +21,8 @@ template <typename T>
 void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
 {
         T *dX;
+        T* workspace;
+
         // declaration:
         T *dmu, *dsigma, *dPis, *dPis_inv, *dLlhd, *cur_llhd;
         magma_int_t lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd;
@@ -32,6 +34,7 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
         lddPis = lddLlhd;
 
         T reg_covar = 0;
+        size_t workspaceSize=0;
 
         // Random parameters
         cublasHandle_t cublasHandle;
@@ -64,6 +67,10 @@ void run(magma_int_t nCl, magma_int_t nDim, magma_int_t nObs, int n_iter)
              lddx, lddmu, lddsigma, lddsigma_full, lddPis, lddLlhd,
              cur_llhd, reg_covar,
              nCl, nDim, nObs);
+        workspaceSize = gmm_bufferSize(gmm);
+        CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
+        create_GMMHandle_new(gmm, workspace);
+
         setup(gmm);
         fit(dX, n_iter, gmm, cublasHandle, queue);
 

@@ -13,6 +13,8 @@ struct llhdHandle_t {
 
         T* dInvSigma, *dDiff;
 
+        int nCl, lddx, lddsigma_full, batchCount;
+
         T *bilinearWs, *determinantWs, *inverseWs;
 
         bilinearHandle_t<T> bilinearHandle;

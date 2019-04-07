@@ -1,3 +1,20 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+
 from abc import ABC, abstractmethod
 from cuml.gmm.utils.sample_utils import *
 
@@ -74,7 +91,7 @@ class GaussianMixture(_BaseCUML, _GaussianMixtureBackend):
         self.dX = process_parameter(X.T, self.lddx, self.dtype)
 
         Llhd = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
-        self.lddllhd = roundup(self.nDim, RUP_SIZE)
+        self.lddllhd = roundup(self.nCl, RUP_SIZE)
         self.dLlhd = Llhd.T
         self.dLlhd = process_parameter(self.dLlhd, self.lddllhd, self.dtype)
 
@@ -88,6 +105,7 @@ class GaussianMixture(_BaseCUML, _GaussianMixtureBackend):
             self._set_dims(X)
             self._initialize()
         self._setup(X)
+        self.allocate_ws()
         self.init_step()
 
         prev_lbow = - np.inf
