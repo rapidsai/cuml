@@ -36,10 +36,8 @@ namespace LinAlg {
  */
 template <typename math_t>
 void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
-            cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
-
+            cusolverDnHandle_t cusolverH, cudaStream_t stream,
+            DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   CUDA_CHECK(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n,
@@ -81,10 +79,8 @@ void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
  */
 template <typename math_t>
 void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
-             cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
-
+             cusolverDnHandle_t cusolverH, cudaStream_t stream,
+             DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
   math_t *R_full = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
   math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * min(m, n));

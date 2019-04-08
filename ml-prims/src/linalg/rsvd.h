@@ -63,8 +63,6 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // https://arxiv.org/abs/1502.05366
 
   ///@todo: what if stream in cusolver/cublas handles are different!?
-  // cudaStream_t stream;
-  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
 
   int m = n_rows, n = n_cols;
   int l =
@@ -100,7 +98,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // power sampling scheme
   for (int j = 1; j < q; j++) {
     if ((2 * j - 2) % s == 0) {
-      qrGetQ(Y, Yorth, m, l, cusolverH, mgr);
+      qrGetQ(Y, Yorth, m, l, cusolverH, stream, mgr);
       gemm(M, m, n, Yorth, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
@@ -108,7 +106,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     }
 
     if ((2 * j - 1) % s == 0) {
-      qrGetQ(Z, Zorth, n, l, cusolverH, mgr);
+      qrGetQ(Z, Zorth, n, l, cusolverH, stream, mgr);
       gemm(M, m, n, Zorth, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
@@ -119,7 +117,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // orthogonalize on exit from loop to get Q
   math_t *Q = (math_t *)mgr.alloc(sizeof(math_t) * m * l);
   CUDA_CHECK(cudaMemsetAsync(Q, 0, sizeof(math_t) * m * l, stream));
-  qrGetQ(Y, Q, m, l, cusolverH, mgr);
+  qrGetQ(Y, Q, m, l, cusolverH, stream, mgr);
 
   // either QR of B^T method, or eigendecompose BB^T method
   if (!use_bbt) {
@@ -134,7 +132,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     CUDA_CHECK(cudaMemsetAsync(Qhat, 0, sizeof(math_t) * n * l, stream));
     math_t *Rhat = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
     CUDA_CHECK(cudaMemsetAsync(Rhat, 0, sizeof(math_t) * l * l, stream));
-    qrGetQR(Bt, Qhat, Rhat, n, l, cusolverH, mgr);
+    qrGetQR(Bt, Qhat, Rhat, n, l, cusolverH, stream, mgr);
 
     // compute SVD of Rhat (lxl)
     math_t *Uhat = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
@@ -186,9 +184,9 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     Matrix::copyUpperTriangular(BBt, Uhat_dup, l, l, stream);
     if (use_jacobi)
       eigJacobi(Uhat_dup, l, l, Uhat, S_vec_tmp, tol, max_sweeps, cusolverH,
-                mgr);
+                stream, mgr);
     else
-      eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, mgr);
+      eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, stream, mgr);
     Matrix::seqRoot(S_vec_tmp, l, stream);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1,
                         l, stream); // Last k elements of S_vec

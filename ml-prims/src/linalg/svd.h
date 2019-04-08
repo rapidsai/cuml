@@ -94,8 +94,6 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
          "This usually occurs when some of the features do not vary enough.");
   
   ///@todo: what if stream from cusolver handle is different!?
-  // cudaStream_t stream;
-  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }
@@ -115,7 +113,7 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
              CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
-	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, mgr);
+	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, stream, mgr);
 
 	Matrix::colReverse(V, n_cols, n_cols, stream);
 	Matrix::rowReverse(S, n_cols, 1, stream);
@@ -184,8 +182,6 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                                   right_sing_vecs, n, d_work, lwork, devInfo,
                                   gesvdj_params, stream));
 
-  // cudaStream_t stream;
-  // CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
   mgr.free(devInfo, stream);
   mgr.free(d_work);
 
@@ -218,8 +214,6 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
   gemm(U, n_rows, k, SVT, out, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
        beta, cublasH, stream);
 
-  // cudaStream_t stream;
-  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
   mgr.free(SVT, stream);
 }
 
@@ -243,8 +237,6 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
                          cublasHandle_t cublasH, cudaStream_t stream,
                          DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
-  // cudaStream_t stream;
-  // CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
 
   // form product matrix
   math_t *P_d = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
