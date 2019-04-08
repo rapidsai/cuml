@@ -137,21 +137,21 @@ void bilinear_bufferSize(bilinearHandle_t<T>& handle,
         handle.batchCount = batchCount;
 }
 
-template <typename T>
-__global__
-void LogLikelihoodKernel(T** dA_array,
-                         int batchCount, int n,
-                         int nThreads_x){
-        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-        // int j_start = threadIdx.y + blockDim.y * blockIdx.y;
-
-        for (size_t bId = i_start; bId < batchCount; bId+=nThreads_x) {
-                for (size_t i = 0; i < n; i++) {
-                        dA_array[bId][i] = 10;
-                }
-
-        }
-}
+// template <typename T>
+// __global__
+// void TestWrite(T** dA_array,
+//                int batchCount, int n,
+//                int nThreads_x){
+//         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+//         // int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+//
+//         for (size_t bId = i_start; bId < batchCount; bId+=nThreads_x) {
+//                 for (size_t i = 0; i < n; i++) {
+//                         dA_array[bId][i] = 10;
+//                 }
+//
+//         }
+// }
 
 
 template <typename T>
@@ -166,16 +166,16 @@ void bilinear_batched(magma_int_t m, magma_int_t n,
         T alpha = 1, beta = 0;
         magma_int_t incx = 1, incy = 1;
 
-        printf("Batch count for biliear batched %d\n", batchCount);
-
-        dim3 block(32);
-        dim3 grid(ceildiv((int)batchCount, (int) block.x));
-
-        int nThreads_x = grid.x * block.x;
-        LogLikelihoodKernel<T> <<< grid, block>>>(handle.dT_array,
-                                                  batchCount, n,
-                                                  nThreads_x);
-        CUDA_CHECK(cudaPeekAtLastError());
+        // printf("Batch count for biliear batched %d\n", batchCount);
+        //
+        // dim3 block(32);
+        // dim3 grid(ceildiv((int)batchCount, (int) block.x));
+        //
+        // int nThreads_x = grid.x * block.x;
+        // TestWrite<T> <<< grid, block>>>(handle.dT_array,
+        //                                           batchCount, n,
+        //                                           nThreads_x);
+        // CUDA_CHECK(cudaPeekAtLastError());
 
         // print_matrix_batched(1, n, batchCount,
         //                      dX_array, handle.lddt,
@@ -192,6 +192,6 @@ void bilinear_batched(magma_int_t m, magma_int_t n,
                                batchCount, queue);
 
         // Batched dot
-        // dot_batched(n, handle.dT_array, dY_array, dO, batchCount);
+        dot_batched(n, handle.dT_array, dY_array, dO, batchCount);
 }
 }
