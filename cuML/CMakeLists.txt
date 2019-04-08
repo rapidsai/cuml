@@ -74,9 +74,9 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 set(GPU_ARCHS "" CACHE STRING
   "List of GPU architectures (semicolon-separated) to be compiled for")
 option(LINEINFO "Enable lineinfo in nvcc" OFF)
-option(BACKTRACE "Enable backtrace in nvcc" OFF)
+option(BACKTRACE "Enable backtrace in nvcc" ON)
 option(KERNELINFO "Enable kernel resource usage info" OFF)
-option(DEBUG "Get a debug build" OFF)
+option(DEBUG "Get a debug build" ON)
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------

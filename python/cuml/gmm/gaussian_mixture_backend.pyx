@@ -128,6 +128,7 @@ class _GaussianMixtureBackend :
             with nogil:
                 update_llhd_f32(<float*>_dX_ptr, gmm32)
 
+            print("resp")
             print(self.resp_)
             with nogil:
 
@@ -159,13 +160,17 @@ class _GaussianMixtureBackend :
         if self.precision == 'double':
             with nogil:
                 update_llhd_f64(<double*>_dX_ptr, gmm64)
-                update_rhos_f64(gmm64, <double*> _dX_ptr)
 
-                update_pis_f64(gmm64)
-                update_mus_f64(<double*>_dX_ptr, gmm64)
-                update_sigmas_f64(<double*>_dX_ptr, gmm64)
+            print("resp")
+            print(self.resp_)
+            # with nogil:
+            #     update_rhos_f64(gmm64, <double*> _dX_ptr)
 
-                compute_lbow_f64(gmm64)
+                # update_pis_f64(gmm64)
+                # update_mus_f64(<double*>_dX_ptr, gmm64)
+                # update_sigmas_f64(<double*>_dX_ptr, gmm64)
+                #
+                # compute_lbow_f64(gmm64)
 
     def allocate_ws(self):
         self._workspaceSize = -1

@@ -40,8 +40,8 @@ T run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
 
         void *workspace;
         CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
-        // createBilinearHandle_t_new(handle, n, batchCount);
-        createBilinearHandle_t_new(handle, workspace);
+        createBilinearHandle_t(handle, n, batchCount);
+        // createBilinearHandle_t_new(handle, workspace);
 
 // allocation:
         allocate_pointer_array(dA_array, ldda * n, batchCount);
@@ -109,11 +109,11 @@ T error, tolerance;
 };
 
 const std::vector<BilinearInputs<float> > BilinearInputsf2 = {
-        {0.000001f, 5, 2, 4}
+        {0.000001f, 5, 2, 100000}
 };
 
 const std::vector<BilinearInputs<double> > BilinearInputsd2 = {
-        {0.000001, 5, 2, 4}
+        {0.000001, 5, 2, 100000}
 };
 
 

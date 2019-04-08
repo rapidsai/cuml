@@ -125,8 +125,11 @@ void bilinear_bufferSize(bilinearHandle_t<T>& handle,
         const size_t granularity = 256;
         int lddt = n;
 
+        printf("Batch count during allocate bilinear %d\n", batchCount);
+        printf("n during allocate bilinear %d\n", n);
+
         handle.dT_array = (T **)workspaceSize;
-        workspaceSize += alignTo(batchCount *sizeof(T*), granularity);
+        workspaceSize += alignTo(batchCount * sizeof(T*), granularity);
         handle.dT = (T *)workspaceSize;
         workspaceSize += alignTo(batchCount * n * sizeof(T), granularity);
 
@@ -135,21 +138,60 @@ void bilinear_bufferSize(bilinearHandle_t<T>& handle,
 }
 
 template <typename T>
+__global__
+void LogLikelihoodKernel(T** dA_array,
+                         int batchCount, int n,
+                         int nThreads_x){
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        // int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+
+        for (size_t bId = i_start; bId < batchCount; bId+=nThreads_x) {
+                for (size_t i = 0; i < n; i++) {
+                        dA_array[bId][i] = 10;
+                }
+
+        }
+}
+
+
+template <typename T>
 void bilinear_batched(magma_int_t m, magma_int_t n,
-                      T **dX_array, T** dA_array, magma_int_t ldda,
-                      T **dY_array, T *dO, magma_int_t batchCount,
+                      T **dX_array,
+                      T** dA_array, magma_int_t ldda,
+                      T **dY_array,
+                      T *dO,
+                      magma_int_t batchCount,
                       magma_queue_t queue, bilinearHandle_t<T> handle)
 {
         T alpha = 1, beta = 0;
         magma_int_t incx = 1, incy = 1;
 
+        printf("Batch count for biliear batched %d\n", batchCount);
+
+        dim3 block(32);
+        dim3 grid(ceildiv((int)batchCount, (int) block.x));
+
+        int nThreads_x = grid.x * block.x;
+        LogLikelihoodKernel<T> <<< grid, block>>>(handle.dT_array,
+                                                  batchCount, n,
+                                                  nThreads_x);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        // print_matrix_batched(1, n, batchCount,
+        //                      dX_array, handle.lddt,
+        //                      "dX_array");
+        // print_matrix_batched(1, n, batchCount,
+        //                      dA_array, ldda,
+        //                      "dA_array");
+        //
         // Batched gemv
         magmablas_gemv_batched(MagmaTrans, m, n,
                                alpha, dA_array, ldda,
-                               dX_array, incx, beta, handle.dT_array, incy,
+                               dX_array, incx, beta,
+                               handle.dT_array, incy,
                                batchCount, queue);
 
         // Batched dot
-        dot_batched(n, handle.dT_array, dY_array, dO, batchCount);
+        // dot_batched(n, handle.dT_array, dY_array, dO, batchCount);
 }
 }
