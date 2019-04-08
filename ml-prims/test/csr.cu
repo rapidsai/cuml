@@ -84,9 +84,9 @@ TEST_P(CSRSum, Result) {
     int indptr_a_h[10] = { 1, 2, 3, 4, 1, 2, 3, 5, 0, 1 };
     int indptr_b_h[10] = { 1, 2, 5, 4, 0, 2, 3, 5, 1, 0 };
 
-    float in_vals_h[10] = { 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
+    float in_vals_h[10] = { 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 0.0 };
 
-    float verify_h[10] =  { 0.5, 0.5, 0.0, 0.0, 0.2, 0.2, 0.0, 0.0, 0.2, 0.0 };
+    float verify_h[10] =  { 2.0, 2.0, 0.5, 0.5, 0.2, 0.2, 0.0, 0.0, 0.2, 0.0 };
 
     allocate(in_vals_a, 10);
     allocate(in_vals_b, 10);
@@ -104,9 +104,6 @@ TEST_P(CSRSum, Result) {
     updateDevice(ind_ptr_a, *&indptr_a_h, 10);
     updateDevice(ind_ptr_b, *&indptr_b_h, 10);
 
-    dim3 grid(ceildiv(10, 32), 1, 1);
-    dim3 blk(32, 1, 1);
-
     int *result_ind;
     allocate(result_ind, 4);
 
@@ -116,12 +113,12 @@ TEST_P(CSRSum, Result) {
         ex_scan, ind_ptr_a, in_vals_a,
         ex_scan, ind_ptr_b, in_vals_b,
         10, 4,
-        result_ind,
-        &nnz
+        &nnz,
+        result_ind
     );
 
-    std::cout << "Result nnz=" << nnz << std::endl;
-
+    std::cout << MLCommon::arr2Str(result_ind, 4, "result_ind") << std::endl;
+    std::cout << "final_nnz=" << nnz << std::endl;
 
     int *result_indptr;
     float *result_val;
@@ -134,13 +131,21 @@ TEST_P(CSRSum, Result) {
         10, 4,
         result_ind, result_indptr, result_val
     );
+    std::cout << MLCommon::arr2Str(result_indptr, nnz, "result_intptr") << std::endl;
+
+    std::cout << MLCommon::arr2Str(result_val, nnz, "result") << std::endl;
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
-//    CUDA_CHECK(cudaFree(ex_scan));
-//    CUDA_CHECK(cudaFree(in_vals));
-//    CUDA_CHECK(cudaFree(verify));
-//    CUDA_CHECK(cudaFree(result));
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(in_vals_a));
+    CUDA_CHECK(cudaFree(in_vals_b));
+    CUDA_CHECK(cudaFree(ind_ptr_a));
+    CUDA_CHECK(cudaFree(ind_ptr_b));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+    CUDA_CHECK(cudaFree(result_indptr));
+    CUDA_CHECK(cudaFree(result_val));
 }
 
 

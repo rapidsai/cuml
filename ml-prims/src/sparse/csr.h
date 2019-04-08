@@ -145,6 +145,8 @@ namespace MLCommon {
 
                 int arr_size = cur_arr_idx;
 
+                int final_size = arr_size;
+
                 for(int j = b_start_idx; j < b_stop_idx; j++) {
 
                     int cur_col = b_indptr[j];
@@ -155,11 +157,13 @@ namespace MLCommon {
                     }
 
                     if(!found)
-                        arr_size++;
+                        final_size++;
                 }
 
-                out_rowcounts[row] = arr_size;
-                atomicAdd(out_rowcounts+m, arr_size);
+                out_rowcounts[row] = final_size;
+                atomicAdd(out_rowcounts+m, final_size);
+
+                delete arr;
             }
         }
 
@@ -183,6 +187,11 @@ namespace MLCommon {
 
                 int o_idx = out_ind[row];
 
+                printf("row=%d, a_start_idx=%d, a_stop_idx=%d, b_start_idx=%d, b_stop_idx=%d\n",
+                        row, a_start_idx, a_stop_idx, b_start_idx, b_stop_idx);
+
+                printf("row=%d, o_idx=%d\n", o_idx);
+
                 int cur_o_idx = o_idx;
                 for(int j = a_start_idx; j < a_stop_idx; j++) {
                     out_indptr[cur_o_idx] = a_indptr[j];
@@ -196,14 +205,19 @@ namespace MLCommon {
                     bool found = false;
                     for(int k = 0; k < arr_size; k++) {
                         // If we found a match, sum the two values
-                        if(out_indptr[k] == cur_col)
+                        if(out_indptr[k] == cur_col) {
                             out_val[k] += b_val[j];
+                            found = true;
+                        }
                     }
 
                     // if we didn't find a match, add the value for b
                     if(!found) {
                         out_indptr[arr_size] = cur_col;
                         out_val[arr_size] = b_val[j];
+                        arr_size++;
+
+                        printf("row=%d, col=%d, j=%d, out_val[%d]=%f\n", row, cur_col, j, arr_size, b_val[j]);
                     }
                 }
             }
@@ -223,6 +237,8 @@ namespace MLCommon {
             int *row_counts;
             MLCommon::allocate(row_counts, m+1, true);
 
+            std::cout << "About to run calc_row_counts_kernel" << std::endl;
+
             csr_add_calc_row_counts_kernel<T,TPB_X><<<grid, blk>>>(
                 a_ind, a_indptr, a_val,
                 b_ind, b_indptr, b_val,
@@ -231,17 +247,34 @@ namespace MLCommon {
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
-            out_nnz[0] = row_counts[m];
+            std::cout << "Done. " << std::endl;
 
-            int *c_ind;
-            MLCommon::allocate(c_ind, m);
+            std::cout << MLCommon::arr2Str(row_counts, m+1, "row_counts") << std::endl;
+
+            int cnnz = 0;
+            MLCommon::updateHost(&cnnz, row_counts+m, 1);
+
+            std::cout << "cnnz=" << cnnz << std::endl;
+
+            std::cout << "Setting now..." << std::endl;
+
+            out_nnz[0] = cnnz;
+
+            std::cout << "Done setting." << std::endl;
+
+//            memset(out_nnz, cnnz, sizeof(int));
+
+//            std::cout << MLCommon::arr2Str(out_nnz, 1, "out_nnz") << std::endl;
+
 
             // create csr compressed row index from row counts
             thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
-            thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(c_ind);
+            thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
             exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
 
+            std::cout << "Done ex_scan" << std::endl;
 
+            CUDA_CHECK(cudaFree(row_counts));
         }
 
         template<typename T, int TPB_X>
