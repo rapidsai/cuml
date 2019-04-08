@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cuda.h>
-#include <stats/sum.h>
 
 namespace gmm {
 
@@ -29,10 +28,10 @@ void normalizeMatrixKernel(size_t m, size_t n,
                 // TODO : Requires testing
                 for (size_t i = start; i < m; i+=numThreads_x) {
                         sum = 0;
-                        for (size_t j = 0; j < m; j++) {
+                        for (size_t j = 0; j < n; j++) {
                                 sum += dA[IDX(i, j, ldda)];
                         }
-                        for (size_t j = 0; j < m; j++) {
+                        for (size_t j = 0; j < n; j++) {
                                 dA[IDX(i, j, ldda)] /= sum;
                         }
                 }

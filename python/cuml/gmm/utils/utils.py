@@ -29,3 +29,9 @@ def reset(func):
 
 def mae(x, y):
     return np.mean(np.abs(x - y))
+
+def to_gb(bytes):
+    return bytes / 1024**3
+
+def to_mb(bytes) :
+    return bytes / 1024 ** 2

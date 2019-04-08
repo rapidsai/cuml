@@ -23,6 +23,7 @@ from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
 from cuml.gmm.gaussian_mixture_extern cimport *
+from cuml.gmm.utils.utils import to_gb, to_mb
 
 from numba import cuda
 import numpy as np
@@ -126,11 +127,32 @@ class _GaussianMixtureBackend :
         if self.precision == 'single':
             with nogil:
                 update_llhd_f32(<float*>_dX_ptr, gmm32)
+
+            print(self.resp_)
+            with nogil:
+
                 update_rhos_f32(gmm32, <float*> _dX_ptr)
 
+            print(self.resp_)
+            with nogil:
+
                 update_pis_f32(gmm32)
+
+            print("weights")
+            print(self.weights_ )
+            with nogil:
+
                 update_mus_f32(<float*>_dX_ptr, gmm32)
+
+            print("means")
+            print(self.means_)
+            with nogil:
+
                 update_sigmas_f32(<float*>_dX_ptr, gmm32)
+
+            print("covars")
+            print(self.covars_)
+            with nogil:
 
                 compute_lbow_f32(gmm32)
 
@@ -152,6 +174,10 @@ class _GaussianMixtureBackend :
         cdef GMM[double] gmm64
         _setup_gmm(self, gmm32, gmm64, False)
 
+        cuda_context = cuda.current_context()
+        available_mem = cuda_context.get_memory_info().free
+        print('available mem before allocation', to_mb(available_mem), "Mb")
+
         if self.precision == 'single':
             with nogil:
                 workspace_size = get_workspace_size_f32(gmm32)
@@ -159,13 +185,18 @@ class _GaussianMixtureBackend :
             with nogil:
                 workspace_size = get_workspace_size_f64(gmm64)
 
-        print(workspace_size)
+        print("\n----------------")
+        print('Workspace size', to_mb(workspace_size), "Mb")
+        print("----------------\n")
+
+        self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
+
+        # self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
+        self._workspace_size = workspace_size
 
         cuda_context = cuda.current_context()
-        available_mem = cuda_context.get_memory_info()
-
-        self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
-        self._workspace_size = workspace_size
+        available_mem = cuda_context.get_memory_info().free
+        print('available mem after allocation', to_mb(available_mem), "Mb")
 
         print("workspace size", self._workspace_size)
 

@@ -119,15 +119,16 @@ void createBilinearHandle_t_new(bilinearHandle_t<T>& handle, void* workspace){
 
 template <typename T>
 void bilinear_bufferSize(bilinearHandle_t<T>& handle,
-                         int n, int lddt, int batchCount,
+                         int n, int batchCount,
                          size_t& workspaceSize){
         workspaceSize = 0;
         const size_t granularity = 256;
+        int lddt = n;
 
         handle.dT_array = (T **)workspaceSize;
         workspaceSize += alignTo(batchCount *sizeof(T*), granularity);
         handle.dT = (T *)workspaceSize;
-        workspaceSize += alignTo(batchCount * n * sizeof(T*), granularity);
+        workspaceSize += alignTo(batchCount * n * sizeof(T), granularity);
 
         handle.lddt = lddt;
         handle.batchCount = batchCount;

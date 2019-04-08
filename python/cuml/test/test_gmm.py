@@ -126,20 +126,25 @@ def print_info(true_params, sk_params, cuml_params):
 # @pytest.mark.parametrize('nDim', [5, 10])
 # @pytest.mark.parametrize('nObs', [1000])
 @pytest.mark.parametrize('n_iter', [5])
-@pytest.mark.parametrize('nCl', [10, 40])
-@pytest.mark.parametrize('nDim', [50])
-@pytest.mark.parametrize('nObs', [500])
-@pytest.mark.parametrize('precision', ['double'])
+@pytest.mark.parametrize('nCl', [10])
+@pytest.mark.parametrize('nDim', [100])
+@pytest.mark.parametrize('nObs', [5000])
+@pytest.mark.parametrize('precision', ["single", "double"])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [1e-06])
-@pytest.mark.parametrize('random_state', [10, 45])
+@pytest.mark.parametrize('random_state', [24, 45, 7])
 def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
+
+    print("nDim", nDim)
+    print("nObs", nObs)
+    print("nCl", nCl)
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
+    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
     cuml_params = run_cuml(X, n_iter, precision, nCl,
                            tol, reg_covar, random_state)
-    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
+
 
     # print_info(true_params, sk_params, cuml_params)
     error_dict, error = compute_error(cuml_params, sk_params)
@@ -148,6 +153,4 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
         assert error < 1e-01
     else:
         # Tests have always passed on double precision
-        assert error < 1e-11
-
-# TODO : Double check the reg_covar numerical accuracy
+        assert error < 1e-10

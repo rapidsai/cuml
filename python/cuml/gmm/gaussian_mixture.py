@@ -17,6 +17,7 @@
 
 from abc import ABC, abstractmethod
 from cuml.gmm.utils.sample_utils import *
+from cuml.gmm.utils.utils import *
 
 from cuml.gmm.gaussian_mixture_backend import _GaussianMixtureBackend
 
@@ -90,10 +91,14 @@ class GaussianMixture(_BaseCUML, _GaussianMixtureBackend):
         self.lddx = roundup(self.nDim, RUP_SIZE)
         self.dX = process_parameter(X.T, self.lddx, self.dtype)
 
+        print("data size on device ", to_mb(self.dX.alloc_size), "Mb")
+
         Llhd = sample_matrix(self.nObs, self.nCl, self.random_state, isRowNorm=True)
         self.lddllhd = roundup(self.nCl, RUP_SIZE)
         self.dLlhd = Llhd.T
         self.dLlhd = process_parameter(self.dLlhd, self.lddllhd, self.dtype)
+        print("resp size on device ", to_mb(self.dLlhd.alloc_size), "Mb")
+
 
     def fit(self, X):
         if self.warm_start :
@@ -112,6 +117,7 @@ class GaussianMixture(_BaseCUML, _GaussianMixtureBackend):
 
         for it in range(1, self.max_iter + 1) :
             self.step()
+            print("it", it, "lbow ",self.lower_bound_)
 
             diff = self.lower_bound_ - prev_lbow
             if  diff < self.tol :

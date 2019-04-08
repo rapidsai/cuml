@@ -18,6 +18,7 @@
 
 #include <gmm/backend/gmm_backend.h>
 #include <gmm/backend/sigmas_backend.h>
+#include <gmm/backend/weights_backend.h>
 #include <gmm/likelihood/b_likelihood.h>
 
 using namespace MLCommon::LinAlg;
@@ -240,7 +241,7 @@ void update_mus(T* dX, GMM<T>& gmm,
 template <typename T>
 void update_sigmas(T* dX, GMM<T>& gmm,
                    cublasHandle_t cublasHandle, magma_queue_t queue){
-        int batchCount=gmm.nCl;
+        // int batchCount=gmm.nCl;
         int ldDiff= gmm.lddx;
         int batch_nObs, batch_obs_offset;
         int nBatches;
@@ -403,20 +404,12 @@ void update_sigmas(T* dX, GMM<T>& gmm,
 
 template <typename T>
 void update_pis(GMM<T>& gmm){
-        // _print_gmm_data_bis(gmm, "start of pis");
+        // print_matrix_device(gmm.nCl, gmm.nObs,
+        //                     gmm.dLlhd, gmm.lddLlhd, "dllhd matrix cpp");
 
-        MLCommon::Stats::sum(gmm.dPis, gmm.dLlhd, gmm.lddLlhd, gmm.nObs, true);
-        // _print_gmm_data_bis(gmm, "\n\nend of pis");
-        T epsilon;
-        if(std::is_same<T,float>::value) {
-                epsilon = 1.1920928955078125e-06;
-        }
-        else if(std::is_same<T,double>::value) {
-                epsilon = 2.220446049250313e-15;
-        }
-        naiveAddElem(gmm.dPis, gmm.dPis, epsilon, gmm.nCl);
-
-        normalize_matrix(gmm.lddPis, 1, gmm.dPis, gmm.lddPis, true);
+        _update_pis(gmm.nObs,  gmm.nCl,
+                    gmm.dPis, gmm.lddPis,
+                    gmm.dLlhd, gmm.lddLlhd);
 }
 
 

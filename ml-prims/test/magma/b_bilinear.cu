@@ -35,7 +35,7 @@ T run_bilinear( magma_int_t m, magma_int_t n, magma_int_t batchCount)
 
         bilinearHandle_t<T> handle;
         bilinear_bufferSize(handle,
-                            n, ldda, batchCount,
+                            n, batchCount,
                             workspaceSize);
 
         void *workspace;
