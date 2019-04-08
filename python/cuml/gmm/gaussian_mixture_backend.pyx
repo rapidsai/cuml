@@ -163,14 +163,14 @@ class _GaussianMixtureBackend :
 
             print("resp")
             print(self.resp_)
-            # with nogil:
-            #     update_rhos_f64(gmm64, <double*> _dX_ptr)
+            with nogil:
+                update_rhos_f64(gmm64, <double*> _dX_ptr)
 
-                # update_pis_f64(gmm64)
-                # update_mus_f64(<double*>_dX_ptr, gmm64)
-                # update_sigmas_f64(<double*>_dX_ptr, gmm64)
-                #
-                # compute_lbow_f64(gmm64)
+                update_pis_f64(gmm64)
+                update_mus_f64(<double*>_dX_ptr, gmm64)
+                update_sigmas_f64(<double*>_dX_ptr, gmm64)
+
+                compute_lbow_f64(gmm64)
 
     def allocate_ws(self):
         self._workspaceSize = -1
