@@ -3,7 +3,7 @@
 
 #include <vector>
 
-void batched_kalman_filter(const std::vector<double*>& ptr_ys_b, const std::vector<int>& ys_len,
+void batched_kalman_filter(const std::vector<double*>& ptr_ys_b,
                            const std::vector<double*>& ptr_Zb,
                            const std::vector<double*>& ptr_Rb,
                            const std::vector<double*>& ptr_Tb,

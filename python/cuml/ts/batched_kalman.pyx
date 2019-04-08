@@ -5,11 +5,12 @@ import numpy as np
 import ctypes
 cimport numpy as np
 from libcpp.vector cimport vector
+from libc.stdlib cimport malloc, free
 
 
 
 cdef extern from "ts/batched_kalman.h":
-  void batched_kalman_filter(const vector[double*]& ptr_ys_b, const vector[int]& ys_len,
+  void batched_kalman_filter(const vector[double*]& ptr_ys_b,
                              const vector[double*]& ptr_Zb,
                              const vector[double*]& ptr_Rb,
                              const vector[double*]& ptr_Tb,
@@ -41,7 +42,7 @@ def batched_kfilter(ys_b,
     cdef np.ndarray[double, ndim=1, mode="c"] Fsi
 
     num_batches = len(Z_b)
-
+ 
     # initialize output
     for i in range(num_batches):
         num_samples_i = len(ys_b[i])
@@ -58,18 +59,23 @@ def batched_kfilter(ys_b,
     cdef np.ndarray[double, ndim=2, mode="c"] R_bi
     cdef np.ndarray[double, ndim=2, mode="c"] T_bi
 
+    for i in range(len(ys_b[i])):
+        vec_ys_b.push_back(<double*>malloc(num_batches*sizeof(double)))
+        for j in range(num_batches):
+            vec_ys_b[i][j] = ys_b[j][i]
+
+
     for i in range(len(ys_b)):
         ys_bi = ys_b[i]
         Z_bi = Z_b[i]
         R_bi = R_b[i]
         T_bi = T_b[i]
-        vec_ys_b.push_back(&ys_bi[0])
         vec_Zb.push_back(&Z_bi[0,0])
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
         vec_ys_len.push_back(len(ys_bi))
 
-    batched_kalman_filter(vec_ys_b, vec_ys_len,
+    batched_kalman_filter(vec_ys_b,
                           vec_Zb, vec_Rb, vec_Tb,
                           r,
                           vec_vs_b, vec_Fs_b,
