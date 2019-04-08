@@ -123,7 +123,7 @@ __global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outpu
 template <typename OutType>
 cudaError_t layoutIdx(OutType *in, int n_rows, int n_columns, cudaStream_t stream) {
   int totalElements = n_rows * n_columns;
-  dim3 block(64);
+  dim3 block(256);
   dim3 grid((totalElements + block.x - 1) / block.x );
   devLayoutIdx<OutType><<<grid, block, 0, stream>>>(in, n_columns, totalElements);
   return cudaGetLastError();
@@ -132,7 +132,7 @@ cudaError_t layoutIdx(OutType *in, int n_rows, int n_columns, cudaStream_t strea
 // helper function to layout offsets for rows for DeviceSegmentedRadixSort
 template <typename T>
 cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
-  dim3 block(64);
+  dim3 block(128);
   dim3 grid((n_times + block.x - 1) / block.x);
   devOffsetKernel<T><<<grid, block, 0, stream>>>(in, value, n_times);
   return cudaGetLastError();
@@ -153,9 +153,10 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
  * @param stream: cuda stream to execute prim on
  */
 template <typename InType, typename OutType>
-void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns, bool bColMajor, 
-                        bool &bAllocWorkspace, void *workspacePtr, size_t &workspaceSize, InType *sortedKeys=NULL,
-                        cudaStream_t stream=0) {
+void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns,
+                        bool bColMajor, bool &bAllocWorkspace, void *workspacePtr,
+                        size_t &workspaceSize, cudaStream_t stream,
+                        InType *sortedKeys=NULL) {
   
   // assume non-square row-major matrices
   // current use-case: KNN, trustworthiness scores
@@ -205,18 +206,15 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
       INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 512, 6, stream);
     else if(n_columns > 3072 && n_columns <= 4096)
       INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 512, 8, stream);
-    // else if(n_columns > 4096 && n_columns <= 4608)
-    //   INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 512, 9, stream);
     else if(n_columns > 4096 && n_columns <= 6144)
       INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 512, 12, stream);
-    // else if(n_columns > 6144 && n_columns <= 8192)
-    //   INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 1024, 8, stream);
     else
       INST_BLOCK_SORT(in, sortedKeys, out, n_rows, n_columns, 1024, 12, stream);
   }
-  else if (n_columns <= (1 << 17)) {
+  else if (n_columns <= (1 << 18) && n_rows > 1) {
       // device Segmented radix sort
-      // 2^17 column entries are arbitrary at the moment- need experiments
+      // 2^18 column cap to restrict size of workspace ~512 MB
+      // will give better perf than below deviceWide Sort for even larger dims
       int numSegments = n_rows + 1;
 
       // need auxillary storage: cub sorting + keys (if user not passing) + 

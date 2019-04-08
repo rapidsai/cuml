@@ -53,6 +53,8 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<columnSort<T>>::GetParam();
     int len = params.n_row * params.n_col;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(keyIn, len);
     allocate(valueOut, len);
     allocate(goldenValOut, len);
@@ -90,12 +92,13 @@ protected:
     bool needWorkspace = false;
     size_t workspaceSize = 0;
     sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor,
-                        needWorkspace, NULL, workspaceSize, keySorted);
+                        needWorkspace, NULL, workspaceSize, stream, keySorted);
     if (needWorkspace) {
       allocate(workspacePtr, workspaceSize);
-      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor, needWorkspace, 
-                            workspacePtr, workspaceSize, keySorted);
-    }    
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor,
+                          needWorkspace, workspacePtr, workspaceSize, stream, keySorted);
+    }
+    CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
   void TearDown() override {
@@ -122,10 +125,10 @@ protected:
 const std::vector<columnSort<float>> inputsf1 = {
   {0.000001f, 503, 2000, false},
   {0.000001f, 128, 20000, false},
-  {0.000001f, 20, 200000, false},
+  {0.000001f, 20, 300000, false},
   {0.000001f, 503, 2000, true},
   {0.000001f, 113, 20000, true},
-  {0.000001f, 19, 200000, true}};
+  {0.000001f, 19, 300000, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
