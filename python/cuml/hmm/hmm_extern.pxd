@@ -77,7 +77,10 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                             int lddb,
                             double* dGamma,
                             int lddgamma,
-                            double* logllhd)
+                            double* logllhd,
+                            int nObs,
+                            int nSeq,
+                            double* dLlhd)
 
     cdef size_t get_workspace_size_mhmm_f64(doubleMultinomialHMM &hmm)
     cdef void create_handle_mhmm_f64(doubleMultinomialHMM &hmm,

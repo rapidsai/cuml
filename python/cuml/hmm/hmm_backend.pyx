@@ -80,6 +80,7 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
     cdef uintptr_t _dLlhd_ptr = self.dLlhd.device_ctypes_pointer.value
 
     cdef uintptr_t _logllhd_ptr = self.dlogllhd.device_ctypes_pointer.value
+    cdef uintptr_t _ws_ptr
 
     cdef int nStates = self.n_components
     cdef int lddt = self.lddt
@@ -108,16 +109,17 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                           <int>lddb,
                           <double*>_dGamma_ptr,
                           <int>lddgamma,
-                          <double*>_logllhd_ptr)
-            setup_mhmm_f64(hmm64,
-                           <int> nObs,
-                           <int> nSeq,
-                           <double*> _dLlhd_ptr)
+                          <double*>_logllhd_ptr,
+                          <int> nObs,
+                          <int> nSeq,
+                          <double*> _dLlhd_ptr)
+            # setup_mhmm_f64(hmm64,
+            #                <int> nObs,
+            #                <int> nSeq,
+            #                <double*> _dLlhd_ptr)
 
-    print("in setup")
     if do_handle :
         _ws_ptr = self.workspace.device_ctypes_pointer.value
-        print("self.workspace", self.workspace)
         if self.precision == 'double':
             with nogil :
                 size = get_workspace_size_mhmm_f64(hmm64)
@@ -154,6 +156,11 @@ class _BaseHMMBackend:
         print(workspace_size)
         self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
         self._workspace_size = workspace_size
+
+        workspace_host = self.workspace.copy_to_host()
+        print("workspace host")
+        print(workspace_host)
+
 
         cuda_context = cuda.current_context()
         available_mem = cuda_context.get_memory_info().free

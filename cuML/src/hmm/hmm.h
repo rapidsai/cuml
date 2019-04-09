@@ -36,8 +36,14 @@ void init(HMM<T, D> &hmm,
           T* dT, int lddt,
           T* dB, int lddb,
           T* dGamma, int lddgamma,
-          T* logllhd
+          T* logllhd,
+          int nObs, int nSeq,
+          T* dLlhd
           ) {
+
+        hmm.nObs = nObs;
+        hmm.nSeq = nSeq;
+        hmm.dLlhd = dLlhd;
 
         hmm.dT = dT;
         hmm.dB = dB;
@@ -91,76 +97,37 @@ size_t hmm_bufferSize(HMM<T, D> &hmm){
         hmm.handle.dTemp = (T *)workspaceSize;
         workspaceSize += alignTo(1 * sizeof(T), granularity);
 
-        // hmm.handle.dPi_array = (T **)workspaceSize;
-        // workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
-        //
-        // hmm.handle.dcumlenghts_inc = (unsigned short int *)workspaceSize;
-        // workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
-        //
-        // hmm.handle.dcumlenghts_exc = (unsigned short int *)workspaceSize;
-        // workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
-        //
-        // hmm.handle.dAlpha = (T *)workspaceSize;
-        // workspaceSize += alignTo(hmm.handle.lddalpha * hmm.nObs * sizeof(T), granularity);
+        hmm.handle.dPi_array = (T **)workspaceSize;
+        workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
 
-        // hmm.handle.dBeta = (T *)workspaceSize;
-        // workspaceSize += alignTo(hmm.handle.lddbeta * hmm.nObs * sizeof(T), granularity);
-        //
-        // hmm.handle.dV = (T *)workspaceSize;
-        // workspaceSize += alignTo(hmm.handle.lddv * hmm.nObs * sizeof(T), granularity);
-        // printf("nObs %d\n", hmm.nObs);
-        // printf("lddalpha %d\n", hmm.handle.lddalpha);
+        hmm.handle.dcumlenghts_inc = (unsigned short int *)workspaceSize;
+        workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+
+        hmm.handle.dcumlenghts_exc = (unsigned short int *)workspaceSize;
+        workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+
+        hmm.handle.dAlpha = (T *)workspaceSize;
+        workspaceSize += alignTo(hmm.handle.lddalpha * hmm.nObs * sizeof(T), granularity);
+
+        hmm.handle.dBeta = (T *)workspaceSize;
+        workspaceSize += alignTo(hmm.handle.lddbeta * hmm.nObs * sizeof(T), granularity);
+
+        hmm.handle.dV = (T *)workspaceSize;
+        workspaceSize += alignTo(hmm.handle.lddv * hmm.nObs * sizeof(T), granularity);
 
         return workspaceSize;
 }
 
 template <typename T, typename D>
 void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
-        // hmm.handle.dPi_array = (T **)((size_t)hmm.handle.dPi_array + (size_t)workspace);
-        // hmm.handle.dcumlenghts_inc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
-        // hmm.handle.dcumlenghts_exc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
-        printf("Allocating\n");
-        hmm.handle.dTemp = (T *)((size_t)workspace);
-        // allocate(hmm.handle.dTemp, 1);
-        // hmm.handle.dAlpha = (T *)((size_t)hmm.handle.dAlpha + (size_t)workspace);
-        // hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
-        // hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
+        hmm.handle.dPi_array = (T **)((size_t)hmm.handle.dPi_array + (size_t)workspace);
+        hmm.handle.dcumlenghts_inc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
+        hmm.handle.dcumlenghts_exc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
+        hmm.handle.dAlpha = (T *)((size_t)hmm.handle.dAlpha + (size_t)workspace);
+        hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
+        hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
 
-        // printf("workspace %d\n", (size_t) workspace);
-
-
-        //
-        // dim3 block(32);
-        // dim3 grid(ceildiv((int)hmm.nSeq, (int) block.x));
-        //
-        // int nThreads_x = grid.x * block.x;
-        // int nThreads_y = grid.y * block.y;
-        // TestWrite<unsigned short int> <<< grid, block>>>(hmm.handle.dcumlenghts_inc,
-        //                                                  // hmm.nSeq, 1, hmm.nSeq,
-        //                                                  1, 1, 1,
-        //                                                  nThreads_x, nThreads_y);
-        // CUDA_CHECK(cudaPeekAtLastError());
-        print_matrix_device(1, 1,
-                            hmm.handle.dTemp, 1,
-                            "dTemp");
-
-}
-
-template <typename T, typename D>
-void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
-        hmm.nObs = nObs;
-        hmm.nSeq = nSeq;
-
-        hmm.dLlhd = dLlhd;
-
-        allocate(hmm.handle.dAlpha, hmm.handle.lddalpha * nObs);
-        allocate(hmm.handle.dBeta, hmm.handle.lddbeta * nObs);
-        allocate(hmm.handle.dV, hmm.handle.lddv * nObs);
-        allocate(hmm.handle.dcumlenghts_exc, nSeq);
-        allocate(hmm.handle.dcumlenghts_inc, nSeq);
-
-        // Create Pi array
-        allocate(hmm.handle.dPi_array, hmm.nStates);
+        // allocate(hmm.handle.dPi_array, hmm.nStates);
         T **Pi_array;
         Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
@@ -168,6 +135,30 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         }
         updateDevice(hmm.handle.dPi_array, Pi_array, hmm.nStates);
         free(Pi_array);
+}
+
+template <typename T, typename D>
+void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
+        // hmm.nObs = nObs;
+        // hmm.nSeq = nSeq;
+        //
+        // hmm.dLlhd = dLlhd;
+
+        // allocate(hmm.handle.dAlpha, hmm.handle.lddalpha * nObs);
+        // allocate(hmm.handle.dBeta, hmm.handle.lddbeta * nObs);
+        // allocate(hmm.handle.dV, hmm.handle.lddv * nObs);
+        // allocate(hmm.handle.dcumlenghts_exc, nSeq);
+        // allocate(hmm.handle.dcumlenghts_inc, nSeq);
+        //
+        // // Create Pi array
+        // allocate(hmm.handle.dPi_array, hmm.nStates);
+        // T **Pi_array;
+        // Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
+        // for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+        //         Pi_array[stateId] = hmm.dists[stateId].dPis;
+        // }
+        // updateDevice(hmm.handle.dPi_array, Pi_array, hmm.nStates);
+        // free(Pi_array);
 }
 
 // template <typename T>

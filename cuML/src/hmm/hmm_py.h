@@ -34,7 +34,9 @@ void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                      double* dT, int lddt,
                      double* dB, int lddb,
                      double* dGamma, int lddgamma,
-                     double* logllhd
+                     double* logllhd,
+                     int nObs, int nSeq,
+                     double* dLlhd
                      );
 
 void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm, double* dLlhd);
@@ -50,7 +52,9 @@ void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    double* dT, int lddt,
                    double* dB, int lddb,
                    double* dGamma, int lddgamma,
-                   double* logllhd
+                   double* logllhd,
+                   int nObs, int nSeq,
+                   double* dLlhd
                    );
 
 size_t get_workspace_size_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm);
