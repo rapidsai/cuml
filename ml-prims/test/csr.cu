@@ -76,8 +76,8 @@ TEST_P(CSRRowNormalizeL1, Result) {
 typedef CSRTest<float> CSRSum;
 TEST_P(CSRSum, Result) {
 
-    int *ex_scan, *ind_ptr_a, *ind_ptr_b;
-    float *in_vals_a, *in_vals_b, *result, *verify;
+    int *ex_scan, *ind_ptr_a, *ind_ptr_b,  *verify_indptr;
+    float *in_vals_a, *in_vals_b, *verify;
 
     int ex_scan_h[4] = {0, 4, 8, 9 };
 
@@ -86,13 +86,14 @@ TEST_P(CSRSum, Result) {
 
     float in_vals_h[10] = { 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0 };
 
-    float verify_h[10] =  { 2.0, 2.0, 0.5, 0.5, 0.2, 0.2, 0.0, 0.0, 0.2, 1.0 };
+    float verify_h[14] =  { 2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
+    int verify_indptr_h[14] = { 1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0 };
 
     allocate(in_vals_a, 10);
     allocate(in_vals_b, 10);
-    allocate(verify, 10);
+    allocate(verify, 14);
     allocate(ex_scan, 4);
-    allocate(result, 10, true);
+    allocate(verify_indptr, 14);
 
     allocate(ind_ptr_a, 10);
     allocate(ind_ptr_b, 10);
@@ -100,7 +101,8 @@ TEST_P(CSRSum, Result) {
     updateDevice(ex_scan, *&ex_scan_h, 4);
     updateDevice(in_vals_a, *&in_vals_h, 10);
     updateDevice(in_vals_b, *&in_vals_h, 10);
-    updateDevice(verify, *&verify_h, 10);
+    updateDevice(verify, *&verify_h, 14);
+    updateDevice(verify_indptr, *&verify_indptr_h, 14);
     updateDevice(ind_ptr_a, *&indptr_a_h, 10);
     updateDevice(ind_ptr_b, *&indptr_b_h, 10);
 
@@ -117,9 +119,6 @@ TEST_P(CSRSum, Result) {
         result_ind
     );
 
-    std::cout << MLCommon::arr2Str(result_ind, 4, "result_ind") << std::endl;
-    std::cout << "final_nnz=" << nnz << std::endl;
-
     int *result_indptr;
     float *result_val;
     allocate(result_indptr, nnz);
@@ -131,11 +130,11 @@ TEST_P(CSRSum, Result) {
         10, 4,
         result_ind, result_indptr, result_val
     );
-    std::cout << MLCommon::arr2Str(result_indptr, nnz, "result_intptr") << std::endl;
 
-    std::cout << MLCommon::arr2Str(result_val, nnz, "result") << std::endl;
+    ASSERT_TRUE(nnz==14);
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+    ASSERT_TRUE(devArrMatch<float>(verify, result_val, nnz, Compare<float>()));
+    ASSERT_TRUE(devArrMatch<int>(verify_indptr, result_indptr, nnz, Compare<int>()));
 
     CUDA_CHECK(cudaFree(ex_scan));
     CUDA_CHECK(cudaFree(in_vals_a));
@@ -143,7 +142,6 @@ TEST_P(CSRSum, Result) {
     CUDA_CHECK(cudaFree(ind_ptr_a));
     CUDA_CHECK(cudaFree(ind_ptr_b));
     CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
     CUDA_CHECK(cudaFree(result_indptr));
     CUDA_CHECK(cudaFree(result_val));
 }

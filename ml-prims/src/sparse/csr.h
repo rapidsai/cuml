@@ -136,9 +136,6 @@ namespace MLCommon {
                 int max_size = (a_stop_idx - a_start_idx) +
                         (b_stop_idx - b_start_idx);
 
-                printf("row=%d, a_start_idx=%d, a_stop_idx=%d, b_start_idx=%d, b_stop_idx=%d\n",
-                        row, a_start_idx, a_stop_idx, b_start_idx, b_stop_idx);
-
                 int *arr  = new int[max_size];
                 int cur_arr_idx = 0;
                 for(int j = a_start_idx; j < a_stop_idx; j++) {
@@ -156,15 +153,12 @@ namespace MLCommon {
                     bool found = false;
                     for(int k = 0; k < arr_size; k++) {
                         if(arr[k] == cur_col) {
-                            printf("ROW=%d, FOUND: %d\n", row, cur_col);
                             found = true;
                         }
                     }
 
                     if(!found) {
                         final_size++;
-                        printf("ROW=%d, NOT FOUND: %d\n", row, cur_col);
-
                     }
                 }
 
@@ -186,6 +180,7 @@ namespace MLCommon {
             // 1 thread per row
             int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
+
             if(row < m) {
                 int a_start_idx = a_ind[row];
                 int a_stop_idx = get_stop_idx(row, m, nnz, a_ind);
@@ -195,11 +190,6 @@ namespace MLCommon {
 
                 int o_idx = out_ind[row];
 
-                printf("row=%d, a_start_idx=%d, a_stop_idx=%d, b_start_idx=%d, b_stop_idx=%d\n",
-                        row, a_start_idx, a_stop_idx, b_start_idx, b_stop_idx);
-
-                printf("row=%d, o_idx=%d\n", o_idx);
-
                 int cur_o_idx = o_idx;
                 for(int j = a_start_idx; j < a_stop_idx; j++) {
                     out_indptr[cur_o_idx] = a_indptr[j];
@@ -207,11 +197,11 @@ namespace MLCommon {
                     cur_o_idx++;
                 }
 
-                int arr_size = cur_o_idx;
+                int arr_size = cur_o_idx-o_idx;
                 for(int j = b_start_idx; j < b_stop_idx; j++) {
                     int cur_col = b_indptr[j];
                     bool found = false;
-                    for(int k = 0; k < arr_size; k++) {
+                    for(int k = o_idx; k < o_idx+arr_size; k++) {
                         // If we found a match, sum the two values
                         if(out_indptr[k] == cur_col) {
                             out_val[k] += b_val[j];
@@ -222,12 +212,9 @@ namespace MLCommon {
 
                     // if we didn't find a match, add the value for b
                     if(!found) {
-                        out_indptr[arr_size] = cur_col;
-                        out_val[arr_size] = b_val[j];
+                        out_indptr[o_idx+arr_size] = cur_col;
+                        out_val[o_idx+arr_size] = b_val[j];
                         arr_size++;
-                        printf("ROW=%d, NOT FOUND: %d\n", row, cur_col);
-
-//                        printf("row=%d, col=%d, j=%d, out_val[%d]=%f\n", row, cur_col, j, arr_size, b_val[j]);
                     }
                 }
             }
@@ -240,14 +227,11 @@ namespace MLCommon {
             int nnz, int m,
             int *out_nnz, int *out_ind
         ) {
-
             dim3 grid(ceildiv(m, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
             int *row_counts;
             MLCommon::allocate(row_counts, m+1, true);
-
-            std::cout << "About to run calc_row_counts_kernel" << std::endl;
 
             csr_add_calc_row_counts_kernel<T,TPB_X><<<grid, blk>>>(
                 a_ind, a_indptr, a_val,
@@ -257,33 +241,15 @@ namespace MLCommon {
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
-            std::cout << "Done. " << std::endl;
-
-            std::cout << MLCommon::arr2Str(row_counts, m+1, "row_counts") << std::endl;
-
             int cnnz = 0;
             MLCommon::updateHost(&cnnz, row_counts+m, 1);
 
-            std::cout << "cnnz=" << cnnz << std::endl;
-
-            std::cout << "Setting now..." << std::endl;
-
             out_nnz[0] = cnnz;
-
-            std::cout << "Done setting." << std::endl;
-
-//            memset(out_nnz, cnnz, sizeof(int));
-
-//            std::cout << MLCommon::arr2Str(out_nnz, 1, "out_nnz") << std::endl;
-
 
             // create csr compressed row index from row counts
             thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
             thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
             exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
-
-            std::cout << "Done ex_scan" << std::endl;
-
             CUDA_CHECK(cudaFree(row_counts));
         }
 
