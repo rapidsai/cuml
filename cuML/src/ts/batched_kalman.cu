@@ -127,7 +127,7 @@ double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
                    [=]__device__(int bid) {
                      double sum = 0.0;
                      for (int it = 0; it < nobs; it++) {
-                       sum += log(d_Fs[bid]);
+                       sum += log(d_Fs[bid + it*num_batches]);
                      }
                      d_sumLogFs[bid] = sum;
                    });
@@ -184,7 +184,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
 
   // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
-  BatchedMatrix P = b_gemm(Tb,Tb,true,false) - b_gemm(Tb,b_gemm(Zb,Tb,false,true),false,true) + RRT;
+  BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
 
   // init alpha to zero
   BatchedMatrix alpha(r, 1, num_batches, true);
@@ -197,25 +197,54 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   MLCommon::allocate(d_Fs, ys_len*num_batches);
 
   for(int it=0; it<ys_len; it++) {
-
+    
     // 1.
     // vs[it] = ys[it] - alpha(0,0);
-    vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
+    // vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
+    {
+      auto counting = thrust::make_counting_iterator(0);
+      double* d_ys_bid = d_ys_b[it];
+      double** d_alpha = alpha.data();
+      thrust::for_each(counting, counting + num_batches,
+                       [=]__device__(int bid) {
+                         d_vs[bid + it*num_batches] = d_ys_bid[bid] - d_alpha[bid][0];
+                       });
+    }
 
     // 2.
     // Fs[it] = P(0,0);
-    fs_it_P00(d_Fs, it, P);
+    // fs_it_P00(d_Fs, it, P);
+    {
+      double** d_P = P.data();
+      auto counting = thrust::make_counting_iterator(0);
+      thrust::for_each(counting, counting + num_batches,
+                       [=]__device__(int bid) {
+                         d_Fs[bid + it*num_batches] = d_P[bid][0];
+                       });
+    }
 
     // 3.
     // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
     BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
-    BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
+    // BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
+    BatchedMatrix K(r, 1, num_batches);
+    {
+      double** d_K = K.data();
+      double** d_TPZt = TPZt.data();
+      auto counting = thrust::make_counting_iterator(0);
+      thrust::for_each(counting, counting + num_batches,
+                       [=]__device__(int bid) {
+                         for(int i=0; i<r; i++) {
+                           d_K[bid][i] = 1.0/d_Fs[bid + it*num_batches] * d_TPZt[bid][i];
+                         }
+                       });
+    }
 
     // 4.
     // alpha = T*alpha + K*vs[it];
     BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
     alpha = Tb*alpha + Kvs;
-
+    
     // 5.
     // MatrixT L = T - K*Z;
     BatchedMatrix L = Tb - K*Zb;
@@ -258,7 +287,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
     thrust::for_each(counting, counting+num_batches,
                      [=]__device__(int bid) {
                        loglike[bid] = -.5 * (loglikelihood[bid] + nobs * log(sigma2[bid]))
-                         - nobs / 2. * (logf(2 * M_PI) + 1);
+                         - nobs / 2. * (log(2 * M_PI) + 1);
                      });
   }
   
@@ -280,9 +309,12 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   vector<double> h_Fs_raw(ys_len*num_batches);
   updateHost(h_vs_raw.data(), d_vs, ys_len*num_batches);
   updateHost(h_Fs_raw.data(), d_Fs, ys_len*num_batches);
+
   for(int it=0;it<ys_len;it++) {
-    h_vs_b[it] = &h_vs_raw[it*num_batches];
-    h_Fs_b[it] = &h_Fs_raw[it*num_batches];
+    for (int bi = 0; bi < num_batches; bi++) {
+      h_vs_b[bi][it] = h_vs_raw[bi + it * num_batches];
+      h_Fs_b[bi][it] = h_Fs_raw[bi + it * num_batches];
+    }
   }
 
   updateHost(h_loglike_b.data(), loglike, num_batches);

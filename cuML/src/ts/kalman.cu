@@ -7,7 +7,7 @@
 
 using namespace Eigen;
 
-using MatrixT = Matrix<double, Dynamic, Dynamic, RowMajor>;
+using MatrixT = Matrix<double, Dynamic, Dynamic, ColMajor>;
 using VectorT = VectorXd;
 using MapMatrixT = Map<MatrixT>;
 using MapVectorT = Map<VectorXd>;

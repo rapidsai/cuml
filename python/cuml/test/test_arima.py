@@ -112,4 +112,5 @@ def test_batched_arima(plot=False, verbose=False, check_asserts=True):
 
 
 if __name__ == "__main__":
+    test_arima()
     test_batched_arima()
