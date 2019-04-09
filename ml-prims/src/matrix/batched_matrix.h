@@ -46,15 +46,16 @@ public:
   const std::pair<int, int>& shape() const { return m_shape; }
 
   // TODO: probably should add a const on returned type
-  double** data() const {return m_A_data;}
+  double** data() const {return m_A_data.get();}
 
   void createA() {
     if (m_A.size() == 0) {
-      double** h_ptr = new double*[m_num_batches];
-      updateHost(h_ptr, m_A_data, m_num_batches);
-      for(int i=0;i<m_num_batches;i++) {
-        m_A.push_back(std::shared_ptr<double>(h_ptr[i], cudaFreeT<double>));
-      }
+      throw std::runtime_error("Don't use for now...");
+      // double** h_ptr = new double*[m_num_batches];
+      // updateHost(h_ptr, m_A_data.get(), m_num_batches);
+      // for(int i=0;i<m_num_batches;i++) {
+      //   m_A.push_back(std::shared_ptr<double>(h_ptr[i], cudaFreeT<double>));
+      // }
     }
   }
 
@@ -76,8 +77,10 @@ private:
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
-    CUDA_CHECK(cudaMalloc(&m_A_data, sizeof(double*) * m_num_batches));
-    CUDA_CHECK(cudaMemcpy(m_A_data, A.data(), sizeof(double*) * m_num_batches, cudaMemcpyHostToDevice));
+    double** raw_m_A_data;
+    CUDA_CHECK(cudaMalloc(&raw_m_A_data, sizeof(double*) * m_num_batches));
+    m_A_data = std::shared_ptr<double*>(raw_m_A_data, cudaFreeT<double*>);
+    CUDA_CHECK(cudaMemcpy(m_A_data.get(), A.data(), sizeof(double*) * m_num_batches, cudaMemcpyHostToDevice));
   }
 
   // host-stored pointers to (device) matrices. Shared pointers to free unused
@@ -90,8 +93,8 @@ private:
   // Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
   std::pair<int, int> m_shape;
 
-  // Raw Data pointer to batched matrices. Is stored in CPU or GPU depending on `m_gpu`
-  double** m_A_data;
+  // Data pointer to batched matrices. Is stored in CPU or GPU depending on `m_gpu`
+  std::shared_ptr<double*> m_A_data;
 
   // batch information
   size_t m_num_batches;

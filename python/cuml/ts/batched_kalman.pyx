@@ -79,7 +79,9 @@ def batched_kfilter(ys_b,
                           vec_vs_b, vec_Fs_b,
                           vec_loglike_b, vec_sigma2_b)
 
-    
+    for i in range(len(ys_b[i])):
+        free(vec_ys_b[i])
+
     # convert C-arrays to something usable in python
     num_batches = vec_loglike_b.size()
     ll_b = np.zeros(num_batches)
