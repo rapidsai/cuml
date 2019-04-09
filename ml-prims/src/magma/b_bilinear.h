@@ -184,6 +184,9 @@ void bilinear_batched(magma_int_t m, magma_int_t n,
         //                      dA_array, ldda,
         //                      "dA_array");
         //
+
+
+        // Crashes for batch sizes beyond 70k
         // Batched gemv
         magmablas_gemv_batched(MagmaTrans, m, n,
                                alpha, dA_array, ldda,
