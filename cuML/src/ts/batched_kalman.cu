@@ -85,7 +85,21 @@ BatchedMatrix _1_Fsit_TPZt(double* d_Fs, int it, const BatchedMatrix& TPZt) {
 }
 
 BatchedMatrix Kvs_it(const BatchedMatrix& K, double* d_vs, int it) {
-  throw std::runtime_error("Not implemtend");
+  BatchedMatrix Kvs(K.shape().first, K.shape().second, K.batches());
+  auto num_batches = K.batches();
+  auto counting = thrust::make_counting_iterator(0);
+  double** d_K = K.data();
+  double** d_Kvs = Kvs.data();
+  int m = K.shape().first;
+  int n = K.shape().second;
+  thrust::for_each(counting, counting + num_batches,
+                   [=]__device__(int bid) {
+                     double vs = d_vs[bid + it*num_batches];
+                     for(int ij=0; ij<m*n; ij++) {
+                       d_Kvs[bid][ij] = d_K[bid][ij]*vs;
+                     }
+                   });
+  return Kvs;
 }
 
 __global__ void sumLogFs_kernel(double* d_Fs, int num_batches, int nobs, double* d_sumLogFs) {

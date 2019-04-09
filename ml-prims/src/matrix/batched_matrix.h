@@ -29,13 +29,13 @@ public:
     }
     m_shape = std::make_pair(m, n);
     std::vector<double*> C_data;
-    double* d_ptr;
-    CUDA_CHECK(cudaMalloc(&d_ptr, sizeof(double)*m*n*num_batches));
-    if (initZero) {
-      CUDA_CHECK(cudaMemset(d_ptr, 0.0, sizeof(double) * m * n));
-    }
+    
     for(int i=0;i<num_batches;i++) {
-      double* d_ptr_i = &d_ptr[m*n*i];
+      double* d_ptr_i;
+      CUDA_CHECK(cudaMalloc(&d_ptr_i, sizeof(double)*m*n));
+      if (initZero) {
+        CUDA_CHECK(cudaMemset(d_ptr_i, 0.0, sizeof(double) * m * n));
+      }
       C_data.push_back(d_ptr_i);
     }
     init(C_data, std::make_pair(m, n), gpu);
@@ -134,8 +134,8 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
   cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
   cublasOperation_t opB = bT ? CUBLAS_OP_T : CUBLAS_OP_N;
 
-  // Create C(m,k)
-  BatchedMatrix C(m, k, num_batches);
+  // Create C(m,n)
+  BatchedMatrix C(m, n, num_batches);
 
   double alpha = 1.0;
   double beta = 0.0;
