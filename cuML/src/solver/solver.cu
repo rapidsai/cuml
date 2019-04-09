@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "sgd.h"
 #include "solver_c.h"
 #include "ml_utils.h"

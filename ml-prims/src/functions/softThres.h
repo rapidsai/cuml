@@ -16,31 +16,22 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <sstream>
-#include <iostream>
-#include <algorithm>
-#include <random>
+#include <linalg/unary_op.h>
 
-namespace ML {
-namespace Solver {
-
-using namespace MLCommon;
+namespace MLCommon {
+namespace Functions {
 
 template<typename math_t>
-void initShuffle(std::vector<math_t> &rand_indices, std::mt19937 &g, math_t random_state = 0) {
+void softThres(math_t *out, const math_t *in, const math_t thres, const int len) {
 
-	g.seed((int) random_state);
-	for (int i = 0; i < rand_indices.size(); ++i)
-		rand_indices[i] = i;
-
-}
-
-template<typename math_t>
-void shuffle(std::vector<math_t> &rand_indices, std::mt19937 &g) {
-	std::shuffle(rand_indices.begin(), rand_indices.end(), g);
-
+    LinAlg::unaryOp(out, in, len, [thres] __device__ (math_t in) {
+                                            if (in > math_t(0) && thres < abs(in))
+                                            	return in - thres;
+                                            else if (in < math_t(0) && thres < abs(in))
+                                            	return in + thres;
+                                            else
+                                            	return math_t(0);
+                                        });
 
 }
 
