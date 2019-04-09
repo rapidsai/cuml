@@ -273,7 +273,7 @@ void sgdPredict(const double *input, int n_rows, int n_cols,
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	CUDA_CHECK(cudaStreamCreate(&stream));
 
 	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
