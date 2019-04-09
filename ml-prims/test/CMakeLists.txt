@@ -41,6 +41,7 @@ add_executable(mlcommon_test
   eltwise2d.cu
   gather.cu
   gemm.cu
+  grid_sync.cu
   kselection.cu
   map_then_reduce.cu
   math.cu
@@ -48,6 +49,7 @@ add_executable(mlcommon_test
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
+  metrics.cu
   mvg.cu
   multiply.cu
   norm.cu
