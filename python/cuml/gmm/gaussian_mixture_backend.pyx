@@ -128,32 +128,10 @@ class _GaussianMixtureBackend :
             with nogil:
                 update_llhd_f32(<float*>_dX_ptr, gmm32)
 
-            print("resp")
-            print(self.resp_)
-            with nogil:
-
                 update_rhos_f32(gmm32, <float*> _dX_ptr)
-
-            print(self.resp_)
-            with nogil:
-
                 update_pis_f32(gmm32)
-
-            print("weights")
-            print(self.weights_ )
-            with nogil:
-
                 update_mus_f32(<float*>_dX_ptr, gmm32)
-
-            print("means")
-            print(self.means_)
-            with nogil:
-
                 update_sigmas_f32(<float*>_dX_ptr, gmm32)
-
-            print("covars")
-            print(self.covars_)
-            with nogil:
 
                 compute_lbow_f32(gmm32)
 
@@ -161,11 +139,7 @@ class _GaussianMixtureBackend :
             with nogil:
                 update_llhd_f64(<double*>_dX_ptr, gmm64)
 
-            print("resp")
-            print(self.resp_)
-            with nogil:
                 update_rhos_f64(gmm64, <double*> _dX_ptr)
-
                 update_pis_f64(gmm64)
                 update_mus_f64(<double*>_dX_ptr, gmm64)
                 update_sigmas_f64(<double*>_dX_ptr, gmm64)

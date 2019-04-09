@@ -242,7 +242,7 @@ template <typename T>
 void update_sigmas(T* dX, GMM<T>& gmm,
                    cublasHandle_t cublasHandle, magma_queue_t queue){
         // int batchCount=gmm.nCl;
-        int ldDiff= gmm.lddx;
+        int ldDiff= gmm.handle.llhd_handle.lddDiff;
         int batch_nObs, batch_obs_offset;
         int nBatches;
 
