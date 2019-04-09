@@ -58,15 +58,15 @@ void _compute_cumlengths(unsigned short int *dcumlenghts_inc, unsigned short int
         CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-void _compute_emissions(T* dX,
-                        HMM<T, gmm::GMM<T> > &hmm,
-                        cublasHandle_t cublasHandle, magma_queue_t queue){
-        // Compute the emissions likelihoods B
-        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-                gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle, queue);
-        }
-}
+// template <typename T>
+// void _compute_emissions(T* dX,
+//                         HMM<T, gmm::GMM<T> > &hmm,
+//                         cublasHandle_t cublasHandle, magma_queue_t queue){
+//         // Compute the emissions likelihoods B
+//         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+//                 gmm::update_llhd(dX, hmm.dists[stateId], cublasHandle, queue);
+//         }
+// }
 
 
 template <typename T>

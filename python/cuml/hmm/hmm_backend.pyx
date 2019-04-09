@@ -82,6 +82,8 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
     cdef uintptr_t _logllhd_ptr = self.dlogllhd.device_ctypes_pointer.value
     cdef uintptr_t _ws_ptr
 
+    cdef size_t size
+
     cdef int nStates = self.n_components
     cdef int lddt = self.lddt
     cdef int lddb = self.lddb
@@ -90,7 +92,28 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
 
     cdef int nObs = self.nObs
     cdef int nSeq = self.nSeq
-    # cdef int nFeatures = self.nFeatures
+
+    if self.precision == 'single':
+        for i in range(self.n_components):
+            _setup_multinomial(self.dists[i], ar_multinomials32[i], ar_multinomials64[i])
+            multinomials32.push_back(ar_multinomials32[i])
+
+        with nogil:
+            init_mhmm_f32(hmm32,
+                          multinomials32,
+                          <int>nStates,
+                          <float*>_dStartProb_ptr,
+                          <int>lddsp,
+                          <float*>_dT_ptr,
+                          <int>lddt,
+                          <float*>_dB_ptr,
+                          <int>lddb,
+                          <float*>_dGamma_ptr,
+                          <int>lddgamma,
+                          <float*>_logllhd_ptr,
+                          <int> nObs,
+                          <int> nSeq,
+                          <float*> _dLlhd_ptr)
 
     if self.precision == 'double':
         for i in range(self.n_components):
@@ -113,32 +136,28 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                           <int> nObs,
                           <int> nSeq,
                           <double*> _dLlhd_ptr)
-            # setup_mhmm_f64(hmm64,
-            #                <int> nObs,
-            #                <int> nSeq,
-            #                <double*> _dLlhd_ptr)
 
     if do_handle :
         _ws_ptr = self.workspace.device_ctypes_pointer.value
+
+        if self.precision == 'single':
+            with nogil :
+                size = get_workspace_size_mhmm_f32(hmm32)
+                create_handle_mhmm_f32(hmm32, <void*> _ws_ptr)
+
         if self.precision == 'double':
             with nogil :
                 size = get_workspace_size_mhmm_f64(hmm64)
                 create_handle_mhmm_f64(hmm64, <void*> _ws_ptr)
-    print("size", size)
 
 class _BaseHMMBackend:
     def allocate_ws(self):
-        pass
         self._workspaceSize = -1
-
-        cdef floatGMMHMM gmmhmm32
-        cdef doubleGMMHMM gmmhmm64
+        cdef size_t workspace_size = 0
 
         cdef floatMultinomialHMM multinomialhmm32
         cdef doubleMultinomialHMM multinomialhmm64
 
-        # if self.hmm_type is "gmm" :
-        # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
         if self.hmm_type is 'multinomial':
             setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, False)
 
@@ -146,21 +165,20 @@ class _BaseHMMBackend:
         available_mem = cuda_context.get_memory_info().free
         print('available mem before allocation', to_mb(available_mem), "Mb")
 
+        if self.precision is "single" and self.hmm_type is 'multinomial':
+            with nogil :
+                workspace_size = get_workspace_size_mhmm_f32(multinomialhmm32)
+
         if self.precision is "double" and self.hmm_type is 'multinomial':
             with nogil :
                 workspace_size = get_workspace_size_mhmm_f64(multinomialhmm64)
 
-        print('Workspace size', to_mb(workspace_size), "Mb")
-        print("----------------\n")
-
-        print(workspace_size)
-        self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
         self._workspace_size = workspace_size
+        self.workspace = cuda.to_device(np.zeros(self._workspace_size, dtype=np.int8))
 
-        workspace_host = self.workspace.copy_to_host()
-        print("workspace host")
-        print(workspace_host)
-
+        print("----------------\n")
+        print('Workspace size', to_mb(self._workspace_size), "Mb")
+        print("----------------\n")
 
         cuda_context = cuda.current_context()
         available_mem = cuda_context.get_memory_info().free
@@ -173,8 +191,6 @@ class _BaseHMMBackend:
         cdef floatMultinomialHMM multinomialhmm32
         cdef doubleMultinomialHMM multinomialhmm64
 
-        # if self.hmm_type is "gmm" :
-        # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
         if self.hmm_type is 'multinomial':
             setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, True)
 
@@ -188,13 +204,14 @@ class _BaseHMMBackend:
         cdef bool doBackward = do_backward
         cdef bool doGamma = do_gamma
 
-        # if self.dtype is "double" and self.hmm_type is 'gmm':
-        #     forward_backward_f64(gmmhmm64,
-        #                          <double*> _dX_ptr,
-        #                          <int*> _dlengths_ptr,
-        #                          <int> nSeq,
-        #                          <bool> doForward,
-        #                          <bool> doBackward)
+        if self.precision is "single" and self.hmm_type is 'multinomial':
+            forward_backward_mhmm_f32(multinomialhmm32,
+                                      <unsigned short int*> _dX_ptr,
+                                      <unsigned short int*> _dlengths_ptr,
+                                      <int> nSeq,
+                                      <bool> doForward,
+                                      <bool> doBackward,
+                                      <bool> doGamma)
 
         if self.precision is "double" and self.hmm_type is 'multinomial':
             forward_backward_mhmm_f64(multinomialhmm64,
@@ -221,6 +238,12 @@ class _BaseHMMBackend:
 
         cdef int nSeq = self.nSeq
 
+        if self.precision is "single" and self.hmm_type is 'multinomial':
+            viterbi_mhmm_f32(multinomialhmm32,
+                             <unsigned short int*> _dVStates_ptr,
+                             <unsigned short int*> _dX_ptr,
+                             <unsigned short int*> _dlengths_ptr,
+                             <int> nSeq)
         if self.precision is "double" and self.hmm_type is 'multinomial':
             viterbi_mhmm_f64(multinomialhmm64,
                              <unsigned short int*> _dVStates_ptr,
@@ -229,8 +252,6 @@ class _BaseHMMBackend:
                              <int> nSeq)
 
     def _m_step(self, X, lengths):
-        # self._setup(X, lengths)
-
         cdef floatGMMHMM gmmhmm32
         cdef doubleGMMHMM gmmhmm64
 
@@ -245,6 +266,11 @@ class _BaseHMMBackend:
 
         cdef int nSeq = self.nSeq
 
+        if self.precision is "single" and self.hmm_type is 'multinomial':
+            m_step_mhmm_f32(multinomialhmm32,
+                            <unsigned short int*> _dX_ptr,
+                            <unsigned short int*> _dlengths_ptr,
+                            <int> nSeq)
         if self.precision is "double" and self.hmm_type is 'multinomial':
             m_step_mhmm_f64(multinomialhmm64,
                             <unsigned short int*> _dX_ptr,

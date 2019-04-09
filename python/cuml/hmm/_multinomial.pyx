@@ -26,6 +26,11 @@ cdef _setup_multinomial(self,
     cdef uintptr_t _dPis_ptr = self.dPis.device_ctypes_pointer.value
 
     cdef int n_features = self.n_features
+    if self.precision == 'single':
+        with nogil:
+            init_multinomial_f32(multinomial32,
+                                 <float*> _dPis_ptr,
+                                 <int> n_features)
     if self.precision == 'double':
         with nogil:
             init_multinomial_f64(multinomial64,

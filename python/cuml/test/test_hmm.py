@@ -23,6 +23,10 @@ import pytest
 import time
 
 
+@pytest.fixture(params=["single", "double"])
+def precision(request):
+    return request.param
+
 @pytest.fixture(params=[5])
 def n_components(request):
     return request.param
@@ -71,7 +75,7 @@ class TestHMM(ABC):
 
 class TestMultinomialHMM(TestHMM):
 
-    def setmethod(self, n_components, n_seq, n_features):
+    def setmethod(self, n_components, n_seq, n_features, precision):
         self.n_components = n_components
         self.n_seq = n_seq
         self.n_features = n_features
@@ -79,9 +83,13 @@ class TestMultinomialHMM(TestHMM):
         self.hmm_sampler = MultinomialHMMSampler(n_seq=self.n_seq,
                                                  n_components=self.n_components,
                                                  n_features=self.n_features)
-        self.precision = "double"
+        self.precision = precision
         self.random_state = None
         self.seed = 0
+        if self.precision is "single" :
+            self.assert_eps = 1e-4
+        if self.precision is "double" :
+            self.assert_eps = 1e-10
 
     def _reset(self):
         self.ref_model = hmmlearn.hmm.MultinomialHMM(self.n_components,
@@ -99,8 +107,8 @@ class TestMultinomialHMM(TestHMM):
         self.cuml_model= self.hmm_sampler._set_model_parameters(self.cuml_model, random_state)
 
     # @setup_parameters()
-    def test_score_samples(self, n_components, n_seq, n_features):
-        self.setmethod(n_components, n_seq, n_features)
+    def test_score_samples(self, n_components, n_seq, n_features, precision):
+        self.setmethod(n_components, n_seq, n_features, precision)
         self._reset()
 
         start = time.time()
@@ -115,11 +123,11 @@ class TestMultinomialHMM(TestHMM):
 
         posteriors_err = np.abs(np.max(ref_posteriors - cuml_posteriors))
 
-        assert abs(ref_ll - cuml_ll) < 1e-10
-        assert posteriors_err < 1e-10
+        assert abs(ref_ll - cuml_ll) < self.assert_eps
+        assert posteriors_err < self.assert_eps
 
-    def test_decode(self, n_components, n_seq, n_features):
-        self.setmethod(n_components, n_seq, n_features)
+    def test_decode(self, n_components, n_seq, n_features, precision):
+        self.setmethod(n_components, n_seq, n_features, precision)
         self._reset()
 
         start = time.time()
@@ -134,11 +142,11 @@ class TestMultinomialHMM(TestHMM):
 
         state_seq_err = np.abs(np.max(ref_state_seq - cuml_state_seq))
 
-        assert abs(cuml_llhd- ref_llhd) < 1e-10
-        assert state_seq_err < 1e-10
+        assert abs(cuml_llhd- ref_llhd) < self.assert_eps
+        assert state_seq_err < self.assert_eps
 
-    def test_fit(self, n_components, n_seq, n_features):
-        self.setmethod(n_components, n_seq, n_features)
+    def test_fit(self, n_components, n_seq, n_features, precision):
+        self.setmethod(n_components, n_seq, n_features, precision)
         self._reset()
 
         self.cuml_model.n_iter = 1
@@ -158,9 +166,9 @@ class TestMultinomialHMM(TestHMM):
         startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
         transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
 
-        assert startprob_err < 1e-10
-        assert emissionprob_err < 1e-10
-        assert transmat_err < 1e-10
+        assert startprob_err < self.assert_eps
+        assert emissionprob_err < self.assert_eps
+        assert transmat_err < self.assert_eps
 
 
 # class TestGMMHMM(TestHMM):

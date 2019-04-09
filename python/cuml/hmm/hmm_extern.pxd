@@ -66,6 +66,50 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     #                                bool doForward,
     #                                bool doBackward)
 
+    cdef void init_mhmm_f32(floatMultinomialHMM &hmm,
+                        vector[Multinomial[float]] &multinomials,
+                        int nStates,
+                        float* dStartProb,
+                        int lddsp,
+                        float* dT,
+                        int lddt,
+                        float* dB,
+                        int lddb,
+                        float* dGamma,
+                        int lddgamma,
+                        float* logllhd,
+                        int nObs,
+                        int nSeq,
+                        float* dLlhd)
+
+    cdef size_t get_workspace_size_mhmm_f32(floatMultinomialHMM &hmm)
+    cdef void create_handle_mhmm_f32(floatMultinomialHMM &hmm,
+                                     void* ws)
+
+    cdef void viterbi_mhmm_f32(floatMultinomialHMM &hmm,
+                               unsigned short int* dVStates,
+                               unsigned short int* dX,
+                               unsigned short int* dlenghts,
+                               int nSeq)
+
+    cdef void forward_backward_mhmm_f32(floatMultinomialHMM &hmm,
+                                        unsigned short int* dX,
+                                        unsigned short int* dlenghts,
+                                        int nSeq,
+                                        bool doForward,
+                                        bool doBackward,
+                                        bool doGamma)
+
+    cdef void setup_mhmm_f32(floatMultinomialHMM &hmm,
+                             int nObs,
+                             int nSeq,
+                             float* dLlhd)
+
+    cdef void m_step_mhmm_f32(floatMultinomialHMM &hmm,
+                              unsigned short int* dX,
+                              unsigned short int* dlenghts,
+                              int nSeq)
+
     cdef void init_mhmm_f64(doubleMultinomialHMM &hmm,
                             vector[Multinomial[double]] &multinomials,
                             int nStates,
@@ -87,18 +131,18 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                                      void* ws)
 
     cdef void viterbi_mhmm_f64(doubleMultinomialHMM &hmm,
-                                        unsigned short int* dVStates,
-                                        unsigned short int* dX,
-                                        unsigned short int* dlenghts,
-                                        int nSeq)
+                               unsigned short int* dVStates,
+                               unsigned short int* dX,
+                               unsigned short int* dlenghts,
+                               int nSeq)
 
     cdef void forward_backward_mhmm_f64(doubleMultinomialHMM &hmm,
-                                    unsigned short int* dX,
-                                    unsigned short int* dlenghts,
-                                    int nSeq,
-                                    bool doForward,
-                                    bool doBackward,
-                                    bool doGamma)
+                                        unsigned short int* dX,
+                                        unsigned short int* dlenghts,
+                                        int nSeq,
+                                        bool doForward,
+                                        bool doBackward,
+                                        bool doGamma)
 
     cdef void setup_mhmm_f64(doubleMultinomialHMM &hmm,
                              int nObs,
@@ -106,6 +150,8 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                              double* dLlhd)
 
     cdef void m_step_mhmm_f64(doubleMultinomialHMM &hmm,
-                                        unsigned short int* dX,
-                                        unsigned short int* dlenghts,
-                                        int nSeq)
+                              unsigned short int* dX,
+                              unsigned short int* dlenghts,
+                              int nSeq)
+
+

@@ -30,7 +30,7 @@ namespace hmm {
 
 template <typename T, typename D>
 void init(HMM<T, D> &hmm,
-          std::vector<D> &gmms,
+          std::vector<D> &dists,
           int nStates,
           T* dStartProb, int lddsp,
           T* dT, int lddt,
@@ -52,7 +52,7 @@ void init(HMM<T, D> &hmm,
 
         hmm.lddt = lddt;
         hmm.lddb = lddb;
-        // TODO : align
+
         hmm.handle.lddalpha = nStates;
         hmm.handle.lddbeta = nStates;
         hmm.lddgamma = lddgamma;
@@ -60,7 +60,7 @@ void init(HMM<T, D> &hmm,
         hmm.handle.lddv = nStates;
 
         hmm.nStates = nStates;
-        hmm.dists = gmms;
+        hmm.dists = dists;
 
         hmm.logllhd = logllhd;
 
@@ -69,33 +69,11 @@ void init(HMM<T, D> &hmm,
         }
 }
 
-
-
-template <typename T>
-__global__
-void TestWrite(T* dA,
-               int m, int n, int ldda,
-               int nThreads_x, int nThreads_y){
-        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
-        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
-
-        for (size_t i = i_start; i < m; i+=nThreads_x) {
-                for (size_t j = j_start; j < n; j+=nThreads_y) {
-                        // dA[IDX(i, j, ldda)] = (unsigned short int) 10;
-                        printf("%f\n", (float) dA[IDX(i, j, ldda)]);
-                }
-
-        }
-}
-
 template <typename T, typename D>
 size_t hmm_bufferSize(HMM<T, D> &hmm){
 
         size_t workspaceSize = 0;
         const size_t granularity = 256;
-
-        hmm.handle.dTemp = (T *)workspaceSize;
-        workspaceSize += alignTo(1 * sizeof(T), granularity);
 
         hmm.handle.dPi_array = (T **)workspaceSize;
         workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
@@ -127,7 +105,12 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
         hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
 
-        // allocate(hmm.handle.dPi_array, hmm.nStates);
+        // print_matrix_device(1, hmm.nSeq, hmm.handle.dcumlenghts_inc, 1, "hmm.handle.dcumlenghts_inc");
+        // print_matrix_device(1, hmm.nSeq, hmm.handle.dcumlenghts_exc, 1, "hmm.handle.dcumlenghts_inc");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dAlpha, hmm.handle.lddalpha, "hmm.handle.dAlpha");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dBeta, hmm.handle.lddalpha, "hmm.handle.dBeta");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dV, hmm.handle.lddv, "hmm.handle.dV");
+
         T **Pi_array;
         Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
@@ -161,23 +144,11 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         // free(Pi_array);
 }
 
-// template <typename T>
-// void createPassWs(HMM<T> &hmm) {
-//         allocate(hmm.dGamma, hmm.lddgamma * hmm.nStates);
-// }
-//
-// template <typename T>
-// void freePassWs(HMM<T> &hmm) {
-//
-// }
-
 template <typename Tx, typename T, typename D>
 void forward_backward(HMM<T, D> &hmm,
                       Tx* dX, unsigned short int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
                       bool doForward, bool doBackward, bool doGamma){
-        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
-
         _compute_emissions(dX, hmm, cublasHandle, queue);
         _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
@@ -185,25 +156,7 @@ void forward_backward(HMM<T, D> &hmm,
         if (doGamma) {
                 _update_gammas(hmm);
         }
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dAlpha, hmm.lddalpha, "dAlpha");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dBeta, hmm.lddbeta, "dBeta");
-        // // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB");
-        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
-        // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
-        // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dGamma, hmm.lddgamma, "dGamma");
-        // print_matrix_device(1, nSeq, hmm.dLlhd, 1, "dLlhd");
 }
-
-// template <typename T>
-// void createViterbiWs(){
-//         allocate(hmm.dV_ptr_array, hmm.lddv * hmm.max_len, hmm.nObs);
-// }
-//
-// template <typename T>
-// void freeViterbiWs(){
-//
-// }
 
 template <typename Tx, typename T, typename D>
 void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
@@ -213,10 +166,7 @@ void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
         _compute_emissions(dX, hmm, cublasHandle, queue);
         _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
-        // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
-        // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
         _viterbi(hmm, dVStates, dlenghts, nSeq);
-        // print_matrix_device(1, nSeq, hmm.dcumlenghts_inc, 1, "dcumlenghts_inc");
 }
 
 template <typename Tx, typename T, typename D>
@@ -229,45 +179,4 @@ void m_step(HMM<T, D> &hmm,
                          true, true, true);
         _m_step(hmm, dX, dlenghts, nSeq);
 }
-
-//
-// template <typename T>
-// void createEMWs(){
-//         createViterbiWs();
-//         createPassWs();
-// }
-//
-// template <typename T>
-// void freeViterbiWs(){
-//         freeViterbiWs();
-//         freePassWs();
-// }
-//
-// template <typename T>
-// void em(T* dX, int* len_array, HMM<T>& hmm,
-//         cublasHandle_t cublasHandle, magma_queue_t queue){
-//
-//         // E step
-//         forward();
-//
-//         if (hmm.train == Viterbi) {
-//                 viterbi(dMaxPath_array, dX, len_array, hmm);
-//                 _one_hot(hmm.dGamma, hmm.lddgamma, dMaxPath_array, nObs);
-//         }
-//         if (hmm.train == ForwardBackward) {
-//                 _compute_gammas();
-//         }
-//
-//         // M step
-//         // TODO : Parallelize over several GPUs
-//         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
-//                 // Train using gmm toolkit
-//                 // _update_pis(hmm.gmms[i]);
-//                 // _update_mus(dX, hmm.gmms[i], cublasHandle, queue);
-//                 // _update_sigmas(dX, hmm.gmms[i], cublasHandle, queue);
-//                 _m_step(dX, hmm.gmms[i], cublasHandle, queue);
-//         }
-// }
-//
-//
 }

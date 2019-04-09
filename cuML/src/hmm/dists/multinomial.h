@@ -61,8 +61,7 @@ void multinomial_likelihood_batched(int nObs, int batchCount,
                                     bool isLog){
         dim3 block(32,32);
         dim3 grid(ceildiv(batchCount, (int)block.x),
-                  ceildiv(nObs, (int)block.y),
-                  1);
+                  ceildiv(nObs, (int)block.y));
         int nThreads_x = grid.x * block.x;
         int nThreads_y = grid.y * block.y;
         multinomial_likelihood_batched_kernel<T> <<< grid, block >>>(nObs,batchCount,

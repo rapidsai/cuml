@@ -22,9 +22,9 @@ ctypedef Multinomial[double] doubleMultinomial
 
 cdef extern from "hmm/hmm_py.h" namespace "multinomial" nogil:
 
-    # cdef void init_multinomial_f32(floatMultinomial&,
-    #                    float*,
-    #                    int)
+    cdef void init_multinomial_f32(floatMultinomial&,
+                       float*,
+                       int)
 
     cdef void init_multinomial_f64(doubleMultinomial&,
                    double*,

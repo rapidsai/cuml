@@ -23,6 +23,24 @@
 //
 // namespace hmm {
 //
+
+//
+// template <typename T>
+// __global__
+// void TestWrite(T* dA,
+//                int m, int n, int ldda,
+//                int nThreads_x, int nThreads_y){
+//         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+//         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+//
+//         for (size_t i = i_start; i < m; i+=nThreads_x) {
+//                 for (size_t j = j_start; j < n; j+=nThreads_y) {
+//                         // dA[IDX(i, j, ldda)] = (unsigned short int) 10;
+//                         printf("%f\n", (float) dA[IDX(i, j, ldda)]);
+//                 }
+//
+//         }
+// }
 // template <typename T>
 // __global__
 // void createSigmasBatchesKernel(int nCl,
