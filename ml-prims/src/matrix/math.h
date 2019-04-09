@@ -174,6 +174,12 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
   setSmallValuesZero(inout, inout, len, thres);
 }
 
+template <typename math_t>
+void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_t stream = 0) {
+	MLCommon::LinAlg::unaryOp(out, in, len,
+			          [scalar] __device__(math_t in) { return scalar; },
+			          stream);
+}
 
 
 /**
