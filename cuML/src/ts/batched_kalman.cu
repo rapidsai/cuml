@@ -4,6 +4,12 @@
 #include <utils.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/for_each.h>
+#include <iostream>
+#include <cstdio>
+
+#include <fstream>
+#include <unistd.h>
+
 // #include <thrust/lo
 
 using std::vector;
@@ -13,6 +19,32 @@ using MLCommon::Matrix::b_gemm;
 using MLCommon::allocate;
 using MLCommon::updateDevice;
 using MLCommon::updateHost;
+
+////////////////////////////////////////////////////////////
+#include <iostream>
+
+void process_mem_usage(double& vm_usage, double& resident_set)
+{
+  vm_usage     = 0.0;
+  resident_set = 0.0;
+
+  // the two fields we want
+  unsigned long vsize;
+  long rss;
+  {
+    std::string ignore;
+    std::ifstream ifs("/proc/self/stat", std::ios_base::in);
+    ifs >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore
+        >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore >> ignore
+        >> ignore >> ignore >> vsize >> rss;
+  }
+
+  long page_size_kb = sysconf(_SC_PAGE_SIZE) / 1024; // in case x86-64 is configured to use 2MB pages
+  vm_usage = vsize / 1024.0;
+  resident_set = rss * page_size_kb;
+}
+////////////////////////////////////////////////////////////
+
 
 __global__ void vs_eq_ys_m_alpha00_kernel(double* d_vs, int it,
                                           const double* ys_it,
@@ -146,178 +178,201 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
                            vector<double>& h_sigma2_b) {
 
 
-  const size_t ys_len = h_ys_b.size();
-  const size_t num_batches = h_Zb.size();
-
-  ////////////////////////////////////////////////////////////
-  // xfer from host to device
-
-  //TODO: Far too many allocations for these. Definitely want to fix after getting this working
-
-  vector<double*> d_ys_b(ys_len);
-  for(int it=0;it<ys_len;it++) {
-    allocate(d_ys_b[it], num_batches);
-    updateDevice(d_ys_b[it], h_ys_b[it], num_batches);
-  }
   
-  vector<double*> d_Zb(num_batches);
-  vector<double*> d_Rb(num_batches);
-  vector<double*> d_Tb(num_batches);
-
-  for(int bi=0; bi<num_batches; bi++) {
-    allocate(d_Zb[bi], r);
-    updateDevice(d_Zb[bi], h_Zb[bi], r);
-
-    allocate(d_Rb[bi], r);
-    updateDevice(d_Rb[bi], h_Rb[bi], r);
-
-    allocate(d_Tb[bi], r*r);
-    updateDevice(d_Tb[bi], h_Tb[bi], r*r);
-  }
+  double before_vm, before_rss;
+  process_mem_usage(before_vm, before_rss);
   
-  ////////////////////////////////////////////////////////////
-  // Computation
-  BatchedMatrix Zb(d_Zb, {1, r});
-  BatchedMatrix Tb(d_Tb, {r, r});
-  BatchedMatrix Rb(d_Rb, {r, 1});
+  {
 
-  BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
+    const size_t ys_len = h_ys_b.size();
+    const size_t num_batches = h_Zb.size();
 
-  // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
-  BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
+    ////////////////////////////////////////////////////////////
+    // xfer from host to device
 
-  // init alpha to zero
-  BatchedMatrix alpha(r, 1, num_batches, true);
+    //TODO: Far too many allocations for these. Definitely want to fix after getting this working
 
-  // init vs, Fs
-  // In batch-major format.
-  double* d_vs;
-  double* d_Fs;
-  MLCommon::allocate(d_vs, ys_len*num_batches);
-  MLCommon::allocate(d_Fs, ys_len*num_batches);
+    vector<double*> d_ys_b(ys_len);
+    for(int it=0;it<ys_len;it++) {
+      allocate(d_ys_b[it], num_batches);
+      updateDevice(d_ys_b[it], h_ys_b[it], num_batches);
+    }
+  
+    vector<double*> d_Zb(num_batches);
+    vector<double*> d_Rb(num_batches);
+    vector<double*> d_Tb(num_batches);
 
-  for(int it=0; it<ys_len; it++) {
+    for(int bi=0; bi<num_batches; bi++) {
+      allocate(d_Zb[bi], r);
+      updateDevice(d_Zb[bi], h_Zb[bi], r);
+
+      allocate(d_Rb[bi], r);
+      updateDevice(d_Rb[bi], h_Rb[bi], r);
+
+      allocate(d_Tb[bi], r*r);
+      updateDevice(d_Tb[bi], h_Tb[bi], r*r);
+    }
+
+    BatchedMatrix Zb(d_Zb, {1, r});
+    BatchedMatrix Tb(d_Tb, {r, r});
+    BatchedMatrix Rb(d_Rb, {r, 1});
+
+    ////////////////////////////////////////////////////////////
+    // Computation
+  
+    BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
+
+    // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
+    BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
+
+    // init alpha to zero
+    BatchedMatrix alpha(r, 1, num_batches, true);
+
+    // init vs, Fs
+    // In batch-major format.
+    double* d_vs;
+    double* d_Fs;
+    allocate(d_vs, ys_len*num_batches);
+    allocate(d_Fs, ys_len*num_batches);
+
+    for(int it=0; it<ys_len; it++) {
+      // 1.
+      // vs[it] = ys[it] - alpha(0,0);
+      // vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
+      {
+        auto counting = thrust::make_counting_iterator(0);
+        double* d_ys_bid = d_ys_b[it];
+        double** d_alpha = alpha.data();
+        thrust::for_each(counting, counting + num_batches,
+                         [=]__device__(int bid) {
+                           d_vs[bid + it*num_batches] = d_ys_bid[bid] - d_alpha[bid][0];
+                         });
+      }
+
+      // 2.
+      // Fs[it] = P(0,0);
+      // fs_it_P00(d_Fs, it, P);
+      {
+        double** d_P = P.data();
+        auto counting = thrust::make_counting_iterator(0);
+        thrust::for_each(counting, counting + num_batches,
+                         [=]__device__(int bid) {
+                           d_Fs[bid + it*num_batches] = d_P[bid][0];
+                         });
+      }
+
+      // 3.
+      // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
+      BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
+      // BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
+      BatchedMatrix K(r, 1, num_batches);
+      {
+        double** d_K = K.data();
+        double** d_TPZt = TPZt.data();
+        auto counting = thrust::make_counting_iterator(0);
+        thrust::for_each(counting, counting + num_batches,
+                         [=]__device__(int bid) {
+                           for(int i=0; i<r; i++) {
+                             d_K[bid][i] = 1.0/d_Fs[bid + it*num_batches] * d_TPZt[bid][i];
+                           }
+                         });
+      }
+
+      // 4.
+      // alpha = T*alpha + K*vs[it];
+      BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
+      alpha = Tb*alpha + Kvs;
     
-    // 1.
-    // vs[it] = ys[it] - alpha(0,0);
-    // vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
-    {
-      auto counting = thrust::make_counting_iterator(0);
-      double* d_ys_bid = d_ys_b[it];
-      double** d_alpha = alpha.data();
-      thrust::for_each(counting, counting + num_batches,
-                       [=]__device__(int bid) {
-                         d_vs[bid + it*num_batches] = d_ys_bid[bid] - d_alpha[bid][0];
-                       });
+      // 5.
+      // MatrixT L = T - K*Z;
+      BatchedMatrix L = Tb - K*Zb;
+
+      // 6.
+      // P = T * P * L.transpose() + R * R.transpose();
+      P = Tb * b_gemm(P, L, false, true) + RRT;
+
     }
 
-    // 2.
-    // Fs[it] = P(0,0);
-    // fs_it_P00(d_Fs, it, P);
-    {
-      double** d_P = P.data();
-      auto counting = thrust::make_counting_iterator(0);
-      thrust::for_each(counting, counting + num_batches,
-                       [=]__device__(int bid) {
-                         d_Fs[bid + it*num_batches] = d_P[bid][0];
-                       });
-    }
+    // 7.
+    // loglikelihood = sum(log(Fs[:]))
+    double* loglikelihood = sumLogFs(d_Fs, num_batches, ys_len);
 
-    // 3.
-    // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
-    BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
-    // BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
-    BatchedMatrix K(r, 1, num_batches);
+    // 8.
+    // sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
+
+    double* sigma2;
+    allocate(sigma2, num_batches);
     {
-      double** d_K = K.data();
-      double** d_TPZt = TPZt.data();
       auto counting = thrust::make_counting_iterator(0);
-      thrust::for_each(counting, counting + num_batches,
+      thrust::for_each(counting, counting+num_batches,
                        [=]__device__(int bid) {
-                         for(int i=0; i<r; i++) {
-                           d_K[bid][i] = 1.0/d_Fs[bid + it*num_batches] * d_TPZt[bid][i];
+                         sigma2[bid] = 0.0;
+                         double sigma2_sum = 0.0;
+                         for (int it = 0; it < ys_len; it++) {
+                           auto vsit = d_vs[bid + num_batches*it];
+                           sigma2_sum += vsit*vsit / d_Fs[bid + num_batches*it];
                          }
+                         sigma2[bid] = sigma2_sum / ys_len;
+                       });
+    }
+    // 9.
+    // loglike = -.5 * (loglikelihood + nobs * std::log(sigma2)) - nobs / 2. * (std::log(2 * M_PI) + 1);
+    double* loglike;
+    allocate(loglike, num_batches);
+    {
+      auto counting = thrust::make_counting_iterator(0);
+      int nobs = ys_len;
+      thrust::for_each(counting, counting+num_batches,
+                       [=]__device__(int bid) {
+                         loglike[bid] = -.5 * (loglikelihood[bid] + nobs * log(sigma2[bid]))
+                           - nobs / 2. * (log(2 * M_PI) + 1);
                        });
     }
 
-    // 4.
-    // alpha = T*alpha + K*vs[it];
-    BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
-    alpha = Tb*alpha + Kvs;
-    
-    // 5.
-    // MatrixT L = T - K*Z;
-    BatchedMatrix L = Tb - K*Zb;
+    ////////////////////////////////////////////////////////////
+    // xfer results from GPU
+    // need to fill:
+    // vector<double*>& h_vs_b,   
+    // vector<double*>& h_Fs_b,   
+    // vector<double>& h_loglike_b
+    // vector<double>& h_sigma2_b)
+    //
 
-    // 6.
-    // P = T * P * L.transpose() + R * R.transpose();
-    P = Tb * b_gemm(P, L, false, true) + RRT;
+    h_vs_b.resize(ys_len);
+    h_Fs_b.resize(ys_len);
+    h_loglike_b.resize(num_batches);
+    h_sigma2_b.resize(num_batches);
 
-  }
+    // vs, Fs
+    vector<double> h_vs_raw(ys_len*num_batches);
+    vector<double> h_Fs_raw(ys_len*num_batches);
+    updateHost(h_vs_raw.data(), d_vs, ys_len*num_batches);
+    updateHost(h_Fs_raw.data(), d_Fs, ys_len*num_batches);
 
-  // 7.
-  // loglikelihood = sum(log(Fs[:]))
-  double* loglikelihood = sumLogFs(d_Fs, num_batches, ys_len);
-
-  // 8.
-  // sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
-
-  double* sigma2;
-  allocate(sigma2, num_batches);
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting+num_batches,
-                     [=]__device__(int bid) {
-                       sigma2[bid] = 0.0;
-                       double sigma2_sum = 0.0;
-                       for (int it = 0; it < ys_len; it++) {
-                         auto vsit = d_vs[bid + num_batches*it];
-                         sigma2_sum += vsit*vsit / d_Fs[bid + num_batches*it];
-                       }
-                       sigma2[bid] = sigma2_sum / ys_len;
-                     });
-  }
-  // 9.
-  // loglike = -.5 * (loglikelihood + nobs * std::log(sigma2)) - nobs / 2. * (std::log(2 * M_PI) + 1);
-  double* loglike;
-  allocate(loglike, num_batches);
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    int nobs = ys_len;
-    thrust::for_each(counting, counting+num_batches,
-                     [=]__device__(int bid) {
-                       loglike[bid] = -.5 * (loglikelihood[bid] + nobs * log(sigma2[bid]))
-                         - nobs / 2. * (log(2 * M_PI) + 1);
-                     });
-  }
-  
-  ////////////////////////////////////////////////////////////
-  // xfer results from GPU
-  // need to fill:
-  // vector<double*>& h_vs_b,   
-  // vector<double*>& h_Fs_b,   
-  // vector<double>& h_loglike_b
-  // vector<double>& h_sigma2_b)
-  //
-  h_vs_b.resize(ys_len);
-  h_Fs_b.resize(ys_len);
-  h_loglike_b.resize(num_batches);
-  h_sigma2_b.resize(num_batches);
-
-  // vs, Fs
-  vector<double> h_vs_raw(ys_len*num_batches);
-  vector<double> h_Fs_raw(ys_len*num_batches);
-  updateHost(h_vs_raw.data(), d_vs, ys_len*num_batches);
-  updateHost(h_Fs_raw.data(), d_Fs, ys_len*num_batches);
-
-  for(int it=0;it<ys_len;it++) {
-    for (int bi = 0; bi < num_batches; bi++) {
-      h_vs_b[bi][it] = h_vs_raw[bi + it * num_batches];
-      h_Fs_b[bi][it] = h_Fs_raw[bi + it * num_batches];
+    for(int it=0;it<ys_len;it++) {
+      for (int bi = 0; bi < num_batches; bi++) {
+        h_vs_b[bi][it] = h_vs_raw[bi + it * num_batches];
+        h_Fs_b[bi][it] = h_Fs_raw[bi + it * num_batches];
+      }
     }
+
+    updateHost(h_loglike_b.data(), loglike, num_batches);
+    updateHost(h_sigma2_b.data(), sigma2, num_batches);
+
+    ////////////////////////////////////////////////////////////
+    // free memory
+    for (int i = 0; i < ys_len; i++) {
+      cudaFree(d_ys_b[i]);
+    }
+
+    cudaFree(d_vs);
+    cudaFree(d_Fs);
+    cudaFree(sigma2);
+    cudaFree(loglike);
+    cudaFree(loglikelihood);
   }
 
-  updateHost(h_loglike_b.data(), loglike, num_batches);
-  updateHost(h_sigma2_b.data(), sigma2, num_batches);
-
+  double vm, rss;
+  process_mem_usage(vm, rss);
+  std::cout << "Usage Diff VM: " << vm-before_vm << "; Diff RSS: " << rss-before_rss << std::endl;
 }
