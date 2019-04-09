@@ -26,6 +26,7 @@
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
+- PR #459: Fix for runtime library path of pip package
 
 # cuML 0.6.0 (22 Mar 2019)
 
