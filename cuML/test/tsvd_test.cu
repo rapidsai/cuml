@@ -52,10 +52,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -90,8 +90,8 @@ protected:
 		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void advancedTest() {
@@ -99,10 +99,10 @@ protected:
 		CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
 		cusolverDnHandle_t cusolver_handle = NULL;
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -139,8 +139,8 @@ protected:
 		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {
