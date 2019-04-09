@@ -13,6 +13,11 @@
 # limitations under the License.
 #
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport  malloc
 from libcpp.vector cimport vector
@@ -22,6 +27,9 @@ from cuml.hmm.hmm_extern cimport *
 from cuml.gmm.gaussian_mixture_backend cimport *
 from cuml.hmm._multinomial cimport *
 
+from numba import cuda
+import numpy as np
+from cuml.gmm.utils.utils import to_gb, to_mb
 
 RUP_SIZE = 32
 
@@ -58,7 +66,7 @@ RUP_SIZE = 32
 #                      <double*>_dGamma_ptr,
 #                      <int>lddgamma)
 
-cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM& hmm64):
+cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM& hmm64, bool do_handle):
     cdef vector[Multinomial[float]] multinomials32
     cdef vector[Multinomial[double]] multinomials64
 
@@ -106,13 +114,60 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                            <int> nSeq,
                            <double*> _dLlhd_ptr)
 
+    # if do_handle :
+    #     _ws_ptr = self.workspace.device_ctypes_pointer.value
+    #     if self.precision == 'double':
+    #         with nogil :
+    #             # pass
+    #             _ = get_workspace_size_mhmm_f64(hmm64)
+    #             create_handle_mhmm_f64(hmm64, <void*> _ws_ptr)
+    #
+
 class _BaseHMMBackend:
-    def __init__(self):
+    def allocate_ws(self):
         pass
+        # self._workspaceSize = -1
+        #
+        # cdef floatGMMHMM gmmhmm32
+        # cdef doubleGMMHMM gmmhmm64
+        #
+        # cdef floatMultinomialHMM multinomialhmm32
+        # cdef doubleMultinomialHMM multinomialhmm64
+        #
+        # # if self.hmm_type is "gmm" :
+        # # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
+        # if self.hmm_type is 'multinomial':
+        #     setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, False)
+        #
+        # cuda_context = cuda.current_context()
+        # available_mem = cuda_context.get_memory_info().free
+        # print('available mem before allocation', to_mb(available_mem), "Mb")
+        #
+        # # if self.precision is "double" and self.hmm_type is 'multinomial':
+        # #     with nogil :
+        # #         workspace_size = get_workspace_size_mhmm_f64(multinomialhmm64)
+        #
+        # # workspace_size = int(1e8)
+        #
+        # print("\n----------------")
+        # print('Workspace size', to_mb(workspace_size), "Mb")
+        # print("----------------\n")
+        #
+        # print(workspace_size)
+        # # TODO : Fix cudamalloc type
+        # self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
+        # self._workspace_size = workspace_size
+        #
+        # # self.workspace = cuda.to_device(np.array(1))
+        #
+        # ws = self.workspace.to_host()
+        # print("workspace", self.workspace)
+        #
+        # cuda_context = cuda.current_context()
+        # available_mem = cuda_context.get_memory_info().free
+        # print('available mem after allocation', to_mb(available_mem), "Mb")
 
     def _forward_backward(self, X, lengths, do_forward, do_backward, do_gamma):
-        self._setup(X, lengths)
-
         cdef floatGMMHMM gmmhmm32
         cdef doubleGMMHMM gmmhmm64
 
@@ -122,7 +177,7 @@ class _BaseHMMBackend:
         # if self.hmm_type is "gmm" :
         # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
         if self.hmm_type is 'multinomial':
-            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, True)
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
@@ -152,8 +207,6 @@ class _BaseHMMBackend:
                                       <bool> doGamma)
 
     def _viterbi(self, X, lengths):
-        self._setup(X, lengths)
-
         cdef floatGMMHMM gmmhmm32
         cdef doubleGMMHMM gmmhmm64
 
@@ -161,7 +214,7 @@ class _BaseHMMBackend:
         cdef doubleMultinomialHMM multinomialhmm64
 
         if self.hmm_type is 'multinomial':
-            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64 ,True)
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
@@ -172,9 +225,9 @@ class _BaseHMMBackend:
         if self.precision is "double" and self.hmm_type is 'multinomial':
             viterbi_mhmm_f64(multinomialhmm64,
                              <unsigned short int*> _dVStates_ptr,
-                                      <unsigned short int*> _dX_ptr,
-                                      <unsigned short int*> _dlengths_ptr,
-                                      <int> nSeq)
+                             <unsigned short int*> _dX_ptr,
+                             <unsigned short int*> _dlengths_ptr,
+                             <int> nSeq)
 
     def _m_step(self, X, lengths):
         self._setup(X, lengths)
@@ -186,7 +239,7 @@ class _BaseHMMBackend:
         cdef doubleMultinomialHMM multinomialhmm64
 
         if self.hmm_type is 'multinomial':
-            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64)
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, True)
 
         cdef uintptr_t _dX_ptr = self.dX.device_ctypes_pointer.value
         cdef uintptr_t _dlengths_ptr = self.dlengths.device_ctypes_pointer.value
@@ -195,6 +248,6 @@ class _BaseHMMBackend:
 
         if self.precision is "double" and self.hmm_type is 'multinomial':
             m_step_mhmm_f64(multinomialhmm64,
-                                      <unsigned short int*> _dX_ptr,
-                                      <unsigned short int*> _dlengths_ptr,
-                                      <int> nSeq)
+                            <unsigned short int*> _dX_ptr,
+                            <unsigned short int*> _dlengths_ptr,
+                            <int> nSeq)

@@ -22,6 +22,7 @@
 #include "hmm/algorithms/forward_backward.h"
 #include "hmm/algorithms/viterbi.h"
 #include "hmm/algorithms/em.h"
+// #include <hmm/utils/init_utils.h>
 
 #include <magma/magma_utils.h>
 
@@ -46,11 +47,11 @@ void init(HMM<T, D> &hmm,
         hmm.lddt = lddt;
         hmm.lddb = lddb;
         // TODO : align
-        hmm.lddalpha = nStates;
-        hmm.lddbeta = nStates;
+        hmm.handle.lddalpha = nStates;
+        hmm.handle.lddbeta = nStates;
         hmm.lddgamma = lddgamma;
         hmm.lddsp = lddsp;
-        hmm.lddv = nStates;
+        hmm.handle.lddv = nStates;
 
         hmm.nStates = nStates;
         hmm.dists = gmms;
@@ -60,17 +61,85 @@ void init(HMM<T, D> &hmm,
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 hmm.dists[stateId].dLlhd = hmm.dB + hmm.nObs * stateId;
         }
-
-        if(std::is_same<D, gmm::GMM<T> >::value) {
-                hmm.distOption = GaussianMixture;
-        }
-        if(std::is_same<D, multinomial::Multinomial<T> >::value) {
-                hmm.distOption = MultinomialDist;
-        }
 }
 
 
 
+template <typename T>
+__global__
+void TestWrite(T* dA,
+               int m, int n, int ldda,
+               int nThreads_x, int nThreads_y){
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
+
+        for (size_t i = i_start; i < m; i+=nThreads_x) {
+                for (size_t j = j_start; j < n; j+=nThreads_y) {
+                        // dA[IDX(i, j, ldda)] = (unsigned short int) 10;
+                        printf("%f\n", (float) dA[IDX(i, j, ldda)]);
+                }
+
+        }
+}
+
+template <typename T, typename D>
+size_t hmm_bufferSize(HMM<T, D> &hmm){
+
+        size_t workspaceSize = 0;
+        // const size_t granularity = 256;
+
+        // hmm.handle.dPi_array = (T **)workspaceSize;
+        // workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
+        //
+        // hmm.handle.dcumlenghts_inc = (unsigned short int *)workspaceSize;
+        // workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+        //
+        // hmm.handle.dcumlenghts_exc = (unsigned short int *)workspaceSize;
+        // workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+        //
+        // hmm.handle.dAlpha = (T *)workspaceSize;
+        // workspaceSize += alignTo(hmm.handle.lddalpha * hmm.nObs * sizeof(T), granularity);
+
+        // hmm.handle.dBeta = (T *)workspaceSize;
+        // workspaceSize += alignTo(hmm.handle.lddbeta * hmm.nObs * sizeof(T), granularity);
+        //
+        // hmm.handle.dV = (T *)workspaceSize;
+        // workspaceSize += alignTo(hmm.handle.lddv * hmm.nObs * sizeof(T), granularity);
+        // printf("nObs %d\n", hmm.nObs);
+        // printf("lddalpha %d\n", hmm.handle.lddalpha);
+
+        return workspaceSize;
+}
+
+template <typename T, typename D>
+void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
+        // hmm.handle.dPi_array = (T **)((size_t)hmm.handle.dPi_array + (size_t)workspace);
+        // hmm.handle.dcumlenghts_inc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
+        // hmm.handle.dcumlenghts_exc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
+        printf("Allocating\n");
+        // hmm.handle.dAlpha = (T *)((size_t)hmm.handle.dAlpha + (size_t)workspace);
+        // hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
+        // hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
+
+        // printf("workspace %d\n", (size_t) workspace);
+
+
+        //
+        // dim3 block(32);
+        // dim3 grid(ceildiv((int)hmm.nSeq, (int) block.x));
+        //
+        // int nThreads_x = grid.x * block.x;
+        // int nThreads_y = grid.y * block.y;
+        // TestWrite<unsigned short int> <<< grid, block>>>(hmm.handle.dcumlenghts_inc,
+        //                                                  // hmm.nSeq, 1, hmm.nSeq,
+        //                                                  1, 1, 1,
+        //                                                  nThreads_x, nThreads_y);
+        // CUDA_CHECK(cudaPeekAtLastError());
+        // print_matrix_device(1, 1,
+        // hmm.handle.dcumlenghts_inc, 1,
+        // "dcumlenghts_inc");
+
+}
 
 template <typename T, typename D>
 void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
@@ -79,22 +148,20 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
 
         hmm.dLlhd = dLlhd;
 
-        allocate(hmm.dAlpha, hmm.lddalpha * nObs);
-        allocate(hmm.dBeta, hmm.lddbeta * nObs);
-        allocate(hmm.dV, hmm.lddv * nObs);
-        allocate(hmm.dcumlenghts_exc, nSeq);
-        allocate(hmm.dcumlenghts_inc, nSeq);
-
-        // allocate(hmm.logllhd, 1);
+        allocate(hmm.handle.dAlpha, hmm.handle.lddalpha * nObs);
+        allocate(hmm.handle.dBeta, hmm.handle.lddbeta * nObs);
+        allocate(hmm.handle.dV, hmm.handle.lddv * nObs);
+        allocate(hmm.handle.dcumlenghts_exc, nSeq);
+        allocate(hmm.handle.dcumlenghts_inc, nSeq);
 
         // Create Pi array
-        allocate(hmm.dPi_array, hmm.nStates);
+        allocate(hmm.handle.dPi_array, hmm.nStates);
         T **Pi_array;
         Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
                 Pi_array[stateId] = hmm.dists[stateId].dPis;
         }
-        updateDevice(hmm.dPi_array, Pi_array, hmm.nStates);
+        updateDevice(hmm.handle.dPi_array, Pi_array, hmm.nStates);
         free(Pi_array);
 }
 
@@ -116,7 +183,7 @@ void forward_backward(HMM<T, D> &hmm,
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
 
         _compute_emissions(dX, hmm, cublasHandle, queue);
-        _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
+        _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
         if (doGamma) {
@@ -148,7 +215,7 @@ void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
              cublasHandle_t cublasHandle, magma_queue_t queue){
 
         _compute_emissions(dX, hmm, cublasHandle, queue);
-        _compute_cumlengths(hmm.dcumlenghts_inc, hmm.dcumlenghts_exc,
+        _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
         // print_matrix_device(1, nSeq, dlenghts, 1, "dlenghts");
         // print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
@@ -164,8 +231,8 @@ void m_step(HMM<T, D> &hmm,
         forward_backward(hmm, dX, dlenghts, nSeq,
                          cublasHandle, queue,
                          true, true, true);
-        print_matrix_device(1, nSeq, hmm.dcumlenghts_exc, 1, "dcumlenghts_exc");
-        print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT");
+        // print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        // print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT");
 
         _m_step(hmm, dX, dlenghts, nSeq);
 }

@@ -307,7 +307,7 @@ void likelihood_batched(magma_int_t nCl,
                             llhd_handle.dInvSigma_batches,
                             dX_array, dmu_array, llhd_handle.dInvSigma_array);
 
-        batchCount = nObs * nCl;
+        // batchCount = nObs * nCl;
         //
         // print_matrix_device(nDim, nObs, dX, lddx, "dX");
         // print_matrix_device(nDim, nCl, dmu, lddmu, "dmu");

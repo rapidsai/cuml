@@ -73,6 +73,14 @@ void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
         setup(hmm, nObs, nSeq, dLlhd);
 }
 
+size_t get_workspace_size_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm){
+        return hmm_bufferSize(hmm);
+}
+
+void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm, void* workspace){
+        create_HMMHandle(hmm, workspace);
+}
+
 void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                                unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma){

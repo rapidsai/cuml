@@ -23,33 +23,33 @@ import pytest
 import time
 
 
-# @pytest.fixture(params=[40, 50])
-# def n_components(request):
-#     return request.param
-#
-#
-# @pytest.fixture(params=[40])
-# def n_seq(request):
-#     return request.param
-#
-#
-# @pytest.fixture(params=[5, 20])
-# def n_features(request):
-#     return request.param
-
-@pytest.fixture(params=[4])
+@pytest.fixture(params=[40, 50])
 def n_components(request):
     return request.param
 
 
-@pytest.fixture(params=[20])
+@pytest.fixture(params=[400])
 def n_seq(request):
     return request.param
 
 
-@pytest.fixture(params=[4])
+@pytest.fixture(params=[5, 20])
 def n_features(request):
     return request.param
+
+# @pytest.fixture(params=[2])
+# def n_components(request):
+#     return request.param
+#
+#
+# @pytest.fixture(params=[30])
+# def n_seq(request):
+#     return request.param
+#
+#
+# @pytest.fixture(params=[20])
+# def n_features(request):
+#     return request.param
 
 @pytest.fixture(params=[1])
 def n_mix(request):
@@ -137,27 +137,23 @@ class TestMultinomialHMM(TestHMM):
         assert abs(cuml_llhd- ref_llhd) < 1e-10
         assert state_seq_err < 1e-10
 
-    # def test_fit(self, n_components, n_seq, n_features):
-    #     self.setmethod(n_components, n_seq, n_features)
-    #     self._reset()
-    #
-    #     self.cuml_model.n_iter = 1
-    #     self.ref_model.n_iter = 1
-    #
-    #     self.ref_model.fit(self.X, self.lengths)
-    #     self.cuml_model.fit(self.X, self.lengths)
-    #
-    #     emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
-    #     startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
-    #     transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
-    #
-    #     print('transmats')
-    #     print(self.ref_model.transmat_)
-    #     print(self.cuml_model.transmat_)
-    #
-    #     assert startprob_err < 1e-10
-    #     assert emissionprob_err < 1e-10
-    #     assert transmat_err < 1e-10
+    def test_fit(self, n_components, n_seq, n_features):
+        self.setmethod(n_components, n_seq, n_features)
+        self._reset()
+
+        self.cuml_model.n_iter = 1
+        self.ref_model.n_iter = 1
+
+        self.ref_model.fit(self.X, self.lengths)
+        self.cuml_model.fit(self.X, self.lengths)
+
+        emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
+        startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
+        transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
+
+        assert startprob_err < 1e-10
+        assert emissionprob_err < 1e-10
+        assert transmat_err < 1e-10
 
 
 # class TestGMMHMM(TestHMM):

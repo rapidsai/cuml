@@ -81,7 +81,7 @@ void update_llhd(unsigned short int* dX, hmm::HMM<T, Multinomial<T> >& hmm, bool
         multinomial_likelihood_batched(hmm.nObs,
                                        hmm.nStates,
                                        dX,
-                                       hmm.dPi_array,
+                                       hmm.handle.dPi_array,
                                        hmm.dB,
                                        hmm.lddb,
                                        isLog);

@@ -59,7 +59,7 @@ __global__
 void update_transitions_kernel(int nStates, int nSeq, int nObs,
                                unsigned short int* dlenghts,
                                unsigned short int* dcumlengths_exc,
-                               T* logprob,
+                               T* dLlhd,
                                T* dAlpha, int lddalpha,
                                T* dBeta, int lddbeta,
                                T* dT, int lddt,
@@ -68,23 +68,23 @@ void update_transitions_kernel(int nStates, int nSeq, int nObs,
         int stateId_start = threadIdx.x + blockDim.x * blockIdx.x;
         int seqId_start = threadIdx.y + blockDim.y * blockIdx.y;
         int obsId;
-        T temp_val, temp_logsum;
+        T temp_val, temp_logsum, temp_t;
         bool initialized;
 
         if (stateId_start == 0 & seqId_start == 0) {
                 for (size_t i = 0; i < nStates; i+=1) {
                         for (size_t j = 0; j < nStates; j+=1) {
-                                printf("i %d\n",i );
-                                printf("j %d\n", j );
-                                initialized =false;
+                                temp_t = 0;
                                 for (size_t seqId = 0; seqId < nSeq; seqId++) {
+                                        initialized =false;
                                         for (size_t tau = 0; tau < dlenghts[seqId] - 1; tau++) {
+                                                // for (size_t obsId = 0; obsId < nObs - 1; obsId++) {
                                                 obsId = dcumlengths_exc[seqId] + tau;
                                                 temp_val = dAlpha[IDX(i, obsId, lddalpha)]
                                                            + std::log(dT[IDX(i, j, lddt)])
                                                            + dB[IDX(j, obsId + 1, lddb)]
                                                            + dBeta[IDX(j, obsId + 1, lddbeta)]
-                                                           - *logprob;
+                                                           - dLlhd[seqId];
                                                 if (initialized) {
                                                         temp_logsum = std::log(std::exp(temp_val) + std::exp(temp_logsum));
                                                 }
@@ -93,8 +93,9 @@ void update_transitions_kernel(int nStates, int nSeq, int nObs,
                                                         initialized = true;
                                                 }
                                         }
+                                        temp_t += std::exp(temp_logsum);
                                 }
-                                dT[IDX(i, j, lddt)] = std::exp(temp_logsum);
+                                dT[IDX(i, j, lddt)] = temp_t;
                         }
                 }
 
@@ -115,7 +116,7 @@ void _m_step(HMM<T, D> &hmm,
                 hmm.nObs,
                 hmm.nStates,
                 dX,
-                hmm.dPi_array,
+                hmm.handle.dPi_array,
                 hmm.dGamma,
                 hmm.lddgamma,
                 nThreads_x);
@@ -145,10 +146,10 @@ void _m_step(HMM<T, D> &hmm,
                                                          nSeq,
                                                          hmm.nObs,
                                                          dlenghts,
-                                                         hmm.dcumlenghts_exc,
-                                                         hmm.logllhd,
-                                                         hmm.dAlpha, hmm.lddalpha,
-                                                         hmm.dBeta, hmm.lddbeta,
+                                                         hmm.handle.dcumlenghts_exc,
+                                                         hmm.dLlhd,
+                                                         hmm.handle.dAlpha, hmm.handle.lddalpha,
+                                                         hmm.handle.dBeta, hmm.handle.lddbeta,
                                                          hmm.dT, hmm.lddt,
                                                          hmm.dB, hmm.lddb,
                                                          nThreads_x, nThreads_y);

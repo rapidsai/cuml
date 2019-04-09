@@ -112,6 +112,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
 
         self.int_type = np.uint16
 
+        self.workspace = None
+
     def fit(self, X, lengths=None):
         self._set_dims(X, lengths)
         self._initialize()
@@ -124,6 +126,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     def decode(self, X, lengths=None, algorithm=None):
         self._set_dims(X, lengths)
         self._reset()
+        self._setup(X, lengths)
+        self.allocate_ws()
 
         self._viterbi(X, lengths)
         state_sequence = self._dVStates_
@@ -138,6 +142,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self._set_dims(X, lengths)
         self._initialize()
         self._reset()
+        self._setup(X, lengths)
+        self.allocate_ws()
 
         self._forward_backward(X, lengths, True, True, True)
         # self._forward_backward(X, lengths, False, False, False)
@@ -149,6 +155,9 @@ class _BaseHMM(_BaseCUML, _DevHMM):
 
     def score(self, X, lengths=None):
         self._reset()
+        self._setup(X, lengths)
+        self.allocate_ws()
+
         self._forward_backward(X, lengths, True, False, False)
         return self._score()
 

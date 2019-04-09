@@ -26,12 +26,18 @@ namespace hmm {
 /** Train options for HMM */
 enum TrainOption {
         Vitebri,
-        ForwardBackward
+        Map
 };
 
-enum DistOption {
-        MultinomialDist,
-        GaussianMixture
+template <typename T>
+struct HMMHandle {
+        T *dV;
+        int lddv;
+
+        T **dPi_array;
+        unsigned short int *dcumlenghts_inc, *dcumlenghts_exc;
+        T *dAlpha, *dBeta;
+        int lddalpha, lddbeta;
 };
 
 
@@ -41,23 +47,16 @@ struct HMM {
         int nStates;
         std::vector<D> dists;
         // All dLlhd point to dGamma
-        T *dStartProb, *dT, *dB, *dAlpha, *dBeta, *dGamma;
-        int lddsp, lddt, lddb, lddalpha, lddbeta, lddgamma;
+        T *dStartProb, *dT, *dB, *dGamma;
+        int lddsp, lddt, lddb, lddgamma;
 
         int nObs, nSeq, max_len;
         T* dLlhd;
         T* logllhd;
 
-        T **dB_array, **dPi_array;
-
-        T *dV;
-        int lddv;
-
         int nFeatures;
-        unsigned short int *dcumlenghts_inc, *dcumlenghts_exc;
 
-        TrainOption train;
-        DistOption distOption;
+        HMMHandle<T> handle;
 };
 
 }

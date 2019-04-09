@@ -203,11 +203,11 @@ void _forward_backward(HMM<T, D> &hmm,
         int numThreads_y = grid.x * block.y;
 
         _ForwardBackwardKernel<T> <<< grid, block >>>(hmm.nStates, nSeq, hmm.nObs,
-                                                      dlenghts, hmm.dcumlenghts_inc,
-                                                      hmm.dcumlenghts_exc,
+                                                      dlenghts, hmm.handle.dcumlenghts_inc,
+                                                      hmm.handle.dcumlenghts_exc,
                                                       hmm.dLlhd, hmm.logllhd,
-                                                      hmm.dAlpha, hmm.lddalpha,
-                                                      hmm.dBeta, hmm.lddbeta,
+                                                      hmm.handle.dAlpha, hmm.handle.lddalpha,
+                                                      hmm.handle.dBeta, hmm.handle.lddbeta,
                                                       hmm.dStartProb, hmm.lddsp,
                                                       hmm.dT, hmm.lddt,
                                                       hmm.dB, hmm.lddb,
@@ -256,8 +256,8 @@ void _update_gammas(HMM<T, D> &hmm){
 
         _updateGammasKernel<T> <<< grid, block >>>(hmm.nObs, hmm.nStates,
                                                    hmm.dGamma, hmm.lddgamma,
-                                                   hmm.dAlpha, hmm.lddalpha,
-                                                   hmm.dBeta, hmm.lddbeta,
+                                                   hmm.handle.dAlpha, hmm.handle.lddalpha,
+                                                   hmm.handle.dBeta, hmm.handle.lddbeta,
                                                    numThreads_x);
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
