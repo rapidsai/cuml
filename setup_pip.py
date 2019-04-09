@@ -61,7 +61,7 @@ extensions = [
               library_dirs=[get_python_lib(), distutils_dir_name('lib')],
               libraries=['cuml'],
               language='c++',
-              runtime_library_dirs=['$ORIGIN', cuda_lib_dir],
+              runtime_library_dirs=[get_python_lib(), cuda_lib_dir],
               extra_compile_args=['-std=c++11'])
 ]
 
