@@ -171,7 +171,6 @@ ExternalProject_Add(faiss
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
   BUILD_IN_SOURCE 1
-  BUILD_ALWAYS 0
   PREFIX=${CMAKE_CURRENT_BINARY_DIR}/faiss
 )
 

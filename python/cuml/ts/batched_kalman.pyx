@@ -31,15 +31,14 @@ def batched_kfilter(ys_b,
     cdef vector[double*] vec_Zb
     cdef vector[double*] vec_Rb
     cdef vector[double*] vec_Tb
-    cdef vector[int] vec_ys_len
 
     cdef vector[double*] vec_vs_b
     cdef vector[double*] vec_Fs_b
     cdef vector[double] vec_loglike_b
     cdef vector[double] vec_sigma2_b
 
-    cdef np.ndarray[double, ndim=1, mode="c"] vsi
-    cdef np.ndarray[double, ndim=1, mode="c"] Fsi
+    cdef np.ndarray[double, ndim=1, mode="fortran"] vsi
+    cdef np.ndarray[double, ndim=1, mode="fortran"] Fsi
 
     num_batches = len(Z_b)
  
@@ -54,10 +53,10 @@ def batched_kfilter(ys_b,
     vec_loglike_b.resize(num_batches)
     vec_sigma2_b.resize(num_batches)
 
-    cdef np.ndarray[double, ndim=1, mode="c"] ys_bi
-    cdef np.ndarray[double, ndim=2, mode="c"] Z_bi
-    cdef np.ndarray[double, ndim=2, mode="c"] R_bi
-    cdef np.ndarray[double, ndim=2, mode="c"] T_bi
+    cdef np.ndarray[double, ndim=1, mode="fortran"] ys_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
 
     for i in range(len(ys_b[i])):
         vec_ys_b.push_back(<double*>malloc(num_batches*sizeof(double)))
@@ -73,7 +72,6 @@ def batched_kfilter(ys_b,
         vec_Zb.push_back(&Z_bi[0,0])
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
-        vec_ys_len.push_back(len(ys_bi))
 
     batched_kalman_filter(vec_ys_b,
                           vec_Zb, vec_Rb, vec_Tb,
