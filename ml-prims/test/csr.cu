@@ -48,7 +48,7 @@ TEST_P(CSRRowNormalizeL1, Result) {
     int ex_scan_h[4] = {0, 4, 8, 9 };
     float in_vals_h[10] = { 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
 
-    float verify_h[10] =  { 0.5, 0.5, 0.0, 0.0, 0.2, 0.2, 0.0, 0.0, 0.2, 0.0 };
+    float verify_h[10] =  { 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0 };
 
     allocate(in_vals, 10);
     allocate(verify, 10);
@@ -62,7 +62,7 @@ TEST_P(CSRRowNormalizeL1, Result) {
     dim3 grid(ceildiv(10, 32), 1, 1);
     dim3 blk(32, 1, 1);
 
-    csr_row_normalize_l1<32, float><<<grid, blk>>>(ex_scan, in_vals, 10, 10, result);
+    csr_row_normalize_l1<32, float><<<grid, blk>>>(ex_scan, in_vals, 10, 4, result);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
