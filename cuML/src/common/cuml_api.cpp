@@ -16,6 +16,7 @@
 #include "cuML_api.h"
 
 #include <functional>
+#include <unordered_map>
 
 #include "cumlHandle.hpp"
 
@@ -85,13 +86,19 @@ private:
 } // end namespace detail
 } // end namespace ML
 
+///! map from handle int to handle pointer
+static std::unordered_map<cumlHandle_t, ML::cumlHandle*> handleMap;
+
+///! value of next handle id to be created
+static cumlHandle_t nextHandle = 0;
+
 extern "C" const char* cumlGetErrorString ( cumlError_t error )
 {
     switch( error )
     {
         case CUML_SUCCESS:
             return "success";
-        case CUML_ERROR_UNKOWN:
+        case CUML_ERROR_UNKNOWN:
             //Intentional fall through
         default:
             return "unknown";
@@ -103,7 +110,23 @@ extern "C" cumlError_t cumlCreate( cumlHandle_t* handle )
     cumlError_t status = CUML_SUCCESS;
     try
     {
-        handle->ptr = new ML::cumlHandle();
+        auto handle_ptr = new ML::cumlHandle();
+        bool inserted;
+        cumlHandle_t initial_next = nextHandle;
+        cumlHandle_t chosen_handle;
+        do {
+          // try to insert using next free handle identifier
+          chosen_handle = nextHandle;
+          inserted = handleMap.insert({ chosen_handle, handle_ptr}).second;
+          nextHandle += 1;
+
+        } while(!inserted && nextHandle != initial_next);
+        if (!inserted) {
+          delete handle;
+          // no free handle identifier available
+          return CUML_ERROR_UNKNOWN;
+        }
+        *handle = chosen_handle;
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -113,17 +136,22 @@ extern "C" cumlError_t cumlCreate( cumlHandle_t* handle )
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
 
 extern "C" cumlError_t cumlSetStream( cumlHandle_t handle, cudaStream_t stream )
 {
+    auto it = handleMap.find(handle);
+    if (it == handleMap.end()) {
+        return CUML_INVALID_HANDLE;
+    }
+    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
-        reinterpret_cast<ML::cumlHandle*>(handle.ptr)->setStream( stream );
+        handle_ptr->setStream( stream );
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -133,17 +161,22 @@ extern "C" cumlError_t cumlSetStream( cumlHandle_t handle, cudaStream_t stream )
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
 
 extern "C" cumlError_t cumlGetStream( cumlHandle_t handle, cudaStream_t* stream )
 {
+    auto it = handleMap.find(handle);
+    if (it == handleMap.end()) {
+        return CUML_INVALID_HANDLE;
+    }
+    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
-        *stream = reinterpret_cast<ML::cumlHandle*>(handle.ptr)->getStream();
+        *stream = handle_ptr->getStream();
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -153,18 +186,23 @@ extern "C" cumlError_t cumlGetStream( cumlHandle_t handle, cudaStream_t* stream 
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
 
 extern "C" cumlError_t cumlSetDeviceAllocator( cumlHandle_t handle, cuml_allocate allocate_fn, cuml_deallocate deallocate_fn )
 {
+    auto it = handleMap.find(handle);
+    if (it == handleMap.end()) {
+        return CUML_INVALID_HANDLE;
+    }
+    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
         std::shared_ptr<ML::detail::deviceAllocatorFunctionWrapper> allocator( new ML::detail::deviceAllocatorFunctionWrapper(allocate_fn,deallocate_fn) );
-        reinterpret_cast<ML::cumlHandle*>(handle.ptr)->setDeviceAllocator(allocator);
+        handle_ptr->setDeviceAllocator(allocator);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -174,17 +212,23 @@ extern "C" cumlError_t cumlSetDeviceAllocator( cumlHandle_t handle, cuml_allocat
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
+
 extern "C" cumlError_t cumlSetHostAllocator( cumlHandle_t handle, cuml_allocate allocate_fn, cuml_deallocate deallocate_fn )
 {
+    auto it = handleMap.find(handle);
+    if (it == handleMap.end()) {
+        return CUML_INVALID_HANDLE;
+    }
+    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
         std::shared_ptr<ML::detail::hostAllocatorFunctionWrapper> allocator( new ML::detail::hostAllocatorFunctionWrapper(allocate_fn,deallocate_fn) );
-        reinterpret_cast<ML::cumlHandle*>(handle.ptr)->setHostAllocator(allocator);
+        handle_ptr->setHostAllocator(allocator);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -194,17 +238,23 @@ extern "C" cumlError_t cumlSetHostAllocator( cumlHandle_t handle, cuml_allocate 
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
 
 extern "C" cumlError_t cumlDestroy( cumlHandle_t handle )
 {
+    auto it = handleMap.find(handle);
+    if (it == handleMap.end()) {
+        return CUML_INVALID_HANDLE;
+    }
+    auto handle_ptr = it->second;
+    handleMap.erase(it);
     cumlError_t status = CUML_SUCCESS;
     try
     {
-        delete reinterpret_cast<ML::cumlHandle*>(handle.ptr);
+        delete handle_ptr;
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -214,7 +264,7 @@ extern "C" cumlError_t cumlDestroy( cumlHandle_t handle )
     //}
     catch (...)
     {
-        status = CUML_ERROR_UNKOWN;
+        status = CUML_ERROR_UNKNOWN;
     }
     return status;
 }
