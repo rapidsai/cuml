@@ -161,12 +161,12 @@ protected:
 				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle, stream);
 
 		allocate(data2_back, len);
-    pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
+		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
                           prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {
