@@ -59,6 +59,8 @@ void cdFit(math_t *input,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
+	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
+			"Parameter loss: Only SQRT_LOSS function is supported");
 
 	math_t *mu_input = NULL;
 	math_t *mu_labels = NULL;
@@ -95,6 +97,8 @@ void cdFit(math_t *input,
 
 		for (int j = 0; j < n_cols; j++) {
 			math_t *coef_loc = coef + rand_indices[j];
+			math_t *squared_loc = squared + rand_indices[j];
+
 			Matrix::setValue(coef_loc, coef_loc, math_t(0), 1);
 
 			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
@@ -105,9 +109,15 @@ void cdFit(math_t *input,
 			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1, CUBLAS_OP_T,
 									CUBLAS_OP_N, cublas_handle);
 
-			if (penalty == Functions::penalty::L1)
+			if (penalty == Functions::penalty::L1) {
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
+			} else if (penalty == Functions::penalty::L2) {
+				ASSERT(false, "L2 is not supported");
+			} else if (penalty == Functions::penalty::ELASTICNET) {
+				ASSERT(false, "ELASTICNET is not supported");
+			}
 
+			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
 		}
 
 		if (tol > math_t(0)) {

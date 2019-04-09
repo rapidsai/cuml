@@ -17,9 +17,6 @@ struct CdInputs {
 	T tol;
 	int n_row;
 	int n_col;
-	int n_row2;
-	int n_col2;
-	int batch_size;
 };
 
 template<typename T>
@@ -39,8 +36,8 @@ protected:
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col, true);
 		allocate(coef2, params.n_col, true);
-		allocate(coef_ref, params.n_col);
-		allocate(coef2_ref, params.n_col);
+		allocate(coef_ref, params.n_col, true);
+		allocate(coef2_ref, params.n_col, true);
 
 		T data_h[len] = { 1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0 };
 		updateDevice(data, data_h, len);
@@ -48,21 +45,21 @@ protected:
 		T labels_h[params.n_row] = { 6.0, 8.0, 9.0, 11.0 };
 		updateDevice(labels, labels_h, params.n_row);
 
-		T coef_ref_h[params.n_col] = { 2.087, 2.5454557 };
+		T coef_ref_h[params.n_col] = { 1.731491, 2.760589 };
 		updateDevice(coef_ref, coef_ref_h, params.n_col);
 
-		T coef2_ref_h[params.n_col] = { 1.000001, 1.9999998 };
+		T coef2_ref_h[params.n_col] = { 0.2001220, 1.9999389 };
 		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
 
 		bool fit_intercept = false;
 		intercept = T(0);
-		int epochs = 2000;
-		T alpha = T(0.0001);
-		T l1_ratio = T(0.15);
-		bool shuffle = true;
+		int epochs = 100;
+		T alpha = T(0.2);
+		T l1_ratio = T(0.0);
+		bool shuffle = false;
 		T tol = T(1e-10);
 		ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
-		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
+		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L1;
 		int n_iter_no_change = 10;
 
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
@@ -101,9 +98,9 @@ protected:
 
 };
 
-const std::vector<CdInputs<float> > inputsf2 = { { 0.01f, 4, 2, 4, 3, 2 } };
+const std::vector<CdInputs<float> > inputsf2 = { { 0.01f, 4, 2 } };
 
-const std::vector<CdInputs<double> > inputsd2 = { { 0.01, 4, 2, 4, 3, 2 } };
+const std::vector<CdInputs<double> > inputsd2 = { { 0.01, 4, 2 } };
 
 typedef CdTest<float> CdTestF;
 TEST_P(CdTestF, Fit) {
