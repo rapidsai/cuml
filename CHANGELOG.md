@@ -27,11 +27,12 @@
 - PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
-- PR #438: Code that depended on FAISS was building everytime. 
+- PR #438: Code that depended on FAISS was building everytime.
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
 - PR #459: Fix for runtime library path of pip package
+- PR #464: Fix for C++11 destructor warning in qn
 
 # cuML 0.6.0 (22 Mar 2019)
 
