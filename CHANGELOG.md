@@ -2,6 +2,10 @@
 
 ## New Features
 
+- PR #405: Quasi-Newton GLM Solvers
+
+## New Features
+
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
@@ -27,6 +31,7 @@
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
+- PR #459: Fix for runtime library path of pip package
 
 # cuML 0.6.0 (22 Mar 2019)
 
