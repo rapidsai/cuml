@@ -31,7 +31,9 @@ T abs(const T &a) {
 
 template <typename T>
 struct Compare {
-  bool operator()(const T &a, const T &b) const { return a == b; }
+  bool operator()(const T &a, const T &b) const {
+      return a == b;
+  }
 };
 
 
