@@ -67,20 +67,20 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     #                                bool doBackward)
 
     cdef void init_mhmm_f32(floatMultinomialHMM &hmm,
-                        vector[Multinomial[float]] &multinomials,
-                        int nStates,
-                        float* dStartProb,
-                        int lddsp,
-                        float* dT,
-                        int lddt,
-                        float* dB,
-                        int lddb,
-                        float* dGamma,
-                        int lddgamma,
-                        float* logllhd,
-                        int nObs,
-                        int nSeq,
-                        float* dLlhd)
+                            vector[Multinomial[float]] &multinomials,
+                            int nStates,
+                            float* dStartProb,
+                            int lddsp,
+                            float* dT,
+                            int lddt,
+                            float* dB,
+                            int lddb,
+                            float* dGamma,
+                            int lddgamma,
+                            float* logllhd,
+                            int nObs,
+                            int nSeq,
+                            float* dLlhd)
 
     cdef size_t get_workspace_size_mhmm_f32(floatMultinomialHMM &hmm)
     cdef void create_handle_mhmm_f32(floatMultinomialHMM &hmm,
@@ -154,4 +154,92 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
                               unsigned short int* dlenghts,
                               int nSeq)
 
+
+    cdef void init_gmmhmm_f32(floatGMMHMM &hmm,
+                              vector[GMM[float]] &gmms,
+                              int nStates,
+                              float* dStartProb,
+                              int lddsp,
+                              float* dT,
+                              int lddt,
+                              float* dB,
+                              int lddb,
+                              float* dGamma,
+                              int lddgamma,
+                              float* logllhd,
+                              int nObs,
+                              int nSeq,
+                              float* dLlhd)
+
+    cdef size_t get_workspace_size_gmmhmm_f32(floatGMMHMM &hmm)
+    cdef void create_handle_gmmhmm_f32(floatGMMHMM &hmm,
+                                       void* ws)
+
+    cdef void viterbi_gmmhmm_f32(floatGMMHMM &hmm,
+                                 unsigned short int* dVStates,
+                                 unsigned short int* dX,
+                                 unsigned short int* dlenghts,
+                                 int nSeq)
+
+    cdef void forward_backward_gmmhmm_f32(floatGMMHMM &hmm,
+                                          unsigned short int* dX,
+                                          unsigned short int* dlenghts,
+                                          int nSeq,
+                                          bool doForward,
+                                          bool doBackward,
+                                          bool doGamma)
+
+    cdef void setup_gmmhmm_f32(floatGMMHMM &hmm,
+                               int nObs,
+                               int nSeq,
+                               float* dLlhd)
+
+    cdef void m_step_gmmhmm_f32(floatGMMHMM &hmm,
+                                unsigned short int* dX,
+                                unsigned short int* dlenghts,
+                                int nSeq)
+
+    cdef void init_gmmhmm_f64(doubleGMMHMM &hmm,
+                              vector[GMM[double]] &gmms,
+                              int nStates,
+                              double* dStartProb,
+                              int lddsp,
+                              double* dT,
+                              int lddt,
+                              double* dB,
+                              int lddb,
+                              double* dGamma,
+                              int lddgamma,
+                              double* logllhd,
+                              int nObs,
+                              int nSeq,
+                              double* dLlhd)
+
+    cdef size_t get_workspace_size_gmmhmm_f64(doubleGMMHMM &hmm)
+    cdef void create_handle_gmmhmm_f64(doubleGMMHMM &hmm,
+                                       void* ws)
+
+    cdef void viterbi_gmmhmm_f64(doubleGMMHMM &hmm,
+                                 unsigned short int* dVStates,
+                                 unsigned short int* dX,
+                                 unsigned short int* dlenghts,
+                                 int nSeq)
+
+    cdef void forward_backward_gmmhmm_f64(doubleGMMHMM &hmm,
+                                          unsigned short int* dX,
+                                          unsigned short int* dlenghts,
+                                          int nSeq,
+                                          bool doForward,
+                                          bool doBackward,
+                                          bool doGamma)
+
+    cdef void setup_gmmhmm_f64(doubleGMMHMM &hmm,
+                               int nObs,
+                               int nSeq,
+                               double* dLlhd)
+
+    cdef void m_step_gmmhmm_f64(doubleGMMHMM &hmm,
+                                unsigned short int* dX,
+                                unsigned short int* dlenghts,
+                                int nSeq)
 

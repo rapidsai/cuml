@@ -96,66 +96,80 @@ void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
 
 
 
-// void init_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                    std::vector<gmm::GMM<float> > &gmms,
-//                    int nStates,
-//                    float* dStartProb, int lddsp,
-//                    float* dT, int lddt,
-//                    float* dB, int lddb,
-//                    float* dGamma, int lddgamma,
-//                    float* logllhd,
-//                    int nObs, int nSeq,
-//                    float* dLlhd
-//                    );
-//
-// size_t get_workspace_size_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm);
-//
-// void create_handle_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                             void* workspace);
-//
-// void setup_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                     int nObs, int nSeq, float* dLlhd);
-//
-// void forward_backward_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                                unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
-//                                bool doForward, bool doBackward, bool doGamma);
-//
-// void viterbi_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                       unsigned short int* dVstates, unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
-//
-//
-// void m_step_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-//                      unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
-//
-// void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                    std::vector<gmm::GMM<double> > &gmms,
-//                    int nStates,
-//                    double* dStartProb, int lddsp,
-//                    double* dT, int lddt,
-//                    double* dB, int lddb,
-//                    double* dGamma, int lddgamma,
-//                    double* logllhd,
-//                    int nObs, int nSeq,
-//                    double* dLlhd
-//                    );
-//
-// size_t get_workspace_size_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm);
-//
-// void create_handle_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                             void* workspace);
-//
-// void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                     int nObs, int nSeq, double* dLlhd);
-//
-// void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                                unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
-//                                bool doForward, bool doBackward, bool doGamma);
-//
-// void viterbi_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                       unsigned short int* dVstates, unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
-//
-//
-// void m_step_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
-//                      unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
+void init_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                     std::vector<gmm::GMM<float> > &gmms,
+                     int nStates,
+                     float* dStartProb, int lddsp,
+                     float* dT, int lddt,
+                     float* dB, int lddb,
+                     float* dGamma, int lddgamma,
+                     float* logllhd,
+                     int nObs, int nSeq,
+                     float* dLlhd
+                     );
+
+size_t get_workspace_size_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm);
+
+void create_handle_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                              void* workspace);
+
+void setup_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                      int nObs, int nSeq, float* dLlhd);
+
+void forward_backward_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                                 float* dX,
+                                 unsigned short int* dlenghts,
+                                 int nSeq,
+                                 bool doForward, bool doBackward, bool doGamma);
+
+void viterbi_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                        unsigned short int* dVstates,
+                        float* dX,
+                        unsigned short int* dlenghts,
+                        int nSeq);
+
+
+void m_step_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
+                       float* dX,
+                       unsigned short int* dlenghts,
+                       int nSeq);
+
+void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                     std::vector<gmm::GMM<double> > &gmms,
+                     int nStates,
+                     double* dStartProb, int lddsp,
+                     double* dT, int lddt,
+                     double* dB, int lddb,
+                     double* dGamma, int lddgamma,
+                     double* logllhd,
+                     int nObs, int nSeq,
+                     double* dLlhd
+                     );
+
+size_t get_workspace_size_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm);
+
+void create_handle_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                              void* workspace);
+
+void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                      int nObs, int nSeq, double* dLlhd);
+
+void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                                 double* dX,
+                                 unsigned short int* dlenghts,
+                                 int nSeq,
+                                 bool doForward, bool doBackward, bool doGamma);
+
+void viterbi_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                        unsigned short int* dVstates,
+                        double* dX,
+                        unsigned short int* dlenghts,
+                        int nSeq);
+
+
+void m_step_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
+                       double* dX,
+                       unsigned short int* dlenghts,
+                       int nSeq);
 
 }

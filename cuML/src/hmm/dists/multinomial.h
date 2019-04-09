@@ -122,6 +122,32 @@ void update_emissions_kernel(int nDim, int nObs, int nStates,
 }
 
 
+template <typename T>
+void update_emissions(hmm::HMM<T, Multinomial<T> > &hmm,
+                      unsigned short int* dX){
+        dim3 block;
+        dim3 grid;
+
+        int nThreads_x;
+
+        block.x = 32;
+        grid.x = 1;
+
+        nThreads_x = grid.x * block.x;
+
+        // // TODO : Run on different streams
+        update_emissions_kernel<T> <<< grid, block>>>(
+                hmm.dists[0].nFeatures,
+                hmm.nObs,
+                hmm.nStates,
+                dX,
+                hmm.handle.dPi_array,
+                hmm.dGamma,
+                hmm.lddgamma,
+                nThreads_x);
+        cudaDeviceSynchronize();
+        CUDA_CHECK(cudaPeekAtLastError());
+}
 
 
 }

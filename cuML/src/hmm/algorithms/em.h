@@ -17,7 +17,11 @@
 #pragma once
 
 #include "hmm/dists/multinomial.h"
+#include "hmm/dists/gmm.h"
 #include "gmm/backend/gmm_backend.h"
+
+using namespace multinomial;
+using namespace gmm;
 
 namespace hmm {
 
@@ -105,25 +109,11 @@ template <typename Tx, typename T, typename D>
 void _m_step(HMM<T, D> &hmm,
              Tx* dX, unsigned short int* dlenghts, int nSeq) {
 
-        dim3 block(32);
-        dim3 grid(1);
+        dim3 block;
+        dim3 grid;
         int nThreads_x, nThreads_y;
 
-        nThreads_x = grid.x * block.x;
-
-        // // TODO : Run on different streams
-        multinomial::update_emissions_kernel<T> <<< grid, block>>>(
-                hmm.dists[0].nFeatures,
-                hmm.nObs,
-                hmm.nStates,
-                dX,
-                hmm.handle.dPi_array,
-                hmm.dGamma,
-                hmm.lddgamma,
-                nThreads_x);
-        cudaDeviceSynchronize();
-        CUDA_CHECK(cudaPeekAtLastError());
-
+        update_emissions(hmm, dX);
         block.x = 32;
         grid.x = 1;
         nThreads_x = grid.x * block.x;
