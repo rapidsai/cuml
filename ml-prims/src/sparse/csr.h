@@ -102,12 +102,12 @@ namespace MLCommon {
 
 
 
-        __device__ int get_stop_idx(int row, int m, int *ind) {
+        __device__ int get_stop_idx(int row, int m, int nnz, int *ind) {
             int stop_idx = 0;
             if(row < (m-1))
                 stop_idx = ind[row+1];
             else
-                stop_idx = m;
+                stop_idx = nnz;
 
             return stop_idx;
         }
@@ -128,13 +128,16 @@ namespace MLCommon {
 
             if(row < m) {
                 int a_start_idx = a_ind[row];
-                int a_stop_idx = get_stop_idx(row, m, a_ind);
+                int a_stop_idx = get_stop_idx(row, m, nnz, a_ind);
 
                 int b_start_idx = b_ind[row];
-                int b_stop_idx = get_stop_idx(row, m, b_ind);
+                int b_stop_idx = get_stop_idx(row, m, nnz, b_ind);
 
                 int max_size = (a_stop_idx - a_start_idx) +
                         (b_stop_idx - b_start_idx);
+
+                printf("row=%d, a_start_idx=%d, a_stop_idx=%d, b_start_idx=%d, b_stop_idx=%d\n",
+                        row, a_start_idx, a_stop_idx, b_start_idx, b_stop_idx);
 
                 int *arr  = new int[max_size];
                 int cur_arr_idx = 0;
@@ -152,12 +155,17 @@ namespace MLCommon {
                     int cur_col = b_indptr[j];
                     bool found = false;
                     for(int k = 0; k < arr_size; k++) {
-                        if(arr[k] == cur_col)
+                        if(arr[k] == cur_col) {
+                            printf("ROW=%d, FOUND: %d\n", row, cur_col);
                             found = true;
+                        }
                     }
 
-                    if(!found)
+                    if(!found) {
                         final_size++;
+                        printf("ROW=%d, NOT FOUND: %d\n", row, cur_col);
+
+                    }
                 }
 
                 out_rowcounts[row] = final_size;
@@ -180,10 +188,10 @@ namespace MLCommon {
 
             if(row < m) {
                 int a_start_idx = a_ind[row];
-                int a_stop_idx = get_stop_idx(row, m, a_ind);
+                int a_stop_idx = get_stop_idx(row, m, nnz, a_ind);
 
                 int b_start_idx = b_ind[row];
-                int b_stop_idx = get_stop_idx(row, m, b_ind);
+                int b_stop_idx = get_stop_idx(row, m, nnz, b_ind);
 
                 int o_idx = out_ind[row];
 
@@ -208,6 +216,7 @@ namespace MLCommon {
                         if(out_indptr[k] == cur_col) {
                             out_val[k] += b_val[j];
                             found = true;
+                            break;
                         }
                     }
 
@@ -216,8 +225,9 @@ namespace MLCommon {
                         out_indptr[arr_size] = cur_col;
                         out_val[arr_size] = b_val[j];
                         arr_size++;
+                        printf("ROW=%d, NOT FOUND: %d\n", row, cur_col);
 
-                        printf("row=%d, col=%d, j=%d, out_val[%d]=%f\n", row, cur_col, j, arr_size, b_val[j]);
+//                        printf("row=%d, col=%d, j=%d, out_val[%d]=%f\n", row, cur_col, j, arr_size, b_val[j]);
                     }
                 }
             }
