@@ -23,17 +23,17 @@ import pytest
 import time
 
 
-@pytest.fixture(params=[40, 50])
+@pytest.fixture(params=[5])
 def n_components(request):
     return request.param
 
 
-@pytest.fixture(params=[400])
+@pytest.fixture(params=[100])
 def n_seq(request):
     return request.param
 
 
-@pytest.fixture(params=[5, 20])
+@pytest.fixture(params=[20])
 def n_features(request):
     return request.param
 
@@ -144,8 +144,15 @@ class TestMultinomialHMM(TestHMM):
         self.cuml_model.n_iter = 1
         self.ref_model.n_iter = 1
 
-        self.ref_model.fit(self.X, self.lengths)
+        start = time.time()
         self.cuml_model.fit(self.X, self.lengths)
+        end = time.time()
+        print("\n Elapsed time for cuml : ", end - start, "\n")
+
+        # start = time.time()
+        # self.ref_model.fit(self.X, self.lengths)
+        # end = time.time()
+        # print("\n Elapsed time for hmmlearn : ", end - start, "\n")
 
         emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
         startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)

@@ -86,7 +86,10 @@ template <typename T, typename D>
 size_t hmm_bufferSize(HMM<T, D> &hmm){
 
         size_t workspaceSize = 0;
-        // const size_t granularity = 256;
+        const size_t granularity = 256;
+
+        hmm.handle.dTemp = (T *)workspaceSize;
+        workspaceSize += alignTo(1 * sizeof(T), granularity);
 
         // hmm.handle.dPi_array = (T **)workspaceSize;
         // workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
@@ -117,6 +120,8 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         // hmm.handle.dcumlenghts_inc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
         // hmm.handle.dcumlenghts_exc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
         printf("Allocating\n");
+        hmm.handle.dTemp = (T *)((size_t)workspace);
+        // allocate(hmm.handle.dTemp, 1);
         // hmm.handle.dAlpha = (T *)((size_t)hmm.handle.dAlpha + (size_t)workspace);
         // hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
         // hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
@@ -135,9 +140,9 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         //                                                  1, 1, 1,
         //                                                  nThreads_x, nThreads_y);
         // CUDA_CHECK(cudaPeekAtLastError());
-        // print_matrix_device(1, 1,
-        // hmm.handle.dcumlenghts_inc, 1,
-        // "dcumlenghts_inc");
+        print_matrix_device(1, 1,
+                            hmm.handle.dTemp, 1,
+                            "dTemp");
 
 }
 
@@ -231,9 +236,6 @@ void m_step(HMM<T, D> &hmm,
         forward_backward(hmm, dX, dlenghts, nSeq,
                          cublasHandle, queue,
                          true, true, true);
-        // print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_exc, 1, "dcumlenghts_exc");
-        // print_matrix_device(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, "dT");
-
         _m_step(hmm, dX, dlenghts, nSeq);
 }
 

@@ -64,42 +64,41 @@ void update_transitions_kernel(int nStates, int nSeq, int nObs,
                                T* dBeta, int lddbeta,
                                T* dT, int lddt,
                                T* dB, int lddb,
-                               int numThreads_x, int numThreads_y){
-        int stateId_start = threadIdx.x + blockDim.x * blockIdx.x;
-        int seqId_start = threadIdx.y + blockDim.y * blockIdx.y;
+                               int nThreads_x, int nThreads_y){
+        int i_start = threadIdx.x + blockDim.x * blockIdx.x;
+        int j_start = threadIdx.y + blockDim.y * blockIdx.y;
         int obsId;
         T temp_val, temp_logsum, temp_t;
         bool initialized;
 
-        if (stateId_start == 0 & seqId_start == 0) {
-                for (size_t i = 0; i < nStates; i+=1) {
-                        for (size_t j = 0; j < nStates; j+=1) {
-                                temp_t = 0;
-                                for (size_t seqId = 0; seqId < nSeq; seqId++) {
-                                        initialized =false;
-                                        for (size_t tau = 0; tau < dlenghts[seqId] - 1; tau++) {
-                                                // for (size_t obsId = 0; obsId < nObs - 1; obsId++) {
-                                                obsId = dcumlengths_exc[seqId] + tau;
-                                                temp_val = dAlpha[IDX(i, obsId, lddalpha)]
-                                                           + std::log(dT[IDX(i, j, lddt)])
-                                                           + dB[IDX(j, obsId + 1, lddb)]
-                                                           + dBeta[IDX(j, obsId + 1, lddbeta)]
-                                                           - dLlhd[seqId];
-                                                if (initialized) {
-                                                        temp_logsum = std::log(std::exp(temp_val) + std::exp(temp_logsum));
-                                                }
-                                                else {
-                                                        temp_logsum = temp_val;
-                                                        initialized = true;
-                                                }
+        for (size_t i = i_start; i < nStates; i+=nThreads_x) {
+                for (size_t j = j_start; j < nStates; j+=nThreads_y) {
+                        temp_t = 0;
+                        for (size_t seqId = 0; seqId < nSeq; seqId++) {
+                                initialized =false;
+                                for (size_t tau = 0; tau < dlenghts[seqId] - 1; tau++) {
+                                        // for (size_t obsId = 0; obsId < nObs - 1; obsId++) {
+                                        obsId = dcumlengths_exc[seqId] + tau;
+                                        temp_val = dAlpha[IDX(i, obsId, lddalpha)]
+                                                   + std::log(dT[IDX(i, j, lddt)])
+                                                   + dB[IDX(j, obsId + 1, lddb)]
+                                                   + dBeta[IDX(j, obsId + 1, lddbeta)]
+                                                   - dLlhd[seqId];
+                                        if (initialized) {
+                                                temp_logsum = std::log(std::exp(temp_val) + std::exp(temp_logsum));
                                         }
-                                        temp_t += std::exp(temp_logsum);
+                                        else {
+                                                temp_logsum = temp_val;
+                                                initialized = true;
+                                        }
                                 }
-                                dT[IDX(i, j, lddt)] = temp_t;
+                                temp_t += std::exp(temp_logsum);
                         }
+                        dT[IDX(i, j, lddt)] = temp_t;
                 }
-
         }
+
+
 }
 
 template <typename Tx, typename T, typename D>
@@ -108,7 +107,9 @@ void _m_step(HMM<T, D> &hmm,
 
         dim3 block(32);
         dim3 grid(1);
-        int nThreads_x = grid.x * block.x;
+        int nThreads_x, nThreads_y;
+
+        nThreads_x = grid.x * block.x;
 
         // // TODO : Run on different streams
         multinomial::update_emissions_kernel<T> <<< grid, block>>>(
@@ -136,11 +137,12 @@ void _m_step(HMM<T, D> &hmm,
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 
-        block.x = 8;
-        block.y = 8;
-        grid.x = 1;
+        block.x = 32;
+        block.y = 32;
+        grid.x = ceildiv((int) hmm.nStates, (int) block.x);
+        grid.y = ceildiv((int) hmm.nStates, (int) block.y);
         nThreads_x = grid.x * block.x;
-        int nThreads_y = block.y;
+        nThreads_y = grid.y * block.y;
 
         update_transitions_kernel<T> <<< grid, block >>>(hmm.nStates,
                                                          nSeq,
@@ -156,6 +158,5 @@ void _m_step(HMM<T, D> &hmm,
         cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
         gmm::normalize_matrix(hmm.nStates, hmm.nStates, hmm.dT, hmm.lddt, false);
-
 }
 }

@@ -118,6 +118,8 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self._set_dims(X, lengths)
         self._initialize()
         self._reset()
+        self._setup(X, lengths)
+        self.allocate_ws()
 
         for step in range(self.n_iter):
             # self._forward_backward(X, lengths, True, True, True)

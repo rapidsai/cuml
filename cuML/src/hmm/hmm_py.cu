@@ -77,7 +77,8 @@ size_t get_workspace_size_mhmm_f64(HMM<double, multinomial::Multinomial<double> 
         return hmm_bufferSize(hmm);
 }
 
-void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm, void* workspace){
+void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                            void* workspace){
         create_HMMHandle(hmm, workspace);
 }
 

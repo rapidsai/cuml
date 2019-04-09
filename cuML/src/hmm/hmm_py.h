@@ -55,7 +55,8 @@ void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
 
 size_t get_workspace_size_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm);
 
-void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm, void* workspace);
+void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
+                            void* workspace);
 
 void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                     int nObs, int nSeq, double* dLlhd);

@@ -34,6 +34,8 @@ struct HMMHandle {
         T *dV;
         int lddv;
 
+        T* dTemp;
+
         T **dPi_array;
         unsigned short int *dcumlenghts_inc, *dcumlenghts_exc;
         T *dAlpha, *dBeta;

@@ -114,58 +114,50 @@ cdef setup_multinomialhmm(self, floatMultinomialHMM& hmm32, doubleMultinomialHMM
                            <int> nSeq,
                            <double*> _dLlhd_ptr)
 
-    # if do_handle :
-    #     _ws_ptr = self.workspace.device_ctypes_pointer.value
-    #     if self.precision == 'double':
-    #         with nogil :
-    #             # pass
-    #             _ = get_workspace_size_mhmm_f64(hmm64)
-    #             create_handle_mhmm_f64(hmm64, <void*> _ws_ptr)
-    #
+    print("in setup")
+    if do_handle :
+        _ws_ptr = self.workspace.device_ctypes_pointer.value
+        print("self.workspace", self.workspace)
+        if self.precision == 'double':
+            with nogil :
+                size = get_workspace_size_mhmm_f64(hmm64)
+                create_handle_mhmm_f64(hmm64, <void*> _ws_ptr)
+    print("size", size)
 
 class _BaseHMMBackend:
     def allocate_ws(self):
         pass
-        # self._workspaceSize = -1
-        #
-        # cdef floatGMMHMM gmmhmm32
-        # cdef doubleGMMHMM gmmhmm64
-        #
-        # cdef floatMultinomialHMM multinomialhmm32
-        # cdef doubleMultinomialHMM multinomialhmm64
-        #
-        # # if self.hmm_type is "gmm" :
-        # # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
-        # if self.hmm_type is 'multinomial':
-        #     setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, False)
-        #
-        # cuda_context = cuda.current_context()
-        # available_mem = cuda_context.get_memory_info().free
-        # print('available mem before allocation', to_mb(available_mem), "Mb")
-        #
-        # # if self.precision is "double" and self.hmm_type is 'multinomial':
-        # #     with nogil :
-        # #         workspace_size = get_workspace_size_mhmm_f64(multinomialhmm64)
-        #
-        # # workspace_size = int(1e8)
-        #
-        # print("\n----------------")
-        # print('Workspace size', to_mb(workspace_size), "Mb")
-        # print("----------------\n")
-        #
-        # print(workspace_size)
-        # # TODO : Fix cudamalloc type
-        # self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
-        # self._workspace_size = workspace_size
-        #
-        # # self.workspace = cuda.to_device(np.array(1))
-        #
-        # ws = self.workspace.to_host()
-        # print("workspace", self.workspace)
-        #
-        # cuda_context = cuda.current_context()
-        # available_mem = cuda_context.get_memory_info().free
-        # print('available mem after allocation', to_mb(available_mem), "Mb")
+        self._workspaceSize = -1
+
+        cdef floatGMMHMM gmmhmm32
+        cdef doubleGMMHMM gmmhmm64
+
+        cdef floatMultinomialHMM multinomialhmm32
+        cdef doubleMultinomialHMM multinomialhmm64
+
+        # if self.hmm_type is "gmm" :
+        # setup_gmmhmm(self, gmmhmm32, gmmhmm64)
+        if self.hmm_type is 'multinomial':
+            setup_multinomialhmm(self, multinomialhmm32, multinomialhmm64, False)
+
+        cuda_context = cuda.current_context()
+        available_mem = cuda_context.get_memory_info().free
+        print('available mem before allocation', to_mb(available_mem), "Mb")
+
+        if self.precision is "double" and self.hmm_type is 'multinomial':
+            with nogil :
+                workspace_size = get_workspace_size_mhmm_f64(multinomialhmm64)
+
+        print('Workspace size', to_mb(workspace_size), "Mb")
+        print("----------------\n")
+
+        print(workspace_size)
+        self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=np.int8))
+        self._workspace_size = workspace_size
+
+        cuda_context = cuda.current_context()
+        available_mem = cuda_context.get_memory_info().free
+        print('available mem after allocation', to_mb(available_mem), "Mb")
 
     def _forward_backward(self, X, lengths, do_forward, do_backward, do_gamma):
         cdef floatGMMHMM gmmhmm32
@@ -230,7 +222,7 @@ class _BaseHMMBackend:
                              <int> nSeq)
 
     def _m_step(self, X, lengths):
-        self._setup(X, lengths)
+        # self._setup(X, lengths)
 
         cdef floatGMMHMM gmmhmm32
         cdef doubleGMMHMM gmmhmm64
