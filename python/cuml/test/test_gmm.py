@@ -126,9 +126,9 @@ def print_info(true_params, sk_params, cuml_params):
 # @pytest.mark.parametrize('nDim', [5, 10])
 # @pytest.mark.parametrize('nObs', [1000])
 @pytest.mark.parametrize('n_iter', [5])
-@pytest.mark.parametrize('nCl', [10])
-@pytest.mark.parametrize('nDim', [10])
-@pytest.mark.parametrize('nObs', [100000])
+@pytest.mark.parametrize('nCl', [5])
+@pytest.mark.parametrize('nDim', [100])
+@pytest.mark.parametrize('nObs', [500000])
 @pytest.mark.parametrize('precision', ["double"])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [1e-06])
@@ -153,4 +153,4 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
         assert error < 1e-01
     else:
         # Tests have always passed on double precision
-        assert error < 1e-10
+        assert error < 1e-9

@@ -30,52 +30,53 @@
 
 using namespace MLCommon::LinAlg;
 
-namespace MLCommon {
+namespace gmm {
 
 template <typename T>
 __global__
-void subtractBatchedKernel(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                           T** dO_array, magma_int_t lddO,
-                           T** dX_array, magma_int_t lddx,
-                           T** dY_array, magma_int_t lddy,
+void subtractBatchedKernel(magma_int_t nDim, magma_int_t nObs, magma_int_t nCl,
+                           T* dO, magma_int_t lddO,
+                           T* dX, magma_int_t lddx,
+                           T* dmu, magma_int_t lddmu,
                            int nThreads_x, int nThreads_y, int nThreads_z){
 
         int i_start = threadIdx.x + blockDim.x * blockIdx.x;
         int j_start = threadIdx.y + blockDim.y * blockIdx.y;
         int k_start = threadIdx.z + blockDim.z * blockIdx.z;
 
-        int idxO, idxX, idxY;
+        int idxO, idxX, idxmu;
+        int batchldd = nObs * lddx;
 
-        for (size_t bId = k_start; bId < batchCount; bId+=nThreads_z) {
-                for (size_t j = j_start; j < n; j+=nThreads_x) {
-                        for (size_t i = i_start; i < m; i+=nThreads_y) {
-                                idxO = IDX(i, j, lddO);
-                                idxX = IDX(i, j, lddx);
-                                idxY = IDX(i, 0, lddy);
-                                dO_array[bId][idxO] = dX_array[bId][idxX] - dY_array[bId][idxY];
+        for (size_t clId = k_start; clId < nCl; clId+=nThreads_z) {
+                for (size_t obsId = j_start; obsId < nObs; obsId+=nThreads_y) {
+                        for (size_t dimId = i_start; dimId < nDim; dimId+=nThreads_x) {
+                                idxO = IDX2(dimId, obsId, clId, lddO, batchldd);
+                                idxX = IDX(dimId, obsId, lddx);
+                                idxmu = IDX(dimId, clId, lddmu);
+                                dO[idxO] = dX[idxX] - dmu[idxmu];
                         }
                 }
         }
 }
 
 template <typename T>
-void subtract_batched(magma_int_t m, magma_int_t n, magma_int_t batchCount,
-                      T** dO_array, magma_int_t lddO,
-                      T** dX_array, magma_int_t lddx,
-                      T** dY_array, magma_int_t lddy){
+void subtract_batched(magma_int_t nDim, magma_int_t nObs, magma_int_t nCl,
+                      T* dO, magma_int_t lddO,
+                      T* dX, magma_int_t lddx,
+                      T* dmu, magma_int_t lddmu){
         dim3 block(32, 32, 1);
-        dim3 grid(ceildiv((int)m, (int)block.x),
-                  ceildiv((int)n, (int)block.y),
+        dim3 grid(ceildiv((int)nDim, (int)block.x),
+                  ceildiv((int)nObs, (int)block.y),
                   1);
 
         int nThreads_x = grid.x * block.x;
         int nThreads_y = grid.y * block.y;
         int nThreads_z = grid.z * block.z;
 
-        subtractBatchedKernel<T> <<< grid, block >>>(m, n, batchCount,
-                                                     dO_array, lddO,
-                                                     dX_array, lddx,
-                                                     dY_array, lddy,
+        subtractBatchedKernel<T> <<< grid, block >>>(nDim, nObs, nCl,
+                                                     dO, lddO,
+                                                     dX, lddx,
+                                                     dmu, lddmu,
                                                      nThreads_x, nThreads_y, nThreads_z);
         CUDA_CHECK(cudaPeekAtLastError());
 }

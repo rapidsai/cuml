@@ -205,8 +205,8 @@ void update_llhd(T* dX, GMM<T>& gmm,
         split_to_batches(gmm.nCl, gmm.handle.dsigma_array, gmm.dsigma, gmm.lddsigma_full);
 
         likelihood_batched(gmm.nCl, gmm.nDim, gmm.nObs,
-                           gmm.handle.dX_array, gmm.lddx,
-                           gmm.handle.dmu_array, gmm.lddmu,
+                           gmm.handle.dX_array, dX, gmm.lddx,
+                           gmm.handle.dmu_array, gmm.dmu, gmm.lddmu,
                            gmm.handle.dsigma_array, gmm.lddsigma_full, gmm.lddsigma,
                            gmm.dLlhd, gmm.lddLlhd,
                            false,
@@ -278,9 +278,13 @@ void update_sigmas(T* dX, GMM<T>& gmm,
 
                 // Compute diffs
                 subtract_batched(gmm.nDim, batch_nObs, gmm.nCl,
-                                 gmm.handle.dDiff_batches, ldDiff,
-                                 gmm.handle.dX_batches, gmm.lddx,
-                                 gmm.handle.dmu_batches, gmm.lddmu);
+                                 gmm.handle.llhd_handle.dDiff, ldDiff,
+                                 dX, gmm.lddx,
+                                 gmm.dmu, gmm.lddmu);
+                // subtract_batched(gmm.nDim, batch_nObs, gmm.nCl,
+                //                  gmm.handle.dDiff_batches, ldDiff,
+                //                  gmm.handle.dX_batches, gmm.lddx,
+                //                  gmm.handle.dmu_batches, gmm.lddmu);
 
                 dgmm_batched(gmm.nDim, batch_nObs, gmm.nCl,
                              gmm.handle.dDiff_batches, ldDiff,

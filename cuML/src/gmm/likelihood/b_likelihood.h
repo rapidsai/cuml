@@ -23,9 +23,9 @@
 #include "magma/b_determinant.h"
 #include "magma/b_allocate.h"
 #include <magma/b_split.h>
-#include <magma/b_subtract.h>
 #include <magma/b_dgmm.h>
 
+#include <gmm/likelihood/subtract_backend.h>
 #include "gmm/likelihood/likelihood_handles.h"
 #include "gmm/likelihood/bilinear_backend.h"
 
@@ -281,14 +281,14 @@ template <typename T>
 void likelihood_batched(magma_int_t nCl,
                         magma_int_t nDim,
                         magma_int_t nObs,
-                        T** &dX_array, int lddx,
-                        T** &dmu_array, int lddmu,
+                        T** &dX_array, T* dX, int lddx,
+                        T** &dmu_array, T* dmu, int lddmu,
                         T** &dsigma_array, int lddsigma_full, int lddsigma,
                         T* dLlhd, int lddLlhd,
                         bool isLog,
                         magma_queue_t queue,
                         llhdHandle_t<T>& llhd_handle){
-        int batchCount;
+        // int batchCount;
 
         // Compute sigma inverses
         inverse_batched(nDim, dsigma_array, lddsigma,
@@ -308,23 +308,18 @@ void likelihood_batched(magma_int_t nCl,
                             dX_array, dmu_array, llhd_handle.dInvSigma_array);
 
         batchCount = nObs * nCl;
-
-        // print_matrix_batched(1, nDim, nObs,
-        //                      dX_array, lddx,
-        //                      "dX_batches");
         //
-        // print_matrix_batched(1, nDim, nCl,
-        //                      dmu_array, lddx,
-        //                      "dmu_batches");
+        // print_matrix_device(nDim, nObs, dX, lddx, "dX");
+        // print_matrix_device(nDim, nCl, dmu, lddmu, "dmu");
 
-        subtract_batched(nDim, 1, batchCount,
-                         llhd_handle.dDiff_batches, lddx,
-                         llhd_handle.dX_batches, lddx,
-                         llhd_handle.dmu_batches, lddmu);
-
-        // print_matrix_batched(1, nDim, batchCount,
-        //                      llhd_handle.dDiff_batches, lddx,
-        //                      "dDiff_batches");
+        subtract_batched(nDim, nObs, nCl,
+                         llhd_handle.dDiff, lddx,
+                         dX, lddx,
+                         dmu, lddmu);
+        //
+        // print_matrix_device(nDim, nObs,
+        //                     llhd_handle.dDiff, llhd_handle.lddDiff,
+        //                     "dDiff");
 
         // Compute bilinears
         bilinear_batched(nDim, nObs, nCl,
