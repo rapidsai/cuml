@@ -9,8 +9,14 @@
 #include <linalg/binary_op.h>
 #include <memory>
 
+#include <thrust/iterator/counting_iterator.h>
+#include <thrust/for_each.h>
+
 namespace MLCommon {
 namespace Matrix {
+
+std::shared_ptr<double*>
+init(double* A, std::pair<int, int> shape, int num_batches, bool gpu=true);
 
 template<typename T>
 void cudaFreeT(T *ptr) { CUDA_CHECK(cudaFree(ptr)); }
@@ -18,27 +24,27 @@ void cudaFreeT(T *ptr) { CUDA_CHECK(cudaFree(ptr)); }
 class BatchedMatrix {
 public:
   // Create a BatchedMatrix.
-  BatchedMatrix(const std::vector<double*>& A, std::pair<int, int> shape, bool gpu=true)
-    : m_gpu(gpu), m_shape(shape) {
-    init(A, shape, gpu);
+  BatchedMatrix(double* A, std::pair<int, int> shape, int num_batches, bool gpu=true)
+    : m_gpu(gpu), m_shape(shape), m_num_batches(num_batches) {
+    if(!gpu) {
+      throw std::runtime_error("CPU-only not supported");
+    }
+    m_A_batches = init(A, shape, num_batches, gpu);
+    m_A_dense = std::shared_ptr<double>(A, cudaFreeT<double>);
   }
 
-  BatchedMatrix(int m, int n, int num_batches, bool initZero=false, bool gpu=true) : m_gpu(gpu) {
+  BatchedMatrix(int m, int n, int num_batches, bool initZero=false, bool gpu=true) : m_gpu(gpu), m_num_batches(num_batches) {
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
     m_shape = std::make_pair(m, n);
-    std::vector<double*> C_data;
-    
-    for(int i=0;i<num_batches;i++) {
-      double* d_ptr_i;
-      CUDA_CHECK(cudaMalloc(&d_ptr_i, sizeof(double)*m*n));
-      if (initZero) {
-        CUDA_CHECK(cudaMemset(d_ptr_i, 0.0, sizeof(double) * m * n));
-      }
-      C_data.push_back(d_ptr_i);
-    }
-    init(C_data, std::make_pair(m, n), gpu);
+
+    double* A_all;
+
+    allocate(A_all, m*n*num_batches);
+    m_A_dense = std::shared_ptr<double>(A_all, cudaFreeT<double>);
+
+    m_A_batches = init(A_all, std::make_pair(m, n), num_batches, gpu);
   }
 
   bool onGPU() const { return m_gpu; }
@@ -46,46 +52,13 @@ public:
   const std::pair<int, int>& shape() const { return m_shape; }
 
   // TODO: probably should add a const on returned type
-  double** data() const {return m_A_data.get();}
+  double** data() const {return m_A_batches.get();}
 
-  void createA() {
-    if (m_A.size() == 0) {
-      throw std::runtime_error("Don't use for now...");
-      // double** h_ptr = new double*[m_num_batches];
-      // updateHost(h_ptr, m_A_data.get(), m_num_batches);
-      // for(int i=0;i<m_num_batches;i++) {
-      //   m_A.push_back(std::shared_ptr<double>(h_ptr[i], cudaFreeT<double>));
-      // }
-    }
-  }
-
-  const std::vector<std::shared_ptr<double>>& A() const {
-    if (m_A.size() == 0) {
-      throw std::runtime_error("BatchedMatrix ERROR: uninitialized A. Call `BM.createA()` first.");
-    }
-    return m_A;
+  double* operator[](int id) const {
+    return &(m_A_dense.get()[id*m_shape.first*m_shape.second]);
   }
 
 private:
-
-  // shared initialization function
-  void init(const std::vector<double*>& A, std::pair<int, int> shape, bool gpu=true) {
-    for(auto ai: A) {
-      m_A.push_back(std::shared_ptr<double>(ai, cudaFreeT<double>));
-    }
-    m_num_batches = A.size();
-    if(!gpu) {
-      throw std::runtime_error("CPU-only not supported");
-    }
-    double** raw_m_A_data;
-    CUDA_CHECK(cudaMalloc(&raw_m_A_data, sizeof(double*) * m_num_batches));
-    m_A_data = std::shared_ptr<double*>(raw_m_A_data, cudaFreeT<double*>);
-    CUDA_CHECK(cudaMemcpy(m_A_data.get(), A.data(), sizeof(double*) * m_num_batches, cudaMemcpyHostToDevice));
-  }
-
-  // host-stored pointers to (device) matrices. Shared pointers to free unused
-  // memory but only if no other references exist.
-  std::vector<std::shared_ptr<double>> m_A;
 
   // decides where data is stored and where operations are computed.
   bool m_gpu;
@@ -93,14 +66,38 @@ private:
   // Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
   std::pair<int, int> m_shape;
 
-  // Data pointer to batched matrices. Is stored in CPU or GPU depending on `m_gpu`
-  std::shared_ptr<double*> m_A_data;
+  // Array(pointer) to each matrix.
+  std::shared_ptr<double*> m_A_batches;
+
+  // Data pointer to first element of consecutive matrix data
+  std::shared_ptr<double> m_A_dense;
 
   // batch information
   size_t m_num_batches;
 
 
 };
+
+// shared initialization function
+std::shared_ptr<double*>
+init(double* A, std::pair<int, int> shape, int num_batches, bool gpu) {
+  double** raw_m_A_data;
+  allocate(raw_m_A_data, num_batches);
+
+  int m = shape.first;
+  int n = shape.second;
+
+  // fill array of pointers to each batch matrix.
+  auto counting = thrust::make_counting_iterator(0);
+  thrust::for_each(counting, counting + num_batches,
+                   [=]__device__(int bid){
+                     raw_m_A_data[bid] = &(A[bid*m*n]);
+                   });
+
+  // when the reference count goes to zero it will free the underlying arrays.
+  return std::shared_ptr<double*>(raw_m_A_data, cudaFreeT<double*>);
+}
+
 
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
@@ -181,7 +178,8 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
   BatchedMatrix C(m, n, num_batches);
 
   for(int i=0; i<num_batches; i++) {
-    LinAlg::binaryOp(C.A()[i].get(), A.A()[i].get(), B.A()[i].get(), m*n, binary_op);
+    // LinAlg::binaryOp(C.A()[i].get(), A.A()[i].get(), B.A()[i].get(), m*n, binary_op);
+    LinAlg::binaryOp(C[i], A[i], B[i], m*n, binary_op);
   }
   return C;
 }
