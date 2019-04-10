@@ -27,7 +27,7 @@ else()
     message(FATAL_ERROR "CUML_INCLUDE_DIR not specified.")
 endif(IS_DIRECTORY ${CUML_INCLUDE_DIR})
 if(IS_DIRECTORY ${CUML_LIBRARY_DIR})
-    # CUML_LIBRARY_DIR point to the director where libcuml.so lives
+    # CUML_LIBRARY_DIR point to the director where libcuml++.so lives
     link_directories(${CUML_LIBRARY_DIR})
 else()
     message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
@@ -37,4 +37,4 @@ add_executable(dbscan_example dbscan_example.cpp)
 # Need to set linker language to CUDA to link the CUDA Runtime
 set_target_properties(dbscan_example PROPERTIES LINKER_LANGUAGE "CUDA")
 # Link cuml
-target_link_libraries(dbscan_example cuml)
+target_link_libraries(dbscan_example cuml++)
