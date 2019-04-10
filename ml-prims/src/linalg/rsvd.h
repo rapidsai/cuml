@@ -62,8 +62,6 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
 
-  ///@todo: what if stream in cusolver/cublas handles are different!?
-
   int m = n_rows, n = n_cols;
   int l =
     k + p;   // Total number of singular values to be computed before truncation

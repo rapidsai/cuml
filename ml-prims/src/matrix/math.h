@@ -275,7 +275,7 @@ void ratio(math_t *src, math_t *dest, int len,
   math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t)*1);
   
   auto no_op = [] __device__(math_t in) { return in; };
-  MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, 0, src);
+  MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, stream, src);
 
   MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=] __device__(math_t a)
                                                 { return a / (*d_sum); },

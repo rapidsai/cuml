@@ -105,8 +105,8 @@ namespace UMAPAlgo {
      * a and b, which are based on min_dist and spread
      * parameters.
      */
-    void find_ab(UMAPParams *params) {
-        Optimize::find_params_ab(params);
+    void find_ab(UMAPParams *params, cudaStream_t stream) {
+        Optimize::find_params_ab(params, stream);
     }
 
     /**
@@ -121,7 +121,7 @@ namespace UMAPAlgo {
 	            T *embeddings,
               cudaStream_t stream) {
 
-	    find_ab(params);
+	    find_ab(params, stream);
 
 		/**
 		 * Allocate workspace for kNN graph

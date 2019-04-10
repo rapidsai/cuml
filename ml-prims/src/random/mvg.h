@@ -208,7 +208,7 @@ public: // functions
       epsilonToZero(eig, epsilon, dim, cudaStream);
       dim3 block(64);
       dim3 grid(ceildiv(dim, (int)block.x));
-      CUDA_CHECK(cudaMemset(info, 0, sizeof(int)));
+      CUDA_CHECK(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
       grid.x = ceildiv(dim * dim, (int)block.x);
       combined_dot_product<T><<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
       CUDA_CHECK(cudaPeekAtLastError());
