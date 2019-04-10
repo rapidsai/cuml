@@ -59,8 +59,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
 void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
-            bool rowMajor, bool alongRows, bool inplace = false,
-            cudaStream_t stream = 0,
+            bool rowMajor, bool alongRows, bool inplace,
+            cudaStream_t stream,
             MainLambda main_op = Nop<InType, IdxType>(),
             ReduceLambda reduce_op = Sum<OutType>(),
             FinalLambda final_op = Nop<OutType>()) {
