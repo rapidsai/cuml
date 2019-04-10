@@ -19,7 +19,7 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
-#include "dbscan/dbscan.h"
+#include "dbscan/dbscan.hpp"
 #include <linalg/cublas_wrappers.h>
 #include <vector>
 
@@ -65,8 +65,13 @@ protected:
 
 		T eps = 3.0;
 		int min_pts = 2;
-
-		dbscanFitImpl(data, params.n_row, params.n_col, eps, min_pts, labels);
+		cumlHandle handle;
+		cudaStream_t stream;
+		CUDA_CHECK( cudaStreamCreate(&stream) );
+		handle.setStream(stream);
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels);
+		CUDA_CHECK( cudaStreamSynchronize(stream) );
+		CUDA_CHECK( cudaStreamDestroy(stream) );
 
 	}
 
