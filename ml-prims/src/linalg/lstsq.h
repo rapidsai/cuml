@@ -185,7 +185,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              ldb,
              stream));
 
-    CUDA_CHECK(cudaMemcpy(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
 
     if (NULL != d_tau)   cudaFree(d_tau);
     if (NULL != d_info)  cudaFree(d_info);

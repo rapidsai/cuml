@@ -73,7 +73,7 @@ namespace UMAPAlgo {
          */
         template<typename T, int TPB_X>
         void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
-                          UMAPParams *params, cudaStream_t stream=0) {
+                          UMAPParams *params, cudaStream_t stream) {
 
             dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -142,8 +142,8 @@ namespace UMAPAlgo {
          */
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-6,
-                int max_epochs = 25000, cudaStream_t stream=0) {
+                T *coef, UMAPParams *params, cudaStream_t stream,
+                float tolerance = 1e-6, int max_epochs = 25000) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
@@ -156,7 +156,7 @@ namespace UMAPAlgo {
                 T *grads;
                 MLCommon::allocate(grads, 2, true);
 
-                abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params);
+                abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params, stream);
 
                 MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2, stream);
                 MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
@@ -177,7 +177,7 @@ namespace UMAPAlgo {
 
         }
 
-        void find_params_ab(UMAPParams *params) {
+        void find_params_ab(UMAPParams *params, cudaStream_t stream) {
 
             float spread = params->spread;
             float min_dist = params->min_dist;
@@ -211,7 +211,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(coeffs, 2, true);
             MLCommon::updateDevice(coeffs, coeffs_h, 2);
 
-            optimize_params<float, 256>(X_d, 300, y_d, coeffs, params);
+            optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
 
             MLCommon::updateHost(&(params->a), coeffs, 1);
             MLCommon::updateHost(&(params->b), coeffs+1, 1);
