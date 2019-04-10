@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@
 #pragma once
 
 #include "runner.h"
+#include <common/device_buffer.hpp>
 
 namespace ML {
 
 using namespace Dbscan;
+
 
 int computeBatchCount(int n_rows) {
 
@@ -42,22 +44,18 @@ int computeBatchCount(int n_rows) {
 }
 
 template<typename T>
-void dbscanFitImpl(T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels) {
+void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels, cudaStream_t stream) {
     int algoVd = 1;
     int algoAdj = 1;
     int algoCcl = 2;
     int n_batches = computeBatchCount(n_rows);
-    size_t workspaceSize = Dbscan::run(input, n_rows, n_cols, eps, min_pts,
+    size_t workspaceSize = Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts,
                                        labels, algoVd, algoAdj, algoCcl, NULL,
-                                       n_batches, 0);
+                                       n_batches, stream);
 
-    char* workspace;
-    CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
-
-    Dbscan::run(input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-                algoCcl, workspace, n_batches, 0);
-
-    CUDA_CHECK(cudaFree(workspace));
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream, workspaceSize);
+    Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
+                algoCcl, workspace.data(), n_batches, stream);
 }
 
 /** @} */
