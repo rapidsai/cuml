@@ -16,8 +16,7 @@
 
 #pragma once
 
-#include "linalg/coalesced_reduction.h"
-#include "linalg/strided_reduction.h"
+#include "linalg/reduce.h"
 
 
 namespace MLCommon {
@@ -48,15 +47,16 @@ enum NormType { L1Norm = 0, L2Norm };
  */
 template <typename Type, typename Lambda = Nop<Type>>
 void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-             Lambda fin_op = Nop<Type>(), cudaStream_t stream = 0) {
+             bool rowMajor, Lambda fin_op = Nop<Type>(),
+             cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0, false, stream,
-                                 L1Op<Type>(), Sum<Type>(), fin_op);
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, false, stream,
+                     L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0, false, stream,
-                                 L2Op<Type>(), Sum<Type>(), fin_op);
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, false, stream,
+                     L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -78,15 +78,16 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  */
 template <typename Type, typename Lambda = Nop<Type>>
 void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-             Lambda fin_op = Nop<Type>(), cudaStream_t stream = 0) {
+             bool rowMajor, Lambda fin_op = Nop<Type>(),
+             cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0, false, stream,
-                               L1Op<Type>(), Sum<Type>(), fin_op);
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, false, stream,
+                     L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0, false, stream,
-                               L2Op<Type>(), Sum<Type>(), fin_op);
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, false, stream,
+                     L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
