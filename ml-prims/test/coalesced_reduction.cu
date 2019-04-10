@@ -60,12 +60,18 @@ protected:
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0));
-    naiveCoalescedReduction(dots_exp, data, cols, rows);
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 
     // Perform reduction with default inplace = false first
     coalescedReductionLaunch(dots_act, data, cols, rows);
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act, data, cols, rows, true);
+
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
