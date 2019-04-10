@@ -9,6 +9,7 @@
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
+- PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
@@ -16,7 +17,9 @@
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
+- PR #394: Introducing cumlHandle API to dbscan and add example
 
 ## Bug Fixes
 
@@ -34,6 +37,7 @@
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
+- PR #468: Fix dbscan example build failure
 
 # cuML 0.6.0 (22 Mar 2019)
 
