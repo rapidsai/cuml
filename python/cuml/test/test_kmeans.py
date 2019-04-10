@@ -28,6 +28,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles']
 
 
 @pytest.mark.parametrize('name', dataset_names)
+@pytest.mark.skip(reason="Old kmeans deprecation")
 def test_kmeans_sklearn_comparison(name):
 
     default_base = {'quantile': .3,
