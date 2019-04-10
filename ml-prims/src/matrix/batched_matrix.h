@@ -159,6 +159,8 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
                                   C.data(),
                                   C.shape().first, // rows of C
                                   num_batches));
+  CUBLAS_CHECK(cublasDestroy(handle));
+
   return C;
 }
 
