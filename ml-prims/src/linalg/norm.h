@@ -28,35 +28,6 @@ enum NormType { L1Norm = 0, L2Norm };
 
 
 /**
- * @brief Compute row-wise norm of the input matrix
- * @tparam Type the data type
- * @param dots the output vector of row-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
- * @param D number of columns of data
- * @param N number of rows of data
- * @param type the type of norm to be applied
- * @param stream cuda stream where to launch work
- */
-template <typename Type>
-void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          cudaStream_t stream = 0) {
-  switch (type) {
-    case L1Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
-                                 [] __device__(Type in, int i) { return myAbs(in); });
-      break;
-    case L2Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
-                                 [] __device__(Type in, int i) { return in * in; });
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
-}
-
-/**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
  *
  * Row-wise norm is useful while computing pairwise distance matrix, for
@@ -65,64 +36,33 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * current implementation is optimized only for bigger values of 'D'.
  *
  * @tparam Type the data type
+ * @tparam Lambda Final op lambda
  * @param dots the output vector of row-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
+ * @param rowMajor whether the input is row-major or not
  * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda>
+template <typename Type, typename Lambda = Nop<Type>>
 void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+             Lambda fin_op = Nop<Type>(), cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
-                                 [] __device__(Type in, int i) { return myAbs(in); }, 
-                                 [] __device__(Type a, Type b) { return a+b; }, fin_op);
+      LinAlg::coalescedReduction(dots, data, D, N, (Type)0, false, stream,
+                                 L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
-                                 false, stream,
-                                 [] __device__(Type in, int i) { return in * in; },
-                                 [] __device__(Type a, Type b) { return a+b; }, fin_op);
+      LinAlg::coalescedReduction(dots, data, D, N, (Type)0, false, stream,
+                                 L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
   };
 }
 
-
-/**
- * @brief Compute column-wise norm of the input matrix
- * @tparam Type the data type
- * @param dots the output vector of column-wise dot products
- * @param data the input matrix (currently assumed to be row-major)
- * @param D number of columns of data
- * @param N number of rows of data
- * @param type the type of norm to be applied
- * @param stream cuda stream where to launch work
- */
-template <typename Type>
-void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          cudaStream_t stream = 0) {
-  switch (type) {
-    case L1Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
-                               [] __device__(Type v, int i) { return myAbs(v); });
-      break;
-    case L2Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
-                               [] __device__(Type v, int i) { return v * v; });
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
-  };
-}
 
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
@@ -132,26 +72,21 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
+ * @param rowMajor whether the input is row-major or not
  * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda>
+template <typename Type, typename Lambda = Nop<Type>>
 void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+             Lambda fin_op = Nop<Type>(), cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
-                               [] __device__(Type v, int i) { return myAbs(v); },
-                               [] __device__(Type a, Type b) { return a + b; },
-                               fin_op);
+      LinAlg::stridedReduction(dots, data, D, N, (Type)0, false, stream,
+                               L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::stridedReduction(dots, data, D, N, (Type)0,
-                               false, stream,
-                               [] __device__(Type v, int i) { return v * v; },
-                               [] __device__(Type a, Type b) { return a + b; },
-                               fin_op);
+      LinAlg::stridedReduction(dots, data, D, N, (Type)0, false, stream,
+                               L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
