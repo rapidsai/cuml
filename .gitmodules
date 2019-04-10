@@ -14,6 +14,3 @@
 [submodule "ml-prims/external/googletest"]
     path = thirdparty/ml-prims/googletest
     url = https://github.com/google/googletest
-[submodule "thirdparty/h2o4gpu"]
-	path = thirdparty/h2o4gpu
-	url = https://github.com/h2oai/h2o4gpu
