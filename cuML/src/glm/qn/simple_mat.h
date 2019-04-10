@@ -246,7 +246,7 @@ inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
 template <typename T>
 inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0){
   MLCommon::LinAlg::rowNorm(tmp_dev, u.data,  u.len, 1, MLCommon::LinAlg::L1Norm,
-                            MLCommon::Nop<T>(), stream);
+                            true, MLCommon::Nop<T>(), stream);
   T tmp_host;
   MLCommon::updateHost(&tmp_host, tmp_dev, 1);
   return tmp_host;

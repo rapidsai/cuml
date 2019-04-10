@@ -49,8 +49,8 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true);
 
 		if (normalize) {
-			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm,
-                    []__device__(math_t v){ return MLCommon::mySqrt(v); });
+			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
+                                        []__device__(math_t v){ return MLCommon::mySqrt(v); });
 			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, true);
 		}
 	}
