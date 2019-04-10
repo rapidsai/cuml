@@ -33,6 +33,7 @@
 - PR #443: Remove defaults channel from ci scripts
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
+- PR #466: Add support for column-major in LinAlg::*Norm methods
 
 # cuML 0.6.0 (22 Mar 2019)
 
