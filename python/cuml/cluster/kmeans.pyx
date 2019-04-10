@@ -31,60 +31,6 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-cdef extern from "kmeans/kmeans_c.h" namespace "ML":
-
-    cdef void make_ptr_kmeans(
-        int dopredict,
-        int verbose,
-        int seed,
-        int gpu_id,
-        int n_gpu,
-        size_t mTrain,
-        size_t n,
-        const char ord,
-        int k,
-        int k_max,
-        int max_iterations,
-        int init_from_data,
-        float threshold,
-        const float *srcdata,
-        const float *centroids,
-        float *pred_centroids,
-        int *pred_labels
-    )
-
-    cdef void make_ptr_kmeans(
-        int dopredict,
-        int verbose,
-        int seed,
-        int gpu_id,
-        int n_gpu,
-        size_t mTrain,
-        size_t n,
-        const char ord,
-        int k,
-        int k_max,
-        int max_iterations,
-        int init_from_data,
-        double threshold,
-        const double *srcdata,
-        const double *centroids,
-        double *pred_centroids,
-        int *pred_labels
-    )
-
-
-    cdef void kmeans_transform(int verbose,
-                             int gpu_id, int n_gpu,
-                             size_t m, size_t n, const char ord, int k,
-                             const float *src_data, const float *centroids,
-                             float *preds)
-
-    cdef void kmeans_transform(int verbose,
-                              int gpu_id, int n_gpu,
-                              size_t m, size_t n, const char ord, int k,
-                              const double *src_data, const double *centroids,
-                              double *preds)
 
 class KMeans:
 
@@ -96,7 +42,7 @@ class KMeans:
 
     cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
     method is more stable than randomnly selecting K points.
-    
+
     Examples
     --------
 
@@ -160,7 +106,7 @@ class KMeans:
              0    1
           0  3.5  2.5
           1  1.0  1.5
-    
+
     Parameters
     ----------
     n_clusters : int (default = 8)
@@ -192,21 +138,21 @@ class KMeans:
     cluster_centers_ : array
         The coordinates of the final clusters. This represents of "mean" of each data cluster.
     labels_ : array
-        Which cluster each datapoint belongs to.    
+        Which cluster each datapoint belongs to.
 
     Notes
     ------
     KMeans requires n_clusters to be specified. This means one needs to approximately guess or know
-    how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and 
+    how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and
     visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
-    
+
     **Applications of KMeans**
-    
+
         The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
         first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
         approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
-    
-    
+
+
     For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
@@ -226,13 +172,13 @@ class KMeans:
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
         self.gpu_id = gpu_id
-        warnings.warn("This version of K-means will be depricated in 0.7 for stability reasons. A new version based on our lessons learned will be available in 0.7. The current version will get no new bug fixes or improvements. The new version will follow the same API.",
-                      FutureWarning)
+
+        raise NotImplementedError("Old KMeans is deprecated and has been "
+                                  "removed. Please use cuML 0.6 stable release"
+                                  "for old KMeans. We will be adding the new "
+                                  "KMeans soon.")
 
     def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
         return obj.device_ctypes_pointer.value
 
     def _get_column_ptr(self, obj):
@@ -267,58 +213,6 @@ class KMeans:
             raise TypeError(msg)
 
         input_ptr = self._get_ctype_ptr(X_m)
-
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
-
-        if self.gdf_datatype.type == np.float32:
-            make_ptr_kmeans(
-                <int> 0,                    # dopredict
-                <int> self.verbose,         # verbose
-                <int> self.random_state,    # seed
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <int> self.n_clusters,       # k_max
-                <int> self.max_iter,         # max_iterations
-                <int> 1,                     # init_from_data TODO: can use kmeans++
-                <float> self.tol,            # threshold
-                <float*> input_ptr,    # srcdata
-                #<float*> ptr2,   # srcdata
-                <float*> 0,           # centroids
-                <float*> cluster_centers_ptr, # pred_centroids
-                #<float*> 0, # pred_centroids
-                <int*> labels_ptr)          # pred_labels
-        else:
-            make_ptr_kmeans(
-                <int> 0,                    # dopredict
-                <int> self.verbose,         # verbose
-                <int> self.random_state,    # seed
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <int> self.n_clusters,       # k_max
-                <int> self.max_iter,         # max_iterations
-                <int> 1,                     # init_from_data TODO: can use kmeans++
-                <double> self.tol,            # threshold
-                <double*> input_ptr,    # srcdata
-                <double*> 0,           # centroids
-                <double*> cluster_centers_ptr, # pred_centroids
-                <int*> labels_ptr)          # pred_labels
-
-        cluster_centers_gdf = cudf.DataFrame()
-        for i in range(0, self.n_cols):
-            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
-        self.cluster_centers_ = cluster_centers_gdf
 
         del(X_m)
 
@@ -366,55 +260,7 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
-
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
-
-        if self.gdf_datatype.type == np.float32:
-            make_ptr_kmeans(
-                <int> 1,                    # dopredict
-                <int> self.verbose,                    # verbose
-                <int> self.random_state,                    # seed
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <int> self.n_clusters,       # k_max
-                <int> self.max_iter,         # max_iterations
-                <int> 0,                     # init_from_data TODO: can use kmeans++
-                <float> self.tol,            # threshold
-                #<float*> input_ptr,   # srcdata
-                <float*> input_ptr,    # srcdata
-                #<float*> ptr2,   # srcdata
-                <float*> cluster_centers_ptr,    # centroids
-                <float*> 0, # pred_centroids
-                <int*> labels_ptr)          # pred_labels
-        else:
-            make_ptr_kmeans(
-                <int> 1,                    # dopredict
-                <int> self.verbose,                    # verbose
-                <int> self.random_state,                    # seed
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <int> self.n_clusters,       # k_max
-                <int> self.max_iter,         # max_iterations
-                <int> 0,                     # init_from_data TODO: can use kmeans++
-                <double> self.tol,            # threshold
-                <double*> input_ptr,    # srcdata
-                <double*> cluster_centers_ptr, # centroids
-                <double*> 0, # pred_centroids
-                <int*> labels_ptr)          # pred_labels
-
         del(X_m)
-        del(clust_mat)
         return self.labels_
 
     def transform(self, X):
@@ -447,58 +293,23 @@ class KMeans:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
-        clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
 
-        preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
-                                    dtype=self.gdf_datatype.type))
-
-        cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
-
-        if self.gdf_datatype.type == np.float32:
-            kmeans_transform(
-                <int> self.verbose,                    # verbose
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <float*> input_ptr,    # srcdata
-                <float*> cluster_centers_ptr,    # centroids
-                <float*> preds_ptr)          # preds
-        else:
-            kmeans_transform(
-                <int> self.verbose,                    # verbose
-                <int> self.gpu_id,                    # gpu_id
-                <int> self.n_gpu,                    # n_gpu
-                <size_t> self.n_rows,       # mTrain (rows)
-                <size_t> self.n_cols,       # n (cols)
-                <char> b'r',            # ord
-                <int> self.n_clusters,       # k
-                <double*> input_ptr,    # srcdata
-                <double*> cluster_centers_ptr,    # centroids
-                <double*> preds_ptr)          # preds
-
-        preds_gdf = cudf.DataFrame()
-        for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i*self.n_rows:(i+1)*self.n_rows]
 
         del(X_m)
         del(clust_mat)
         return preds_gdf
 
-    def fit_transform(self, input_gdf):
+    def fit_transform(self, X):
         """
         Compute clustering and transform input_gdf to cluster-distance space.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : cuDF DataFrame
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
         """
-        return self.fit(input_gdf).transform(input_gdf)
+        return self.fit(X).transform(X)
 
     def get_params(self, deep=True):
         """
@@ -509,12 +320,13 @@ class KMeans:
         deep : boolean (default = True)
         """
         params = dict()
-        variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
+        variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
+                     'n_init', 'n_jobs', 'precompute_distances',
+                     'random_state', 'tol', 'verbose']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
