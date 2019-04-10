@@ -58,7 +58,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
     size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
-    size_t dotsSize = alignTo<size_t>(sizeof(Type_f) * N * batchSize, align);
 
     if(workspace == NULL) {
         auto size = adjSize
@@ -68,8 +67,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
             + mSize
             + vdSize
             + exScanSize
-            + mapIdSize
-            + dotsSize;
+            + mapIdSize;
         return size;
     }
     // partition the temporary workspace needed for different stages of dbscan
@@ -85,7 +83,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     int* vd = (int*)temp;        temp += vdSize;
     Type* ex_scan = (Type*)temp;   temp += exScanSize;
     Type* map_id = (Type*)temp;    temp += mapIdSize;
-    Type_f* dots = (Type_f*)temp;
 
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
@@ -94,7 +91,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
         int nPoints = min(N-startVertexId, batchSize);
         if(nPoints <= 0)
             continue;
-		VertexDeg::run(handle, adj, vd, x, dots, eps, N, D, algoVd,
+		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
 				startVertexId, nPoints, stream);
 		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
