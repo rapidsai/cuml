@@ -21,10 +21,9 @@
 
 namespace MLCommon {
 
-__global__ void gridSyncTestKernel(void* workspace1, void* workspace2, int* out,
+__global__ void gridSyncTestKernel(void* workspace, int* out,
                                    SyncType type) {
-    GridSync gs1(workspace1, type);
-    GridSync gs2(workspace2, type);
+    GridSync gs(workspace, type, true);
     bool master;
     int updatePosition;
     if(type == ACROSS_ALL) {
@@ -40,10 +39,10 @@ __global__ void gridSyncTestKernel(void* workspace1, void* workspace2, int* out,
         out[updatePosition] = 1;
         __threadfence();
     }
-    gs1.sync();
+    gs.sync();
     int val = out[updatePosition];
     // make sure everybody has read the updated value!
-    gs2.sync();
+    gs.sync();
     atomicAdd(out+updatePosition, val);
 }
 
@@ -55,26 +54,21 @@ struct GridSyncInputs {
 
 void gridSyncTest(int* out, int* out1, const GridSyncInputs& params) {
     size_t workspaceSize = GridSync::computeWorkspaceSize(params.gridDim,
-                                                          params.type);
-    char *workspace1, * workspace2;
-    allocate(workspace1, workspaceSize);
-    allocate(workspace2, workspaceSize);
-    CUDA_CHECK(cudaMemset(workspace1, 0, workspaceSize));
-    CUDA_CHECK(cudaMemset(workspace2, 0, workspaceSize));
-    gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace1,
-                                                            workspace2,
+                                                          params.type, true);
+    char *workspace;
+    allocate(workspace, workspaceSize);
+    CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
+    gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace,
                                                             out, params.type);
     CUDA_CHECK(cudaPeekAtLastError());
     if(params.checkWorkspaceReuse) {
         CUDA_CHECK(cudaDeviceSynchronize());
-        gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace1,
-                                                                workspace2,
+        gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace,
                                                                 out1,
                                                                 params.type);
         CUDA_CHECK(cudaPeekAtLastError());
     }
-    CUDA_CHECK(cudaFree(workspace1));
-    CUDA_CHECK(cudaFree(workspace2));
+    CUDA_CHECK(cudaFree(workspace));
 }
 
 ::std::ostream &operator<<(::std::ostream &os, const GridSyncInputs &dims) {

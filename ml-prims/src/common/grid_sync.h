@@ -64,36 +64,32 @@ enum SyncType {
  * CUDA_CHECK(cudaFree(workspace));
  * @endcode
  *
- * @note Calling `GridSync::sync` method consecutively on the same object inside
- * the same kernel can lead to deadlocks. Such a usage is discouraged. Also,
- * trying to use different 'SyncType' in the same kernel call can also lead to
- * deadlocks and thus is also discouraged.
- *
- * @note In case you need more than one sync in the same kernel call, better to
- * create 2 different GridSync objects with different workspaces and ping-pong
- * between the two. Example follows:
+ * @note In order to call `GridSync::sync` method consecutively on the same
+ * object inside the same kernel, make sure you set the 'multiSync' flag that is
+ * passed `GridSync::computeWorkspaceSize` as well as `GridSync` constructor.
+ * Having this flag not set, but trying to call `sync` method consecutively in
+ * the same kernel using that same object can lead to deadlock and thus such a
+ * usage is discouraged. Example follows:
  *
  * @code{.cu}
- * __global__ void kernelMultiple(void* workspace1, void* workspace2,
- *                                SyncType type, ...) {
- *   GridSync gs1(workspace1, type);
- *   GridSync gs2(workspace2, type);
+ * __global__ void kernelMultiple(void* workspace, SyncType type, ...) {
+ *   GridSync gs(workspace, type, true);
  *   ////// Part1 //////
  *   // do pre-sync work here
  *   // ...
- *   gs1.sync();
+ *   gs.sync();
  *   // do post-sync work here
  *   // ...
  *   ////// Part2 //////
  *   // do pre-sync work here
  *   // ...
- *   gs2.sync();
+ *   gs.sync();
  *   // do post-sync work here
  *   // ...
  *   ////// Part3 //////
  *   // do pre-sync work here
  *   // ...
- *   gs1.sync();
+ *   gs.sync();
  *   // do post-sync work here
  *   // ...
  * }
@@ -106,8 +102,10 @@ enum SyncType {
 struct GridSync {
     /**
      * @brief ctor
-     * @param workspace workspace needed for providing synchronization
+     * @param _workspace workspace needed for providing synchronization
      * @param _type synchronization type
+     * @param _multiSync whether we need this object to perform multiple
+     *  synchronizations in the same kernel call
      *
      * @note
      * <ol>
@@ -119,19 +117,20 @@ struct GridSync {
      * <li>This workspace must not be used elsewhere concurrently</li>
      * </ol>
      */
-    DI GridSync(void* workspace, SyncType _type): syncType(_type) {
-        int offset;
+    DI GridSync(void* _workspace, SyncType _type, bool _multiSync = false):
+        workspace((int*)_workspace), syncType(_type), multiSync(_multiSync) {
         if(syncType == ACROSS_X) {
             offset = blockIdx.y + blockIdx.z * gridDim.y;
+            stride = gridDim.y * gridDim.z;
             int nBlksToArrive = gridDim.x;
             updateValue = blockIdx.x == 0? -(nBlksToArrive - 1) : 1;
         } else {
             offset = 0;
+            stride = 1;
             int nBlksToArrive = gridDim.x * gridDim.y * gridDim.z;
             updateValue = blockIdx.x == 0 && blockIdx.y == 0 && blockIdx.z == 0?
                 -(nBlksToArrive - 1) : 1;
         }
-        arrivalTracker = ((int*)workspace) + offset;
     }
 
     /**
@@ -142,8 +141,12 @@ struct GridSync {
      * care of internally.
      */
     DI void sync() {
-        markArrived();
-        waitForOthers();
+        int* arrivalTracker = workspace + offset;
+        markArrived(arrivalTracker);
+        waitForOthers((volatile int*)arrivalTracker);
+        if(multiSync) {
+            offset = offset < stride? offset + stride : offset - stride;
+        }
     }
 
     /**
@@ -152,27 +155,41 @@ struct GridSync {
      * @param type synchronization type (this must the same as will be passed
      * eventually inside the kernel, while creating a device object of this
      * class)
+     * @param _multiSync whether we need this object to perform multiple
+     *  synchronizations in the same kernel call
      */
-    static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type) {
+    static size_t computeWorkspaceSize(const dim3& gridDim, SyncType type,
+                                       bool multiSync = false) {
         int nblks = type == ACROSS_X? gridDim.y * gridDim.z : 1;
-        return nblks * sizeof(int);
+        size_t size = sizeof(int) * nblks;
+        if(multiSync) {
+            size *= 2;
+        }
+        return size;
     }
 
 private:
+    /** workspace buffer */
+    int* workspace;
     /** synchronization type */
     SyncType syncType;
-    /** arrival count monitor for the current group of blocks */
-    int* arrivalTracker;
+    /** whether we need to perform multiple syncs in the same kernel call */
+    bool multiSync;
     /** update value to be atomically updated by each arriving block */
     int updateValue;
-
+    /** stride between 2 half of the workspace to ping-pong between */
+    int stride;
+    /** offset for the set of threadblocks in the current workspace */
+    int offset;
 
     /**
      * @brief Register your threadblock to have arrived at the sync point
+     * @param arrivalTracker the location that'll be atomically updated by all
+     *  arriving threadblocks
      *
      * @note All threads of this threadblock must call this unconditionally!
      */
-    DI void markArrived() {
+    DI void markArrived(int* arrivalTracker) {
         __syncthreads();
         if(masterThread()) {
             __threadfence();
@@ -184,13 +201,14 @@ private:
     /**
      * @brief Perform a wait until all the required threadblocks have arrived
      * at the sync point by calling the 'arrived' method.
+     * @param gmemArrivedBlks the location that'd have been atomically updated
+     *  by all arriving threadblocks
      *
      * @note All threads of all threadblocks must call this unconditionally!
      */
-    DI void waitForOthers() {
+    DI void waitForOthers(volatile int* gmemArrivedBlks) {
         if(masterThread()) {
             int arrivedBlks = -1;
-            volatile int* gmemArrivedBlks = (volatile int*)arrivalTracker;
             do {
                 arrivedBlks = *gmemArrivedBlks;
             } while(arrivedBlks != 0);
