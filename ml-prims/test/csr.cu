@@ -112,11 +112,9 @@ TEST_P(CSRSum, Result) {
     int nnz = 0;
 
     csr_add_calc_inds<float, 32>(
-        ex_scan, ind_ptr_a, in_vals_a,
-        ex_scan, ind_ptr_b, in_vals_b,
-        10, 4,
-        &nnz,
-        result_ind
+        ex_scan, ind_ptr_a, in_vals_a, 10,
+        ex_scan, ind_ptr_b, in_vals_b, 10,
+        4, &nnz, result_ind
     );
 
     int *result_indptr;
@@ -125,10 +123,9 @@ TEST_P(CSRSum, Result) {
     allocate(result_val, nnz);
 
     csr_add_finalize<float, 32>(
-        ex_scan, ind_ptr_a, in_vals_a,
-        ex_scan, ind_ptr_b, in_vals_b,
-        10, 4,
-        result_ind, result_indptr, result_val
+        ex_scan, ind_ptr_a, in_vals_a, 10,
+        ex_scan, ind_ptr_b, in_vals_b, 10,
+        4, result_ind, result_indptr, result_val
     );
 
     ASSERT_TRUE(nnz==14);

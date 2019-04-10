@@ -104,7 +104,7 @@ namespace UMAPAlgo {
          int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
          T *target, float far_dist = 5.0, float unknown_dist = 1.0) {
 
-        dim3 grid_n(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+        dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
         fast_intersection<<<grid,blk>>>(
@@ -127,219 +127,121 @@ namespace UMAPAlgo {
 
     }
 
-    __device__ int get_stop_idx(int row, int m, int *ind) {
-        int stop_idx = 0;
-        if(row < (m-1))
-            stop_idx = ind[row+1];
-        else
-            stop_idx = m;
 
-        return stop_idx;
-    }
-
-    /**
-     * Calculate how many unique columns per row
-     */
     template<typename T, int TPB_X>
-    __global__ void add_calc_row_counts_kernel(
-            int *a_ind, int *a_indptr, T *a_val,
-            int *b_ind, int *b_indptr, T *b_val,
-            int nnz, int m,
-            int *out_rowcounts) {
+    __global__ void sset_intersection_kernel(
+        int *row_ind1, int *cols1, T *vals1, int nnz1,
+        int *row_ind2, int *cols2, T *vals2, int nnz2,
+        int *result_ind, int *result_cols, T *result_vals, int nnz,
+        T left_min, T right_min,
+        int m, float mix_weight = 0.5
+    ) {
 
-        // loop through columns in each set of rows and
-        // calculate number of unique cols across both rows
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
         if(row < m) {
-            int a_start_idx = a_ind[row];
-            int a_stop_idx = get_stop_idx(row, m, a_ind);
+            int i = row;
+            int start_idx_res = result_ind[row];
+            int stop_idx_res = MLCommon::Sparse::get_stop_idx(row, m, nnz, result_ind);
 
-            int b_start_idx = b_ind[row];
-            int b_stop_idx = get_stop_idx(row, m, b_ind);
+            int start_idx1 = row_ind1[row];
+            int stop_idx1 = MLCommon::Sparse::get_stop_idx(row, m, nnz1, row_ind1);
 
-            int max_size = (a_stop_idx - a_start_idx) +
-                    (b_stop_idx - b_start_idx);
+            int start_idx2 = row_ind2[row];
+            int stop_idx2 = MLCommon::Sparse::get_stop_idx(row, m, nnz2, row_ind2);
 
-            int arr[max_size];
-            int cur_arr_idx = 0;
-            for(int j = a_start_idx; j < a_stop_idx; j++) {
-                arr[cur_arr_idx] = a_indptr[j];
-                cur_arr_idx++;
-            }
+            for(int j = start_idx_res; j < stop_idx_res; j++) {
+                int col = result_cols[j];
 
-            int arr_size = curr_arr_idx;
-
-            for(int j = b_start_idx; j < b_stop_idx; j++) {
-
-                int cur_col = b_indptr[j];
-                bool found = false;
-                for(int k = 0; k < arr_size; k++) {
-                    if(arr[k] == cur_col)
-                        found = true;
+                T left_val = left_min;
+                for(int k = start_idx1; k < stop_idx2; k++) {
+                    if(cols1[k] == col) {
+                        left_val = vals1[k];
+                    }
                 }
 
-                if(!found)
-                    arr_size++;
-            }
-
-            out_rowcounts[row] = arr_size;
-            atomicAdd(out_rowcounts+m, arr_size);
-        }
-    }
-
-
-    template<typename T>
-    __global__ void add_kernel(
-           int *a_ind, int *a_indptr, T *a_val,
-           int *b_ind, int *b_indptr, T *b_val,
-           int nnz, int m,
-           int *out_ind, int *out_indptr, T *out_val) {
-
-        // 1 thread per row
-        int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-        if(row < m) {
-            int a_start_idx = a_ind[row];
-            int a_stop_idx = get_stop_idx(row, m, a_ind);
-
-            int b_start_idx = b_ind[row];
-            int b_stop_idx = get_stop_idx(row, m, b_ind);
-
-            int o_idx = out_ind[row];
-
-            int cur_o_idx = 0;
-            for(int j = a_start_idx; j < a_stop_idx; j++) {
-                out_indptr[cur_o_idx] = a_indptr[j];
-                out_val[cur_o_idx] = a_val[j];
-                cur_o_idx++;
-            }
-
-            int arr_size = curr_o_idx;
-            for(int j = b_start_idx; j < b_stop_idx; j++) {
-                int cur_col = b_indptr[j];
-                bool found = false;
-                for(int k = 0; k < arr_size; k++) {
-                    // If we found a match, sum the two values
-                    if(out_indptr[k] == cur_col)
-                        out_val[k] += b_val[j];
+                T right_val = right_min;
+                for(int k = start_idx2; k < stop_idx2; k++) {
+                    if(cols2[k] == col) {
+                        right_val = vals2[k];
+                    }
                 }
 
-                // if we didn't find a match, add the value for b
-                if(!found) {
-                    out_indptr[arr_size] = cur_col;
-                    out_val[arr_size] = b_val[j];
+                if(left_val > left_min || right_val > right_min) {
+                    if(mix_weight < 0.5) {
+                        result_vals[row] = left_val *
+                                powf(right_val, mix_weight / (1.0 - mix_weight));
+                    } else {
+                        result_vals[row] = powf(left_val, (1.0 - mix_weight) / mix_weight)
+                                * right_val;
+                    }
                 }
             }
         }
+
     }
 
-    template<typename T, int TPB_X>
-    void csr_add_calc_inds(
-        int *a_ind, int *a_indptr, int *a_val,
-        int *b_ind, int *b_indptr, int *b_val,
-        int nnz, int m,
-        int *out_nnz, int *out_ind
-    ) {
 
-        dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
-        dim3 blk(TPB_X, 1, 1);
-
-        int *row_counts;
-        MLCommon::allocate(row_counts, m+1, true);
-
-        int c_nnz = row_counts[m];
-
-        add_calc_row_counts_kernel<<<grid, blk>>>(
-            a_ind, a_indptr, a_val, b_ind, b_indptr, b_val,
-            nnz, m,
-            row_counts
-        );
-
-        int *c_ind;
-        MLCommon::allocate(c_ind, m);
-
-        // create csr compressed row index from row counts
-        thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
-        thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(c_ind);
-        exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
-    }
-
-    template<typename T, int TPB_X>
-    void csr_add_finalize(
-        int *a_ind, int *a_indptr, int *a_val,
-        int *b_ind, int *b_indptr, int *b_val,
-        int nnz, int m,
-        int *c_ind, int *c_indptr, int *c_val,
-        int c_nnz
-    ) {
-
-        int c_intptr;
-        T *c_val;
-
-        MLCommon::allocate(c_indptr, c_nnz);
-        MLCommon::allocate(c_val, c_nnz);
-
-        add_kernel<<<grid,blk>>>(
-            a_ind, a_indptr, a_val, b_ind, b_indptr, b_val,
-            nnz, m,
-            c_ind, c_indptr, c_val
-        );
-    }
 
 
     template<typename T, int TPB_X>
     void general_simplicial_set_intersection(
-        int rows1, int cols1, T *vals1, int nnz1,
-        int rows2, int cols2, T *vals2, int nnz2,
-        float weight
+        int *rows1, int *cols1, T *vals1, int nnz1,
+        int *rows2, int *cols2, T *vals2, int nnz2,
+        float weight, int m
     ) {
-        // result = Eltwise sum of 1 & 2
-        //   This means adding intersecting items but combining
-        //   rows & columns together.
-
-        //
-        // Sparse sum:
-
-        // CSR A
-        // CSR B
-
-        // a-ind=[0 5 9 10]
-        // b-ind=[0 1 2 10]
-
-        // run ex_scan on left
-        // run ex_scan on right
 
         /**
-         *
-         * left_min = max(data1.min() / 2.0, 1.0e-8)
-         * right_min = max(data2.min() / 2.0, 1.0e-8)
-         *
-         *     for idx in range(result_row.shape[0]):
-                    i = result_row[idx]
-                    j = result_col[idx]
-
-                    left_val = left_min
-                    for k in range(indptr1[i], indptr1[i + 1]):   <- Loops through items in same row.
-                        if indices1[k] == j:
-                            left_val = data1[k]
-
-                    right_val = right_min
-                    for k in range(indptr2[i], indptr2[i + 1]):    <- Loops through items in same row
-                        if indices2[k] == j:
-                            right_val = data2[k]
-
-                    if left_val > left_min or right_val > right_min:
-                        if mix_weight < 0.5:
-                            result_val[idx] = left_val * pow(
-                                right_val, mix_weight / (1.0 - mix_weight)
-                            )
-                        else:
-                            result_val[idx] = (
-                                pow(left_val, (1.0 - mix_weight) / mix_weight) * right_val
-                            )
-         *
+         * Convert simplicial sets 1 & 2 to CSR, sum them together
          */
+        int *row1_ind, *row2_ind;
+        MLCommon::allocate(row1_ind, m);
+        MLCommon::allocate(row2_ind, m);
+
+        MLCommon::Sparse::sorted_coo_to_csr(rows1, nnz1, row1_ind, m);
+        MLCommon::Sparse::sorted_coo_to_csr(rows2, nnz2, row2_ind, m);
+
+        int *result_ind;
+        MLCommon::allocate(result_ind, m);
+
+        int nnz = 0;
+
+        MLCommon::Sparse::csr_add_calc_inds<float, 32>(
+            row1_ind, cols1, vals1, nnz1,
+            row2_ind, cols2, vals2, nnz2,
+            m, &nnz, result_ind
+        );
+
+        int *result_indptr;
+        float *result_val;
+        MLCommon::allocate(result_indptr, nnz);
+        MLCommon::allocate(result_val, nnz);
+
+        MLCommon::Sparse::csr_add_finalize<float, 32>(
+            row1_ind, cols1, vals1, nnz1,
+            row2_ind, cols2, vals2, nnz2,
+            m, result_ind, result_indptr, result_val
+        );
+
+        thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(vals1);
+        T min1 = *(thrust::min_element(d_ptr1, d_ptr1+nnz1));
+
+        thrust::device_ptr<const T> d_ptr2 = thrust::device_pointer_cast(vals2);
+        T min2 = *(thrust::min_element(d_ptr2, d_ptr2+nnz2));
+
+        T left_min = min(min1 / 2.0, 1e-8);
+        T right_min = min(min2 / 2.0, 1e-8);
+
+        dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+        dim3 blk(TPB_X, 1, 1);
+
+        sset_intersection_kernel<<<grid, blk>>>(
+            row1_ind, cols1, vals1, nnz1,
+            row2_ind, cols2, vals2, nnz2,
+            result_ind, result_indptr, result_val, nnz,
+            left_min, right_min,
+            m, weight
+        );
     }
 
 
@@ -409,7 +311,6 @@ namespace UMAPAlgo {
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
-
 		SimplSetEmbed::run<TPB_X, T>(
 		        X, n, d,
 		        rgraph_rows, rgraph_cols, rgraph_vals, nnz,
@@ -426,6 +327,7 @@ namespace UMAPAlgo {
 		return 0;
 	}
 
+    template<typename T, int TPB_X>
 	size_t _fit(T *X,    // input matrix
 	            T *y,    // labels
                 int n,
@@ -465,7 +367,6 @@ namespace UMAPAlgo {
          * Run Fuzzy simplicial set
          */
         int nnz = 0;
-
         FuzzySimplSet::run<TPB_X, T>(n, knn_indices, knn_dists,
                            rgraph_rows,
                            rgraph_cols,
@@ -509,7 +410,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2);
             MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2);
 
-            KNN y_knn(1);
+            kNN y_knn(1);
             long *y_knn_indices;
             T *y_knn_dists;
 
@@ -639,7 +540,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ex_scan, n, true);
 
         // COO should be sorted by row at this point- we get the counts and then normalize
-        MLCommon::Sparse::coo_row_count<TPB_X, T><<<grid_nnz, blk>>>(graph_rows, nnz, ia, n);
+        MLCommon::Sparse::coo_row_count<TPB_X><<<grid_nnz, blk>>>(graph_rows, nnz, ia, n);
 
         thrust::device_ptr<int> dev_ia = thrust::device_pointer_cast(ia);
         thrust::device_ptr<int> dev_ex_scan = thrust::device_pointer_cast(ex_scan);
