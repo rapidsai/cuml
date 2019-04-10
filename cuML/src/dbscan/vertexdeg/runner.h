@@ -25,9 +25,9 @@ namespace VertexDeg {
 
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* x, Type* dots, Type eps, int N, int D,
+void run(bool* adj, int* vd, Type* x, Type eps, int N, int D,
          cudaStream_t stream, int algo, int startVertexId, int batchSize) {
-         Pack<Type> data = {vd, adj, x, eps, N, D, dots};
+         Pack<Type> data = {vd, adj, x, eps, N, D};
 
     switch(algo) {
 

@@ -80,7 +80,6 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
     size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
-    size_t dotsSize = alignTo<size_t>(sizeof(Type_f) * N * batchSize, align);
 
     if(workspace == NULL) {
         auto size = adjSize
@@ -90,8 +89,7 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
             + mSize
             + vdSize
             + exScanSize
-            + mapIdSize
-            + dotsSize;
+            + mapIdSize;
         return size;
     }
     // partition the temporary workspace needed for different stages of dbscan
@@ -107,7 +105,6 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
     int* vd = (int*)temp;        temp += vdSize;
     Type* ex_scan = (Type*)temp;   temp += exScanSize;
     Type* map_id = (Type*)temp;    temp += mapIdSize;
-    Type_f* dots = (Type_f*)temp;
 
 	// Running VertexDeg
 	for (int i = 0; i < nBatches; i++) {
@@ -116,7 +113,7 @@ size_t run(Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
         int nPoints = min(N-startVertexId, batchSize);
         if(nPoints <= 0)
             continue;
-		VertexDeg::run(adj, vd, x, dots, eps, N, D, stream, algoVd,
+		VertexDeg::run(adj, vd, x, eps, N, D, stream, algoVd,
 				startVertexId, nPoints);
 
 		MLCommon::updateHost(&curradjlen, vd + nPoints, 1);
