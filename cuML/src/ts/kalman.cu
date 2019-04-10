@@ -33,7 +33,7 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
   double loglikelihood = 0.0;
 
   for(int it=0; it<nobs; it++) {
-    
+
     vs[it] = ys[it] - alpha(0,0);
     Fs[it] = P(0,0);
 

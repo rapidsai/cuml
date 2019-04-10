@@ -33,7 +33,7 @@ public:
     m_A_dense = std::shared_ptr<double>(A, cudaFreeT<double>);
   }
 
-  BatchedMatrix(int m, int n, int num_batches, bool initZero=false, bool gpu=true) : m_gpu(gpu), m_num_batches(num_batches) {
+  BatchedMatrix(int m, int n, int num_batches, bool setZero=false, bool gpu=true) : m_gpu(gpu), m_num_batches(num_batches) {
     if(!gpu) {
       throw std::runtime_error("CPU-only not supported");
     }
@@ -41,7 +41,7 @@ public:
 
     double* A_all;
 
-    allocate(A_all, m*n*num_batches);
+    allocate(A_all, m*n*num_batches, setZero);
     m_A_dense = std::shared_ptr<double>(A_all, cudaFreeT<double>);
 
     m_A_batches = init(A_all, std::make_pair(m, n), num_batches, gpu);

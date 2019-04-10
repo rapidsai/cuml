@@ -192,24 +192,17 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
     updateDevice(d_ys_b[it], h_ys_b[it], num_batches);
   }
   
-  vector<double*> d_Zb(num_batches);
-  vector<double*> d_Rb(num_batches);
-  vector<double*> d_Tb(num_batches);
+  BatchedMatrix Zb(1, r, num_batches);
+  BatchedMatrix Tb(r, r, num_batches);
+  BatchedMatrix Rb(r, 1, num_batches);
 
   for(int bi=0; bi<num_batches; bi++) {
-    allocate(d_Zb[bi], r);
-    updateDevice(d_Zb[bi], h_Zb[bi], r);
+    updateDevice(Zb[bi], h_Zb[bi], r);
 
-    allocate(d_Rb[bi], r);
-    updateDevice(d_Rb[bi], h_Rb[bi], r);
+    updateDevice(Rb[bi], h_Rb[bi], r);
 
-    allocate(d_Tb[bi], r*r);
-    updateDevice(d_Tb[bi], h_Tb[bi], r*r);
+    updateDevice(Tb[bi], h_Tb[bi], r*r);
   }
-
-  BatchedMatrix Zb(d_Zb, {1, r});
-  BatchedMatrix Tb(d_Tb, {r, r});
-  BatchedMatrix Rb(d_Rb, {r, 1});
 
   CUDA_CHECK(cudaPeekAtLastError());
 
