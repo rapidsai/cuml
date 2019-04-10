@@ -296,8 +296,7 @@ class KMeans:
 
 
         del(X_m)
-        del(clust_mat)
-        return preds_gdf
+        return None
 
     def fit_transform(self, X):
         """
