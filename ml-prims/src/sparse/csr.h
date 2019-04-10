@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include "cuda_utils.h"
-
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -23,7 +23,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 
-#pragma once
 
 namespace MLCommon {
     namespace Sparse {
@@ -100,8 +99,6 @@ namespace MLCommon {
             }
         }
 
-
-
         __device__ int get_stop_idx(int row, int m, int nnz, int *ind) {
             int stop_idx = 0;
             if(row < (m-1))
@@ -117,10 +114,9 @@ namespace MLCommon {
          */
         template<typename T, int TPB_X>
         __global__ void csr_add_calc_row_counts_kernel(
-                int *a_ind, int *a_indptr, T *a_val,
-                int *b_ind, int *b_indptr, T *b_val,
-                int nnz, int m,
-                int *out_rowcounts) {
+                int *a_ind, int *a_indptr, T *a_val, int nnz1,
+                int *b_ind, int *b_indptr, T *b_val, int nnz2,
+                int m, int *out_rowcounts) {
 
             // loop through columns in each set of rows and
             // calculate number of unique cols across both rows
@@ -128,10 +124,10 @@ namespace MLCommon {
 
             if(row < m) {
                 int a_start_idx = a_ind[row];
-                int a_stop_idx = get_stop_idx(row, m, nnz, a_ind);
+                int a_stop_idx = get_stop_idx(row, m, nnz1, a_ind);
 
                 int b_start_idx = b_ind[row];
-                int b_stop_idx = get_stop_idx(row, m, nnz, b_ind);
+                int b_stop_idx = get_stop_idx(row, m, nnz2, b_ind);
 
                 int max_size = (a_stop_idx - a_start_idx) +
                         (b_stop_idx - b_start_idx);
@@ -172,9 +168,9 @@ namespace MLCommon {
 
         template<typename T, int TPB_X>
         __global__ void csr_add_kernel(
-               int *a_ind, int *a_indptr, T *a_val,
-               int *b_ind, int *b_indptr, T *b_val,
-               int nnz, int m,
+               int *a_ind, int *a_indptr, T *a_val, int nnz1,
+               int *b_ind, int *b_indptr, T *b_val, int nnz2,
+               int m,
                int *out_ind, int *out_indptr, T *out_val) {
 
             // 1 thread per row
@@ -183,10 +179,10 @@ namespace MLCommon {
 
             if(row < m) {
                 int a_start_idx = a_ind[row];
-                int a_stop_idx = get_stop_idx(row, m, nnz, a_ind);
+                int a_stop_idx = get_stop_idx(row, m, nnz1, a_ind);
 
                 int b_start_idx = b_ind[row];
-                int b_stop_idx = get_stop_idx(row, m, nnz, b_ind);
+                int b_stop_idx = get_stop_idx(row, m, nnz2, b_ind);
 
                 int o_idx = out_ind[row];
 
@@ -222,10 +218,9 @@ namespace MLCommon {
 
         template<typename T, int TPB_X>
         void csr_add_calc_inds(
-            int *a_ind, int *a_indptr, T *a_val,
-            int *b_ind, int *b_indptr, T *b_val,
-            int nnz, int m,
-            int *out_nnz, int *out_ind
+            int *a_ind, int *a_indptr, T *a_val, int nnz1,
+            int *b_ind, int *b_indptr, T *b_val, int nnz2,
+            int m, int *out_nnz, int *out_ind
         ) {
             dim3 grid(ceildiv(m, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -234,10 +229,9 @@ namespace MLCommon {
             MLCommon::allocate(row_counts, m+1, true);
 
             csr_add_calc_row_counts_kernel<T,TPB_X><<<grid, blk>>>(
-                a_ind, a_indptr, a_val,
-                b_ind, b_indptr, b_val,
-                nnz, m,
-                row_counts
+                a_ind, a_indptr, a_val, nnz1,
+                b_ind, b_indptr, b_val, nnz2,
+                m, row_counts
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
@@ -255,25 +249,21 @@ namespace MLCommon {
 
         template<typename T, int TPB_X>
         void csr_add_finalize(
-            int *a_ind, int *a_indptr, T *a_val,
-            int *b_ind, int *b_indptr, T *b_val,
-            int nnz, int m,
-            int *c_ind, int *c_indptr, T *c_val
+            int *a_ind, int *a_indptr, T *a_val, int nnz1,
+            int *b_ind, int *b_indptr, T *b_val, int nnz2,
+            int m, int *c_ind, int *c_indptr, T *c_val
         ) {
             dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
             csr_add_kernel<T, TPB_X><<<grid,blk>>>(
-                a_ind, a_indptr, a_val,
-                b_ind, b_indptr, b_val,
-                nnz, m,
-                c_ind, c_indptr, c_val
+                a_ind, a_indptr, a_val, nnz1,
+                b_ind, b_indptr, b_val, nnz2,
+                m, c_ind, c_indptr, c_val
             );
            CUDA_CHECK(cudaPeekAtLastError());
         }
-
     }
-
 
 
 }

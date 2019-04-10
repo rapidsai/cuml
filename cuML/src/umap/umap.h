@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include "umapparams.h"
 #include "knn/knn.h"
 
-#pragma once
 
 namespace ML {
 

@@ -27,8 +27,6 @@
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
 
-
-
 namespace MLCommon {
 
     namespace Sparse {
@@ -239,7 +237,7 @@ namespace MLCommon {
          * @param results array to place results
          * @param n number of rows in coo matrix
          */
-        template<int TPB_X, typename T>
+        template<int TPB_X>
         __global__ void coo_row_count(int *rows, int nnz,
                 int *results, int n) {
             int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -294,6 +292,25 @@ namespace MLCommon {
             from_knn_graph_kernel<32, T><<<grid, blk>>>(
                     knn_indices, knn_dists, m, k, rows, cols, vals);
         }
-    }
 
+        template<typename T>
+        void sorted_coo_to_csr(
+                T *rows, T nnz, T *row_ind, T m) {
+
+            T *row_counts;
+            MLCommon::allocate(row_counts, m);
+
+            dim3 grid(ceildiv(m, 32), 1, 1);
+            dim3 blk(32, 1, 1);
+
+            coo_row_count<32><<<grid, blk>>>(rows, nnz, row_counts, m);
+
+            // create csr compressed row index from row counts
+            thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
+            thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
+            exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
+
+            CUDA_CHECK(cudaFree(row_counts));
+        }
+    }
 }
