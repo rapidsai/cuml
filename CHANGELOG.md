@@ -37,6 +37,7 @@
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
 - PR #468: Fix dbscan example build failure
+- PR #469: Remove old kmeans
 
 # cuML 0.6.0 (22 Mar 2019)
 
