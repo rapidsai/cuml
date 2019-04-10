@@ -16,6 +16,7 @@
 #include "cuML_api.h"
 
 #include <functional>
+#include <mutex>
 #include <unordered_map>
 
 #include "cumlHandle.hpp"
@@ -89,6 +90,9 @@ private:
 ///! map from handle int to handle pointer
 static std::unordered_map<cumlHandle_t, ML::cumlHandle*> handleMap;
 
+///! mutex to protect the handle map
+static std::mutex mapMutex;
+
 ///! value of next handle id to be created
 static cumlHandle_t nextHandle = 0;
 
@@ -114,17 +118,19 @@ extern "C" cumlError_t cumlCreate( cumlHandle_t* handle )
         bool inserted;
         cumlHandle_t initial_next = nextHandle;
         cumlHandle_t chosen_handle;
-        do {
-          // try to insert using next free handle identifier
-          chosen_handle = nextHandle;
-          inserted = handleMap.insert({ chosen_handle, handle_ptr}).second;
-          nextHandle += 1;
-
-        } while(!inserted && nextHandle != initial_next);
+        {
+            std::lock_guard<std::mutex> guard(mapMutex);
+            do {
+                // try to insert using next free handle identifier
+                chosen_handle = nextHandle;
+                inserted = handleMap.insert({ chosen_handle, handle_ptr}).second;
+                nextHandle += 1;
+            } while(!inserted && nextHandle != initial_next);
+        }
         if (!inserted) {
-          delete handle;
-          // no free handle identifier available
-          return CUML_ERROR_UNKNOWN;
+            delete handle;
+            // no free handle identifier available
+            return CUML_ERROR_UNKNOWN;
         }
         *handle = chosen_handle;
     }
@@ -143,11 +149,15 @@ extern "C" cumlError_t cumlCreate( cumlHandle_t* handle )
 
 extern "C" cumlError_t cumlSetStream( cumlHandle_t handle, cudaStream_t stream )
 {
-    auto it = handleMap.find(handle);
-    if (it == handleMap.end()) {
-        return CUML_INVALID_HANDLE;
+    ML::cumlHandle *handle_ptr;
+    {
+        std::lock_guard<std::mutex> guard(mapMutex);
+        auto it = handleMap.find(handle);
+        if (it == handleMap.end()) {
+            return CUML_INVALID_HANDLE;
+        }
+        handle_ptr = it->second;
     }
-    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
@@ -168,11 +178,15 @@ extern "C" cumlError_t cumlSetStream( cumlHandle_t handle, cudaStream_t stream )
 
 extern "C" cumlError_t cumlGetStream( cumlHandle_t handle, cudaStream_t* stream )
 {
-    auto it = handleMap.find(handle);
-    if (it == handleMap.end()) {
-        return CUML_INVALID_HANDLE;
+    ML::cumlHandle *handle_ptr;
+    {
+        std::lock_guard<std::mutex> guard(mapMutex);
+        auto it = handleMap.find(handle);
+        if (it == handleMap.end()) {
+            return CUML_INVALID_HANDLE;
+        }
+        handle_ptr = it->second;
     }
-    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
@@ -193,11 +207,15 @@ extern "C" cumlError_t cumlGetStream( cumlHandle_t handle, cudaStream_t* stream 
 
 extern "C" cumlError_t cumlSetDeviceAllocator( cumlHandle_t handle, cuml_allocate allocate_fn, cuml_deallocate deallocate_fn )
 {
-    auto it = handleMap.find(handle);
-    if (it == handleMap.end()) {
-        return CUML_INVALID_HANDLE;
+    ML::cumlHandle *handle_ptr;
+    {
+        std::lock_guard<std::mutex> guard(mapMutex);
+        auto it = handleMap.find(handle);
+        if (it == handleMap.end()) {
+            return CUML_INVALID_HANDLE;
+        }
+        handle_ptr = it->second;
     }
-    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
@@ -219,11 +237,15 @@ extern "C" cumlError_t cumlSetDeviceAllocator( cumlHandle_t handle, cuml_allocat
 
 extern "C" cumlError_t cumlSetHostAllocator( cumlHandle_t handle, cuml_allocate allocate_fn, cuml_deallocate deallocate_fn )
 {
-    auto it = handleMap.find(handle);
-    if (it == handleMap.end()) {
-        return CUML_INVALID_HANDLE;
+    ML::cumlHandle *handle_ptr;
+    {
+        std::lock_guard<std::mutex> guard(mapMutex);
+        auto it = handleMap.find(handle);
+        if (it == handleMap.end()) {
+            return CUML_INVALID_HANDLE;
+        }
+        handle_ptr = it->second;
     }
-    ML::cumlHandle *handle_ptr = it->second;
     cumlError_t status = CUML_SUCCESS;
     try
     {
@@ -245,12 +267,16 @@ extern "C" cumlError_t cumlSetHostAllocator( cumlHandle_t handle, cuml_allocate 
 
 extern "C" cumlError_t cumlDestroy( cumlHandle_t handle )
 {
-    auto it = handleMap.find(handle);
-    if (it == handleMap.end()) {
-        return CUML_INVALID_HANDLE;
+    ML::cumlHandle *handle_ptr;
+    {
+        std::lock_guard<std::mutex> guard(mapMutex);
+        auto it = handleMap.find(handle);
+        if (it == handleMap.end()) {
+            return CUML_INVALID_HANDLE;
+        }
+        handle_ptr = it->second;
+        handleMap.erase(it);
     }
-    auto handle_ptr = it->second;
-    handleMap.erase(it);
     cumlError_t status = CUML_SUCCESS;
     try
     {
