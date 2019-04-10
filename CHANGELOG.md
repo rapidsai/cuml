@@ -10,6 +10,7 @@
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
 - PR #455: Remove default-stream arguement across ml-prims and cuML
+- PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
@@ -17,7 +18,9 @@
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
+- PR #394: Introducing cumlHandle API to dbscan and add example
 
 ## Bug Fixes
 
@@ -28,11 +31,12 @@
 - PR #422: Issue in the PCA tests was solved and CI can run with driver 418
 - PR #409: Add entry to gitmodules to ignore build artifacts
 - PR #412: Fix for svdQR function in ml-prims
-- PR #438: Code that depended on FAISS was building everytime. 
+- PR #438: Code that depended on FAISS was building everytime.
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
 - PR #459: Fix for runtime library path of pip package
+- PR #464: Fix for C++11 destructor warning in qn
 
 # cuML 0.6.0 (22 Mar 2019)
 

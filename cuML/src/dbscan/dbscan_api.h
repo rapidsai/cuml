@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #pragma once
 
-namespace ML{
+#include <cuML_api.h>
 
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels);
+//Single precision version of DBSCAN fit
+cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float* input, int n_rows, int n_cols, float eps, int min_pts, int *labels);
 
+//Double precision version of DBSCAN fit
+cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts, int *labels);
+
+#ifdef __cplusplus
 }
-
+#endif
