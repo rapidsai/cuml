@@ -209,7 +209,6 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/pca/pca.cu
   src/tsvd/tsvd.cu
   src/dbscan/dbscan.cu
-  src/kmeans/kmeans.cu
   src/glm/glm.cu
   src/knn/knn.cu
   src/kalman_filter/lkf_py.cu
@@ -218,16 +217,16 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/umap/umap.cu
   src/solver/solver.cu)
 
-set(CUML_LINK_LIBRARIES 
-  ${CUDA_cublas_LIBRARY} 
-  ${CUDA_curand_LIBRARY} 
-  ${CUDA_cusolver_LIBRARY} 
-  ${CUDA_CUDART_LIBRARY} 
-  ${CUDA_cusparse_LIBRARY} 
-  ${CUDA_nvgraph_LIBRARY} 
-  ${ZLIB_LIBRARIES} 
-  gpufaisslib 
-  faisslib 
+set(CUML_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  ${ZLIB_LIBRARIES}
+  gpufaisslib
+  faisslib
   ${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
