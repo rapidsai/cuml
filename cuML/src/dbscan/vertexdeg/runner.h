@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,25 +18,25 @@
 #include "naive.h"
 #include "pack.h"
 #include "algo.h"
-
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace VertexDeg {
 
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* x, Type eps, int N, int D,
-         cudaStream_t stream, int algo, int startVertexId, int batchSize) {
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* x, Type eps, int N, int D,
+         int algo, int startVertexId, int batchSize, cudaStream_t stream) {
          Pack<Type> data = {vd, adj, x, eps, N, D};
 
     switch(algo) {
 
     case 0:
-    	Naive::launcher(data, stream, startVertexId, batchSize);
+       Naive::launcher(data, startVertexId, batchSize, stream);
     	break;
 
     case 1:
-    	Algo::launcher<Type>(data, stream, startVertexId, batchSize);
+       Algo::launcher<Type>(handle, data, startVertexId, batchSize, stream);
     	break;
 
     default:

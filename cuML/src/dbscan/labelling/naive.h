@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@
 #include "pack.h"
 #include "../common.h"
 #include <queue>
+#include <common/cumlHandle.hpp>
+#include <common/host_buffer.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -27,7 +29,7 @@ namespace Naive {
 
 using namespace std; 
 template <typename Type>
-void bfs(int id, Type *host_adj_graph, 
+void bfs(int id, Type *host_adj_graph,
 	 Type *host_ex_scan, Type *host_vd, bool *host_visited,
          Type *host_db_cluster, Type cluster, bool *host_xa, size_t N) {
      queue<int> q;
@@ -55,45 +57,41 @@ void bfs(int id, Type *host_adj_graph,
 }
 
 template <typename Type>
-void launcher(Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = (size_t)data.N;
-    Type *host_vd = new Type[N+1];
-    bool *host_core_pts = new bool[N];
-    bool *host_visited = new bool[N];
-    Type *host_ex_scan = new Type[N];
-    Type *host_db_cluster = new Type[N];
-    bool *host_xa = new bool[N]();
+    MLCommon::host_buffer<Type> host_vd(handle.getHostAllocator(), stream, N+1);
+    MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_visited(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
     data.resetArray(stream);
     /** this line not in resetArray function because it interferes with algo2 */
     //CUDA_CHECK(cudaMemsetAsync(data.db_cluster, 0, sizeof(Type)*N, stream));
-    MLCommon::updateHost(host_core_pts, data.core_pts, N);
-    MLCommon::updateHost(host_vd, data.vd, N+1);
+    MLCommon::updateHostAsync(host_core_pts.data(), data.core_pts, N, stream);
+    MLCommon::updateHostAsync(host_vd.data(), data.vd, N+1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[N]);
-    Type *host_adj_graph = new Type[adjgraph_size];
-    MLCommon::updateHost(host_ex_scan, data.ex_scan, N);
-    MLCommon::updateHost(host_adj_graph, data.adj_graph, adjgraph_size);
-    MLCommon::updateHost(host_xa, data.xa, N);
-    MLCommon::updateHost(host_visited, data.visited, N);
-    MLCommon::updateHost(host_db_cluster, data.db_cluster, N);
+    MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
+    MLCommon::updateHostAsync(host_ex_scan.data(), data.ex_scan, N, stream);
+    MLCommon::updateHostAsync(host_adj_graph.data(), data.adj_graph, adjgraph_size, stream);
+    MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
+    MLCommon::updateHostAsync(host_visited.data(), data.visited, N, stream);
+    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     Type cluster = Type(1);
     for(int i=0; i<N; i++) { 
         if((!host_visited[i]) && host_core_pts[i]) {
 	    host_visited[i] = true;
             host_db_cluster[i] = cluster;
-            bfs(i, host_adj_graph, host_ex_scan, host_vd, 
-                host_visited, host_db_cluster, cluster, host_xa, N);
+            bfs(i, host_adj_graph.data(), host_ex_scan.data(), host_vd.data(), 
+                host_visited.data(), host_db_cluster.data(), cluster, host_xa.data(), N);
             cluster++; 
 	}
    } 
-    MLCommon::updateDevice(data.visited, host_visited, N);
-    MLCommon::updateDevice(data.db_cluster, host_db_cluster, N);
-    delete [] host_vd;
-    delete [] host_core_pts;
-    delete [] host_visited;
-    delete [] host_ex_scan;
-    delete [] host_db_cluster;
-    delete [] host_xa;
-    delete [] host_adj_graph;
+    MLCommon::updateDeviceAsync(data.visited, host_visited.data(), N, stream);
+    MLCommon::updateDeviceAsync(data.db_cluster, host_db_cluster.data(), N, stream);
 }
 } // End Naive
 } // End Label
