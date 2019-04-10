@@ -40,11 +40,6 @@ enum SyncType {
  * threadblocks! Make sure you have read the documentation of SyncType enum to
  * know the list of supported synchronization 'modes'.
  *
- * @note Calling `GridSync::sync` multiple times inside the same kernel can lead
- * to deadlocks. Thus, such a usage is NOT recommended. In case you need more
- * than one such sync, better to use a different GridSync object with a different
- * workspace.
- *
  * @code{.cu}
  * __global__ void kernel(void* workspace, SyncType type, ...) {
  *   GridSync gs(workspace, type);
@@ -67,6 +62,41 @@ enum SyncType {
  * CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
  * kernel<<<gridDim, blockDim>>>(workspace, type, ...);
  * CUDA_CHECK(cudaFree(workspace));
+ * @endcode
+ *
+ * @note Calling `GridSync::sync` method consecutively on the same object inside
+ * the same kernel can lead to deadlocks. Such a usage is discouraged. Also,
+ * trying to use different 'SyncType' in the same kernel call can also lead to
+ * deadlocks and thus is also discouraged.
+ *
+ * @note In case you need more than one sync in the same kernel call, better to
+ * create 2 different GridSync objects with different workspaces and ping-pong
+ * between the two. Example follows:
+ *
+ * @code{.cu}
+ * __global__ void kernelMultiple(void* workspace1, void* workspace2,
+ *                                SyncType type, ...) {
+ *   GridSync gs1(workspace1, type);
+ *   GridSync gs2(workspace2, type);
+ *   ////// Part1 //////
+ *   // do pre-sync work here
+ *   // ...
+ *   gs1.sync();
+ *   // do post-sync work here
+ *   // ...
+ *   ////// Part2 //////
+ *   // do pre-sync work here
+ *   // ...
+ *   gs2.sync();
+ *   // do post-sync work here
+ *   // ...
+ *   ////// Part3 //////
+ *   // do pre-sync work here
+ *   // ...
+ *   gs1.sync();
+ *   // do post-sync work here
+ *   // ...
+ * }
  * @endcode
  *
  * @todo Implement the lock-free synchronization approach described in this
