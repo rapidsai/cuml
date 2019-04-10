@@ -40,6 +40,11 @@ enum SyncType {
  * threadblocks! Make sure you have read the documentation of SyncType enum to
  * know the list of supported synchronization 'modes'.
  *
+ * @note Calling `GridSync::sync` multiple times inside the same kernel can lead
+ * to deadlocks. Thus, such a usage is NOT recommended. In case you need more
+ * than one such sync, better to use a different GridSync object with a different
+ * workspace.
+ *
  * @code{.cu}
  * __global__ void kernel(void* workspace, SyncType type, ...) {
  *   GridSync gs(workspace, type);
