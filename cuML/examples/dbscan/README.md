@@ -41,7 +41,7 @@ Cluster id, Number samples
          0, 13
          1, 12
 Total number of clusters: 2
-Noise points: 0
+Noise samples: 0
 
 ```
 
@@ -63,7 +63,7 @@ sample-(N-1)-feature-1
        ...
 sample-(N-1)-feature-(M-1)
 ```
-All the features must be single floating point numbers. Note that cuML DBSCAN works with double precision floating point numbers however, the example demonstrates single precision only. 
+All the features must be single precision floating point numbers. The example demonstrates single precision DBSCAN, but the cuML DBSCAN works equally well with double precision floating point numbers.
 
 Once input file is ready, the `dbscan_example` can be invoked as below,
 
@@ -105,11 +105,11 @@ The output of the example is a histogram of sample count in each cluster. Number
 ### Details of command line options
 
 * `-dev_id`: The id of the CUDA GPU to use (default 0)
-* `-num_samples`: Number of samples.
-* `-num_features`: number of features.
+* `-num_samples`: Number of samples
+* `-num_features`: Number of features
 * `-input`: Plain text input file with samples in row major order
-* `-min_pts`: Minimum number of samples in a cluster.(default 3)
-* `-eps`: maximum distance between any two samples of a cluster. (default 1.0)
+* `-min_pts`: Minimum number of samples in a cluster (default 3)
+* `-eps`: Maximum distance between any two samples of a cluster (default 1.0)
 
 If `-input` is specified, `-num_samples` and `-num_features` must be specified.
 
