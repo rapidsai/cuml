@@ -79,7 +79,7 @@ protected:
     // Z@B = array([[0.06149412, 0.1028698 ]])
     vector<T> ZBref = {0.06149412, 0.1028698};
     T* d_ZBref;
-    allocate(d_ZBref, 4);
+    allocate(d_ZBref, 2);
     updateDevice(d_ZBref, ZBref.data(), ZBref.size());
 
     vector<T> ApBref = {
@@ -108,26 +108,21 @@ protected:
     //////////////////////////////////////////////////////////////
     // setup gpu memory
     int num_batches = 3;
-    vector<T*> Ab;
-    vector<T*> Bb;
-    vector<T*> Zb;
-    T* Abi;
-    allocate(Abi, 4*num_batches);
-    T* Bbi;
-    allocate(Bbi, 4*num_batches);
-    T* Zbi;
-    allocate(Zbi, 2*num_batches);
+    // T* Abi;
+    // allocate(Abi, 4*num_batches);
+    // T* Bbi;
+    // allocate(Bbi, 4*num_batches);
+    // T* Zbi;
+    // allocate(Zbi, 2*num_batches);
+    
+    BatchedMatrix AbM(2, 2, num_batches);
+    BatchedMatrix BbM(2, 2, num_batches);
+    BatchedMatrix ZbM(1, 2, num_batches);
     for(int i=0;i<num_batches;i++) {
-      updateDevice(&Abi[4*i], A.data(), A.size());
-      Ab.push_back(&Abi[4*i]);
-      Bb.push_back(Bbi);
-      updateDevice(Bbi, B.data(), B.size());
-      Zb.push_back(Zbi);
-      updateDevice(Zbi, Z.data(), Z.size());
+      updateDevice(AbM[i], A.data(), 4);
+      updateDevice(BbM[i], B.data(), 4);
+      updateDevice(ZbM[i], Z.data(), 2);
     }
-    BatchedMatrix AbM(Ab, std::make_pair(2,2));
-    BatchedMatrix BbM(Bb, std::make_pair(2,2));
-    BatchedMatrix ZbM(Zb, std::make_pair(1,2));
 
     //////////////////////////////////////////////////////////////
     // compute
@@ -141,17 +136,20 @@ protected:
     //////////////////////////////////////////////////////////////
     // compare answers
     for(int i=0;i<num_batches;i++) {
-      std::cout << "Checking batch " << i << "\n";
-      devArrMatch(d_ABref, AB.A()[i], AB.shape().first, AB.shape().second,
-                  CompareApprox<T>(params.tolerance));
-      devArrMatch(d_ZBref, ZB.A()[i], ZB.shape().first, ZB.shape().second,
-                  CompareApprox<T>(params.tolerance));
-      devArrMatch(d_BZTref, ZB.A()[i], ZB.shape().first, ZB.shape().second,
-                  CompareApprox<T>(params.tolerance));
-      devArrMatch(d_ApBref, A_p_B.A()[i], A_p_B.shape().first, A_p_B.shape().second,
-                  CompareApprox<T>(params.tolerance));
-      devArrMatch(d_AmBref, A_m_B.A()[i], A_m_B.shape().first, A_m_B.shape().second,
-                  CompareApprox<T>(params.tolerance));
+      ASSERT_TRUE(devArrMatch(d_ABref, AB[i], AB.shape().first, AB.shape().second,
+                              CompareApprox<T>(params.tolerance)));
+      ASSERT_TRUE(devArrMatch(d_ZBref, ZB[i], ZB.shape().first, ZB.shape().second,
+                              CompareApprox<T>(params.tolerance)));
+      ASSERT_TRUE(devArrMatch(d_BZTref, BZT[i], BZT.shape().first, BZT.shape().second,
+                              CompareApprox<T>(params.tolerance)));
+      ASSERT_TRUE(devArrMatch(d_ApBref, A_p_B[i], A_p_B.shape().first, A_p_B.shape().second,
+                              CompareApprox<T>(params.tolerance)));
+      ASSERT_TRUE(devArrMatch(d_AmBref, A_m_B[i], A_m_B.shape().first, A_m_B.shape().second,
+                              CompareApprox<T>(params.tolerance)));
+
+      // Compare two different matrices to check failure case
+      ASSERT_FALSE(devArrMatch(d_ABref, A_m_B[i], A_m_B.shape().first, A_m_B.shape().second,
+                               CompareApprox<T>(params.tolerance)));
     }
   }
 
@@ -167,7 +165,7 @@ TEST_P(BatchedMatrixTestD, Result) {
   std::cout << "Finished Test\n";
 }
 
-const std::vector<BatchedMatrixInputs<double>> inputsd = {{1e-8}};
+const std::vector<BatchedMatrixInputs<double>> inputsd = {{1e-6}};
 
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,
                         ::testing::ValuesIn(inputsd));
