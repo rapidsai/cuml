@@ -1,0 +1,40 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
+project(dbscan_example LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(IS_DIRECTORY ${CUML_INCLUDE_DIR})
+    # CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES is needed for cuda_runtime.h
+    # CUML_INCLUDE_DIR is needed for dbscan.hpp and other cuML header files
+    include_directories(${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_INCLUDE_DIR})
+else()
+    message(FATAL_ERROR "CUML_INCLUDE_DIR not specified.")
+endif(IS_DIRECTORY ${CUML_INCLUDE_DIR})
+if(IS_DIRECTORY ${CUML_LIBRARY_DIR})
+    # CUML_LIBRARY_DIR point to the director where libcuml.so lives
+    link_directories(${CUML_LIBRARY_DIR})
+else()
+    message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
+endif(IS_DIRECTORY ${CUML_LIBRARY_DIR})
+
+add_executable(dbscan_example dbscan_example.cpp)
+# Need to set linker language to CUDA to link the CUDA Runtime
+set_target_properties(dbscan_example PROPERTIES LINKER_LANGUAGE "CUDA")
+# Link cuml
+target_link_libraries(dbscan_example cuml)
