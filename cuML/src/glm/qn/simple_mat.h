@@ -304,7 +304,7 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning(int n) : Super(), allocated(false) { reset(n); }
 
-  ~SimpleVecOwning() { CUDA_CHECK(cudaFree(Super::data)); }
+  ~SimpleVecOwning() noexcept(false) { CUDA_CHECK(cudaFree(Super::data)); }
 
   void reset(int n) {
     if (allocated) {
@@ -333,7 +333,7 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
     reset(m, n);
   }
 
-  ~SimpleMatOwning() { CUDA_CHECK(cudaFree(Super::data)); }
+  ~SimpleMatOwning() noexcept(false) { CUDA_CHECK(cudaFree(Super::data)); }
   void reset(int m, int n) {
 
     if (allocated) {
