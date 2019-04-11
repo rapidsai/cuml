@@ -51,7 +51,11 @@ void predict_f32(Variables<float> &var){
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-    predict(var, cublas_handle);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    predict(var, cublas_handle, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 void update_f32(Variables<float> &var, float *_z){
@@ -61,7 +65,11 @@ void update_f32(Variables<float> &var, float *_z){
     cusolverDnHandle_t cusolver_handle = NULL;
     CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-    update(var, _z, cublas_handle, cusolver_handle);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    update(var, _z, cublas_handle, cusolver_handle, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 // Double precision functions
@@ -93,7 +101,11 @@ void predict_f64(Variables<double> &var){
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-    predict(var, cublas_handle);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    predict(var, cublas_handle, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 void update_f64(Variables<double> &var, double *_z){
@@ -103,7 +115,11 @@ void update_f64(Variables<double> &var, double *_z){
     cusolverDnHandle_t cusolver_handle = NULL;
     CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
-    update(var, _z, cublas_handle, cusolver_handle);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    update(var, _z, cublas_handle, cusolver_handle, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 

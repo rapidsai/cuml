@@ -35,7 +35,7 @@ namespace LinAlg {
  */
 template <typename math_t, typename IdxType = int>
 void addScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in + scalar; },
           stream);
@@ -53,7 +53,7 @@ void addScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
  */
 template <typename math_t, typename IdxType = int>
 void add(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
-         cudaStream_t stream = 0) {
+         cudaStream_t stream) {
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a + b; }, stream);
 }
@@ -78,12 +78,13 @@ __global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev,
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev, int len)
+void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev,
+                   int len, cudaStream_t stream)
 {
     // TODO: block dimension has not been tuned
     dim3 block (256);
     dim3 grid(ceildiv(len, (IdxType)block.x));
-    add_dev_scalar_kernel<math_t> <<<grid, block>>>(outDev, inDev, singleScalarDev, len);
+    add_dev_scalar_kernel<math_t> <<<grid, block, 0, stream>>>(outDev, inDev, singleScalarDev, len);
     CUDA_CHECK(cudaPeekAtLastError());
 }
 

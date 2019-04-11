@@ -320,7 +320,8 @@ namespace UMAPAlgo {
              */
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
-                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity) {
+                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity,
+                    cudaStream_t stream) {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
 
@@ -331,7 +332,7 @@ namespace UMAPAlgo {
                 MLCommon::allocate(dist_means_dev, params->n_neighbors);
 
                 MLCommon::Stats::mean(dist_means_dev, knn_dists,
-                        params->n_neighbors, n, false, false);
+                        params->n_neighbors, n, false, false, stream);
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
@@ -369,7 +370,7 @@ namespace UMAPAlgo {
             template<int TPB_X, typename T>
             void launcher(int n, const long *knn_indices, const float *knn_dists,
                    int *rrows, int *rcols, T *rvals,
-                   int *nnz, UMAPParams *params) {
+                   int *nnz, UMAPParams *params, cudaStream_t stream) {
 
                 int k = params->n_neighbors;
 
@@ -390,7 +391,7 @@ namespace UMAPAlgo {
                 MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                        rhos, sigmas, params, params->local_connectivity
+                        rhos, sigmas, params, params->local_connectivity, stream
                 );
 
                 int *rows, *cols;
