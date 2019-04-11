@@ -13,6 +13,7 @@
 
 ## Improvements
 
+- PR #467: Added validity check on cumlHandle_t
 - PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
