@@ -28,6 +28,7 @@ struct NormInputs {
   int rows, cols;
   NormType type;
   bool do_sqrt;
+  bool rowMajor;
   unsigned long long int seed;
 };
 
@@ -43,7 +44,7 @@ template <typename T>
 ///// Row-wise norm test definitions
 template <typename Type>
 __global__ void naiveRowNormKernel(Type *dots, const Type *data, int D, int N,
-                                NormType type, bool do_sqrt) {
+                                   NormType type, bool do_sqrt) {
   Type acc = (Type)0;
   int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
   if (rowStart < N) {
@@ -71,6 +72,7 @@ template <typename T>
 class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 public:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
@@ -83,9 +85,10 @@ public:
     naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      rowNorm(dots_act, data, cols, rows, params.type, fin_op, stream);
+      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     } else {
-      rowNorm(dots_act, data, cols, rows, params.type, stream);
+      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -94,11 +97,13 @@ public:
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
   NormInputs<T> params;
   T *data, *dots_exp, *dots_act;
+  cudaStream_t stream;
 };
 
 
@@ -132,6 +137,7 @@ template <typename T>
 class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 public:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
@@ -145,9 +151,10 @@ public:
     naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt, stream);
     if(params.do_sqrt){
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      colNorm(dots_act, data, cols, rows, params.type, fin_op, stream);
+      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     }else{
-      colNorm(dots_act, data, cols, rows, params.type, stream);
+      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
@@ -156,55 +163,55 @@ public:
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
     NormInputs<T> params;
     T *data, *dots_exp, *dots_act;
+    cudaStream_t stream;
 };
 
 
 
 ///// Row- and column-wise tests
 const std::vector<NormInputs<float>> inputsf = {
-  {0.00001f, 1024, 32, L1Norm, false, 1234ULL},
-  {0.00001f, 1024, 64, L1Norm, false, 1234ULL},
-  {0.00001f, 1024, 128, L1Norm, false, 1234ULL},
-  {0.00001f, 1024, 256, L1Norm, false, 1234ULL},
-  {0.00001f, 1024, 32, L2Norm, false, 1234ULL},
-  {0.00001f, 1024, 64, L2Norm, false, 1234ULL},
-  {0.00001f, 1024, 128, L2Norm, false, 1234ULL},
-  {0.00001f, 1024, 256, L2Norm, false, 1234ULL},
+  {0.00001f, 1024, 32, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 64, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 128, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 256, L1Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 32, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 64, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 128, L2Norm, false, true, 1234ULL},
+  {0.00001f, 1024, 256, L2Norm, false, true, 1234ULL},
 
-  {0.00001f, 1024, 32, L1Norm, true, 1234ULL},
-  {0.00001f, 1024, 64, L1Norm, true, 1234ULL},
-  {0.00001f, 1024, 128, L1Norm, true, 1234ULL},
-  {0.00001f, 1024, 256, L1Norm, true, 1234ULL},
-  {0.00001f, 1024, 32, L2Norm, true, 1234ULL},
-  {0.00001f, 1024, 64, L2Norm, true, 1234ULL},
-  {0.00001f, 1024, 128, L2Norm, true, 1234ULL},
-  {0.00001f, 1024, 256, L2Norm, true, 1234ULL}
-};
+  {0.00001f, 1024, 32, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 64, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 128, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 256, L1Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 32, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 64, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 128, L2Norm, true, true, 1234ULL},
+  {0.00001f, 1024, 256, L2Norm, true, true, 1234ULL}};
 
 const std::vector<NormInputs<double>> inputsd = {
-  {0.00000001, 1024, 32, L1Norm, false, 1234ULL},
-  {0.00000001, 1024, 64, L1Norm, false, 1234ULL},
-  {0.00000001, 1024, 128, L1Norm, false, 1234ULL},
-  {0.00000001, 1024, 256, L1Norm, false, 1234ULL},
-  {0.00000001, 1024, 32, L2Norm, false, 1234ULL},
-  {0.00000001, 1024, 64, L2Norm, false, 1234ULL},
-  {0.00000001, 1024, 128, L2Norm, false, 1234ULL},
-  {0.00000001, 1024, 256, L2Norm, false, 1234ULL},
+  {0.00000001, 1024, 32, L1Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 64, L1Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 128, L1Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 256, L1Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 32, L2Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 64, L2Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 128, L2Norm, false, true, 1234ULL},
+  {0.00000001, 1024, 256, L2Norm, false, true, 1234ULL},
 
-  {0.00000001, 1024, 32, L1Norm, true, 1234ULL},
-  {0.00000001, 1024, 64, L1Norm, true, 1234ULL},
-  {0.00000001, 1024, 128, L1Norm, true, 1234ULL},
-  {0.00000001, 1024, 256, L1Norm, true, 1234ULL},
-  {0.00000001, 1024, 32, L2Norm, true, 1234ULL},
-  {0.00000001, 1024, 64, L2Norm, true, 1234ULL},
-  {0.00000001, 1024, 128, L2Norm, true, 1234ULL},
-  {0.00000001, 1024, 256, L2Norm, true, 1234ULL}
-};
+  {0.00000001, 1024, 32, L1Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 64, L1Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 128, L1Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 256, L1Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 32, L2Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 64, L2Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 128, L2Norm, true, true, 1234ULL},
+  {0.00000001, 1024, 256, L2Norm, true, true, 1234ULL}};
 
 typedef RowNormTest<float> RowNormTestF;
 TEST_P(RowNormTestF, Result) {
@@ -224,44 +231,42 @@ INSTANTIATE_TEST_CASE_P(RowNormTests, RowNormTestD, ::testing::ValuesIn(inputsd)
 
 
 const std::vector<NormInputs<float>> inputscf = {
-  {0.00001f, 32,  1024, L1Norm, false, 1234ULL},
-  {0.00001f, 64,  1024, L1Norm, false, 1234ULL},
-  {0.00001f, 128, 1024, L1Norm, false, 1234ULL},
-  {0.00001f, 256, 1024, L1Norm, false, 1234ULL},
-  {0.00001f, 32,  1024, L2Norm, false, 1234ULL},
-  {0.00001f, 64,  1024, L2Norm, false, 1234ULL},
-  {0.00001f, 128, 1024, L2Norm, false, 1234ULL},
-  {0.00001f, 256, 1024, L2Norm, false, 1234ULL},
+  {0.00001f, 32,  1024, L1Norm, false, true, 1234ULL},
+  {0.00001f, 64,  1024, L1Norm, false, true, 1234ULL},
+  {0.00001f, 128, 1024, L1Norm, false, true, 1234ULL},
+  {0.00001f, 256, 1024, L1Norm, false, true, 1234ULL},
+  {0.00001f, 32,  1024, L2Norm, false, true, 1234ULL},
+  {0.00001f, 64,  1024, L2Norm, false, true, 1234ULL},
+  {0.00001f, 128, 1024, L2Norm, false, true, 1234ULL},
+  {0.00001f, 256, 1024, L2Norm, false, true, 1234ULL},
 
-  {0.00001f, 32,  1024, L1Norm, true, 1234ULL},
-  {0.00001f, 64,  1024, L1Norm, true, 1234ULL},
-  {0.00001f, 128, 1024, L1Norm, true, 1234ULL},
-  {0.00001f, 256, 1024, L1Norm, true, 1234ULL},
-  {0.00001f, 32,  1024, L2Norm, true, 1234ULL},
-  {0.00001f, 64,  1024, L2Norm, true, 1234ULL},
-  {0.00001f, 128, 1024, L2Norm, true, 1234ULL},
-  {0.00001f, 256, 1024, L2Norm, true, 1234ULL}
-};
+  {0.00001f, 32,  1024, L1Norm, true, true, 1234ULL},
+  {0.00001f, 64,  1024, L1Norm, true, true, 1234ULL},
+  {0.00001f, 128, 1024, L1Norm, true, true, 1234ULL},
+  {0.00001f, 256, 1024, L1Norm, true, true, 1234ULL},
+  {0.00001f, 32,  1024, L2Norm, true, true, 1234ULL},
+  {0.00001f, 64,  1024, L2Norm, true, true, 1234ULL},
+  {0.00001f, 128, 1024, L2Norm, true, true, 1234ULL},
+  {0.00001f, 256, 1024, L2Norm, true, true, 1234ULL}};
 
 const std::vector<NormInputs<double>> inputscd = {
-  {0.00000001, 32,  1024, L1Norm, false, 1234ULL},
-  {0.00000001, 64,  1024, L1Norm, false, 1234ULL},
-  {0.00000001, 128, 1024, L1Norm, false, 1234ULL},
-  {0.00000001, 256, 1024, L1Norm, false, 1234ULL},
-  {0.00000001, 32,  1024, L2Norm, false, 1234ULL},
-  {0.00000001, 64,  1024, L2Norm, false, 1234ULL},
-  {0.00000001, 128, 1024, L2Norm, false, 1234ULL},
-  {0.00000001, 256, 1024, L2Norm, false, 1234ULL},
+  {0.00000001, 32,  1024, L1Norm, false, true, 1234ULL},
+  {0.00000001, 64,  1024, L1Norm, false, true, 1234ULL},
+  {0.00000001, 128, 1024, L1Norm, false, true, 1234ULL},
+  {0.00000001, 256, 1024, L1Norm, false, true, 1234ULL},
+  {0.00000001, 32,  1024, L2Norm, false, true, 1234ULL},
+  {0.00000001, 64,  1024, L2Norm, false, true, 1234ULL},
+  {0.00000001, 128, 1024, L2Norm, false, true, 1234ULL},
+  {0.00000001, 256, 1024, L2Norm, false, true, 1234ULL},
 
-  {0.00000001, 32,  1024, L1Norm, true, 1234ULL},
-  {0.00000001, 64,  1024, L1Norm, true, 1234ULL},
-  {0.00000001, 128, 1024, L1Norm, true, 1234ULL},
-  {0.00000001, 256, 1024, L1Norm, true, 1234ULL},
-  {0.00000001, 32,  1024, L2Norm, true, 1234ULL},
-  {0.00000001, 64,  1024, L2Norm, true, 1234ULL},
-  {0.00000001, 128, 1024, L2Norm, true, 1234ULL},
-  {0.00000001, 256, 1024, L2Norm, true, 1234ULL}
-};
+  {0.00000001, 32,  1024, L1Norm, true, true, 1234ULL},
+  {0.00000001, 64,  1024, L1Norm, true, true, 1234ULL},
+  {0.00000001, 128, 1024, L1Norm, true, true, 1234ULL},
+  {0.00000001, 256, 1024, L1Norm, true, true, 1234ULL},
+  {0.00000001, 32,  1024, L2Norm, true, true, 1234ULL},
+  {0.00000001, 64,  1024, L2Norm, true, true, 1234ULL},
+  {0.00000001, 128, 1024, L2Norm, true, true, 1234ULL},
+  {0.00000001, 256, 1024, L2Norm, true, true, 1234ULL}};
 
 typedef ColNormTest<float> ColNormTestF;
 TEST_P(ColNormTestF, Result) {

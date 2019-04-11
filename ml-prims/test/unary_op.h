@@ -24,33 +24,34 @@ namespace MLCommon {
 namespace LinAlg {
 
 
-template <typename Type>
+template <typename Type, typename IdxType>
 __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
-                                 int len) {
-  int idx = threadIdx.x + blockIdx.x * blockDim.x;
+                                 IdxType len) {
+  IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * (IdxType)blockDim.x);
   if (idx < len) {
     out[idx] = scalar * in[idx];
   }
 }
 
-template <typename Type>
-void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream=0) {
+template <typename Type, typename IdxType = int>
+void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
+template <typename T, typename IdxType = int>
 struct UnaryOpInputs {
   T tolerance;
-  int len;
+  IdxType len;
   T scalar;
   unsigned long long int seed;
 };
 
-template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const UnaryOpInputs<T> &dims) {
+template <typename T, typename IdxType = int>
+::std::ostream &operator<<(::std::ostream &os,
+                           const UnaryOpInputs<T,IdxType> &dims) {
   return os;
 }
 

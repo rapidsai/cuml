@@ -17,33 +17,13 @@
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/coalesced_reduction.h"
+#include "reduce.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
 
 namespace MLCommon {
 namespace LinAlg {
-
-template <typename Type>
-__global__ void naiveReductionKernel(Type *dots, const Type *data, int D, int N) {
-  Type acc = (Type)0;
-  int rowStart = threadIdx.x + blockIdx.x * blockDim.x;
-  if (rowStart < N) {
-    for (int i = 0; i < D; ++i) {
-        acc += data[rowStart * D + i] * data[rowStart * D + i];
-    }
-    dots[rowStart] = 2*acc;
-  }
-}
-
-template <typename Type>
-void naiveReduction(Type *dots, const Type *data, int D, int N, cudaStream_t stream) {
-  static const int TPB = 64;
-  int nblks = ceildiv(N, TPB);
-  naiveReductionKernel<Type><<<nblks, TPB, 0, stream>>>(dots, data, D, N);
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
 
 template <typename T>
 struct coalescedReductionInputs {
@@ -82,12 +62,13 @@ protected:
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveReduction(dots_exp, data, cols, rows, stream);
+    naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 
     // Perform reduction with default inplace = false first
     coalescedReductionLaunch(dots_act, data, cols, rows, stream);
     // Add to result with inplace = true next
     coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
+
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
@@ -106,17 +87,9 @@ const std::vector<coalescedReductionInputs<float>> inputsf = {
   {0.000002f, 1024,  32, 1234ULL},
   {0.000002f, 1024,  64, 1234ULL},
   {0.000002f, 1024, 128, 1234ULL},
-  {0.000002f, 1024, 256, 1234ULL},
-  {0.000002f, 1024,  32, 1234ULL},
-  {0.000002f, 1024,  64, 1234ULL},
-  {0.000002f, 1024, 128, 1234ULL},
   {0.000002f, 1024, 256, 1234ULL}};
 
 const std::vector<coalescedReductionInputs<double>> inputsd = {
-  {0.000000001, 1024,  32, 1234ULL},
-  {0.000000001, 1024,  64, 1234ULL},
-  {0.000000001, 1024, 128, 1234ULL},
-  {0.000000001, 1024, 256, 1234ULL},
   {0.000000001, 1024,  32, 1234ULL},
   {0.000000001, 1024,  64, 1234ULL},
   {0.000000001, 1024, 128, 1234ULL},

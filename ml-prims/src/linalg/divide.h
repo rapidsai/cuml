@@ -24,6 +24,8 @@ namespace LinAlg {
 
 /**
  * @defgroup ScalarOps Scalar operations on the input buffer
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param out the output buffer
  * @param in the input buffer
  * @param scalar the scalar used in the operations
@@ -31,8 +33,8 @@ namespace LinAlg {
  * @param stream cuda stream where to launch work
  * @{
  */
-template <typename math_t>
-void divideScalar(math_t *out, const math_t *in, math_t scalar, int len,
+template <typename math_t, typename IdxType = int>
+void divideScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
                cudaStream_t stream) {
   unaryOp(out, in, len,
           [scalar] __device__(math_t in) { return in / scalar; },
