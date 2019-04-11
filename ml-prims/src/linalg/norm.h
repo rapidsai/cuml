@@ -30,6 +30,7 @@ enum NormType { L1Norm = 0, L2Norm };
 /**
  * @brief Compute row-wise norm of the input matrix
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
@@ -37,19 +38,19 @@ enum NormType { L1Norm = 0, L2Norm };
  * @param type the type of norm to be applied
  * @param stream cuda stream where to launch work
  */
-template <typename Type>
-void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
+template <typename Type, typename IdxType = int>
+void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
           cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in, int i) { return myAbs(in); });
+                                 [] __device__(Type in, IdxType i) { return myAbs(in); });
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in, int i) { return in * in; });
+                                 [] __device__(Type in, IdxType i) { return in * in; });
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -65,6 +66,8 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * current implementation is optimized only for bigger values of 'D'.
  *
  * @tparam Type the data type
+ * @tparam Lambda device final lambda
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
@@ -73,20 +76,20 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda>
-void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+template <typename Type, typename Lambda, typename IdxType = int>
+void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
+             Lambda fin_op, cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in, int i) { return myAbs(in); }, 
+                                 [] __device__(Type in, IdxType i) { return myAbs(in); }, 
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     case L2Norm:
       LinAlg::coalescedReduction(dots, data, D, N, (Type)0,
                                  false, stream,
-                                 [] __device__(Type in, int i) { return in * in; },
+                                 [] __device__(Type in, IdxType i) { return in * in; },
                                  [] __device__(Type a, Type b) { return a+b; }, fin_op);
       break;
     default:
@@ -98,6 +101,7 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
 /**
  * @brief Compute column-wise norm of the input matrix
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
@@ -105,19 +109,19 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * @param type the type of norm to be applied
  * @param stream cuda stream where to launch work
  */
-template <typename Type>
-void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          cudaStream_t stream = 0) {
+template <typename Type, typename IdxType = int>
+void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
+             cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v, int i) { return myAbs(v); });
+                               [] __device__(Type v, IdxType i) { return myAbs(v); });
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v, int i) { return v * v; });
+                               [] __device__(Type v, IdxType i) { return v * v; });
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);
@@ -127,6 +131,8 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
  * @tparam Type the data type
+ * @tparam Lambda device final lambda
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
@@ -135,21 +141,21 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
  * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
  */
-template <typename Type, typename Lambda>
-void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-          Lambda fin_op, cudaStream_t stream = 0) {
+template <typename Type, typename Lambda, typename IdxType = int>
+void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
+             Lambda fin_op, cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v, int i) { return myAbs(v); },
+                               [] __device__(Type v, IdxType i) { return myAbs(v); },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);
       break;
     case L2Norm:
       LinAlg::stridedReduction(dots, data, D, N, (Type)0,
                                false, stream,
-                               [] __device__(Type v, int i) { return v * v; },
+                               [] __device__(Type v, IdxType i) { return v * v; },
                                [] __device__(Type a, Type b) { return a + b; },
                                fin_op);
       break;
