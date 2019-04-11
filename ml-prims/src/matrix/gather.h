@@ -31,8 +31,8 @@ template <typename MatrixIteratorT,
 	  typename IndexT = int>
 __global__
 void gatherKernel(MatrixIteratorT in,
-		  int D,
-		  int N,
+		  IndexT D,
+		  IndexT N,
 		  MapIteratorT map,
 		  StencilIteratorT stencil,
 		  MatrixIteratorT out,		 
@@ -100,18 +100,18 @@ void gatherImpl(MatrixIteratorT in,
   // map value type
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
 
-  // map value type
+  // stencil value type
   typedef typename std::iterator_traits<StencilIteratorT>::value_type StencilValueT;
       
   // return type of MapTransformOp, must be convertable to IndexT
   typedef typename std::result_of<decltype(transform_op)(MapValueT)>::type MapTransformOpReturnT;
-  ASSERT((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
-	 "MapTransformOp's result type must be convertible to %s type", typeid(IndexT).name());
+  static_assert((std::is_convertible<MapTransformOpReturnT, IndexT>::value),
+		"MapTransformOp's result type must be convertible to signed integer");
 
   // return type of UnaryPredicateOp, must be convertible to bool
   typedef typename std::result_of<decltype(pred_op)(StencilValueT)>::type PredicateOpReturnT;
-  ASSERT((std::is_convertible<PredicateOpReturnT, bool>::value),
-	 "UnaryPredicateOp's result type must be convertible to bool type");
+  static_assert((std::is_convertible<PredicateOpReturnT, bool>::value),
+		"UnaryPredicateOp's result type must be convertible to bool type");
       
   if(D <= 32){
     gatherKernel<MatrixIteratorT, MapIteratorT, StencilIteratorT, 32, UnaryPredicateOp, MapTransformOp>
