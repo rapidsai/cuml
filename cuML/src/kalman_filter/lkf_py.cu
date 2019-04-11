@@ -32,6 +32,7 @@ size_t get_workspace_size_f32(Variables<float> &var, int dim_x, int dim_z, Optio
 
     init<float>(var, dim_x, dim_z, solver, x_est, x_up, Phi, P_est,
              P_up, Q, R, H, (void*)nullptr, workspaceSize, cusolver_handle);
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
     return workspaceSize;
 }
 
@@ -45,6 +46,7 @@ void init_f32(Variables<float> &var, int dim_x, int dim_z, Option solver, float 
     // CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
     init(var, dim_x, dim_z, solver, x_est, x_up, Phi, P_est,
          P_up, Q, R, H, workspace, workspaceSize, cusolver_handle);
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 
 }
 void predict_f32(Variables<float> &var){
@@ -55,6 +57,7 @@ void predict_f32(Variables<float> &var){
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     predict(var, cublas_handle, stream);
+    CUBLAS_CHECK(cublasDestroy(cublas_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
@@ -69,6 +72,8 @@ void update_f32(Variables<float> &var, float *_z){
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     update(var, _z, cublas_handle, cusolver_handle, stream);
+    CUBLAS_CHECK(cublasDestroy(cublas_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
@@ -82,6 +87,7 @@ size_t get_workspace_size_f64(Variables<double> &var, int dim_x, int dim_z, Opti
 
     init<double>(var, dim_x, dim_z, solver, x_est, x_up, Phi, P_est,
              P_up, Q, R, H, (void*)nullptr, workspaceSize, cusolver_handle);
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
     return workspaceSize;
 }
 
@@ -95,6 +101,7 @@ void init_f64(Variables<double> &var, int dim_x, int dim_z, Option solver, doubl
     // CUDA_CHECK(cudaMalloc((void **)&workspace, workspaceSize));
     init(var, dim_x, dim_z, solver, x_est, x_up, Phi, P_est,
          P_up, Q, R, H, workspace, workspaceSize, cusolver_handle);
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 
 }
 void predict_f64(Variables<double> &var){
@@ -105,6 +112,7 @@ void predict_f64(Variables<double> &var){
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     predict(var, cublas_handle, stream);
+    CUBLAS_CHECK(cublasDestroy(cublas_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
@@ -119,6 +127,8 @@ void update_f64(Variables<double> &var, double *_z){
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     update(var, _z, cublas_handle, cusolver_handle, stream);
+    CUBLAS_CHECK(cublasDestroy(cublas_handle));
+    CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
