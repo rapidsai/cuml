@@ -48,7 +48,7 @@ inline bool ls_success(const LBFGSParam<T> &param, const T fx_init,
                        const T dg_init, const T fx, const T dg_test,
                        const T step, const SimpleVec<T> &grad,
                        const SimpleVec<T> &drt, T *width, T *dev_scalar,
-                       cudaStream_t stream = 0) {
+                       cudaStream_t stream) {
   if (fx > fx_init + step * dg_test) {
     *width = param.ls_dec;
   } else {
@@ -95,7 +95,7 @@ template <typename T, typename Function>
 LINE_SEARCH_RETCODE
 ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
              SimpleVec<T> &grad, T &step, const SimpleVec<T> &drt,
-             const SimpleVec<T> &xp, T *dev_scalar, cudaStream_t stream = 0) {
+             const SimpleVec<T> &xp, T *dev_scalar, cudaStream_t stream) {
   // Check the value of step
   if (step <= T(0))
     return LS_INVALID_STEP;
@@ -120,7 +120,7 @@ ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
 
     // if (is_success(fx_init, dg_init, fx, dg_test, step, grad, drt, &width))
     if (ls_success(param, fx_init, dg_init, fx, dg_test, step, grad, drt,
-                   &width, dev_scalar))
+                   &width, dev_scalar, stream))
       return LS_SUCCESS;
 
     if (step < param.min_step)
@@ -140,7 +140,7 @@ ls_backtrack_projected(const LBFGSParam<T> &param, Function &f, T &fx,
                        SimpleVec<T> &x, SimpleVec<T> &grad,
                        const SimpleVec<T> &pseudo_grad, T &step,
                        const SimpleVec<T> &drt, const SimpleVec<T> &xp,
-                       T l1_penalty, T *dev_scalar, cudaStream_t stream = 0) {
+                       T l1_penalty, T *dev_scalar, cudaStream_t stream) {
   LSProjectedStep<T> lsstep;
 
   // Check the value of step

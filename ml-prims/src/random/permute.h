@@ -176,7 +176,7 @@ void permuteImpl(IntType* perms, Type* out, const Type* in, IntType N,
 template <typename Type, typename IntType = int, int TPB = 256>
 void permute(IntType* perms, Type* out, const Type* in, IntType D, IntType N,
              bool rowMajor, void *workspace, size_t& workspaceSize,
-             cudaStream_t stream = 0) {
+             cudaStream_t stream) {
     ///@todo: support col-major layout
     ASSERT(rowMajor, "permute: Currently only rowMajor layout is supported!");
     ///@todo: figure out this number based on input matrix dimensions

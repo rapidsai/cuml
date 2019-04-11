@@ -33,10 +33,9 @@ struct stridedReductionInputs {
 template <typename T>
 void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
                             cudaStream_t stream) {
-  stridedReduction(dots, data, cols, rows, (T)0, false, stream,
+  stridedReduction(dots, data, cols, rows, (T)0, stream, false,
                    [] __device__(T in, int i) { return in * in; });
 }
-
 
 template <typename T>
 class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInputs<T>> {
@@ -51,7 +50,7 @@ protected:
     allocate(data, len);
     allocate(dots_exp, cols); //expected dot products (from test)
     allocate(dots_act, cols); //actual dot products (from prim)
-    r.uniform(data, len, T(-1.0), T(1.0)); //initialize matrix to random
+    r.uniform(data, len, T(-1.0), T(1.0), stream); //initialize matrix to random
 
     unaryAndGemv(dots_exp, data, cols, rows, stream);
     stridedReductionLaunch(dots_act, data, cols, rows, stream);

@@ -56,6 +56,9 @@ protected:
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
+
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -104,15 +107,17 @@ protected:
 
 
 		pcaFit(data, components, explained_vars, explained_var_ratio,
-				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle);
+				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle, stream);
 
 		pcaTransform(data, components, trans_data, singular_vals, mean,
-				     prms, cublas_handle);
+				     prms, cublas_handle, stream);
 
-		pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, prms, cublas_handle);
+		pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, 
+                          prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
@@ -122,6 +127,9 @@ protected:
 
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
@@ -138,7 +146,7 @@ protected:
 			prms.algorithm = solver::COV_EIG_JACOBI;
 		
 		allocate(data2, len);
-		r.uniform(data2, len, T(-1.0), T(1.0));
+		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
 
 		int len_comp = params.n_col2 * prms.n_components;
@@ -150,13 +158,15 @@ protected:
 		allocate(noise_vars2, 1);
 
 		pcaFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle);
+				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle, stream);
 
 		allocate(data2_back, len);
-		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back, prms, cublas_handle);
+		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back,
+                          prms, cublas_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {

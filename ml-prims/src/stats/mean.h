@@ -82,7 +82,7 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data,
  */
 template <typename Type, typename IdxType = int>
 void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
-          bool rowMajor, cudaStream_t stream = 0) {
+          bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
@@ -94,7 +94,7 @@ void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
       mu, data, D, N);
     CUDA_CHECK(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::scalarMultiply(mu, mu, ratio, D);
+    LinAlg::scalarMultiply(mu, mu, ratio, D, stream);
   } else {
     meanKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
   }
