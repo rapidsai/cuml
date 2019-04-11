@@ -26,6 +26,7 @@ namespace Stats {
 /**
  * @brief Center the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output mean-centered matrix
  * @param data input matrix
@@ -47,6 +48,7 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType 
 /**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output mean-added matrix
  * @param data input matrix

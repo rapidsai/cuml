@@ -34,7 +34,7 @@ template<typename math_t>
 void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		math_t *intercept, math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+                cusolverDnHandle_t cusolver_handle, cudaStream_t stream = 0) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -49,8 +49,9 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true);
 
 		if (normalize) {
-			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm,
-                    []__device__(math_t v){ return MLCommon::mySqrt(v); });
+			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
+                                        stream,
+                                        []__device__(math_t v){ return MLCommon::mySqrt(v); });
 			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, true);
 		}
 	}
