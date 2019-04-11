@@ -16,8 +16,6 @@
 #include "cuML_api.h"
 
 #include <functional>
-#include <mutex>
-#include <unordered_map>
 
 #include "cumlHandle.hpp"
 
