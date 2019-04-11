@@ -39,48 +39,7 @@ $CC --version
 $CXX --version
 conda list
 
-################################################################################
-# BUILD - Build libcuml and cuML from source
-################################################################################
-
-git submodule update --init --recursive
-
-logger "Build libcuml..."
-mkdir -p $WORKSPACE/cuML/build
-cd $WORKSPACE/cuML/build
-logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
-
-logger "Clean up make..."
-make clean
-
-# logger "Make libcuml..."
-# make -j${PARALLEL_LEVEL}
-
-# logger "Install libcuml..."
-# make -j${PARALLEL_LEVEL} install
-
-
-# logger "Build cuML..."
-# cd $WORKSPACE/python
-# python setup.py build_ext --inplace
-
-# ################################################################################
-# # TEST - Run GoogleTest and py.tests for libcuml and cuML
-# ################################################################################
-
-# logger "Check GPU usage..."
-# nvidia-smi
-
-# logger "GoogleTest for libcuml..."
-# cd $WORKSPACE/cuML/build
-# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
-
-
-# logger "Python py.test for cuML..."
-# cd $WORKSPACE/python
-# py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
-
+logger "Check GPU running the tests..."
 GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
 echo "Running tests on $GPU"
 
@@ -95,14 +54,59 @@ elif [[ $GPU == *"T4"* ]]; then
   GPU_ARCH=75
 fi 
 
-logger "GoogleTest for ml-prims..."
+################################################################################
+# BUILD - Build libcuml and cuML from source
+################################################################################
+
+git submodule update --init --recursive
+
+logger "Build libcuml..."
+mkdir -p $WORKSPACE/cuML/build
+cd $WORKSPACE/cuML/build
+logger "Run cmake libcuml..."
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DGPU_ARCHS="$GPU_ARCH" ..
+
+logger "Clean up make..."
+make clean
+
+logger "Make libcuml..."
+make -j${PARALLEL_LEVEL}
+
+logger "Install libcuml..."
+make -j${PARALLEL_LEVEL} install
+
+logger "Build cuML..."
+cd $WORKSPACE/python
+python setup.py build_ext --inplace
+
+logger "Build ml-prims tests..."
 mkdir -p $WORKSPACE/ml-prims/build
 cd $WORKSPACE/ml-prims/build
-logger "Run cmake ml-prims..."
 cmake .. -DGPU_ARCHS="$GPU_ARCH"
+
 logger "Clean up make..."
 make clean
 logger "Make ml-prims test..."
 make -j${PARALLEL_LEVEL}
+
+
+################################################################################
+# TEST - Run GoogleTest and py.tests for libcuml and cuML
+################################################################################
+
+logger "Check GPU usage..."
+nvidia-smi
+
+logger "GoogleTest for libcuml..."
+cd $WORKSPACE/cuML/build
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
+
+
+logger "Python py.test for cuML..."
+cd $WORKSPACE/python
+py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+
+
 logger "Run ml-prims test..."
+cd $WORKSPACE/ml-prims/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./test/mlcommon_test
