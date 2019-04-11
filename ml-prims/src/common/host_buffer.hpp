@@ -53,6 +53,8 @@ public:
     using const_iterator    = typename buffer_base<T>::const_iterator;
     using reference         = typename buffer_base<T>::reference;
     using const_reference   = typename buffer_base<T>::const_reference;
+    using buffer_base<T>::get_stream;
+    using buffer_base<T>::set_stream;
 
     host_buffer() = delete;
 
