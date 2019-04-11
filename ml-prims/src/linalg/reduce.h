@@ -48,8 +48,8 @@ namespace LinAlg {
  * @param init initial value to use for the reduction
  * @param rowMajor input matrix is row-major or not
  * @param alongRows whether to reduce along rows or columns
- * @param inplace reduction result added inplace or overwrites old values?
  * @param stream cuda stream where to launch work
+ * @param inplace reduction result added inplace or overwrites old values?
  * @param main_op elementwise operation to apply before reduction
  * @param reduce_op binary reduction operation
  * @param final_op elementwise operation to apply before storing results
@@ -59,8 +59,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
 void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
-            bool rowMajor, bool alongRows, bool inplace,
-            cudaStream_t stream,
+            bool rowMajor, bool alongRows, cudaStream_t stream,
+            bool inplace = false,
             MainLambda main_op = Nop<InType, IdxType>(),
             ReduceLambda reduce_op = Sum<OutType>(),
             FinalLambda final_op = Nop<OutType>()) {

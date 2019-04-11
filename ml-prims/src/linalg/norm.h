@@ -51,11 +51,11 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
              cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, false, stream,
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
                      L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, false, stream,
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
                      L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
@@ -82,11 +82,11 @@ void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
              cudaStream_t stream = 0) {
   switch (type) {
     case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, false, stream,
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
                      L1Op<Type>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, false, stream,
+      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
                      L2Op<Type>(), Sum<Type>(), fin_op);
       break;
     default:
