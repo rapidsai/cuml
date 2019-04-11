@@ -56,9 +56,9 @@ T _forward_max(T* dV_prev, T* dT, int lddt, int nStates, int stateId){
 template <typename T>
 __global__
 void _ViterbiKernel(int nStates, int nSeq, int nObs,
-                    unsigned short int* dlenghts,
-                    unsigned short int* dcumlengths_inc,
-                    unsigned short int* dcumlengths_exc,
+                    int* dlenghts,
+                    int* dcumlengths_inc,
+                    int* dcumlengths_exc,
                     T* dLlhd,
                     T* dV, int lddv,
                     unsigned short int* dVStates,
@@ -74,7 +74,7 @@ void _ViterbiKernel(int nStates, int nSeq, int nObs,
         for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
                 for (size_t tau = 0; tau < dcumlengths_inc[seqId]; tau++) {
                         for (size_t stateId = stateId_start; stateId < nStates; stateId+=numThreads_x) {
-                                printf("Forward\n");
+                                // printf("Forward\n");
                                 obsId = dcumlengths_exc[seqId] + tau;
                                 if (tau == 0) {
                                         dV[IDX(stateId, obsId, lddv)] = std::log(dStartProb[stateId]) + dB[IDX(stateId, obsId, lddb)];
@@ -92,7 +92,7 @@ void _ViterbiKernel(int nStates, int nSeq, int nObs,
         int argmaxVal;
         for (size_t seqId = seqId_start; seqId < nSeq; seqId+=numThreads_y) {
                 if (threadIdx.x == 0) {
-                        printf("Traceback\n");
+                        // printf("Traceback\n");
                         for (size_t tau = 0; tau < dcumlengths_inc[seqId]; tau++) {
 
                                 obsId = dcumlengths_inc[seqId] - tau - 1;
@@ -100,8 +100,8 @@ void _ViterbiKernel(int nStates, int nSeq, int nObs,
                                         argmaxVal = arg_max(dV + IDX(0, obsId, lddv), nStates);
                                         dVStates[obsId] = argmaxVal;
                                         // Store Likelihoods
-                                        printf("%f\n", dV[IDX(0, obsId, lddv)]);
-                                        printf("%d\n", argmaxVal);
+                                        // printf("%f\n", dV[IDX(0, obsId, lddv)]);
+                                        // printf("%d\n", argmaxVal);
                                         dLlhd[seqId] = dV[IDX(argmaxVal, obsId, lddv)];
                                 }
                                 else{
@@ -115,7 +115,7 @@ void _ViterbiKernel(int nStates, int nSeq, int nObs,
 
 template <typename T, typename D>
 void _viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
-              unsigned short int* dlenghts, int nSeq){
+              int* dlenghts, int nSeq){
         dim3 block(32, 1, 1);
         dim3 grid(1, 1, 1);
         // dim3 grid(ceildiv(hmm.nStates, (int)block.x),

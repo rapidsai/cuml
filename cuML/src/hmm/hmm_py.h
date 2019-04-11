@@ -53,15 +53,15 @@ void setup_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
                     int nObs, int nSeq, float* dLlhd);
 
 void forward_backward_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
-                               unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
+                               unsigned short int* dX, int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma);
 
 void viterbi_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
-                      unsigned short int* dVstates, unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
+                      unsigned short int* dVstates, unsigned short int* dX, int* dlenghts, int nSeq);
 
 
 void m_step_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
-                     unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
+                     unsigned short int* dX, int* dlenghts, int nSeq);
 
 void init_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                    std::vector<multinomial::Multinomial<double> > &multinomials,
@@ -84,15 +84,15 @@ void setup_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
                     int nObs, int nSeq, double* dLlhd);
 
 void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                               unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
+                               unsigned short int* dX, int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma);
 
 void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                      unsigned short int* dVstates, unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
+                      unsigned short int* dVstates, unsigned short int* dX, int* dlenghts, int nSeq);
 
 
 void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                     unsigned short int* dX, unsigned short int* dlenghts, int nSeq);
+                     unsigned short int* dX, int* dlenghts, int nSeq);
 
 
 
@@ -118,20 +118,20 @@ void setup_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
 
 void forward_backward_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
                                  float* dX,
-                                 unsigned short int* dlenghts,
+                                 int* dlenghts,
                                  int nSeq,
                                  bool doForward, bool doBackward, bool doGamma);
 
 void viterbi_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
                         unsigned short int* dVstates,
                         float* dX,
-                        unsigned short int* dlenghts,
+                        int* dlenghts,
                         int nSeq);
 
 
 void m_step_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
                        float* dX,
-                       unsigned short int* dlenghts,
+                       int* dlenghts,
                        int nSeq);
 
 void init_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
@@ -156,20 +156,20 @@ void setup_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 
 void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                                  double* dX,
-                                 unsigned short int* dlenghts,
+                                 int* dlenghts,
                                  int nSeq,
                                  bool doForward, bool doBackward, bool doGamma);
 
 void viterbi_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                         unsigned short int* dVstates,
                         double* dX,
-                        unsigned short int* dlenghts,
+                        int* dlenghts,
                         int nSeq);
 
 
 void m_step_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                        double* dX,
-                       unsigned short int* dlenghts,
+                       int* dlenghts,
                        int nSeq);
 
 }

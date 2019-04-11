@@ -49,7 +49,7 @@ void create_handle_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
 }
 
 void forward_backward_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
-                               unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
+                               unsigned short int* dX, int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma){
 
         cublasHandle_t cublasHandle;
@@ -68,7 +68,7 @@ void forward_backward_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm
 void viterbi_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
                       unsigned short int* dVStates,
                       unsigned short int* dX,
-                      unsigned short int* dlenghts, int nSeq){
+                      int* dlenghts, int nSeq){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -84,7 +84,7 @@ void viterbi_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
 
 void m_step_mhmm_f32(HMM<float, multinomial::Multinomial<float> > &hmm,
                      unsigned short int* dX,
-                     unsigned short int* dlenghts, int nSeq){
+                     int* dlenghts, int nSeq){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -128,7 +128,7 @@ void create_handle_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
 }
 
 void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                               unsigned short int* dX, unsigned short int* dlenghts, int nSeq,
+                               unsigned short int* dX, int* dlenghts, int nSeq,
                                bool doForward, bool doBackward, bool doGamma){
 
         cublasHandle_t cublasHandle;
@@ -145,7 +145,7 @@ void forward_backward_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &h
 }
 
 void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                      unsigned short int* dVStates, unsigned short int* dX, unsigned short int* dlenghts, int nSeq){
+                      unsigned short int* dVStates, unsigned short int* dX, int* dlenghts, int nSeq){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -160,7 +160,7 @@ void viterbi_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
 }
 
 void m_step_mhmm_f64(HMM<double, multinomial::Multinomial<double> > &hmm,
-                     unsigned short int* dX, unsigned short int* dlenghts, int nSeq){
+                     unsigned short int* dX, int* dlenghts, int nSeq){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -206,7 +206,7 @@ void create_handle_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
 }
 
 void forward_backward_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-                                 float* dX, unsigned short int* dlenghts, int nSeq,
+                                 float* dX, int* dlenghts, int nSeq,
                                  bool doForward, bool doBackward, bool doGamma){
 
         cublasHandle_t cublasHandle;
@@ -225,7 +225,7 @@ void forward_backward_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
 void viterbi_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
                         unsigned short int* dVStates,
                         float* dX,
-                        unsigned short int* dlenghts,
+                        int* dlenghts,
                         int nSeq){
 
         cublasHandle_t cublasHandle;
@@ -241,7 +241,7 @@ void viterbi_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
 }
 
 void m_step_gmmhmm_f32(HMM<float, gmm::GMM<float> > &hmm,
-                       float* dX, unsigned short int* dlenghts, int nSeq){
+                       float* dX, int* dlenghts, int nSeq){
 
         cublasHandle_t cublasHandle;
         CUBLAS_CHECK(cublasCreate(&cublasHandle));
@@ -286,7 +286,7 @@ void create_handle_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 
 void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                                  double* dX,
-                                 unsigned short int* dlenghts,
+                                 int* dlenghts,
                                  int nSeq,
                                  bool doForward, bool doBackward, bool doGamma){
 
@@ -306,7 +306,7 @@ void forward_backward_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 void viterbi_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                         unsigned short int* dVStates,
                         double* dX,
-                        unsigned short int* dlenghts,
+                        int* dlenghts,
                         int nSeq){
 
         cublasHandle_t cublasHandle;
@@ -323,7 +323,7 @@ void viterbi_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
 
 void m_step_gmmhmm_f64(HMM<double, gmm::GMM<double> > &hmm,
                        double* dX,
-                       unsigned short int* dlenghts,
+                       int* dlenghts,
                        int nSeq){
 
         cublasHandle_t cublasHandle;

@@ -74,15 +74,16 @@ size_t hmm_bufferSize(HMM<T, D> &hmm){
 
         size_t workspaceSize = 0;
         const size_t granularity = 256;
+        size_t tempWsSize;
 
         hmm.handle.dPi_array = (T **)workspaceSize;
         workspaceSize += alignTo(hmm.nStates * sizeof(T*), granularity);
 
-        hmm.handle.dcumlenghts_inc = (unsigned short int *)workspaceSize;
-        workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+        hmm.handle.dcumlenghts_inc = (int *)workspaceSize;
+        workspaceSize += alignTo(hmm.nSeq * sizeof(int), granularity);
 
-        hmm.handle.dcumlenghts_exc = (unsigned short int *)workspaceSize;
-        workspaceSize += alignTo(hmm.nSeq * sizeof(unsigned short int), granularity);
+        hmm.handle.dcumlenghts_exc = (int *)workspaceSize;
+        workspaceSize += alignTo(hmm.nSeq * sizeof(int), granularity);
 
         hmm.handle.dAlpha = (T *)workspaceSize;
         workspaceSize += alignTo(hmm.handle.lddalpha * hmm.nObs * sizeof(T), granularity);
@@ -93,23 +94,25 @@ size_t hmm_bufferSize(HMM<T, D> &hmm){
         hmm.handle.dV = (T *)workspaceSize;
         workspaceSize += alignTo(hmm.handle.lddv * hmm.nObs * sizeof(T), granularity);
 
+        hmm.handle.distWs = std::vector<T*> (hmm.nStates);
+
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                hmm.handle.distWs[stateId] = (T *)workspaceSize;
+                tempWsSize = get_workspace_size(hmm.dists[stateId]);
+                workspaceSize += alignTo(tempWsSize, granularity);
+        }
+
         return workspaceSize;
 }
 
 template <typename T, typename D>
 void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         hmm.handle.dPi_array = (T **)((size_t)hmm.handle.dPi_array + (size_t)workspace);
-        hmm.handle.dcumlenghts_inc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
-        hmm.handle.dcumlenghts_exc = (unsigned short int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
+        hmm.handle.dcumlenghts_inc = (int *)((size_t)hmm.handle.dcumlenghts_inc + (size_t)workspace);
+        hmm.handle.dcumlenghts_exc = (int *)((size_t)hmm.handle.dcumlenghts_exc + (size_t)workspace);
         hmm.handle.dAlpha = (T *)((size_t)hmm.handle.dAlpha + (size_t)workspace);
         hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
         hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
-
-        // print_matrix_device(1, hmm.nSeq, hmm.handle.dcumlenghts_inc, 1, "hmm.handle.dcumlenghts_inc");
-        // print_matrix_device(1, hmm.nSeq, hmm.handle.dcumlenghts_exc, 1, "hmm.handle.dcumlenghts_inc");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dAlpha, hmm.handle.lddalpha, "hmm.handle.dAlpha");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dBeta, hmm.handle.lddalpha, "hmm.handle.dBeta");
-        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dV, hmm.handle.lddv, "hmm.handle.dV");
 
         T **Pi_array;
         Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
@@ -118,6 +121,12 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         }
         updateDevice(hmm.handle.dPi_array, Pi_array, hmm.nStates);
         free(Pi_array);
+
+        // Create distribution handles
+        for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
+                create_handle(hmm.dists[stateId],
+                              hmm.handle.distWs[stateId]);
+        }
 }
 
 template <typename T, typename D>
@@ -146,21 +155,43 @@ void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
 
 template <typename Tx, typename T, typename D>
 void forward_backward(HMM<T, D> &hmm,
-                      Tx* dX, unsigned short int* dlenghts, int nSeq,
+                      Tx* dX, int* dlenghts, int nSeq,
                       cublasHandle_t cublasHandle, magma_queue_t queue,
                       bool doForward, bool doBackward, bool doGamma){
         _compute_emissions(dX, hmm, cublasHandle, queue);
+        // cudaDeviceSynchronize();
+
         _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
+        // cudaDeviceSynchronize();
+
         _forward_backward(hmm, dlenghts, nSeq, doForward, doBackward);
+        // cudaDeviceSynchronize();
+
         if (doGamma) {
                 _update_gammas(hmm);
         }
+        // cudaDeviceSynchronize();
+
+        // print_matrix_device(1, nSeq, hmm.dLlhd, 1, "dLlhd");
+        // print_matrix_device(1, 1, hmm.logllhd, 1, "logllhd");
+        //
+        // print_matrix_batched(1, 2, hmm.nStates,
+        //                      hmm.handle.dPi_array, 1, "dPi_array");
+
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.dB, hmm.lddb, "dB");
+        // print_matrix_device(1, hmm.lddgamma * hmm.nObs,
+        //                     hmm.dGamma, hmm.lddgamma * hmm.nObs, "dGamma");
+
+        // print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        // print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_inc, 1, "dcumlenghts_inc");
+        // print_matrix_device(hmm.nStates, hmm.nObs, hmm.handle.dAlpha, hmm.handle.lddalpha, "dAlpha");
+
 }
 
 template <typename Tx, typename T, typename D>
 void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
-             Tx* dX, unsigned short int* dlenghts, int nSeq,
+             Tx* dX, int* dlenghts, int nSeq,
              cublasHandle_t cublasHandle, magma_queue_t queue){
 
         _compute_emissions(dX, hmm, cublasHandle, queue);
@@ -171,7 +202,7 @@ void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
 
 template <typename Tx, typename T, typename D>
 void m_step(HMM<T, D> &hmm,
-            Tx* dX, unsigned short int* dlenghts, int nSeq,
+            Tx* dX, int* dlenghts, int nSeq,
             cublasHandle_t cublasHandle, magma_queue_t queue
             ){
         forward_backward(hmm, dX, dlenghts, nSeq,

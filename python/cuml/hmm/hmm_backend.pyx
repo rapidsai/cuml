@@ -63,7 +63,7 @@ cdef setup_gmmhmm(self, floatGMMHMM& hmm32, doubleGMMHMM& hmm64, bool do_handle)
 
     if self.precision == 'single':
         for i in range(self.n_components):
-            _setup_gmm(self.dists[i], ar_gmms32[i], ar_gmms64[i], do_handle)
+            _setup_gmm(self.dists[i], ar_gmms32[i], ar_gmms64[i], False)
             gmms32.push_back(ar_gmms32[i])
 
         with nogil:
@@ -85,7 +85,7 @@ cdef setup_gmmhmm(self, floatGMMHMM& hmm32, doubleGMMHMM& hmm64, bool do_handle)
 
     if self.precision == 'double':
         for i in range(self.n_components):
-            _setup_gmm(self.dists[i], ar_gmms32[i], ar_gmms64[i], do_handle)
+            _setup_gmm(self.dists[i], ar_gmms32[i], ar_gmms64[i], False)
             gmms64.push_back(ar_gmms64[i])
 
         with nogil:
@@ -266,7 +266,7 @@ class _BaseHMMBackend:
         if self.precision is "single" and self.hmm_type is 'multinomial':
             forward_backward_mhmm_f32(multinomialhmm32,
                                       <unsigned short int*> _dX_ptr,
-                                      <unsigned short int*> _dlengths_ptr,
+                                      <int*> _dlengths_ptr,
                                       <int> nSeq,
                                       <bool> doForward,
                                       <bool> doBackward,
@@ -275,7 +275,7 @@ class _BaseHMMBackend:
         if self.precision is "double" and self.hmm_type is 'multinomial':
             forward_backward_mhmm_f64(multinomialhmm64,
                                       <unsigned short int*> _dX_ptr,
-                                      <unsigned short int*> _dlengths_ptr,
+                                      <int*> _dlengths_ptr,
                                       <int> nSeq,
                                       <bool> doForward,
                                       <bool> doBackward,
@@ -301,13 +301,13 @@ class _BaseHMMBackend:
             viterbi_mhmm_f32(multinomialhmm32,
                              <unsigned short int*> _dVStates_ptr,
                              <unsigned short int*> _dX_ptr,
-                             <unsigned short int*> _dlengths_ptr,
+                             <int*> _dlengths_ptr,
                              <int> nSeq)
         if self.precision is "double" and self.hmm_type is 'multinomial':
             viterbi_mhmm_f64(multinomialhmm64,
                              <unsigned short int*> _dVStates_ptr,
                              <unsigned short int*> _dX_ptr,
-                             <unsigned short int*> _dlengths_ptr,
+                             <int*> _dlengths_ptr,
                              <int> nSeq)
 
     def _m_step(self, X, lengths):
@@ -328,10 +328,10 @@ class _BaseHMMBackend:
         if self.precision is "single" and self.hmm_type is 'multinomial':
             m_step_mhmm_f32(multinomialhmm32,
                             <unsigned short int*> _dX_ptr,
-                            <unsigned short int*> _dlengths_ptr,
+                            <int*> _dlengths_ptr,
                             <int> nSeq)
         if self.precision is "double" and self.hmm_type is 'multinomial':
             m_step_mhmm_f64(multinomialhmm64,
                             <unsigned short int*> _dX_ptr,
-                            <unsigned short int*> _dlengths_ptr,
+                            <int*> _dlengths_ptr,
                             <int> nSeq)

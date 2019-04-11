@@ -119,3 +119,38 @@ def fit(self, X, lengths=None):
         #     break
 
     return self
+
+def score(self, X, lengths=None):
+    """Compute the log probability under the model.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        Feature matrix of individual samples.
+
+    lengths : array-like of integers, shape (n_sequences, ), optional
+        Lengths of the individual sequences in ``X``. The sum of
+        these should be ``n_samples``.
+
+    Returns
+    -------
+    logprob : float
+        Log likelihood of ``X``.
+
+    See Also
+    --------
+    score_samples : Compute the log probability under the model and
+        posteriors.
+    decode : Find most likely state sequence corresponding to ``X``.
+    """
+    self._check()
+
+    # XXX we can unroll forward pass for speed and memory efficiency.
+    probs = []
+    logprob = 0
+    for i, j in iter_from_X_lengths(X, lengths):
+        framelogprob = self._compute_log_likelihood(X[i:j])
+        logprobij, _fwdlattice = self._do_forward_pass(framelogprob)
+        logprob += logprobij
+        probs.append(logprobij)
+    return logprob, np.array(probs)

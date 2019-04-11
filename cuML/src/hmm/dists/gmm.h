@@ -17,10 +17,21 @@
 #pragma once
 
 #include <hmm/dists/dists_variables.h>
-#include <gmm/likelihood/b_likelihood.h>
+#include <gmm/gmm.h>
 #include <hmm/hmm_variables.h>
 
 namespace gmm {
+
+template <typename T>
+size_t get_workspace_size(GMM<T> &gmm){
+        size_t workspaceSize = gmm_bufferSize(gmm);
+        return workspaceSize;
+}
+
+template <typename T>
+void create_handle(GMM<T> &gmm, void* workspace){
+        create_GMMHandle_new(gmm, workspace);
+}
 
 template <typename T>
 void update_emissions(hmm::HMM<T, GMM<T> > &hmm,

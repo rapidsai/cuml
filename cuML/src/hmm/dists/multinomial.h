@@ -22,6 +22,16 @@
 
 namespace multinomial {
 
+template <typename T>
+size_t get_workspace_size(Multinomial<T> &multinomial){
+        size_t workspaceSize = 0;
+        return workspaceSize;
+}
+
+template <typename T>
+void create_handle(Multinomial<T> &multinomial, void* workspace){
+
+}
 
 // Multinomial
 template <typename T>
@@ -130,7 +140,7 @@ void update_emissions(hmm::HMM<T, Multinomial<T> > &hmm,
 
         int nThreads_x;
 
-        block.x = 32;
+        block.x = 512;
         grid.x = 1;
 
         nThreads_x = grid.x * block.x;

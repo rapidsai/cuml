@@ -89,12 +89,12 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void viterbi_mhmm_f32(floatMultinomialHMM &hmm,
                                unsigned short int* dVStates,
                                unsigned short int* dX,
-                               unsigned short int* dlenghts,
+                               int* dlenghts,
                                int nSeq)
 
     cdef void forward_backward_mhmm_f32(floatMultinomialHMM &hmm,
                                         unsigned short int* dX,
-                                        unsigned short int* dlenghts,
+                                        int* dlenghts,
                                         int nSeq,
                                         bool doForward,
                                         bool doBackward,
@@ -107,7 +107,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
 
     cdef void m_step_mhmm_f32(floatMultinomialHMM &hmm,
                               unsigned short int* dX,
-                              unsigned short int* dlenghts,
+                              int* dlenghts,
                               int nSeq)
 
     cdef void init_mhmm_f64(doubleMultinomialHMM &hmm,
@@ -133,12 +133,12 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void viterbi_mhmm_f64(doubleMultinomialHMM &hmm,
                                unsigned short int* dVStates,
                                unsigned short int* dX,
-                               unsigned short int* dlenghts,
+                               int* dlenghts,
                                int nSeq)
 
     cdef void forward_backward_mhmm_f64(doubleMultinomialHMM &hmm,
                                         unsigned short int* dX,
-                                        unsigned short int* dlenghts,
+                                        int* dlenghts,
                                         int nSeq,
                                         bool doForward,
                                         bool doBackward,
@@ -151,7 +151,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
 
     cdef void m_step_mhmm_f64(doubleMultinomialHMM &hmm,
                               unsigned short int* dX,
-                              unsigned short int* dlenghts,
+                              int* dlenghts,
                               int nSeq)
 
 
@@ -178,12 +178,12 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void viterbi_gmmhmm_f32(floatGMMHMM &hmm,
                                  unsigned short int* dVStates,
                                  unsigned short int* dX,
-                                 unsigned short int* dlenghts,
+                                 int* dlenghts,
                                  int nSeq)
 
     cdef void forward_backward_gmmhmm_f32(floatGMMHMM &hmm,
                                           unsigned short int* dX,
-                                          unsigned short int* dlenghts,
+                                          int* dlenghts,
                                           int nSeq,
                                           bool doForward,
                                           bool doBackward,
@@ -196,7 +196,7 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
 
     cdef void m_step_gmmhmm_f32(floatGMMHMM &hmm,
                                 unsigned short int* dX,
-                                unsigned short int* dlenghts,
+                                int* dlenghts,
                                 int nSeq)
 
     cdef void init_gmmhmm_f64(doubleGMMHMM &hmm,
@@ -222,12 +222,12 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
     cdef void viterbi_gmmhmm_f64(doubleGMMHMM &hmm,
                                  unsigned short int* dVStates,
                                  unsigned short int* dX,
-                                 unsigned short int* dlenghts,
+                                 int* dlenghts,
                                  int nSeq)
 
     cdef void forward_backward_gmmhmm_f64(doubleGMMHMM &hmm,
                                           unsigned short int* dX,
-                                          unsigned short int* dlenghts,
+                                          int* dlenghts,
                                           int nSeq,
                                           bool doForward,
                                           bool doBackward,
@@ -240,6 +240,6 @@ cdef extern from "hmm/hmm_py.h" namespace "hmm" nogil:
 
     cdef void m_step_gmmhmm_f64(doubleGMMHMM &hmm,
                                 unsigned short int* dX,
-                                unsigned short int* dlenghts,
+                                int* dlenghts,
                                 int nSeq)
 

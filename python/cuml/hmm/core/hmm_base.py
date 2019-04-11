@@ -122,18 +122,19 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         self.allocate_ws()
 
         for step in range(self.n_iter):
-            # self._forward_backward(X, lengths, True, True, True)
             self._m_step(X, lengths)
 
     def decode(self, X, lengths=None, algorithm=None):
         self._set_dims(X, lengths)
         self._reset()
         self._setup(X, lengths)
-        self.allocate_ws()
+        if self.workspace is None :
+            self.allocate_ws()
 
         self._viterbi(X, lengths)
         state_sequence = self._dVStates_
-        llhd = self._llhd
+
+        llhd = self._logllhd_
         return llhd, state_sequence
 
     # @abstractmethod
@@ -142,13 +143,12 @@ class _BaseHMM(_BaseCUML, _DevHMM):
 
     def predict_proba(self, X, lengths=None):
         self._set_dims(X, lengths)
-        self._initialize()
         self._reset()
         self._setup(X, lengths)
-        self.allocate_ws()
+        if self.workspace is None :
+            self.allocate_ws()
 
         self._forward_backward(X, lengths, True, True, True)
-        # self._forward_backward(X, lengths, False, False, False)
         return self._gammas_
 
     # @abstractmethod
@@ -156,14 +156,22 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     #     pass
 
     def score(self, X, lengths=None):
+        self._set_dims(X, lengths)
         self._reset()
         self._setup(X, lengths)
-        self.allocate_ws()
+        if self.workspace is None :
+            self.allocate_ws()
 
         self._forward_backward(X, lengths, True, False, False)
         return self._score()
 
     def score_samples(self, X, lengths=None):
+        self._set_dims(X, lengths)
+        self._reset()
+        self._setup(X, lengths)
+        if self.workspace is None:
+            self.allocate_ws()
+
         posteriors = self.predict_proba(X, lengths)
         logprob = self._score()
         return logprob, posteriors
@@ -176,7 +184,6 @@ class _BaseHMM(_BaseCUML, _DevHMM):
     def _set_transmat(self, transmat):
         self.lddt = roundup(self.n_components, self.align_size)
         self.dT = process_parameter(transmat, self.lddt, self.dtype)
-
 
     def _get_startprob_(self):
         startProb = self.dstartProb.copy_to_host()
@@ -227,11 +234,13 @@ class _BaseHMM(_BaseCUML, _DevHMM):
         if lengths is None:
             lengths = np.array([self.nObs])
         # Check leading dimension
-        lengths = lengths.astype(self.int_type)
+        lengths = lengths.astype(np.int32)
         self.dlengths = cuda.to_device(lengths)
 
         for dist in self.dists :
             dist._setup(X)
+
+        self._set_logllhd(0)
 
     def _reset(self):
         B = sample_matrix(self.n_components,

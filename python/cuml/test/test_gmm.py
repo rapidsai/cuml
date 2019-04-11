@@ -125,14 +125,14 @@ def print_info(true_params, sk_params, cuml_params):
 # @pytest.mark.parametrize('nCl', [5, 10])
 # @pytest.mark.parametrize('nDim', [5, 10])
 # @pytest.mark.parametrize('nObs', [1000])
-@pytest.mark.parametrize('n_iter', [5])
-@pytest.mark.parametrize('nCl', [5])
+@pytest.mark.parametrize('n_iter', [10])
+@pytest.mark.parametrize('nCl', [7])
 @pytest.mark.parametrize('nDim', [100])
-@pytest.mark.parametrize('nObs', [5000])
-@pytest.mark.parametrize('precision', ["double"])
+@pytest.mark.parametrize('nObs', [1e6])
+@pytest.mark.parametrize('precision', ['single', "double"])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [1e-06])
-@pytest.mark.parametrize('random_state', [24, 45, 7])
+@pytest.mark.parametrize('random_state', [24])
 def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     print("nDim", nDim)
@@ -141,9 +141,10 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     X, true_params = sample(nDim=nDim, nCl=nCl, nObs=nObs, precision=precision)
 
-    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
     cuml_params = run_cuml(X, n_iter, precision, nCl,
                            tol, reg_covar, random_state)
+    sk_params = run_sklearn(X, n_iter, nCl, tol, reg_covar, random_state)
+
 
 
     # print_info(true_params, sk_params, cuml_params)

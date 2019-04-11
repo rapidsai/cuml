@@ -35,9 +35,11 @@ struct HMMHandle {
         int lddv;
 
         T **dPi_array;
-        unsigned short int *dcumlenghts_inc, *dcumlenghts_exc;
+        int *dcumlenghts_inc, *dcumlenghts_exc;
         T *dAlpha, *dBeta;
         int lddalpha, lddbeta;
+        std::vector<T*> distWs;
+
 };
 
 
