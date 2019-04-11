@@ -1,3 +1,10 @@
+# cuML 0.6.1 (09 Apr 2019)
+
+## Bug Fixes
+
+- PR #462 Runtime library path fix for cuML pip package
+
+
 # cuML 0.6.0 (22 Mar 2019)
 
 ## New Features

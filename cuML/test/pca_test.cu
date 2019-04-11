@@ -283,7 +283,7 @@ TEST_P(PcaTestDataVecSmallD, Result) {
 }
 
 typedef PcaTest<float> PcaTestDataVecF;
-TEST_P(PcaTestDataVecF, Result) {
+TEST_P(PcaTestDataVecF, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(data2, data2_back,
 					(params.n_col2 * params.n_col2),
@@ -292,7 +292,7 @@ TEST_P(PcaTestDataVecF, Result) {
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
-TEST_P(PcaTestDataVecD, Result) {
+TEST_P(PcaTestDataVecD, DISABLED_Fit) {
 	ASSERT_TRUE(
 			devArrMatch(data2, data2_back,
 					(params.n_col2 * params.n_col2),
