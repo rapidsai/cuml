@@ -29,6 +29,21 @@ class Base:
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
     from this class.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml
+        stream = cuml.cuda.Stream()
+        handle = cuml.Handle()
+        handle.setStream(stream)
+        handle.enableRMM()   # Enable RMM as the device-side allocator
+        base = cuml.Base(handle=handle)
+        # final synchronization of all work launched/dependent on this stream
+        stream.sync()
+        del base  # optional!
     """
 
     def __init__(self, handle=None, verbose=False):

@@ -34,6 +34,16 @@ class CudaRuntimeError(RuntimeError):
 cdef class Stream:
     """
     Stream represents a thin-wrapper around cudaStream_t and its operations.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml
+        stream = cuml.cuda.Stream()
+        stream.sync()
+        del stream  # optional!
     """
 
     # NOTE:

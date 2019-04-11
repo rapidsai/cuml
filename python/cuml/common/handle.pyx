@@ -42,9 +42,8 @@ cdef class Handle:
     .. code-block:: python
 
         import cuml
-        from cuml.common.cuda import Stream
-        stream = Stream()
-        handle = cuml.common.handle.Handle()
+        stream = cuml.cuda.Stream()
+        handle = cuml.Handle()
         handle.setStream(stream)
         handle.enableRMM()   # Enable RMM as the device-side allocator
 
