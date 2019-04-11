@@ -37,6 +37,7 @@
 - PR #384: 64b index arithmetic updates to the kernels inside ml-prims
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
+- PR #466: Add support for column-major in LinAlg::*Norm methods
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
 
