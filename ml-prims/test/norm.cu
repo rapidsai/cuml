@@ -72,6 +72,7 @@ template <typename T>
 class RowNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 public:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
@@ -82,9 +83,10 @@ public:
     naiveRowNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt);
     if (params.do_sqrt) {
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, fin_op);
+      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     } else {
-      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor);
+      rowNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
   }
 
@@ -92,11 +94,13 @@ public:
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
   NormInputs<T> params;
   T *data, *dots_exp, *dots_act;
+  cudaStream_t stream;
 };
 
 
@@ -130,6 +134,7 @@ template <typename T>
 class ColNormTest : public ::testing::TestWithParam<NormInputs<T>> {
 public:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<NormInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols, len = rows * cols;
@@ -141,9 +146,10 @@ public:
     naiveColNorm(dots_exp, data, cols, rows, params.type, params.do_sqrt);
     if(params.do_sqrt){
       auto fin_op = [] __device__(T in) { return mySqrt(in); };
-      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, fin_op);
+      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream,
+              fin_op);
     }else{
-      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor);
+      colNorm(dots_act, data, cols, rows, params.type, params.rowMajor, stream);
     }
   }
 
@@ -151,11 +157,13 @@ public:
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
     NormInputs<T> params;
     T *data, *dots_exp, *dots_act;
+    cudaStream_t stream;
 };
 
 
