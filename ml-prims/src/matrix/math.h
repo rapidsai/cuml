@@ -88,14 +88,16 @@ void power(math_t *in, math_t *out, int len) {
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
+template<typename math_t, typename IdxType = int>
+void seqRoot(math_t* in, math_t* out, math_t scalar, IdxType len, bool set_neg_zero = false) {
 
 	auto d_src = in;
 	auto d_dest = out;
@@ -117,40 +119,43 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* inout, math_t scalar, IdxType len, bool set_neg_zero = false) {
   seqRoot(inout, inout, scalar, len, set_neg_zero);
 }
 
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void seqRoot(math_t* in, math_t* out, int len) {
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* in, math_t* out, IdxType len) {
 	math_t scalar = 1.0;
 	seqRoot(in, out, scalar, len);
 }
 
-template <typename math_t>
-void seqRoot(math_t* inout, int len) {
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* inout, IdxType len) {
 	math_t scalar = 1.0;
 	seqRoot(inout, inout, scalar, len);
 }
 
 
-
-template <typename math_t>
-void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15) {
+template <typename math_t, typename IdxType = int>
+void setSmallValuesZero(math_t* out, const math_t* in, IdxType len, math_t thres = 1e-15) {
   MLCommon::LinAlg::unaryOp(out, in, len, [=] __device__(math_t a)
                                              {
                                                if(a <= thres && -a <= thres) {
@@ -164,13 +169,15 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
 
 /**
  * @defgroup sets the small values to zero based on a defined threshold
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
  * @param thres: threshold
  * @{
  */
-template <typename math_t>
-void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
+template <typename math_t, typename IdxType = int>
+void setSmallValuesZero(math_t* inout, IdxType len, math_t thres = 1e-15) {
   setSmallValuesZero(inout, inout, len, thres);
 }
 
@@ -179,13 +186,15 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
                 bool setzero = false, math_t thres = 1e-15) {
   auto d_src = in;
@@ -208,6 +217,8 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
@@ -215,8 +226,8 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t* inout, math_t scalar, IdxType len, bool setzero = false,
                 math_t thres = 1e-15) {
   reciprocal(inout, inout, scalar, len, setzero, thres);
 }
@@ -225,12 +236,14 @@ void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
 /**
  * @defgroup overloaded reciprocal math operation on the input matrix.
  * Reciprocal of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t *inout, int len) {
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t *inout, IdxType len) {
   math_t scalar = 1.0;
   reciprocal(inout, scalar, len);
 }
@@ -238,13 +251,15 @@ void reciprocal(math_t *inout, int len) {
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t *in, math_t *out, int len) {
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t *in, math_t *out, IdxType len) {
   math_t scalar = 1.0;
   reciprocal(in, out, scalar, len);
 }
@@ -253,19 +268,21 @@ void reciprocal(math_t *in, math_t *out, int len) {
  * @defgroup ratio math operation on the input matrix. ratio of every element
  * over sum of input vector is calculated
  *           Used in PCA.
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
  * @{
  */
 
-template <typename math_t>
-void ratio(math_t *src, math_t *dest, int len,
+template <typename math_t, typename IdxType = int>
+void ratio(math_t *src, math_t *dest, IdxType len,
            DeviceAllocator &mgr) {
   auto d_src = src;
   auto d_dest = dest;
 
-  math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t)*1);
+  math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t));
   
   auto no_op = [] __device__(math_t in) { return in; };
   MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, 0, src);
