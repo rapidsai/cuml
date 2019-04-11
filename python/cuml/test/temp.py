@@ -154,3 +154,58 @@ def score(self, X, lengths=None):
         logprob += logprobij
         probs.append(logprobij)
     return logprob, np.array(probs)
+
+
+def decode(self, X, lengths=None, algorithm=None):
+    """Find most likely state sequence corresponding to ``X``.
+
+    Parameters
+    ----------
+    X : array-like, shape (n_samples, n_features)
+        Feature matrix of individual samples.
+
+    lengths : array-like of integers, shape (n_sequences, ), optional
+        Lengths of the individual sequences in ``X``. The sum of
+        these should be ``n_samples``.
+
+    algorithm : string
+        Decoder algorithm. Must be one of "viterbi" or "map".
+        If not given, :attr:`decoder` is used.
+
+    Returns
+    -------
+    logprob : float
+        Log probability of the produced state sequence.
+
+    state_sequence : array, shape (n_samples, )
+        Labels for each sample from ``X`` obtained via a given
+        decoder ``algorithm``.
+
+    See Also
+    --------
+    score_samples : Compute the log probability under the model and
+        posteriors.
+    score : Compute the log probability under the model.
+    """
+
+    self._check()
+
+    algorithm = algorithm or self.algorithm
+    decoder = {
+        "viterbi": self._decode_viterbi,
+        "map": self._decode_map
+    }[algorithm]
+
+    n_samples = X.shape[0]
+    logprob = 0
+    state_sequence = np.empty(n_samples, dtype=int)
+    probs = []
+
+    for i, j in iter_from_X_lengths(X, lengths):
+        # XXX decoder works on a single sample at a time!
+        logprobij, state_sequenceij = decoder(X[i:j])
+        logprob += logprobij
+        state_sequence[i:j] = state_sequenceij
+        probs.append(logprobij)
+
+    return logprob, state_sequence, np.array(probs)

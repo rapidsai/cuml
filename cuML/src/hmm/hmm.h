@@ -198,6 +198,10 @@ void viterbi(HMM<T, D> &hmm, unsigned short int* dVStates,
         _compute_cumlengths(hmm.handle.dcumlenghts_inc, hmm.handle.dcumlenghts_exc,
                             dlenghts, nSeq);
         _viterbi(hmm, dVStates, dlenghts, nSeq);
+
+        print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_exc, 1, "dcumlenghts_exc");
+        print_matrix_device(1, nSeq, hmm.handle.dcumlenghts_inc, 1, "dcumlenghts_inc");
+
 }
 
 template <typename Tx, typename T, typename D>

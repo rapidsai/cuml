@@ -1,4 +1,4 @@
-from cuml.hmm.utils.hmm_test_utils import GMMHMMSampler, MultinomialHMMSampler
+from cuml.hmm.utils.utils import GMMHMMSampler, MultinomialHMMSampler
 import cuml
 import os
 import numpy as np

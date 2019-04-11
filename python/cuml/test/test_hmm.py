@@ -17,27 +17,32 @@ from abc import ABC
 
 import hmmlearn
 import cuml
-from cuml.hmm.utils.hmm_test_utils import MultinomialHMMSampler, GMMHMMSampler
+from cuml.hmm.utils.sampler import MultinomialHMMSampler, GMMHMMSampler
+from cuml.hmm.utils.utils import *
 import numpy as np
 import pytest
 import time
 
 np.set_printoptions(threshold=np.inf)
-from cuml.test.temp import score
+from cuml.test.temp import score, decode
+
 
 @pytest.fixture(params=["double"])
 def precision(request):
     return request.param
 
-@pytest.fixture(params=[5])
+
+@pytest.fixture(params=[40])
 def n_components(request):
     return request.param
 
-@pytest.fixture(params=[int(1e4)])
+
+@pytest.fixture(params=[int(1000)])
 def n_seq(request):
     return request.param
 
-@pytest.fixture(params=[5])
+
+@pytest.fixture(params=[10])
 def n_features(request):
     return request.param
 
@@ -115,19 +120,10 @@ class TestMultinomialHMM(TestHMM):
         end = time.time()
         print("\n Elapsed time for cuml : ", end - start, "\n")
 
-        cuml_probs = self.cuml_model._get_llhd()
-
         start = time.time()
         ref_ll = self.ref_model.score(self.X, self.lengths)
-        logprob, probs = score(self.ref_model, self.X, self.lengths)
-
-        # dif_prob = cuml_probs - probs
-        # where = np.where((dif_prob > 1e-8))
         end = time.time()
         print("\n Elapsed time for hmmlearn : ", end - start, "\n")
-
-        # print("cumsum")
-        # print(np.cumsum(self.lengths))
 
         assert abs(ref_ll - cuml_ll) < self.assert_eps
 
@@ -164,37 +160,35 @@ class TestMultinomialHMM(TestHMM):
         end = time.time()
         print("\n Elapsed time for hmmlearn : ", end - start, "\n")
 
-        print(cuml_llhd)
-
         state_seq_err = np.sum(np.abs(cuml_state_seq - ref_state_seq))
 
-        assert abs(cuml_llhd- ref_llhd) < self.assert_eps
         assert state_seq_err == 0
+        assert abs(cuml_llhd- ref_llhd) < self.assert_eps
 
-    # def test_fit(self, n_components, n_seq, n_features, precision):
-    #     self.setmethod(n_components, n_seq, n_features, precision)
-    #     self._reset()
-    #
-    #     self.cuml_model.n_iter = 1
-    #     self.ref_model.n_iter = 1
-    #
-    #     start = time.time()
-    #     self.cuml_model.fit(self.X, self.lengths)
-    #     end = time.time()
-    #     print("\n Elapsed time for cuml : ", end - start, "\n")
-    #
-    #     # start = time.time()
-    #     # self.ref_model.fit(self.X, self.lengths)
-    #     # end = time.time()
-    #     # print("\n Elapsed time for hmmlearn : ", end - start, "\n")
-    #
-    #     emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
-    #     startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
-    #     transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
-    #
-    #     assert startprob_err < self.assert_eps
-    #     assert emissionprob_err < self.assert_eps
-    #     assert transmat_err < self.assert_eps
+    def test_fit(self, n_components, n_seq, n_features, precision):
+        self.setmethod(n_components, n_seq, n_features, precision)
+        self._reset()
+
+        self.cuml_model.n_iter = 1
+        self.ref_model.n_iter = 1
+
+        start = time.time()
+        self.cuml_model.fit(self.X, self.lengths)
+        end = time.time()
+        print("\n Elapsed time for cuml : ", end - start, "\n")
+
+        # start = time.time()
+        # self.ref_model.fit(self.X, self.lengths)
+        # end = time.time()
+        # print("\n Elapsed time for hmmlearn : ", end - start, "\n")
+
+        emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
+        startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
+        transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
+
+        assert startprob_err < self.assert_eps
+        assert emissionprob_err < self.assert_eps
+        assert transmat_err < self.assert_eps
 
     def test_predict_proba(self, n_components, n_seq, n_features, precision):
         self.setmethod(n_components, n_seq, n_features, precision)
