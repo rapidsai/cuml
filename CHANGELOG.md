@@ -9,6 +9,7 @@
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
+- PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
@@ -36,6 +37,8 @@
 - PR #384: 64b index arithmetic updates to the kernels inside ml-prims
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
+- PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
+- PR #468: Fix dbscan example build failure
 
 # cuML 0.6.0 (22 Mar 2019)
 
