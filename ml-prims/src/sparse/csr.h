@@ -26,6 +26,12 @@
 
 namespace MLCommon {
     namespace Sparse {
+
+        /**
+         * Row-normalizes a CSR matrix using the sum of
+         * each row as the normalizer.
+         *
+         */
         template<int TPB_X, typename T>
         __global__ void csr_row_normalize_l1(
                 int *ia,    // csr row ex_scan (sorted by row)
@@ -62,11 +68,15 @@ namespace MLCommon {
             }
         }
 
+        /**
+         * Row-normalizes a CSR matrix using the max of each
+         * row as the normalizer.
+         */
         template<int TPB_X, typename T>
         __global__ void csr_row_normalize_max(
-                int *ia,    // csr row ex_scan (sorted by row)
+                int *ia,    // csr row ind array (sorted by row)
                 T *vals, int nnz,  // array of values and number of non-zeros
-                int m,          // num rows in csr
+                int m,          // num total rows in csr
                 T *result) {    // output array
 
             // row-based matrix 1 thread per row
@@ -107,6 +117,18 @@ namespace MLCommon {
                 stop_idx = nnz;
 
             return stop_idx;
+        }
+
+        __global__ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz) {
+
+            // row-based matrix 1 thread per row
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            if(row < m) {
+                int start_idx = row_ind[row];
+                int stop_idx = get_stop_idx(row, m, nnz, row_ind);
+                for(int i = start_idx; i < stop_idx; i++)
+                    coo_rows[i] = row;
+            }
         }
 
         /**

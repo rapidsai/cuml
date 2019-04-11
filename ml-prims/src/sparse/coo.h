@@ -192,14 +192,14 @@ namespace MLCommon {
         /**
          * Removes the zeros from a COO formatted sparse matrix.
          *
-         * @param nnz: size of rows/cols/vals arrays
+         * @param nnz: size of current rows/cols/vals arrays
          * @param rows: input array of rows (size n)
          * @param cols: input array of cols (size n)
          * @param vals: input array of vals (size n)
          * @param crows: compressed array of rows
          * @param ccols: compressed array of cols
          * @param cvals: compressed array of vals
-         * @param cnnz: array of non-zero counts per chunk
+         * @param cnnz: array of non-zero counts per chunk (e.g. row)
          * @param cnnz_n: size of cnnz array (eg. num chunks)
          */
         template<int TPB_X, typename T>
