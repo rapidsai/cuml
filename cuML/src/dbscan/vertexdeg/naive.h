@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 
 #include <cuda_utils.h>
 #include "pack.h"
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace VertexDeg {
@@ -65,11 +66,11 @@ __global__ void vertex_degree_kernel(Pack<Type> data, int startVertexId, int bat
 }
 
 template <typename Type>
-void launcher(Pack<Type> data, cudaStream_t stream, int startVertexId, int batchSize) {
+void launcher(Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
     dim3 blk(TPB_X, TPB_Y, 1);
     data.resetArray(stream, batchSize+1);
-    vertex_degree_kernel<<<grid, blk>>>(data, startVertexId, batchSize);
+    vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId, batchSize);
 }
 
 } // namespace Naive

@@ -56,7 +56,7 @@ if os.environ.get('CONDA_PREFIX', None):
     rmm_lib_dir = conda_prefix + rmm_lib_dir
 
 extensions = [
-    CMakeExtension('cuml', 'cuML'),
+    CMakeExtension('cuml++', 'cuML'),
     Extension("*",
               sources=cython_files,
               include_dirs=['cuML/src',
@@ -68,9 +68,9 @@ extensions = [
                             cuda_include_dir,
                             rmm_include_dir],
               library_dirs=[get_python_lib(), distutils_dir_name('lib')],
-              libraries=['cuml', 'rmm'],
+              libraries=['cuda', 'cuml++', 'rmm'],
               language='c++',
-              runtime_library_dirs=['$ORIGIN', cuda_lib_dir, rmm_lib_dir],
+              runtime_library_dirs=[get_python_lib(), cuda_lib_dir, rmm_lib_dir],
               extra_compile_args=['-std=c++11'])
 ]
 

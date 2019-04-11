@@ -32,20 +32,24 @@ Output:
 dtype: int32
 ```
 
-For additional examples, browse our complete [API documentation](https://rapidsai.github.io/projects/cuml/en/latest/index.html), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
+For additional examples, browse our complete [API documentation](https://docs.rapids.ai/api/cuml/stable/), or check out our more detailed [walkthrough notebooks](https://github.com/rapidsai/notebooks/tree/master/cuml).
 
 ### Supported Algorithms:
 
-- Truncated Singular Value Decomposition (tSVD) - Single GPU, Muti-GPU in Conda CUDA 10 package
-- Linear Regression (Ordinary Least Squares) - Single GPU, Muti-GPU in Conda CUDA 10 package
-- Principal Component Analysis (PCA) - Single GPU
-- Density-based spatial clustering of applications with noise (DBSCAN) - Single GPU
-- K-Means Clustering - Multi-GPU
-- K-Nearest Neighbors - Multi-GPU
-- Ridge Regression - Single GPU
-- Kalman Filter - Single GPU
-- UMAP
-- Stochastic Gradient Descent for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties.
+| Algorithm | Scale | Notes |
+| --- | --- | --- |
+| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
+| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package <br> Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| Principal Component Analysis (PCA) | Single GPU |
+| Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
+| K-Means Clustering | Multi-GPU |
+| K-Nearest Neighbors (KNN) | Multi-GPU | Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| Ridge Regression | Single-GPU |
+| Kalman Filter | Single-GPU |
+| UMAP | Single-GPU |
+| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
+
+---
 
 Algorithms in progress:
 
@@ -81,12 +85,12 @@ pip install cuml-cuda92
 pip install cuml-cuda100
 ```
 
-#### Build/Install from Source
-See build [instructions](BUILD.md)
+## Build/Install from Source
+See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
 
 ## Contributing
 
-Please use GitHub issues and pull requests to report bugs and add or request functionality.
+Please see our [guide for contributing to cuML](CONTRIBUTING.md).
 
 ## Contact
 
