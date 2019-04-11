@@ -35,9 +35,9 @@ namespace MLCommon {
             if(row < m) {
                 int start_idx = ia[row];
                 int stop_idx = 0;
-                if(row < (m-1))
+                if(row < m-1) {
                     stop_idx = ia[row+1];
-                else
+                } else
                     stop_idx = nnz;
 
                 T sum = T(0.0);

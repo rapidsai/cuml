@@ -16,12 +16,9 @@
 
 #include <gtest/gtest.h>
 #include "linalg/strided_reduction.h"
-#include "linalg/unary_op.h"
+#include "reduce.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
-#include <thrust/device_vector.h>
-#include <cublas_v2.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -34,37 +31,10 @@ struct stridedReductionInputs {
 };
 
 template <typename T>
-void stridedReductionLaunch(T *dots, const T *data, int cols, int rows) {
-  stridedReduction(dots, data, cols, rows, (T)0, false, 0,
+void stridedReductionLaunch(T *dots, const T *data, int cols, int rows,
+                            cudaStream_t stream) {
+  stridedReduction(dots, data, cols, rows, (T)0, false, stream,
                    [] __device__(T in, int i) { return in * in; });
-}
-
-
-template <typename T, typename GEMV_t>
-void unaryAndGemv(T *dots, const T *data, int cols, int rows, GEMV_t gemv){
-    //computes a MLCommon unary op on data (squares it), then computes Ax
-    //(A input matrix and x column vector) to sum columns
-    thrust::device_vector<T> sq(cols*rows);
-    unaryOp(thrust::raw_pointer_cast(sq.data()), data, cols*rows,
-            [] __device__(T v) { return v*v; });
-
-    cublasHandle_t handle;
-    ASSERT_TRUE(cublasCreate(&handle) == CUBLAS_STATUS_SUCCESS);
-
-    thrust::device_vector<T> ones(rows, 1); //column vector [1...1]
-    T alpha = 1, beta = 0;
-    ASSERT_TRUE(gemv(handle, CUBLAS_OP_N, cols, rows,
-                &alpha, thrust::raw_pointer_cast(sq.data()), cols,
-                thrust::raw_pointer_cast(ones.data()), 1, &beta, 
-                dots, 1) == CUBLAS_STATUS_SUCCESS);
-}
-
-void unaryAndGemv(float *dots, const float *data, int cols, int rows){
-    unaryAndGemv(dots, data, cols, rows, cublasSgemv);
-}
-
-void unaryAndGemv(double *dots, const double *data, int cols, int rows){
-    unaryAndGemv(dots, data, cols, rows, cublasDgemv);
 }
 
 
@@ -72,6 +42,7 @@ template <typename T>
 class stridedReductionTest : public ::testing::TestWithParam<stridedReductionInputs<T>> {
 protected:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<stridedReductionInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
@@ -82,19 +53,21 @@ protected:
     allocate(dots_act, cols); //actual dot products (from prim)
     r.uniform(data, len, T(-1.0), T(1.0)); //initialize matrix to random
 
-    unaryAndGemv(dots_exp, data, cols, rows);
-    stridedReductionLaunch(dots_act, data, cols, rows);
+    unaryAndGemv(dots_exp, data, cols, rows, stream);
+    stridedReductionLaunch(dots_act, data, cols, rows, stream);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(dots_exp));
     CUDA_CHECK(cudaFree(dots_act));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
   stridedReductionInputs<T> params;
   T *data, *dots_exp, *dots_act;
+  cudaStream_t stream;
 };
 
 
@@ -102,23 +75,13 @@ const std::vector<stridedReductionInputs<float>> inputsf = {
   {0.00001f, 1024,  32, 1234ULL},
   {0.00001f, 1024,  64, 1234ULL},
   {0.00001f, 1024, 128, 1234ULL},
-  {0.00001f, 1024, 256, 1234ULL},
-  {0.00001f, 1024,  32, 1234ULL},
-  {0.00001f, 1024,  64, 1234ULL},
-  {0.00001f, 1024, 128, 1234ULL},
-  {0.00001f, 1024, 256, 1234ULL}
-};
+  {0.00001f, 1024, 256, 1234ULL}};
 
 const std::vector<stridedReductionInputs<double>> inputsd = {
   {0.000000001, 1024,  32, 1234ULL},
   {0.000000001, 1024,  64, 1234ULL},
   {0.000000001, 1024, 128, 1234ULL},
-  {0.000000001, 1024, 256, 1234ULL},
-  {0.000000001, 1024,  32, 1234ULL},
-  {0.000000001, 1024,  64, 1234ULL},
-  {0.000000001, 1024, 128, 1234ULL},
-  {0.000000001, 1024, 256, 1234ULL}
-};
+  {0.000000001, 1024, 256, 1234ULL}};
 
 typedef stridedReductionTest<float> stridedReductionTestF;
 TEST_P(stridedReductionTestF, Result) {

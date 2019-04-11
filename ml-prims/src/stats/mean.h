@@ -24,16 +24,17 @@ namespace MLCommon {
 namespace Stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
-template <typename Type, int TPB, int ColsPerBlk = 32>
-__global__ void meanKernelRowMajor(Type *mu, const Type *data, int D, int N) {
+template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
+__global__ void meanKernelRowMajor(Type *mu, const Type *data,
+                                   IdxType D, IdxType N) {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
-  int thisColId = threadIdx.x % ColsPerBlk;
-  int thisRowId = threadIdx.x / ColsPerBlk;
-  int colId = thisColId + (blockIdx.y * ColsPerBlk);
-  int rowId = thisRowId + (blockIdx.x * RowsPerBlkPerIter);
+  IdxType thisColId = threadIdx.x % ColsPerBlk;
+  IdxType thisRowId = threadIdx.x / ColsPerBlk;
+  IdxType colId = thisColId + ((IdxType)blockIdx.y * ColsPerBlk);
+  IdxType rowId = thisRowId + ((IdxType)blockIdx.x * RowsPerBlkPerIter);
   Type thread_data = Type(0);
-  const int stride = RowsPerBlkPerIter * gridDim.x;
-  for (int i = rowId; i < N; i += stride)
+  const IdxType stride = RowsPerBlkPerIter * gridDim.x;
+  for (IdxType i = rowId; i < N; i += stride)
     thread_data += (colId < D) ? data[i * D + colId] : Type(0);
   __shared__ Type smu[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk)
@@ -45,14 +46,15 @@ __global__ void meanKernelRowMajor(Type *mu, const Type *data, int D, int N) {
     myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
-template <typename Type, int TPB>
-__global__ void meanKernelColMajor(Type *mu, const Type *data, int D, int N) {
+template <typename Type, typename IdxType, int TPB>
+__global__ void meanKernelColMajor(Type *mu, const Type *data,
+                                   IdxType D, IdxType N) {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type thread_data = Type(0);
-  int colStart = blockIdx.x * N;
-  for (int i = threadIdx.x; i < N; i += TPB) {
-    int idx = colStart + i;
+  IdxType colStart = N * blockIdx.x;
+  for (IdxType i = threadIdx.x; i < N; i += TPB) {
+    IdxType idx = colStart + i;
     thread_data += data[idx];
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
@@ -67,6 +69,7 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, int D, int N) {
  * Mean operation is assumed to be performed on a given column.
  *
  * @tparam Type: the data type
+ * @tparam IdxType Integer type used to for addressing
  * @param mu: the output mean vector
  * @param data: the input matrix
  * @param D: number of columns of data
@@ -77,23 +80,23 @@ __global__ void meanKernelColMajor(Type *mu, const Type *data, int D, int N) {
  * @param rowMajor: whether the input data is row or col major
  * @param stream: cuda stream
  */
-template <typename Type>
-void mean(Type *mu, const Type *data, int D, int N, bool sample, bool rowMajor,
-          cudaStream_t stream = 0) {
+template <typename Type, typename IdxType = int>
+void mean(Type *mu, const Type *data, IdxType D, IdxType N, bool sample,
+          bool rowMajor, cudaStream_t stream = 0) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, RowsPerBlk), ceildiv(D, ColsPerBlk));
-    CUDA_CHECK(cudaMemset(mu, 0, sizeof(Type) * D));
-    meanKernelRowMajor<Type, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
+    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
+    CUDA_CHECK(cudaMemsetAsync(mu, 0, sizeof(Type) * D, stream));
+    meanKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
       mu, data, D, N);
     CUDA_CHECK(cudaPeekAtLastError());
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     LinAlg::scalarMultiply(mu, mu, ratio, D);
   } else {
-    meanKernelColMajor<Type, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
+    meanKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(mu, data, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
