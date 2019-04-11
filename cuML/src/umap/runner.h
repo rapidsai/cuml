@@ -27,6 +27,7 @@
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 #include <thrust/count.h>
+#include <thrust/reduce.h>
 #include <thrust/extrema.h>
 
 #include "sparse/csr.h"
@@ -82,7 +83,7 @@ namespace UMAPAlgo {
     }
 
     template<int TPB_X, typename T>
-    __global__ void fast_intersection(
+    __global__ void fast_intersection_kernel(
         int * rows, int *cols, T *vals, int nnz,
         T *target,
         float unknown_dist = 1.0,
@@ -99,15 +100,102 @@ namespace UMAPAlgo {
         }
     }
 
+    template< typename T, int TPB_X>
+    __global__ void reset_membership_strengths_kernel(
+            int *rows, int *cols, T *vals,
+            int *orows, int *ocols, T *ovals, int *rnnz,
+            int n, int n_neighbors) {
+
+        int row = (blockIdx.x * TPB_X) + threadIdx.x;
+        int i = row * n_neighbors; // each thread processes one row
+
+        if (row < n) {
+
+            int nnz = 0;
+            for (int j = 0; j < n_neighbors; j++) {
+
+                int idx = i + j;
+                int out_idx = i * 2;
+
+                int row_lookup = cols[idx];
+                int t_start = row_lookup * n_neighbors; // Start at
+
+                T transpose = 0.0;
+                bool found_match = false;
+                for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
+
+                    int f_idx = t_idx + t_start;
+                    // If we find a match, let's get out of the loop
+                    if (cols[f_idx] == rows[idx]
+                            && rows[f_idx] == cols[idx]
+                            && vals[f_idx] != 0.0) {
+                        transpose = vals[f_idx];
+                        found_match = true;
+                        break;
+                    }
+                }
+
+                // if we didn't find an exact match, we need to add
+                // the transposed value into our current matrix.
+                if (!found_match && vals[idx] != 0.0) {
+                    orows[out_idx + nnz] = cols[idx];
+                    ocols[out_idx + nnz] = rows[idx];
+                    ovals[out_idx + nnz] = vals[idx];
+                    ++nnz;
+                }
+
+                T result = vals[idx];
+                T prod_matrix = result * transpose;
+
+                // @todo: This line is the only difference between
+                // this function and compute_result from the fuzzy
+                // simplicial set. Should combine these to do
+                // transposed eltwise ops.
+                T res = result + transpose - prod_matrix;
+
+                if (res != 0.0) {
+                    orows[out_idx + nnz] = rows[idx];
+                    ocols[out_idx + nnz] = cols[idx];
+                    ovals[out_idx + nnz] = T(res);
+                    ++nnz;
+                }
+            }
+            rnnz[row] = nnz;
+            atomicAdd(rnnz + n, nnz);
+        }
+    }
+
+    template<typename T, int TPB_X>
+    void reset_local_connectivity(
+        int *row_ind, int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
+        int *orows, int *ocols, T *ovals, int *rnnz,
+        int m, int n_neighbors
+    ) {
+        // Perform l_inf normalization
+        MLCommon::Sparse::csr_row_normalize_max(row_ind, graph_vals,nnz, m, graph_vals);
+
+        // reset membership strengths
+        dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
+        dim3 blk_n(TPB_X, 1, 1);
+
+        reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
+            graph_rows, graph_cols, graph_vals,
+            orows, ocols, ovals, rnnz, m,
+            n_neighbors
+        );
+
+        CUDA_CHECK(cudaFree(row_ind));
+    }
+
     template<typename T, int TPB_X>
     void categorical_simplicial_set_intersection(
-         int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
-         T *target, float far_dist = 5.0, float unknown_dist = 1.0) {
+         int *graph_rows, int *graph_cols, T *graph_vals,
+         int nnz, T *target,
+         float far_dist = 5.0, float unknown_dist = 1.0) {
 
         dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
-
-        fast_intersection<<<grid,blk>>>(
+        fast_intersection_kernel<<<grid,blk>>>(
                 graph_rows,
                 graph_cols,
                 graph_vals,
@@ -116,15 +204,6 @@ namespace UMAPAlgo {
                 unknown_dist,
                 far_dist
         );
-
-        /**
-         * Eliminate zeros
-         */
-
-        /**
-         * reset_local_connectivity(rows, cols, vals, nnz)
-         */
-
     }
 
 
@@ -178,45 +257,31 @@ namespace UMAPAlgo {
                 }
             }
         }
-
     }
 
 
 
 
     template<typename T, int TPB_X>
-    void general_simplicial_set_intersection(
-        int *rows1, int *cols1, T *vals1, int nnz1,
-        int *rows2, int *cols2, T *vals2, int nnz2,
-        float weight, int m
+    void general_simplicial_set_intersection_row_ind(
+        int *row1_ind, int *cols1, T *vals1, int nnz1,
+        int *row2_ind, int *cols2, T *vals2, int nnz2,
+        int m, int *result_ind, int *nnz
     ) {
-
-        /**
-         * Convert simplicial sets 1 & 2 to CSR, sum them together
-         */
-        int *row1_ind, *row2_ind;
-        MLCommon::allocate(row1_ind, m);
-        MLCommon::allocate(row2_ind, m);
-
-        MLCommon::Sparse::sorted_coo_to_csr(rows1, nnz1, row1_ind, m);
-        MLCommon::Sparse::sorted_coo_to_csr(rows2, nnz2, row2_ind, m);
-
-        int *result_ind;
-        MLCommon::allocate(result_ind, m);
-
-        int nnz = 0;
-
         MLCommon::Sparse::csr_add_calc_inds<float, 32>(
             row1_ind, cols1, vals1, nnz1,
             row2_ind, cols2, vals2, nnz2,
-            m, &nnz, result_ind
+            m, nnz, result_ind
         );
+    }
 
-        int *result_indptr;
-        float *result_val;
-        MLCommon::allocate(result_indptr, nnz);
-        MLCommon::allocate(result_val, nnz);
-
+    template<typename T, int TPB_X>
+    void general_simplicial_set_intersection(
+        int *row1_ind, int *cols1, T *vals1, int nnz1,
+        int *row2_ind, int *cols2, T *vals2, int nnz2,
+        int *result_ind, int *result_ind_ptr, T *result_val,
+        int nnz, int m, float weight
+    ) {
         MLCommon::Sparse::csr_add_finalize<float, 32>(
             row1_ind, cols1, vals1, nnz1,
             row2_ind, cols2, vals2, nnz2,
@@ -371,7 +436,7 @@ namespace UMAPAlgo {
                            rgraph_rows,
                            rgraph_cols,
                            rgraph_vals,
-                           params, &nnz,0);
+                           params, &nnz,0);  // @todo: Break this up to stop overallocation
         CUDA_CHECK(cudaPeekAtLastError());
 
         /**
@@ -379,6 +444,8 @@ namespace UMAPAlgo {
          * run categorical_simplicial_set_intersection() on
          * the current graph and target labels.
          */
+        int *orows, *ocols, *onnz;
+
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
             /**
              * Set target weight
@@ -427,7 +494,53 @@ namespace UMAPAlgo {
                                ygraph_vals,
                                params, &ynnz, 0);  // TODO: explicitly pass in n_neighbors so that target_n_neighbors can be used
             CUDA_CHECK(cudaPeekAtLastError());
+
+            // perform general simplicial set intersection
+            int *result_ind, *result_rows, *xrow_ind, *yrow_ind, *result_cols;
+            T *result_vals;
+            MLCommon::allocate(result_ind, m);
+            MLCommon::allocate(xrow_ind, m);
+            MLCommon::allocate(yrow_ind, m);
+
+            MLCommon::Sparse::sorted_coo_to_csr(ygraph_rows, ynnz, yrow_ind, m);
+            MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, ynnz, xrow_ind, m);
+
+            int result_nnz = 0;
+            general_simplical_set_intersection(
+                    xrow_ind, rgraph_cols, rgraph_vals, nnz,
+                    yrow_ind, ygraph_cols, ygraph_vals, rnnz,
+                    result_ind, result_cols, result_vals,
+                    &result_nnz, m, params->target_weights
+            );
+
+            MLCommon::allocate(result_cols, result_nnz);
+            MLCommon::allocate(result_vals, result_nnz);
+            MLCommon::allocate(result_rows, result_nnz);
+
+            MLCommon::Sparse::csr_to_coo(result_ind, m, result_rows, result_nnz);
+
+            // reset local connectivity
+            int *final_rows, *final_cols, *final_nnz;
+            T *final_vals;
+            MLCommon::
+            MLCommon::allocate(onnz, m);
+
+            reset_local_connectivity(
+                result_ind, result_rows, result_cols,
+                result_vals, result_nnz,
+                orows, ocols, ovals, onnz,
+                m, n_neighbors
+            );
+
+            int *final_
         }
+
+
+
+
+
+        // remove zeros
+
 
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists,
