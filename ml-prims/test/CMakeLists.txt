@@ -54,6 +54,7 @@ add_executable(mlcommon_test
   norm.cu
   permute.cu
   power.cu
+  reduce.cu
   reduce_rows_by_key.cu
   rng.cu
   rng_int.cu

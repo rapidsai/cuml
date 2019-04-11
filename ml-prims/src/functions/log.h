@@ -22,31 +22,13 @@
 namespace MLCommon {
 namespace Functions {
 
-
-template <typename T>
-void f_log(T *out, T *in, T scalar, int len, cudaStream_t stream);
-
-template <>
-inline void f_log(float *out, float *in, float scalar, int len, cudaStream_t stream) {
-	LinAlg::unaryOp(out, in, len, [scalar] __device__ (float in) {
-		                                         return logf(in) * scalar;
-		                                   },
-                                       stream);
-
+template <typename T, typename IdxType = int>
+void f_log(T *out, T *in, T scalar, IdxType len, cudaStream_t stream) {
+    LinAlg::unaryOp(out, in, len, [scalar] __device__ (T in) {
+                                      return myLog(in) * scalar;
+                                  },
+                                  stream);
 }
 
-template <>
-inline void f_log(double *out, double *in, double scalar, int len, cudaStream_t stream) {
-	LinAlg::unaryOp(out, in, len, [scalar] __device__ (double in) {
-		                                         return log(in) * scalar;
-		                                   },
-                                       stream);
-}
-
-
-/** @} */
-}
-;
-}
-;
-// end namespace ML
+}; // end namespace Functions
+}; // end namespace MLCommon

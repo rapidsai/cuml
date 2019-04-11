@@ -48,10 +48,9 @@ void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2,
                           stream);
 }
 
-template <typename math_t>
-void hingeLossSubtract(math_t* out, const math_t* in, math_t scalar, int len,
+template <typename math_t, typename idx_type = int>
+void hingeLossSubtract(math_t* out, const math_t* in, math_t scalar, idx_type len,
                         cudaStream_t stream) {
-
 	LinAlg::unaryOp(out, in, len, [scalar] __device__ (math_t in) {
 		                                            if (in < scalar)
 		                                            	return math_t(1) - in;
@@ -61,8 +60,8 @@ void hingeLossSubtract(math_t* out, const math_t* in, math_t scalar, int len,
                                              stream);
 }
 
-template<typename math_t>
-void hingeH(const math_t *input, int n_rows, int n_cols,
+template<typename math_t, typename idx_type = int>
+void hingeH(const math_t *input, idx_type n_rows, idx_type n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
 		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
