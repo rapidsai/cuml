@@ -15,6 +15,7 @@
  */
 
 #include "sgd.h"
+#include "cd.h"
 #include "solver_c.h"
 #include "ml_utils.h"
 #include <linalg/cublas_wrappers.h>
@@ -24,7 +25,6 @@ namespace ML {
 namespace Solver {
 
 using namespace ML;
-
 
 void sgdFit(float *input,
 	        int n_rows,
@@ -309,6 +309,150 @@ void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 
 }
+
+void cdFit(float *input,
+		   int n_rows,
+		   int n_cols,
+		   float *labels,
+		   float *coef,
+		   float *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   int penalty,
+		   float alpha,
+		   float l1_ratio,
+		   bool shuffle,
+		   float tol,
+		   int n_iter_no_change) {
+
+	ASSERT(loss == 0,
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+
+	MLCommon::Functions::penalty pen;
+	if (penalty == 0) {
+	    pen = MLCommon::Functions::penalty::NONE;
+	} else if (penalty == 1) {
+		pen = MLCommon::Functions::penalty::L1;
+	} else if (penalty == 2) {
+		pen = MLCommon::Functions::penalty::L2;
+	} else if (penalty == 3) {
+		pen = MLCommon::Functions::penalty::ELASTICNET;
+	} else {
+		ASSERT(false,
+				"glm.cu: penalty is not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdFit(input,
+			   n_rows,
+			   n_cols,
+			   labels,
+			   coef,
+			   intercept,
+			   fit_intercept,
+			   normalize,
+			   epochs,
+			   loss_funct,
+			   pen,
+			   alpha,
+			   l1_ratio,
+			   shuffle,
+			   tol,
+			   n_iter_no_change,
+			   stream,
+			   cublas_handle,
+			   cusolver_handle);
+
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
+void cdFit(double *input,
+		   int n_rows,
+		   int n_cols,
+		   double *labels,
+		   double *coef,
+		   double *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   int penalty,
+		   double alpha,
+		   double l1_ratio,
+		   bool shuffle,
+		   double tol,
+		   int n_iter_no_change) {
+
+	ASSERT(loss == 0,
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+
+	MLCommon::Functions::penalty pen;
+	if (penalty == 0) {
+	    pen = MLCommon::Functions::penalty::NONE;
+	} else if (penalty == 1) {
+		pen = MLCommon::Functions::penalty::L1;
+	} else if (penalty == 2) {
+		pen = MLCommon::Functions::penalty::L2;
+	} else if (penalty == 3) {
+		pen = MLCommon::Functions::penalty::ELASTICNET;
+	} else {
+		ASSERT(false,
+				"glm.cu: penalty is not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdFit(input,
+			   n_rows,
+			   n_cols,
+			   labels,
+			   coef,
+			   intercept,
+			   fit_intercept,
+			   normalize,
+			   epochs,
+			   loss_funct,
+			   pen,
+			   alpha,
+			   l1_ratio,
+			   shuffle,
+			   tol,
+			   n_iter_no_change,
+			   stream,
+			   cublas_handle,
+			   cusolver_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
 
 }
 }

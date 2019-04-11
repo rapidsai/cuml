@@ -30,6 +30,7 @@
 #include "shuffle.h"
 #include <functions/penalty.h>
 #include <functions/softThres.h>
+#include <functions/linearReg.h>
 
 namespace ML {
 namespace Solver {
@@ -38,40 +39,46 @@ using namespace MLCommon;
 
 template<typename math_t>
 void cdFit(math_t *input,
-		    int n_rows,
-		    int n_cols,
-		    math_t *labels,
-		    math_t *coef,
-		    math_t *intercept,
-		    bool fit_intercept,
-		    bool normalize,
-		    int epochs,
-		    ML::loss_funct loss,
-		    Functions::penalty penalty,
-		    math_t alpha,
-		    math_t l1_ratio,
-		    bool shuffle,
-		    math_t tol,
-		    int n_iter_no_change,
-		    cudaStream_t stream,
-		    cublasHandle_t cublas_handle,
-		    cusolverDnHandle_t cusolver_handle) {
+		   int n_rows,
+		   int n_cols,
+		   math_t *labels,
+		   math_t *coef,
+		   math_t *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   ML::loss_funct loss,
+		   Functions::penalty penalty,
+		   math_t alpha,
+		   math_t l1_ratio,
+		   bool shuffle,
+		   math_t tol,
+		   int n_iter_no_change,
+		   cudaStream_t stream,
+		   cublasHandle_t cublas_handle,
+		   cusolverDnHandle_t cusolver_handle) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
-			"Parameter loss: Only SQRT_LOSS function is supported");
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 	math_t *mu_input = NULL;
 	math_t *mu_labels = NULL;
 	math_t *norm2_input = NULL;
 	math_t *pred = NULL;
 	math_t *squared = NULL;
+	math_t *loss_value = NULL;
 
+	allocate(loss_value, 1);
 	allocate(pred, n_rows);
 	allocate(squared, n_cols);
+
+	math_t prev_loss_value = math_t(0);
+	math_t curr_loss_value = math_t(0);
+	int n_iter_no_change_curr = 0;
 
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
@@ -89,7 +96,8 @@ void cdFit(math_t *input,
 	if (penalty == Functions::penalty::L1)
 		alpha = alpha * n_rows;
 
-	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false, stream);
+	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false,
+			stream);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -102,20 +110,20 @@ void cdFit(math_t *input,
 
 			Matrix::setValue(coef_loc, coef_loc, math_t(0), 1);
 
-			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-						CUBLAS_OP_N, cublas_handle);
+			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1,
+					CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
 			LinAlg::subtract(pred, labels, pred, n_rows);
 
 			math_t *input_col_loc = input + (rand_indices[j] * n_rows);
-			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1, CUBLAS_OP_T,
-									CUBLAS_OP_N, cublas_handle);
+			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1,
+					CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle);
 
 			if (penalty == Functions::penalty::L1) {
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
 			} else if (penalty == Functions::penalty::L2) {
 				ASSERT(false, "L2 is not supported");
 			} else if (penalty == Functions::penalty::ELASTICNET) {
-				ASSERT(false, "ELASTICNET is not supported");
+				ASSERT(false, "Elastic-Net is not supported");
 			}
 
 			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
@@ -123,7 +131,23 @@ void cdFit(math_t *input,
 		}
 
 		if (tol > math_t(0)) {
+			Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
+					loss_value, penalty, alpha, l1_ratio, cublas_handle);
 
+			updateHost(&curr_loss_value, loss_value, 1);
+
+			if (i > 0) {
+				if (curr_loss_value > (prev_loss_value - tol)) {
+					n_iter_no_change_curr = n_iter_no_change_curr + 1;
+					if (n_iter_no_change_curr > n_iter_no_change) {
+						break;
+					}
+				} else {
+					n_iter_no_change_curr = 0;
+				}
+			}
+
+			prev_loss_value = curr_loss_value;
 		}
 	}
 
@@ -146,16 +170,23 @@ void cdFit(math_t *input,
 	if (squared != NULL)
 		CUDA_CHECK(cudaFree(squared));
 
+	if (loss_value != NULL)
+		CUDA_CHECK(cudaFree(loss_value));
+
+
 }
 
 template<typename math_t>
 void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle) {
+		math_t intercept, math_t *preds, ML::loss_funct loss,
+		cublasHandle_t cublas_handle) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
+	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 
 }

@@ -16,3 +16,4 @@
 
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.ridge import Ridge
+from cuml.linear_model.lasso import Lasso

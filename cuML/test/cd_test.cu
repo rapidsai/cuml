@@ -61,7 +61,7 @@ protected:
 		T tol = T(1e-10);
 		ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L1;
-		int n_iter_no_change = 10;
+		int n_iter_no_change = 1;
 
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
 			  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
