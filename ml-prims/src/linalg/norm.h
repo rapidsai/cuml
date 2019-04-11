@@ -35,24 +35,26 @@ enum NormType { L1Norm = 0, L2Norm };
  * current implementation is optimized only for bigger values of 'D'.
  *
  * @tparam Type the data type
- * @tparam Lambda Final op lambda
+ * @tparam Lambda device final lambda
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of row-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
  * @param rowMajor whether the input is row-major or not
- * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
+ * @param fin_op the final lambda op
  */
-template <typename Type, typename Lambda = Nop<Type>>
-void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
-             bool rowMajor, Lambda fin_op = Nop<Type>(),
-             cudaStream_t stream = 0) {
+template <typename Type, typename IdxType = int,
+          typename Lambda = Nop<Type, IdxType>>
+void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
+             bool rowMajor, cudaStream_t stream,
+             Lambda fin_op = Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     L1Op<Type>(), Sum<Type>(), fin_op);
+                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
@@ -67,27 +69,30 @@ void rowNorm(Type *dots, const Type *data, int D, int N, NormType type,
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
  * @tparam Type the data type
+ * @tparam Lambda device final lambda
+ * @tparam IdxType Integer type used to for addressing
  * @param dots the output vector of column-wise dot products
  * @param data the input matrix (currently assumed to be row-major)
  * @param D number of columns of data
  * @param N number of rows of data
  * @param type the type of norm to be applied
  * @param rowMajor whether the input is row-major or not
- * @param fin_op the final lambda op
  * @param stream cuda stream where to launch work
+ * @param fin_op the final lambda op
  */
-template <typename Type, typename Lambda = Nop<Type>>
-void colNorm(Type *dots, const Type *data, int D, int N, NormType type,
-             bool rowMajor, Lambda fin_op = Nop<Type>(),
-             cudaStream_t stream = 0) {
+template <typename Type, typename IdxType = int,
+          typename Lambda = Nop<Type, IdxType>>
+void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
+             bool rowMajor, cudaStream_t stream,
+             Lambda fin_op = Nop<Type, IdxType>()) {
   switch (type) {
     case L1Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L1Op<Type>(), Sum<Type>(), fin_op);
+                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
       break;
     case L2Norm:
       LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L2Op<Type>(), Sum<Type>(), fin_op);
+                     L2Op<Type, IdxType>(), Sum<Type>(), fin_op);
       break;
     default:
       ASSERT(false, "Invalid norm type passed! [%d]", type);

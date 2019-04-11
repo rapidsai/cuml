@@ -34,6 +34,7 @@
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
+- PR #384: 64b index arithmetic updates to the kernels inside ml-prims
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
 - PR #466: Add support for column-major in LinAlg::*Norm methods
