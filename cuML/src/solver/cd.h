@@ -44,6 +44,7 @@ void cdFit(math_t *input,
 		    math_t *coef,
 		    math_t *intercept,
 		    bool fit_intercept,
+		    bool normalize,
 		    int epochs,
 		    ML::loss_funct loss,
 		    Functions::penalty penalty,
@@ -76,7 +77,7 @@ void cdFit(math_t *input,
 		allocate(mu_labels, 1);
 
 		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, false, cublas_handle,
+				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
 				cusolver_handle);
 	}
 
@@ -87,8 +88,13 @@ void cdFit(math_t *input,
 	if (penalty == Functions::penalty::L1)
 		alpha = alpha * n_rows;
 
-	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm,
-	               []__device__(math_t v){ return v; });
+	printf("*** input\n");
+	Matrix::print(input, n_rows, n_cols);
+
+	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm);
+
+	printf("*** l2 norm\n");
+	Matrix::print(squared, n_cols, 1);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -104,10 +110,15 @@ void cdFit(math_t *input,
 			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
 						CUBLAS_OP_N, cublas_handle);
 			LinAlg::subtract(pred, labels, pred, n_rows);
+			printf("\n r_j\n");
+			Matrix::print(pred, n_rows, 1);
 
 			math_t *input_col_loc = input + (rand_indices[j] * n_rows);
 			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1, CUBLAS_OP_T,
 									CUBLAS_OP_N, cublas_handle);
+
+			printf("arg1\n");
+			Matrix::print(coef_loc, 1, 1);
 
 			if (penalty == Functions::penalty::L1) {
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
@@ -117,7 +128,13 @@ void cdFit(math_t *input,
 				ASSERT(false, "ELASTICNET is not supported");
 			}
 
+			printf("coef\n");
+			Matrix::print(coef_loc, 1, 1);
+
 			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
+
+			printf("coef2\n");
+			Matrix::print(coef_loc, 1, 1);
 		}
 
 		if (tol > math_t(0)) {
@@ -127,7 +144,7 @@ void cdFit(math_t *input,
 
 	if (fit_intercept) {
 		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
-				mu_input, mu_labels, norm2_input, fit_intercept, false,
+				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
 				cublas_handle, cusolver_handle);
 
 		if (mu_input != NULL)

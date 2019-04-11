@@ -39,21 +39,22 @@ protected:
 		allocate(coef_ref, params.n_col, true);
 		allocate(coef2_ref, params.n_col, true);
 
-		T data_h[len] = { 1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0 };
+		T data_h[len] = { 1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0 };
 		updateDevice(data, data_h, len);
 
-		T labels_h[params.n_row] = { 6.0, 8.0, 9.0, 11.0 };
+		T labels_h[params.n_row] = { 6.0, 8.3, 9.8, 11.2 };
 		updateDevice(labels, labels_h, params.n_row);
 
-		T coef_ref_h[params.n_col] = { 1.731491, 2.760589 };
+		T coef_ref_h[params.n_col] = { 4.90832, 0.35031 };
 		updateDevice(coef_ref, coef_ref_h, params.n_col);
 
-		T coef2_ref_h[params.n_col] = { 0.2001220, 1.9999389 };
+		T coef2_ref_h[params.n_col] = { 2.53530, -0.36832 };
 		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
 
 		bool fit_intercept = false;
+		bool normalize = false;
 		intercept = T(0);
-		int epochs = 100;
+		int epochs = 1;
 		T alpha = T(0.2);
 		T l1_ratio = T(0.0);
 		bool shuffle = false;
@@ -63,13 +64,13 @@ protected:
 		int n_iter_no_change = 10;
 
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
-			  fit_intercept, epochs, loss, pen, alpha, l1_ratio, shuffle,
+			  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
 			  tol, n_iter_no_change, cublas_handle, cusolver_handle);
 
 		fit_intercept = true;
 		intercept2 = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
-					  fit_intercept, epochs, loss, pen, alpha, l1_ratio, shuffle,
+					  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
 					  tol, n_iter_no_change, cublas_handle, cusolver_handle);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
