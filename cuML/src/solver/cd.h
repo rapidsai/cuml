@@ -119,6 +119,7 @@ void cdFit(math_t *input,
 			}
 
 			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
+
 		}
 
 		if (tol > math_t(0)) {
