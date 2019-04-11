@@ -36,11 +36,29 @@ class Base:
     .. code-block:: python
 
         import cuml
+
+        # assuming this ML algo has separate 'fit' and 'predict' methods
+        class MyAlgo(cuml.Base):
+            def __init__(self, ...):
+                super(MyAlgo, self).__init__(...)
+                # other setup logic
+
+            def fit(self, ...):
+                # train logic goes here
+
+            def predict(self, ...):
+                # inference logic goes here
+
+            def get_param_names(self):
+                # return a list of hyperparam names supported by this algo
+
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
         handle.enableRMM()   # Enable RMM as the device-side allocator
-        base = cuml.Base(handle=handle)
+        algo = MyAlgo(handle=handle)
+        algo.fit(...)
+        result = algo.predict(...)
         # final synchronization of all work launched/dependent on this stream
         stream.sync()
         del base  # optional!
@@ -52,7 +70,7 @@ class Base:
 
         Parameters
         ----------
-        handle : cuml.common.handle.Handle
+        handle : cuml.Handle
                If it is None, a new one is created just for this class
         verbose : bool
                 Whether to print debug spews
