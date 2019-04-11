@@ -54,7 +54,7 @@ protected:
 		bool fit_intercept = false;
 		bool normalize = false;
 		intercept = T(0);
-		int epochs = 1;
+		int epochs = 200;
 		T alpha = T(0.2);
 		T l1_ratio = T(0.0);
 		bool shuffle = false;
@@ -65,13 +65,13 @@ protected:
 
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
 			  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
-			  tol, n_iter_no_change, cublas_handle, cusolver_handle);
+			  tol, n_iter_no_change, stream, cublas_handle, cusolver_handle);
 
 		fit_intercept = true;
 		intercept2 = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
 					  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
-					  tol, n_iter_no_change, cublas_handle, cusolver_handle);
+					  tol, n_iter_no_change, stream, cublas_handle, cusolver_handle);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -79,6 +79,7 @@ protected:
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
 		lasso();
 	}
 
@@ -89,6 +90,7 @@ protected:
 		CUDA_CHECK(cudaFree(coef_ref));
 		CUDA_CHECK(cudaFree(coef2));
 		CUDA_CHECK(cudaFree(coef2_ref));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -96,6 +98,7 @@ protected:
 	T *data, *labels, *coef, *coef_ref;
 	T *coef2, *coef2_ref;
 	T intercept, intercept2;
+	cudaStream_t stream;
 
 };
 

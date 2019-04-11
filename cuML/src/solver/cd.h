@@ -53,6 +53,7 @@ void cdFit(math_t *input,
 		    bool shuffle,
 		    math_t tol,
 		    int n_iter_no_change,
+		    cudaStream_t stream,
 		    cublasHandle_t cublas_handle,
 		    cusolverDnHandle_t cusolver_handle) {
 
@@ -88,13 +89,7 @@ void cdFit(math_t *input,
 	if (penalty == Functions::penalty::L1)
 		alpha = alpha * n_rows;
 
-	printf("*** input\n");
-	Matrix::print(input, n_rows, n_cols);
-
-	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm);
-
-	printf("*** l2 norm\n");
-	Matrix::print(squared, n_cols, 1);
+	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false, stream);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -110,15 +105,10 @@ void cdFit(math_t *input,
 			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
 						CUBLAS_OP_N, cublas_handle);
 			LinAlg::subtract(pred, labels, pred, n_rows);
-			printf("\n r_j\n");
-			Matrix::print(pred, n_rows, 1);
 
 			math_t *input_col_loc = input + (rand_indices[j] * n_rows);
 			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1, CUBLAS_OP_T,
 									CUBLAS_OP_N, cublas_handle);
-
-			printf("arg1\n");
-			Matrix::print(coef_loc, 1, 1);
 
 			if (penalty == Functions::penalty::L1) {
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
@@ -128,13 +118,7 @@ void cdFit(math_t *input,
 				ASSERT(false, "ELASTICNET is not supported");
 			}
 
-			printf("coef\n");
-			Matrix::print(coef_loc, 1, 1);
-
 			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
-
-			printf("coef2\n");
-			Matrix::print(coef_loc, 1, 1);
 		}
 
 		if (tol > math_t(0)) {
