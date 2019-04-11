@@ -29,7 +29,6 @@ cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
         pass
 
 
-# TODO: name this properly!
 cdef class Handle:
     """
     Handle is a lightweight python wrapper around the corresponding C++ class
