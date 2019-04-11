@@ -25,16 +25,17 @@ namespace MLCommon {
 namespace Stats {
 
 ///@todo: ColsPerBlk has been tested only for 32!
-template <typename Type, int TPB, int ColsPerBlk = 32>
-__global__ void sumKernelRowMajor(Type *mu, const Type *data, int D, int N) {
+template <typename Type, typename IdxType, int TPB, int ColsPerBlk = 32>
+__global__ void sumKernelRowMajor(Type *mu, const Type *data,
+                                  IdxType D, IdxType N) {
   const int RowsPerBlkPerIter = TPB / ColsPerBlk;
-  int thisColId = threadIdx.x % ColsPerBlk;
-  int thisRowId = threadIdx.x / ColsPerBlk;
-  int colId = thisColId + (blockIdx.y * ColsPerBlk);
-  int rowId = thisRowId + (blockIdx.x * RowsPerBlkPerIter);
+  IdxType thisColId = threadIdx.x % ColsPerBlk;
+  IdxType thisRowId = threadIdx.x / ColsPerBlk;
+  IdxType colId = thisColId + ((IdxType)blockIdx.y * ColsPerBlk);
+  IdxType rowId = thisRowId + ((IdxType)blockIdx.x * RowsPerBlkPerIter);
   Type thread_data = Type(0);
-  const int stride = RowsPerBlkPerIter * gridDim.x;
-  for (int i = rowId; i < N; i += stride)
+  const IdxType stride = RowsPerBlkPerIter * gridDim.x;
+  for (IdxType i = rowId; i < N; i += stride)
     thread_data += (colId < D) ? data[i * D + colId] : Type(0);
   __shared__ Type smu[ColsPerBlk];
   if (threadIdx.x < ColsPerBlk)
@@ -46,14 +47,15 @@ __global__ void sumKernelRowMajor(Type *mu, const Type *data, int D, int N) {
     myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
-template <typename Type, int TPB>
-__global__ void sumKernelColMajor(Type *mu, const Type *data, int D, int N) {
+template <typename Type, typename IdxType, int TPB>
+__global__ void sumKernelColMajor(Type *mu, const Type *data,
+                                  IdxType D, IdxType N) {
   typedef cub::BlockReduce<Type, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
   Type thread_data = Type(0);
-  int colStart = blockIdx.x * N;
-  for (int i = threadIdx.x; i < N; i += TPB) {
-    int idx = colStart + i;
+  IdxType colStart = N * blockIdx.x;
+  for (IdxType i = threadIdx.x; i < N; i += TPB) {
+    IdxType idx = colStart + i;
     thread_data += data[idx];
   }
   Type acc = BlockReduce(temp_storage).Sum(thread_data);
@@ -68,6 +70,7 @@ __global__ void sumKernelColMajor(Type *mu, const Type *data, int D, int N) {
  * Sum operation is assumed to be performed on a given column.
  *
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @param output the output mean vector
  * @param input the input matrix
  * @param D number of columns of data
@@ -75,20 +78,20 @@ __global__ void sumKernelColMajor(Type *mu, const Type *data, int D, int N) {
  * @param rowMajor whether the input data is row or col major
  * @param stream cuda stream where to launch work
  */
-template <typename Type>
-void sum(Type *output, const Type *input, int D, int N, bool rowMajor,
+template <typename Type, typename IdxType = int>
+void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
          cudaStream_t stream = 0) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
     static const int ColsPerBlk = 32;
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-    dim3 grid(ceildiv(N, RowsPerBlk), ceildiv(D, ColsPerBlk));
+    dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(output, 0, sizeof(Type) * D));
-    sumKernelRowMajor<Type, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
+    sumKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
       output, input, D, N);
   } else {
-    sumKernelColMajor<Type, TPB><<<D, TPB, 0, stream>>>(output, input, D, N);
+    sumKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(output, input, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
