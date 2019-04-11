@@ -54,36 +54,35 @@ cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
 logger "Clean up make..."
 make clean
 
-logger "Make libcuml..."
-make -j${PARALLEL_LEVEL}
+# logger "Make libcuml..."
+# make -j${PARALLEL_LEVEL}
 
-logger "Install libcuml..."
-make -j${PARALLEL_LEVEL} install
-
-
-logger "Build cuML..."
-cd $WORKSPACE/python
-python setup.py build_ext --inplace
-
-################################################################################
-# TEST - Run GoogleTest and py.tests for libcuml and cuML
-################################################################################
-
-logger "Check GPU usage..."
-nvidia-smi
-
-logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cuML/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
+# logger "Install libcuml..."
+# make -j${PARALLEL_LEVEL} install
 
 
-logger "Python py.test for cuML..."
-cd $WORKSPACE/python
-py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+# logger "Build cuML..."
+# cd $WORKSPACE/python
+# python setup.py build_ext --inplace
 
-#IF [(nvidia-smi | awk '{print $4}' | sed '8!d') == "GV100"
+# ################################################################################
+# # TEST - Run GoogleTest and py.tests for libcuml and cuML
+# ################################################################################
 
-GPU=nvidia-smi | awk '{print $4}' | sed '8!d'
+# logger "Check GPU usage..."
+# nvidia-smi
+
+# logger "GoogleTest for libcuml..."
+# cd $WORKSPACE/cuML/build
+# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
+
+
+# logger "Python py.test for cuML..."
+# cd $WORKSPACE/python
+# py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+
+GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
+echo "Running tests on $GPU"
 
 if [[ $GPU == *"P"* ]]; then
   logger "Building for Pascal..."
