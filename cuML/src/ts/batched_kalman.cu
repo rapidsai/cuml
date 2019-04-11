@@ -15,6 +15,7 @@
 using std::vector;
 
 using MLCommon::Matrix::BatchedMatrix;
+using MLCommon::Matrix::BatchedMatrixMemoryPool;
 using MLCommon::Matrix::b_gemm;
 using MLCommon::allocate;
 using MLCommon::updateDevice;
@@ -46,78 +47,78 @@ void process_mem_usage(double& vm_usage, double& resident_set)
 ////////////////////////////////////////////////////////////
 
 
-__global__ void vs_eq_ys_m_alpha00_kernel(double* d_vs, int it,
-                                          const double* ys_it,
-                                          double** alpha, int r,
-                                          int num_batches) {
-  int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
-  if(batch_id < num_batches) {
-    d_vs[it*num_batches + batch_id] = ys_it[batch_id] - alpha[batch_id][0];
-  }
-}
+// __global__ void vs_eq_ys_m_alpha00_kernel(double* d_vs, int it,
+//                                           const double* ys_it,
+//                                           double** alpha, int r,
+//                                           int num_batches) {
+//   int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
+//   if(batch_id < num_batches) {
+//     d_vs[it*num_batches + batch_id] = ys_it[batch_id] - alpha[batch_id][0];
+//   }
+// }
 
-void vs_eq_ys_m_alpha00(double* d_vs,int it,const vector<double*>& ptr_ys_b,const BatchedMatrix& alpha) {
-  const int num_batches = alpha.batches();
-  const int block_size = 16;
-  const int num_blocks = std::ceil((double)num_batches/(double)block_size);
+// void vs_eq_ys_m_alpha00(double* d_vs,int it,const vector<double*>& ptr_ys_b,const BatchedMatrix& alpha) {
+//   const int num_batches = alpha.batches();
+//   const int block_size = 16;
+//   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
 
-  vs_eq_ys_m_alpha00_kernel<<<num_blocks, block_size>>>(d_vs, it, ptr_ys_b[it],
-                                                        alpha.data(), alpha.shape().first, num_batches);
-  CUDA_CHECK(cudaPeekAtLastError());
+//   vs_eq_ys_m_alpha00_kernel<<<num_blocks, block_size>>>(d_vs, it, ptr_ys_b[it],
+//                                                         alpha.data(), alpha.shape().first, num_batches);
+//   CUDA_CHECK(cudaPeekAtLastError());
   
-}
+// }
 
-__global__ void fs_it_P00_kernel(double* d_Fs, int it, double** P, int num_batches) {
-  int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
-  if(batch_id < num_batches) {
-    d_Fs[it*num_batches + batch_id] = P[batch_id][0];
-  }
-}
+// __global__ void fs_it_P00_kernel(double* d_Fs, int it, double** P, int num_batches) {
+//   int batch_id = blockIdx.x*blockDim.x + threadIdx.x;
+//   if(batch_id < num_batches) {
+//     d_Fs[it*num_batches + batch_id] = P[batch_id][0];
+//   }
+// }
 
-void fs_it_P00(double* d_Fs, int it, const BatchedMatrix& P) {
+// void fs_it_P00(double* d_Fs, int it, const BatchedMatrix& P) {
 
-  const int block_size = 16;
-  const int num_batches = P.batches();
-  const int num_blocks = std::ceil((double)num_batches/(double)block_size);
+//   const int block_size = 16;
+//   const int num_batches = P.batches();
+//   const int num_blocks = std::ceil((double)num_batches/(double)block_size);
 
-  fs_it_P00_kernel<<<num_blocks, block_size>>>(d_Fs, it, P.data(), num_batches);
-  CUDA_CHECK(cudaPeekAtLastError());
+//   fs_it_P00_kernel<<<num_blocks, block_size>>>(d_Fs, it, P.data(), num_batches);
+//   CUDA_CHECK(cudaPeekAtLastError());
 
-}
+// }
 
-__global__ void _1_Fsit_TPZt_kernel(double* d_Fs, int it, double** TPZt,
-                                    int N_TPZt, // size of matrix TPZt
-                                    int num_batches,
-                                    double** K // output
-                                    ) {
+// __global__ void _1_Fsit_TPZt_kernel(double* d_Fs, int it, double** TPZt,
+//                                     int N_TPZt, // size of matrix TPZt
+//                                     int num_batches,
+//                                     double** K // output
+//                                     ) {
   
-  int batch_id = blockIdx.x;
-  for(int i=0;i<N_TPZt/blockDim.x;i++) {
-    int ij = threadIdx.x + i*blockDim.x;
-    if(ij < N_TPZt) {
-      K[batch_id][ij] = 1.0/d_Fs[batch_id + num_batches * it] * TPZt[batch_id][ij];
-    }
-  }
-}
+//   int batch_id = blockIdx.x;
+//   for(int i=0;i<N_TPZt/blockDim.x;i++) {
+//     int ij = threadIdx.x + i*blockDim.x;
+//     if(ij < N_TPZt) {
+//       K[batch_id][ij] = 1.0/d_Fs[batch_id + num_batches * it] * TPZt[batch_id][ij];
+//     }
+//   }
+// }
 
-BatchedMatrix _1_Fsit_TPZt(double* d_Fs, int it, const BatchedMatrix& TPZt) {
-  BatchedMatrix K(TPZt.shape().first, TPZt.shape().second, TPZt.batches());
+// BatchedMatrix _1_Fsit_TPZt(double* d_Fs, int it, const BatchedMatrix& TPZt) {
+//   BatchedMatrix K(TPZt.shape().first, TPZt.shape().second, TPZt.batches());
 
-  const int TPZt_size = TPZt.shape().first * TPZt.shape().second;
-  const int block_size = (TPZt_size) % 128;
+//   const int TPZt_size = TPZt.shape().first * TPZt.shape().second;
+//   const int block_size = (TPZt_size) % 128;
   
-  const int num_batches = TPZt.batches();
-  const int num_blocks = num_batches;
+//   const int num_batches = TPZt.batches();
+//   const int num_blocks = num_batches;
 
-  // call kernel
-  _1_Fsit_TPZt_kernel<<<num_blocks,block_size>>>(d_Fs, it, TPZt.data(), TPZt_size, num_batches, K.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+//   // call kernel
+//   _1_Fsit_TPZt_kernel<<<num_blocks,block_size>>>(d_Fs, it, TPZt.data(), TPZt_size, num_batches, K.data());
+//   CUDA_CHECK(cudaPeekAtLastError());
 
-  return K;
-}
+//   return K;
+// }
 
 BatchedMatrix Kvs_it(const BatchedMatrix& K, double* d_vs, int it) {
-  BatchedMatrix Kvs(K.shape().first, K.shape().second, K.batches());
+  BatchedMatrix Kvs(K.shape().first, K.shape().second, K.batches(), K.pool());
   auto num_batches = K.batches();
   auto counting = thrust::make_counting_iterator(0);
   double** d_K = K.data();
@@ -186,15 +187,17 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
 
   //TODO: Far too many allocations for these. Definitely want to fix after getting this working
 
-  vector<double*> d_ys_b(ys_len);
+  double* d_ys;
+  allocate(d_ys, num_batches*ys_len);
   for(int it=0;it<ys_len;it++) {
-    allocate(d_ys_b[it], num_batches);
-    updateDevice(d_ys_b[it], h_ys_b[it], num_batches);
+    updateDevice(&d_ys[num_batches*it], h_ys_b[it], num_batches);
   }
-  
-  BatchedMatrix Zb(1, r, num_batches);
-  BatchedMatrix Tb(r, r, num_batches);
-  BatchedMatrix Rb(r, 1, num_batches);
+
+  auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+
+  BatchedMatrix Zb(1, r, num_batches, memory_pool);
+  BatchedMatrix Tb(r, r, num_batches, memory_pool);
+  BatchedMatrix Rb(r, 1, num_batches, memory_pool);
 
   for(int bi=0; bi<num_batches; bi++) {
     updateDevice(Zb[bi], h_Zb[bi], r);
@@ -215,7 +218,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
 
   // init alpha to zero
-  BatchedMatrix alpha(r, 1, num_batches, true);
+  BatchedMatrix alpha(r, 1, num_batches, memory_pool, true);
 
   // init vs, Fs
   // In batch-major format.
@@ -227,16 +230,16 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   CUDA_CHECK(cudaPeekAtLastError());
 
   for(int it=0; it<ys_len; it++) {
+    // std::cout << "it=" << it << " of " << ys_len << "\n";
     // 1.
     // vs[it] = ys[it] - alpha(0,0);
     // vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
     {
       auto counting = thrust::make_counting_iterator(0);
-      double* d_ys_bid = d_ys_b[it];
       double** d_alpha = alpha.data();
       thrust::for_each(counting, counting + num_batches,
                        [=]__device__(int bid) {
-                         d_vs[bid + it*num_batches] = d_ys_bid[bid] - d_alpha[bid][0];
+                         d_vs[bid + it*num_batches] = d_ys[bid + it*num_batches] - d_alpha[bid][0];
                        });
     }
 
@@ -256,7 +259,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
     // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
     BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
     // BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
-    BatchedMatrix K(r, 1, num_batches);
+    BatchedMatrix K(r, 1, num_batches, memory_pool);
     {
       double** d_K = K.data();
       double** d_TPZt = TPZt.data();
@@ -273,7 +276,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
     // alpha = T*alpha + K*vs[it];
     BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
     alpha = Tb*alpha + Kvs;
-    
+    // std::cout << "alpha:" << alpha.shape().first << "," << alpha.shape().second << "\n";
     // 5.
     // MatrixT L = T - K*Z;
     BatchedMatrix L = Tb - K*Zb;
@@ -281,7 +284,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
     // 6.
     // P = T * P * L.transpose() + R * R.transpose();
     P = Tb * b_gemm(P, L, false, true) + RRT;
-    CUDA_CHECK(cudaPeekAtLastError());
+    // std::cout << "P:" << P.shape().first << "," << P.shape().second << "\n";
 
   }
 
@@ -354,10 +357,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
   CUDA_CHECK(cudaPeekAtLastError());
   ////////////////////////////////////////////////////////////
   // free memory
-  for (int i = 0; i < ys_len; i++) {
-    cudaFree(d_ys_b[i]);
-  }
-
+  cudaFree(d_ys);
   cudaFree(d_vs);
   cudaFree(d_Fs);
   cudaFree(sigma2);

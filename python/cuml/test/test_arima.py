@@ -73,7 +73,7 @@ def test_batched_arima(plot=False, verbose=False, check_asserts=True):
     l2err_forecast_ref = np.sqrt(np.sum((y_test - y_rp_fc_ref)**2))
 
     # run batching
-    num_batches = 2
+    num_batches = 10
     v_y = [y_train for i in range(num_batches)]
     models = batched_arima.batched_fit(v_y, (0, 1, 1), 0.0,
                                        np.array([]), np.array([-1.0]))

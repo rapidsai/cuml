@@ -114,10 +114,12 @@ protected:
     // allocate(Bbi, 4*num_batches);
     // T* Zbi;
     // allocate(Zbi, 2*num_batches);
-    
-    BatchedMatrix AbM(2, 2, num_batches);
-    BatchedMatrix BbM(2, 2, num_batches);
-    BatchedMatrix ZbM(1, 2, num_batches);
+
+    auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+
+    BatchedMatrix AbM(2, 2, num_batches, memory_pool);
+    BatchedMatrix BbM(2, 2, num_batches, memory_pool);
+    BatchedMatrix ZbM(1, 2, num_batches, memory_pool);
     for(int i=0;i<num_batches;i++) {
       updateDevice(AbM[i], A.data(), 4);
       updateDevice(BbM[i], B.data(), 4);
@@ -126,12 +128,24 @@ protected:
 
     //////////////////////////////////////////////////////////////
     // compute
+    std::cout << "AB\n";
     BatchedMatrix AB = AbM*BbM;
+    std::cout << "ZB\n";
     BatchedMatrix ZB = ZbM*BbM;
+    std::cout << "BZT\n";
     BatchedMatrix BZT = b_gemm(BbM,ZbM, false, true);
 
+    std::cout << "A+B\n";
     BatchedMatrix A_p_B = AbM + BbM;
+    std::cout << "A-B\n";
     BatchedMatrix A_m_B = AbM - BbM;
+
+    std::cout << "AB * B + B*AB - AB + B - A\n";
+    BatchedMatrix TestAlloc = AB * BbM + BbM*AB - AB + BbM - AbM;
+    std::cout << "2:AB * B + B*AB - AB + B - A\n";
+    BatchedMatrix TestAlloc2 = AB * BbM + BbM*AB - AB + BbM - AbM;
+    std::cout << "3:AB * B\n";
+    BatchedMatrix TestAlloc3 = AB * BbM;
 
     //////////////////////////////////////////////////////////////
     // compare answers
