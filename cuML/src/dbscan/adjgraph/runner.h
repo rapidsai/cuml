@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,20 +19,21 @@
 #include "algo.h"
 #include "pack.h"
 #include "naive.h"
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace AdjGraph {
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
-         Type minpts, bool* core_pts, cudaStream_t stream, int algo, int batchSize) {
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+         Type minpts, bool* core_pts, int algo, int batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts};
     switch(algo) {
     case 0:
-        Naive::launcher<Type>(data, batchSize, stream);
+        Naive::launcher<Type>(handle, data, batchSize, stream);
         break;
     case 1:
-        Algo::launcher<Type>(data, batchSize, stream);
+        Algo::launcher<Type>(handle, data, batchSize, stream);
         break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
