@@ -14,11 +14,10 @@
 #
 
 import cuml
-from cuml import Base, Handle
 
 
 def test_base_class_usage():
-    base = Base()
+    base = cuml.Base()
     base.stream.sync()
     base_params = base.get_param_names()
     assert base_params == []
@@ -26,9 +25,9 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    handle = Handle()
+    handle = cuml.Handle()
     stream = cuml.cuda.Stream()
     handle.setStream(stream)
-    base = Base(handle=handle)
+    base = cuml.Base(handle=handle)
     stream.sync()
     del base
