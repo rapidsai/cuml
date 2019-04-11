@@ -84,13 +84,13 @@ make clean
 GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
 echo "Running tests on $GPU"
 
-if [[ $GPU == *"P"* ]]; then
+if [[ $GPU == "P"* ]]; then
   logger "Building for Pascal..."
   GPU_ARCH=60
-elif [[ $GPU == *"V"* ]]; then
+elif [[ $GPU == "V"* ]]; then
   logger "Building for Volta..."
   GPU_ARCH=70
-elif [[ $GPU == *"T"* ]]; then
+elif [[ $GPU == "T"* ]]; then
   logger "Building for Turing..."
   GPU_ARCH=75
 fi 
