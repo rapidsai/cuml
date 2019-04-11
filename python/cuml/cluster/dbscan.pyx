@@ -32,7 +32,7 @@ from libc.stdlib cimport calloc, malloc, free
 
 from collections import defaultdict
 
-cdef extern from "dbscan/dbscan_c.h" namespace "ML":
+cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(float *input,
                    int n_rows,

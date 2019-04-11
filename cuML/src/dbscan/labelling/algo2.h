@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@
 #include "dbscan/common.h"
 #include <iostream>
 #include <limits>
+#include <common/cumlHandle.hpp>
+#include <common/host_buffer.hpp>
 
 namespace Dbscan {
 namespace Label {
@@ -115,64 +117,60 @@ __global__ void map_label(Pack<Type> data, Type MAX_LABEL) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void label(Pack<Type> data, int startVertexId, int batchSize) {
+void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
     size_t N = data.N;
-    bool *host_m = new bool(1);
-    bool *host_fa = new bool[N];
-    bool *host_xa = new bool[N];
+    bool host_m;
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
+
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     
-    init_label<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize, MAX_LABEL); 
+    init_label<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize, MAX_LABEL); 
     do {
-        cudaMemset(data.m, false, sizeof(bool));
-        label_device<Type, TPB_X><<<blocks, threads>>>(data, startVertexId, batchSize);
-        cudaDeviceSynchronize();
+        CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) ); 
+        label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         //** swapping F1 and F2
-        MLCommon::updateHost(host_fa, data.fa, N);
-        MLCommon::updateHost(host_xa, data.xa, N);
-        MLCommon::updateDevice(data.fa, host_xa, N);
-        MLCommon::updateDevice(data.xa, host_fa, N);
+        MLCommon::updateHostAsync(host_fa.data(), data.fa, N, stream);
+        MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
+        MLCommon::updateDeviceAsync(data.fa, host_xa.data(), N, stream);
+        MLCommon::updateDeviceAsync(data.xa, host_fa.data(), N, stream);
         //** Updating m *
-        MLCommon::updateHost(host_m, data.m, 1);
-    } while(host_m[0]); 
-
-    delete [] host_m;
-    delete [] host_fa;
-    delete [] host_xa;
+        MLCommon::updateHostAsync(&host_m, data.m, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+    } while(host_m);
 }
 
 template <typename Type>
-void launcher(Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type N, int startVertexId, int batchSize, cudaStream_t stream) {
     //data.resetArray(stream);
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     if(startVertexId == 0)
-        init_all<Type, TPB_X><<<blocks, threads>>>(data, MAX_LABEL); 
-    label(data, startVertexId, batchSize);
+        init_all<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL); 
+    label(handle, data, startVertexId, batchSize, stream);
 }
 
 template <typename Type>
-void relabel(Pack<Type> data, cudaStream_t stream) {
+void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t stream) {
     dim3 blocks(ceildiv(data.N, TPB_X));
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
     size_t N = data.N;
-    Type *host_db_cluster = new Type[N];
-    Type *host_map_id = new Type[N];
-    memset(host_map_id, 0, N*sizeof(Type));
-    MLCommon::updateHost(host_db_cluster, data.db_cluster, N);
-    sort(host, host_db_cluster, host_db_cluster + N);
-    Type *uid = unique(host, host_db_cluster, host_db_cluster + N, equal_to<Type>());
-    Type num_clusters = uid - host_db_cluster;
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, N);
+    memset(host_map_id.data(), 0, N*sizeof(Type));
+    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    sort(host, host_db_cluster.data(), host_db_cluster.data() + N);
+    Type *uid = unique(host, host_db_cluster.data(), host_db_cluster.data() + N, equal_to<Type>());
+    Type num_clusters = uid - host_db_cluster.data();
     for(int i=0; i<num_clusters; i++)
         host_map_id[i] = host_db_cluster[i];
-    MLCommon::updateDevice(data.map_id, host_map_id, N);
-    map_label<Type,TPB_X><<<blocks, threads>>>(data, MAX_LABEL);
-    delete [] host_db_cluster;
-    delete [] host_map_id;
+    MLCommon::updateDeviceAsync(data.map_id, host_map_id.data(), N, stream);
+    map_label<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL);
 }
 
 } // End Algo2

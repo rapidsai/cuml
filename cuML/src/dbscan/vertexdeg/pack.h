@@ -37,8 +37,6 @@ struct Pack {
     int N;
     /** dataset dimensionality */
     int D;
-    /** dot product of the input dataset */
-    Type *dots;
 
     /**
      * @brief reset the output array before calling the actual kernel
