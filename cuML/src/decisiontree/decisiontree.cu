@@ -194,7 +194,7 @@ namespace ML {
 			// Optimize ginibefore; no need to compute except for root.
 			if (depth == 0) {
 				int *labelptr = tempmem[0]->sampledlabels;
-				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows);
+				get_sampled_labels(labels, labelptr, rowids, n_sampled_rows, tempmem[0]->stream);
 				gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 			}
 

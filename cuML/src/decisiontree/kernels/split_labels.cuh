@@ -99,9 +99,9 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 	T *question_value = tempmem->question_value;
 
 	if (split_algo != ML::SPLIT_ALGO::HIST) {
-		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, ques.value);
+		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128, 0, tempmem->stream >>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
-		flag_kernel<<< (int)(nrows/128) + 1, 128>>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
+		flag_kernel<<< (int)(nrows/128) + 1, 128, 0, tempmem->stream >>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
 	}
 	CUDA_CHECK(cudaGetLastError());
 
