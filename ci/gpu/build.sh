@@ -82,7 +82,7 @@ python setup.py build_ext --inplace
 logger "Build ml-prims tests..."
 mkdir -p $WORKSPACE/ml-prims/build
 cd $WORKSPACE/ml-prims/build
-cmake .. $GPU_ARCH
+cmake $GPU_ARCH ..
 
 logger "Clean up make..."
 make clean
