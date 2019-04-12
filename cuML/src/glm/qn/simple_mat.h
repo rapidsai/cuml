@@ -55,7 +55,7 @@ template <typename T> struct SimpleMat {
   inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
                           const bool transA, const SimpleMat<T> &B,
                           const bool transB, const T beta,
-                          const cublasHandle_t &cublas) {
+                          const cublasHandle_t &cublas, cudaStream_t stream) {
 
     int kA = A.n;
     int kB = B.m;
@@ -85,23 +85,24 @@ template <typename T> struct SimpleMat {
                                    A.m,         // lda
                                    B.data, B.m, // ldb
                                    &beta, this->data,
-                                   this->m // ldc
+                                   this->m, // ldc,
+                                   stream
       );
       return;
     }
     if (A.ord == ROW_MAJOR) {
       SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(alpha, Acm, !transA, B, transB, beta, cublas);
+      assign_gemm(alpha, Acm, !transA, B, transB, beta, cublas, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cublas);
+      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cublas, stream);
       return;
     }
     if (ord == ROW_MAJOR) {
       SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cublas);
+      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cublas, stream);
       return;
     }
   }
@@ -246,7 +247,7 @@ inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
 template <typename T>
 inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0){
   MLCommon::LinAlg::rowNorm(tmp_dev, u.data,  u.len, 1, MLCommon::LinAlg::L1Norm,
-                            stream);
+                            true, stream, MLCommon::Nop<T>());
   T tmp_host;
   MLCommon::updateHost(&tmp_host, tmp_dev, 1);
   return tmp_host;

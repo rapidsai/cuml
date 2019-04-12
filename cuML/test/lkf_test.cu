@@ -68,9 +68,11 @@ protected: // functionsv
 
         cublasHandle_t cublas_handle;
         cusolverDnHandle_t cusolver_handle = NULL;
+        cudaStream_t stream;
 
         CUBLAS_CHECK(cublasCreate(&cublas_handle));
         CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+        CUDA_CHECK(cudaStreamCreate(&stream));
 
         // making sane model
         x_up[0] = 0.0; x_up[1] = 1.0;
@@ -118,12 +120,12 @@ protected: // functionsv
         rmse_x = 0.0; rmse_v = 0.0;
 
         for (int q = 0; q < iterations; q++){
-            predict(vars, cublas_handle);
+            predict(vars, cublas_handle, stream);
             // generating measurement
             z[0] = q + distribution(generator);
             updateDevice(z_d, z, dim_z);
 
-            update(vars, z_d, cublas_handle, cusolver_handle);
+            update(vars, z_d, cublas_handle, cusolver_handle, stream);
             // getting update
             updateHost(x_up, x_up_d, dim_x);
 
@@ -136,6 +138,7 @@ protected: // functionsv
 
         CUBLAS_CHECK(cublasDestroy(cublas_handle));
         CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     void TearDown() override {
