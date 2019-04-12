@@ -127,7 +127,7 @@ HDI T project_orth(T x, T y) {
 template <typename T>
 inline bool check_convergence(const LBFGSParam<T> &param, const int k, const T fx,
                        SimpleVec<T> &x, SimpleVec<T> &grad, std::vector<T> & fx_hist, const int verbosity,
-                       T *dev_scalar, cudaStream_t stream = 0) {
+                       T *dev_scalar, cudaStream_t stream) {
   // New x norm and gradient norm
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
@@ -168,7 +168,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
                             const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
                             SimpleVec<T> &drt, std::vector<T> &yhist,
                             std::vector<T> &alpha, T *dev_scalar,
-                            cudaStream_t stream = 0) {
+                            cudaStream_t stream) {
   SimpleVec<T> sj, yj; // mask vectors
   int end = end_prev;
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]

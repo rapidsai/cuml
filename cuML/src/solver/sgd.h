@@ -62,7 +62,8 @@ void sgdFit(math_t *input,
 		    math_t tol,
 		    int n_iter_no_change,
 		    cublasHandle_t cublas_handle,
-		    cusolverDnHandle_t cusolver_handle) {
+		    cusolverDnHandle_t cusolver_handle,
+			cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -79,7 +80,7 @@ void sgdFit(math_t *input,
 
 		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, false, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
 	math_t *grads = NULL;
@@ -130,18 +131,18 @@ void sgdFit(math_t *input,
 				break;
 
 			updateDevice(indices, &rand_indices[j], cbs);
-			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs);
-			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs);
+			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs, stream);
+			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs, stream);
 
 			if (loss == ML::loss_funct::SQRD_LOSS) {
 				Functions::linearRegLossGrads(input_batch, cbs, n_cols, labels_batch,
-						coef, grads, penalty, alpha, l1_ratio, cublas_handle);
+						coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::LOG) {
 				Functions::logisticRegLossGrads(input_batch, cbs, n_cols, labels_batch,
-										coef, grads, penalty, alpha, l1_ratio, cublas_handle);
+										coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
 				Functions::hingeLossGrads(input_batch, cbs, n_cols, labels_batch,
-														coef, grads, penalty, alpha, l1_ratio, cublas_handle);
+														coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else {
 				ASSERT(false,
 						"sgd.h: Other loss functions have not been implemented yet!");
@@ -150,8 +151,8 @@ void sgdFit(math_t *input,
 			if (lr_type != ML::lr_type::ADAPTIVE)
 			    learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
 
-			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols);
-			LinAlg::subtract(coef, coef, grads, n_cols);
+			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols, stream);
+			LinAlg::subtract(coef, coef, grads, n_cols, stream);
 
 			j = j + cbs;
 			t = t + 1;
@@ -160,13 +161,13 @@ void sgdFit(math_t *input,
 		if (tol > math_t(0)) {
 			if (loss == ML::loss_funct::SQRD_LOSS) {
 			    Functions::linearRegLoss(input, n_rows, n_cols, labels, coef, loss_value,
-					    penalty, alpha, l1_ratio, cublas_handle);
+					    penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::LOG) {
 				Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef, loss_value,
-						penalty, alpha, l1_ratio, cublas_handle);
+						penalty, alpha, l1_ratio, cublas_handle, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
 				Functions::hingeLoss(input, n_rows, n_cols, labels, coef, loss_value,
-						penalty, alpha, l1_ratio, cublas_handle);
+						penalty, alpha, l1_ratio, cublas_handle, stream);
 			}
 
 			updateHost(&curr_loss_value, loss_value, 1);
@@ -205,7 +206,7 @@ void sgdFit(math_t *input,
 	if (fit_intercept) {
 		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
 				mu_input, mu_labels, norm2_input, fit_intercept, false,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		if (mu_input != NULL)
 			CUDA_CHECK(cudaFree(mu_input));
@@ -219,7 +220,8 @@ void sgdFit(math_t *input,
 
 template<typename math_t>
 void sgdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle) {
+		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle,
+		cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -227,19 +229,19 @@ void sgdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 			"Parameter n_rows: number of rows cannot be less than two");
 
 	if (loss == ML::loss_funct::SQRD_LOSS) {
-		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle);
+		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
 	} else if (loss == ML::loss_funct::LOG) {
-		Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle);
+		Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
 	} else if (loss == ML::loss_funct::HINGE) {
-		Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle);
+		Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
 	}
 }
 
 template<typename math_t>
 void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle) {
+		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss, cublas_handle);
+	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss, cublas_handle, stream);
 
 	math_t scalar = math_t(1);
 	if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
@@ -248,14 +250,16 @@ void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const ma
 		                                                  		  return math_t(1);
 		                                                  	  else
 		                                                  		  return math_t(0);
-	                                                    	});
+                                                        },
+                                                        stream);
 	} else if (loss == ML::loss_funct::HINGE) {
 		LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
 				                                              if (in >= math_t(0.0))
 				                                                  return math_t(1);
 				                                              else
 				                                                  return math_t(0);
-			                                                  });
+			                                                  },
+                                                        stream);
 	}
 
 }

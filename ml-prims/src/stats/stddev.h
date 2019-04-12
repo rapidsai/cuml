@@ -107,7 +107,7 @@ __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
  */
 template <typename Type, typename IdxType = int>
 void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
-            bool sample, bool rowMajor, cudaStream_t stream = 0) {
+            bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
@@ -119,8 +119,7 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
       std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     LinAlg::binaryOp(std, std, mu, D, [ratio] __device__(Type a, Type b) {
-      return mySqrt(a * ratio - b * b);
-    });
+      return mySqrt(a * ratio - b * b);}, stream);
   } else {
     stddevKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(std, data, mu, D, N);
   }
@@ -148,7 +147,7 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
  */
 template <typename Type, typename IdxType = int>
 void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
-          bool sample, bool rowMajor, cudaStream_t stream = 0) {
+          bool sample, bool rowMajor, cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;
@@ -160,8 +159,7 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
       var, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
     LinAlg::binaryOp(var, var, mu, D, [ratio] __device__(Type a, Type b) {
-      return a * ratio - b * b;
-    });
+      return a * ratio - b * b;}, stream);
   } else {
     varsKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(var, data, mu, D, N);
   }
