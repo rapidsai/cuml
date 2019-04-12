@@ -29,14 +29,14 @@ namespace UMAPAlgo {
 		void run(const T *X, int m, int n,
 		        int *rows, int *cols, T *vals, int nnz,
 		        UMAPParams *params, T *embedding,
-		        int algorithm = 0) {
+		        cudaStream_t stream, int algorithm = 0) {
 
 	        switch(algorithm) {
 	            case 0:
 	                SimplSetEmbed::Algo::launcher<TPB_X, T>(
 	                        m, n,
 	                        rows, cols, vals, nnz,
-	                        params, embedding);
+	                        params, embedding, stream);
 	        }
 		}
 	}

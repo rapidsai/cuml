@@ -20,6 +20,9 @@ protected:
         params = ::testing::TestWithParam<PenaltyInputs<T>>::GetParam();
         int len = params.len;
 
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
+
         allocate(in, len);
         allocate(out_lasso, 1);
         allocate(out_ridge, 1);
@@ -58,12 +61,13 @@ protected:
         T alpha = 0.6;
         T l1_ratio = 0.5;
 
-        lasso(out_lasso, in, len, alpha);
-        ridge(out_ridge, in, len, alpha);
-        elasticnet(out_elasticnet, in, len, alpha, l1_ratio);
-        lassoGrad(out_lasso_grad, in, len, alpha);
-        ridgeGrad(out_ridge_grad, in, len, alpha);
-        elasticnetGrad(out_elasticnet_grad, in, len, alpha, l1_ratio);
+        lasso(out_lasso, in, len, alpha, stream);
+        ridge(out_ridge, in, len, alpha, stream);
+        elasticnet(out_elasticnet, in, len, alpha, l1_ratio, stream);
+        lassoGrad(out_lasso_grad, in, len, alpha, stream);
+        ridgeGrad(out_ridge_grad, in, len, alpha, stream);
+        elasticnetGrad(out_elasticnet_grad, in, len, alpha, l1_ratio, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
 
     }
 
