@@ -135,6 +135,6 @@ def test_arima_kalman():
     np.testing.assert_approx_equal(ll, b_ll[0])
 
 if __name__ == "__main__":
-    # test_arima()
-    # test_batched_arima()
+    test_arima()
+    test_batched_arima()
     test_arima_kalman()
