@@ -10,6 +10,7 @@
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
 - PR #435: Exposing cumlhandle in cython + developer guide
+- PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
@@ -35,10 +36,13 @@
 - PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
 - PR #434: Fixing bug in CSR tests
 - PR #443: Remove defaults channel from ci scripts
+- PR #384: 64b index arithmetic updates to the kernels inside ml-prims
 - PR #459: Fix for runtime library path of pip package
 - PR #464: Fix for C++11 destructor warning in qn
+- PR #466: Add support for column-major in LinAlg::*Norm methods
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
+- PR #470: Fix resource leakage in Kalman filter python wrapper
 
 # cuML 0.6.0 (22 Mar 2019)
 

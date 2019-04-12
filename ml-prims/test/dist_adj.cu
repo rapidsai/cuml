@@ -69,12 +69,14 @@ public:
     int m = params.m;
     int n = params.n;
     int k = params.k;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(x, m * k);
     allocate(y, n * k);
     allocate(dist_ref, m * n);
     allocate(dist, m * n);
-    r.uniform(x, m * k, DataType(-1.0), DataType(1.0));
-    r.uniform(y, n * k, DataType(-1.0), DataType(1.0));
+    r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
 
     DataType threshold = params.eps;
 
@@ -92,7 +94,8 @@ public:
     };
 
     distance<EucExpandedL2, DataType, DataType, bool, OutputTile_t>(
-      x, y, dist, m, n, k, workspace, worksize, fin_op);
+      x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
 

@@ -324,13 +324,23 @@ HDI double myPow(double x, double power) {
 /** @} */
 
 /**
- * @defgroup Pow Power function
+ * @defgroup LambdaOps Lambda operations in reduction kernels
  * @{
  */
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
   HDI Type operator()(Type in, IdxType i = 0) { return in; }
+};
+
+template <typename Type, typename IdxType = int>
+struct L1Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+};
+
+template <typename Type, typename IdxType = int>
+struct L2Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
 };
 
 template <typename Type>

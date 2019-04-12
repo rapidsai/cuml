@@ -47,20 +47,20 @@ namespace Stats {
  */
 template <typename Type>
 void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
-         bool rowMajor, bool stable, cublasHandle_t handle) {
+         bool rowMajor, bool stable, cublasHandle_t handle, cudaStream_t stream) {
   if (stable) {
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
-    meanCenter(data, data, mu, D, N, rowMajor, true);
+    meanCenter(data, data, mu, D, N, rowMajor, true, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta = Type(0);
     if (rowMajor) {
       CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
                                       &alpha, data, D, data, D, &beta, covar,
-                                      D));
+                                      D, stream));
     } else {
       LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
-                   alpha, beta, handle);
+                   alpha, beta, handle, stream);
     }
   } else {
     ///@todo: implement this using cutlass + customized epilogue!

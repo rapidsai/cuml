@@ -35,13 +35,13 @@ namespace Matrix {
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, math_t scalar, int len) {
+void power(math_t *in, math_t *out, math_t scalar, int len, cudaStream_t stream) {
   auto d_src = in;
   auto d_dest = out;
 
   MLCommon::LinAlg::binaryOp(d_dest, d_src, d_src, len,
                              [=] __device__(math_t a, math_t b)
-                             {return scalar * a * b;});
+                             {return scalar * a * b;}, stream);
 
 }
 
@@ -54,8 +54,8 @@ void power(math_t *in, math_t *out, math_t scalar, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *inout, math_t scalar, int len) {
-  power(inout, inout, scalar, len);
+void power(math_t *inout, math_t scalar, int len, cudaStream_t stream) {
+  power(inout, inout, scalar, len, stream);
 }
 
 /**
@@ -66,9 +66,9 @@ void power(math_t *inout, math_t scalar, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *inout, int len) {
+void power(math_t *inout, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  power(inout, scalar, len);
+  power(inout, scalar, len, stream);
 }
 
 /**
@@ -80,22 +80,25 @@ void power(math_t *inout, int len) {
  * @{
  */
 template <typename math_t>
-void power(math_t *in, math_t *out, int len) {
+void power(math_t *in, math_t *out, int len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  power(in, out, scalar, len);
+  power(in, out, scalar, len, stream);
 }
 
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template<typename math_t>
-void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero = false) {
+template<typename math_t, typename IdxType = int>
+void seqRoot(math_t* in, math_t* out, math_t scalar, IdxType len, cudaStream_t stream,
+              bool set_neg_zero = false) {
 
 	auto d_src = in;
 	auto d_dest = out;
@@ -112,45 +115,51 @@ void seqRoot(math_t* in, math_t* out, math_t scalar, int len, bool set_neg_zero 
                               } else {
                                 return sqrt(a * scalar);
                               }
-                            });
+                            },
+                            stream);
 }
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void seqRoot(math_t* inout, math_t scalar, int len, bool set_neg_zero = false) {
-  seqRoot(inout, inout, scalar, len, set_neg_zero);
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* inout, math_t scalar, IdxType len, cudaStream_t stream,
+              bool set_neg_zero = false) {
+  seqRoot(inout, inout, scalar, len, stream, set_neg_zero);
 }
 
 
 /**
  * @defgroup square root math operation on the input matrix. Square root of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void seqRoot(math_t* in, math_t* out, int len) {
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* in, math_t* out, IdxType len, cudaStream_t stream) {
 	math_t scalar = 1.0;
-	seqRoot(in, out, scalar, len);
+	seqRoot(in, out, scalar, len, stream);
 }
 
-template <typename math_t>
-void seqRoot(math_t* inout, int len) {
+template <typename math_t, typename IdxType = int>
+void seqRoot(math_t* inout, IdxType len, cudaStream_t stream) {
 	math_t scalar = 1.0;
-	seqRoot(inout, inout, scalar, len);
+	seqRoot(inout, inout, scalar, len, stream);
 }
 
 
-
-template <typename math_t>
-void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1e-15) {
+template <typename math_t, typename IdxType = int>
+void setSmallValuesZero(math_t* out, const math_t* in, IdxType len,
+                         cudaStream_t stream, math_t thres = 1e-15) {
   MLCommon::LinAlg::unaryOp(out, in, len, [=] __device__(math_t a)
                                              {
                                                if(a <= thres && -a <= thres) {
@@ -159,19 +168,23 @@ void setSmallValuesZero(math_t* out, const math_t* in, int len, math_t thres = 1
                                                else {
                                                  return a;
                                                }
-                                             });  
+                                             },
+                                             stream);
 }
 
 /**
  * @defgroup sets the small values to zero based on a defined threshold
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
  * @param thres: threshold
  * @{
  */
-template <typename math_t>
-void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
-  setSmallValuesZero(inout, inout, len, thres);
+template <typename math_t, typename IdxType = int>
+void setSmallValuesZero(math_t* inout, IdxType len, cudaStream_t stream,
+                         math_t thres = 1e-15) {
+  setSmallValuesZero(inout, inout, len, stream, thres);
 }
 
 
@@ -179,15 +192,17 @@ void setSmallValuesZero(math_t* inout, int len, math_t thres = 1e-15) {
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
+template <typename math_t, typename IdxType = int>
 void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
-                bool setzero = false, math_t thres = 1e-15) {
+                cudaStream_t stream, bool setzero = false, math_t thres = 1e-15) {
   auto d_src = in;
   auto d_dest = out;
 
@@ -202,12 +217,15 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
                                                   else {
                                                     return scalar / a;
                                                   }
-                                                });
+                                                },
+                                                stream);
 }
 
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param scalar: every element is multiplied with scalar
  * @param len: number elements of input matrix
@@ -215,63 +233,70 @@ void reciprocal(math_t *in, math_t *out, math_t scalar, int len,
  * @param thres: Threshold to avoid dividing by zero (|value| < thres -> result = 0)
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t* inout, math_t scalar, int len, bool setzero = false,
-                math_t thres = 1e-15) {
-  reciprocal(inout, inout, scalar, len, setzero, thres);
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t* inout, math_t scalar, IdxType len, cudaStream_t stream,
+                 bool setzero = false, math_t thres = 1e-15) {
+  reciprocal(inout, inout, scalar, len, stream, setzero, thres);
 }
 
 
 /**
  * @defgroup overloaded reciprocal math operation on the input matrix.
  * Reciprocal of every element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param inout: input matrix and also the result is stored
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t *inout, int len) {
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t *inout, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(inout, scalar, len);
+  reciprocal(inout, scalar, len, stream);
 }
 
 /**
  * @defgroup inverse math operation on the input matrix. Reciprocal of every
  * element in the input matrix
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param in: input matrix and also the result is stored
  * @param out: output matrix. The result is stored in the out matrix
  * @param len: number elements of input matrix
  * @{
  */
-template <typename math_t>
-void reciprocal(math_t *in, math_t *out, int len) {
+template <typename math_t, typename IdxType = int>
+void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
   math_t scalar = 1.0;
-  reciprocal(in, out, scalar, len);
+  reciprocal(in, out, scalar, len, stream);
 }
 
 /**
  * @defgroup ratio math operation on the input matrix. ratio of every element
  * over sum of input vector is calculated
  *           Used in PCA.
+ * @tparam math_t data-type upon which the math operation will be performed
+ * @tparam IdxType Integer type used to for addressing
  * @param src: input matrix
  * @param dest: output matrix. The result is stored in the dest matrix
  * @param len: number elements of input matrix
  * @{
  */
 
-template <typename math_t>
-void ratio(math_t *src, math_t *dest, int len,
-           DeviceAllocator &mgr) {
+template <typename math_t, typename IdxType = int>
+void ratio(math_t *src, math_t *dest, IdxType len,
+           DeviceAllocator &mgr, cudaStream_t stream) {
   auto d_src = src;
   auto d_dest = dest;
 
-  math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t)*1);
+  math_t* d_sum = (math_t*)mgr.alloc(sizeof(math_t));
   
   auto no_op = [] __device__(math_t in) { return in; };
-  MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, 0, src);
+  MLCommon::LinAlg::mapThenSumReduce(d_sum, len, no_op, stream, src);
 
   MLCommon::LinAlg::unaryOp(d_dest, d_src, len, [=] __device__(math_t a)
-                                                { return a / (*d_sum); });
+                                                { return a / (*d_sum); },
+                                                stream);
 
   mgr.free(d_sum);
 }
@@ -319,53 +344,56 @@ __global__ void signFlipKernel(T* d_in, int D, int N) {
  * @{
  */
 template <typename math_t>
-void signFlip(math_t *inout, int n_rows, int n_cols) {  
+void signFlip(math_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
   auto data = inout;
   if (D <= 32) {
-    signFlipKernel<math_t, 32><<<N, 32>>>(data, D, N);
+    signFlipKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N);
   } else if(D <= 64) {
-    signFlipKernel<math_t, 64><<<N, 64>>>(data, D, N);
+    signFlipKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N);
   } else if(D <= 128) {
-    signFlipKernel<math_t, 128><<<N, 128>>>(data, D, N);
+    signFlipKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N);
   } else {
-    signFlipKernel<math_t, 256><<<N, 256>>>(data, D, N);
+    signFlipKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMult(Type *data, const Type *vec, IdxType n_row,
-                            IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                            IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                            cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a * b; });
+                 [] __device__(Type a, Type b) { return a * b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryMultSkipZero(Type *data, const Type *vec, IdxType n_row,
                                     IdxType n_col, bool rowMajor,
-                                    bool bcastAlongRows) {
+                                    bool bcastAlongRows, cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
                  [] __device__(Type a, Type b) {
                    if (b == Type(0))
                      return a;
                    else
                      return a * b;
-                 });
+                 },
+                 stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryDiv(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a / b; });
+                 [] __device__(Type a, Type b) { return a / b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB=256>
 void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
                                    IdxType n_col, bool rowMajor, bool bcastAlongRows,
-                                   bool return_zero = false) {
+                                   cudaStream_t stream, bool return_zero = false) {
 
 	if (return_zero) {
             LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
@@ -374,7 +402,8 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return Type(0);
 				                       else
                                                            return a / b;
-				        		    });
+                		    },
+                        stream);
 	} else {
 	    LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
 		        		       [] __device__ (Type a, Type b) {
@@ -382,22 +411,25 @@ void matrixVectorBinaryDivSkipZero(Type* data, const Type* vec, IdxType n_row,
 				                      	   return a;
 				                       else
                                                            return a / b;
-				        		    });
+                        },
+                        stream);
 	}
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinaryAdd(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a + b; });
+                 [] __device__(Type a, Type b) { return a + b; }, stream);
 }
 
 template <typename Type, typename IdxType = int, int TPB = 256>
 void matrixVectorBinarySub(Type *data, const Type *vec, IdxType n_row,
-                           IdxType n_col, bool rowMajor, bool bcastAlongRows) {
+                           IdxType n_col, bool rowMajor, bool bcastAlongRows,
+                           cudaStream_t stream) {
     LinAlg::matrixVectorOp(data, data, vec, n_col, n_row, rowMajor, bcastAlongRows,
-                 [] __device__(Type a, Type b) { return a - b; });
+                 [] __device__(Type a, Type b) { return a - b; }, stream);
 }
 
 }; // end namespace Matrix

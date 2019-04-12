@@ -65,7 +65,7 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream = 0) {
+                        cudaStream_t stream) {
   IdxType len = N * D;
   IdxType nblks = ceildiv(veclen_? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
@@ -94,7 +94,7 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
 void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
                     IdxType N, bool rowMajor, bool bcastAlongRows, Lambda op,
-                    cudaStream_t stream = 0) {
+                    cudaStream_t stream) {
   IdxType stride = rowMajor ? D : N;
   size_t bytes = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
@@ -164,7 +164,7 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
                         const Type *vec2, IdxType D, IdxType N, bool rowMajor,
                         bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream = 0) {
+                        cudaStream_t stream) {
   IdxType nblks = ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
@@ -193,7 +193,7 @@ void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
 template <typename Type, typename Lambda, typename IdxType = int, int TPB = 256>
 void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
                     const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                    bool bcastAlongRows, Lambda op, cudaStream_t stream = 0) {
+                    bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType stride = rowMajor ? D : N;
   size_t bytes = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
