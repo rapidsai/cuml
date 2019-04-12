@@ -26,8 +26,8 @@ void BMM_Allocate(std::pair<int, int> shape, int num_batches,
                   double* &A_dense, double** &A_array, bool setZero) {
   int m = shape.first;
   int n = shape.second;
+  // std::cout << "Allocating (" << shape.first << "," << ")\n";
   allocate(A_dense, m*n*num_batches, setZero);
-
   allocate(A_array, num_batches);
 
   // fill array of pointers to each batch matrix.
@@ -67,15 +67,18 @@ class BatchedMatrixMemoryPool {
 public:
   BatchedMatrixMemoryPool(int num_batches) : m_num_batches(num_batches) {
     // std::cout << "Memory Pool Init\n";
+    CUBLAS_CHECK(cublasCreate(&m_handle));
   }
 
   ~BatchedMatrixMemoryPool() {
     for(auto& kv : m_pool) {
       for(auto& v : kv.second) {
+        // std::cout << "cudaFree Deallocating\n";
         cudaFreeT(v.A_array);
         cudaFreeT(v.A_dense);
       }
     }
+    CUBLAS_CHECK(cublasDestroy(m_handle));
   }
 
   std::pair<double*, double**> get(std::pair<int, int> shape, bool setZero=false) {
@@ -88,6 +91,7 @@ public:
       return std::make_pair(mem.A_dense, mem.A_array);
     }
     else {
+      // Look for an empty (in_use==false) slot for this shape.
       auto& shape_pool = m_pool[shape];
       bool found_ununsed_entry = false;
       for(auto& m : shape_pool) {
@@ -102,6 +106,7 @@ public:
         }
       }
       if(!found_ununsed_entry) {
+        // Create a new memory slot because no entries are free.
         BatchedMatrixMemory mem(shape, m_num_batches, setZero);
         shape_pool.push_back(mem);
         return std::make_pair(mem.A_dense, mem.A_array);
@@ -110,8 +115,8 @@ public:
     throw std::runtime_error("ERROR: BMMP::Unreachable place!");
   }
 
+  // Free the entry with this shape and pointer for re-use.
   void remove(std::pair<int, int> shape, double** A_array) {
-    // std::cout << "DE-Allocate (" << shape.first << "," << shape.second << "):" << A_array << "\n";
     auto& shape_pool = m_pool.at(shape);
     bool found_array = false;
     for(auto& m : shape_pool) {
@@ -126,9 +131,13 @@ public:
       throw std::runtime_error("ERROR: Tried to remove an array not in pool");
     }
   }
+
+  const cublasHandle_t& cublasHandle() const { return m_handle; }
+
 private:
   std::unordered_map<std::pair<int,int>, std::vector<BatchedMatrixMemory>, pair_hash> m_pool;
   int m_num_batches;
+  cublasHandle_t m_handle;
 };
 
 class BatchedMatrix {
@@ -244,8 +253,7 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
   }
 
   auto num_batches = A.batches();
-  cublasHandle_t handle;
-  CUBLAS_CHECK(cublasCreate(&handle));
+  auto& handle = A.pool()->cublasHandle();
   
   // set transpose
   cublasOperation_t opA = aT ? CUBLAS_OP_T : CUBLAS_OP_N;
@@ -273,8 +281,6 @@ BatchedMatrix b_gemm(const BatchedMatrix& A,
                                   C.data(),
                                   C.shape().first, // rows of C
                                   num_batches));
-  CUBLAS_CHECK(cublasDestroy(handle));
-
   return C;
 }
 
