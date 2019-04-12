@@ -96,9 +96,13 @@ class DBSCAN(Base):
     -----------
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same neighborhood.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be considered as
         an important core point (including the point itself).
+    verbose : bool
+        Whether to print debug spews
 
     Attributes
     -----------
