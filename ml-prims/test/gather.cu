@@ -71,7 +71,7 @@ gatherLaunch(MatrixIteratorT in,
 		 out,
 		 stream);
 }
-    
+
 struct GatherInputs {
   uint32_t nrows;
   uint32_t ncols;
@@ -82,31 +82,31 @@ struct GatherInputs {
 template <typename MatrixT,
 	  typename MapT>
 class GatherTest:public ::testing::TestWithParam<GatherInputs> {
-protected: 
+protected:
 
   void SetUp() override {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
     Random::Rng r(params.seed);
     Random::Rng r_int(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-	
+
     uint32_t nrows = params.nrows;
     uint32_t ncols = params.ncols;
     uint32_t map_length = params.map_length;
     uint32_t len = nrows * ncols;
-	
+
     // input matrix setup
     allocate(d_in, nrows * ncols);
-    h_in = (MatrixT *)malloc(sizeof(MatrixT) * nrows * ncols);	
-    r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0));
+    h_in = (MatrixT *)malloc(sizeof(MatrixT) * nrows * ncols);
+    r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0), stream);
     updateHost(h_in, d_in, len, stream);
-	
+
     // map setup
     allocate(d_map, map_length);
     h_map = (MapT *)malloc(sizeof(MapT) * map_length);
-    r_int.uniformInt(d_map, map_length, (MapT)0, nrows);
+    r_int.uniformInt(d_map, map_length, (MapT)0, nrows, stream);
     updateHost(h_map, d_map, map_length, stream);
-	
+
     // expected and actual output matrix setup
     h_out = (MatrixT *)malloc(sizeof(MatrixT) * map_length * ncols);
     allocate(d_out_exp, map_length * ncols);
@@ -115,7 +115,7 @@ protected:
     // launch gather on the host and copy the results to device
     naiveGather(h_in, ncols, nrows, h_map, map_length, h_out);
     updateDevice(d_out_exp, h_out, map_length * ncols);
-	
+
     // launch device version of the kernel
     gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);
 
@@ -133,14 +133,14 @@ protected:
     free(h_out);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
-protected: 
+protected:
   cudaStream_t stream;
   GatherInputs params;
   MatrixT *d_in, *h_in, *d_out_exp, *d_out_act, *h_out;
   MapT *d_map, *h_map;
 };
 
-    
+
 const std::vector<GatherInputs> inputs = {
   {1024, 32, 128, 1234ULL},
   {1024, 32, 256, 1234ULL},
@@ -167,7 +167,7 @@ TEST_P(GatherTestD, Result) {
   ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols,
 			  Compare<double>()));
 }
-    
+
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestD, ::testing::ValuesIn(inputs));
