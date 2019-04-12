@@ -44,7 +44,7 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned 
 	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
 		int newcolid = (int)(i / nrows);
 		int myrowstart;
-		if( colids != NULL)
+		if( colids != nullptr)
 			myrowstart = colids[ newcolid ] * rowoffset;
 		else
 			myrowstart = newcolid * rowoffset;

@@ -36,7 +36,7 @@ struct TemporaryMemory
 	//Below pointers are shared for split functions
 	char *d_flags_left;
 	char *d_flags_right;
-	void *d_split_temp_storage = NULL;
+	void *d_split_temp_storage = nullptr;
 	size_t split_temp_storage_bytes = 0;
 	int *d_num_selected_out;
 	int *temprowids;
@@ -50,8 +50,8 @@ struct TemporaryMemory
 	cudaStream_t stream;
 
 	//For quantiles
-	T *d_quantile = NULL;
-	T *d_temp_sampledcolumn = NULL;
+	T *d_quantile = nullptr;
+	T *d_temp_sampledcolumn = nullptr;
 
 	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
 	{
@@ -114,9 +114,9 @@ struct TemporaryMemory
 		cudaFree(d_hist);
 		cudaFree(temp_data);
 
-		if (d_quantile != NULL)
+		if (d_quantile != nullptr)
 			cudaFree(d_quantile);
-		if (d_temp_sampledcolumn != NULL)
+		if (d_temp_sampledcolumn != nullptr)
 			cudaFree(d_temp_sampledcolumn);
 
 		cudaFree(sampledlabels);
