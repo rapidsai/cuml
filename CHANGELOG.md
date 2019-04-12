@@ -45,6 +45,7 @@
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
 - PR #470: Fix resource leakage in Kalman filter python wrapper
+- PR #473: Fix gather ml-prim test for change in rng uniform API
 
 # cuML 0.6.0 (22 Mar 2019)
 
