@@ -102,16 +102,13 @@ void update_transitions_kernel(int nStates, int nSeq, int nObs,
                                 initialized =false;
                                 for (size_t tau = 0; tau < dlenghts[seqId] - 1; tau++) {
                                         obsId = dcumlengths_exc[seqId] + tau;
-                                        temp_val = 0;
                                         temp_val = dAlpha[IDX(i, obsId, lddalpha)]
                                                    + std::log(dT[IDX(i, j, lddt)])
                                                    + dB[IDX(j, obsId + 1, lddb)]
                                                    + dBeta[IDX(j, obsId + 1, lddbeta)]
                                                    - dLlhd[seqId];
-                                        // ;
                                         if (initialized) {
                                                 temp_logsum = std::log(std::exp(temp_val) + std::exp(temp_logsum));
-                                                temp_logsum = 0;
                                         }
                                         else {
                                                 temp_logsum = temp_val;
@@ -121,7 +118,6 @@ void update_transitions_kernel(int nStates, int nSeq, int nObs,
                                 temp_t += std::exp(temp_logsum);
                         }
                         dT[IDX(i, j, lddt)] = temp_t;
-                        dT[IDX(i, j, lddt)] = 1;
                 }
         }
 }
@@ -159,9 +155,11 @@ void update_transitions(HMM<T, D> &hmm,
 template <typename Tx, typename T, typename D>
 void _m_step(HMM<T, D> &hmm,
              Tx* dX, int* dlenghts, int nSeq) {
+        // TODO : Run the updates on multiple streams
 
         update_emissions(hmm, dX);
         update_startprob(hmm, dX, dlenghts, nSeq);
+        // BUG : For some reason update_transitions started crashing
         // update_transitions(hmm, dX, dlenghts, nSeq);
 }
 

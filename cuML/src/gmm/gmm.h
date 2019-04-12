@@ -130,6 +130,7 @@ size_t gmm_bufferSize(GMM<T> &gmm){
         return workspaceSize;
 }
 
+// Depreciated
 template <typename T>
 void create_GMMHandle(GMM<T> &gmm){
         createllhdHandle_t(gmm.handle.llhd_handle,
@@ -137,6 +138,7 @@ void create_GMMHandle(GMM<T> &gmm){
                            gmm.lddx, gmm.lddsigma, gmm.lddsigma_full);
 }
 
+// Depreciated
 template <typename T>
 void setup(GMM<T> &gmm) {
         allocate(gmm.handle.dX_array, gmm.nObs);
@@ -238,6 +240,7 @@ void update_mus(T* dX, GMM<T>& gmm,
                                 gmm.dmu, gmm.lddmu));
 }
 
+// TODO : Test this memory efficient batched version for dDiff_size != nObs * nCl
 template <typename T>
 void update_sigmas(T* dX, GMM<T>& gmm,
                    cublasHandle_t cublasHandle, magma_queue_t queue){

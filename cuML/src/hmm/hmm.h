@@ -105,6 +105,7 @@ size_t hmm_bufferSize(HMM<T, D> &hmm){
         return workspaceSize;
 }
 
+
 template <typename T, typename D>
 void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         hmm.handle.dPi_array = (T **)((size_t)hmm.handle.dPi_array + (size_t)workspace);
@@ -114,6 +115,10 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         hmm.handle.dBeta = (T *)((size_t)hmm.handle.dBeta + (size_t)workspace);
         hmm.handle.dV = (T *)((size_t)hmm.handle.dV + (size_t)workspace);
 
+        // TODO : Move this to multinomial::setup_hmm
+        // TODO : Add multinomial::setup_hmm and implement the needed
+        // preprocessing for gmm::setup_hmm (i.e. note on dits/gmm)
+        // TODO : get rid of the mallocs - performance impact
         T **Pi_array;
         Pi_array = (T **)malloc(sizeof(T*) * hmm.nStates);
         for (size_t stateId = 0; stateId < hmm.nStates; stateId++) {
@@ -129,6 +134,7 @@ void create_HMMHandle(HMM<T, D> &hmm, void* workspace){
         }
 }
 
+// Depreciated
 template <typename T, typename D>
 void setup(HMM<T, D> &hmm, int nObs, int nSeq, T* dLlhd){
         // hmm.nObs = nObs;

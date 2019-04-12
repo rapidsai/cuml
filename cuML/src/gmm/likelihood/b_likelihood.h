@@ -153,7 +153,7 @@ void _likelihood_batched(int nObs, int nCl, int nDim,
 }
 
 
-
+// Depreciated
 template <typename T>
 void createllhdHandle_t(llhdHandle_t<T>& llhd_handle,
                         int nCl, int nObs, int nDim,
