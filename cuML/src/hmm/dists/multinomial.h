@@ -141,7 +141,7 @@ void update_emissions(hmm::HMM<T, Multinomial<T> > &hmm,
         int nThreads_x;
 
         block.x = 512;
-        grid.x = 1;
+        grid.x = ceildiv((int) hmm.nStates, (int) block.x);
 
         nThreads_x = grid.x * block.x;
 
@@ -155,7 +155,6 @@ void update_emissions(hmm::HMM<T, Multinomial<T> > &hmm,
                 hmm.dGamma,
                 hmm.lddgamma,
                 nThreads_x);
-        cudaDeviceSynchronize();
         CUDA_CHECK(cudaPeekAtLastError());
 }
 

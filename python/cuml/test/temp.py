@@ -44,8 +44,8 @@ def _accumulate_sufficient_statistics(self, stats, X, framelogprob,
                                   log_xi_sum)
         with np.errstate(under="ignore"):
             stats['trans'] += np.exp(log_xi_sum)
-        print("log_xi_sum", log_xi_sum)
-        print("stats", stats['trans'])
+        # print("log_xi_sum", log_xi_sum)
+        # print("stats", stats['trans'])
 
 
 def _do_mstep(self, stats):
@@ -93,9 +93,6 @@ def fit(self, X, lengths=None):
         Returns self.
     """
 
-    self._init(X, lengths=lengths)
-    self._check()
-
     # self.monitor_._reset()
     for iter in range(self.n_iter):
         stats = self._initialize_sufficient_statistics()
@@ -109,16 +106,10 @@ def fit(self, X, lengths=None):
             _accumulate_sufficient_statistics(self,
                 stats, X[i:j], framelogprob, posteriors, fwdlattice,
                 bwdlattice)
-
-        # XXX must be before convergence check, because otherwise
-        #     there won't be any updates for the case ``n_iter=1``.
+            print(posteriors)
         _do_mstep(self, stats)
 
-        # self.monitor_.report(curr_logprob)
-        # if self.monitor_.converged:
-        #     break
-
-    return self
+    return stats
 
 def score(self, X, lengths=None):
     """Compute the log probability under the model.

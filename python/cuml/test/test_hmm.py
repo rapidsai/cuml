@@ -24,7 +24,7 @@ import pytest
 import time
 
 np.set_printoptions(threshold=np.inf)
-from cuml.test.temp import score, decode
+from cuml.test.temp import fit
 
 
 @pytest.fixture(params=["double"])
@@ -37,12 +37,12 @@ def n_components(request):
     return request.param
 
 
-@pytest.fixture(params=[int(1000)])
+@pytest.fixture(params=[int(1e5)])
 def n_seq(request):
     return request.param
 
 
-@pytest.fixture(params=[10])
+@pytest.fixture(params=[40])
 def n_features(request):
     return request.param
 
@@ -60,11 +60,11 @@ def n_features(request):
 # def n_features(request):
 #     return request.param
 
-@pytest.fixture(params=[1])
+@pytest.fixture(params=[10])
 def n_mix(request):
     return request.param
 
-@pytest.fixture(params=[2])
+@pytest.fixture(params=[5])
 def n_dim(request):
     return request.param
 
@@ -85,9 +85,12 @@ class TestMultinomialHMM(TestHMM):
         self.n_seq = n_seq
         self.n_features = n_features
 
+        seq_len_ref = 15
+
         self.hmm_sampler = MultinomialHMMSampler(n_seq=self.n_seq,
                                                  n_components=self.n_components,
-                                                 n_features=self.n_features)
+                                                 n_features=self.n_features,
+                                                 seq_len_ref=seq_len_ref)
         self.precision = precision
         self.random_state = None
         self.seed = 0
@@ -111,59 +114,59 @@ class TestMultinomialHMM(TestHMM):
         self.ref_model = self.hmm_sampler._set_model_parameters(self.ref_model, random_state)
         self.cuml_model= self.hmm_sampler._set_model_parameters(self.cuml_model, random_state)
 
-    def test_score(self, n_components, n_seq, n_features, precision):
-        self.setmethod(n_components, n_seq, n_features, precision)
-        self._reset()
+    # def test_score(self, n_components, n_seq, n_features, precision):
+    #     self.setmethod(n_components, n_seq, n_features, precision)
+    #     self._reset()
+    #
+    #     start = time.time()
+    #     cuml_ll = self.cuml_model.score(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for cuml : ", end - start, "\n")
+    #
+    #     start = time.time()
+    #     ref_ll = self.ref_model.score(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for hmmlearn : ", end - start, "\n")
+    #
+    #     assert abs(ref_ll - cuml_ll) < self.assert_eps
+    #
+    # def test_score_samples(self, n_components, n_seq, n_features, precision):
+    #     self.setmethod(n_components, n_seq, n_features, precision)
+    #     self._reset()
+    #
+    #     start = time.time()
+    #     cuml_ll, cuml_posteriors = self.cuml_model.score_samples(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for cuml : ", end - start, "\n")
+    #
+    #     start = time.time()
+    #     ref_ll, ref_posteriors = self.ref_model.score_samples(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for hmmlearn : ", end - start, "\n")
+    #
+    #     posteriors_err = np.abs(np.max(ref_posteriors - cuml_posteriors))
+    #
+    #     assert abs(ref_ll - cuml_ll) < self.assert_eps
+    #     assert posteriors_err < self.assert_eps
 
-        start = time.time()
-        cuml_ll = self.cuml_model.score(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for cuml : ", end - start, "\n")
-
-        start = time.time()
-        ref_ll = self.ref_model.score(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for hmmlearn : ", end - start, "\n")
-
-        assert abs(ref_ll - cuml_ll) < self.assert_eps
-
-    def test_score_samples(self, n_components, n_seq, n_features, precision):
-        self.setmethod(n_components, n_seq, n_features, precision)
-        self._reset()
-
-        start = time.time()
-        cuml_ll, cuml_posteriors = self.cuml_model.score_samples(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for cuml : ", end - start, "\n")
-
-        start = time.time()
-        ref_ll, ref_posteriors = self.ref_model.score_samples(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for hmmlearn : ", end - start, "\n")
-
-        posteriors_err = np.abs(np.max(ref_posteriors - cuml_posteriors))
-
-        assert abs(ref_ll - cuml_ll) < self.assert_eps
-        assert posteriors_err < self.assert_eps
-
-    def test_decode(self, n_components, n_seq, n_features, precision):
-        self.setmethod(n_components, n_seq, n_features, precision)
-        self._reset()
-
-        start = time.time()
-        cuml_llhd, cuml_state_seq = self.cuml_model.decode(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for cuml : ", end - start, "\n")
-
-        start = time.time()
-        ref_llhd, ref_state_seq = self.ref_model.decode(self.X, self.lengths)
-        end = time.time()
-        print("\n Elapsed time for hmmlearn : ", end - start, "\n")
-
-        state_seq_err = np.sum(np.abs(cuml_state_seq - ref_state_seq))
-
-        assert state_seq_err == 0
-        assert abs(cuml_llhd- ref_llhd) < self.assert_eps
+    # def test_decode(self, n_components, n_seq, n_features, precision):
+    #     self.setmethod(n_components, n_seq, n_features, precision)
+    #     self._reset()
+    #
+    #     start = time.time()
+    #     cuml_llhd, cuml_state_seq = self.cuml_model.decode(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for cuml : ", end - start, "\n")
+    #
+    #     start = time.time()
+    #     ref_llhd, ref_state_seq = self.ref_model.decode(self.X, self.lengths)
+    #     end = time.time()
+    #     print("\n Elapsed time for hmmlearn : ", end - start, "\n")
+    #
+    #     state_seq_err = np.sum(np.abs(cuml_state_seq - ref_state_seq))
+    #
+    #     assert state_seq_err == 0
+    #     assert abs(cuml_llhd- ref_llhd) < self.assert_eps
 
     def test_fit(self, n_components, n_seq, n_features, precision):
         self.setmethod(n_components, n_seq, n_features, precision)
@@ -177,17 +180,27 @@ class TestMultinomialHMM(TestHMM):
         end = time.time()
         print("\n Elapsed time for cuml : ", end - start, "\n")
 
-        # start = time.time()
-        # self.ref_model.fit(self.X, self.lengths)
-        # end = time.time()
-        # print("\n Elapsed time for hmmlearn : ", end - start, "\n")
+        start = time.time()
+        self.ref_model.fit(self.X, self.lengths)
+        # stats = fit(self.ref_model, self.X, self.lengths)
+        # print(stats["trans"])
+        end = time.time()
+        print("\n Elapsed time for hmmlearn : ", end - start, "\n")
 
         emissionprob_err= self.error(self.ref_model.emissionprob_, self.cuml_model.emissionprob_)
         startprob_err = self.error(self.ref_model.startprob_, self.cuml_model.startprob_)
         transmat_err = self.error(self.ref_model.transmat_, self.cuml_model.transmat_)
-
-        assert startprob_err < self.assert_eps
+        #
+        # # print("emissions")
+        # # print(self.ref_model.emissionprob_)
+        # # print(self.cuml_model.emissionprob_)
+        # #
+        # # print("transmat")
+        # # print(self.ref_model.transmat_)
+        # # print(self.cuml_model.transmat_)
+        #
         assert emissionprob_err < self.assert_eps
+        assert startprob_err < self.assert_eps
         assert transmat_err < self.assert_eps
 
     def test_predict_proba(self, n_components, n_seq, n_features, precision):

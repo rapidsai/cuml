@@ -132,7 +132,7 @@ def print_info(true_params, sk_params, cuml_params):
 @pytest.mark.parametrize('precision', ['single', "double"])
 @pytest.mark.parametrize('tol', [1e-03])
 @pytest.mark.parametrize('reg_covar', [1e-06])
-@pytest.mark.parametrize('random_state', [24])
+@pytest.mark.parametrize('random_state', [24, 42])
 def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
 
     print("nDim", nDim)
@@ -151,7 +151,7 @@ def test_gmm(n_iter, nCl, nDim, nObs, precision, tol, reg_covar, random_state):
     error_dict, error = compute_error(cuml_params, sk_params)
     if precision is "single":
         # I susspect that sklearn is implemented in double precision therefore the computational differences propagate and lead to different results at single precision
-        assert error < 1e-01
+        assert error < 1e-03
     else:
         # Tests have always passed on double precision
         assert error < 1e-9

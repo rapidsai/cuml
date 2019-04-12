@@ -353,7 +353,7 @@ void _forward_backward(HMM<T, D> &hmm,
         int numThreads_x, numThreads_y;
 
         if (doForward) {
-                block.x = 32;
+                block.x = 512;
                 block.y = 1;
 
                 grid.x =ceildiv(nSeq, (int)block.x);
