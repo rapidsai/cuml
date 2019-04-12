@@ -41,6 +41,7 @@
 - PR #466: Add support for column-major in LinAlg::*Norm methods
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
+- PR #470: Fix resource leakage in Kalman filter python wrapper
 
 # cuML 0.6.0 (22 Mar 2019)
 
