@@ -45,13 +45,13 @@ echo "Running tests on $GPU"
 
 if [[ $GPU == *"P100"* ]]; then
   logger "Building for Pascal..."
-  GPU_ARCH=60
+  GPU_ARCH="-DGPU_ARCHS=\"60\""
 elif [[ $GPU == *"V100"* ]]; then
   logger "Building for Volta..."
-  GPU_ARCH=70
+  GPU_ARCH=GPU_ARCH="-DGPU_ARCHS=\"70\""
 elif [[ $GPU == *"T4"* ]]; then
   logger "Building for Turing..."
-  GPU_ARCH=75
+  GPU_ARCH=GPU_ARCH="-DGPU_ARCHS=\"75\""
 fi
 
 ################################################################################
@@ -64,7 +64,7 @@ logger "Build libcuml..."
 mkdir -p $WORKSPACE/cuML/build
 cd $WORKSPACE/cuML/build
 logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DGPU_ARCHS="$GPU_ARCH" ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON $GPU_ARCH ..
 
 logger "Clean up make..."
 make clean
