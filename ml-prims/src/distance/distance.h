@@ -175,7 +175,7 @@ template <DistanceType distanceType,typename InType, typename AccType, typename 
           typename OutputTile_, typename FinalLambda>
 void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
               void *workspace, size_t worksize,
-              FinalLambda fin_op, cudaStream_t stream = 0) {
+              FinalLambda fin_op, cudaStream_t stream) {
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda> distImpl;
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
 }
@@ -203,7 +203,7 @@ template <DistanceType distanceType, typename InType, typename AccType, typename
           typename OutputTile_>
 void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
               void *workspace,
-              size_t worksize, cudaStream_t stream = 0) {
+              size_t worksize, cudaStream_t stream) {
   auto default_fin_op =
       [] __device__(AccType d_val, int g_d_idx) { return d_val; };
   distance<distanceType, InType, AccType, OutType, OutputTile_>(

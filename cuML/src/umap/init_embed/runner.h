@@ -32,7 +32,7 @@ namespace UMAPAlgo {
                  const long *knn_indices, const T *knn_dists,
                  int *rows, int *cols, float *vals,
                  int nnz,
-                 UMAPParams *params, T* embedding,
+                 UMAPParams *params, T* embedding, cudaStream_t stream,
                  int algo = 0) {
             switch(algo) {
 
@@ -40,7 +40,8 @@ namespace UMAPAlgo {
              * Initial algo uses FAISS indices
              */
             case 0:
-                RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding);
+                RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding,
+                                      stream);
                 break;
 
             case 1:

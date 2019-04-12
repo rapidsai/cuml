@@ -65,7 +65,7 @@ template <typename InType, typename AccType, typename OutType,
 void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                    OutType *pD, bool enable_sqrt, AccType *workspace,
                    size_t worksize, FinalLambda fin_op, NormLambda norm_op,
-                   cudaStream_t stream = 0) {
+                   cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
   EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
@@ -82,10 +82,10 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
   InType *row_vec = workspace;
   if (pA != pB) {
     row_vec += m;
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
-    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, true, stream, norm_op);
+    LinAlg::rowNorm(row_vec, pB, k, n, LinAlg::L2Norm, true, stream, norm_op);
   } else {
-    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, norm_op, stream);
+    LinAlg::rowNorm(col_vec, pA, k, m, LinAlg::L2Norm, true, stream, norm_op);
   }
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;

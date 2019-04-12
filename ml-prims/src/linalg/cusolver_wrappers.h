@@ -80,7 +80,7 @@ namespace LinAlg {
 template <typename T>
 cusolverStatus_t cusolverDngetrf(cusolverDnHandle_t handle, int m, int n, T *A,
                                  int lda, T *Workspace, int *devIpiv,
-                                 int *devInfo, cudaStream_t stream = 0);
+                                 int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDngetrf(cusolverDnHandle_t handle, int m, int n,
@@ -126,7 +126,7 @@ template <typename T>
 cusolverStatus_t cusolverDngetrs(cusolverDnHandle_t handle,
                                  cublasOperation_t trans, int n, int nrhs,
                                  const T *A, int lda, const int *devIpiv, T *B,
-                                 int ldb, int *devInfo, cudaStream_t stream = 0);
+                                 int ldb, int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
@@ -185,7 +185,7 @@ cusolverStatus_t cusolverDnsyevj(cusolverDnHandle_t handle,
                                  cusolverEigMode_t jobz, cublasFillMode_t uplo,
                                  int n, T *A, int lda, T *W, T *work, int lwork,
                                  int *info, syevjInfo_t params,
-                                 cudaStream_t stream = 0);
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
@@ -244,7 +244,7 @@ template <typename T>
 cusolverStatus_t cusolverDnsyevd(cusolverDnHandle_t handle,
                                  cusolverEigMode_t jobz, cublasFillMode_t uplo,
                                  int n, T *A, int lda, T *W, T *work, int lwork,
-                                 int *devInfo, cudaStream_t stream = 0);
+                                 int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
@@ -287,7 +287,7 @@ cusolverStatus_t cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                                  signed char jobvt, int m, int n, T *A, int lda,
                                  T *S, T *U, int ldu, T *VT, int ldvt, T *work,
                                  int lwork, T *rwork, int *devInfo,
-                                 cudaStream_t stream = 0);
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
@@ -349,7 +349,7 @@ inline cusolverStatus_t CUSOLVERAPI
   cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
                    int m, int n, T *A, int lda, T *S, T *U, int ldu, T *V,
                    int ldv, T *work, int lwork, int *info, gesvdjInfo_t params,
-                   cudaStream_t stream = 0);
+                   cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
@@ -400,7 +400,7 @@ template <typename T>
 inline cusolverStatus_t
   cusolverDnpotrf(cusolverDnHandle_t handle, cublasFillMode_t uplo, int n, T *A,
                   int lda, T *Workspace, int Lwork, int *devInfo,
-                  cudaStream_t stream = 0);
+                  cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnpotrf(cusolverDnHandle_t handle,
@@ -429,7 +429,7 @@ template <typename T>
 cusolverStatus_t
   cusolverDnpotrs(cusolverDnHandle_t handle, cublasFillMode_t uplo, int n,
                   int nrhs, const T *A, int lda, T *B, int ldb, int *devInfo,
-                  cudaStream_t stream = 0);
+                  cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnpotrs(cusolverDnHandle_t handle,
@@ -457,7 +457,7 @@ inline cusolverStatus_t cusolverDnpotrs(cusolverDnHandle_t handle,
 template <typename T>
 cusolverStatus_t cusolverDngeqrf(cusolverDnHandle_t handle, int m, int n, T *A,
                                  int lda, T *TAU, T *Workspace, int Lwork,
-                                 int *devInfo, cudaStream_t stream = 0);
+                                 int *devInfo, cudaStream_t stream);
 template <>
 inline cusolverStatus_t
   cusolverDngeqrf(cusolverDnHandle_t handle, int m, int n, float *A, int lda,
@@ -499,7 +499,7 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
 template <typename T>
 cusolverStatus_t cusolverDnorgqr(cusolverDnHandle_t handle, int m, int n, int k,
                                  T *A, int lda, const T *tau, T *work,
-                                 int lwork, int *devInfo, cudaStream_t stream = 0);
+                                 int lwork, int *devInfo, cudaStream_t stream);
 template <>
 inline cusolverStatus_t cusolverDnorgqr(cusolverDnHandle_t handle, int m, int n,
                                         int k, float *A, int lda,
@@ -547,7 +547,7 @@ cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
                                  int m, int n, int k, const T *A,
                                  int lda, const T *tau, T *C, int ldc,
                                  T *work, int lwork, int *devInfo,
-                                 cudaStream_t stream = 0);
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
