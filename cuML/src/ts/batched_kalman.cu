@@ -168,7 +168,8 @@ double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
   return d_sumLogFs;
 }
 
-void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs, each item size batches }
+void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
+                           int nobs,
                            const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
                            const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
                            const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
@@ -179,7 +180,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
                            vector<double>& h_sigma2_b) {
 
 
-  const size_t ys_len = h_ys_b.size();
+  const size_t ys_len = nobs;
   const size_t num_batches = h_Zb.size();
 
   ////////////////////////////////////////////////////////////
@@ -189,8 +190,8 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
 
   double* d_ys;
   allocate(d_ys, num_batches*ys_len);
-  for(int it=0;it<ys_len;it++) {
-    updateDevice(&d_ys[num_batches*it], h_ys_b[it], num_batches);
+  for(int bi=0; bi<num_batches; bi++) {
+    updateDevice(&d_ys[nobs * bi], h_ys_b[bi], nobs);
   }
 
   auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
@@ -239,7 +240,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
       double** d_alpha = alpha.data();
       thrust::for_each(counting, counting + num_batches,
                        [=]__device__(int bid) {
-                         d_vs[bid + it*num_batches] = d_ys[bid + it*num_batches] - d_alpha[bid][0];
+                         d_vs[bid + it*num_batches] = d_ys[it + bid*nobs] - d_alpha[bid][0];
                        });
     }
 
@@ -347,6 +348,7 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size nobs,
 
   for(int it=0;it<ys_len;it++) {
     for (int bi = 0; bi < num_batches; bi++) {
+      // note: vs, Fs computed in batch-major order. Return it in time-major order
       h_vs_b[bi][it] = h_vs_raw[bi + it * num_batches];
       h_Fs_b[bi][it] = h_Fs_raw[bi + it * num_batches];
     }
