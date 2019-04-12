@@ -47,7 +47,7 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
 void cosineAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                  OutType *pD, AccType *workspace, size_t worksize,
-                 FinalLambda fin_op, cudaStream_t stream = 0) {
+                 FinalLambda fin_op, cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };

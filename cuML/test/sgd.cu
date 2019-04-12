@@ -35,6 +35,9 @@ protected:
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
+
 		allocate(data, len);
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col, true);
@@ -71,17 +74,18 @@ protected:
 		sgdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
 				fit_intercept, params.batch_size, epochs, lr_type, lr, power_t, loss,
 				pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		fit_intercept = true;
 		intercept2 = T(0);
 		sgdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
 				fit_intercept, params.batch_size, epochs, ML::lr_type::CONSTANT, lr,
 				power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle);
+				n_iter_no_change, cublas_handle, cusolver_handle, stream);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
@@ -94,6 +98,9 @@ protected:
 
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		T *coef_class;
 		allocate(data_logreg, len);
@@ -134,15 +141,16 @@ protected:
 		sgdFit(data_logreg, params.n_row2, params.n_col2, labels_logreg,
 				coef_class, &intercept_class, fit_intercept, params.batch_size, epochs,
 				lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle);
+				n_iter_no_change, cublas_handle, cusolver_handle, stream);
 
 		sgdPredictBinaryClass(data_logreg_test, params.n_row2, params.n_col2,
-				coef_class, intercept_class, pred_log, loss, cublas_handle);
+				coef_class, intercept_class, pred_log, loss, cublas_handle, stream);
 
 		CUDA_CHECK(cudaFree(coef_class));
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
@@ -155,6 +163,9 @@ protected:
 
 		cusolverDnHandle_t cusolver_handle = NULL;
 		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		T *coef_class;
 		allocate(data_svmreg, len);
@@ -195,15 +206,16 @@ protected:
 		sgdFit(data_svmreg, params.n_row2, params.n_col2, labels_svmreg,
 				coef_class, &intercept_class, fit_intercept, params.batch_size, epochs,
 				lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle);
+				n_iter_no_change, cublas_handle, cusolver_handle, stream);
 
 		sgdPredictBinaryClass(data_svmreg_test, params.n_row2, params.n_col2,
-				coef_class, intercept_class, pred_svm, loss, cublas_handle);
+				coef_class, intercept_class, pred_svm, loss, cublas_handle, stream);
 
 		CUDA_CHECK(cudaFree(coef_class));
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 

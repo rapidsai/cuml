@@ -71,19 +71,22 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<RngInputs<T>>::GetParam();
     Rng r(params.seed, params.gtype);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, params.len);
     allocate(stats, 2, true);
     switch (params.type) {
       case RNG_Uniform:
-        r.uniformInt(data, params.len, params.start, params.end);
+        r.uniformInt(data, params.len, params.start, params.end, stream);
         break;
     };
     static const int threads = 128;
-    meanKernel<T, threads><<<ceildiv(params.len, threads), threads>>>(
+    meanKernel<T, threads><<<ceildiv(params.len, threads), threads, 0, stream>>>(
       stats, data, params.len);
     updateHost<float>(h_stats, stats, 2);
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

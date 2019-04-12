@@ -34,10 +34,10 @@ __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type, typename IdxType = int>
-void naiveScale(Type *out, const Type *in, Type scalar, int len) {
+void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveScaleKernel<Type><<<nblks, TPB>>>(out, in, scalar, len);
+  naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

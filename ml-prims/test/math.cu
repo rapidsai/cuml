@@ -32,10 +32,10 @@ __global__ void nativePowerKernel(Type *in, Type *out, int len) {
 }
 
 template <typename Type>
-void naivePower(Type *in, Type *out, int len) {
+void naivePower(Type *in, Type *out, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  nativePowerKernel<Type><<<nblks, TPB>>>(in, out, len);
+  nativePowerKernel<Type><<<nblks, TPB, 0, stream>>>(in, out, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -123,6 +123,9 @@ protected:
     allocate(in_sign_flip, len);
     allocate(out_sign_flip_ref, len);
 
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
     updateDevice(in_ratio, in_ratio_h, 4);
@@ -131,22 +134,22 @@ protected:
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
     updateDevice(out_ratio_ref, out_ratio_ref_h, 4);
 
-    r.uniform(in_power, len, T(-1.0), T(1.0));
-    r.uniform(in_sqrt, len, T(0.0), T(1.0));
+    r.uniform(in_power, len, T(-1.0), T(1.0), stream);
+    r.uniform(in_sqrt, len, T(0.0), T(1.0), stream);
     // r.uniform(in_ratio, len, T(0.0), T(1.0));
-    r.uniform(in_sign_flip, len, T(-100.0), T(100.0));
+    r.uniform(in_sign_flip, len, T(-100.0), T(100.0), stream);
 
-    naivePower(in_power, out_power_ref, len);
-    power(in_power, len);
+    naivePower(in_power, out_power_ref, len, stream);
+    power(in_power, len, stream);
 
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
-    seqRoot(in_sqrt, len);
+    seqRoot(in_sqrt, len, stream);
 
     auto mgr = makeDefaultAllocator();
-    ratio(in_ratio, in_ratio, 4, mgr);
+    ratio(in_ratio, in_ratio, 4, mgr, stream);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
-    signFlip(in_sign_flip, params.n_row, params.n_col);
+    signFlip(in_sign_flip, params.n_row, params.n_col, stream);
 
     allocate(in_recip, 4);
     allocate(in_recip_ref, 4);
@@ -159,9 +162,9 @@ protected:
     T recip_scalar = T(1.0);
 
     // this `reciprocal()` has to go first bc next one modifies its input
-    reciprocal(in_recip, out_recip, recip_scalar, 4);
+    reciprocal(in_recip, out_recip, recip_scalar, 4, stream);
 
-    reciprocal(in_recip, recip_scalar, 4, true);
+    reciprocal(in_recip, recip_scalar, 4, stream, true);
 
     std::vector<T> in_small_val_zero_h = {0.1, 1e-16, -1e-16, -0.1};
     std::vector<T> in_small_val_zero_ref_h = {0.1, 0.0, 0.0, -0.1};
@@ -170,8 +173,9 @@ protected:
     allocate(out_smallzero_ref, 4);
     updateDevice(in_smallzero, in_small_val_zero_h.data(), 4);
     updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4);
-    setSmallValuesZero(out_smallzero, in_smallzero, 4);
-    setSmallValuesZero(in_smallzero, 4);
+    setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
+    setSmallValuesZero(in_smallzero, 4, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
 
   }
 

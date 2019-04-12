@@ -35,7 +35,7 @@ namespace LinAlg {
  */
 template <typename math_t, typename IdxType = int>
 void sqrt(math_t *out, const math_t *in, IdxType len,
-          cudaStream_t stream = 0) {
+          cudaStream_t stream) {
   unaryOp(out, in, len,
           [] __device__(math_t in) { return mySqrt(in); },
           stream);

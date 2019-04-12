@@ -45,18 +45,24 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     auto rows = params.rows, cols = params.cols;
     auto len = rows * cols;
+
     allocate(out, len);
     allocate(out_ref, len);
     allocate(data, len);
     allocate(meanVec, cols);
-    r.normal(data, len, params.mean, (T)1.0);
-    mean(meanVec, data, cols, rows, params.sample, params.rowMajor);
+    r.normal(data, len, params.mean, (T)1.0, stream);
+    mean(meanVec, data, cols, rows, params.sample, params.rowMajor, stream);
     meanCenter(out, data, meanVec, cols, rows, params.rowMajor,
-               params.bcastAlongRows);
+               params.bcastAlongRows, stream);
     LinAlg::naiveMatVec(out_ref, data, meanVec, cols, rows, params.rowMajor,
                         params.bcastAlongRows, (T)-1.0);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

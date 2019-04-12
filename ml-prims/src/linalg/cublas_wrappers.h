@@ -67,7 +67,7 @@ namespace LinAlg {
 template <typename T>
 cublasStatus_t cublasaxpy(cublasHandle_t handle, int n, const T *alpha,
                           const T *x, int incx, T *y, int incy,
-                          cudaStream_t stream = 0);
+                          cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasaxpy(cublasHandle_t handle, int n,
@@ -95,7 +95,7 @@ template <typename T>
 cublasStatus_t cublasgemv(cublasHandle_t handle, cublasOperation_t transA,
                           int m, int n, const T *alfa, const T *A, int lda,
                           const T *x, int incx, const T *beta, T *y, int incy,
-                          cudaStream_t stream = 0);
+                          cudaStream_t stream);
 
 template <>
 inline cublasStatus_t
@@ -128,7 +128,7 @@ inline cublasStatus_t
 template <typename T>
 cublasStatus_t cublasger(cublasHandle_t handle, int m, int n, const T *alpha,
                          const T *x, int incx, const T *y, int incy, T *A,
-                         int lda, cudaStream_t stream = 0);
+                         int lda, cudaStream_t stream);
 template <>
 inline cublasStatus_t cublasger(cublasHandle_t handle, int m, int n,
                                 const float *alpha, const float *x, int incx,
@@ -158,7 +158,7 @@ cublasStatus_t cublasgemm(cublasHandle_t handle, cublasOperation_t transA,
                           cublasOperation_t transB, int m, int n, int k,
                           const T *alfa, const T *A, int lda, const T *B,
                           int ldb, const T *beta, T *C, int ldc,
-                          cudaStream_t stream = 0);
+                          cudaStream_t stream);
 
 template <>
 inline cublasStatus_t
@@ -192,7 +192,7 @@ template <typename T>
 cublasStatus_t cublasgeam(cublasHandle_t handle, cublasOperation_t transA,
                           cublasOperation_t transB, int m, int n, const T *alfa,
                           const T *A, int lda, const T *beta, const T *B,
-                          int ldb, T *C, int ldc, cudaStream_t stream = 0);
+                          int ldb, T *C, int ldc, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t
@@ -226,7 +226,7 @@ template <typename T>
 cublasStatus_t cublassymm(cublasHandle_t handle, cublasSideMode_t side,
                           cublasFillMode_t uplo, int m, int n, const T *alpha,
                           const T *A, int lda, const T *B, int ldb,
-                          const T *beta, T *C, int ldc, cudaStream_t stream = 0);
+                          const T *beta, T *C, int ldc, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublassymm(cublasHandle_t handle, cublasSideMode_t side,
@@ -260,7 +260,7 @@ template <typename T>
 cublasStatus_t cublassyrk(cublasHandle_t handle, cublasFillMode_t uplo,
                           cublasOperation_t trans, int n, int k, const T *alpha,
                           const T *A, int lda, const T *beta, T *C, int ldc,
-                          cudaStream_t stream = 0);
+                          cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublassyrk(cublasHandle_t handle, cublasFillMode_t uplo,
@@ -289,7 +289,7 @@ inline cublasStatus_t cublassyrk(cublasHandle_t handle, cublasFillMode_t uplo,
  */
 template <typename T>
 cublasStatus_t cublasnrm2(cublasHandle_t handle, int n, const T *x, int incx,
-                          T *result, cudaStream_t stream = 0);
+                          T *result, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasnrm2(cublasHandle_t handle, int n, const float *x,
@@ -311,7 +311,7 @@ cublasStatus_t cublastrsm(cublasHandle_t handle,
                           cublasSideMode_t side, cublasFillMode_t uplo,
                           cublasOperation_t trans, cublasDiagType_t diag,
                           int m, int n, const T *alpha, const T *A, int lda,
-                          T *B, int ldb, cudaStream_t stream = 0);
+                          T *B, int ldb, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublastrsm(cublasHandle_t handle,
@@ -344,7 +344,7 @@ cublasdot( cublasHandle_t handle,
             int n,
             const T *x, int incx,
             const T *y, int incy,
-            T *result, cudaStream_t stream = 0);
+            T *result, cudaStream_t stream);
 
 template <>
 inline cublasStatus_t cublasdot( cublasHandle_t handle,

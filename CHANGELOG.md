@@ -9,6 +9,7 @@
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
+- PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 
@@ -41,6 +42,7 @@
 - PR #466: Add support for column-major in LinAlg::*Norm methods
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
+- PR #470: Fix resource leakage in Kalman filter python wrapper
 
 # cuML 0.6.0 (22 Mar 2019)
 
