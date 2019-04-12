@@ -18,7 +18,7 @@
 #include <utils.h>
 
 namespace ML {
-	enum SPLIT_ALGO {
-		HIST, GLOBAL_QUANTILE, SPLIT_ALGO_END,
-	};
+enum SPLIT_ALGO {
+	HIST, GLOBAL_QUANTILE, SPLIT_ALGO_END,
+};
 };

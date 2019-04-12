@@ -48,7 +48,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	int  *d_offsets;
 	T  *d_keys_in = tempmem->temp_data;
 	T  *d_keys_out;
-	int *colids = NULL;
+	int *colids = nullptr;
 
 	CUDA_CHECK(cudaMalloc((void**)&d_offsets, (num_segments + 1) * sizeof(int)));
 	CUDA_CHECK(cudaMalloc((void**)&d_keys_out, num_items * sizeof(T)));
@@ -59,7 +59,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets);
 
 	// Determine temporary device storage requirements
-	void     *d_temp_storage = NULL;
+	void     *d_temp_storage = nullptr;
 	size_t   temp_storage_bytes = 0;
 	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
 						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(T), tempmem->stream));
