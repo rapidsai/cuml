@@ -11,6 +11,7 @@ from libc.stdlib cimport malloc, free
 
 cdef extern from "ts/batched_kalman.h":
   void batched_kalman_filter(const vector[double*]& ptr_ys_b,
+                             int nobs,
                              const vector[double*]& ptr_Zb,
                              const vector[double*]& ptr_Rb,
                              const vector[double*]& ptr_Tb,
@@ -37,14 +38,24 @@ def batched_kfilter(ys_b,
     cdef vector[double] vec_loglike_b
     cdef vector[double] vec_sigma2_b
 
+    cdef np.ndarray[double, ndim=1, mode="fortran"] ysi
     cdef np.ndarray[double, ndim=1, mode="fortran"] vsi
     cdef np.ndarray[double, ndim=1, mode="fortran"] Fsi
 
+    cdef np.ndarray[double, ndim=1, mode="fortran"] ys_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
+
     num_batches = len(Z_b)
- 
-    # initialize output
+    cdef int nobs = len(ys_b[0])
+
+    # initialize input/output
+    vec_ys_b.resize(num_batches)
     for i in range(num_batches):
         num_samples_i = len(ys_b[i])
+        ysi = ys_b[i]
+        vec_ys_b[i] = &ysi[0]
         vsi = np.zeros(num_samples_i)
         Fsi = np.zeros(num_samples_i)
         vec_vs_b.push_back(&vsi[0])
@@ -52,20 +63,8 @@ def batched_kfilter(ys_b,
 
     vec_loglike_b.resize(num_batches)
     vec_sigma2_b.resize(num_batches)
-
-    cdef np.ndarray[double, ndim=1, mode="fortran"] ys_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
-
-    for i in range(len(ys_b[i])):
-        vec_ys_b.push_back(<double*>malloc(num_batches*sizeof(double)))
-        for j in range(num_batches):
-            vec_ys_b[i][j] = ys_b[j][i]
-
-
-    for i in range(len(ys_b)):
-        ys_bi = ys_b[i]
+    
+    for i in range(num_batches):
         Z_bi = Z_b[i]
         R_bi = R_b[i]
         T_bi = T_b[i]
@@ -74,22 +73,20 @@ def batched_kfilter(ys_b,
         vec_Tb.push_back(&T_bi[0,0])
 
     batched_kalman_filter(vec_ys_b,
+                          nobs,
                           vec_Zb, vec_Rb, vec_Tb,
                           r,
                           vec_vs_b, vec_Fs_b,
                           vec_loglike_b, vec_sigma2_b)
 
-    for i in range(len(ys_b[i])):
-        free(vec_ys_b[i])
-
-    # convert C-arrays to something usable in python
-    num_batches = vec_loglike_b.size()
+    # convert C-arrays to numpy arrays
     ll_b = np.zeros(num_batches)
     sigma2_b = np.zeros(num_batches)
-    for i in range(vec_loglike_b.size()):
+    for i in range(num_batches):
         ll_b[i] = vec_loglike_b[i]
         sigma2_b[i] = vec_sigma2_b[i]
 
+    # Convert C++ vectors of pointers to Python List[ndarray]
     vs_b = []
     Fs_b = []
     for (i, ysi) in enumerate(ys_b):
