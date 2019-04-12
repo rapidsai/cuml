@@ -52,7 +52,7 @@ elif [[ $GPU == *"V100"* ]]; then
 elif [[ $GPU == *"T4"* ]]; then
   logger "Building for Turing..."
   GPU_ARCH=75
-fi 
+fi
 
 ################################################################################
 # BUILD - Build libcuml and cuML from source
@@ -99,7 +99,7 @@ nvidia-smi
 
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cuML/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./ml_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./ml_test
 
 
 logger "Python py.test for cuML..."
@@ -109,4 +109,4 @@ py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/ml-prims/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/" ./test/mlcommon_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/mlcommon_test
