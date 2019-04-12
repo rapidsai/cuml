@@ -33,7 +33,7 @@ template <typename T> struct Tikhonov {
   HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
 
   inline void reg_grad(T *reg_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                        const bool has_bias, cudaStream_t stream = 0) const {
+                        const bool has_bias, cudaStream_t stream) const {
 
     // NOTE: scikit generally does not penalize biases
     SimpleMat<T> Gweights;
@@ -56,12 +56,12 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
 
   inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
                         const SimpleMat<T> &Xb, const SimpleVec<T> &yb,
-                        SimpleMat<T> &Zb, bool initGradZero = true, cudaStream_t stream=0) {
+                        SimpleMat<T> &Zb, cudaStream_t stream, bool initGradZero = true) {
     SimpleVec<T> lossVal(loss_val, 1);
     G.fill(0);
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
     T reg = lossVal[0];
-    loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, false);
+    loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
     T loss = lossVal[0];
     lossVal.fill(loss + reg);
   }

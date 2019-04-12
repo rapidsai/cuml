@@ -44,33 +44,33 @@ namespace MLCommon {
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        math_t r2_score(math_t *y, math_t *y_hat, int n) {
+        math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
 
             math_t *y_bar;
             MLCommon::allocate(y_bar, 1);
 
-            MLCommon::Stats::mean(y_bar, y, 1, n, false, false);
+            MLCommon::Stats::mean(y_bar, y, 1, n, false, false, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             math_t *sse_arr;
             MLCommon::allocate(sse_arr, n);
 
-            MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n);
-            MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, 2.0f, n);
+            MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n, stream);
+            MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, 2.0f, n, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             math_t *ssto_arr;
             MLCommon::allocate(ssto_arr, n);
 
-            MLCommon::LinAlg::subtractDevScalar(ssto_arr, y, y_bar, n);
-            MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, 2.0f, n);
+            MLCommon::LinAlg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
+            MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, 2.0f, n, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             thrust::device_ptr<math_t> d_sse = thrust::device_pointer_cast(sse_arr);
             thrust::device_ptr<math_t> d_ssto = thrust::device_pointer_cast(ssto_arr);
 
-            math_t sse = thrust::reduce(d_sse, d_sse+n);
-            math_t ssto = thrust::reduce(d_ssto, d_ssto+n);
+            math_t sse = thrust::reduce(thrust::cuda::par.on(stream), d_sse, d_sse+n);
+            math_t ssto = thrust::reduce(thrust::cuda::par.on(stream), d_ssto, d_ssto+n);
 
             CUDA_CHECK(cudaFree(y_bar));
             CUDA_CHECK(cudaFree(sse_arr));
