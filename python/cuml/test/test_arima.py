@@ -110,7 +110,31 @@ def test_batched_arima(plot=False, verbose=False, check_asserts=True):
             plt.show()
 
 
+def test_arima_kalman():
+    num_samples = 100
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys = noise + 0.5*xs
+
+    x_train, x_test = xs[0:66], xs[66:]
+    y_train, y_test = ys[0:66], ys[66:]
+    order = (0, 1, 1)
+    mu = 0.0
+    arparams = np.array([])
+    maparams = np.array([-1.0])
+    model0 = arima.ARIMAModel(order, mu, arparams, maparams, y_train)
+
+    # single version
+    ll = arima.loglike(model0)
+
+    # batched version
+    b_ll = batched_arima.batched_loglike([model0])
+
+    print("ll vs b_ll: {} vs {}".format(ll, b_ll))
+    np.testing.assert_approx_equal(ll, b_ll[0])
 
 if __name__ == "__main__":
-    test_arima()
-    test_batched_arima()
+    # test_arima()
+    # test_batched_arima()
+    test_arima_kalman()
