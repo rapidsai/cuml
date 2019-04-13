@@ -85,8 +85,7 @@ void cdFit(float *input,
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
-		   float tol,
-		   int n_iter_no_change);
+		   float tol);
 
 void cdFit(double *input,
 		   int n_rows,
@@ -102,8 +101,7 @@ void cdFit(double *input,
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
-		   double tol,
-		   int n_iter_no_change);
+		   double tol);
 
 }
 }

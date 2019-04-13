@@ -40,8 +40,7 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
-		   float tol,
-		   int n_iter_no_change)
+		   float tol)
 
     
     cdef void cdFit(double *input,
@@ -58,8 +57,7 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
-		   double tol,
-		   int n_iter_no_change)
+		   double tol)
                      
 
 class CD:
@@ -130,13 +128,11 @@ class CD:
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
-    n_iter_no_change : int (default = 5)
-        the number of epochs to train without any imporvement in the model
-
+    
     """
     
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
-        fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, shuffle=True, n_iter_no_change=5):
+        fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, shuffle=True):
         
         if loss in ['squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -157,7 +153,6 @@ class CD:
         self.max_iter = max_iter
         self.tol = tol
         self.shuffle = shuffle
-        self.n_iter_no_change = n_iter_no_change
         self.intercept_value = 0.0
         self.coef_ = None
         self.intercept_ = None
@@ -256,8 +251,7 @@ class CD:
                        <float>self.alpha,
                        <float>self.l1_ratio,
                        <bool>self.shuffle,
-                       <float>self.tol,
-                       <int>self.n_iter_no_change)
+                       <float>self.tol)
 
             self.intercept_ = c_intercept1
         else:
@@ -275,8 +269,7 @@ class CD:
                        <double>self.alpha,
                        <double>self.l1_ratio,
                        <bool>self.shuffle,
-                       <double>self.tol,
-                       <int>self.n_iter_no_change)
+                       <double>self.tol)
             
             self.intercept_ = c_intercept2
 

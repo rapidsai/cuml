@@ -58,21 +58,20 @@ protected:
 		T alpha = T(0.2);
 		T l1_ratio = T(0.0);
 		bool shuffle = false;
-		T tol = T(1e-10);
+		T tol = T(1e-4);
 		ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L1;
-		int n_iter_no_change = 1;
 
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
 			  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
-			  tol, n_iter_no_change, stream, cublas_handle, cusolver_handle);
+			  tol,  stream, cublas_handle, cusolver_handle);
 
 
 		fit_intercept = true;
 		intercept2 = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
 					  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
-					  tol, n_iter_no_change, stream, cublas_handle, cusolver_handle);
+					  tol, stream, cublas_handle, cusolver_handle);
 
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));

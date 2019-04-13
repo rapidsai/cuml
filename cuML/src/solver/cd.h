@@ -53,7 +53,6 @@ void cdFit(math_t *input,
 		   math_t l1_ratio,
 		   bool shuffle,
 		   math_t tol,
-		   int n_iter_no_change,
 		   cudaStream_t stream,
 		   cublasHandle_t cublas_handle,
 		   cusolverDnHandle_t cusolver_handle) {
@@ -76,9 +75,8 @@ void cdFit(math_t *input,
 	allocate(pred, n_rows);
 	allocate(squared, n_cols);
 
-	math_t prev_loss_value = math_t(0);
 	math_t curr_loss_value = math_t(0);
-	int n_iter_no_change_curr = 0;
+	std::vector<math_t> h_coef(n_cols, math_t(0));
 
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
@@ -104,6 +102,11 @@ void cdFit(math_t *input,
 			Solver::shuffle(rand_indices, g);
 		}
 
+		math_t coef_max = 0.0;
+		math_t d_coef_max = 0.0;
+		math_t coef_prev = 0.0;
+
+		// TODO: Skip the columns that has zero norm-2
 		for (int j = 0; j < n_cols; j++) {
 			math_t *coef_loc = coef + rand_indices[j];
 			math_t *squared_loc = squared + rand_indices[j];
@@ -112,6 +115,7 @@ void cdFit(math_t *input,
 
 			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1,
 					CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
+
 			LinAlg::subtract(pred, labels, pred, n_rows);
 
 			math_t *input_col_loc = input + (rand_indices[j] * n_rows);
@@ -128,26 +132,34 @@ void cdFit(math_t *input,
 
 			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
 
+			coef_prev = h_coef[j];
+			updateHost(&(h_coef[j]), coef_loc, 1);
+			math_t diff = abs(coef_prev - h_coef[j]);
+
+			if (diff > d_coef_max)
+				d_coef_max = diff;
+
+			if (abs(h_coef[j]) > coef_max)
+				coef_max = abs(h_coef[j]);
 		}
 
-		if (tol > math_t(0)) {
-			Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
-					loss_value, penalty, alpha, l1_ratio, cublas_handle);
+		// TODO: Check the max tolerance of coordinate updates
+		bool flag_continue = true;
+		if (coef_max == math_t(0)) {
+			flag_continue = false;
+		}
 
-			updateHost(&curr_loss_value, loss_value, 1);
+		if ((d_coef_max / coef_max) < tol) {
+			flag_continue = false;
+		}
 
-			if (i > 0) {
-				if (curr_loss_value > (prev_loss_value - tol)) {
-					n_iter_no_change_curr = n_iter_no_change_curr + 1;
-					if (n_iter_no_change_curr > n_iter_no_change) {
-						break;
-					}
-				} else {
-					n_iter_no_change_curr = 0;
-				}
-			}
+		if (!flag_continue) {
+			printf("iter:%d, coef_max: %f, d_coef_max: %f\n", i, coef_max, d_coef_max);
+			//Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
+			//		loss_value, penalty, alpha, l1_ratio, cublas_handle);
 
-			prev_loss_value = curr_loss_value;
+			//updateHost(&curr_loss_value, loss_value, 1);
+			break;
 		}
 	}
 
@@ -173,7 +185,6 @@ void cdFit(math_t *input,
 	if (loss_value != NULL)
 		CUDA_CHECK(cudaFree(loss_value));
 
-
 }
 
 template<typename math_t>
@@ -187,7 +198,6 @@ void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 			"Parameter n_rows: number of rows cannot be less than two");
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
-
 
 }
 

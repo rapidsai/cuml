@@ -324,8 +324,7 @@ void cdFit(float *input,
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
-		   float tol,
-		   int n_iter_no_change) {
+		   float tol) {
 
 	ASSERT(loss == 0,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
@@ -370,7 +369,6 @@ void cdFit(float *input,
 			   l1_ratio,
 			   shuffle,
 			   tol,
-			   n_iter_no_change,
 			   stream,
 			   cublas_handle,
 			   cusolver_handle);
@@ -396,8 +394,7 @@ void cdFit(double *input,
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
-		   double tol,
-		   int n_iter_no_change) {
+		   double tol) {
 
 	ASSERT(loss == 0,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
@@ -442,7 +439,6 @@ void cdFit(double *input,
 			   l1_ratio,
 			   shuffle,
 			   tol,
-			   n_iter_no_change,
 			   stream,
 			   cublas_handle,
 			   cusolver_handle);

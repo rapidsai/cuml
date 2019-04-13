@@ -105,14 +105,12 @@ void linearRegLoss(math_t *input, int n_rows, int n_cols,
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
-
 	linearRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
 
 	LinAlg::subtract(labels_pred, labels, labels_pred, n_rows);
 	Matrix::power(labels_pred, n_rows);
 	Stats::mean(loss, labels_pred, 1, n_rows, false, false);
+	LinAlg::scalarMultiply(loss, loss, math_t(0.5), 1);
 
 	math_t *pen_val = NULL;
 

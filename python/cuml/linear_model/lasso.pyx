@@ -181,7 +181,7 @@ class Lasso:
             shuffle = True
 
         culasso = cuLasso(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
-                          l1_ratio=1.0, shuffle=shuffle, penalty='l1', max_iter=self.max_iter, n_iter_no_change=1)
+                          l1_ratio=1.0, shuffle=shuffle, penalty='l1', max_iter=self.max_iter)
         culasso.fit(X, y)
 
         self.coef_ = culasso.coef_
