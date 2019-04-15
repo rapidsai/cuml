@@ -198,6 +198,167 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
   nvtxRangePop();
 }
 
+__device__ void Mv(double* A, double* v, int r, int tid, double* out) {
+  if(tid < r) {
+    out[tid] = 0.0;
+    for(int i=0; i<r; i++) {
+      out[tid] += A[tid + r*i] * v[i];
+    }
+  }
+}
+
+__device__ void MM(double *A, double *B, int r, int tid, double *out) {
+
+  out[tid] = 0.0;
+  for(int i=0; i<r; i++) {
+    
+    // access pattern should be:
+    // out[0] += A[0 + r*i] * B[i + 0*r];
+    // out[1] += A[1 + r*i] * B[i + 0*r];
+    // out[2] += A[0 + r*i] * B[i + 1*r];
+    // out[3] += A[1 + r*i] * B[i + 1*r];
+    
+    out[tid] += A[tid%r + r*i]*B[i + (tid/r % r) *r];
+  }
+
+}
+
+extern __shared__ double s_array[]; // size = r*r x 5 + r x 3
+__global__ void batched_kalman_loop_kernel(double* ys, int nobs,
+                                           double** T, // \in R^(r x r)
+                                           double** Z, // \in R^(1 x r)
+                                           double** RRT, // \in R^(r x r)
+                                           double** P, // \in R^(r x r)
+                                           double** alpha, // \in R^(r x 1)
+                                           int r,
+                                           int num_batches,
+                                           double* vs,
+                                           double* Fs) {
+  // hard code shared memory for now
+
+  // kalman matrices and temporary storage
+  int r2 = r*r;
+  double* s_RRT = &s_array[0]; // rxr
+  double* s_T = &s_array[r2]; // rxr
+  double* s_Z = &s_array[2*r2]; // r
+  double* s_P = &s_array[2*r2+r]; // rxr
+  double* s_alpha = &s_array[3*r2+r]; // r
+  double* s_K = &s_array[3*r2+2*r]; // r
+  double* tmpA = &s_array[3*r2+3*r]; // rxr
+  double* tmpB = &s_array[4*r2+3*r]; // rxr
+
+  const int tid = threadIdx.x;
+  const int bid = blockIdx.x;
+
+  // preload kalman matrices from GM.
+  s_RRT[tid] = RRT[bid][tid];
+  s_T[tid] = T[bid][tid];
+  s_P[tid] = P[bid][tid];
+  if(tid < r) {
+    s_Z[tid] = Z[bid][tid];
+    s_alpha[tid]= alpha[bid][tid];
+  }
+  __syncthreads();
+
+  for(int it=0; it<nobs; it++) {
+
+    // 1. & 2.
+    // vs[it] = ys[it] - alpha(0,0);
+    // Fs[it] = P(0,0);
+    if(tid==0) {
+      vs[bid + it*num_batches] = ys[it + bid*nobs] - s_alpha[0];
+      Fs[bid + it*num_batches] = s_P[0];
+    }
+    __syncthreads();
+  
+    // 3.
+    // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
+    // tmpA = P*Z.T
+    Mv(s_P, s_Z, r, tid, tmpA);
+    // tmpB = T*tmpA
+    Mv(s_T, tmpA, r, tid, tmpB);
+    // tmpB = 1/Fs[it] * tmpB
+    if(tid < r) {
+      s_K[tid] = 1/Fs[bid + it*num_batches] * tmpB[tid];
+    }
+    __syncthreads();
+  
+
+    // 4.
+    // alpha = T*alpha + K*vs[it];
+    if (tid < r) {
+      Mv(s_T, s_alpha, r, tid, tmpA);
+      s_alpha[tid] = tmpA[tid] + s_K[tid] * vs[bid + it * num_batches];
+    }
+    __syncthreads();
+
+    // 5.
+    // MatrixT L = T - K*Z;
+    // tmpA = KZ
+    // tmpA[0] = K[0]*Z[0]
+    // tmpA[1] = K[1]*Z[0]
+    // tmpA[2] = K[0]*Z[1]
+    // tmpA[3] = K[1]*Z[1]
+    // pytest [i//3 % 3 for i in range(9)] -> 0 1 2 0 1 2 0 1 2
+    // pytest [i//3 % 3 for i in range(9)] -> 0 0 0 1 1 1 2 2 2
+
+    tmpA[tid] = s_K[tid % r] * s_Z[tid / r % r];
+
+    __syncthreads();
+    // tmpA = T-tmpA
+    tmpA[tid] = s_T[tid] - tmpA[tid];
+    __syncthreads();
+    // L = tmpA
+
+    // 6.
+    // tmpB = tmpA.transpose()
+    tmpB[tid] = tmpA[tid * r + tid / r % r];
+    // L.T = tmpB
+    __syncthreads();
+
+    // P = T * P * L.transpose() + R * R.transpose();
+    // tmpA = P*L.T
+    MM(s_P, tmpB, r, tid, tmpA);
+    __syncthreads();
+    // tmpB = T*tmpA;
+    MM(s_T, tmpA, r, tid, tmpB);
+
+    // P = tmpB + RRT
+    s_P[tid] = tmpB[tid] + s_RRT[tid];
+    __syncthreads();
+  }
+}
+
+void batched_kalman_loop(double* ys, int nobs,
+                         const BatchedMatrix& T,
+                         const BatchedMatrix& Z,
+                         const BatchedMatrix& RRT,
+                         const BatchedMatrix& P0,
+                         const BatchedMatrix& alpha,
+                         int r,
+                         double* vs,
+                         double* Fs
+                         ) {
+
+  const int num_batches = T.batches();
+  const int num_blocks = num_batches;
+  const int num_threads = r*r;
+  const size_t bytes_shared_memory = (5*r*r + 3*r) * sizeof(double);
+  
+  batched_kalman_loop_kernel<<<num_blocks, num_threads, bytes_shared_memory>>>(ys, nobs,
+                                                                               T.data(), Z.data(),
+                                                                               RRT.data(), P0.data(),
+                                                                               alpha.data(),
+                                                                               r,
+                                                                               num_batches,
+                                                                               vs, Fs
+                                                                               );
+
+  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+}
+
 void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
                            int nobs,
                            const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
@@ -260,65 +421,8 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  for(int it=0; it<ys_len; it++) {
-    // std::cout << "it=" << it << " of " << ys_len << "\n";
-    // 1.
-    // vs[it] = ys[it] - alpha(0,0);
-    // vs_eq_ys_m_alpha00(d_vs, it, d_ys_b, alpha);
-    {
-      auto counting = thrust::make_counting_iterator(0);
-      double** d_alpha = alpha.data();
-      thrust::for_each(counting, counting + num_batches,
-                       [=]__device__(int bid) {
-                         d_vs[bid + it*num_batches] = d_ys[it + bid*nobs] - d_alpha[bid][0];
-                       });
-    }
-
-    // 2.
-    // Fs[it] = P(0,0);
-    // fs_it_P00(d_Fs, it, P);
-    {
-      double** d_P = P.data();
-      auto counting = thrust::make_counting_iterator(0);
-      thrust::for_each(counting, counting + num_batches,
-                       [=]__device__(int bid) {
-                         d_Fs[bid + it*num_batches] = d_P[bid][0];
-                       });
-    }
-
-    // 3.
-    // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
-    BatchedMatrix TPZt = Tb * b_gemm(P, Zb, false, true);
-    // BatchedMatrix K = _1_Fsit_TPZt(d_Fs, it, TPZt);
-    BatchedMatrix K(r, 1, num_batches, memory_pool);
-    {
-      double** d_K = K.data();
-      double** d_TPZt = TPZt.data();
-      auto counting = thrust::make_counting_iterator(0);
-      thrust::for_each(counting, counting + num_batches,
-                       [=]__device__(int bid) {
-                         for(int i=0; i<r; i++) {
-                           d_K[bid][i] = 1.0/d_Fs[bid + it*num_batches] * d_TPZt[bid][i];
-                         }
-                       });
-    }
-
-    // 4.
-    // alpha = T*alpha + K*vs[it];
-    BatchedMatrix Kvs = Kvs_it(K, d_vs, it);
-    alpha = Tb*alpha + Kvs;
-    // std::cout << "alpha:" << alpha.shape().first << "," << alpha.shape().second << "\n";
-    // 5.
-    // MatrixT L = T - K*Z;
-    BatchedMatrix L = Tb - K*Zb;
-
-    // 6.
-    // P = T * P * L.transpose() + R * R.transpose();
-    P = Tb * b_gemm(P, L, false, true) + RRT;
-    // std::cout << "P:" << P.shape().first << "," << P.shape().second << "\n";
-
-  }
-
+  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs);
+  
   // 7.
   // loglikelihood = sum(log(Fs[:]))
   double* loglikelihood = sumLogFs(d_Fs, num_batches, ys_len);
@@ -330,18 +434,19 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   allocate(sigma2, num_batches);
   {
     auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting+num_batches,
-                     [=]__device__(int bid) {
-                       sigma2[bid] = 0.0;
-                       double sigma2_sum = 0.0;
-                       for (int it = 0; it < ys_len; it++) {
-                         auto vsit = d_vs[bid + num_batches*it];
-                         sigma2_sum += vsit*vsit / d_Fs[bid + num_batches*it];
-                       }
-                       sigma2[bid] = sigma2_sum / ys_len;
-                     });
+    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
+                                                         sigma2[bid] = 0.0;
+                                                         double sigma2_sum = 0.0;
+                                                         for (int it = 0; it < ys_len; it++) {
+                                                           auto vsit = d_vs[bid + num_batches * it];
+                                                           sigma2_sum += vsit * vsit / d_Fs[bid + num_batches * it];
+                                                         }
+                                                         sigma2[bid] = sigma2_sum / ys_len;
+                                                       });
   }
   CUDA_CHECK(cudaPeekAtLastError());
+  
+
   // 9.
   // loglike = -.5 * (loglikelihood + nobs * std::log(sigma2)) - nobs / 2. * (std::log(2 * M_PI) + 1);
   double* loglike;
@@ -363,7 +468,6 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   // vector<double*>& h_Fs_b,   
   // vector<double>& h_loglike_b
   // vector<double>& h_sigma2_b)
-  //
 
   h_vs_b.resize(ys_len);
   h_Fs_b.resize(ys_len);
