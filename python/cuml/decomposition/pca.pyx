@@ -30,7 +30,7 @@ from libc.stdlib cimport calloc, malloc, free
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-from cuml._common.base import Base
+import cuml
 from cuml.decomposition.utils cimport *
 
 
@@ -103,7 +103,7 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                            paramsPCA prms)
 
 
-class PCA(Base):
+class PCA(cuml.Base):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
     combine features in X in linear combinations such that each new component captures the most
@@ -197,21 +197,25 @@ class PCA(Base):
     
     Parameters
     ----------
-    n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
-    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
-        Full uses a eigendecomposition of the covariance matrix then discards components.
-        Jacobi is much faster as it iteratively corrects, but is less accurate.
-    iterated_power : int (default = 15)
-        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
-    tol : float (default = 1e-7)
-        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
-        but the more slower the algorithm will get to converge.
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
     copy : boolean (default = True)
         If True, then copies data then removes mean from data. False might cause data to be
         overwritten with its mean centered version.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    iterated_power : int (default = 15)
+        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
+    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
+        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Jacobi is much faster as it iteratively corrects, but is less accurate.
+    tol : float (default = 1e-7)
+        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
+        but the more slower the algorithm will get to converge.
+    verbose : bool
+        Whether to print debug spews
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by the corresponding
         singular values then multiplying by sqrt(n_samples). Whitening allows each component
@@ -256,11 +260,12 @@ class PCA(Base):
     def __init__(self, copy=True, handle=None, iterated_power=15,
                  n_components=1, random_state=None, svd_solver='auto', tol=1e-7,
                  verbose=False, whiten=False):
-        # params
-        super(PCA, self).__init__(handle, random_state, verbose)
+        # parameters
+        super(PCA, self).__init__(handle=handle, verbose=verbose)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
+        self.random_state = random_state
         self.svd_solver = svd_solver
         self.tol = tol
         self.whiten = whiten
