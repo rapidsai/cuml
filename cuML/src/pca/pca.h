@@ -53,7 +53,7 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *compone
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
-                  prms.n_cols, mgr, stream);
+                  prms.n_cols, allocator, stream);
     Matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
                             explained_var, prms.n_components, 1, stream);
     Matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
