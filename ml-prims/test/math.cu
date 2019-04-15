@@ -125,6 +125,7 @@ protected:
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
+    allocator.reset(new defaultDeviceAllocator);
 
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
@@ -145,8 +146,7 @@ protected:
     naiveSqrt(in_sqrt, out_sqrt_ref, len);
     seqRoot(in_sqrt, len, stream);
 
-    auto mgr = makeDefaultAllocator();
-    ratio(in_ratio, in_ratio, 4, mgr, stream);
+    ratio(in_ratio, in_ratio, 4, allocator, stream);
 
     naiveSignFlip(in_sign_flip, out_sign_flip_ref, params.n_row, params.n_col);
     signFlip(in_sign_flip, params.n_row, params.n_col, stream);
@@ -202,6 +202,7 @@ protected:
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
     *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip,
     *in_recip_ref, *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
+  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<MathInputs<float>> inputsf = {
