@@ -148,7 +148,6 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 				cusolver_handle, stream);
 	}
 
-        auto mgr = makeDefaultAllocator();
         std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
 	if (algo == 0 || n_cols == 1) {

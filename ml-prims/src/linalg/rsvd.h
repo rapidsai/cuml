@@ -22,7 +22,6 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "device_allocator.h"
 #include "eig.h"
 #include "gemm.h"
 #include "qr.h"
@@ -53,17 +52,13 @@ namespace LinAlg {
  * @param allocator device allocator for temporary buffers during computation
  * @{
  */
-///@todo: updating qr.h with deviceAllocator leads to Rsvd's SquareMatrixNorm tests to fail!
-/// I have not been able to root-cause the reason for its failure. Hence, for now, I'm passing
-/// both the allocators :(
 template <typename math_t>
 void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
                    math_t *&U, math_t *&V, int k, int p, bool use_bbt,
                    bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
                    math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
                    cublasHandle_t cublasH, cudaStream_t stream,
-                   std::shared_ptr<deviceAllocator> allocator,
-                   DeviceAllocator& mgr) {
+                   std::shared_ptr<deviceAllocator> allocator) {
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
 
@@ -101,7 +96,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // power sampling scheme
   for (int j = 1; j < q; j++) {
     if ((2 * j - 2) % s == 0) {
-      qrGetQ(Y.data(), Yorth.data(), m, l, cusolverH, stream, mgr);
+      qrGetQ(Y.data(), Yorth.data(), m, l, cusolverH, stream, allocator);
       gemm(M, m, n, Yorth.data(), Z.data(), n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
@@ -109,7 +104,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     }
 
     if ((2 * j - 1) % s == 0) {
-      qrGetQ(Z.data(), Zorth.data(), n, l, cusolverH, stream, mgr);
+      qrGetQ(Z.data(), Zorth.data(), n, l, cusolverH, stream, allocator);
       gemm(M, m, n, Zorth.data(), Y.data(), m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
@@ -120,7 +115,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   // orthogonalize on exit from loop to get Q
   device_buffer<math_t> Q(allocator, stream, m * l);
   CUDA_CHECK(cudaMemsetAsync(Q.data(), 0, sizeof(math_t) * m * l, stream));
-  qrGetQ(Y.data(), Q.data(), m, l, cusolverH, stream, mgr);
+  qrGetQ(Y.data(), Q.data(), m, l, cusolverH, stream, allocator);
 
   // either QR of B^T method, or eigendecompose BB^T method
   if (!use_bbt) {
@@ -135,7 +130,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     CUDA_CHECK(cudaMemsetAsync(Qhat.data(), 0, sizeof(math_t) * n * l, stream));
     device_buffer<math_t> Rhat(allocator, stream, l * l);
     CUDA_CHECK(cudaMemsetAsync(Rhat.data(), 0, sizeof(math_t) * l * l, stream));
-    qrGetQR(Bt.data(), Qhat.data(), Rhat.data(), n, l, cusolverH, stream, mgr);
+    qrGetQR(Bt.data(), Qhat.data(), Rhat.data(), n, l, cusolverH, stream, allocator);
 
     // compute SVD of Rhat (lxl)
     device_buffer<math_t> Uhat(allocator, stream, l * l);
@@ -230,7 +225,8 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
  * @param max_sweeps: maximum number of sweeps for Jacobi-based solvers
  * @param cusolverH cusolver handle
  * @param cublasH cublas handle
- * @param mgr device allocator for temporary buffers during computation
+ * @param stream cuda stream
+ * @param allocator device allocator for temporary buffers during computation
  */
 template <typename math_t>
 void rsvdPerc(math_t *M, int n_rows, int n_cols, math_t *&S_vec, math_t *&U,
@@ -238,14 +234,13 @@ void rsvdPerc(math_t *M, int n_rows, int n_cols, math_t *&S_vec, math_t *&U,
               bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
               math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
               cublasHandle_t cublasH, cudaStream_t stream,
-              std::shared_ptr<deviceAllocator> allocator,
-              DeviceAllocator &mgr) {
+              std::shared_ptr<deviceAllocator> allocator) {
   int k = max((int)(min(n_rows, n_cols) * PC_perc),
               1); // Number of singular values to be computed
   int p = max((int)(min(n_rows, n_cols) * UpS_perc), 1); // Upsamples
   rsvdFixedRank(M, n_rows, n_cols, S_vec, U, V, k, p, use_bbt, gen_left_vec,
                 gen_right_vec, use_jacobi, tol, max_sweeps, cusolverH, cublasH,
-                stream, allocator, mgr);
+                stream, allocator);
 }
 
 }; // end namespace LinAlg

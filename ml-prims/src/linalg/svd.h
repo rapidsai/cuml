@@ -20,7 +20,6 @@
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
-#include "device_allocator.h"
 #include "gemm.h"
 #include "transpose.h"
 #include "matrix/math.h"
