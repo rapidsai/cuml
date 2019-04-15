@@ -210,7 +210,8 @@ public:
 
 cumlHandle_impl::cumlHandle_impl()
     : _dev_id( []() -> int { int cur_dev = -1; CUDA_CHECK( cudaGetDevice ( &cur_dev ) ); return cur_dev; }() ),
-      _deviceAllocator( std::make_shared<defaultDeviceAllocator>() ), _hostAllocator( std::make_shared<defaultHostAllocator>() )
+      _deviceAllocator( std::make_shared<defaultDeviceAllocator>() ), _hostAllocator( std::make_shared<defaultHostAllocator>() ),
+      _userStream(NULL)
 {
     createResources();
 }
@@ -300,9 +301,6 @@ void cumlHandle_impl::waitOnInternalStreams() const
 
 void cumlHandle_impl::createResources()
 {
-    // Use default stream if user stream is not set.
-    _userStream = NULL;
-
     cudaStream_t stream;
     CUDA_CHECK( cudaStreamCreate(&stream) );
 
