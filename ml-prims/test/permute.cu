@@ -50,6 +50,8 @@ protected:
     int N = params.N;
     int D = params.D;
     int len = N * D;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     if(params.needPerms)
       allocate(outPerms, N);
     else
@@ -57,16 +59,17 @@ protected:
     if(params.needShuffle) {
         allocate(in, len);
         allocate(out, len);
-        r.uniform(in, len, T(-1.0), T(1.0));
+        r.uniform(in, len, T(-1.0), T(1.0), stream);
     } else {
         in = out = nullptr;
     }
     char *workspace = nullptr;
     size_t workspaceSize;
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize);
+    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
     allocate(workspace, workspaceSize);
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize);
+    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
     CUDA_CHECK(cudaFree(workspace));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
