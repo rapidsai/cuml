@@ -21,12 +21,25 @@ cdef extern from "ts/batched_kalman.h":
                              vector[double]& ptr_loglike_b,
                              vector[double]& ptr_sigma2_b)
 
+  void batched_kalman_filter_cpu(const vector[double*]& ptr_ys_b,
+                                 int nobs,
+                                 const vector[double*]& ptr_Zb,
+                                 const vector[double*]& ptr_Rb,
+                                 const vector[double*]& ptr_Tb,
+                                 int r,
+                                 vector[double*]& ptr_vs_b,
+                                 vector[double*]& ptr_Fs_b,
+                                 vector[double]& ptr_loglike_b,
+                                 vector[double]& ptr_sigma2_b)
+
+
 
 def batched_kfilter(ys_b,
                     Z_b,
                     R_b,
                     T_b,
-                    int r):
+                    int r,
+                    gpu=True):
 
     cdef vector[double*] vec_ys_b
     cdef vector[double*] vec_Zb
@@ -72,12 +85,20 @@ def batched_kfilter(ys_b,
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
 
-    batched_kalman_filter(vec_ys_b,
-                          nobs,
-                          vec_Zb, vec_Rb, vec_Tb,
-                          r,
-                          vec_vs_b, vec_Fs_b,
-                          vec_loglike_b, vec_sigma2_b)
+    if gpu:    
+        batched_kalman_filter(vec_ys_b,
+                              nobs,
+                              vec_Zb, vec_Rb, vec_Tb,
+                              r,
+                              vec_vs_b, vec_Fs_b,
+                              vec_loglike_b, vec_sigma2_b)
+    else:
+        batched_kalman_filter_cpu(vec_ys_b,
+                                  nobs,
+                                  vec_Zb, vec_Rb, vec_Tb,
+                                  r,
+                                  vec_vs_b, vec_Fs_b,
+                                  vec_loglike_b, vec_sigma2_b)
 
     # convert C-arrays to numpy arrays
     ll_b = np.zeros(num_batches)
@@ -101,6 +122,3 @@ def batched_kfilter(ys_b,
         Fs_b.append(Fsi)
     
     return vs_b, Fs_b, ll_b, sigma2_b
-    
-    
-

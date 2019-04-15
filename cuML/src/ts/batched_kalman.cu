@@ -10,6 +10,8 @@
 #include <fstream>
 #include <unistd.h>
 
+#include <nvToolsExt.h>
+
 // #include <thrust/lo
 
 using std::vector;
@@ -166,6 +168,34 @@ double* sumLogFs(double* d_Fs, const int num_batches, const int nobs) {
                    });
   CUDA_CHECK(cudaPeekAtLastError());
   return d_sumLogFs;
+}
+
+
+void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
+                               int nobs,
+                               const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
+                               const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
+                               const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
+                               int r,
+                               vector<double*>& h_vs_b, // { vector size batches, each item size nobs }
+                               vector<double*>& h_Fs_b, // { vector size batches, each item size nobs }
+                               vector<double>& h_loglike_b,
+                               vector<double>& h_sigma2_b) {
+
+  nvtxNameOsThread(0, "MAIN");
+  nvtxRangePush(__FUNCTION__);
+  nvtxMark("batched_kalman_cpu");
+
+  const size_t num_batches = h_Zb.size();
+  for(int bi=0; bi<num_batches; bi++) {
+    kalman_filter(h_ys_b[bi], nobs,
+                  h_Zb[bi], h_Rb[bi], h_Tb[bi],
+                  r,
+                  h_vs_b[bi], h_Fs_b[bi],
+                  &h_loglike_b[bi], &h_sigma2_b[bi]
+                  );
+  }
+  nvtxRangePop();
 }
 
 void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }

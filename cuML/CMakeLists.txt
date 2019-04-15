@@ -236,7 +236,7 @@ if(OPENMP_FOUND)
     set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
 endif(OPENMP_FOUND)
 
-target_link_libraries(cuml ${CUML_LINK_LIBRARIES})
+target_link_libraries(cuml ${CUML_LINK_LIBRARIES} nvToolsExt)
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------

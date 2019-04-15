@@ -129,12 +129,16 @@ def test_arima_kalman():
     ll = arima.loglike(model0)
 
     # batched version
-    b_ll = batched_arima.batched_loglike([model0])
+    num_batches = 100
+    models = [arima.ARIMAModel(order, mu, arparams, maparams, y_train) for i in range(num_batches)]
+    b_ll = batched_arima.batched_loglike(models, gpu=True)
+    b_ll_cpu = batched_arima.batched_loglike(models, gpu=False)
 
     print("ll vs b_ll: {} vs {}".format(ll, b_ll))
-    np.testing.assert_approx_equal(ll, b_ll[0])
+    for lli in b_ll:
+        np.testing.assert_approx_equal(ll, lli)
 
 if __name__ == "__main__":
-    test_arima()
-    test_batched_arima()
+    # test_arima()
+    # test_batched_arima()
     test_arima_kalman()
