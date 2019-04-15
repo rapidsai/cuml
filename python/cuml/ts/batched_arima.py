@@ -67,7 +67,7 @@ def init_batched_kalman_matrices(b_ar_params, b_ma_params):
     return Zb, Rb, Tb, r
 
 
-def batched_loglike(models: List[ARIMAModel]):
+def batched_loglike(models: List[ARIMAModel], gpu: bool=True):
     b_ar_params = [model.ar_params for model in models]
     b_ma_params = [model.ma_params for model in models]
     Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
@@ -81,5 +81,5 @@ def batched_loglike(models: List[ARIMAModel]):
         y_centered = y_diff - B0
         y_c.append(y_centered)
 
-    vs, Fs, ll, s2 = batched_kfilter(y_c, Zb, Rb, Tb, r)
+    vs, Fs, ll, s2 = batched_kfilter(y_c, Zb, Rb, Tb, r, gpu)
     return ll
