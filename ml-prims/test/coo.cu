@@ -177,7 +177,7 @@ TEST_P(COORowCount, Result) {
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
-    coo_row_count<32, float><<<grid, blk>>>(in_rows, 5, results, 5);
+    coo_row_count<32><<<grid, blk>>>(in_rows, 5, results, 5);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
