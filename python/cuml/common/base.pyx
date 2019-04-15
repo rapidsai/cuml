@@ -59,8 +59,8 @@ class Base:
         algo = MyAlgo(handle=handle)
         algo.fit(...)
         result = algo.predict(...)
-        # final synchronization of all work launched/dependent on this stream
-        stream.sync()
+        # final sync of all gpu-work launched inside this object
+        base.sync()
         del base  # optional!
     """
 
@@ -93,6 +93,7 @@ class Base:
         """
         return []
 
+
     def get_params(self, deep=True):
         """
         Returns a dict of all params owned by this class. If the child class has
@@ -124,3 +125,10 @@ class Base:
             else:
                 setattr(self, key, value)
         return self
+
+
+    def sync(self):
+        """
+        Issues a sync on the stream set for the underlying handle
+        """
+        self.handle.sync()
