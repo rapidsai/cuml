@@ -365,7 +365,7 @@ namespace UMAPAlgo {
                            rgraph_rows,
                            rgraph_cols,
                            rgraph_vals,
-						   params, &nnz,0);
+						   params, &nnz, params->n_neighbors, 0);
 		CUDA_CHECK(cudaPeekAtLastError());
 
 		InitEmbed::run(X, n, d,
@@ -437,7 +437,7 @@ namespace UMAPAlgo {
                            rgraph_rows,
                            rgraph_cols,
                            rgraph_vals,
-                           params, &nnz,0);  // @todo: Break this up to stop overallocation
+                           params, &nnz, params->n_neighbors, 0);  // @todo: Break this up to stop overallocation
         CUDA_CHECK(cudaPeekAtLastError());
 
         int *final_rows, *final_cols, *final_nnz, nnz_before_compress;
@@ -514,7 +514,7 @@ namespace UMAPAlgo {
                                ygraph_rows,
                                ygraph_cols,
                                ygraph_vals,
-                               params, &ynnz, 0);  // TODO: explicitly pass in n_neighbors so that target_n_neighbors can be used
+                               params, &ynnz, params->target_n_neighbors, 0);
             CUDA_CHECK(cudaPeekAtLastError());
 
             // perform general simplicial set intersection
@@ -660,7 +660,7 @@ namespace UMAPAlgo {
         dim3 blk(TPB_X, 1, 1);
 
         FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                rhos, sigmas, params, adjusted_local_connectivity
+                rhos, sigmas, params, params->n_neighbors, adjusted_local_connectivity
         );
 
         /**
