@@ -87,7 +87,6 @@ protected:
       n); // Backup A matrix as svdJacobi will destroy the content of A
     updateHost(A_backup_cpu, A, m * n);
 
-    auto mgr = makeDefaultAllocator();
     // RSVD tests
     if (params.k == 0) { // Test with PC and upsampling ratio
       params.k = max((int)(min(m, n) * params.PC_perc), 1);
@@ -97,14 +96,14 @@ protected:
       allocate(V, n * params.k, true);
       rsvdPerc(A, m, n, S, U, V, params.PC_perc, params.UpS_perc,
                params.use_bbt, true, true, false, eig_svd_tol, max_sweeps,
-               cusolverH, cublasH, stream, allocator, mgr);
+               cusolverH, cublasH, stream, allocator);
     } else { // Test with directly given fixed rank
       allocate(U, m * params.k, true);
       allocate(S, params.k, true);
       allocate(V, n * params.k, true);
       rsvdFixedRank(A, m, n, S, U, V, params.k, params.p, params.use_bbt, true,
                     true, true, eig_svd_tol, max_sweeps, cusolverH, cublasH,
-                    stream, allocator, mgr);
+                    stream, allocator);
     }
     updateDevice(A, A_backup_cpu, m * n);
 

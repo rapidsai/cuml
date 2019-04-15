@@ -20,7 +20,6 @@
 #include "linalg/binary_op.h"
 #include "linalg/unary_op.h"
 #include "linalg/map_then_reduce.h"
-#include "device_allocator.h"
 #include "common/device_buffer.hpp"
 #include "common/cuml_allocator.hpp"
 

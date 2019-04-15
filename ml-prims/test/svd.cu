@@ -86,7 +86,6 @@ protected:
     updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl);
     updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col);
 
-    auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
           right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,
           allocator, stream);

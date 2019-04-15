@@ -40,11 +40,14 @@ namespace ML {
 using namespace MLCommon;
 
 template<typename math_t>
-void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
-		math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms,
-		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
-    cudaStream_t stream) {
-	int diff = prms.n_cols - prms.n_components;
+void calCompExpVarsSvd(const cumlHandle_impl& handle, math_t *in, math_t *components, math_t *singular_vals,
+                       math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms) {
+    auto stream = handle.getStream();
+    auto cusolver_handle = handle.getcusolverDnHandle();
+    auto cublas_handle = handle.getCublasHandle();
+    auto allocator = handle.getDeviceAllocator();
+
+        int diff = prms.n_cols - prms.n_components;
 	math_t ratio = math_t(diff) / math_t(prms.n_cols);
 	ASSERT(ratio >= math_t(0.2),
 			"Number of components should be less than at least 80 percent of the number of features");
@@ -58,23 +61,18 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 	ASSERT(total_random_vecs < prms.n_cols,
 			"RSVD should be used where the number of columns are at least 50");
 
-	math_t *components_temp;
-	allocate(components_temp, prms.n_cols, prms.n_components);
-	math_t *left_eigvec;
+	device_buffer<math_t> components_temp(allocator, stream, prms.n_cols * prms.n_components);
+	math_t *left_eigvec = nullptr;
 	LinAlg::rsvdFixedRank(in, prms.n_rows, prms.n_cols, singular_vals,
-			left_eigvec, components_temp, prms.n_components, p, true, false,
-			true, false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
-			cublas_handle);
+                              left_eigvec, components_temp.data(), prms.n_components, p, true, false,
+                              true, false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
+                              cublas_handle, stream);
 
-	LinAlg::transpose(components_temp, components, prms.n_cols,
-			prms.n_components, cublas_handle, stream);
-	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components);
-  auto mgr = makeDefaultAllocator();
-  Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, mgr);
-
-	if (components_temp)
-		CUDA_CHECK(cudaFree(components_temp));
-
+	LinAlg::transpose(components_temp.data(), components, prms.n_cols,
+                          prms.n_components, cublas_handle, stream);
+	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components, stream);
+        Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, stream,
+                      handle.getDeviceAllocator());
 }
 
 template<typename math_t>
@@ -217,8 +215,6 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
     auto cublas_handle = handle.getCublasHandle();
     auto cusolver_handle = handle.getcusolverDnHandle();
     auto allocator = handle.getDeviceAllocator();
-    ///@todo: make this to be passed via the interface!
-    DeviceAllocator mgr = makeDefaultAllocator();
 
     tsvdFit(handle, input, components, singular_vals, prms);
     tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);

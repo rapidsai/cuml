@@ -18,9 +18,6 @@
 #include <gtest/gtest.h>
 #include "random/rng.h"
 #include "test_utils.h"
-
-#include "device_allocator.h"
-
 #include <iostream>
 
 namespace MLCommon {

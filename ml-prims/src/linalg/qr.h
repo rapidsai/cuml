@@ -19,7 +19,8 @@
 #include "../matrix/matrix.h"
 #include "cublas_wrappers.h"
 #include "cusolver_wrappers.h"
-#include "device_allocator.h"
+#include "common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -31,39 +32,38 @@ namespace LinAlg {
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
  * @param cusolverH cusolver handle
- * @param mgr device allocator for temporary buffers during computation
+ * @param stream cuda stream
+ * @param allocate device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
 void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
             cusolverDnHandle_t cusolverH, cudaStream_t stream,
-            DeviceAllocator &mgr) {
+            std::shared_ptr<deviceAllocator> allocator) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   CUDA_CHECK(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));
 
-  math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * k);
-  CUDA_CHECK(cudaMemsetAsync(tau, 0, sizeof(math_t) * k, stream));
+  device_buffer<math_t> tau(allocator, stream, k);
+  CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * k, stream));
 
-  int *devInfo = (int *)mgr.alloc(sizeof(int));
+  device_buffer<int> devInfo(allocator, stream, 1);
   int Lwork;
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
-  math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+  device_buffer<math_t> workspace(allocator, stream, Lwork);
   CUSOLVER_CHECK(
-    cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo, stream));
-  mgr.free(workspace, stream);
+      cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  ///@todo: without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail
+  /// I've not been able to track down the rabbit hole of function calls to root-cause the
+  /// reason. Hence, as a temporary fix, leaving a device-sync here! :(
+  CUDA_CHECK(cudaDeviceSynchronize());
   CUSOLVER_CHECK(
-    cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
-  workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+      cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
+  device_buffer<math_t> workspace1(allocator, stream, Lwork);
   CUSOLVER_CHECK(
-    cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo, stream));
-  mgr.free(workspace, stream);
-  mgr.free(devInfo, stream);
-
-  // clean up
-  mgr.free(tau, stream);
+      cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(), workspace1.data(), Lwork, devInfo.data(), stream));
 }
 
 /**
@@ -74,50 +74,48 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
  * @param cusolverH cusolver handle
- * @param mgr device allocator for temporary buffers during computation
+ * @param stream cuda stream
+ * @param allocator device allocator for temporary buffers during computation
  * @{
  */
 template <typename math_t>
 void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
              cusolverDnHandle_t cusolverH, cudaStream_t stream,
-             DeviceAllocator &mgr) {
+             std::shared_ptr<deviceAllocator> allocator) {
   int m = n_rows, n = n_cols;
-  math_t *R_full = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
-  math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * min(m, n));
-  CUDA_CHECK(cudaMemsetAsync(tau, 0, sizeof(math_t) * min(m, n), stream));
+  device_buffer<math_t> R_full(allocator, stream, m * n);
+  device_buffer<math_t> tau(allocator, stream, min(m, n));
+  CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
   int R_full_nrows = m, R_full_ncols = n;
-  CUDA_CHECK(cudaMemcpyAsync(R_full, M, sizeof(math_t) * m * n,
+  CUDA_CHECK(cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));
 
   int Lwork;
-  int *devInfo = (int *)mgr.alloc(sizeof(int));
+  device_buffer<int> devInfo(allocator, stream, 1);
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(
-    cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
-  math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full,
-                                 R_full_nrows, tau, workspace, Lwork, devInfo, stream));
-  mgr.free(workspace, stream);
+    cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows, &Lwork));
+  device_buffer<math_t> workspace(allocator, stream, Lwork);
+  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full.data(),
+                                 R_full_nrows, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  ///@todo: without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail
+  /// I've not been able to track down the rabbit hole of function calls to root-cause the
+  /// reason. Hence, as a temporary fix, leaving a device-sync here! :(
+  CUDA_CHECK(cudaDeviceSynchronize());
 
-  Matrix::copyUpperTriangular(R_full, R, m, n, stream);
+  Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
-  CUDA_CHECK(cudaMemcpyAsync(Q, R_full, sizeof(math_t) * m * n,
+  CUDA_CHECK(cudaMemcpyAsync(Q, R_full.data(), sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));
   int Q_nrows = m, Q_ncols = n;
 
   CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols,
                                             min(Q_ncols, Q_nrows), Q, Q_nrows,
-                                            tau, &Lwork));
-  workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
+                                            tau.data(), &Lwork));
+  device_buffer<math_t> workspace1(allocator, stream, Lwork);
   CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols,
-                                 min(Q_ncols, Q_nrows), Q, Q_nrows, tau,
-                                 workspace, Lwork, devInfo, stream));
-  mgr.free(workspace, stream);
-  mgr.free(devInfo, stream);
-
-  // clean up
-  mgr.free(R_full, stream);
-  mgr.free(tau, stream);
+                                 min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
+                                 workspace1.data(), Lwork, devInfo.data(), stream));
 }
 
 }; // end namespace LinAlg
