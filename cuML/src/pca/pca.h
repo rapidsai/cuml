@@ -95,13 +95,12 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
 
 	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-	math_t *cov;
 	int len = prms.n_cols * prms.n_cols;
         device_buffer<math_t> cov(handle.getDeviceAllocator(), stream, len);
 
-	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
-			cublas_handle, stream);
-	truncCompExpVars(handle, cov, components, explained_var, explained_var_ratio, prms,
+	Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
+                   cublas_handle, stream);
+	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms,
                          mgr);
 
 	math_t scalar = (prms.n_rows - 1);
