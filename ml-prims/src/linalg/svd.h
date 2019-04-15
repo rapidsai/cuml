@@ -102,8 +102,7 @@ template <typename T>
 void svdEig(T* in, int n_rows, int n_cols, T* S,
             T* U, T* V, bool gen_left_vec,
             cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-            cudaStream_t stream, std::shared_ptr<deviceAllocator> allocator,
-            DeviceAllocator& mgr) {
+            cudaStream_t stream, std::shared_ptr<deviceAllocator> allocator) {
 
 	int len = n_cols * n_cols;
         device_buffer<T> in_cross_mult(allocator, stream, len);
@@ -113,7 +112,7 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 	gemm(in, n_rows, n_cols, in, in_cross_mult.data(), n_cols, n_cols, CUBLAS_OP_T,
              CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
-        eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, stream, mgr);
+        eigDC(in_cross_mult.data(), n_cols, n_cols, V, S, cusolverH, stream, allocator);
 
 	Matrix::colReverse(V, n_cols, n_cols, stream);
 	Matrix::rowReverse(S, n_cols, 1, stream);

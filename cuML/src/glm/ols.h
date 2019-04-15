@@ -84,7 +84,7 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
                                  cublas_handle, allocator, stream);
 	} else if (algo == 1) {
 		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr, stream);
+                                 cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
 				cublas_handle, stream);

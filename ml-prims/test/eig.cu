@@ -46,7 +46,7 @@ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    auto mgr = makeDefaultAllocator();
+    std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -76,12 +76,12 @@ protected:
     updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col);
 
     eigDC(cov_matrix, params.n_row, params.n_col, eig_vectors, eig_vals,
-          cusolverH, stream, mgr);
+          cusolverH, stream, allocator);
 
     T tol = 1.e-7;
     int sweeps = 15;
     eigJacobi(cov_matrix, params.n_row, params.n_col, eig_vectors_jacobi,
-              eig_vals_jacobi, tol, sweeps, cusolverH, stream, mgr);
+              eig_vals_jacobi, tol, sweeps, cusolverH, stream, allocator);
 
     // test code for comparing two methods
     len = params.n * params.n;
@@ -94,9 +94,9 @@ protected:
     r.uniform(cov_matrix_large, len, T(-1.0), T(1.0), stream);
 
     eigDC(cov_matrix_large, params.n, params.n, eig_vectors_large,
-          eig_vals_large, cusolverH, stream, mgr);
+          eig_vals_large, cusolverH, stream, allocator);
     eigJacobi(cov_matrix_large, params.n, params.n, eig_vectors_jacobi_large,
-              eig_vals_jacobi_large, tol, sweeps, cusolverH, stream, mgr);
+              eig_vals_jacobi_large, tol, sweeps, cusolverH, stream, allocator);
   }
 
   void TearDown() override {

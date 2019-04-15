@@ -71,7 +71,7 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 template<typename math_t>
 void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-    DeviceAllocator &mgr, cudaStream_t stream) {
+              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	ASSERT(n_cols > 1,
 			"lstsq: number of columns cannot be less than two");
@@ -87,9 +87,8 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-        std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
-               allocator, mgr);
+               allocator);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
 
