@@ -127,4 +127,9 @@ def clusters_equal(a0, b0, n_clusters):
 
 
 def get_handle(use_handle):
-    return cuml.handle.Handle() if use_handle else None
+    if not use_handle:
+        return None, None
+    h = cuml.Handle()
+    s = cuml.cuda.Stream()
+    h.setStream(s)
+    return h, s
