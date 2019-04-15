@@ -75,7 +75,6 @@ void cdFit(math_t *input,
 	allocate(pred, n_rows);
 	allocate(squared, n_cols);
 
-	math_t curr_loss_value = math_t(0);
 	std::vector<math_t> h_coef(n_cols, math_t(0));
 
 	if (fit_intercept) {
@@ -143,7 +142,6 @@ void cdFit(math_t *input,
 				coef_max = abs(h_coef[j]);
 		}
 
-		// TODO: Check the max tolerance of coordinate updates
 		bool flag_continue = true;
 		if (coef_max == math_t(0)) {
 			flag_continue = false;
@@ -154,11 +152,7 @@ void cdFit(math_t *input,
 		}
 
 		if (!flag_continue) {
-			printf("iter:%d, coef_max: %f, d_coef_max: %f\n", i, coef_max, d_coef_max);
-			//Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
-			//		loss_value, penalty, alpha, l1_ratio, cublas_handle);
-
-			//updateHost(&curr_loss_value, loss_value, 1);
+			//printf("iter:%d, coef_max: %f, d_coef_max: %f\n", i, coef_max, d_coef_max);
 			break;
 		}
 	}
@@ -198,6 +192,8 @@ void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 			"Parameter n_rows: number of rows cannot be less than two");
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
+
+	Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle);
 
 }
 

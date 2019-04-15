@@ -449,6 +449,45 @@ void cdFit(double *input,
 
 }
 
+void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds, int loss) {
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+	if (loss == 0) {
+		loss_funct = ML::loss_funct::SQRD_LOSS;
+	} else {
+		ASSERT(false,
+			"glm.cu: other functions are not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+}
+
+void cdPredict(const double *input, int n_rows, int n_cols,
+		const double *coef, double intercept, double *preds, int loss) {
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+	if (loss == 0) {
+		loss_funct = ML::loss_funct::SQRD_LOSS;
+	} else {
+		ASSERT(false,
+			"glm.cu: other functions are not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+
+}
 
 }
 }

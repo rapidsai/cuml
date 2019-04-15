@@ -149,6 +149,7 @@ class Lasso:
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
+        self.culasso = None
         if selection in ['cyclic', 'random']:
              self.selection = selection
         else:
@@ -180,12 +181,12 @@ class Lasso:
         if self.selection == 'random':
             shuffle = True
 
-        culasso = cuLasso(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
+        self.culasso = cuLasso(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
                           l1_ratio=1.0, shuffle=shuffle, penalty='l1', max_iter=self.max_iter)
-        culasso.fit(X, y)
+        self.culasso.fit(X, y)
 
-        self.coef_ = culasso.coef_
-        self.intercept_ = culasso.intercept_
+        self.coef_ = self.culasso.coef_
+        self.intercept_ = self.culasso.intercept_
 
         return self
 
@@ -205,7 +206,7 @@ class Lasso:
 
         """
 
-        return 0.0
+        return self.culasso.predict(X)
 
 
     def get_params(self, deep=True):

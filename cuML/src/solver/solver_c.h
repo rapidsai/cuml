@@ -103,5 +103,11 @@ void cdFit(double *input,
 		   bool shuffle,
 		   double tol);
 
+void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds, int loss);
+
+void cdPredict(const double *input, int n_rows, int n_cols,
+		const double *coef, double intercept, double *preds, int loss);
+
 }
 }

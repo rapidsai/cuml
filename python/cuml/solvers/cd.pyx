@@ -58,7 +58,22 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 		   double l1_ratio,
 		   bool shuffle,
 		   double tol)
-                     
+ 
+    cdef void cdPredict(const float *input, 
+                         int n_rows, 
+                         int n_cols, 
+                         const float *coef,
+                         float intercept, 
+                         float *preds,
+                         int loss)
+
+    cdef void cdPredict(const double *input, 
+                         int n_rows, 
+                         int n_cols,
+                         const double *coef, 
+                         double intercept, 
+                         double *preds,
+                         int loss)                    
 
 class CD:
     """
@@ -274,4 +289,64 @@ class CD:
             self.intercept_ = c_intercept2
 
         return self
+
+    def predict(self, X):
+        """
+        Predicts the y for X.
+
+        Parameters
+        ----------
+        X : cuDF DataFrame
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+
+        Returns
+        ----------
+        y: cuDF DataFrame
+           Dense vector (floats or doubles) of shape (n_samples, 1)
+
+        """
+
+        cdef uintptr_t X_ptr
+        if (isinstance(X, cudf.DataFrame)):
+            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='F')
+            n_rows = len(X)
+            n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            pred_datatype = X.dtype
+            X_m = cuda.to_device(np.array(X, order='F'))
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        X_ptr = self._get_ctype_ptr(X_m)
+
+        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
+        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+
+        if pred_datatype.type == np.float32:
+            cdPredict(<float*>X_ptr,
+                           <int>n_rows,
+                           <int>n_cols,
+                           <float*>coef_ptr,
+                           <float>self.intercept_,
+                           <float*>preds_ptr,
+                           <int>self.loss)
+        else:
+            cdPredict(<double*>X_ptr,
+                           <int>n_rows,
+                           <int>n_cols,
+                           <double*>coef_ptr,
+                           <double>self.intercept_,
+                           <double*>preds_ptr,
+                           <int>self.loss)
+
+        del(X_m)
+
+        return preds
 
