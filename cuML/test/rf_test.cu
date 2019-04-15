@@ -83,7 +83,7 @@ protected:
 		CUDA_CHECK(cudaStreamCreate(&stream) );
 		handle.setStream(stream);
 
-		rf_classifier->fit(handle, data, params.n_rows, params.n_cols, labels, labels_map.size());
+		fit(rf_classifier, handle, data, params.n_rows, params.n_cols, labels, labels_map.size());
 
 		CUDA_CHECK(cudaStreamSynchronize(stream));
 		CUDA_CHECK(cudaStreamDestroy(stream));
@@ -133,7 +133,7 @@ const std::vector<RfInputs<float> > inputsf2 = {
 
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
-	RF_metrics tmp = rf_classifier->cross_validate(inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+	RF_metrics tmp = cross_validate(rf_classifier, inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	//rf_classifier->print_rf_detailed();
 	ASSERT_TRUE((tmp.accuracy == 1.0f));
 }

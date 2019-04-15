@@ -65,6 +65,7 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 	if (verbose) std::cout << "Finished postrocessing labels\n";
 }
 
+
 template<typename T>
 rf<T>::rf(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_leaves, int cfg_rf_type, int cfg_n_bins,
 	   float cfg_rows_sample, float cfg_max_features, int cfg_split_algo) {
@@ -269,5 +270,32 @@ template class rf<double>;
 
 template class rfClassifier<float>;
 template class rfClassifier<double>;
+
+// Stateless API functions: fit, predict and cross_validate
+
+void fit(rfClassifier<float> * rf_classifier, const cumlHandle& user_handle, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
+}
+
+void fit(rfClassifier<double> * rf_classifier, const cumlHandle& user_handle, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
+}
+
+int * predict(rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->predict(input, n_rows, n_cols, verbose);
+}
+
+int * predict(rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->predict(input, n_rows, n_cols, verbose);
+}
+
+RF_metrics cross_validate(rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->cross_validate(input, ref_labels, n_rows, n_cols, verbose);
+}
+
+RF_metrics cross_validate(rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->cross_validate(input, ref_labels, n_rows, n_cols, verbose);
+}
+
 };
 // end namespace ML

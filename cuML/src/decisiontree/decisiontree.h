@@ -109,4 +109,18 @@ private:
 }; // End DecisionTree Class
 
 } //End namespace DecisionTree
+
+
+// Stateless API functions
+void fit(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const ML::cumlHandle& handle, float *data, const int ncols, const int nrows, int *labels,
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0,
+		int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
+
+void fit(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const ML::cumlHandle& handle, double *data, const int ncols, const int nrows, int *labels,
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0,
+		int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
+
+int predict(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * row, bool verbose=false);
+int predict(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * row, bool verbose=false);
+
 } //End namespace ML

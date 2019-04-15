@@ -258,4 +258,26 @@ template class DecisionTreeClassifier<float>;
 template class DecisionTreeClassifier<double>;
 
 } //End namespace DecisionTree
+
+
+// Stateless API fit and predict functions
+void fit(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const ML::cumlHandle& handle, float *data, const int ncols, const int nrows, int *labels, 
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
+	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+}
+
+void fit(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const ML::cumlHandle& handle, double *data, const int ncols, const int nrows, int *labels, 
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
+	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+}
+
+int predict(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * row, bool verbose) {
+	return dt_classifier->predict(row, verbose);
+}
+
+int predict(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * row, bool verbose) {
+	return dt_classifier->predict(row, verbose);
+}
+
+
 } //End namespace ML
