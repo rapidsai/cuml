@@ -300,6 +300,9 @@ void cumlHandle_impl::waitOnInternalStreams() const
 
 void cumlHandle_impl::createResources()
 {
+    // Use default stream if user stream is not set.
+    _userStream = NULL;
+
     cudaStream_t stream;
     CUDA_CHECK( cudaStreamCreate(&stream) );
 

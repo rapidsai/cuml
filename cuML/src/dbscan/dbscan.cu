@@ -41,16 +41,16 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
     cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, 0);
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
                int *labels) {
 
     cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, 0);
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 /** @} */
 
