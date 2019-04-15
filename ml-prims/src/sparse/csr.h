@@ -119,6 +119,7 @@ namespace MLCommon {
             return stop_idx;
         }
 
+        template<int TPB_X>
         __global__ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz) {
 
             // row-based matrix 1 thread per row
