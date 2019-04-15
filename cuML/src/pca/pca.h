@@ -37,11 +37,9 @@ namespace ML {
 
 using namespace MLCommon;
 
-///@todo: remove 'mgr'
 template<typename math_t>
 void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *components,
-                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms,
-                      DeviceAllocator &mgr) {
+                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms) {
     int len = prms.n_cols * prms.n_cols;
     auto allocator = handle.getDeviceAllocator();
     auto stream = handle.getStream();
@@ -49,7 +47,7 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *compone
     device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
     device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-    calEig(handle, in, components_all.data(), explained_var_all.data(), prms, mgr);
+    calEig(handle, in, components_all.data(), explained_var_all.data(), prms);
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
@@ -79,8 +77,6 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
     auto stream = handle.getStream();
     auto cublas_handle = handle.getCublasHandle();
     auto cusolver_handle = handle.getcusolverDnHandle();
-    ///@todo: make this to be passed via the interface
-    DeviceAllocator mgr = makeDefaultAllocator();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -99,8 +95,7 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
 
 	Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
                    cublas_handle, stream);
-	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms,
-                         mgr);
+	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms);
 
 	math_t scalar = (prms.n_rows - 1);
 	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, stream, true);

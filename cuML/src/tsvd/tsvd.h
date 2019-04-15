@@ -79,17 +79,18 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 
 template<typename math_t>
 void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
-            math_t *explained_var, paramsTSVD prms, DeviceAllocator &mgr) {
+            math_t *explained_var, paramsTSVD prms) {
     auto stream = handle.getStream();
     auto cusolver_handle = handle.getcusolverDnHandle();
+    auto allocator = handle.getDeviceAllocator();
 
 	if (prms.algorithm == solver::COV_EIG_JACOBI) {
 		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
 				explained_var, (math_t) prms.tol, prms.n_iterations,
-                                  cusolver_handle, stream, mgr);
+                                  cusolver_handle, stream, allocator);
 	} else {
 		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-                              cusolver_handle, stream, mgr);
+                              cusolver_handle, stream, allocator);
 	}
 
 	Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
@@ -160,8 +161,6 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
     auto stream = handle.getStream();
     auto cublas_handle = handle.getCublasHandle();
     auto allocator = handle.getDeviceAllocator();
-    ///@todo: remove this!
-    auto mgr = makeDefaultAllocator();
 
     ASSERT(prms.n_cols > 1,
            "Parameter n_cols: number of columns cannot be less than two");
@@ -189,7 +188,7 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
                                             handle.getStream(), prms.n_cols);
 
     calEig(handle, input_cross_mult.data(), components_all.data(),
-           explained_var_all.data(), prms, mgr);
+           explained_var_all.data(), prms);
 
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);

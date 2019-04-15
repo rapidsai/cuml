@@ -184,9 +184,9 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     Matrix::copyUpperTriangular(BBt, Uhat_dup, l, l, stream);
     if (use_jacobi)
       eigJacobi(Uhat_dup, l, l, Uhat, S_vec_tmp, tol, max_sweeps, cusolverH,
-                stream, mgr);
+                stream, allocator);
     else
-      eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, stream, mgr);
+      eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, stream, allocator);
     Matrix::seqRoot(S_vec_tmp, l, stream);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1,
                         l, stream); // Last k elements of S_vec

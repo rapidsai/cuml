@@ -98,7 +98,7 @@ template<typename math_t>
 void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
               int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
               cublasHandle_t cublasH, std::shared_ptr<deviceAllocator> allocator,
-              DeviceAllocator &mgr, cudaStream_t stream) {
+              cudaStream_t stream) {
 
 	ASSERT(n_cols > 1,
 			"ridgeEig: number of columns cannot be less than two");
@@ -115,7 +115,7 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(S, n_cols);
 
 	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
-                       allocator, mgr);
+                       allocator);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
 			cublasH, stream);
 
@@ -156,7 +156,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
                          cusolver_handle, cublas_handle, allocator, stream);
 	} else if (algo == 1) {
 		ridgeEig(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-                         cusolver_handle, cublas_handle, allocator, mgr, stream);
+                         cusolver_handle, cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		ASSERT(false,
 				"ridgeFit: no algorithm with this id has been implemented");
