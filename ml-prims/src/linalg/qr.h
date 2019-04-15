@@ -35,7 +35,7 @@ namespace LinAlg {
  * @{
  */
 template <typename math_t>
-void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
+void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
             cusolverDnHandle_t cusolverH, cudaStream_t stream,
             DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
@@ -78,7 +78,7 @@ void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
  * @{
  */
 template <typename math_t>
-void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
+void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
              cusolverDnHandle_t cusolverH, cudaStream_t stream,
              DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
