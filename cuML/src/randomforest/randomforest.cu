@@ -132,6 +132,7 @@ rfClassifier<T>::rfClassifier(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_d
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle
  * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
  * @param[in] n_rows: number of training data samples.
  * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
@@ -141,7 +142,7 @@ rfClassifier<T>::rfClassifier(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_d
  * @param[in] n_unique_labels: #unique label values (known during preprocessing)
  */
 template <typename T>
-void rfClassifier<T>::fit(T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
 	ASSERT(!this->trees, "Cannot fit an existing forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
@@ -150,18 +151,21 @@ void rfClassifier<T>::fit(T * input, int n_rows, int n_cols, int * labels, int n
 	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->n_trees];
 	int n_sampled_rows = this->rows_sample * n_rows;
 
+	const cumlHandle_impl& handle = user_handle.getImpl();
+	cudaStream_t stream = user_handle.getStream();
+
 	for (int i = 0; i < this->n_trees; i++) {
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
-		unsigned int * selected_rows; // randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
-		CUDA_CHECK(cudaMalloc((void **)& selected_rows, n_sampled_rows * sizeof(unsigned int)));
+		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
+		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
 
 		if (this->bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
-			r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows);
+			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
 		} else {
 			std::vector<unsigned int> h_selected_rows(n_sampled_rows);
 			std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
-			CUDA_CHECK(cudaMemcpy(selected_rows, h_selected_rows.data(), n_sampled_rows * sizeof(unsigned int), cudaMemcpyHostToDevice));
+			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows);
 		}
 
 		/* Build individual tree in the forest.
@@ -170,10 +174,11 @@ void rfClassifier<T>::fit(T * input, int n_rows, int n_cols, int * labels, int n
 		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		this->trees[i].fit(input, n_cols, n_rows, labels, selected_rows, n_sampled_rows, n_unique_labels, this->max_depth, this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
+		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->max_depth,
+							this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
 
 		//Cleanup
-		CUDA_CHECK(cudaFree(selected_rows));
+		selected_rows.release(stream);
 	}
 }
 

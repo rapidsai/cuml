@@ -25,6 +25,7 @@
 #include <numeric>
 #include <map>
 #include <climits>
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -80,7 +81,7 @@ public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
 	// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-	void fit(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
+	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
 			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
 
 	/* Predict a label for single row for a given tree. */
@@ -94,7 +95,7 @@ public:
 
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
-	void plant(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
+	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
 				int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST);
 
 	TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info);

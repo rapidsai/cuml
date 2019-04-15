@@ -46,7 +46,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	int  num_items = n_sampled_rows * ncols; // number of items to sort across all segments (i.e., cols)
 	int  num_segments = ncols;
 	int  *d_offsets;
-	T  *d_keys_in = tempmem->temp_data;
+	T  *d_keys_in = tempmem->temp_data->data();
 	T  *d_keys_out;
 	int *colids = nullptr;
 
@@ -72,7 +72,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(T), tempmem->stream));
 
 	blocks = (int)( (ncols*nbins) / threads) + 1;
-	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile, n_sampled_rows, ncols, nbins);
+	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile->data(), n_sampled_rows, ncols, nbins);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	CUDA_CHECK(cudaFree(d_keys_out));
 	CUDA_CHECK(cudaFree(d_offsets));

@@ -58,7 +58,7 @@ std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
 }
 
 template<typename T>
-void DecisionTreeClassifier<T>::fit(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
+void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
 									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
 
 	ASSERT((n_bins > 0), "Invalid n_bins %d", n_bins);
@@ -67,7 +67,7 @@ void DecisionTreeClassifier<T>::fit(T *data, const int ncols, const int nrows, i
 			split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
 	ASSERT((maxdepth == -1) || (maxdepth > 0), "Invalid max depth %d", maxdepth);
 
-	return plant(data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 }
 
 template<typename T>
@@ -91,7 +91,7 @@ void DecisionTreeClassifier<T>::print() {
 }
 
 template<typename T>
-void DecisionTreeClassifier<T>::plant(T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
+void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
 									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag) {
 
 	split_algo = split_algo_flag;
@@ -116,8 +116,8 @@ void DecisionTreeClassifier<T>::plant(T *data, const int ncols, const int nrows,
 	}
 	ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 
-	for (int i = 0; i<MAXSTREAMS; i++) {
-		tempmem[i] = new TemporaryMemory<T>(n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
+	for (int i = 0; i < MAXSTREAMS; i++) {
+		tempmem[i] = new TemporaryMemory<T>(handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 		if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
 			preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins, tempmem[i]);
 		}
@@ -191,11 +191,11 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 
 	CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 	// Copy sampled column IDs to device memory
-	CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids, colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
+	CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
 
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
-		int *labelptr = tempmem[0]->sampledlabels;
+		int *labelptr = tempmem[0]->sampledlabels->data();
 		get_sampled_labels(labels, labelptr, rowids, n_sampled_rows, tempmem[0]->stream);
 		gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
 	}
@@ -212,7 +212,7 @@ template<typename T>
 void DecisionTreeClassifier<T>::split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft,
 											int& nrowsright, unsigned int* rowids) {
 
-	T *temp_data = tempmem[0]->temp_data;
+	T *temp_data = tempmem[0]->temp_data->data();
 	T *sampledcolumn = &temp_data[n_sampled_rows * ques.bootstrapped_column];
 	make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, split_algo, tempmem[0]);
 }
