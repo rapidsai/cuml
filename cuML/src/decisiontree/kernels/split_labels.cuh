@@ -93,22 +93,22 @@ template<typename T>
 void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const TemporaryMemory<T> * tempmem)
 {
 
-	int *temprowids = tempmem->temprowids;
-	char *d_flags_left = tempmem->d_flags_left;
-	char *d_flags_right = tempmem->d_flags_right;
-	T *question_value = tempmem->question_value;
+	int *temprowids = tempmem->temprowids->data();
+	char *d_flags_left = tempmem->d_flags_left->data();
+	char *d_flags_right = tempmem->d_flags_right->data();
+	T *question_value = tempmem->question_value->data();
 
 	if (split_algo != ML::SPLIT_ALGO::HIST) {
 		flag_kernel_quantile<<< (int)(nrows/128) + 1, 128, 0, tempmem->stream >>>(column, d_flags_left, d_flags_right, nrows, ques.value);
 	} else {
-		flag_kernel<<< (int)(nrows/128) + 1, 128, 0, tempmem->stream >>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax[ques.bootstrapped_column], &tempmem->d_globalminmax[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
+		flag_kernel<<< (int)(nrows/128) + 1, 128, 0, tempmem->stream >>>(column, d_flags_left, d_flags_right, nrows, &tempmem->d_globalminmax->data()[ques.bootstrapped_column], &tempmem->d_globalminmax->data()[ques.bootstrapped_column + ques.ncols], ques.nbins, ques.batch_id, question_value);
 	}
 	CUDA_CHECK(cudaGetLastError());
 
 	void *d_temp_storage = tempmem->d_split_temp_storage;
 	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
 
-	int *d_num_selected_out = tempmem->d_num_selected_out;
+	int *d_num_selected_out = tempmem->d_num_selected_out->data();
 
 
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);

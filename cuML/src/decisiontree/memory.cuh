@@ -18,30 +18,33 @@
 #include <utils.h>
 #include "cub/cub.cuh"
 #include <thrust/extrema.h>
+#include "common/cumlHandle.hpp"
+#include <common/device_buffer.hpp>
+#include <common/host_buffer.hpp>
 
 template<class T>
 struct TemporaryMemory
 {
 	// Labels after boostrapping
-	int *sampledlabels;
+	MLCommon::device_buffer<int> *sampledlabels;
 
 	// Used for gini histograms (root tree node)
-	int *d_hist, *h_hist;
+	MLCommon::device_buffer<int> *d_hist;
+	MLCommon::host_buffer<int> *h_hist;
 
 	//Host/Device histograms and device minmaxs
-	T *d_globalminmax;
-	int *h_histout, *d_histout;
-	int *d_colids;
+	MLCommon::device_buffer<T> *d_globalminmax;
+	MLCommon::device_buffer<int> *d_histout, *d_colids;
+	MLCommon::host_buffer<int> *h_histout;
 
 	//Below pointers are shared for split functions
-	char *d_flags_left;
-	char *d_flags_right;
+	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
+
 	void *d_split_temp_storage = nullptr;
 	size_t split_temp_storage_bytes = 0;
-	int *d_num_selected_out;
-	int *temprowids;
-	T *question_value;
-	T *temp_data;
+
+	MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
+	MLCommon::device_buffer<T> *question_value, *temp_data;
 
 	//Total temp mem
 	size_t totalmem = 0;
@@ -50,56 +53,57 @@ struct TemporaryMemory
 	cudaStream_t stream;
 
 	//For quantiles
-	T *d_quantile = nullptr;
-	T *d_temp_sampledcolumn = nullptr;
+	MLCommon::device_buffer<T> *d_quantile = nullptr;
+	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
 
-	TemporaryMemory(int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
+	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
 	{
-
-		int n_hist_bytes = n_unique * n_bins * sizeof(int);
-
-		CUDA_CHECK(cudaMallocHost((void**)&h_hist, n_hist_bytes));
-		CUDA_CHECK(cudaMalloc((void**)&d_hist, n_hist_bytes));
-
-		int extra_bytes = Ncols * sizeof(T);
-		int quantile_bytes = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_bytes : sizeof(T);
-
-		CUDA_CHECK(cudaMalloc((void**)&temp_data, N * extra_bytes));
-		totalmem += n_hist_bytes + N * extra_bytes;
-
-		if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-			CUDA_CHECK(cudaMalloc((void**)&d_quantile, n_bins * quantile_bytes));
-			CUDA_CHECK(cudaMalloc((void**)&d_temp_sampledcolumn, N * extra_bytes));
-			totalmem += (n_bins + N) * extra_bytes;
-		}
-
-		CUDA_CHECK(cudaMalloc((void**)&sampledlabels, N*sizeof(int)));
-		totalmem += N*sizeof(int);
-
-		//Allocate Temporary for split functions
-		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids, d_flags_left, temprowids, d_num_selected_out, N);
-
-		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
-		CUDA_CHECK(cudaMalloc((void**)&d_num_selected_out, sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&d_flags_left, N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc((void**)&d_flags_right, N*sizeof(char)));
-		CUDA_CHECK(cudaMalloc((void**)&temprowids, N*sizeof(int)));
-		CUDA_CHECK(cudaMalloc((void**)&question_value, sizeof(T)));
-
-		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
-
-		CUDA_CHECK(cudaMallocHost((void**)&h_histout, n_hist_bytes * Ncols));
-
-		CUDA_CHECK(cudaMalloc((void**)&d_globalminmax, sizeof(T)*Ncols*2));
-		CUDA_CHECK(cudaMalloc((void**)&d_histout, n_hist_bytes * Ncols));
-		CUDA_CHECK(cudaMalloc((void**)&d_colids, sizeof(int)*Ncols));
-		totalmem += (n_hist_bytes + sizeof(int) + 2*sizeof(T))* Ncols;
 
 		//Create Streams
 		if (maxstr == 1)
 			stream = 0;
 		else
 			CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+
+		int n_hist_elements = n_unique * n_bins;
+
+		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
+		d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements);
+
+		int extra_elements = Ncols;
+		int quantile_elements = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
+
+		temp_data = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, N * extra_elements);
+		totalmem += n_hist_elements * sizeof(int) + N * extra_elements * sizeof(T);
+
+		if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
+			d_quantile = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, n_bins * quantile_elements);
+			d_temp_sampledcolumn = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, N * extra_elements);
+			totalmem += (n_bins + N) * extra_elements * sizeof(T);
+		}
+
+		sampledlabels = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
+		totalmem += N*sizeof(int);
+
+		//Allocate Temporary for split functions
+		d_num_selected_out = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, 1);
+		d_flags_left = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
+		d_flags_right = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
+		temprowids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
+		question_value = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
+
+		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
+		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
+
+		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
+
+		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
+
+		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
+		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
+		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T))* Ncols;
+
 	}
 
 	void print_info()
@@ -110,30 +114,52 @@ struct TemporaryMemory
 
 	~TemporaryMemory()
 	{
-		cudaFreeHost(h_hist);
-		cudaFree(d_hist);
-		cudaFree(temp_data);
 
-		if (d_quantile != nullptr)
-			cudaFree(d_quantile);
-		if (d_temp_sampledcolumn != nullptr)
-			cudaFree(d_temp_sampledcolumn);
+		h_hist->release(stream);
+		d_hist->release(stream);
+		temp_data->release(stream);
 
-		cudaFree(sampledlabels);
+		delete h_hist;
+		delete d_hist;
+		delete temp_data;
+
+		if (d_quantile != nullptr) {
+			d_quantile->release(stream);
+			delete d_quantile;
+		}
+		if (d_temp_sampledcolumn != nullptr) {
+			d_temp_sampledcolumn->release(stream);
+			delete d_temp_sampledcolumn;
+		}
+
+		sampledlabels->release(stream);
 		cudaFree(d_split_temp_storage);
-		cudaFree(d_num_selected_out);
-		cudaFree(d_flags_left);
-		cudaFree(d_flags_right);
-		cudaFree(temprowids);
-		cudaFree(question_value);
-		cudaFreeHost(h_histout);
+		d_num_selected_out->release(stream);
+		d_flags_left->release(stream);
+		d_flags_right->release(stream);
+		temprowids->release(stream);
+		question_value->release(stream);
+		h_histout->release(stream);
 
-		cudaFree(d_globalminmax);
-		cudaFree(d_histout);
-		cudaFree(d_colids);
+		delete sampledlabels;
+		delete d_num_selected_out;
+		delete d_flags_left;
+		delete d_flags_right;
+		delete temprowids;
+		delete question_value;
+		delete h_histout;
 
-		if (stream != 0)
+		d_globalminmax->release(stream);
+		d_histout->release(stream);
+		d_colids->release(stream);
+
+		delete d_globalminmax;
+		delete d_histout;
+		delete d_colids;
+
+		if (stream != 0) {
 			cudaStreamDestroy(stream);
+		}
 	}
 
 };

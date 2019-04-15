@@ -132,7 +132,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 			//separate loop for now to avoid overflow.
 			for (int j = 0; j < n_unique_labels; j++) {
 				int hist_index = i * n_unique_labels + j;
-				tmp_lnrows += tempmem->h_histout[col_hist_base_index + hist_index];
+				tmp_lnrows += tempmem->h_histout->data()[col_hist_base_index + hist_index];
 			}
 			int tmp_rnrows = nrows - tmp_lnrows;
 
@@ -143,10 +143,10 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 			for (int j = 0; j < n_unique_labels; j++) {
 				int hist_index = i * n_unique_labels + j;
 
-				float prob_left = (float) (tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_lnrows;
+				float prob_left = (float) (tempmem->h_histout->data()[col_hist_base_index + hist_index]) / tmp_lnrows;
 				tmp_gini_left -= prob_left * prob_left;
 
-				float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout[col_hist_base_index + hist_index]) / tmp_rnrows;
+				float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout->data()[col_hist_base_index + hist_index]) / tmp_rnrows;
 				tmp_gini_right -=  prob_right * prob_right;
 			}
 
@@ -174,7 +174,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 	split_info[1].hist.resize(n_unique_labels);
 	split_info[2].hist.resize(n_unique_labels);
 	for (int j = 0; j < n_unique_labels; j++) {
-		split_info[1].hist[j] = tempmem->h_histout[best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
+		split_info[1].hist[j] = tempmem->h_histout->data()[best_col_id * n_unique_labels * nbins + best_bin_id * n_unique_labels + j];
 		split_info[2].hist[j] = split_info[0].hist[j] - split_info[1].hist[j];
 	}
 
@@ -182,7 +182,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		T ques_val;
-		T *d_quantile = tempmem->d_quantile;
+		T *d_quantile = tempmem->d_quantile->data();
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
 		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
@@ -195,10 +195,10 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 template<typename T>
 void best_split_all_cols(const T *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory<T> * tempmem, GiniInfo split_info[3], GiniQuestion<T> & ques, float & gain, const int split_algo)
 {
-	int* d_colids = tempmem->d_colids;
-	T* d_globalminmax = tempmem->d_globalminmax;
-	int *d_histout = tempmem->d_histout;
-	int *h_histout = tempmem->h_histout;
+	int* d_colids = tempmem->d_colids->data();
+	T* d_globalminmax = tempmem->d_globalminmax->data();
+	int *d_histout = tempmem->d_histout->data();
+	int *h_histout = tempmem->h_histout->data();
 
 	int ncols = colselector.size();
 	int col_minmax_bytes = sizeof(T) * 2 * ncols;
@@ -218,9 +218,9 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	*/
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
-		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data, set_min_val<T>());
+		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), set_min_val<T>());
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
-		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data);
+		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
 
@@ -228,9 +228,9 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
-		all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
+		all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data, labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile);
+		all_cols_histograms_global_quantile_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
 

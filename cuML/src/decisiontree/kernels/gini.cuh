@@ -69,9 +69,9 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 template<typename T>
 void gini(int *labels_in, const int nrows, const TemporaryMemory<T> * tempmem, GiniInfo & split_info, int & unique_labels)
 {
-	int *dhist = tempmem->d_hist;
-	int *hhist = tempmem->h_hist;
-	float gval =1.0;
+	int *dhist = tempmem->d_hist->data();
+	int *hhist = tempmem->h_hist->data();
+	float gval = 1.0;
 
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
 	gini_kernel<<< (int)(nrows/128) + 1, 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);

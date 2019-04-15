@@ -20,6 +20,8 @@
 #include <utils.h>
 #include "random/rng.h"
 #include <map>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 
 namespace ML {
 
@@ -72,7 +74,7 @@ class rfClassifier : public rf<T> {
 	rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
 					float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST);
 
-	void fit(T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	int * predict(const T * input, int n_rows, int n_cols, bool verbose=false) const;
 	RF_metrics cross_validate(const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false);
 

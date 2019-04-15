@@ -78,7 +78,15 @@ protected:
 
 		rf_classifier = new rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth,
 							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
-		rf_classifier->fit(data, params.n_rows, params.n_cols, labels, labels_map.size());
+		cumlHandle handle;
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream) );
+		handle.setStream(stream);
+
+		rf_classifier->fit(handle, data, params.n_rows, params.n_cols, labels, labels_map.size());
+
+		CUDA_CHECK(cudaStreamSynchronize(stream));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 
 		// Inference data: same as train, but row major
 		int inference_data_len = params.n_inference_rows * params.n_cols;
