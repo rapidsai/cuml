@@ -320,7 +320,7 @@ namespace UMAPAlgo {
              */
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
-                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity) {
+                    T *rhos, T *sigmas, UMAPParams *params, int n_neighbors, float local_connectivity) {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
 
@@ -328,20 +328,20 @@ namespace UMAPAlgo {
                 dim3 blk(TPB_X, 1, 1);
 
                 T *dist_means_dev;
-                MLCommon::allocate(dist_means_dev, params->n_neighbors);
+                MLCommon::allocate(dist_means_dev, n_neighbors);
 
                 MLCommon::Stats::mean(dist_means_dev, knn_dists,
-                        params->n_neighbors, n, false, false);
+                        n_neighbors, n, false, false);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
-                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors);
+                T *dist_means_host = (T*) malloc(n_neighbors * sizeof(T));
+                MLCommon::updateHost(dist_means_host, dist_means_dev,n_neighbors);
 
                 float sum = 0.0;
-                for (int i = 0; i < params->n_neighbors; i++)
+                for (int i = 0; i < n_neighbors; i++)
                     sum += dist_means_host[i];
 
-                T mean_dist = sum / params->n_neighbors;
+                T mean_dist = sum / n_neighbors;
 
                 /**
                  * Clean up memory for subsequent algorithms
@@ -353,7 +353,7 @@ namespace UMAPAlgo {
                  * Smooth kNN distances to be continuous
                  */
                 smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
-                        rhos, params->n_neighbors, local_connectivity);
+                        rhos, n_neighbors, local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
             }
 
@@ -369,9 +369,9 @@ namespace UMAPAlgo {
             template<int TPB_X, typename T>
             void launcher(int n, const long *knn_indices, const float *knn_dists,
                    int *rrows, int *rcols, T *rvals,
-                   int *nnz, UMAPParams *params) {
+                   int *nnz, UMAPParams *params, int n_neighbors = 15) {
 
-                int k = params->n_neighbors;
+                int k = n_neighbors;
 
                 /**
                  * All of the kernels in this algorithm are row-based and
@@ -390,14 +390,14 @@ namespace UMAPAlgo {
                 MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                        rhos, sigmas, params, params->local_connectivity
+                        rhos, sigmas, params, n_neighbors, params->local_connectivity
                 );
 
                 int *rows, *cols;
                 T *vals;
-                MLCommon::allocate(rows, n*params->n_neighbors);
-                MLCommon::allocate(cols, n*params->n_neighbors);
-                MLCommon::allocate(vals, n*params->n_neighbors);
+                MLCommon::allocate(rows, n*n_neighbors);
+                MLCommon::allocate(cols, n*n_neighbors);
+                MLCommon::allocate(vals, n*n_neighbors);
 
 
                 /**
@@ -405,7 +405,7 @@ namespace UMAPAlgo {
                  */
                 compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
-                        params->n_neighbors);
+                        n_neighbors);
 
 
                 CUDA_CHECK(cudaPeekAtLastError());
@@ -422,7 +422,7 @@ namespace UMAPAlgo {
                  * both sides).
                  */
                 compute_result<TPB_X><<<grid, blk>>>(rows, cols, vals, orows, ocols,
-                        ovals, rnnz, n, params->n_neighbors,
+                        ovals, rnnz, n, n_neighbors,
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
