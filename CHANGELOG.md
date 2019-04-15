@@ -2,14 +2,12 @@
 
 ## New Features
 
-- PR #405: Quasi-Newton GLM Solvers
-
-## New Features
-
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #405: Quasi-Newton GLM Solvers
+- PR #479: Coordinate Descent GLM Solver for Lasso
 
 ## Improvements
 
