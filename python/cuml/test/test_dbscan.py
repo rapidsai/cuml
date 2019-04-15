@@ -51,8 +51,7 @@ def test_dbscan_predict(datatype, input_type, use_handle):
 
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-    if stream is not None:
-        stream.sync()
+    cudbscan.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -74,8 +73,7 @@ def test_dbscan_predict_numpy(datatype, use_handle):
     print(X.shape[0])
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-    if stream is not None:
-        stream.sync()
+    cudbscan.sync()
 
 
 def test_dbscan_predict_multiple_streams():
@@ -143,5 +141,4 @@ def test_dbscan_sklearn_comparison(name, use_handle):
     assert(sk_n_clusters == cu_n_clusters)
 
     clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
-    if stream is not None:
-        stream.sync()
+    cuml_dbscan.sync()
