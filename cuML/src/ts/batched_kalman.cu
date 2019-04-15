@@ -12,6 +12,8 @@
 
 #include <nvToolsExt.h>
 
+#include <cub/cub.cuh>
+
 // #include <thrust/lo
 
 using std::vector;
@@ -233,8 +235,9 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
                                            int r,
                                            int num_batches,
                                            double* vs,
-                                           double* Fs) {
-  // hard code shared memory for now
+                                           double* Fs,
+                                           double* sum_logFs
+                                           ) {
 
   // kalman matrices and temporary storage
   int r2 = r*r;
@@ -260,14 +263,17 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
   }
   __syncthreads();
 
+  double bid_sum_logFs = 0.0;
+
   for(int it=0; it<nobs; it++) {
 
     // 1. & 2.
     // vs[it] = ys[it] - alpha(0,0);
     // Fs[it] = P(0,0);
     if(tid==0) {
-      vs[bid + it*num_batches] = ys[it + bid*nobs] - s_alpha[0];
-      Fs[bid + it*num_batches] = s_P[0];
+      vs[it + bid*nobs] = ys[it + bid*nobs] - s_alpha[0];
+      Fs[it + bid*nobs] = s_P[0];
+      bid_sum_logFs += log(s_P[0]);
     }
     __syncthreads();
   
@@ -279,7 +285,7 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     Mv(s_T, tmpA, r, tid, tmpB);
     // tmpB = 1/Fs[it] * tmpB
     if(tid < r) {
-      s_K[tid] = 1/Fs[bid + it*num_batches] * tmpB[tid];
+      s_K[tid] = 1/Fs[it + bid*nobs] * tmpB[tid];
     }
     __syncthreads();
   
@@ -288,7 +294,7 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     // alpha = T*alpha + K*vs[it];
     if (tid < r) {
       Mv(s_T, s_alpha, r, tid, tmpA);
-      s_alpha[tid] = tmpA[tid] + s_K[tid] * vs[bid + it * num_batches];
+      s_alpha[tid] = tmpA[tid] + s_K[tid] * vs[it + bid * nobs];
     }
     __syncthreads();
 
@@ -327,6 +333,9 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     s_P[tid] = tmpB[tid] + s_RRT[tid];
     __syncthreads();
   }
+  if(tid == 0) {
+    sum_logFs[bid] = bid_sum_logFs;
+  }
 }
 
 void batched_kalman_loop(double* ys, int nobs,
@@ -337,7 +346,8 @@ void batched_kalman_loop(double* ys, int nobs,
                          const BatchedMatrix& alpha,
                          int r,
                          double* vs,
-                         double* Fs
+                         double* Fs,
+                         double* sum_logFs
                          ) {
 
   const int num_batches = T.batches();
@@ -351,10 +361,51 @@ void batched_kalman_loop(double* ys, int nobs,
                                                                                alpha.data(),
                                                                                r,
                                                                                num_batches,
-                                                                               vs, Fs
+                                                                               vs, Fs,
+                                                                               sum_logFs
                                                                                );
 
   CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaDeviceSynchronize());
+
+}
+
+__global__ void batched_kalman_loglike_kernel(double *d_vs, double *d_Fs, double *d_sumLogFs,
+                               int nobs, int num_batches, double *sigma2,
+                               double *loglike) {
+
+  using BlockReduce = cub::BlockReduce<double, 128>;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  int tid = threadIdx.x;
+  int bid = blockIdx.x;
+  int num_threads = blockDim.x;
+  double bid_sigma2 = 0.0;
+  for(int it=0; it<nobs; it+=num_threads) {
+    // vs and Fs are in time-major order
+    int idx = (it + tid) + bid * nobs;
+    double d_vs2_Fs = 0.0;
+    if (idx < nobs*num_batches) {
+      d_vs2_Fs = d_vs[idx] * d_vs[idx] / d_Fs[idx];
+    }
+    __syncthreads();
+    double partial_sum = BlockReduce(temp_storage).Sum(d_vs2_Fs, nobs - it);
+    bid_sigma2 += partial_sum;
+  }
+  if(tid == 0) {
+    bid_sigma2 /= nobs;
+    sigma2[bid] = bid_sigma2;
+    loglike[bid] = -.5 * (d_sumLogFs[bid] + nobs * log(bid_sigma2)) - nobs / 2. * (log(2 * M_PI) + 1);
+  }
+}
+
+void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs, int nobs, int num_batches,
+                    double* sigma2, double* loglike) {
+
+  // BlockReduce uses 128 threads, so here also use 128 threads.
+  const int num_threads = 128;
+  batched_kalman_loglike_kernel<<<num_batches, num_threads>>>(d_vs, d_Fs, d_sumLogFs, nobs, num_batches,
+                                                              sigma2, loglike);
   CUDA_CHECK(cudaDeviceSynchronize());
 
 }
@@ -416,51 +467,25 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   // In batch-major format.
   double* d_vs;
   double* d_Fs;
+  double* d_sumlogFs;
   allocate(d_vs, ys_len*num_batches);
   allocate(d_Fs, ys_len*num_batches);
+  allocate(d_sumlogFs, num_batches);
 
   CUDA_CHECK(cudaPeekAtLastError());
 
-  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs);
-  
-  // 7.
-  // loglikelihood = sum(log(Fs[:]))
-  double* loglikelihood = sumLogFs(d_Fs, num_batches, ys_len);
+  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs, d_sumlogFs);
 
-  // 8.
-  // sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
-
+  // 7. & 8.
+  // double sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
+  // double loglike = -.5 * (loglikelihood + nobs * std::log(sigma2));
+  // loglike -= nobs / 2. * (std::log(2 * M_PI) + 1);
   double* sigma2;
   allocate(sigma2, num_batches);
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting + num_batches, [=] __device__(int bid) {
-                                                         sigma2[bid] = 0.0;
-                                                         double sigma2_sum = 0.0;
-                                                         for (int it = 0; it < ys_len; it++) {
-                                                           auto vsit = d_vs[bid + num_batches * it];
-                                                           sigma2_sum += vsit * vsit / d_Fs[bid + num_batches * it];
-                                                         }
-                                                         sigma2[bid] = sigma2_sum / ys_len;
-                                                       });
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
-  
-
-  // 9.
-  // loglike = -.5 * (loglikelihood + nobs * std::log(sigma2)) - nobs / 2. * (std::log(2 * M_PI) + 1);
   double* loglike;
   allocate(loglike, num_batches);
-  {
-    auto counting = thrust::make_counting_iterator(0);
-    int nobs = ys_len;
-    thrust::for_each(counting, counting+num_batches,
-                     [=]__device__(int bid) {
-                       loglike[bid] = -.5 * (loglikelihood[bid] + nobs * log(sigma2[bid]))
-                         - nobs / 2. * (log(2 * M_PI) + 1);
-                     });
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
+  batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, num_batches, sigma2, loglike);
+  
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
   // need to fill:
@@ -480,11 +505,10 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   updateHost(h_vs_raw.data(), d_vs, ys_len*num_batches);
   updateHost(h_Fs_raw.data(), d_Fs, ys_len*num_batches);
 
-  for(int it=0;it<ys_len;it++) {
-    for (int bi = 0; bi < num_batches; bi++) {
-      // note: vs, Fs computed in batch-major order. Return it in time-major order
-      h_vs_b[bi][it] = h_vs_raw[bi + it * num_batches];
-      h_Fs_b[bi][it] = h_Fs_raw[bi + it * num_batches];
+  for (int bi = 0; bi < num_batches; bi++) {
+    for(int it=0;it<ys_len;it++) {
+      h_vs_b[bi][it] = h_vs_raw[it + bi * nobs];
+      h_Fs_b[bi][it] = h_Fs_raw[it + bi * nobs];
     }
   }
 
@@ -498,7 +522,6 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   cudaFree(d_Fs);
   cudaFree(sigma2);
   cudaFree(loglike);
-  cudaFree(loglikelihood);
   CUDA_CHECK(cudaPeekAtLastError());
 
 }
