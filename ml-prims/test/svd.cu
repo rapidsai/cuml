@@ -46,6 +46,7 @@ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
+    allocator.reset(new defaultDeviceAllocator);
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -87,7 +88,8 @@ protected:
 
     auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH, stream, mgr);
+          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,
+          allocator, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
@@ -109,6 +111,7 @@ protected:
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
   cusolverDnHandle_t cusolverH = NULL;
   cublasHandle_t cublasH;
+  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {

@@ -35,7 +35,7 @@ namespace LinAlg {
 template<typename math_t>
 void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              DeviceAllocator &mgr, cudaStream_t stream) {
+              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"lstsq: number of columns cannot be less than one");
@@ -53,7 +53,8 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(S, n_cols);
 	allocate(UT_b, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, stream, mgr);
+	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH,
+              allocator, stream);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
 
@@ -86,7 +87,9 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream, mgr);
+        std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
+               allocator, mgr);
 
 	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
 

@@ -293,7 +293,7 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  * @{
  */
 template <typename m_t>
-void copyUpperTriangular(m_t *&src, m_t *&dst, int n_rows, int n_cols,
+void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
                           cudaStream_t stream) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
@@ -331,7 +331,7 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  * @{
  */
 template <typename m_t>
-void initializeDiagonalMatrix(m_t *vec, m_t *&matrix, int n_rows, int n_cols,
+void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
                                 cudaStream_t stream) {
   int k = min(n_rows, n_cols);
   dim3 block(64);
