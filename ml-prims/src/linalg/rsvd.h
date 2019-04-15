@@ -117,6 +117,8 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
   CUDA_CHECK(cudaMemsetAsync(Q, 0, sizeof(math_t) * m * l, stream));
   qrGetQ(Y, Q, m, l, cusolverH, stream, mgr);
 
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+
   // either QR of B^T method, or eigendecompose BB^T method
   if (!use_bbt) {
     // form Bt = Mt*Q : nxm * mxl = nxl
@@ -139,10 +141,10 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     CUDA_CHECK(cudaMemsetAsync(Vhat, 0, sizeof(math_t) * l * l, stream));
     if (use_jacobi)
       svdJacobi(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, tol, max_sweeps,
-                cusolverH, stream, mgr);
+                cusolverH, stream, allocator);
     else
       svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH, cublasH,
-            stream, mgr);
+            allocator, stream);
     Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, 0, 1,
                         k, stream); // First k elements of S_vec
 

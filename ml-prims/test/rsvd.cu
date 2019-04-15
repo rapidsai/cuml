@@ -235,9 +235,10 @@ TEST_P(RsvdTestSquareMatrixNormF, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  auto mgr = makeDefaultAllocator();
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream,
+                                  allocator));
   CUBLAS_CHECK(cublasDestroy(cublasH));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
@@ -248,9 +249,10 @@ TEST_P(RsvdTestSquareMatrixNormD, Result) {
   CUBLAS_CHECK(cublasCreate(&cublasH));
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  auto mgr = makeDefaultAllocator();
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream,
+                                  allocator));
   CUBLAS_CHECK(cublasDestroy(cublasH));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }

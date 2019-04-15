@@ -78,9 +78,10 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 
         ///@todo: for perf reasons we should be using custom allocators!
         DeviceAllocator mgr = makeDefaultAllocator();
+        std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 	if (algo == 0 || n_cols == 1) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr, stream);
+                                 cublas_handle, allocator, stream);
 	} else if (algo == 1) {
 		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
                                  cublas_handle, mgr, stream);
