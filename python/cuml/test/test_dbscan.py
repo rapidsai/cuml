@@ -97,6 +97,8 @@ def test_dbscan_predict_multiple_streams():
     for i in range(X.shape[0]):
         assert cu_labels1[i] == sk_labels[i]
         assert cu_labels2[i] == sk_labels[i]
+    cudbscan1.sync()
+    cudbscan2.sync()
 
 
 @pytest.mark.parametrize("name", [
