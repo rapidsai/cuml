@@ -44,7 +44,6 @@ void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int>
 /* Revert preprocessing effect, if needed. */
 void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false);
 
-
 template<class T>
 class rf {
 	protected:
@@ -79,5 +78,15 @@ class rfClassifier : public rf<T> {
 	RF_metrics cross_validate(const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false);
 
 };
+
+// Stateless API functions: fit, predict and cross_validate.
+void fit(rfClassifier<float> * rf_classifier, const cumlHandle& user_handle, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+void fit(rfClassifier<double> * rf_classifier, const cumlHandle& user_handle, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+
+int * predict(rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, bool verbose=false);
+int * predict(rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, bool verbose=false);
+
+RF_metrics cross_validate(rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false);
+RF_metrics cross_validate(rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels, int n_rows, int n_cols, bool verbose=false);
 
 };
