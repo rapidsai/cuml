@@ -1,7 +1,8 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from timeit import default_timer as timer
 import cuml.ts.arima as arima
 import cuml.ts.batched_arima as batched_arima
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 def test_arima(plot=False, verbose=False, check_asserts=True):
@@ -129,12 +130,19 @@ def test_arima_kalman():
     ll = arima.loglike(model0)
 
     # batched version
-    num_batches = 100
+    num_batches = 10
     models = [arima.ARIMAModel(order, mu, arparams, maparams, y_train) for i in range(num_batches)]
-    b_ll = batched_arima.batched_loglike(models, gpu=True)
-    b_ll_cpu = batched_arima.batched_loglike(models, gpu=False)
 
-    print("ll vs b_ll: {} vs {}".format(ll, b_ll))
+    start = timer()
+    b_ll = batched_arima.batched_loglike(models, gpu=True)
+    end = timer()
+    print("GPU Time ({} batches): {}s".format(num_batches, end-start))
+    start = timer()
+    b_ll_cpu = batched_arima.batched_loglike(models, gpu=False)
+    end = timer()
+    print("CPU Time ({} batches): {}s".format(num_batches, end-start))
+
+    print("ll vs b_ll: {} vs {}...".format(ll, b_ll[:5]))
     for lli in b_ll:
         np.testing.assert_approx_equal(ll, lli)
 
