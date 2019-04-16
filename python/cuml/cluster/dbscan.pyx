@@ -198,6 +198,9 @@ class DBSCAN(Base):
                                <double> self.eps,
                                <int> self.min_samples,
                        <int*> labels_ptr)
+        # make sure that the `dbscanFit` is complete before the following delete
+        # call happens
+        self.handle.sync()
         del(X_m)
         return self
 

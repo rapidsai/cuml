@@ -60,6 +60,8 @@ class Base:
         algo.fit(...)
         result = algo.predict(...)
         # final sync of all gpu-work launched inside this object
+        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # the default stream inside the `cumlHandle` is being used
         base.handle.sync()
         del base  # optional!
     """
@@ -75,13 +77,7 @@ class Base:
         verbose : bool
                 Whether to print debug spews
         """
-        if handle is None:
-            self.handle = cuml.common.handle.Handle()
-            # TODO: This will not be needed once PR #477 gets through
-            self.stream = cuml.common.cuda.Stream()
-            self.handle.setStream(self.stream)
-        else:
-            self.handle = handle
+        self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
 
 
