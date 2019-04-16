@@ -50,6 +50,8 @@ cdef class Handle:
         # call ML algos here
 
         # final sync of all work launched in the stream of this handle
+        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # the default stream inside the `cumlHandle` is being used
         handle.sync()
         del handle  # optional!
     """
