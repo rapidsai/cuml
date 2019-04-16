@@ -15,13 +15,13 @@
  */
 
 #pragma once
+#include <common/device_buffer.hpp>
 #include <glm/qn/glm_base.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_regularizer.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn_solvers.h>
-
 
 namespace ML {
 namespace GLM {
@@ -30,7 +30,8 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0, // initial value and result
-           T *fx, int *num_iters, STORAGE_ORDER ordX, cudaStream_t stream) {
+           T *fx, int *num_iters, STORAGE_ORDER ordX,
+           const cumlHandle_impl &cuml) {
 
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
@@ -42,8 +43,8 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, stream,
-                        verbosity);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, cuml,
+                       verbosity);
 
   } else {
 
@@ -51,8 +52,8 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, stream,
-                        verbosity);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, cuml,
+                       verbosity);
   }
 }
 
@@ -60,43 +61,45 @@ template <typename T>
 void qnFit(T *X, T *y, int N, int D, int C, bool fit_intercept, T l1, T l2,
            int max_iter, T grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, T *w0, T *f, int *num_iters, bool X_col_major,
-           int loss_type, cublasHandle_t cublas, cudaStream_t stream) {
-
-  // TODO this will come from the cuml handle
+           int loss_type, const cumlHandle_impl &cuml) {
 
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  SimpleMatOwning<T> z(C, N); // TODO this allocation somewhere else?
+  MLCommon::device_buffer<T> tmp(cuml.getDeviceAllocator(), cuml.getStream(),
+                                 C * N);
+
+  SimpleMat<T> z(tmp.data(), C, N);
 
   switch (loss_type) {
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
-    LogisticLoss<T> loss(D, fit_intercept, cublas);
+    LogisticLoss<T> loss(D, fit_intercept, cuml);
     qn_fit<T, decltype(loss)>(loss, X, y, z.data, N, fit_intercept, l1, l2,
-                               max_iter, grad_tol, linesearch_max_iter,
-                               lbfgs_memory, verbosity, w0, f, num_iters, ord,
-                               stream);
+                              max_iter, grad_tol, linesearch_max_iter,
+                              lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                              cuml);
   } break;
   case 1: {
 
     ASSERT(C == 1, "qn.h: squared loss invalid C");
-    SquaredLoss<T> loss(D, fit_intercept, cublas);
+    SquaredLoss<T> loss(D, fit_intercept, cuml);
     qn_fit<T, decltype(loss)>(loss, X, y, z.data, N, fit_intercept, l1, l2,
-                               max_iter, grad_tol, linesearch_max_iter,
-                               lbfgs_memory, verbosity, w0, f, num_iters, ord,
-                               stream);
+                              max_iter, grad_tol, linesearch_max_iter,
+                              lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                              cuml);
   } break;
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
-    Softmax<T> loss(D, C, fit_intercept, cublas);
+    Softmax<T> loss(D, C, fit_intercept, cuml);
     qn_fit<T, decltype(loss)>(loss, X, y, z.data, N, fit_intercept, l1, l2,
-                               max_iter, grad_tol, linesearch_max_iter,
-                               lbfgs_memory, verbosity, w0, f, num_iters, ord,
-                               stream);
+                              max_iter, grad_tol, linesearch_max_iter,
+                              lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                              cuml);
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
   }
+  tmp.release(cuml.getStream());
 }
 
 }; // namespace GLM

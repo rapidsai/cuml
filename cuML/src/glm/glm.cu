@@ -180,14 +180,13 @@ void qnFit(float *X, float *y, int N, int D, int C, bool fit_intercept,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
            float *f, int *num_iters, bool X_col_major, int loss_type) {
 
-  // TODO handles will come from the cuml handle
-  cudaStream_t stream = 0;
-  cublasHandle_t cublas_handle;
-  CUBLAS_CHECK(cublasCreate(&cublas_handle));
+  // TODO cuml will be passed in
+  cumlHandle cuml;
+  cuml.setStream(0);
+
   qnFit(X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
         linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-        X_col_major, loss_type, cublas_handle, stream);
-  CUBLAS_CHECK(cublasDestroy(cublas_handle));
+        X_col_major, loss_type, cuml.getImpl());
 }
 
 void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
@@ -195,14 +194,13 @@ void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
            double *f, int *num_iters, bool X_col_major, int loss_type) {
 
-  // TODO handles will come from the cuml handle
-  cudaStream_t stream = 0;
-  cublasHandle_t cublas_handle;
-  CUBLAS_CHECK(cublasCreate(&cublas_handle));
+  // TODO cuml will be passed in
+  cumlHandle cuml;
+  cuml.setStream(0);
+
   qnFit(X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
         linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-        X_col_major, loss_type, cublas_handle, stream);
-  CUBLAS_CHECK(cublasDestroy(cublas_handle));
+        X_col_major, loss_type, cuml.getImpl());
 }
 
 } // namespace GLM

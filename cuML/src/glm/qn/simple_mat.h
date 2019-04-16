@@ -18,13 +18,14 @@
 #include <iostream>
 #include <vector>
 
+#include <common/cumlHandle.hpp>
 #include <cuda_utils.h>
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.h>
+#include <linalg/norm.h>
 #include <linalg/ternary_op.h>
 #include <linalg/unary_op.h>
-#include <linalg/norm.h>
 
 namespace ML {
 
@@ -55,7 +56,7 @@ template <typename T> struct SimpleMat {
   inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
                           const bool transA, const SimpleMat<T> &B,
                           const bool transB, const T beta,
-                          const cublasHandle_t &cublas, cudaStream_t stream) {
+                          const cumlHandle_impl &cuml, cudaStream_t stream) {
 
     int kA = A.n;
     int kB = B.m;
@@ -76,8 +77,8 @@ template <typename T> struct SimpleMat {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {              // base case
-      MLCommon::LinAlg::cublasgemm(cublas, // handle
+        B.ord == COL_MAJOR) {                              // base case
+      MLCommon::LinAlg::cublasgemm(cuml.getCublasHandle(), // handle
                                    transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
                                    transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
                                    this->m, this->n, kA, // dimensions m,n,k
@@ -86,23 +87,22 @@ template <typename T> struct SimpleMat {
                                    B.data, B.m, // ldb
                                    &beta, this->data,
                                    this->m, // ldc,
-                                   stream
-      );
+                                   stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {
       SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(alpha, Acm, !transA, B, transB, beta, cublas, stream);
+      assign_gemm(alpha, Acm, !transA, B, transB, beta, cuml, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cublas, stream);
+      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cuml, stream);
       return;
     }
     if (ord == ROW_MAJOR) {
       SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cublas, stream);
+      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cuml, stream);
       return;
     }
   }
@@ -162,7 +162,7 @@ template <typename T> struct SimpleMat {
                                 len, f, stream);
   }
 
-  inline void fill(const T val, cudaStream_t stream=0) {
+  inline void fill(const T val, cudaStream_t stream = 0) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
@@ -184,8 +184,8 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
   // this = alpha * A * x + beta * this
   void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA,
                    const SimpleVec<T> &x, const T beta,
-                   cublasHandle_t &cublas) {
-    Super::assign_gemm(alpha, A, transA, x, false, beta, cublas);
+                   const cumlHandle_impl &cuml) {
+    Super::assign_gemm(alpha, A, transA, x, false, beta, cuml, 0);
   }
 
   SimpleVec() : Super(COL_MAJOR) {}
@@ -245,8 +245,8 @@ inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
 }
 
 template <typename T>
-inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0){
-  MLCommon::LinAlg::rowNorm(tmp_dev, u.data,  u.len, 1, MLCommon::LinAlg::L1Norm,
+inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
+  MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
                             true, stream, MLCommon::Nop<T>());
   T tmp_host;
   MLCommon::updateHost(&tmp_host, tmp_dev, 1);
@@ -295,7 +295,8 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
 }
 
 // TODO The following classes own their storage and are just for testing
-// The internals should be replaced by device_buffer+device_allocator, when ready
+// The internals should be replaced by device_buffer+device_allocator, when
+// ready
 template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
   bool allocated;
