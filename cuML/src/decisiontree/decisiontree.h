@@ -68,7 +68,7 @@ private:
 	int depth_counter = 0;
 	int maxleaves;
 	int leaf_counter = 0;
-	std::vector<TemporaryMemory<T>*> tempmem;
+	std::vector<std::shared_ptr<TemporaryMemory<T>>> tempmem;
 	size_t total_temp_mem;
 	const int MAXSTREAMS = 1;
 	size_t max_shared_mem;

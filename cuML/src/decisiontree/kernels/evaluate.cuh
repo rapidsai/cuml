@@ -110,7 +110,7 @@ __global__ void all_cols_histograms_global_quantile_kernel(const T* __restrict__
 }
 
 template<typename T>
-void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion<T> & ques, float & gain, const int split_algo) {
+void find_best_split(const std::shared_ptr<TemporaryMemory<T>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, GiniInfo split_info[3], const int nrows, GiniQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -193,7 +193,7 @@ void find_best_split(const TemporaryMemory<T> * tempmem, const int nbins, const 
 
 
 template<typename T>
-void best_split_all_cols(const T *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const TemporaryMemory<T> * tempmem, GiniInfo split_info[3], GiniQuestion<T> & ques, float & gain, const int split_algo)
+void best_split_all_cols(const T *data, const unsigned int* rowids, const int *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T>> tempmem, GiniInfo split_info[3], GiniQuestion<T> & ques, float & gain, const int split_algo)
 {
 	int* d_colids = tempmem->d_colids->data();
 	T* d_globalminmax = tempmem->d_globalminmax->data();

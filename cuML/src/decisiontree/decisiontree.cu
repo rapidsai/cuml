@@ -110,7 +110,7 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 
 	for (int i = 0; i < MAXSTREAMS; i++) {
-		tempmem[i] = new TemporaryMemory<T>(handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
+		tempmem[i] = std::make_shared<TemporaryMemory<T>>(handle, n_sampled_rows, ncols, MAXSTREAMS, unique_labels, n_bins, split_algo);
 		if (split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
 			preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows, n_bins, tempmem[i]);
 		}
@@ -123,7 +123,7 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	construct_time = timer.getElapsedSeconds();
 
 	for (int i = 0; i < MAXSTREAMS; i++) {
-		delete tempmem[i];
+		tempmem[i].reset();
 	}
 
 	return;
@@ -142,7 +142,7 @@ TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, i
 
 	bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
 	if (!condition)  {
-		find_best_fruit_all(data,  labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 		condition = condition || (gain == 0.0f);
 	}
 
