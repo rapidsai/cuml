@@ -53,9 +53,9 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	CUDA_CHECK(cudaMalloc((void**)&d_offsets, (num_segments + 1) * sizeof(int)));
 	CUDA_CHECK(cudaMalloc((void**)&d_keys_out, num_items * sizeof(T)));
 
-	int blocks = (int) ( (ncols * n_sampled_rows) / threads) + 1;
+	int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
 	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in);
-	blocks = (int)((ncols+1)/threads) + 1;
+	blocks = MLCommon::ceildiv(ncols + 1, threads);
 	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets);
 
 	// Determine temporary device storage requirements
@@ -71,7 +71,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
 						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(T), tempmem->stream));
 
-	blocks = (int)( (ncols*nbins) / threads) + 1;
+	blocks = MLCommon::ceildiv(ncols * nbins, threads);
 	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile->data(), n_sampled_rows, ncols, nbins);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	CUDA_CHECK(cudaFree(d_keys_out));
