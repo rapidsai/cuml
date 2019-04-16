@@ -41,9 +41,9 @@
  */
 
 #include <cuda_utils.h>
-#include <glm/qn/simple_mat.h>
 #include <glm/qn/qn_linesearch.h>
 #include <glm/qn/qn_util.h>
+#include <glm/qn/simple_mat.h>
 
 namespace ML {
 namespace GLM {
@@ -317,13 +317,16 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 template <typename T, typename LossFunction>
 inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                        LossFunction &loss, const T l1,
-                       const LBFGSParam<T> &opt_param, cudaStream_t stream,
-                       const int verbosity = 0) {
+                       const LBFGSParam<T> &opt_param,
+                       const cumlHandle_impl &cuml, const int verbosity = 0) {
 
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    SimpleVecOwning<T> workspace(lbfgs_workspace_size(opt_param, x.len));
+
+    MLCommon::device_buffer<T> tmp(cuml.getDeviceAllocator(), cuml.getStream(),
+                                   lbfgs_workspace_size(opt_param, x.len));
+    SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_lbfgs(opt_param,
                     loss,      // function to minimize
@@ -331,7 +334,8 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    stream, verbosity);
+                    cuml.getStream(), verbosity);
+    tmp.release(cuml.getStream());
 
     if (verbosity > 0)
       printf("L-BFGS Done\n");
@@ -343,7 +347,9 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
-    SimpleVecOwning<T> workspace(owlqn_workspace_size(opt_param, x.len));
+    MLCommon::device_buffer<T> tmp(cuml.getDeviceAllocator(), cuml.getStream(),
+                                   owlqn_workspace_size(opt_param, x.len));
+    SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_owlqn(opt_param,
                     loss, // function to minimize
@@ -352,7 +358,8 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    stream, verbosity);
+                    cuml.getStream(), verbosity);
+    tmp.release(cuml.getStream());
 
     if (verbosity > 0)
       printf("OWL-QN Done\n");
