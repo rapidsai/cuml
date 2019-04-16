@@ -25,14 +25,15 @@ from sklearn.manifold.t_sne import trustworthiness
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score
 
-
-def test_blobs_cluster():
-    data, labels = datasets.make_blobs(
-        n_samples=500, n_features=10, centers=5)
-    embedding = UMAP().fit_transform(data)
-    score = adjusted_rand_score(labels,
-                                KMeans(5).fit_predict(embedding))
-    assert score == 1.0
+#
+#
+# def test_blobs_cluster():
+#     data, labels = datasets.make_blobs(
+#         n_samples=500, n_features=10, centers=5)
+#     embedding = UMAP().fit_transform(data)
+#     score = adjusted_rand_score(labels,
+#                                 KMeans(5).fit_predict(embedding))
+#     assert score == 1.0
 
 
 def test_umap_transform_on_iris():

@@ -58,12 +58,12 @@ protected:
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
-		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings);
+		UMAPAlgo::_fit<float, 32>(X_d, n, d, knn, umap_params, embeddings);
 
 		float *xformed;
 		MLCommon::allocate(xformed, n*umap_params->n_components);
 
-		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
+		UMAPAlgo::_transform<float, 32>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
 	}
 
 	void SetUp() override {
