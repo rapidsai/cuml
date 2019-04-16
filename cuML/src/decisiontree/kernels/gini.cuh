@@ -20,6 +20,7 @@
 #include "../memory.cuh"
 #include <vector>
 #include "gini_def.h"
+#include "cuda_utils.h"
 
 template<>
 float set_min_val() {
@@ -74,7 +75,7 @@ void gini(int *labels_in, const int nrows, const TemporaryMemory<T> * tempmem, G
 	float gval = 1.0;
 
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
-	gini_kernel<<< (int)(nrows/128) + 1, 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
+	gini_kernel<<< MLCommon::ceildiv(nrows, 128), 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, sizeof(int)*unique_labels, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));

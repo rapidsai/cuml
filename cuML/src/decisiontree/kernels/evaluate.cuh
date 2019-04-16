@@ -206,8 +206,8 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
-	unsigned int threads = 512;
-	unsigned int blocks  = (int)((nrows * ncols) / threads) + 1;
+	int threads = 512;
+	int blocks = MLCommon::ceildiv(nrows * ncols, threads);
 	if (blocks > 65536)
 		blocks = 65536;
 
