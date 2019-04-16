@@ -196,6 +196,8 @@ template<typename T>
 int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool verbose) const {
 
 	ASSERT(this->trees, "Cannot predict! No trees in the forest.");
+	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	int * preds = new int[n_rows];
 
 	int row_size = n_cols;
@@ -220,8 +222,9 @@ int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool ver
 				std::cout << "Printing tree " << i << std::endl;
 				this->trees[i].print();
 			}
-			int prediction = this->trees[i].predict(&input[row_id * row_size], verbose);
-			ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
+			int * prediction = this->trees[i].predict(&input[row_id * row_size], 1, n_cols, verbose);
+			ret = prediction_to_cnt.insert(std::pair<int, int>(*prediction, 1));
+			delete [] prediction;
 			if (!(ret.second)) {
 				ret.first->second += 1;
 			}
@@ -259,6 +262,8 @@ RF_metrics rfClassifier<T>::cross_validate(const T * input, const int * ref_labe
 	float accuracy = correctly_predicted * 1.0f/n_rows;
 	RF_metrics stats(accuracy);
 	if (verbose) stats.print();
+
+	delete [] predictions;
 
 	/* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
 	   For non binary classification problems (i.e., one target and  > 2 labels), need avg for each of these metrics */

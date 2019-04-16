@@ -15,21 +15,12 @@
  */
 
 #include <utils.h>
-#include "algo_helper.h"
-#include "kernels/gini_def.h"
+#include "decisiontree.h"
 #include "kernels/gini.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate.cuh"
 #include "kernels/quantile.cuh"
-#include "memory.cuh"
-#include "Timer.h"
-#include "decisiontree.h"
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <map>
-#include <climits>
 
 namespace ML {
 namespace DecisionTree {
@@ -71,9 +62,11 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 }
 
 template<typename T>
-int DecisionTreeClassifier<T>::predict(const T * row, bool verbose) {
+int * DecisionTreeClassifier<T>::predict(const T * rows, const int n_rows, const int n_cols, bool verbose) {
 	ASSERT(root, "Cannot predict w/ empty tree!");
-	return classify(row, root, verbose);
+	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+	return classify_all(rows, n_rows, n_cols, verbose);
 }
 
 template<typename T>
@@ -125,11 +118,11 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	total_temp_mem = tempmem[0]->totalmem;
 	total_temp_mem *= MAXSTREAMS;
 	GiniInfo split_info;
-	Timer timer;
+	MLCommon::TimerCPU timer;
 	root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 	construct_time = timer.getElapsedSeconds();
 
-	for (int i = 0;i<MAXSTREAMS;i++) {
+	for (int i = 0; i < MAXSTREAMS; i++) {
 		delete tempmem[i];
 	}
 
@@ -218,6 +211,15 @@ void DecisionTreeClassifier<T>::split_branch(T *data, GiniQuestion<T> & ques, co
 }
 
 template<typename T>
+int * DecisionTreeClassifier<T>::classify_all(const T * rows, const int n_rows, const int n_cols, bool verbose) const {
+	int * preds = new int[n_rows];
+	for (int row_id = 0; row_id < n_rows; row_id++) {
+		preds[row_id] = classify(&rows[row_id * n_cols], root, verbose);
+	}
+	return preds;
+}
+
+template<typename T>
 int DecisionTreeClassifier<T>::classify(const T * row, const TreeNode<T>* const node, bool verbose) const {
 
 	Question<T> q = node->question;
@@ -271,12 +273,12 @@ void fit(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const ML:
 	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 }
 
-int predict(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * row, bool verbose) {
-	return dt_classifier->predict(row, verbose);
+int * predict(DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, bool verbose) {
+	return dt_classifier->predict(rows, n_rows, n_cols, verbose);
 }
 
-int predict(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * row, bool verbose) {
-	return dt_classifier->predict(row, verbose);
+int * predict(DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, bool verbose) {
+	return dt_classifier->predict(rows, n_rows, n_cols, verbose);
 }
 
 

@@ -55,8 +55,10 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 
 	int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
 	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in);
+	CUDA_CHECK(cudaGetLastError());
 	blocks = MLCommon::ceildiv(ncols + 1, threads);
 	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets);
+	CUDA_CHECK(cudaGetLastError());
 
 	// Determine temporary device storage requirements
 	void     *d_temp_storage = nullptr;
@@ -73,6 +75,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 
 	blocks = MLCommon::ceildiv(ncols * nbins, threads);
 	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile->data(), n_sampled_rows, ncols, nbins);
+	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	CUDA_CHECK(cudaFree(d_keys_out));
 	CUDA_CHECK(cudaFree(d_offsets));
