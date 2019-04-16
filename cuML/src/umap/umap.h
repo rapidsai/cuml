@@ -34,7 +34,7 @@ namespace ML {
         ~UMAP_API();
 
             /**
-             * Fits a UMAP model
+             * Fits an unsupervised UMAP model
              * @param X
              *        pointer to an array in row-major format (note: this will be col-major soon)
              * @param n
@@ -45,6 +45,21 @@ namespace ML {
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
             void fit(float *X, int n, int d, float *embeddings);
+
+            /**
+             * Fits a supervised UMAP model
+             * @param X
+             *        pointer to an array in row-major format (note: this will be col-major soon)
+             * @param y
+             *        pointer to an array of labels, shape=n_samples
+             * @param n
+             *        n_samples in X
+             * @param d
+             *        d_features in X
+             * @param embeddings
+             *        an array to return the output embeddings of size (n_samples, n_components)
+             */
+            void fit(float *X, float *y, int n, int d, float *embeddings);
 
             /**
              * Project a set of X vectors into the embedding space.

@@ -172,12 +172,14 @@ namespace UMAPAlgo {
         int *orows, int *ocols, T *ovals, int *rnnz, // size = nnz*2
         int m, int n_neighbors
     ) {
-        // Perform l_inf normalization
-        MLCommon::Sparse::csr_row_normalize_max(row_ind, graph_vals,nnz, m, graph_vals);
 
-        // reset membership strengths
         dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
         dim3 blk_n(TPB_X, 1, 1);
+
+        // Perform l_inf normalization
+        MLCommon::Sparse::csr_row_normalize_max<TPB_X, T><<<grid_n, blk_n>>>(row_ind, graph_vals,nnz, m, graph_vals);
+
+        // reset membership strengths
 
         reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
             graph_rows, graph_cols, graph_vals,
@@ -196,7 +198,7 @@ namespace UMAPAlgo {
 
         dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
-        fast_intersection_kernel<<<grid,blk>>>(
+        fast_intersection_kernel<TPB_X, T><<<grid,blk>>>(
                 graph_rows,
                 graph_cols,
                 graph_vals,
@@ -220,7 +222,6 @@ namespace UMAPAlgo {
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
         if(row < m) {
-            int i = row;
             int start_idx_res = result_ind[row];
             int stop_idx_res = MLCommon::Sparse::get_stop_idx(row, m, nnz, result_ind);
 
@@ -301,7 +302,7 @@ namespace UMAPAlgo {
         dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
-        sset_intersection_kernel<<<grid, blk>>>(
+        sset_intersection_kernel<T, TPB_X><<<grid, blk>>>(
             row1_ind, cols1, vals1, nnz1,
             row2_ind, cols2, vals2, nnz2,
             result_ind, result_ind_ptr, result_val, nnz,
@@ -454,11 +455,11 @@ namespace UMAPAlgo {
             if(params->target_weights < 1.0)
                 far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
 
-            categorical_simplicial_set_intersection(
-                    rgraph_rows, rgraph_cols, rgraph_vals, nnz,
-                    y, far_dist);
+            categorical_simplicial_set_intersection<T, TPB_X>(
+                    rgraph_rows, rgraph_cols, rgraph_vals,
+                    nnz, y, far_dist);
 
-            int *result_ind, result_nnz = 0;
+            int *result_ind;
             MLCommon::allocate(result_ind, n);
 
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, result_ind, n);
@@ -471,7 +472,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(final_cols, nnz_before_compress*2);
             MLCommon::allocate(final_vals, nnz_before_compress*2);
 
-            reset_local_connectivity(
+            reset_local_connectivity<T, TPB_X>(
                 result_ind, rgraph_rows, rgraph_cols,
                 rgraph_vals, nnz,
                 final_rows, final_cols, final_vals, final_nnz,
@@ -509,7 +510,7 @@ namespace UMAPAlgo {
             kNNGraph::run(y, n, 1, y_knn_indices, y_knn_dists, &y_knn, params);
             CUDA_CHECK(cudaPeekAtLastError());
 
-            int &ynnz = 0;
+            int ynnz = 0;
             FuzzySimplSet::run<TPB_X, T>(n, y_knn_indices, y_knn_dists,
                                ygraph_rows,
                                ygraph_cols,
@@ -529,7 +530,7 @@ namespace UMAPAlgo {
 
             int result_nnz = 0;
 
-            general_simplicial_set_intersection_row_ind(
+            general_simplicial_set_intersection_row_ind<T, TPB_X>(
                 xrow_ind, rgraph_cols, rgraph_vals, nnz,
                 yrow_ind, ygraph_cols, ygraph_vals, ynnz,
                 n, result_ind, &result_nnz
@@ -539,14 +540,17 @@ namespace UMAPAlgo {
             MLCommon::allocate(result_vals, result_nnz);
             MLCommon::allocate(result_rows, result_nnz);
 
-            general_simplical_set_intersection(
+            general_simplicial_set_intersection<T, TPB_X>(
                 xrow_ind, rgraph_cols, rgraph_vals, nnz,
                 yrow_ind, ygraph_cols, ygraph_vals, ynnz,
                 result_ind, result_cols, result_vals,
                 result_nnz, n, params->target_weights
             );
 
-            MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind, n, result_rows, result_nnz);
+            dim3 grid_n(MLCommon::ceildiv(result_nnz, TPB_X), 1, 1);
+            dim3 blk(TPB_X, 1, 1);
+
+            MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(result_ind, n, result_rows, result_nnz);
 
             nnz_before_compress = result_nnz*2;
 
@@ -555,7 +559,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(final_cols, nnz_before_compress);
             MLCommon::allocate(final_vals, nnz_before_compress);
 
-            reset_local_connectivity(
+            reset_local_connectivity<T, TPB_X>(
                 result_ind, result_rows, result_cols,
                 result_vals, result_nnz,
                 final_rows, final_cols, final_vals, final_nnz,
@@ -580,7 +584,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(ovals, onnz);
         MLCommon::allocate(orows, onnz);
 
-        coo_remove_zeros(nnz_before_compress,
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(nnz_before_compress,
             final_rows, final_cols, final_vals,
             orows, ocols, ovals,
             final_nnz, onnz);

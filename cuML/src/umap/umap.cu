@@ -48,6 +48,13 @@ namespace ML {
         UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings);
     }
 
+
+    void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
+        this->knn = new kNN(d);
+        UMAPAlgo::_fit<float, TPB_X>(X, y, n, d, knn, get_params(), embeddings);
+    }
+
+
     /**
      * Project a set of X vectors into the embedding space.
      * @param X

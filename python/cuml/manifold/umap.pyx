@@ -63,6 +63,12 @@ cdef extern from "umap/umap.h" namespace "ML":
                  int d,
                  float *embeddings)
 
+        void fit(float *X,
+                 float *y,
+                 int n,
+                 int d,
+                 float *embeddings)
+
         void transform(float *X,
                        int n,
                        int d,
@@ -260,12 +266,14 @@ cdef class UMAP:
         return X
 
 
-    def fit(self, X):
+    def fit(self, X, y = None):
         """Fit X into an embedded space.
         Parameters
         ----------
-        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
+        X : array, shape (n_samples, n_features)
             X contains a sample per row.
+        y : array, shape (n_samples)
+            y contains a label per row.
         """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -278,11 +286,16 @@ cdef class UMAP:
 
         X_m = self._downcast(X)
 
+
         self.raw_data = X_m.device_ctypes_pointer.value
 
         self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0], self.umap_params.n_components),
                                             order = "C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
+
+        if y is not None:
+            y_m = self._downcast(y)
+
 
         self.umap.fit(
             <float*> self.raw_data,
