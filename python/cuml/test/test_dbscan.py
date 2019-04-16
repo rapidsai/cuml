@@ -48,10 +48,10 @@ def test_dbscan_predict(datatype, input_type, use_handle):
         cu_labels = cudbscan.fit_predict(gdf)
     else:
         cu_labels = cudbscan.fit_predict(X)
+    cudbscan.handle.sync()
 
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-    cudbscan.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -71,9 +71,9 @@ def test_dbscan_predict_numpy(datatype, use_handle):
     skdbscan = skDBSCAN(eps=3, min_samples=2)
     sk_labels = skdbscan.fit_predict(X)
     print(X.shape[0])
+    cudbscan.handle.sync()
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-    cudbscan.sync()
 
 
 def test_dbscan_predict_multiple_streams():
@@ -94,11 +94,11 @@ def test_dbscan_predict_multiple_streams():
     cudbscan2 = cuDBSCAN(handle=handle2, eps=3, min_samples=2)
     cu_labels1 = cudbscan1.fit_predict(gdf)
     cu_labels2 = cudbscan2.fit_predict(gdf)
+    cudbscan1.handle.sync()
+    cudbscan2.handle.sync()
     for i in range(X.shape[0]):
         assert cu_labels1[i] == sk_labels[i]
         assert cu_labels2[i] == sk_labels[i]
-    cudbscan1.sync()
-    cudbscan2.sync()
 
 
 @pytest.mark.parametrize("name", [
@@ -140,7 +140,8 @@ def test_dbscan_sklearn_comparison(name, use_handle):
     cu_y_pred, cu_n_clusters = fit_predict(clustering_algorithms[1][1],
                                            clustering_algorithms[1][0], X)
 
+    cuml_dbscan.handle.sync()
+
     assert(sk_n_clusters == cu_n_clusters)
 
     clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
-    cuml_dbscan.sync()

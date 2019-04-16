@@ -60,7 +60,7 @@ class Base:
         algo.fit(...)
         result = algo.predict(...)
         # final sync of all gpu-work launched inside this object
-        base.sync()
+        base.handle.sync()
         del base  # optional!
     """
 
@@ -77,6 +77,7 @@ class Base:
         """
         if handle is None:
             self.handle = cuml.common.handle.Handle()
+            # TODO: This will not be needed once PR #477 gets through
             self.stream = cuml.common.cuda.Stream()
             self.handle.setStream(self.stream)
         else:
@@ -125,10 +126,3 @@ class Base:
             else:
                 setattr(self, key, value)
         return self
-
-
-    def sync(self):
-        """
-        Issues a sync on the stream set for the underlying handle
-        """
-        self.handle.sync()
