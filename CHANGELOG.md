@@ -9,12 +9,14 @@
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
+- PR #463: Added matrix gather to ml primitives
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
+- PR #467: Added validity check on cumlHandle_t
 - PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
@@ -44,6 +46,8 @@
 - PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
 - PR #468: Fix dbscan example build failure
 - PR #470: Fix resource leakage in Kalman filter python wrapper
+- PR #473: Fix gather ml-prim test for change in rng uniform API
+- PR #477: Fixes default stream initialization in cumlHandle
 
 # cuML 0.6.0 (22 Mar 2019)
 
