@@ -42,9 +42,9 @@ template <typename T>
 // within its class
 template <typename T>
 void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
-                              bool inplace = false) {
+                              cudaStream_t stream, bool inplace = false) {
   coalescedReduction(dots, data, cols, rows, (T)0,
-                     inplace, 0,
+                     stream, inplace,
                      [] __device__(T in, int i) { return in * in; });
 }
 
@@ -56,20 +56,18 @@ protected:
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
     allocate(dots_exp, rows);
     allocate(dots_act, rows);
-    r.uniform(data, len, T(-1.0), T(1.0));
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
+    r.uniform(data, len, T(-1.0), T(1.0), stream);
     naiveCoalescedReduction(dots_exp, data, cols, rows, stream);
 
     // Perform reduction with default inplace = false first
-    coalescedReductionLaunch(dots_act, data, cols, rows);
+    coalescedReductionLaunch(dots_act, data, cols, rows, stream);
     // Add to result with inplace = true next
-    coalescedReductionLaunch(dots_act, data, cols, rows, true);
+    coalescedReductionLaunch(dots_act, data, cols, rows, stream, true);
 
     CUDA_CHECK(cudaStreamDestroy(stream));
   }

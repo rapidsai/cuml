@@ -42,8 +42,8 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity,
-                       stream);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, stream,
+                        verbosity);
 
   } else {
 
@@ -51,8 +51,8 @@ int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N,
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, Xptr, yptr, zptr, N, ordX);
 
-    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, verbosity,
-                       stream);
+    return qn_minimize(w, fx, num_iters, lossWith, l1, opt_param, stream,
+                        verbosity);
   }
 }
 

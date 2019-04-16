@@ -38,7 +38,7 @@ using namespace MLCommon;
 template<typename math_t>
 void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 		math_t *b, math_t *alpha, int n_alpha, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream) {
 
 	// Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
 	math_t *S_nnz;
@@ -46,19 +46,19 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 	math_t beta = math_t(0);
 	math_t thres = math_t(1e-10);
 
-	Matrix::setSmallValuesZero(S, n_cols, thres);
+	Matrix::setSmallValuesZero(S, n_cols, stream, thres);
 	allocate(S_nnz, n_cols, true);
 	copy(S_nnz, S, n_cols);
-	Matrix::power(S_nnz, n_cols);
-	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols);
-	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, true);
+	Matrix::power(S_nnz, n_cols, stream);
+	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
+	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, stream, true);
 
-	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true);
+	Matrix::matrixVectorBinaryMult(V, S, n_cols, n_cols, false, true, stream);
 	LinAlg::gemm(U, n_rows, n_cols, b, S_nnz, n_cols, 1, CUBLAS_OP_T, CUBLAS_OP_N, alp, beta,
-			cublasH);
+			cublasH, stream);
 
 	LinAlg::gemm(V, n_cols, n_cols, S_nnz, w, n_cols, 1, CUBLAS_OP_N, CUBLAS_OP_N, alp,
-			beta, cublasH);
+			beta, cublasH, stream);
 
 	CUDA_CHECK(cudaFree(S_nnz));
 }
@@ -66,7 +66,7 @@ void ridgeSolve(math_t *S, math_t *V, math_t *U, int n_rows, int n_cols,
 template<typename math_t>
 void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, DeviceAllocator &mgr) {
+              cublasHandle_t cublasH, DeviceAllocator &mgr, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"ridgeSVD: number of columns cannot be less than one");
@@ -83,9 +83,9 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(S, n_cols);
 
 	LinAlg::svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH,
-                      cublasH, mgr);
+                      cublasH, stream, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
-			cublasH);
+			cublasH, stream);
 
 	CUDA_CHECK(cudaFree(U));
 	CUDA_CHECK(cudaFree(V));
@@ -96,7 +96,7 @@ void ridgeSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 template<typename math_t>
 void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 		int n_alpha, math_t *w, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, DeviceAllocator &mgr) {
+              cublasHandle_t cublasH, DeviceAllocator &mgr, cudaStream_t stream) {
 
 	ASSERT(n_cols > 1,
 			"ridgeEig: number of columns cannot be less than two");
@@ -112,9 +112,9 @@ void ridgeEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *alpha,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
+	LinAlg::svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream, mgr);
 	ridgeSolve(S, V, U, n_rows, n_cols, b, alpha, n_alpha, w, cusolverH,
-			cublasH);
+			cublasH, stream);
 
 	CUDA_CHECK(cudaFree(U));
 	CUDA_CHECK(cudaFree(V));
@@ -125,7 +125,7 @@ template<typename math_t>
 void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 		math_t *alpha, int n_alpha, math_t *coef, math_t *intercept,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle, int algo = 0) {
+		cusolverDnHandle_t cusolver_handle, cudaStream_t stream, int algo = 0) {
 
 	ASSERT(n_cols > 0,
 			"ridgeFit: number of columns cannot be less than one");
@@ -142,17 +142,17 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 		}
 		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
         auto mgr = makeDefaultAllocator();
 
 	if (algo == 0 || n_cols == 1) {
 		ridgeSVD(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-                         cusolver_handle, cublas_handle, mgr);
+                         cusolver_handle, cublas_handle, mgr, stream);
 	} else if (algo == 1) {
 		ridgeEig(input, n_rows, n_cols, labels, alpha, n_alpha, coef,
-                         cusolver_handle, cublas_handle, mgr);
+                         cusolver_handle, cublas_handle, mgr, stream);
 	} else if (algo == 2) {
 		ASSERT(false,
 				"ridgeFit: no algorithm with this id has been implemented");
@@ -164,7 +164,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 	if (fit_intercept) {
 		postProcessData(input, n_rows, n_cols, labels, coef, intercept,
 				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		if (normalize) {
 			if (norm2_input != NULL)
@@ -184,7 +184,7 @@ void ridgeFit(math_t *input, int n_rows, int n_cols, math_t *labels,
 template<typename math_t>
 void ridgePredict(const math_t *input, int n_rows, int n_cols,
 		const math_t *coef, math_t intercept, math_t *preds,
-		cublasHandle_t cublas_handle) {
+		cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -194,9 +194,9 @@ void ridgePredict(const math_t *input, int n_rows, int n_cols,
 	math_t alpha = math_t(1);
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, n_rows, n_cols, coef, preds, n_rows, 1, CUBLAS_OP_N,
-                     CUBLAS_OP_N, alpha, beta, cublas_handle);
+                     CUBLAS_OP_N, alpha, beta, cublas_handle, stream);
 
-	LinAlg::addScalar(preds, preds, intercept, n_rows);
+	LinAlg::addScalar(preds, preds, intercept, n_rows, stream);
 
 
 }

@@ -39,7 +39,7 @@ namespace kNNGraph {
 		              float *X, int x_n, int d,
 					  long *knn_indices, T *knn_dists,
 					  kNN *knn,
-					  UMAPParams *params) {
+					  UMAPParams *params, cudaStream_t stream) {
 
 		    kNNParams *p = new kNNParams[1];
 			p[0].ptr = X;
@@ -52,7 +52,8 @@ namespace kNNGraph {
                 return sqrt(input);
             };
 
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*params->n_neighbors, adjust_vals_op);
+            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*params->n_neighbors,
+                                          adjust_vals_op, stream);
 
 			delete p;
 		}

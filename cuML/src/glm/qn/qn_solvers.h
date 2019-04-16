@@ -73,7 +73,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
                              T &fx,           // output function value
                              int *k,          // output iterations
                              SimpleVec<T> &workspace, // scratch space
-                             int verbosity = 0, cudaStream_t stream = 0) {
+                             cudaStream_t stream, int verbosity = 0) {
 
   int n = x.len;
   const int workspace_size = lbfgs_workspace_size(param, n);
@@ -188,7 +188,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
                              const T l1_penalty, const int pg_limit,
                              SimpleVec<T> &x, T &fx, int *k,
                              SimpleVec<T> &workspace, // scratch space
-                             const int verbosity = 0, cudaStream_t stream = 0) {
+                             cudaStream_t stream, const int verbosity = 0) {
 
   int n = x.len;
   const int workspace_size = owlqn_workspace_size(param, n);
@@ -226,7 +226,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   auto f_wrap = [&f, &l1_penalty, &pg_limit,
                  &stream](SimpleVec<T> &x, SimpleVec<T> &grad, T *dev_scalar,
-                          cudaStream_t stream = 0) {
+                          cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
@@ -317,8 +317,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 template <typename T, typename LossFunction>
 inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                        LossFunction &loss, const T l1,
-                       const LBFGSParam<T> &opt_param, const int verbosity = 0,
-                       cudaStream_t stream = 0) {
+                       const LBFGSParam<T> &opt_param, cudaStream_t stream,
+                       const int verbosity = 0) {
 
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
@@ -331,7 +331,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    verbosity, stream);
+                    stream, verbosity);
 
     if (verbosity > 0)
       printf("L-BFGS Done\n");
@@ -352,7 +352,7 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
                     *fx,       // output function value
                     num_iters, // output iterations
                     workspace, // scratch space
-                    verbosity, stream);
+                    stream, verbosity);
 
     if (verbosity > 0)
       printf("OWL-QN Done\n");
