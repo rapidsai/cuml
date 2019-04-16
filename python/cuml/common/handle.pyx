@@ -86,6 +86,9 @@ cdef class Handle:
     def sync(self):
         """
         Issues a sync on the stream set for this handle.
+
+        Once we make `cuml.cuda.Stream` as a mandatory option for creating `cuml.Handle`,
+        this should go away!
         """
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         cdef _Stream stream = h_.getStream()

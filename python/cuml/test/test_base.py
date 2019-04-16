@@ -18,7 +18,7 @@ import cuml
 
 def test_base_class_usage():
     base = cuml.Base()
-    base.sync()
+    base.handle.sync()
     base_params = base.get_param_names()
     assert base_params == []
     del base
@@ -29,5 +29,5 @@ def test_base_class_usage_with_handle():
     stream = cuml.cuda.Stream()
     handle.setStream(stream)
     base = cuml.Base(handle=handle)
-    base.sync()
+    base.handle.sync()
     del base
