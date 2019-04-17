@@ -105,7 +105,7 @@ void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsle
 	}
 	CUDA_CHECK(cudaGetLastError());
 
-	void *d_temp_storage = tempmem->d_split_temp_storage;
+	void *d_temp_storage = tempmem->d_split_temp_storage->data();
 	size_t temp_storage_bytes = tempmem->split_temp_storage_bytes;
 
 	int *d_num_selected_out = tempmem->d_num_selected_out->data();

@@ -20,9 +20,6 @@
 #include "../memory.cuh"
 #include <vector>
 
-template<typename T>
-T set_min_val();
-
 template<class T>
 struct GiniQuestion {
 	int bootstrapped_column;

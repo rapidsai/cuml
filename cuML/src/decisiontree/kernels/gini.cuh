@@ -22,17 +22,6 @@
 #include "gini_def.h"
 #include "cuda_utils.h"
 
-template<>
-float set_min_val() {
-	return FLT_MAX;
-}
-
-template<>
-double set_min_val() {
-	return DBL_MAX;
-}
-
-
 template<class T>
 void GiniQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
 	bootstrapped_column = cfg_bootcolumn;

@@ -16,9 +16,9 @@
 
 #pragma once
 #include <utils.h>
+#include <limits>
 #include "gini.cuh"
 #include "../memory.cuh"
-#include "atomic_minmax.h"
 #include "col_condenser.cuh"
 #include <float.h>
 #include "../algo_helper.h"
@@ -179,14 +179,14 @@ void find_best_split(const std::shared_ptr<TemporaryMemory<T>> tempmem, const in
 	}
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), (T) 0);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), (T) 0);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		T ques_val;
 		T *d_quantile = tempmem->d_quantile->data();
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
 		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, set_min_val<T>(), -set_min_val<T>(), ques_val);
+		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), ques_val);
 	}
 	return;
 }
@@ -218,7 +218,7 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const int *l
 	*/
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
-		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), set_min_val<T>());
+		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), std::numeric_limits<T>::max());
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}

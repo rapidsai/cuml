@@ -45,41 +45,45 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	int threads = 128;
 	int  num_items = n_sampled_rows * ncols; // number of items to sort across all segments (i.e., cols)
 	int  num_segments = ncols;
-	int  *d_offsets;
+	MLCommon::device_buffer<int> *d_offsets;
+	MLCommon::device_buffer<T> *d_keys_out;
 	T  *d_keys_in = tempmem->temp_data->data();
-	T  *d_keys_out;
 	int *colids = nullptr;
 
-	CUDA_CHECK(cudaMalloc((void**)&d_offsets, (num_segments + 1) * sizeof(int)));
-	CUDA_CHECK(cudaMalloc((void**)&d_keys_out, num_items * sizeof(T)));
+	d_offsets = new MLCommon::device_buffer<int>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, num_segments + 1);
+	d_keys_out = new MLCommon::device_buffer<T>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, num_items);
 
 	int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
 	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in);
 	CUDA_CHECK(cudaGetLastError());
 	blocks = MLCommon::ceildiv(ncols + 1, threads);
-	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets);
+	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, ncols, d_offsets->data());
 	CUDA_CHECK(cudaGetLastError());
 
 	// Determine temporary device storage requirements
-	void     *d_temp_storage = nullptr;
+	MLCommon::device_buffer<char> *d_temp_storage = nullptr;
 	size_t   temp_storage_bytes = 0;
-	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
-						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(T), tempmem->stream));
+	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out->data(),
+						num_items, num_segments, d_offsets->data(), d_offsets->data() + 1, 0, 8*sizeof(T), tempmem->stream));
 
 	// Allocate temporary storage
-	CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+	d_temp_storage = new MLCommon::device_buffer<char>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, temp_storage_bytes);
 
 	// Run sorting operation
-	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out,
-						num_items, num_segments, d_offsets, d_offsets + 1, 0, 8*sizeof(T), tempmem->stream));
+	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys((void *)d_temp_storage->data(), temp_storage_bytes, d_keys_in, d_keys_out->data(),
+						num_items, num_segments, d_offsets->data(), d_offsets->data() + 1, 0, 8*sizeof(T), tempmem->stream));
 
 	blocks = MLCommon::ceildiv(ncols * nbins, threads);
-	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>( d_keys_out, tempmem->d_quantile->data(), n_sampled_rows, ncols, nbins);
+	get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>(d_keys_out->data(), tempmem->d_quantile->data(), n_sampled_rows, ncols, nbins);
 	CUDA_CHECK(cudaGetLastError());
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-	CUDA_CHECK(cudaFree(d_keys_out));
-	CUDA_CHECK(cudaFree(d_offsets));
-	CUDA_CHECK(cudaFree(d_temp_storage));
+
+	d_keys_out->release(tempmem->stream);
+	d_offsets->release(tempmem->stream);
+	d_temp_storage->release(tempmem->stream);
+	delete d_keys_out;
+	delete d_offsets;
+	delete d_temp_storage;
 
 	return;
 }
