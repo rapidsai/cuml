@@ -22,10 +22,10 @@ namespace ML{
 
 void tsvdFit(cumlHandle& handle, float *input, float *components, float *singular_vals, paramsTSVD prms);
 void tsvdFit(cumlHandle& handle, double *input, double *components, double *singular_vals, paramsTSVD prms);
-void tsvdInverseTransform(float *trans_input, float *components,float *input, paramsTSVD prms);
-void tsvdInverseTransform(double *trans_input, double *components,double *input, paramsTSVD prms);
-void tsvdTransform(float *input, float *components, float *trans_input, paramsTSVD prms);
-void tsvdTransform(double *input, double *components, double *trans_input, paramsTSVD prms);
+void tsvdInverseTransform(cumlHandle& handle, float *trans_input, float *components,float *input, paramsTSVD prms);
+void tsvdInverseTransform(cumlHandle& handle, double *trans_input, double *components,double *input, paramsTSVD prms);
+void tsvdTransform(cumlHandle& handle, float *input, float *components, float *trans_input, paramsTSVD prms);
+void tsvdTransform(cumlHandle& handle, double *input, double *components, double *trans_input, paramsTSVD prms);
 void tsvdFitTransform(cumlHandle& handle, float *input, float *trans_input, float *components, float *explained_var,
                     float *explained_var_ratio, float *singular_vals, paramsTSVD prms);
 void tsvdFitTransform(cumlHandle& handle, double *input, double *trans_input, double *components, double *explained_var,
