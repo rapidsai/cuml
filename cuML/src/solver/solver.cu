@@ -320,7 +320,6 @@ void cdFit(float *input,
 		   bool normalize,
 		   int epochs,
 		   int loss,
-		   int penalty,
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
@@ -330,20 +329,6 @@ void cdFit(float *input,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-
-	MLCommon::Functions::penalty pen;
-	if (penalty == 0) {
-	    pen = MLCommon::Functions::penalty::NONE;
-	} else if (penalty == 1) {
-		pen = MLCommon::Functions::penalty::L1;
-	} else if (penalty == 2) {
-		pen = MLCommon::Functions::penalty::L2;
-	} else if (penalty == 3) {
-		pen = MLCommon::Functions::penalty::ELASTICNET;
-	} else {
-		ASSERT(false,
-				"glm.cu: penalty is not supported yet.");
-	}
 
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
@@ -364,7 +349,6 @@ void cdFit(float *input,
 			   normalize,
 			   epochs,
 			   loss_funct,
-			   pen,
 			   alpha,
 			   l1_ratio,
 			   shuffle,
@@ -372,7 +356,6 @@ void cdFit(float *input,
 			   stream,
 			   cublas_handle,
 			   cusolver_handle);
-
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -390,7 +373,6 @@ void cdFit(double *input,
 		   bool normalize,
 		   int epochs,
 		   int loss,
-		   int penalty,
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
@@ -400,20 +382,6 @@ void cdFit(double *input,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-
-	MLCommon::Functions::penalty pen;
-	if (penalty == 0) {
-	    pen = MLCommon::Functions::penalty::NONE;
-	} else if (penalty == 1) {
-		pen = MLCommon::Functions::penalty::L1;
-	} else if (penalty == 2) {
-		pen = MLCommon::Functions::penalty::L2;
-	} else if (penalty == 3) {
-		pen = MLCommon::Functions::penalty::ELASTICNET;
-	} else {
-		ASSERT(false,
-				"glm.cu: penalty is not supported yet.");
-	}
 
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
@@ -434,7 +402,6 @@ void cdFit(double *input,
 			   normalize,
 			   epochs,
 			   loss_funct,
-			   pen,
 			   alpha,
 			   l1_ratio,
 			   shuffle,

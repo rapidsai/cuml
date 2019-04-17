@@ -48,7 +48,6 @@ void cdFit(math_t *input,
 		   bool normalize,
 		   int epochs,
 		   ML::loss_funct loss,
-		   Functions::penalty penalty,
 		   math_t alpha,
 		   math_t l1_ratio,
 		   bool shuffle,
@@ -72,8 +71,8 @@ void cdFit(math_t *input,
 	math_t *loss_value = NULL;
 
 	allocate(loss_value, 1);
-	allocate(pred, n_rows);
-	allocate(squared, n_cols);
+	allocate(pred, n_rows, true);
+	allocate(squared, n_cols, true);
 
 	std::vector<math_t> h_coef(n_cols, math_t(0));
 
@@ -90,11 +89,17 @@ void cdFit(math_t *input,
 	std::mt19937 g(rand());
 	initShuffle(rand_indices, g);
 
-	if (penalty == Functions::penalty::L1)
-		alpha = alpha * n_rows;
+	math_t l2_alpha = (1 - l1_ratio) * alpha * n_rows;
+	alpha = l1_ratio * alpha * n_rows;
 
-	LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false,
-			stream);
+	if (normalize) {
+		math_t scalar = math_t(1.0) + l2_alpha;
+		Matrix::setValue(squared, squared, scalar, n_cols, stream);
+	} else {
+		LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false,
+				stream);
+		LinAlg::addScalar(squared, squared, l2_alpha, n_cols, stream);
+	}
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -105,7 +110,6 @@ void cdFit(math_t *input,
 		math_t d_coef_max = 0.0;
 		math_t coef_prev = 0.0;
 
-		// TODO: Skip the columns that has zero norm-2
 		for (int j = 0; j < n_cols; j++) {
 			math_t *coef_loc = coef + rand_indices[j];
 			math_t *squared_loc = squared + rand_indices[j];
@@ -121,15 +125,10 @@ void cdFit(math_t *input,
 			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1,
 					CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle);
 
-			if (penalty == Functions::penalty::L1) {
+			if (l1_ratio > math_t(0.0))
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
-			} else if (penalty == Functions::penalty::L2) {
-				ASSERT(false, "L2 is not supported");
-			} else if (penalty == Functions::penalty::ELASTICNET) {
-				ASSERT(false, "Elastic-Net is not supported");
-			}
 
-			LinAlg::eltwiseDivide(coef_loc, coef_loc, squared_loc, 1);
+			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1);
 
 			coef_prev = h_coef[j];
 			updateHost(&(h_coef[j]), coef_loc, 1);

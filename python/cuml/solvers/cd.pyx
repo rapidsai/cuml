@@ -36,7 +36,6 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 		   bool normalize,
 		   int epochs,
 		   int loss,
-		   int penalty,
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
@@ -53,7 +52,6 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 		   bool normalize,
 		   int epochs,
 		   int loss,
-		   int penalty,
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
@@ -146,7 +144,7 @@ class CD:
     
     """
     
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
+    def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15, 
         fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, shuffle=True):
         
         if loss in ['squared_loss']:
@@ -154,12 +152,6 @@ class CD:
         else:
             msg = "loss {!r} is not supported"
             raise TypeError(msg.format(loss))
-
-        if penalty in ['none', 'l1', 'l2', 'elasticnet']:
-            self.penalty = self._get_penalty_int(penalty)
-        else:
-            msg = "penalty {!r} is not supported"
-            raise TypeError(msg.format(penalty))
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
@@ -182,14 +174,6 @@ class CD:
         return {
             'squared_loss': 0,
         }[loss]
-
-    def _get_penalty_int(self, penalty):
-        return {
-            'none': 0,
-            'l1': 1,
-            'l2': 2,
-            'elasticnet': 3
-        }[penalty]
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -261,8 +245,7 @@ class CD:
                        <bool>self.fit_intercept,       
                        <bool>self.normalize,                    
                        <int>self.max_iter,                  
-                       <int>self.loss, 
-                       <int>self.penalty,   
+                       <int>self.loss,                       
                        <float>self.alpha,
                        <float>self.l1_ratio,
                        <bool>self.shuffle,
@@ -279,8 +262,7 @@ class CD:
                        <bool>self.fit_intercept,  
                        <bool>self.normalize,                      
                        <int>self.max_iter,                     
-                       <int>self.loss, 
-                       <int>self.penalty,   
+                       <int>self.loss,  
                        <double>self.alpha,
                        <double>self.l1_ratio,
                        <bool>self.shuffle,

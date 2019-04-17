@@ -36,8 +36,12 @@ protected:
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col, true);
 		allocate(coef2, params.n_col, true);
+		allocate(coef3, params.n_col, true);
+		allocate(coef4, params.n_col, true);
 		allocate(coef_ref, params.n_col, true);
 		allocate(coef2_ref, params.n_col, true);
+		allocate(coef3_ref, params.n_col, true);
+		allocate(coef4_ref, params.n_col, true);
 
 		T data_h[len] = { 1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0 };
 		updateDevice(data, data_h, len);
@@ -51,28 +55,47 @@ protected:
 		T coef2_ref_h[params.n_col] = { 2.53530, -0.36832 };
 		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
 
+		T coef3_ref_h[params.n_col] = { 2.932841, 1.15248 };
+		updateDevice(coef3_ref, coef3_ref_h, params.n_col);
+
+		T coef4_ref_h[params.n_col] = { 0.31327, -0.38751 };
+		updateDevice(coef4_ref, coef4_ref_h, params.n_col);
+
 		bool fit_intercept = false;
 		bool normalize = false;
-		intercept = T(0);
 		int epochs = 200;
 		T alpha = T(0.2);
-		T l1_ratio = T(0.0);
+		T l1_ratio = T(1.0);
 		bool shuffle = false;
 		T tol = T(1e-4);
 		ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
-		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L1;
 
+		intercept = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
-			  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
+			  fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle,
 			  tol,  stream, cublas_handle, cusolver_handle);
-
 
 		fit_intercept = true;
 		intercept2 = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
-					  fit_intercept, normalize, epochs, loss, pen, alpha, l1_ratio, shuffle,
+					  fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle,
 					  tol, stream, cublas_handle, cusolver_handle);
 
+
+		alpha = T(1.0);
+		l1_ratio = T(0.5);
+		fit_intercept = false;
+		intercept = T(0);
+		cdFit(data, params.n_row, params.n_col, labels, coef3, &intercept,
+					  fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle,
+					  tol, stream, cublas_handle, cusolver_handle);
+
+
+		fit_intercept = true;
+		intercept2 = T(0);
+		cdFit(data, params.n_row, params.n_col, labels, coef4, &intercept2,
+					  fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle,
+					  tol, stream, cublas_handle, cusolver_handle);
 
 		CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
@@ -91,6 +114,10 @@ protected:
 		CUDA_CHECK(cudaFree(coef_ref));
 		CUDA_CHECK(cudaFree(coef2));
 		CUDA_CHECK(cudaFree(coef2_ref));
+		CUDA_CHECK(cudaFree(coef3));
+		CUDA_CHECK(cudaFree(coef3_ref));
+		CUDA_CHECK(cudaFree(coef4));
+		CUDA_CHECK(cudaFree(coef4_ref));
 		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
@@ -98,6 +125,8 @@ protected:
 	CdInputs<T> params;
 	T *data, *labels, *coef, *coef_ref;
 	T *coef2, *coef2_ref;
+	T *coef3, *coef3_ref;
+	T *coef4, *coef4_ref;
 	T intercept, intercept2;
 	cudaStream_t stream;
 
@@ -118,6 +147,14 @@ TEST_P(CdTestF, Fit) {
 			devArrMatch(coef2_ref, coef2, params.n_col,
 					CompareApproxAbs<float>(params.tol)));
 
+	ASSERT_TRUE(
+			devArrMatch(coef3_ref, coef3, params.n_col,
+					CompareApproxAbs<float>(params.tol)));
+
+	ASSERT_TRUE(
+			devArrMatch(coef4_ref, coef4, params.n_col,
+					CompareApproxAbs<float>(params.tol)));
+
 }
 
 typedef CdTest<double> CdTestD;
@@ -129,6 +166,14 @@ TEST_P(CdTestD, Fit) {
 
 	ASSERT_TRUE(
 			devArrMatch(coef2_ref, coef2, params.n_col,
+					CompareApproxAbs<double>(params.tol)));
+
+	ASSERT_TRUE(
+			devArrMatch(coef3_ref, coef3, params.n_col,
+					CompareApproxAbs<double>(params.tol)));
+
+	ASSERT_TRUE(
+			devArrMatch(coef4_ref, coef4, params.n_col,
 					CompareApproxAbs<double>(params.tol)));
 
 }

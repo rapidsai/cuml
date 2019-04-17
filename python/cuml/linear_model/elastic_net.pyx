@@ -24,7 +24,7 @@ import cudf
 import numpy as np
 from cuml.solvers import CD
 
-class Lasso:
+class ElasticNet:
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the coefficients when
@@ -129,7 +129,7 @@ class Lasso:
     # New link : https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb
 
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-4, selection='cyclic'):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-4, selection='cyclic'):
 
         """
         Initializes the linear ridge regression class.
@@ -142,14 +142,17 @@ class Lasso:
 
         """
         self._check_alpha(alpha)
+        self._check_l1_ratio(l1_ratio)
+
         self.alpha = alpha
+        self.l1_ratio = l1_ratio
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
         self.tol = tol
-        self.culasso = None
+        self.cuElasticNet = None
         if selection in ['cyclic', 'random']:
              self.selection = selection
         else:
@@ -162,6 +165,11 @@ class Lasso:
         if alpha<= 0.0:
             msg = "alpha value has to be positive"
             raise TypeError(msg.format(alpha))
+
+    def _check_l1_ratio(self, l1_ratio):
+        if l1_ratio < 0.0 or l1_ratio > 1.0:
+            msg = "l1_ratio value has to be between 0.0 and 1.0"
+            raise TypeError(msg.format(l1_ratio))
 
     def fit(self, X, y):
         """
@@ -181,12 +189,12 @@ class Lasso:
         if self.selection == 'random':
             shuffle = True
 
-        self.culasso = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
-                          l1_ratio=1.0, shuffle=shuffle, max_iter=self.max_iter)
-        self.culasso.fit(X, y)
+        self.cuElasticNet = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
+                          l1_ratio=self.l1_ratio, shuffle=shuffle, max_iter=self.max_iter)
+        self.cuElasticNet.fit(X, y)
 
-        self.coef_ = self.culasso.coef_
-        self.intercept_ = self.culasso.intercept_
+        self.coef_ = self.cuElasticNet.coef_
+        self.intercept_ = self.cuElasticNet.intercept_
 
         return self
 
@@ -206,7 +214,7 @@ class Lasso:
 
         """
 
-        return self.culasso.predict(X)
+        return self.cuElasticNet.predict(X)
 
 
     def get_params(self, deep=True):
