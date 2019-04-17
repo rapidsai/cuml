@@ -212,8 +212,6 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
                       math_t *explained_var, math_t *explained_var_ratio,
                       math_t *singular_vals, paramsTSVD prms) {
     auto stream = handle.getStream();
-    auto cublas_handle = handle.getCublasHandle();
-    auto cusolver_handle = handle.getcusolverDnHandle();
     auto allocator = handle.getDeviceAllocator();
 
     tsvdFit(handle, input, components, singular_vals, prms);
