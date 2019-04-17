@@ -20,16 +20,176 @@
 
 #include <common/cumlHandle.hpp>
 #include <cuda_utils.h>
+#include <glm/qn/csr_mat.h>
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.h>
 #include <linalg/norm.h>
 #include <linalg/ternary_op.h>
 #include <linalg/unary_op.h>
+#include <sparse/cusparse_wrappers.h>
 
 namespace ML {
+using MLCommon::Sparse::cusparseCsrmm;
+using MLCommon::Sparse::cusparseGemmi;
+
+template <typename T> struct SimpleMat;
+template <typename T> struct CsrMat;
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
+
+// dispatch C = alpha * op(A) * op(B) + beta * C
+template <typename T, class MatA, class MatB, class MatC> struct Gemm {
+  static inline void gemm_() {
+    ASSERT(false, "simple_mat.h: Combination of matrix types not implemented.");
+  }
+};
+
+template <typename T> struct Gemm<T, SimpleMat<T>, SimpleMat<T>, SimpleMat<T>> {
+  static inline void gemm_(SimpleMat<T> &C, const T alpha,
+                           const SimpleMat<T> &A, const bool transA,
+                           const SimpleMat<T> &B, const bool transB,
+                           const T beta, const cumlHandle_impl &cuml,
+                           cudaStream_t stream) {
+
+    int kA = A.n;
+    int kB = B.m;
+
+    if (transA) {
+      ASSERT(A.n == C.m, "GEMM invalid dims: m");
+      kA = A.m;
+    } else {
+      ASSERT(A.m == C.m, "GEMM invalid dims: m");
+    }
+
+    if (transB) {
+      ASSERT(B.m == C.n, "GEMM invalid dims: n");
+      kB = B.n;
+    } else {
+      ASSERT(B.n == C.n, "GEMM invalid dims: n");
+    }
+    ASSERT(kA == kB, "GEMM invalid dims: k");
+
+    if (C.ord == COL_MAJOR && A.ord == COL_MAJOR &&
+        B.ord == COL_MAJOR) {                              // base case
+      MLCommon::LinAlg::cublasgemm(cuml.getCublasHandle(), // handle
+                                   transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
+                                   transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
+                                   C.m, C.n, kA, // dimensions m,n,k
+                                   &alpha, A.data,
+                                   A.m,         // lda
+                                   B.data, B.m, // ldb
+                                   &beta, C.data,
+                                   C.m, // ldc,
+                                   stream);
+      return;
+    }
+    if (A.ord == ROW_MAJOR) {
+      SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
+      gemm_(C, alpha, Acm, !transA, B, transB, beta, cuml, stream);
+      return;
+    }
+    if (B.ord == ROW_MAJOR) {
+      SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
+      gemm_(C, alpha, A, transA, Bcm, !transB, beta, cuml, stream);
+      return;
+    }
+    if (C.ord == ROW_MAJOR) {
+      SimpleMat<T> Ccm(C.data, C.n, C.m, COL_MAJOR);
+      gemm_(Ccm, alpha, B, !transB, A, !transA, beta, cuml, stream);
+      return;
+    }
+  }
+};
+
+template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
+  // we implement only two cases, essential to running QN GLM:
+  // Case 1: C_cm = alpha * A_cm * B_csr' + beta * C_cm
+  // - we implement it by reinterpreting B_csr' as B_csc and using
+  // cusparseGemmi
+  //
+  // Case 2: C_cm = alpha * A_cm * B_csr
+  // - we implement it as C_cm = ( alpha * B_csr' * A_cm' )'
+  // - if C_cm.m == 1, we can use cusparseCsrmm because A_cm.m = 1,
+  //    thus A_cm = A_cm' in mem
+  //   and do not need the outer transpose
+  // - if C_cm.m > 1 (multiclass/-task), we use cusparseCsrmm2
+  //    and an (inplace) transpose of the result
+  //
+  static inline void gemm_(SimpleMat<T> &C, const T alpha,
+                           const SimpleMat<T> &A, const bool transA,
+                           const CsrMat<T> &B, const bool transB, const T beta,
+                           const cumlHandle_impl &cuml, cudaStream_t stream) {
+    int kA = A.n;
+    int kB = B.m;
+
+    if (transA) {
+      ASSERT(A.n == C.m, "GEMM invalid dims: m");
+      kA = A.m;
+    } else {
+      ASSERT(A.m == C.m, "GEMM invalid dims: m");
+    }
+
+    if (transB) {
+      ASSERT(B.m == C.n, "GEMM invalid dims: n");
+      kB = B.n;
+    } else {
+      ASSERT(B.n == C.n, "GEMM invalid dims: n");
+    }
+    ASSERT(kA == kB, "GEMM invalid dims: k");
+
+    ASSERT(C.ord == COL_MAJOR && A.ord == COL_MAJOR,
+           "simple_mat.h: Storage orders of dense matrices.");
+    // Check that we are either in case 1 or 2
+    ASSERT(beta == 0 || ((!transA) && (!transB)),
+           "simple_mat.h: requested configuration not implemented.");
+    if (beta == 0) { // case 2
+      // TODO If C > 1, we would need to transpose the output of the cusparse
+      // call  However, here we do not have the necessary scratch space  We
+      // could allocate it using the cuml handle and rely on RMM's mempool  or
+      // pass in the scratch space explicitely (which is bad for the API)
+      ASSERT(C.m == 1, "simple_mat.h: multiple outputs not yet supported.");
+      // inverting transposes!
+      cusparseOperation_t opB = transB ? CUSPARSE_OPERATION_NON_TRANSPOSE
+                                       : CUSPARSE_OPERATION_TRANSPOSE;
+
+      // if B is transposed, it will not be transposed in this formulation
+      int ldc = transB ? B.m : B.n;
+      int ldb = A.n;
+      // printf("ldb %d ldc %d\n", ldb, ldc);
+      CUSPARSE_CHECK(
+          cusparseCsrmm(cuml.getcusparseHandle(),
+                        opB,           // B, the sparse matrix is A
+                        B.m,           // flip for computing the transpose
+                        1,             // A.m
+                        B.n,           // number of columns of the sparse matrix
+                        B.nnz,         // nnz
+                        &alpha,        // factor
+                        B.descr,       // no structure
+                        B.csrVal.data, // csr stuff
+                        B.csrRowPtr.data, // csr stuff
+                        B.csrColInd.data, // csr stuff
+                        A.data,           // dense
+                        ldb,              // ldb
+                        &beta,            // beta=0
+                        C.data,           // out data
+                        ldc               // ldc flipped
+                        ));
+
+    } else { // case 1
+      CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
+                                   C.m, // m = C = W.m
+                                   C.n, // n = N = X.m
+                                   A.n, // k = X.n = D
+                                   B.nnz, &alpha, A.data,
+                                   A.m, // lda = C
+                                   B.csrVal.data, B.csrRowPtr.data,
+                                   B.csrColInd.data, &beta, C.data,
+                                   C.m // ldc = C
+                                   ));
+    }
+  }
+}; // namespace ML
 
 template <typename T> struct SimpleMat {
   int m, n;
@@ -53,58 +213,14 @@ template <typename T> struct SimpleMat {
 
   void print() const { std::cout << (*this) << std::endl; }
 
+  template <typename MatB>
   inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
-                          const bool transA, const SimpleMat<T> &B,
-                          const bool transB, const T beta,
-                          const cumlHandle_impl &cuml, cudaStream_t stream) {
+                          const bool transA, const MatB &B, const bool transB,
+                          const T beta, const cumlHandle_impl &cuml,
+                          cudaStream_t stream) {
 
-    int kA = A.n;
-    int kB = B.m;
-
-    if (transA) {
-      ASSERT(A.n == this->m, "GEMM invalid dims: m");
-      kA = A.m;
-    } else {
-      ASSERT(A.m == this->m, "GEMM invalid dims: m");
-    }
-
-    if (transB) {
-      ASSERT(B.m == this->n, "GEMM invalid dims: n");
-      kB = B.n;
-    } else {
-      ASSERT(B.n == this->n, "GEMM invalid dims: n");
-    }
-    ASSERT(kA == kB, "GEMM invalid dims: k");
-
-    if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {                              // base case
-      MLCommon::LinAlg::cublasgemm(cuml.getCublasHandle(), // handle
-                                   transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
-                                   transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
-                                   this->m, this->n, kA, // dimensions m,n,k
-                                   &alpha, A.data,
-                                   A.m,         // lda
-                                   B.data, B.m, // ldb
-                                   &beta, this->data,
-                                   this->m, // ldc,
-                                   stream);
-      return;
-    }
-    if (A.ord == ROW_MAJOR) {
-      SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(alpha, Acm, !transA, B, transB, beta, cuml, stream);
-      return;
-    }
-    if (B.ord == ROW_MAJOR) {
-      SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cuml, stream);
-      return;
-    }
-    if (ord == ROW_MAJOR) {
-      SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cuml, stream);
-      return;
-    }
+    Gemm<T, SimpleMat<T>, MatB, SimpleMat<T>>::gemm_(
+        *this, alpha, A, transA, B, transB, beta, cuml, stream);
   }
 
   // this = a*x

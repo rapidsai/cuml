@@ -22,6 +22,7 @@
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
+#include <glm/qn/csr_mat.h>
 #include <glm/qn/simple_mat.h>
 #include <linalg/matrix_vector_op.h>
 #include <vector>
@@ -78,7 +79,6 @@ inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
     G.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cuml, stream);
   }
 }
-
 struct GLMDims {
 
   bool fit_intercept;
@@ -95,7 +95,7 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  const cumlHandle_impl  & cuml;
+  const cumlHandle_impl &cuml;
 
   GLMBase(int D, int C, bool fit_intercept, const cumlHandle_impl &cuml)
       : GLMDims(C, D, fit_intercept), cuml(cuml) {}
@@ -130,12 +130,13 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
     MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
   }
 
-  inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
-                        const SimpleMat<T> &Xb, const Vec &yb, Mat &Zb,
-                        cudaStream_t stream, bool initGradZero = true) {
+  template <typename MatX> // matrix type for data matrix X
+  inline void loss_grad(T *loss_val, Mat &G, const Mat &W, const MatX &Xb,
+                        const Vec &yb, Mat &Zb, cudaStream_t stream,
+                        bool initGradZero = true) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
-    linearFwd(Zb, Xb, W, cuml, stream);         // linear part: forward pass
+    linearFwd(Zb, Xb, W, cuml, stream);           // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb, stream); // loss specific part
     linearBwd(G, Xb, Zb, initGradZero, cuml,
               stream); // linear part: backward pass
@@ -146,7 +147,7 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  SimpleMat<T> X;
+  Mat X;
   Mat Z;
   Vec y;
   GLMObjective *objective;
@@ -156,6 +157,32 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
               STORAGE_ORDER ordX)
       : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N),
         Z(Zptr, obj->C, N), GLMDims(obj->C, obj->D, obj->fit_intercept) {}
+
+  // interface exposed to typical non-linear optimizers
+  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
+                      cudaStream_t stream) {
+    Mat W(wFlat.data, C, dims);
+    Mat G(gradFlat.data, C, dims);
+    objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
+    lossVal.reset(dev_scalar, 1);
+    return lossVal[0];
+  }
+};
+
+template <typename T, class GLMObjective> struct GLMWithCsrData : GLMDims {
+  typedef SimpleMat<T> Mat;
+  typedef SimpleVec<T> Vec;
+
+  CsrMat<T> X;
+  Mat Z;
+  Vec y;
+  GLMObjective *objective;
+  Vec lossVal;
+
+  GLMWithCsrData(GLMObjective *obj, const CsrMat<T> &X_, T *yptr, T *Zptr,
+                 int N, STORAGE_ORDER ordX)
+      : objective(obj), X(X_), y(yptr, N), Z(Zptr, obj->C, N),
+        GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 
   // interface exposed to typical non-linear optimizers
   inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
@@ -178,7 +205,8 @@ __global__ void modKernel(T *w, const int tidx, const T h) {
 
 template <typename T, class Loss>
 void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
-                  T *grad_w_host, T *loss_val, cudaStream_t stream, const T h = 1e-4) {
+                  T *grad_w_host, T *loss_val, cudaStream_t stream,
+                  const T h = 1e-4) {
   int len = loss.n_param;
   SimpleVecOwning<T> w_mod(len), grad(len), lossVal(1);
 
@@ -188,12 +216,14 @@ void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
     CUDA_CHECK(
         cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
 
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d, h);
+    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d,
+                                                               h);
     cudaThreadSynchronize();
 
     lph = loss(w_mod, grad, lossVal.data, stream);
 
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d, -2 * h);
+    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d,
+                                                               -2 * h);
     cudaThreadSynchronize();
     lmh = loss(w_mod, grad, lossVal.data, stream);
     grad_w_host[d] = (lph - lmh) / (2 * h);
