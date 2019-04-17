@@ -154,7 +154,6 @@ template<typename math_t>
 void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
 		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms) {
     auto stream = handle.getStream();
-    auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -171,7 +170,7 @@ void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, mat
                                                        prms.n_rows, prms.n_components, true, true, stream);
 	}
 
-	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle, stream);
+	tsvdInverseTransform(handle, trans_input, components, input, prms);
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {
@@ -208,7 +207,6 @@ template<typename math_t>
 void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
 		math_t *singular_vals, math_t *mu, paramsPCA prms) {
     auto stream = handle.getStream();
-    auto cublas_handle = handle.getCublasHandle();
     auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(prms.n_cols > 1,
@@ -227,7 +225,7 @@ void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *componen
 	}
 
 	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
+	tsvdTransform(handle, input, components, trans_input, prms);
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {

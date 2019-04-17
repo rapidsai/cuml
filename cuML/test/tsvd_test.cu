@@ -48,12 +48,6 @@ template<typename T>
 class TsvdTest: public ::testing::TestWithParam<TsvdInputs<T> > {
 protected:
 	void basicTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -85,18 +79,9 @@ protected:
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
 		tsvdFit(handle.getImpl(), data, components, singular_vals, prms);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
 	}
 
 	void advancedTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
@@ -130,10 +115,8 @@ protected:
                                  singular_vals2, prms);
 
 		allocate(data2_back, len);
-		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle, stream);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		tsvdInverseTransform(handle.getImpl(), data2_trans, components2,
+                                     data2_back, prms);
 	}
 
 	void SetUp() override {

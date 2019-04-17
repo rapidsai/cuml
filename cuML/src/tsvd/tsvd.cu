@@ -46,69 +46,24 @@ void tsvdFitTransform(cumlHandle& handle, double *input, double *trans_input, do
                      explained_var_ratio, singular_vals, prms);
 }
 
-void tsvdTransform(float *input, float *components, float *trans_input,
-		paramsTSVD prms) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+void tsvdTransform(cumlHandle& handle, float *input, float *components, float *trans_input,
+                   paramsTSVD prms) {
+    tsvdTransform(handle.getImpl(), input, components, trans_input, prms);
 }
 
-void tsvdTransform(double *input, double *components, double *trans_input,
-		paramsTSVD prms) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+void tsvdTransform(cumlHandle& handle, double *input, double *components, double *trans_input,
+                   paramsTSVD prms) {
+    tsvdTransform(handle.getImpl(), input, components, trans_input, prms);
 }
 
-void tsvdInverseTransform(float *trans_input, float *components, float *input,
-		paramsTSVD prms) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+void tsvdInverseTransform(cumlHandle& handle, float *trans_input, float *components, float *input,
+                          paramsTSVD prms) {
+    tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms);
 }
 
-void tsvdInverseTransform(double *trans_input, double *components,
-		double *input, paramsTSVD prms) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+void tsvdInverseTransform(cumlHandle& handle, double *trans_input, double *components,
+                          double *input, paramsTSVD prms) {
+    tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms);
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML

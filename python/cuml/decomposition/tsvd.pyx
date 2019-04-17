@@ -65,22 +65,26 @@ cdef extern from "tsvd/tsvd_c.h" namespace "ML":
                                double *singular_vals,
                                paramsTSVD prms)
 
-    cdef void tsvdInverseTransform(float *trans_input,
+    cdef void tsvdInverseTransform(cumlHandle& handle,
+                                   float *trans_input,
                                    float *components,
                                    float *input,
                                    paramsTSVD prms)
 
-    cdef void tsvdInverseTransform(double *trans_input,
+    cdef void tsvdInverseTransform(cumlHandle& handle,
+                                   double *trans_input,
                                    double *components,
                                    double *input,
                                    paramsTSVD prms)
 
-    cdef void tsvdTransform(float *input,
+    cdef void tsvdTransform(cumlHandle& handle,
+                            float *input,
                             float *components,
                             float *trans_input,
                             paramsTSVD prms)
 
-    cdef void tsvdTransform(double *input,
+    cdef void tsvdTransform(cumlHandle& handle,
+                            double *input,
                             double *components,
                             double *trans_input,
                             paramsTSVD prms)
@@ -158,18 +162,22 @@ class TruncatedSVD(Base):
 
     Parameters
     -----------
-    n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
     algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
     n_iter : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
         but the more slower the algorithm will get to converge.
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
+    verbose : bool
+        Whether to print debug spews
 
     Attributes
     -----------
@@ -210,6 +218,7 @@ class TruncatedSVD(Base):
         self.random_state = random_state
         self.tol = tol
         self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
+        # atrributes
         self.components_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
@@ -315,23 +324,23 @@ class TruncatedSVD(Base):
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if not _transform:
             if self.gdf_datatype.type == np.float32:
-                tsvdFit(h_[0],
+                tsvdFit(handle_[0],
                         <float*> input_ptr,
                         <float*> components_ptr,
                         <float*> singular_vals_ptr,
                         params)
             else:
-                tsvdFit(h_[0],
+                tsvdFit(handle_[0],
                         <double*> input_ptr,
                         <double*> components_ptr,
                         <double*> singular_vals_ptr,
                         params)
         else:
             if self.gdf_datatype.type == np.float32:
-                tsvdFitTransform(h_[0],
+                tsvdFitTransform(handle_[0],
                                  <float*> input_ptr,
                                  <float*> trans_input_ptr,
                                  <float*> components_ptr,
@@ -340,7 +349,7 @@ class TruncatedSVD(Base):
                                  <float*> singular_vals_ptr,
                                  params)
             else:
-                tsvdFitTransform(h_[0],
+                tsvdFitTransform(handle_[0],
                                  <double*> input_ptr,
                                  <double*> trans_input_ptr,
                                  <double*> components_ptr,
@@ -428,13 +437,17 @@ class TruncatedSVD(Base):
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if gdf_datatype.type == np.float32:
-            tsvdInverseTransform(<float*> trans_input_ptr,
+            tsvdInverseTransform(handle_[0],
+                                        <float*> trans_input_ptr,
                                         <float*> components_ptr,
                                         <float*> input_ptr,
                                         params)
         else:
-            tsvdInverseTransform(<double*> trans_input_ptr,
+            tsvdInverseTransform(handle_[0],
+                                        <double*> trans_input_ptr,
                                         <double*> components_ptr,
                                         <double*> input_ptr,
                                         params)
@@ -492,13 +505,17 @@ class TruncatedSVD(Base):
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if gdf_datatype.type == np.float32:
-            tsvdTransform(<float*> input_ptr,
+            tsvdTransform(handle_[0],
+                                 <float*> input_ptr,
                                  <float*> components_ptr,
                                  <float*> trans_input_ptr,
                                  params)
         else:
-            tsvdTransform(<double*> input_ptr,
+            tsvdTransform(handle_[0],
+                                 <double*> input_ptr,
                                  <double*> components_ptr,
                                  <double*> trans_input_ptr,
                                  params)
@@ -512,5 +529,4 @@ class TruncatedSVD(Base):
 
 
     def get_param_names(self):
-        return super(Base, self).get_param_names() + \
-            ["algorithm", "n_components", "n_iter", "random_state", "tol"]
+        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]

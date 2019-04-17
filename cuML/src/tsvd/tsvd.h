@@ -217,7 +217,7 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
     auto allocator = handle.getDeviceAllocator();
 
     tsvdFit(handle, input, components, singular_vals, prms);
-    tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
+    tsvdTransform(handle, input, components, trans_input, prms);
 
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
              prms.n_cols, stream);
@@ -248,14 +248,16 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
+ * @input param handle the internal cuml handle object
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 template<typename math_t>
-void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
-		paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void tsvdTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
+		paramsTSVD prms) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto stream = handle.getStream();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -273,15 +275,17 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
 
 /**
  * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to original data.
+ * @input param handle the internal cuml handle object
  * @input param trans_input: the data is fitted to PCA. Size n_rows x n_components.
  * @input param components: transpose of the principal components of the input data. Size n_components * n_cols.
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
  */
 template<typename math_t>
-void tsvdInverseTransform(math_t *trans_input, math_t *components,
-		math_t *input, paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void tsvdInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
+                          math_t *input, paramsTSVD prms) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto stream = handle.getStream();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -299,8 +303,4 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML
