@@ -30,10 +30,9 @@
 namespace ML {
 namespace GLM {
 
-template <typename T>
-inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
-                      const SimpleMat<T> &W, const cumlHandle_impl &cuml,
-                      cudaStream_t stream) {
+template <typename T, typename MatX>
+inline void linearFwd(SimpleMat<T> &Z, const MatX &X, const SimpleMat<T> &W,
+                      const cumlHandle_impl &cuml, cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
   const int D = X.n;
@@ -55,10 +54,10 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
   }
 }
 
-template <typename T>
-inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
-                      const SimpleMat<T> &dZ, bool setZero,
-                      const cumlHandle_impl &cuml, cudaStream_t stream) {
+template <typename T, typename MatX>
+inline void linearBwd(SimpleMat<T> &G, const MatX &X, const SimpleMat<T> &dZ,
+                      bool setZero, const cumlHandle_impl &cuml,
+                      cudaStream_t stream) {
   // Backward pass:
   // - compute G <- dZ * X.T
   // - for bias: Gb = mean(dZ, 1)
@@ -180,7 +179,7 @@ template <typename T, class GLMObjective> struct GLMWithCsrData : GLMDims {
   Vec lossVal;
 
   GLMWithCsrData(GLMObjective *obj, const CsrMat<T> &X_, T *yptr, T *Zptr,
-                 int N, STORAGE_ORDER ordX)
+                 int N)
       : objective(obj), X(X_), y(yptr, N), Z(Zptr, obj->C, N),
         GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 

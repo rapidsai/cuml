@@ -371,5 +371,67 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
+TEST_F(QuasiNewtonTest, dense_vs_sparse) {
+  const cumlHandle_impl &cuml = cuml_user.getImpl();
+
+  CompareApprox<double> compApprox(tol);
+  // Test case generated in python and solved with sklearn
+  double yhost[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
+
+  std::vector<double> Xsparsified(N * D, 0);
+  int nnz = 0;
+  const double *Xptr = &X[0][0];
+  for (int it = 0; it < N * D; it++) {
+    if (std::abs(Xptr[it]) < 0.5) {
+      Xsparsified[it] = Xptr[it];
+      nnz++;
+    }
+  }
+  SimpleMatOwning<double> X(N, D, COL_MAJOR);
+  updateDevice(X.data, &Xsparsified[0], X.len);
+  SimpleVecOwning<double> y(N);
+  updateDevice(y.data, &yhost[0], y.len);
+  SimpleVecOwning<double> csrVal(nnz);
+  SimpleVecOwning<int> csrRowPtr(N + 1);
+  SimpleVecOwning<int> csrColInd(nnz);
+
+  SimpleVecOwning<int> nnzPerRow(N);
+  SimpleVecOwning<double> tmp(N);
+  int nnzTotal;
+
+  cusparseMatDescr_t descr;
+  CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
+  cusparseDnnz(cuml.getcusparseHandle(), CUSPARSE_DIRECTION_ROW, N, D, descr,
+               X.data, N, nnzPerRow.data, &nnzTotal);
+
+  cusparseDdense2csr(cuml.getcusparseHandle(), N, D, descr, X.data, N,
+                     nnzPerRow.data, csrVal.data, csrRowPtr.data,
+                     csrColInd.data);
+
+  LogisticLoss<double> logLoss(D, false, cuml);
+  GLMWithData<double, decltype(logLoss)> lossDense(&logLoss, X.data, y.data,
+                                                   tmp.data, N, COL_MAJOR);
+  LBFGSParam<double> opt_param;
+  opt_param.epsilon = 1e-5;
+  opt_param.max_iterations = 100;
+  opt_param.m = 2;
+  opt_param.max_linesearch = 50;
+  SimpleVecOwning<double> w(logLoss.n_param);
+
+  double fxd, fxs;
+  int num_iters;
+  double l1 = 0.001;
+  qn_minimize(w, &fxd, &num_iters, lossDense, l1, opt_param, cuml, 0);
+
+  CsrMat<double> csr(csrVal.data, csrRowPtr.data, csrColInd.data, N, D, nnz);
+  GLMWithCsrData<double, decltype(logLoss)> lossSparse(&logLoss, csr, y.data,
+                                                       tmp.data, N);
+
+  w.fill(0);
+  qn_minimize(w, &fxs, &num_iters, lossSparse, l1, opt_param, cuml, 0);
+
+  ASSERT_TRUE(compApprox(fxd, fxs));
+}
+
 } // namespace GLM
 } // end namespace ML
