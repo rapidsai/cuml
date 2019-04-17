@@ -410,16 +410,78 @@ void batched_kalman_loglike(double* d_vs, double* d_Fs, double* d_sumLogFs, int 
 
 }
 
-void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
-                           int nobs,
-                           const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
-                           const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
-                           const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
-                           int r,
-                           vector<double*>& h_vs_b,
-                           vector<double*>& h_Fs_b,
-                           vector<double>& h_loglike_b,
-                           vector<double>& h_sigma2_b) {
+// Internal Kalman filter implementation that assumes data exists on GPU.
+void _batched_kalman_filter(double* d_ys,
+                            int nobs,
+                            const BatchedMatrix& Zb,
+                            const BatchedMatrix& Tb,
+                            const BatchedMatrix& Rb,
+                            int r,
+                            double* d_vs,
+                            double* d_Fs,
+                            double* d_loglike,
+                            double* d_sigma2) {
+
+  const size_t num_batches = Zb.batches();
+
+  BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
+
+  // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
+  BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
+
+  // init alpha to zero
+  BatchedMatrix alpha(r, 1, num_batches, Zb.pool(), true);
+
+  // init vs, Fs
+  // In batch-major format.
+  double* d_sumlogFs;
+  
+  allocate(d_sumlogFs, num_batches);
+
+  CUDA_CHECK(cudaPeekAtLastError());
+  
+  // Reference implementation
+  // For it = 1:nobs
+  //  // 1.
+  //   vs[it] = ys[it] - alpha(0,0);
+  //  // 2.
+  //   Fs[it] = P(0,0);
+
+  //   if(Fs[it] < 0) {
+  //     std::cout << "P=" << P << "\n";
+  //     throw std::runtime_error("ERROR: F < 0");
+  //   }
+  //   3.
+  //   MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
+  //   4.
+  //   alpha = T*alpha + K*vs[it];
+  //   5.
+  //   MatrixT L = T - K*Z;
+  //   6.
+  //   P = T * P * L.transpose() + R * R.transpose();
+  //   loglikelihood += std::log(Fs[it]);
+  // }
+
+  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs, d_sumlogFs);
+
+  // Finalize loglikelihood
+  // 7. & 8.
+  // double sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
+  // double loglike = -.5 * (loglikelihood + nobs * std::log(sigma2));
+  // loglike -= nobs / 2. * (std::log(2 * M_PI) + 1);
+  
+  batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, num_batches, d_sigma2, d_loglike);
+
+  
+}
+
+void batched_kalman_filter_cudf(double* d_ys,
+                                int nobs,
+                                const std::vector<double*>& h_Zb,
+                                const std::vector<double*>& h_Rb,
+                                const std::vector<double*>& h_Tb,
+                                int r,
+                                std::vector<double>& h_loglike_b) {
 
   nvtxNameOsThread(0, "MAIN");
   nvtxRangePush(__FUNCTION__);
@@ -428,20 +490,6 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
 
   ////////////////////////////////////////////////////////////
   // xfer from host to device
-
-  //TODO: Far too many allocations for these. Definitely want to fix after getting this working
-
-  double* d_ys;
-  allocate(d_ys, num_batches*ys_len);
-  {
-    std::vector<double> h_ys(num_batches*ys_len);
-    for(int bi=0; bi<num_batches; bi++) {
-      for (int it = 0; it < nobs; it++) {
-        h_ys[it + bi * nobs] = h_ys_b[bi][it];
-      }
-    }
-    updateDevice(d_ys, h_ys.data(), h_ys.size());
-  }
   auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
 
   BatchedMatrix Zb(1, r, num_batches, memory_pool);
@@ -478,61 +526,113 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
 
   ////////////////////////////////////////////////////////////
   // Computation
-  
-  BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
-
-  // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
-  BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
-
-  // init alpha to zero
-  BatchedMatrix alpha(r, 1, num_batches, memory_pool, true);
-
-  // init vs, Fs
-  // In batch-major format.
   double* d_vs;
   double* d_Fs;
-  double* d_sumlogFs;
   allocate(d_vs, ys_len*num_batches);
   allocate(d_Fs, ys_len*num_batches);
-  allocate(d_sumlogFs, num_batches);
+  
+  double* d_loglike;
+  double* d_sigma2;
+  allocate(d_sigma2, num_batches);
+  allocate(d_loglike, num_batches);
 
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike, d_sigma2);
+
+  ////////////////////////////////////////////////////////////
+  // xfer results from GPU
+
+  h_loglike_b.resize(num_batches);
+  updateHost(h_loglike_b.data(), d_loglike, num_batches);
   CUDA_CHECK(cudaPeekAtLastError());
 
+  ////////////////////////////////////////////////////////////
+  // free memory
+  CUDA_CHECK(cudaFree(d_vs));
+  CUDA_CHECK(cudaFree(d_Fs));
+  CUDA_CHECK(cudaFree(d_sigma2));
+  CUDA_CHECK(cudaFree(d_loglike));  
+  nvtxRangePop();
+}
+
+
+
+void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
+                           int nobs,
+                           const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
+                           const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
+                           const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
+                           int r,
+                           vector<double*>& h_vs_b,
+                           vector<double*>& h_Fs_b,
+                           vector<double>& h_loglike_b,
+                           vector<double>& h_sigma2_b) {
+
+  nvtxNameOsThread(0, "MAIN");
+  nvtxRangePush(__FUNCTION__);
+  const size_t ys_len = nobs;
+  const size_t num_batches = h_Zb.size();
+
+  ////////////////////////////////////////////////////////////
+  // xfer from host to device
+
+  double* d_ys;
+  allocate(d_ys, num_batches*ys_len);
+  {
+    std::vector<double> h_ys(num_batches*ys_len);
+    for(int bi=0; bi<num_batches; bi++) {
+      for (int it = 0; it < nobs; it++) {
+        h_ys[it + bi * nobs] = h_ys_b[bi][it];
+      }
+    }
+    updateDevice(d_ys, h_ys.data(), h_ys.size());
+  }
+
+  auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
+
+  BatchedMatrix Zb(1, r, num_batches, memory_pool);
+  BatchedMatrix Tb(r, r, num_batches, memory_pool);
+  BatchedMatrix Rb(r, 1, num_batches, memory_pool);
+  {
+    //Tb
+    std::vector<double> matrix_copy(r*r*num_batches);
+    for(int bi=0;bi<num_batches;bi++) {
+      for(int i=0;i<r*r;i++) {
+        matrix_copy[i + bi*r*r] = h_Tb[bi][i];
+      }
+    }
+    updateDevice(Tb[0],matrix_copy.data(),r*r*num_batches);
+
+    //Zb
+    for(int bi=0;bi<num_batches;bi++) {
+      for(int i=0;i<r;i++) {
+        matrix_copy[i + bi*r] = h_Zb[bi][i];
+      }
+    }
+    updateDevice(Zb[0],matrix_copy.data(),r*num_batches);
+
+    // Rb
+    for(int bi=0;bi<num_batches;bi++) {
+      for(int i=0;i<r;i++) {
+        matrix_copy[i + bi*r] = h_Rb[bi][i];
+      }
+    }
+    updateDevice(Rb[0],matrix_copy.data(),r*num_batches);
+  }
   
-  // Reference implementation
-  // For it = 1:nobs
-  //  // 1.
-  //   vs[it] = ys[it] - alpha(0,0);
-  //  // 2.
-  //   Fs[it] = P(0,0);
+  CUDA_CHECK(cudaPeekAtLastError());
 
-  //   if(Fs[it] < 0) {
-  //     std::cout << "P=" << P << "\n";
-  //     throw std::runtime_error("ERROR: F < 0");
-  //   }
-  //   3.
-  //   MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
-  //   4.
-  //   alpha = T*alpha + K*vs[it];
-  //   5.
-  //   MatrixT L = T - K*Z;
-  //   6.
-  //   P = T * P * L.transpose() + R * R.transpose();
-  //   loglikelihood += std::log(Fs[it]);
-  // }
-
-  batched_kalman_loop(d_ys, nobs, Tb, Zb, RRT, P, alpha, r, d_vs, d_Fs, d_sumlogFs);
-
-  // Finalize loglikelihood
-  // 7. & 8.
-  // double sigma2 = ((vs.array().pow(2.0)).array() / Fs.array()).mean();
-  // double loglike = -.5 * (loglikelihood + nobs * std::log(sigma2));
-  // loglike -= nobs / 2. * (std::log(2 * M_PI) + 1);
-  double* sigma2;
-  allocate(sigma2, num_batches);
-  double* loglike;
-  allocate(loglike, num_batches);
-  batched_kalman_loglike(d_vs, d_Fs, d_sumlogFs, nobs, num_batches, sigma2, loglike);
+  ////////////////////////////////////////////////////////////
+  // Computation
+  double* d_vs;
+  double* d_Fs;
+  allocate(d_vs, ys_len*num_batches);
+  allocate(d_Fs, ys_len*num_batches);
+  
+  double* d_loglike;
+  double* d_sigma2;
+  allocate(d_sigma2, num_batches);
+  allocate(d_loglike, num_batches);
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike, d_sigma2);
   
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
@@ -560,16 +660,15 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
     }
   }
 
-  updateHost(h_loglike_b.data(), loglike, num_batches);
-  updateHost(h_sigma2_b.data(), sigma2, num_batches);
+  updateHost(h_loglike_b.data(), d_loglike, num_batches);
+  updateHost(h_sigma2_b.data(), d_sigma2, num_batches);
   CUDA_CHECK(cudaPeekAtLastError());
   ////////////////////////////////////////////////////////////
   // free memory
-  cudaFree(d_ys);
-  cudaFree(d_vs);
-  cudaFree(d_Fs);
-  cudaFree(sigma2);
-  cudaFree(loglike);
-  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaFree(d_ys));
+  CUDA_CHECK(cudaFree(d_vs));
+  CUDA_CHECK(cudaFree(d_Fs));
+  CUDA_CHECK(cudaFree(d_sigma2));
+  CUDA_CHECK(cudaFree(d_loglike));
   nvtxRangePop();
 }

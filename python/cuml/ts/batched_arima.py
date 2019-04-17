@@ -3,10 +3,106 @@ import numpy as np
 from typing import List, Tuple
 from .arima import ARIMAModel, loglike, predict_in_sample
 from .kalman import init_kalman_matrices
-from .batched_kalman import batched_kfilter
+from .batched_kalman import batched_kfilter, cudf_kfilter
 import scipy.optimize as opt
 from IPython.core.debugger import set_trace
+import cudf
 
+class BatchedARIMAModel:
+    r"""
+    The Batched ARIMA model fits the following to each given input:
+    if d=1:
+      \delta \tilde{y}_{t} = \mu + \sum_{i=1}^{p} \phi_i \delta y_{t-i}
+                                    + \sum_{i=1}^{q} \theta_i (y_{t-i} -
+                                                                 \tilde{y}_{t-i})
+
+    Note all fitted parameters, \mu, \phi_i, \theta_i.
+    """
+
+    def __init__(self, order: List[Tuple[int, int, int]],
+                 mu: np.ndarray,
+                 ar_params: List[np.ndarray],
+                 ma_params: List[np.ndarray],
+                 y: cudf.DataFrame):
+        self.order = order
+        self.mu = mu
+        self.ar_params = ar_params
+        self.ma_params = ma_params
+        self.y = y
+        self.num_samples = y.shape[0]  # shape is (num_samples, num_batches)
+        self.num_batches = y.shape[1]
+
+    def __repr__(self):
+        return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
+                                                                    self.ar_params, self.ma_params)
+
+    def __str__(self):
+        return self.__repr__()
+
+    @staticmethod
+    def fit(y: cudf.DataFrame,
+            order: Tuple[int, int, int],
+            mu0: float,
+            ar_params0: np.ndarray,
+            ma_params0: np.ndarray):
+        """
+        Fits the ARIMA model to each time-series (batched together in a cuDF
+        Dataframe) with the given initial parameters.
+
+        """
+        num_series = len(y.shape[0])
+        p, d, q = order
+        num_parameters = 1 + p + q
+
+        num_batches = y.shape[1]
+
+        def bf(x):
+            mu = np.zeros(num_batches)
+            arparams = []
+            maparams = []
+            for i in range(num_batches):
+                xi = x[i*num_parameters:(i+1)*num_parameters]
+                mu[i] = xi[0]
+                arparams.append(xi[1:p+1])
+                maparams.append(xi[p+1:])
+                
+            b_model = BatchedARIMAModel([order]*num_batches,
+                                        mu,
+                                        arparams,
+                                        maparams,
+                                        y)
+        
+            ll_b = BatchedARIMAModel.loglike(b_model)
+
+            # note: we, maximize the log likelihood, or conversely, minimize
+            # the negative log likelihood
+            return -ll_b.sum()
+
+        x0 = np.r_[mu0, ar_params0, ma_params0]
+        x0 = np.tile(x0, num_series)
+
+        x, f_final, res = opt.fmin_l_bfgs_b(bf, x0, approx_grad=True)
+
+    @staticmethod
+    def loglike(model) -> np.ndarray:
+        b_ar_params = model.ar_params
+        b_ma_params = model.ma_params
+        Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
+
+        # TODO: Only do this if d==1
+        # TODO: Try to make the following pipeline work in cuDF
+        y_diff = model.y.to_pandas().diff().dropna()
+
+        B0 = np.zeros(model.num_batches)
+        for (i, (mu, ar)) in enumerate(zip(model.mu, model.ar_params)):
+            B0[i] = mu/(1-np.sum(ar))
+
+        y_diff_centered = cudf.from_pandas(y_diff-B0)
+        
+        ll_b = cudf_kfilter(y_diff_centered, Zb, Rb, Tb, r)
+
+        return ll_b
+        
 
 def batched_fit(v_y, order: Tuple[int, int, int], mu0: float,
                 arparams0, maparams0) -> List[ARIMAModel]:
@@ -37,6 +133,7 @@ def batched_fit(v_y, order: Tuple[int, int, int], mu0: float,
     x0 = np.tile(x0, num_series)
 
     x, f_final, res = opt.fmin_l_bfgs_b(bf, x0, approx_grad=True)
+
 
     models = []
     for i in range(num_series):

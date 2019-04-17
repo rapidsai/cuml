@@ -167,6 +167,27 @@ public:
     m_pool->remove(m_shape, A);
   }
 
+  //! Constructor for an existing device pointer. Note that the matrix memory is
+  //! *NOT* managed by the memory pool in this case.
+  BatchedMatrix(double* d_A, int m, int n, int num_batches,
+                std::shared_ptr<BatchedMatrixMemoryPool> pool)
+    : m_gpu(false), m_num_batches(num_batches), m_pool(pool) {
+    m_shape = std::make_pair(m, n);
+    m_A_dense = d_A;
+    // m_A_batches =
+    double** A_array;
+    allocate(A_array, num_batches);
+
+    // fill array of pointers to each batch matrix.
+    auto counting = thrust::make_counting_iterator(0);
+    thrust::for_each(counting, counting + num_batches,
+                     [=]__device__(int bid){
+                       A_array[bid] = &(m_A_dense[bid*m*n]);
+                     });
+    m_A_batches = std::shared_ptr<double*>(A_array, [](double** A){cudaFreeT(A);});
+  }
+
+  //! Constructor that allocates memory using the memory pool.
   BatchedMatrix(int m, int n, int num_batches,
                 std::shared_ptr<BatchedMatrixMemoryPool> pool,
                 bool setZero=false, bool gpu=true) : m_gpu(gpu),
@@ -181,11 +202,20 @@ public:
     // get memory from memory pool
     auto memory = m_pool->get(m_shape, setZero);
     m_A_dense = memory.first;
+
+    // Take these references to extract them from member-storage for the
+    // lambda below. There are better C++14 ways to do this, but I'll keep it C++11 for now.
     auto& shape = m_shape;
     auto& this_pool = m_pool;
+
+    // note: we create this "free" function with explicit copies to ensure that the
+    // pool-removal function gets called with the correct values.
     auto f = [shape, this_pool](double** A){
                this_pool->remove(shape, A);
              };
+
+    // When this shared pointer count goes to 0, `f` is called which set this
+    // pointer to "unused" in the memory pool.
     m_A_batches = std::shared_ptr<double*>(memory.second, f);
     
   }
