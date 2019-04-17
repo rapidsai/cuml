@@ -15,8 +15,6 @@
  */
 
 #pragma once
-#include <thrust/sort.h>
-#include "atomic_minmax.h"
 #include "cuda_utils.h"
 
 template<typename T>
@@ -83,16 +81,16 @@ __global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const un
 		int index = rowids[ i % nrows] + myrowstart;
 		T coldata = data[index];
 
-		atomicMinFD(&minshared[newcolid], coldata);
-		atomicMaxFD(&maxshared[newcolid], coldata);
+		MLCommon::myAtomicMin(&minshared[newcolid], coldata);
+		MLCommon::myAtomicMax(&maxshared[newcolid], coldata);
 		sampledcols[i] = coldata;
 	}
 
 	__syncthreads();
 
 	for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
-		atomicMinFD(&globalmin[j], minshared[j]);
-		atomicMaxFD(&globalmax[j], maxshared[j]);
+		MLCommon::myAtomicMin(&globalmin[j], minshared[j]);
+		MLCommon::myAtomicMax(&globalmax[j], maxshared[j]);
 	}
 
 	return;

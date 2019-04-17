@@ -40,7 +40,7 @@ struct TemporaryMemory
 	//Below pointers are shared for split functions
 	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
 
-	void *d_split_temp_storage = nullptr;
+	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
 	size_t split_temp_storage_bytes = 0;
 
 	MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
@@ -56,7 +56,9 @@ struct TemporaryMemory
 	MLCommon::device_buffer<T> *d_quantile = nullptr;
 	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
 
-	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo)
+	const ML::cumlHandle_impl& ml_handle;
+
+	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
 	{
 
 		//Create Streams
@@ -93,7 +95,7 @@ struct TemporaryMemory
 		question_value = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
 
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
-		CUDA_CHECK(cudaMalloc((void**)&d_split_temp_storage, split_temp_storage_bytes));
+		d_split_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, split_temp_storage_bytes);
 
 		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
 
@@ -133,7 +135,7 @@ struct TemporaryMemory
 		}
 
 		sampledlabels->release(stream);
-		cudaFree(d_split_temp_storage);
+		d_split_temp_storage->release(stream);
 		d_num_selected_out->release(stream);
 		d_flags_left->release(stream);
 		d_flags_right->release(stream);
@@ -142,6 +144,7 @@ struct TemporaryMemory
 		h_histout->release(stream);
 
 		delete sampledlabels;
+		delete d_split_temp_storage;
 		delete d_num_selected_out;
 		delete d_flags_left;
 		delete d_flags_right;
