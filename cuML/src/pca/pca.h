@@ -76,7 +76,6 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
             math_t *noise_vars, paramsPCA prms) {
     auto stream = handle.getStream();
     auto cublas_handle = handle.getCublasHandle();
-    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -207,7 +206,6 @@ template<typename math_t>
 void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
 		math_t *singular_vals, math_t *mu, paramsPCA prms) {
     auto stream = handle.getStream();
-    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
