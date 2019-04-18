@@ -41,8 +41,8 @@ using namespace MLCommon;
 
 template<typename math_t>
 void calCompExpVarsSvd(const cumlHandle_impl& handle, math_t *in, math_t *components, math_t *singular_vals,
-                       math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms) {
-    auto stream = handle.getStream();
+                       math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms,
+                       cudaStream_t stream) {
     auto cusolver_handle = handle.getcusolverDnHandle();
     auto cublas_handle = handle.getCublasHandle();
     auto allocator = handle.getDeviceAllocator();
@@ -77,8 +77,7 @@ void calCompExpVarsSvd(const cumlHandle_impl& handle, math_t *in, math_t *compon
 
 template<typename math_t>
 void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
-            math_t *explained_var, paramsTSVD prms) {
-    auto stream = handle.getStream();
+            math_t *explained_var, paramsTSVD prms, cudaStream_t stream) {
     auto cusolver_handle = handle.getcusolverDnHandle();
     auto allocator = handle.getDeviceAllocator();
 
@@ -152,11 +151,11 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
  * @output param components: the principal components of the input data. Size n_cols * n_components.
  * @output param singular_vals: singular values of the data. Size n_components * 1
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
-             math_t *singular_vals, paramsTSVD prms) {
-    auto stream = handle.getStream();
+             math_t *singular_vals, paramsTSVD prms, cudaStream_t stream) {
     auto cublas_handle = handle.getCublasHandle();
     auto allocator = handle.getDeviceAllocator();
 
@@ -186,7 +185,7 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
                                             handle.getStream(), prms.n_cols);
 
     calEig(handle, input_cross_mult.data(), components_all.data(),
-           explained_var_all.data(), prms);
+           explained_var_all.data(), prms, stream);
 
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
@@ -205,17 +204,17 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
  * @output param explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
  * @output param singular_vals: singular values of the data. Size n_components * 1
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
                       math_t *trans_input, math_t *components,
                       math_t *explained_var, math_t *explained_var_ratio,
-                      math_t *singular_vals, paramsTSVD prms) {
-    auto stream = handle.getStream();
+                      math_t *singular_vals, paramsTSVD prms, cudaStream_t stream) {
     auto allocator = handle.getDeviceAllocator();
 
-    tsvdFit(handle, input, components, singular_vals, prms);
-    tsvdTransform(handle, input, components, trans_input, prms);
+    tsvdFit(handle, input, components, singular_vals, prms, stream);
+    tsvdTransform(handle, input, components, trans_input, prms, stream);
 
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
              prms.n_cols, stream);
@@ -250,12 +249,12 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void tsvdTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
-		paramsTSVD prms) {
+                   paramsTSVD prms, cudaStream_t stream) {
     auto cublas_handle = handle.getCublasHandle();
-    auto stream = handle.getStream();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -278,12 +277,12 @@ void tsvdTransform(const cumlHandle_impl& handle, math_t *input, math_t *compone
  * @input param components: transpose of the principal components of the input data. Size n_components * n_cols.
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void tsvdInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
-                          math_t *input, paramsTSVD prms) {
+                          math_t *input, paramsTSVD prms, cudaStream_t stream) {
     auto cublas_handle = handle.getCublasHandle();
-    auto stream = handle.getStream();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than one");

@@ -35,6 +35,7 @@
 #include <functions/logisticReg.h>
 #include <functions/hinge.h>
 #include "learning_rate.h"
+#include "cuML.hpp"
 
 namespace ML {
 namespace Solver {
@@ -74,13 +75,15 @@ void sgdFit(math_t *input,
 	math_t *mu_labels = NULL;
 	math_t *norm2_input = NULL;
 
+        ///@todo: the below line should go away once we expose
+        /// cumlHandle in the interface of sgd
+        cumlHandle handle;
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
 		allocate(mu_labels, 1);
 
-		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, false, cublas_handle,
-				cusolver_handle, stream);
+		GLM::preProcessData(handle.getImpl(), input, n_rows, n_cols, labels, intercept, mu_input,
+				mu_labels, norm2_input, fit_intercept, false, stream);
 	}
 
 	math_t *grads = NULL;
@@ -204,9 +207,9 @@ void sgdFit(math_t *input,
 	    CUDA_CHECK(cudaFree(loss_value));
 
 	if (fit_intercept) {
-		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
-				mu_input, mu_labels, norm2_input, fit_intercept, false,
-				cublas_handle, cusolver_handle, stream);
+                GLM::postProcessData(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
+                                     mu_input, mu_labels, norm2_input, fit_intercept, false,
+                                     stream);
 
 		if (mu_input != NULL)
 			CUDA_CHECK(cudaFree(mu_input));

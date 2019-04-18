@@ -45,6 +45,7 @@
 
 #include <matrix/matrix.h>
 #include "preprocess.h"
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace GLM {
@@ -52,10 +53,12 @@ namespace GLM {
 using namespace MLCommon;
 
 template<typename math_t>
-void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
-		math_t *intercept, bool fit_intercept, bool normalize,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
-		cudaStream_t stream, int algo = 0) {
+void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
+            math_t *intercept, bool fit_intercept, bool normalize,
+            cudaStream_t stream, int algo = 0) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
+    auto allocator = handle.getDeviceAllocator();
 
 	ASSERT(n_cols > 0,
 			"olsFit: number of columns cannot be less than one");
@@ -70,14 +73,10 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		if (normalize) {
 			allocate(norm2_input, n_cols);
 		}
-		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle, stream);
+		preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input,
+				mu_labels, norm2_input, fit_intercept, normalize, stream);
 	}
 
-        ///@todo once we expose cumlHandle in the interface of ols algo,
-        /// the below line should go away
-        std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 	if (algo == 0 || n_cols == 1) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
                                  cublas_handle, allocator, stream);
@@ -94,9 +93,8 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	}
 
 	if (fit_intercept) {
-		postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle, stream);
+                postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept, mu_input,
+                                mu_labels, norm2_input, fit_intercept, normalize, stream);
 
 		if (normalize) {
 			if (norm2_input != NULL)
@@ -114,8 +112,9 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 }
 
 template<typename math_t>
-void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void olsPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols, const math_t *coef,
+		math_t intercept, math_t *preds, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(n_cols > 0,
 			"olsPredict: number of columns cannot be less than one");

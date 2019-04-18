@@ -43,15 +43,6 @@ protected:
 		int len = params.n_row * params.n_col;
 		int len2 = params.n_row_2 * params.n_col;
 
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
-
 		allocate(data, len);
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col);
@@ -106,50 +97,37 @@ protected:
 
 		intercept = T(0);
 
-		olsFit(data, params.n_row, params.n_col, labels, coef, &intercept,
-				false, false, cublas_handle, cusolver_handle, stream, params.algo);
+		olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef, &intercept,
+                       false, false, stream, params.algo);
 
-		olsPredict(pred_data, params.n_row_2, params.n_col, coef, intercept,
-				pred, cublas_handle, stream);
+		olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef, intercept,
+                           pred, stream);
 
 		updateDevice(data, data_h.data(), len);
 		updateDevice(labels, labels_h.data(), params.n_row);
 
 		intercept2 = T(0);
-		olsFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
-				true, false, cublas_handle, cusolver_handle, stream, params.algo);
+		olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2, &intercept2,
+                       true, false, stream, params.algo);
 
-		olsPredict(pred_data, params.n_row_2, params.n_col, coef2, intercept2,
-				pred2, cublas_handle, stream);
+		olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef2, intercept2,
+				pred2, stream);
 
 		updateDevice(data, data_h.data(), len);
 		updateDevice(labels, labels_h.data(), params.n_row);
 
 		intercept3 = T(0);
-		olsFit(data, params.n_row, params.n_col, labels, coef3, &intercept3,
-				true, true, cublas_handle, cusolver_handle, stream, params.algo);
+		olsFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef3, &intercept3,
+                       true, true, stream, params.algo);
 
-		olsPredict(pred_data, params.n_row_2, params.n_col, coef3, intercept3,
-				pred3, cublas_handle, stream);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
+		olsPredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef3, intercept3,
+				pred3, stream);
 
 	}
 
 	void basicTest2() {
 		params = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
 		int len = params.n_row * params.n_col;
-
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-    CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
 
 		allocate(data_sc, len);
 		allocate(labels_sc, len);
@@ -170,15 +148,12 @@ protected:
 
 		T intercept_sc = T(0);
 
-		olsFit(data_sc, len, 1, labels_sc, coef_sc, &intercept_sc,
-				true, false, cublas_handle, cusolver_handle, stream, params.algo);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+		olsFit(handle.getImpl(), data_sc, len, 1, labels_sc, coef_sc, &intercept_sc,
+                       true, false, stream, params.algo);
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
 		basicTest();
 		basicTest2();
 	}
@@ -204,7 +179,7 @@ protected:
 		CUDA_CHECK(cudaFree(labels_sc));
 		CUDA_CHECK(cudaFree(coef_sc));
 		CUDA_CHECK(cudaFree(coef_sc_ref));
-
+                CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -214,7 +189,8 @@ protected:
 	T *coef3, *coef3_ref, *pred3, *pred3_ref;
 	T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
 	T intercept, intercept2, intercept3;
-
+        cumlHandle handle;
+        cudaStream_t stream;
 };
 
 const std::vector<OlsInputs<float> > inputsf2 = { { 0.001f, 4, 2, 2, 0 }, {

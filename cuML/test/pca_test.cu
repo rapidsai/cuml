@@ -98,11 +98,11 @@ protected:
 
 
                 pcaFit(handle.getImpl(), data, components, explained_vars, explained_var_ratio,
-                       singular_vals, mean, noise_vars, prms);
+                       singular_vals, mean, noise_vars, prms, stream);
 		pcaTransform(handle.getImpl(), data, components, trans_data, singular_vals,
-                             mean, prms);
+                             mean, prms, stream);
 		pcaInverseTransform(handle.getImpl(), trans_data, components, singular_vals,
-                                    mean, data_back, prms);
+                                    mean, data_back, prms, stream);
 	}
 
 	void advancedTest() {
@@ -133,10 +133,10 @@ protected:
 		allocate(noise_vars2, 1);
 
                 pcaFitTransform(handle.getImpl(), data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms);
+				singular_vals2, mean2, noise_vars2, prms, stream);
 
 		allocate(data2_back, len);
-		pcaInverseTransform(handle.getImpl(), data2_trans, components2, singular_vals2, mean2, data2_back, prms);
+		pcaInverseTransform(handle.getImpl(), data2_trans, components2, singular_vals2, mean2, data2_back, prms, stream);
 	}
 
 	void SetUp() override {
