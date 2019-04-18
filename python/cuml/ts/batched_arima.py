@@ -6,7 +6,8 @@ from .kalman import init_kalman_matrices
 from .batched_kalman import batched_kfilter, cudf_kfilter
 import scipy.optimize as opt
 from IPython.core.debugger import set_trace
-import cudf
+# import cudf
+import pandas as pd
 
 class BatchedARIMAModel:
     r"""
@@ -23,13 +24,13 @@ class BatchedARIMAModel:
                  mu: np.ndarray,
                  ar_params: List[np.ndarray],
                  ma_params: List[np.ndarray],
-                 y: cudf.DataFrame):
+                 y: pd.DataFrame):
         self.order = order
         self.mu = mu
         self.ar_params = ar_params
         self.ma_params = ma_params
         self.y = y
-        self.num_samples = y.shape[0]  # shape is (num_samples, num_batches)
+        self.num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         self.num_batches = y.shape[1]
 
     def __repr__(self):
@@ -40,7 +41,7 @@ class BatchedARIMAModel:
         return self.__repr__()
 
     @staticmethod
-    def fit(y: cudf.DataFrame,
+    def fit(y: pd.DataFrame,
             order: Tuple[int, int, int],
             mu0: float,
             ar_params0: np.ndarray,
@@ -91,15 +92,32 @@ class BatchedARIMAModel:
 
         # TODO: Only do this if d==1
         # TODO: Try to make the following pipeline work in cuDF
-        y_diff = model.y.to_pandas().diff().dropna()
+        # pandas
+        # y_diff = model.y.diff().dropna()
+        # numpy
+        y_diff = np.diff(model.y, axis=0)
 
         B0 = np.zeros(model.num_batches)
         for (i, (mu, ar)) in enumerate(zip(model.mu, model.ar_params)):
             B0[i] = mu/(1-np.sum(ar))
 
-        y_diff_centered = cudf.from_pandas(y_diff-B0)
+        y_diff_centered = np.asfortranarray(y_diff-B0)
         
-        ll_b = cudf_kfilter(y_diff_centered, Zb, Rb, Tb, r)
+        # convert the list of kalman matrices into a dense numpy matrix for quick transfer to GPU
+        # Z_dense = np.zeros((r * model.num_batches))
+        # R_dense = np.zeros((r * model.num_batches))
+        # T_dense = np.zeros((r*r * model.num_batches))
+
+        # for (i, (Zi, Ri, Ti)) in enumerate(zip(Zb, Rb, Tb)):
+        #     Z_dense[i*r:(i+1)*r] = np.reshape(Zi, r, order="F")
+        #     R_dense[i*r:(i+1)*r] = np.reshape(Ri, r, order="F")
+        #     T_dense[i*r*r:(i+1)*r*r] = np.reshape(Ti, r*r, order="F")
+
+        ll_b = cudf_kfilter(y_diff_centered, # numpy
+                            # y_diff_centered.values, # pandas
+                            Zb, Rb, Tb,
+                            # Z_dense, R_dense, T_dense,
+                            r)
 
         return ll_b
         
@@ -178,5 +196,5 @@ def batched_loglike(models: List[ARIMAModel], gpu: bool=True):
         y_centered = y_diff - B0
         y_c.append(y_centered)
 
-    vs, Fs, ll, s2 = batched_kfilter(y_c, Zb, Rb, Tb, r, gpu)
+    ll, s2 = batched_kfilter(y_c, Zb, Rb, Tb, r, gpu)
     return ll

@@ -26,7 +26,7 @@ void BMM_Allocate(std::pair<int, int> shape, int num_batches,
                   double* &A_dense, double** &A_array, bool setZero) {
   int m = shape.first;
   int n = shape.second;
-  // std::cout << "Allocating (" << shape.first << "," << ")\n";
+  
   allocate(A_dense, m*n*num_batches, setZero);
   allocate(A_array, num_batches);
 
@@ -142,49 +142,9 @@ private:
 
 class BatchedMatrix {
 public:
-  // Create a BatchedMatrix.
-  BatchedMatrix(double* A, std::pair<int, int> shape, int num_batches,
-                std::shared_ptr<BatchedMatrixMemoryPool> pool,
-                bool gpu=true)
-    : m_gpu(gpu), m_shape(shape), m_num_batches(num_batches),
-      m_pool(pool) {
-    if(!gpu) {
-      throw std::runtime_error("CPU-only not supported");
-    }
-    auto memory = m_pool->get(shape);
-    m_A_dense = memory.first;
-    auto& this_shape = m_shape;
-    auto& this_pool = m_pool;
-    auto f = [this_shape, this_pool](double** A){
-               this_pool->remove(this_shape, A);
-             };
-    m_A_batches = std::shared_ptr<double*>(memory.second, f);
-    // copy given input to pool-allocated location
-    cudaMemcpy(m_A_dense, A, shape.first*shape.second*num_batches, cudaMemcpyDeviceToDevice);
-  }
 
   void remove(double** A) {
     m_pool->remove(m_shape, A);
-  }
-
-  //! Constructor for an existing device pointer. Note that the matrix memory is
-  //! *NOT* managed by the memory pool in this case.
-  BatchedMatrix(double* d_A, int m, int n, int num_batches,
-                std::shared_ptr<BatchedMatrixMemoryPool> pool)
-    : m_gpu(false), m_num_batches(num_batches), m_pool(pool) {
-    m_shape = std::make_pair(m, n);
-    m_A_dense = d_A;
-    // m_A_batches =
-    double** A_array;
-    allocate(A_array, num_batches);
-
-    // fill array of pointers to each batch matrix.
-    auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(counting, counting + num_batches,
-                     [=]__device__(int bid){
-                       A_array[bid] = &(m_A_dense[bid*m*n]);
-                     });
-    m_A_batches = std::shared_ptr<double*>(A_array, [](double** A){cudaFreeT(A);});
   }
 
   //! Constructor that allocates memory using the memory pool.
