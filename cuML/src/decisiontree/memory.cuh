@@ -60,13 +60,10 @@ struct TemporaryMemory
 
 	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
 	{
-
-		//Create Streams
-		if (maxstr == 1)
-			stream = 0;
-		else
-			CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
-
+		
+		//Assign Stream from cumlHandle
+		stream = ml_handle.getStream();
+		
 		int n_hist_elements = n_unique * n_bins;
 
 		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
@@ -160,9 +157,6 @@ struct TemporaryMemory
 		delete d_histout;
 		delete d_colids;
 
-		if (stream != 0) {
-			cudaStreamDestroy(stream);
-		}
 	}
 
 };
