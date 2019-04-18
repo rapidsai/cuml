@@ -230,8 +230,8 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
 
   // form product matrix
   device_buffer<math_t> P_d(allocator, stream, m * n);
-  CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   device_buffer<math_t> S_mat(allocator, stream, k * k);
+  CUDA_CHECK(cudaMemsetAsync(P_d.data(), 0, sizeof(math_t) * m * n, stream));
   CUDA_CHECK(cudaMemsetAsync(S_mat.data(), 0, sizeof(math_t) * k * k, stream));
 
   Matrix::initializeDiagonalMatrix(S_vec, S_mat.data(), k, k, stream);
