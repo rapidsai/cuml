@@ -36,6 +36,8 @@ struct RfInputs {
 	int max_leaves;
 	bool bootstrap;
 	int n_bins;
+	int split_algo;
+	int min_rows_per_node;
 };
 
 template<typename T>
@@ -77,7 +79,7 @@ protected:
 		updateDevice(selected_rows, selected_rows_h.data(), params.n_rows);
 
 		rf_classifier = new rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth,
-							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features);
+							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo, params.min_rows_per_node);
 		cumlHandle handle;
 		cudaStream_t stream;
 		CUDA_CHECK(cudaStreamCreate(&stream) );
@@ -126,8 +128,8 @@ protected:
 
 
 const std::vector<RfInputs<float> > inputsf2 = {
-		  { 4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 8},	// single tree forest, bootstrap false, unlimited depth, 8 bins
-		  { 4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 8}	// single tree forest, bootstrap false, depth of 8, 8 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 8, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 8 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 8, SPLIT_ALGO::HIST, 2}	// single tree forest, bootstrap false, depth of 8, 8 bins
 };
 
 

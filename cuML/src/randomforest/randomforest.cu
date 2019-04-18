@@ -68,7 +68,7 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 
 template<typename T>
 rf<T>::rf(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_leaves, int cfg_rf_type, int cfg_n_bins,
-	   float cfg_rows_sample, float cfg_max_features, int cfg_split_algo) {
+	   float cfg_rows_sample, float cfg_max_features, int cfg_split_algo, int cfg_min_rows_per_node) {
 
 	n_trees = cfg_n_trees;
 	max_depth = cfg_max_depth;
@@ -80,6 +80,7 @@ rf<T>::rf(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_le
 	rows_sample = cfg_rows_sample;
 	max_features = cfg_max_features;
 	split_algo = cfg_split_algo;
+	min_rows_per_node = cfg_min_rows_per_node;
 
 	ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
 	ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
@@ -127,8 +128,9 @@ void rf<T>::print_rf_detailed() {
 
 template <typename T>
 rfClassifier<T>::rfClassifier(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_leaves, int cfg_rf_type, int cfg_n_bins,
-				float cfg_rows_sample, float cfg_max_features, int cfg_split_algo)
-			: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo) {};
+				float cfg_rows_sample, float cfg_max_features, int cfg_split_algo, int cfg_min_rows_per_node)
+			: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo,
+						cfg_min_rows_per_node) {};
 
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
@@ -176,7 +178,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
 		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->max_depth,
-							this->max_leaves, this->max_features, this-> n_bins, this->split_algo);
+							this->max_leaves, this->max_features, this-> n_bins, this->split_algo, this->min_rows_per_node);
 
 		//Cleanup
 		selected_rows.release(stream);

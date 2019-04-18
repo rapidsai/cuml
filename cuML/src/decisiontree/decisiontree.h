@@ -75,13 +75,14 @@ private:
 	size_t shmem_used = 0;
 	int n_unique_labels = -1; // number of unique labels in dataset
 	double construct_time;
+	int min_rows_per_node;
 
 public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
 	// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
+			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST, int min_rows_per_node=2);
 
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
 	int * predict(const T * rows, const int n_rows, const int n_cols, bool verbose=false);
@@ -95,7 +96,7 @@ public:
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-				int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST);
+				int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
 
 	TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info);
 
