@@ -34,6 +34,7 @@
 #include <thrust/execution_policy.h>
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
+#include "common/allocatorAdapter.hpp"
 
 namespace ML {
 
@@ -107,12 +108,15 @@ void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
  */
 template<typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
-              int n_cols_comp, cudaStream_t stream) {
+              int n_cols_comp, std::shared_ptr<deviceAllocator> allocator,
+              cudaStream_t stream) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto m = n_rows;
 
-        thrust::for_each(thrust::cuda::par.on(stream),
+        ML::thrustAllocatorAdapter alloc(allocator, stream);
+        auto execution_policy = thrust::cuda::par(alloc).on(stream);
+        thrust::for_each(execution_policy,
                         counting, counting + n_cols, [=]__device__(int idx) {
 			int d_i = idx * m;
 			int end = d_i + m;
@@ -217,7 +221,7 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
     tsvdTransform(handle, input, components, trans_input, prms, stream);
 
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
-             prms.n_cols, stream);
+             prms.n_cols, allocator, stream);
 
     device_buffer<math_t> mu_trans(allocator, stream, prms.n_components);
     Stats::mean(mu_trans.data(), trans_input, prms.n_components, prms.n_rows, true,

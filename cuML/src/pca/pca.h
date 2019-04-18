@@ -126,7 +126,7 @@ void pcaFitTransform(const cumlHandle_impl& handle, math_t *input, math_t *trans
            mu, noise_vars, prms, stream);
     pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
-             prms.n_cols, stream);
+             prms.n_cols, handle.getDeviceAllocator(), stream);
 }
 
 // TODO: implement pcaGetCovariance function
