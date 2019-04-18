@@ -16,17 +16,19 @@ cdef extern from "ts/batched_kalman.h":
                              const vector[double*]& ptr_Rb,
                              const vector[double*]& ptr_Tb,
                              int r,
-                             vector[double*]& ptr_vs_b,
-                             vector[double*]& ptr_Fs_b,
                              vector[double]& ptr_loglike_b,
                              vector[double]& ptr_sigma2_b)
 
   void batched_kalman_filter_cudf(double* ptr_ys_b,
                                   int nobs,
+                                  # double* h_Zb,
+                                  # double* h_Rb,
+                                  # double* h_Tb,
                                   const vector[double*]& ptr_Zb,
                                   const vector[double*]& ptr_Rb,
                                   const vector[double*]& ptr_Tb,
                                   int r,
+                                  int num_batches,
                                   vector[double]& ptr_loglike_b)
 
   void batched_kalman_filter_cpu(const vector[double*]& ptr_ys_b,
@@ -35,25 +37,36 @@ cdef extern from "ts/batched_kalman.h":
                                  const vector[double*]& ptr_Rb,
                                  const vector[double*]& ptr_Tb,
                                  int r,
-                                 vector[double*]& ptr_vs_b,
-                                 vector[double*]& ptr_Fs_b,
                                  vector[double]& ptr_loglike_b,
                                  vector[double]& ptr_sigma2_b)
 
 
-def cudf_kfilter(y, Z_b, R_b, T_b, int r):
+def cudf_kfilter(np.ndarray[double, ndim=2] y,
+                 Z_b, R_b, T_b,
+                 # np.ndarray[double, ndim=1] Z_dense,
+                 # np.ndarray[double, ndim=1] R_dense,
+                 # np.ndarray[double, ndim=1] T_dense,
+                 int r):
 
     cdef vector[double] vec_loglike_b
-    cdef vector[double*] vec_Zb
-    cdef vector[double*] vec_Rb
-    cdef vector[double*] vec_Tb
+
+    cdef int nobs = y.shape[0]
+    cdef int num_batches = y.shape[1]
+
+    # cuDF wasn't working well, comment out for now
+    # # Extract device pointer from DataFrame. Careful: `y_mat` temporary is to
+    # # avoid the "gpu_matrix" object from getting garbage collected. `ytmp`
+    # # simply satisfies the Cython compiler.
+    # y_mat = y.as_gpu_matrix()
+    # cdef unsigned long long ytmp = y_mat.gpu_data.device_pointer.value
+    # cdef double* y_ptr = <double*>ytmp
 
     cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
-
-    cdef int nobs = y.shape[0]
-    cdef int num_batches = y.shape[1]
+    cdef vector[double*] vec_Zb
+    cdef vector[double*] vec_Rb
+    cdef vector[double*] vec_Tb
 
     for i in range(num_batches):
         Z_bi = Z_b[i]
@@ -63,13 +76,13 @@ def cudf_kfilter(y, Z_b, R_b, T_b, int r):
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
 
-    y_mat = y.as_gpu_matrix()
-    cdef unsigned long long ytmp = y_mat.gpu_data.device_pointer.value
-    cdef double* y_ptr = <double*>ytmp
-    batched_kalman_filter_cudf(y_ptr,
+
+    batched_kalman_filter_cudf(&y[0,0],
                                nobs,
+                               # &Z_dense[0], &R_dense[0], &T_dense[0],
                                vec_Zb, vec_Rb, vec_Tb,
                                r,
+                               num_batches,
                                vec_loglike_b)
 
     # convert C++-results to numpy arrays
@@ -91,14 +104,10 @@ def batched_kfilter(ys_b,
     cdef vector[double*] vec_Rb
     cdef vector[double*] vec_Tb
 
-    cdef vector[double*] vec_vs_b
-    cdef vector[double*] vec_Fs_b
     cdef vector[double] vec_loglike_b
     cdef vector[double] vec_sigma2_b
 
     cdef np.ndarray[double, ndim=1, mode="fortran"] ysi
-    cdef np.ndarray[double, ndim=1, mode="fortran"] vsi
-    cdef np.ndarray[double, ndim=1, mode="fortran"] Fsi
 
     cdef np.ndarray[double, ndim=1, mode="fortran"] ys_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
@@ -114,10 +123,6 @@ def batched_kfilter(ys_b,
         num_samples_i = len(ys_b[i])
         ysi = ys_b[i]
         vec_ys_b[i] = &ysi[0]
-        vsi = np.zeros(num_samples_i)
-        Fsi = np.zeros(num_samples_i)
-        vec_vs_b.push_back(&vsi[0])
-        vec_Fs_b.push_back(&Fsi[0])
 
     vec_loglike_b.resize(num_batches)
     vec_sigma2_b.resize(num_batches)
@@ -135,14 +140,12 @@ def batched_kfilter(ys_b,
                               nobs,
                               vec_Zb, vec_Rb, vec_Tb,
                               r,
-                              vec_vs_b, vec_Fs_b,
                               vec_loglike_b, vec_sigma2_b)
     else:
         batched_kalman_filter_cpu(vec_ys_b,
                                   nobs,
                                   vec_Zb, vec_Rb, vec_Tb,
                                   r,
-                                  vec_vs_b, vec_Fs_b,
                                   vec_loglike_b, vec_sigma2_b)
 
     # convert C-arrays to numpy arrays
@@ -153,17 +156,7 @@ def batched_kfilter(ys_b,
         sigma2_b[i] = vec_sigma2_b[i]
 
     # Convert C++ vectors of pointers to Python List[ndarray]
-    vs_b = []
-    Fs_b = []
     for (i, ysi) in enumerate(ys_b):
         ys_len = len(ysi)
-        vsi = np.zeros(ys_len)
-        Fsi = np.zeros(ys_len)
-        for j in range(ys_len):
-            vsi[j] = vec_vs_b[i][j]
-            Fsi[j] = vec_Fs_b[i][j]
-
-        vs_b.append(vsi)
-        Fs_b.append(Fsi)
     
-    return vs_b, Fs_b, ll_b, sigma2_b
+    return ll_b, sigma2_b

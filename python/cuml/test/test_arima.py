@@ -130,7 +130,7 @@ def test_arima_kalman():
     ll = arima.loglike(model0)
 
     # batched version
-    num_batches = 10
+    num_batches = 2
     models = [arima.ARIMAModel(order, mu, arparams, maparams, y_train) for i in range(num_batches)]
 
     start = timer()

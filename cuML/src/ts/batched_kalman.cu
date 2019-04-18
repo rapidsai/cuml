@@ -14,6 +14,9 @@
 
 #include <cub/cub.cuh>
 
+#include <chrono>
+#include <ratio>
+
 // #include <thrust/lo
 
 using std::vector;
@@ -179,8 +182,6 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                                const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
                                const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
                                int r,
-                               vector<double*>& h_vs_b, // { vector size batches, each item size nobs }
-                               vector<double*>& h_Fs_b, // { vector size batches, each item size nobs }
                                vector<double>& h_loglike_b,
                                vector<double>& h_sigma2_b) {
 
@@ -189,6 +190,13 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
   nvtxMark("batched_kalman_cpu");
 
   const size_t num_batches = h_Zb.size();
+  
+  vector<double*> h_vs_b(num_batches);
+  vector<double*> h_Fs_b(num_batches);
+  for(int i=0; i<num_batches; i++) {
+    h_vs_b[i] = new double[nobs];
+    h_Fs_b[i] = new double[nobs];
+  }
   for(int bi=0; bi<num_batches; bi++) {
     kalman_filter(h_ys_b[bi], nobs,
                   h_Zb[bi], h_Rb[bi], h_Tb[bi],
@@ -196,6 +204,11 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                   h_vs_b[bi], h_Fs_b[bi],
                   &h_loglike_b[bi], &h_sigma2_b[bi]
                   );
+  }
+
+  for(int i=0; i<num_batches; i++) {
+    delete[] h_vs_b[i];
+    delete[] h_Fs_b[i];
   }
   nvtxRangePop();
 }
@@ -475,26 +488,39 @@ void _batched_kalman_filter(double* d_ys,
   
 }
 
-void batched_kalman_filter_cudf(double* d_ys,
+void batched_kalman_filter_cudf(double* h_ys,
                                 int nobs,
-                                const std::vector<double*>& h_Zb,
-                                const std::vector<double*>& h_Rb,
-                                const std::vector<double*>& h_Tb,
+                                const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
+                                const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
+                                const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
+                                // double* h_Zb,
+                                // double* h_Rb,
+                                // double* h_Tb,
+
                                 int r,
+                                int num_batches,
                                 std::vector<double>& h_loglike_b) {
 
-  nvtxNameOsThread(0, "MAIN");
   nvtxRangePush(__FUNCTION__);
+
   const size_t ys_len = nobs;
-  const size_t num_batches = h_Zb.size();
 
   ////////////////////////////////////////////////////////////
   // xfer from host to device
+  double* d_ys;
+  allocate(d_ys, nobs*num_batches);
+  updateDevice(d_ys, h_ys, nobs*num_batches);
+
   auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
 
   BatchedMatrix Zb(1, r, num_batches, memory_pool);
   BatchedMatrix Tb(r, r, num_batches, memory_pool);
   BatchedMatrix Rb(r, 1, num_batches, memory_pool);
+
+  // updateDevice(Zb[0], h_Zb, r*num_batches);
+  // updateDevice(Rb[0], h_Rb, r*num_batches);
+  // updateDevice(Tb[0], h_Tb, r*r*num_batches);
+
   {
     //Tb
     std::vector<double> matrix_copy(r*r*num_batches);
@@ -521,8 +547,7 @@ void batched_kalman_filter_cudf(double* d_ys,
     }
     updateDevice(Rb[0],matrix_copy.data(),r*num_batches);
   }
-  
-  CUDA_CHECK(cudaPeekAtLastError());
+
 
   ////////////////////////////////////////////////////////////
   // Computation
@@ -552,6 +577,7 @@ void batched_kalman_filter_cudf(double* d_ys,
   CUDA_CHECK(cudaFree(d_sigma2));
   CUDA_CHECK(cudaFree(d_loglike));  
   nvtxRangePop();
+  
 }
 
 
@@ -562,19 +588,16 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
                            const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
                            const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
                            int r,
-                           vector<double*>& h_vs_b,
-                           vector<double*>& h_Fs_b,
                            vector<double>& h_loglike_b,
                            vector<double>& h_sigma2_b) {
-
+  
   nvtxNameOsThread(0, "MAIN");
   nvtxRangePush(__FUNCTION__);
   const size_t ys_len = nobs;
   const size_t num_batches = h_Zb.size();
-
+  
   ////////////////////////////////////////////////////////////
   // xfer from host to device
-
   double* d_ys;
   allocate(d_ys, num_batches*ys_len);
   {
@@ -632,37 +655,22 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   double* d_sigma2;
   allocate(d_sigma2, num_batches);
   allocate(d_loglike, num_batches);
+
   _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike, d_sigma2);
-  
+
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
   // need to fill:
-  // vector<double*>& h_vs_b,   
-  // vector<double*>& h_Fs_b,   
   // vector<double>& h_loglike_b
   // vector<double>& h_sigma2_b)
 
-  h_vs_b.resize(ys_len);
-  h_Fs_b.resize(ys_len);
   h_loglike_b.resize(num_batches);
   h_sigma2_b.resize(num_batches);
-
-  // vs, Fs
-  vector<double> h_vs_raw(ys_len*num_batches);
-  vector<double> h_Fs_raw(ys_len*num_batches);
-  updateHost(h_vs_raw.data(), d_vs, ys_len*num_batches);
-  updateHost(h_Fs_raw.data(), d_Fs, ys_len*num_batches);
-
-  for (int bi = 0; bi < num_batches; bi++) {
-    for(int it=0;it<ys_len;it++) {
-      h_vs_b[bi][it] = h_vs_raw[it + bi * nobs];
-      h_Fs_b[bi][it] = h_Fs_raw[it + bi * nobs];
-    }
-  }
 
   updateHost(h_loglike_b.data(), d_loglike, num_batches);
   updateHost(h_sigma2_b.data(), d_sigma2, num_batches);
   CUDA_CHECK(cudaPeekAtLastError());
+
   ////////////////////////////////////////////////////////////
   // free memory
   CUDA_CHECK(cudaFree(d_ys));
@@ -671,4 +679,5 @@ void batched_kalman_filter(const vector<double*>& h_ys_b, // { vector size batch
   CUDA_CHECK(cudaFree(d_sigma2));
   CUDA_CHECK(cudaFree(d_loglike));
   nvtxRangePop();
+
 }
