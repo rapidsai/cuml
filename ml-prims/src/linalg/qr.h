@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,9 +61,9 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
   CUDA_CHECK(cudaDeviceSynchronize());
   CUSOLVER_CHECK(
       cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
-  device_buffer<math_t> workspace1(allocator, stream, Lwork);
+  workspace.resize(Lwork, stream);
   CUSOLVER_CHECK(
-      cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(), workspace1.data(), Lwork, devInfo.data(), stream));
+      cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
 }
 
 /**
@@ -112,10 +112,10 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   CUSOLVER_CHECK(cusolverDnorgqr_bufferSize(cusolverH, Q_nrows, Q_ncols,
                                             min(Q_ncols, Q_nrows), Q, Q_nrows,
                                             tau.data(), &Lwork));
-  device_buffer<math_t> workspace1(allocator, stream, Lwork);
+  workspace.resize(Lwork, stream);
   CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols,
                                  min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
-                                 workspace1.data(), Lwork, devInfo.data(), stream));
+                                 workspace.data(), Lwork, devInfo.data(), stream));
 }
 
 }; // end namespace LinAlg
