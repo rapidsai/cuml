@@ -47,6 +47,8 @@
 - PR #468: Fix dbscan example build failure
 - PR #470: Fix resource leakage in Kalman filter python wrapper
 - PR #473: Fix gather ml-prim test for change in rng uniform API
+- PR #477: Fixes default stream initialization in cumlHandle
+- PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
 
 # cuML 0.6.0 (22 Mar 2019)
 
