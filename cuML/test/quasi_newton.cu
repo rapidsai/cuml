@@ -7,6 +7,8 @@
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <vector>
+#include <glm/glm_c.h>
+#include <glm/qn/qn.h>
 
 namespace ML {
 namespace GLM {
