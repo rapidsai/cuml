@@ -41,16 +41,16 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
     cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, 0);
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
                int *labels) {
 
     cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, 0);
-    CUDA_CHECK(cudaStreamSynchronize(0));
+    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 /** @} */
 
@@ -58,22 +58,24 @@ void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
 // end namespace ML
 extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
-
-    cumlError_t status = CUML_SUCCESS;
-    try
-    {
-        dbscanFit(*reinterpret_cast<ML::cumlHandle*>(handle.ptr), input,
-         n_rows, n_cols, eps, min_pts, labels);
-    }
-    //TODO: Implement this
-    //catch (const MLCommon::Exception& e)
-    //{
-    //    //log e.what()?
-    //    status =  e.getErrorCode();
-    //}
-    catch (...)
-    {
-        status = CUML_ERROR_UNKOWN;
+    cumlError_t status;
+    ML::cumlHandle *handle_ptr;
+    std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+    if (status == CUML_SUCCESS) {
+        try
+        {
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels);
+        }
+        //TODO: Implement this
+        //catch (const MLCommon::Exception& e)
+        //{
+        //    //log e.what()?
+        //    status =  e.getErrorCode();
+        //}
+        catch (...)
+        {
+            status = CUML_ERROR_UNKNOWN;
+        }
     }
     return status;
 
@@ -81,21 +83,24 @@ extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_
 
 extern "C" cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
                int *labels) {
-    cumlError_t status = CUML_SUCCESS;
-    try
-    {
-        dbscanFit(*reinterpret_cast<ML::cumlHandle*>(handle.ptr), input,
-         n_rows, n_cols, eps, min_pts, labels);
-    }
-    //TODO: Implement this
-    //catch (const MLCommon::Exception& e)
-    //{
-    //    //log e.what()?
-    //    status =  e.getErrorCode();
-    //}
-    catch (...)
-    {
-        status = CUML_ERROR_UNKOWN;
+    cumlError_t status;
+    ML::cumlHandle *handle_ptr;
+    std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+    if (status == CUML_SUCCESS) {
+        try
+        {
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels);
+        }
+        //TODO: Implement this
+        //catch (const MLCommon::Exception& e)
+        //{
+        //    //log e.what()?
+        //    status =  e.getErrorCode();
+        //}
+        catch (...)
+        {
+            status = CUML_ERROR_UNKNOWN;
+        }
     }
     return status;
 }
