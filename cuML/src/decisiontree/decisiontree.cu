@@ -50,15 +50,16 @@ std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
 
 template<typename T>
 void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
-									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
+									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo, int min_rows_per_node) {
 
 	ASSERT((n_bins > 0), "Invalid n_bins %d", n_bins);
 	ASSERT((colper > 0) && (colper <= 1.0), "max_features value %f outside permitted (0, 1] range", colper);
 	ASSERT((split_algo >= 0) && (split_algo < SPLIT_ALGO::SPLIT_ALGO_END), "split_algo value %d outside permitted [0, %d) range",
 			split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
 	ASSERT((maxdepth == -1) || (maxdepth > 0), "Invalid max depth %d", maxdepth);
+	ASSERT((min_rows_per_node > 0), "Invalid min # rows per node %d", min_rows_per_node);
 
-	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo, min_rows_per_node);
 }
 
 template<typename T>
@@ -85,7 +86,7 @@ void DecisionTreeClassifier<T>::print() {
 
 template<typename T>
 void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
-									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag) {
+									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag, int cfg_min_rows_per_node) {
 
 	split_algo = split_algo_flag;
 	dinfo.NLocalrows = nrows;
@@ -96,6 +97,7 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	maxleaves = max_leaf_nodes;
 	tempmem.resize(MAXSTREAMS);
 	n_unique_labels = unique_labels;
+	min_rows_per_node = cfg_min_rows_per_node;
 
 	cudaDeviceProp prop;
 	CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
@@ -141,6 +143,8 @@ TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, i
 	split_info[0] = prev_split_info;
 
 	bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
+	condition = condition || (n_sampled_rows < min_rows_per_node); // Do not split a node with less than min_rows_per_node samples
+
 	if (!condition)  {
 		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
 		condition = condition || (gain == 0.0f);

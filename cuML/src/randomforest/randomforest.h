@@ -48,7 +48,7 @@ template<class T>
 class rf {
 	protected:
 		int n_trees, n_bins, rf_type;
-		int max_depth, max_leaves, split_algo;
+		int max_depth, max_leaves, split_algo, min_rows_per_node;
 		bool bootstrap;
 		float rows_sample;
 		float max_features; // ratio of number of features (columns) to consider per node split.
@@ -58,7 +58,7 @@ class rf {
 
 	public:
 		rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-		   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST);
+		   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
 		~rf();
 
 		int get_ntrees();
@@ -71,7 +71,7 @@ class rfClassifier : public rf<T> {
 	public:
 
 	rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-					float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST);
+					float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
 
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	int * predict(const T * input, int n_rows, int n_cols, bool verbose=false) const;
