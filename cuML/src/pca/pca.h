@@ -39,15 +39,15 @@ using namespace MLCommon;
 
 template<typename math_t>
 void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *components,
-                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms) {
+                      math_t *explained_var, math_t *explained_var_ratio, paramsTSVD prms,
+                      cudaStream_t stream) {
     int len = prms.n_cols * prms.n_cols;
     auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
     device_buffer<math_t> components_all(allocator, stream, len);
     device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
     device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-    calEig(handle, in, components_all.data(), explained_var_all.data(), prms);
+    calEig(handle, in, components_all.data(), explained_var_all.data(), prms, stream);
     Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                             prms.n_components, prms.n_cols, stream);
     Matrix::ratio(explained_var_all.data(), explained_var_ratio_all.data(),
@@ -69,12 +69,12 @@ void truncCompExpVars(const cumlHandle_impl& handle, math_t *in, math_t *compone
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *explained_var,
             math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
-            math_t *noise_vars, paramsPCA prms) {
-    auto stream = handle.getStream();
+            math_t *noise_vars, paramsPCA prms, cudaStream_t stream) {
     auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(prms.n_cols > 1,
@@ -94,7 +94,8 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
 
 	Stats::cov(cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true,
                    cublas_handle, stream);
-	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms);
+	truncCompExpVars(handle, cov.data(), components, explained_var, explained_var_ratio, prms,
+                         stream);
 
 	math_t scalar = (prms.n_rows - 1);
 	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, stream, true);
@@ -114,16 +115,18 @@ void pcaFit(const cumlHandle_impl& handle, math_t *input, math_t *components, ma
  * @output param mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @output param noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void pcaFitTransform(const cumlHandle_impl& handle, math_t *input, math_t *trans_input, math_t *components,
-		math_t *explained_var, math_t *explained_var_ratio,
-		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms) {
+                     math_t *explained_var, math_t *explained_var_ratio,
+                     math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
+                     cudaStream_t stream) {
     pcaFit(handle, input, components, explained_var, explained_var_ratio, singular_vals,
-           mu, noise_vars, prms);
-    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms);
+           mu, noise_vars, prms, stream);
+    pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
     signFlip(trans_input, prms.n_rows, prms.n_components, components,
-             prms.n_cols, handle.getStream());
+             prms.n_cols, stream);
 }
 
 // TODO: implement pcaGetCovariance function
@@ -147,13 +150,12 @@ void pcaGetPrecision() {
  * @input param mu: mean of features (every column).
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
-
 template<typename math_t>
 void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
-		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms) {
-    auto stream = handle.getStream();
-
+                         math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms,
+                         cudaStream_t stream) {
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
 	ASSERT(prms.n_rows > 1,
@@ -169,7 +171,7 @@ void pcaInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, mat
                                                        prms.n_rows, prms.n_components, true, true, stream);
 	}
 
-	tsvdInverseTransform(handle, trans_input, components, input, prms);
+	tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {
@@ -201,12 +203,11 @@ void pcaScoreSamples() {
  * @output param trans_input:  the transformed data. Size n_rows * n_components.
  * @input param singular_vals: singular values of the data. Size n_components * 1.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
+ * @input param stream cuda stream
  */
 template<typename math_t>
 void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
-		math_t *singular_vals, math_t *mu, paramsPCA prms) {
-    auto stream = handle.getStream();
-
+                  math_t *singular_vals, math_t *mu, paramsPCA prms, cudaStream_t stream) {
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
 	ASSERT(prms.n_rows > 1,
@@ -223,7 +224,7 @@ void pcaTransform(const cumlHandle_impl& handle, math_t *input, math_t *componen
 	}
 
 	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-	tsvdTransform(handle, input, components, trans_input, prms);
+	tsvdTransform(handle, input, components, trans_input, prms, stream);
 	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {

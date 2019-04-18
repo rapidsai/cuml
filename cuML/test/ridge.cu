@@ -43,15 +43,6 @@ protected:
 		int len = params.n_row * params.n_col;
 		int len2 = params.n_row_2 * params.n_col;
 
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
-
 		allocate(data, len);
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col);
@@ -98,53 +89,36 @@ protected:
 
 		intercept = T(0);
 
-		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef,
-				&intercept, false, false, cublas_handle, cusolver_handle,
-				stream, params.algo);
+		ridgeFit(handle.getImpl(), data, params.n_row, params.n_col, labels, &alpha, 1, coef,
+				&intercept, false, false, stream, params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef, intercept,
-				pred, cublas_handle, stream);
+		ridgePredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef, intercept,
+				pred, stream);
 
 		updateDevice(data, data_h, len);
 		updateDevice(labels, labels_h, params.n_row);
 
 		intercept2 = T(0);
-		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
-				&intercept2, true, false, cublas_handle, cusolver_handle,
-				stream, params.algo);
+		ridgeFit(handle.getImpl(), data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
+				&intercept2, true, false, stream, params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef2, intercept2,
-				pred2, cublas_handle, stream);
+		ridgePredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef2, intercept2,
+				pred2, stream);
 
 		updateDevice(data, data_h, len);
 		updateDevice(labels, labels_h, params.n_row);
 
 		intercept3 = T(0);
-		ridgeFit(data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
-				&intercept3, true, true, cublas_handle, cusolver_handle,
-				stream, params.algo);
+		ridgeFit(handle.getImpl(), data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
+				&intercept3, true, true, stream, params.algo);
 
-		ridgePredict(pred_data, params.n_row_2, params.n_col, coef3, intercept3,
-				pred3, cublas_handle, stream);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
-
+		ridgePredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef3, intercept3,
+				pred3, stream);
 	}
 
 	void basicTest2() {
 		params = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
 		int len = params.n_row * params.n_col;
-
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		allocate(data_sc, len);
 		allocate(labels_sc, len);
@@ -166,17 +140,13 @@ protected:
 		T intercept_sc = T(0);
 		T alpha_sc = T(1.0);
 
-		ridgeFit(data_sc, len, 1, labels_sc, &alpha_sc, 1, coef_sc,
-						&intercept_sc, true, false, cublas_handle, cusolver_handle,
+		ridgeFit(handle.getImpl(), data_sc, len, 1, labels_sc, &alpha_sc, 1, coef_sc,
+						&intercept_sc, true, false,
 						stream, params.algo);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
-
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
 		basicTest();
 		basicTest2();
 	}
@@ -202,8 +172,7 @@ protected:
 		CUDA_CHECK(cudaFree(labels_sc));
 		CUDA_CHECK(cudaFree(coef_sc));
 		CUDA_CHECK(cudaFree(coef_sc_ref));
-
-
+                CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -213,6 +182,8 @@ protected:
 	T *coef3, *coef3_ref, *pred3, *pred3_ref;
 	T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
 	T intercept, intercept2, intercept3;
+        cumlHandle handle;
+        cudaStream_t stream;
 };
 
 const std::vector<RidgeInputs<float> > inputsf2 = {

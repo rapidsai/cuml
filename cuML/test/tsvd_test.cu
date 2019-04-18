@@ -78,7 +78,7 @@ protected:
 		else
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
-		tsvdFit(handle.getImpl(), data, components, singular_vals, prms);
+		tsvdFit(handle.getImpl(), data, components, singular_vals, prms, stream);
 	}
 
 	void advancedTest() {
@@ -112,11 +112,11 @@ protected:
 
 		tsvdFitTransform(handle.getImpl(), data2, data2_trans, components2,
                                  explained_vars2, explained_var_ratio2,
-                                 singular_vals2, prms);
+                                 singular_vals2, prms, stream);
 
 		allocate(data2_back, len);
 		tsvdInverseTransform(handle.getImpl(), data2_trans, components2,
-                                     data2_back, prms);
+                                     data2_back, prms, stream);
 	}
 
 	void SetUp() override {
