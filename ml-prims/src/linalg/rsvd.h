@@ -87,10 +87,10 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 
   // now build up (M M^T)^q R
   device_buffer<math_t> Z(allocator, stream, n * l);
-  CUDA_CHECK(cudaMemsetAsync(Z.data(), 0, sizeof(math_t) * n * l, stream));
   device_buffer<math_t> Yorth(allocator, stream, m * l);
-  CUDA_CHECK(cudaMemsetAsync(Yorth.data(), 0, sizeof(math_t) * m * l, stream));
   device_buffer<math_t> Zorth(allocator, stream, n * l);
+  CUDA_CHECK(cudaMemsetAsync(Z.data(), 0, sizeof(math_t) * n * l, stream));
+  CUDA_CHECK(cudaMemsetAsync(Yorth.data(), 0, sizeof(math_t) * m * l, stream));
   CUDA_CHECK(cudaMemsetAsync(Zorth.data(), 0, sizeof(math_t) * n * l, stream));
 
   // power sampling scheme
