@@ -21,6 +21,7 @@
 #include <linalg/gemm.h>
 #include <linalg/add.h>
 #include <linalg/subtract.h>
+#include <linalg/multiply.h>
 #include <linalg/eltwise.h>
 #include <linalg/unary_op.h>
 #include <linalg/cublas_wrappers.h>
@@ -67,11 +68,13 @@ void cdFit(math_t *input,
 	math_t *mu_labels = NULL;
 	math_t *norm2_input = NULL;
 	math_t *pred = NULL;
+	math_t *residual = NULL;
 	math_t *squared = NULL;
 	math_t *loss_value = NULL;
 
 	allocate(loss_value, 1);
 	allocate(pred, n_rows, true);
+	allocate(residual, n_rows, true);
 	allocate(squared, n_cols, true);
 
 	std::vector<math_t> h_coef(n_cols, math_t(0));
@@ -85,9 +88,9 @@ void cdFit(math_t *input,
 				cusolver_handle);
 	}
 
-	std::vector<int> rand_indices(n_cols);
+	std::vector<int> ri(n_cols);
 	std::mt19937 g(rand());
-	initShuffle(rand_indices, g);
+	initShuffle(ri, g);
 
 	math_t l2_alpha = (1 - l1_ratio) * alpha * n_rows;
 	alpha = l1_ratio * alpha * n_rows;
@@ -101,9 +104,11 @@ void cdFit(math_t *input,
 		LinAlg::addScalar(squared, squared, l2_alpha, n_cols, stream);
 	}
 
+	copy(residual, labels, n_rows);
+
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
-			Solver::shuffle(rand_indices, g);
+			Solver::shuffle(ri, g);
 		}
 
 		math_t coef_max = 0.0;
@@ -111,34 +116,33 @@ void cdFit(math_t *input,
 		math_t coef_prev = 0.0;
 
 		for (int j = 0; j < n_cols; j++) {
-			math_t *coef_loc = coef + rand_indices[j];
-			math_t *squared_loc = squared + rand_indices[j];
+			int ci = ri[j];
+			math_t *coef_loc = coef + ci;
+			math_t *squared_loc = squared + ci;
+			math_t *input_col_loc = input + (ci * n_rows);
 
-			Matrix::setValue(coef_loc, coef_loc, math_t(0), 1);
-
-			LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1,
-					CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle);
-
-			LinAlg::subtract(pred, labels, pred, n_rows);
-
-			math_t *input_col_loc = input + (rand_indices[j] * n_rows);
-			LinAlg::gemm(input_col_loc, n_rows, 1, pred, coef_loc, 1, 1,
-					CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle);
+			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows, stream);
+			LinAlg::add(residual, residual, pred, n_rows, stream);
+			LinAlg::gemm(input_col_loc, n_rows, 1, residual, coef_loc, 1, 1,
+								CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle);
 
 			if (l1_ratio > math_t(0.0))
 				Functions::softThres(coef_loc, coef_loc, alpha, 1);
 
 			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1);
 
-			coef_prev = h_coef[j];
-			updateHost(&(h_coef[j]), coef_loc, 1);
-			math_t diff = abs(coef_prev - h_coef[j]);
+			coef_prev = h_coef[ci];
+			updateHost(&(h_coef[ci]), coef_loc, 1);
+			math_t diff = abs(coef_prev - h_coef[ci]);
 
 			if (diff > d_coef_max)
 				d_coef_max = diff;
 
-			if (abs(h_coef[j]) > coef_max)
-				coef_max = abs(h_coef[j]);
+			if (abs(h_coef[ci]) > coef_max)
+				coef_max = abs(h_coef[ci]);
+
+			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows, stream);
+			LinAlg::subtract(residual, residual, pred, n_rows, stream);
 		}
 
 		bool flag_continue = true;
@@ -171,6 +175,9 @@ void cdFit(math_t *input,
 
 	if (pred != NULL)
 		CUDA_CHECK(cudaFree(pred));
+
+	if (residual != NULL)
+		CUDA_CHECK(cudaFree(residual));
 
 	if (squared != NULL)
 		CUDA_CHECK(cudaFree(squared));
