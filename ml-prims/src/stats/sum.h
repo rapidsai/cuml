@@ -80,7 +80,7 @@ __global__ void sumKernelColMajor(Type *mu, const Type *data,
  */
 template <typename Type, typename IdxType = int>
 void sum(Type *output, const Type *input, IdxType D, IdxType N, bool rowMajor,
-         cudaStream_t stream = 0) {
+         cudaStream_t stream) {
   static const int TPB = 256;
   if (rowMajor) {
     static const int RowsPerThread = 4;

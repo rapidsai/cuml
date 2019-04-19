@@ -6,15 +6,10 @@
 #include <linalg/transpose.h>
 #include <vector>
 #include <glm/glm_c.h>
+#include <glm/qn/qn.h>
 
 namespace ML {
 namespace GLM {
-
-template <typename T, typename LossFunction>
-int qn_fit(LossFunction &loss, T *Xptr, T *yptr, T *zptr, int N, bool has_bias,
-           T l1, T l2, int max_iter, T grad_tol, int linesearch_max_iter,
-           int lbfgs_memory, int verbosity, T *w0, T *fx, int *num_iters,
-           STORAGE_ORDER ordX, cudaStream_t stream);
 
 using namespace MLCommon;
 

@@ -42,7 +42,7 @@ __global__ void binaryOpKernel(math_t *out, const math_t *in1,
 
 template <typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
 void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
-                  Lambda op, cudaStream_t stream = 0) {
+                  Lambda op, cudaStream_t stream) {
   const IdxType nblks = ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
   binaryOpKernel<math_t, veclen_, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
     out, in1, in2, len, op);
@@ -64,7 +64,7 @@ void binaryOpImpl(math_t *out, const math_t *in1, const math_t *in2, IdxType len
  */
 template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
 void binaryOp(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
-              Lambda op, cudaStream_t stream = 0) {
+              Lambda op, cudaStream_t stream) {
   size_t bytes = len * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
     binaryOpImpl<math_t, 16 / sizeof(math_t), Lambda, IdxType, TPB>(out, in1, in2, len,

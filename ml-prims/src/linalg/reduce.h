@@ -65,16 +65,16 @@ void reduce(OutType *dots, const InType *data, int D, int N, OutType init,
             ReduceLambda reduce_op = Sum<OutType>(),
             FinalLambda final_op = Nop<OutType>()) {
   if(rowMajor && alongRows) {
-    coalescedReduction(dots, data, D, N, init, inplace, stream,
+    coalescedReduction(dots, data, D, N, init, stream, inplace,
                        main_op, reduce_op, final_op);
   } else if(rowMajor && !alongRows) {
-    stridedReduction(dots, data, D, N, init, inplace, stream,
+    stridedReduction(dots, data, D, N, init, stream, inplace,
                      main_op, reduce_op, final_op);
   } else if(!rowMajor && alongRows) {
-    stridedReduction(dots, data, N, D, init, inplace, stream,
+    stridedReduction(dots, data, N, D, init, stream, inplace,
                      main_op, reduce_op, final_op);
   } else {
-    coalescedReduction(dots, data, N, D, init, inplace, stream,
+    coalescedReduction(dots, data, N, D, init, stream, inplace,
                        main_op, reduce_op, final_op);
   }
 }

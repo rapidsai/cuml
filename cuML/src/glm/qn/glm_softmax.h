@@ -156,7 +156,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
 
 template <typename T>
 void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
-                      int N, cudaStream_t stream = 0) {
+                      int N, cudaStream_t stream) {
 
   CUDA_CHECK(cudaMemset(loss_val, 0, sizeof(T)));
   if (C <= 4) {
@@ -190,7 +190,7 @@ template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
       : Super(D, C, has_bias, cublas) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
-                           const SimpleVec<T> &y, cudaStream_t stream =0) {
+                           const SimpleVec<T> &y, cudaStream_t stream) {
 
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
