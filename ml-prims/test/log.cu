@@ -23,6 +23,8 @@ class LogTest: public ::testing::TestWithParam<LogInputs<T> > {
 protected:
     void SetUp() override {
         params = ::testing::TestWithParam<LogInputs<T>>::GetParam();
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
 
         int len = params.len;
 
@@ -35,7 +37,8 @@ protected:
         T result_ref_h[params.len] = { 0.74193734, 1.5040774, -1.07880966, 2.30258509 };
         updateDevice(result_ref, result_ref_h, len);
 
-        f_log(result, data, T(1), len);
+        f_log(result, data, T(1), len, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     void TearDown() override {
