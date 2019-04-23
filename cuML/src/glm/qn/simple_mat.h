@@ -34,6 +34,7 @@ using MLCommon::Sparse::cusparseCsrmm;
 using MLCommon::Sparse::cusparseGemmi;
 
 template <typename T> struct SimpleMat;
+template <typename T> struct SimpleVec;
 template <typename T> struct CsrMat;
 
 enum STORAGE_ORDER { COL_MAJOR = 0, ROW_MAJOR = 1 };
@@ -44,7 +45,6 @@ template <typename T, class MatA, class MatB, class MatC> struct Gemm {
     ASSERT(false, "simple_mat.h: Combination of matrix types not implemented.");
   }
 };
-
 template <typename T> struct Gemm<T, SimpleMat<T>, SimpleMat<T>, SimpleMat<T>> {
   static inline void gemm_(SimpleMat<T> &C, const T alpha,
                            const SimpleMat<T> &A, const bool transA,
@@ -102,6 +102,17 @@ template <typename T> struct Gemm<T, SimpleMat<T>, SimpleMat<T>, SimpleMat<T>> {
   }
 };
 
+template <typename T> struct Gemm<T, SimpleMat<T>, SimpleVec<T>, SimpleMat<T>> {
+  typedef SimpleMat<T> Mat;
+  static inline void gemm_(Mat &C, const T alpha, const Mat &A,
+                           const bool transA, const SimpleVec<T> &B,
+                           const bool transB, const T beta,
+                           const cumlHandle_impl &cuml, cudaStream_t stream) {
+    Gemm<T, Mat, Mat, Mat>::gemm_(C, alpha, A, transA, B, transB, beta, cuml,
+                                  stream);
+  }
+};
+
 template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
   // we implement only two cases, essential to running QN GLM:
   // Case 1: C_cm = alpha * A_cm * B_csr' + beta * C_cm
@@ -142,29 +153,35 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
 
     ASSERT(C.ord == COL_MAJOR && A.ord == COL_MAJOR,
            "simple_mat.h: Storage orders of dense matrices.");
+
+    ASSERT(C.m == 1, "simple_mat.h: multiple outputs not yet supported.");
     // Check that we are either in case 1 or 2
-    if (!transA && transB) { // case 1
-      CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
-                                   C.m, // m = C = W.m
-                                   C.n, // n = N = X.m
-                                   A.n, // k = X.n = D
-                                   B.nnz, &alpha, A.data,
-                                   A.m, // lda = C
-                                   B.csrVal.data, B.csrRowPtr.data,
-                                   B.csrColInd.data, &beta, C.data,
-                                   C.m // ldc = C
-                                   ));
-    } else { // case 2
+    // if (!transA && transB) { // case 1
+    //    printf("m=%d,n=%d,k=%d, nnz=%d, lda=%d, ldc=%d\n",
+    //            C.m,C.n,A.n, B.nnz, A.m, C.m
+    //            );
+    //  CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
+    //                               C.m, // m = C = W.m
+    //                               C.n, // n = N = X.m
+    //                               A.n, // k = X.n = D
+    //                               B.nnz, &alpha, A.data,
+    //                               A.m, // lda = C
+    //                               B.csrVal.data, B.csrRowPtr.data,
+    //                               B.csrColInd.data, &beta, C.data,
+    //                               C.m // ldc = C
+    //                               ));
+
+    //} else
+    { // case 2
 
       // if beta != 0, we would also have to transpose C first
-      ASSERT(beta == 0,
-             "simple_mat.h: requested configuration not implemented.");
+      // ASSERT(beta == 0, "simple_mat.h: requested configuration not
+      // implemented.");
 
       // TODO If C > 1, we would need to transpose the output of the cusparse
       // call  However, here we do not have the necessary scratch space  We
       // could allocate it using the cuml handle and rely on RMM's mempool  or
       // pass in the scratch space explicitely (which is bad for the API)
-      ASSERT(C.m == 1, "simple_mat.h: multiple outputs not yet supported.");
       // inverting transposes!
       cusparseOperation_t opB = transB ? CUSPARSE_OPERATION_NON_TRANSPOSE
                                        : CUSPARSE_OPERATION_TRANSPOSE;
@@ -172,7 +189,10 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
       // if B is transposed, it will not be transposed in this formulation
       int ldc = transB ? B.m : B.n;
       int ldb = A.n;
-      // printf("ldb %d ldc %d\n", ldb, ldc);
+
+      // printf("m=%d,n=%d,k=%d, nnz=%d, lda=%d, ldc=%d\n", B.m,1,B.n, B.nnz,
+      // ldb, ldc);
+
       CUSPARSE_CHECK(
           cusparseCsrmm(cuml.getcusparseHandle(),
                         opB,           // B, the sparse matrix is A
@@ -304,8 +324,8 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
   // this = alpha * A * x + beta * this
   void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA,
                    const SimpleVec<T> &x, const T beta,
-                   const cumlHandle_impl &cuml) {
-    Super::assign_gemm(alpha, A, transA, x, false, beta, cuml, 0);
+                   const cumlHandle_impl &cuml, cudaStream_t stream) {
+    Super::assign_gemm(alpha, A, transA, x, false, beta, cuml, stream);
   }
 
   SimpleVec() : Super(COL_MAJOR) {}
