@@ -298,12 +298,14 @@ namespace MLCommon {
                 T *rows, T nnz, T *row_ind, T m) {
 
             T *row_counts;
-            MLCommon::allocate(row_counts, m);
+            MLCommon::allocate(row_counts, m, true);
 
             dim3 grid(ceildiv(m, 32), 1, 1);
             dim3 blk(32, 1, 1);
 
             coo_row_count<32><<<grid, blk>>>(rows, nnz, row_counts, m);
+
+            std::cout << MLCommon::arr2Str(row_counts, m, "row_counts");
 
             // create csr compressed row index from row counts
             thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
