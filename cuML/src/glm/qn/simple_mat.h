@@ -229,7 +229,8 @@ inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
   auto f = [] __device__(const T x, const T y) { return x * y; };
   MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1);
+  MLCommon::updateHostAsync(&tmp_host, tmp_dev, 1, stream);
+  cudaStreamSynchronize(stream);
   return tmp_host;
 }
 
@@ -249,7 +250,8 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
                             true, stream, MLCommon::Nop<T>());
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1);
+  MLCommon::updateHostAsync(&tmp_host, tmp_dev, 1, stream);
+  cudaStreamSynchronize(stream);
   return tmp_host;
 }
 
