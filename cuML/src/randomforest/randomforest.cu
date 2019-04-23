@@ -189,13 +189,14 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 /**
  * @brief Predict target feature for input data; n-ary classification for single feature supported.
  * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
-int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool verbose) const {
+int * rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, bool verbose) const {
 
 	ASSERT(this->trees, "Cannot predict! No trees in the forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
@@ -224,7 +225,7 @@ int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool ver
 				std::cout << "Printing tree " << i << std::endl;
 				this->trees[i].print();
 			}
-			int * prediction = this->trees[i].predict(&input[row_id * row_size], 1, n_cols, verbose);
+			int * prediction = this->trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, verbose);
 			ret = prediction_to_cnt.insert(std::pair<int, int>(*prediction, 1));
 			delete [] prediction;
 			if (!(ret.second)) {
@@ -245,6 +246,7 @@ int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool ver
 /**
  * @brief Predict input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
  * @param[in] n_rows: number of  data samples.
@@ -252,9 +254,9 @@ int * rfClassifier<T>::predict(const T * input, int n_rows, int n_cols, bool ver
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
-RF_metrics rfClassifier<T>::cross_validate(const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
+RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
 
-	int * predictions = predict(input, n_rows, n_cols, verbose);
+	int * predictions = predict(user_handle, input, n_rows, n_cols, verbose);
 
 	unsigned long long correctly_predicted = 0ULL;
 	for (int i = 0; i < n_rows; i++) {
@@ -280,28 +282,28 @@ template class rfClassifier<double>;
 
 // Stateless API functions: fit, predict and cross_validate
 
-void fit(rfClassifier<float> * rf_classifier, const cumlHandle& user_handle, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+void fit(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
 }
 
-void fit(rfClassifier<double> * rf_classifier, const cumlHandle& user_handle, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+void fit(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
 }
 
-int * predict(rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, bool verbose) {
-	return rf_classifier->predict(input, n_rows, n_cols, verbose);
+int * predict(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->predict(user_handle, input, n_rows, n_cols, verbose);
 }
 
-int * predict(rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, bool verbose) {
-	return rf_classifier->predict(input, n_rows, n_cols, verbose);
+int * predict(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->predict(user_handle, input, n_rows, n_cols, verbose);
 }
 
-RF_metrics cross_validate(rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
-	return rf_classifier->cross_validate(input, ref_labels, n_rows, n_cols, verbose);
+RF_metrics cross_validate(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows, n_cols, verbose);
 }
 
-RF_metrics cross_validate(rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
-	return rf_classifier->cross_validate(input, ref_labels, n_rows, n_cols, verbose);
+RF_metrics cross_validate(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels, int n_rows, int n_cols, bool verbose) {
+	return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows, n_cols, verbose);
 }
 
 };
