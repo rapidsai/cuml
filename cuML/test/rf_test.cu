@@ -85,7 +85,7 @@ protected:
 		CUDA_CHECK(cudaStreamCreate(&stream) );
 		handle.setStream(stream);
 
-		fit(rf_classifier, handle, data, params.n_rows, params.n_cols, labels, labels_map.size());
+		fit(handle, rf_classifier, data, params.n_rows, params.n_cols, labels, labels_map.size());
 
 		CUDA_CHECK(cudaStreamSynchronize(stream));
 		CUDA_CHECK(cudaStreamDestroy(stream));
@@ -95,6 +95,9 @@ protected:
 		inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
 		inference_data_h.resize(inference_data_len);
 
+		// Predict and compare against known labels
+		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+		accuracy = tmp.accuracy;
     }
 
  	void SetUp() override {
@@ -102,6 +105,7 @@ protected:
 	}
 
 	void TearDown() override {
+		accuracy = -1.0f; // reset accuracy
 		postprocess_labels(params.n_rows, labels_h, labels_map);
 		inference_data_h.clear();
 		labels_h.clear();
@@ -124,6 +128,7 @@ protected:
 	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
 
     rfClassifier<T> * rf_classifier;
+	float accuracy = -1.0f; // overriden in each test SetUp and TearDown
 };
 
 
@@ -135,9 +140,8 @@ const std::vector<RfInputs<float> > inputsf2 = {
 
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
-	RF_metrics tmp = cross_validate(rf_classifier, inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
 	//rf_classifier->print_rf_detailed();
-	ASSERT_TRUE((tmp.accuracy == 1.0f));
+	ASSERT_TRUE((accuracy == 1.0f));
 }
 
 INSTANTIATE_TEST_CASE_P(RfTests, RfTestF, ::testing::ValuesIn(inputsf2));
