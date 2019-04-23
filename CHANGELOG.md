@@ -26,6 +26,7 @@
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #475: exposing cumlHandle for dbscan from python-side
 
 ## Bug Fixes
 
