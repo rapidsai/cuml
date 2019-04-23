@@ -30,9 +30,9 @@ into three categories:
 4. Get familar with the developer guide relevant for you:
     * For C++ developers it is avaiable here [DEVELOPER_GUIDE.md](cuML/DEVELOPER_GUIDE.md)
 5. Code! Make sure to update unit tests!
-5. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
-6. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
-7. Wait for other developers to review your code and update code as needed.
+6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
+7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
+8. Wait for other developers to review your code and update code as needed.
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues
@@ -78,6 +78,7 @@ A few days before releasing version `x.y` the code of the current development br
         - Please use dashes or underscores between words as opposed to spaces.
 
 2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
+
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md

@@ -43,6 +43,7 @@ class TransposeTest : public ::testing::TestWithParam<TranposeInputs<T>> {
 protected:
   void SetUp() override {
     CUBLAS_CHECK(cublasCreate(&handle));
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<TranposeInputs<T>>::GetParam();
 
     int len = params.len;
@@ -58,8 +59,8 @@ protected:
 
     allocate(data_trans, len);
 
-    transpose(data, data_trans, params.n_row, params.n_col, handle);
-    transpose(data, params.n_row);
+    transpose(data, data_trans, params.n_row, params.n_col, handle, stream);
+    transpose(data, params.n_row, stream);
   }
 
   void TearDown() override {
@@ -67,12 +68,14 @@ protected:
     CUDA_CHECK(cudaFree(data_trans));
     CUDA_CHECK(cudaFree(data_trans_ref));
     CUBLAS_CHECK(cublasDestroy(handle));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
   TranposeInputs<T> params;
   T *data, *data_trans, *data_trans_ref;
   cublasHandle_t handle;
+  cudaStream_t stream;
 };
 
 const std::vector<TranposeInputs<float>> inputsf2 = {

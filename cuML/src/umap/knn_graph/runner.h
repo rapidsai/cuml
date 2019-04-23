@@ -29,6 +29,7 @@ namespace kNNGraph {
 			 long *knn_indices, T *knn_dists,
 			 kNN *knn,
 			 UMAPParams *params,
+       cudaStream_t stream,
 			 int algo = 0) {
 		switch(algo) {
 
@@ -36,7 +37,7 @@ namespace kNNGraph {
 		 * Initial algo uses FAISS indices
 		 */
 		case 0:
-			Algo::launcher(X, n, d, knn_indices, knn_dists, knn, params);
+			Algo::launcher(X, n, d, knn_indices, knn_dists, knn, params, stream);
 			break;
 		}
 	}

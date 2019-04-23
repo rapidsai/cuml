@@ -42,8 +42,9 @@ protected:
 		umap_params->n_neighbors = k;
 
 		kNN *knn = new kNN(d);
-
-		UMAPAlgo::find_ab(umap_params);
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream));
+		UMAPAlgo::find_ab(umap_params, stream);
 
 		std::vector<float> X = {
 			1.0, 1.0, 34.0,
@@ -52,18 +53,20 @@ protected:
 			23.0, 7.0, 80.0
 		};
 
-		float* X_d;
+    float* X_d;
+
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
-		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings);
+		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings, stream);
 
 		float *xformed;
 		MLCommon::allocate(xformed, n*umap_params->n_components);
 
-		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
+		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed, stream);
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	void SetUp() override {

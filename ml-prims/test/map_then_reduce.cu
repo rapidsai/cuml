@@ -33,10 +33,10 @@ __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
 }
 
 template <typename Type, typename MapOp>
-void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map) {
+void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, (size_t)TPB);
-  naiveMapReduceKernel<Type, MapOp><<<nblks, TPB>>>(out, in, len, map);
+  naiveMapReduceKernel<Type, MapOp><<<nblks, TPB, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -57,9 +57,9 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len) {
+void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len, cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
-  naiveMapReduce(out_ref, in, len, op);
+  naiveMapReduce(out_ref, in, len, op, stream);
   mapThenSumReduce(out, len, op, 0, in);
 }
 
@@ -70,11 +70,14 @@ protected:
     params = ::testing::TestWithParam<MapReduceInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     auto len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0));
-    mapReduceLaunch(out_ref, out, in, len);
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    mapReduceLaunch(out_ref, out, in, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
