@@ -4,8 +4,8 @@
 
 namespace ML {
 
-//non-allocating light-weight wrapper for Csr format used to dispatch 
-//gemm calls
+// non-allocating light-weight wrapper for Csr format used to dispatch
+// gemm calls
 template <typename T> struct CsrMat {
   SimpleVec<T> csrVal;
   SimpleVec<int> csrRowPtr;
@@ -25,8 +25,7 @@ template <typename T> struct CsrMat {
       : m(other.m), n(other.n), csrVal(other.csrVal.data, other.csrVal.len),
         csrRowPtr(other.csrRowPtr.data, other.csrRowPtr.len),
         csrColInd(other.csrColInd.data, other.csrColInd.len),
-        descr(other.descr) {}
-
+        descr(other.descr), nnz(other.nnz) {}
 };
 
 } // namespace ML
