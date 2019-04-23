@@ -24,12 +24,9 @@
 extern "C" {
 #endif
 
-typedef struct
-{
-    void* ptr;
-} cumlHandle_t;
+typedef int cumlHandle_t;
 
-enum cumlError_t { CUML_SUCCESS, CUML_ERROR_UNKOWN };
+enum cumlError_t { CUML_SUCCESS, CUML_ERROR_UNKNOWN, CUML_INVALID_HANDLE };
 
 typedef cudaError_t (*cuml_allocate)(void** p,size_t n, cudaStream_t stream);
 typedef cudaError_t (*cuml_deallocate)(void* p, size_t n, cudaStream_t stream);

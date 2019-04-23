@@ -2,19 +2,56 @@
 
 ## New Features
 
+- PR #405: Quasi-Newton GLM Solvers
+
+## New Features
+
 - PR #277: Added row- and column-wise weighted mean primitive
+- PR #424: Added a grid-sync struct for inter-block synchronization
+- PR #430: Adding R-Squared Score to ml primitives
+- PR #463: Added matrix gather to ml primitives
+- PR #435: Exposing cumlhandle in cython + developer guide
+- PR #455: Remove default-stream arguement across ml-prims and cuML
+- PR #375: cuml cpp shared library renamed to libcuml++.so
 
 ## Improvements
 
+- PR #467: Added validity check on cumlHandle_t
+- PR #461: Rewrote permute and added column major version
+- PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #447: Added building and running mlprims tests to CI
+- PR #445: Lower dbscan memory usage by computing adjacency matrix directly
+- PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
+- PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
 
 ## Bug Fixes
 
 - PR #334: Fixed segfault in `ML::cumlHandle_impl::destroyResources`
 - PR #349: Developer guide clarifications for cumlHandle and cumlHandle_impl
+- PR #398: Fix CI scripts to allow nightlies to be uploaded
+- PR #399: Skip PCA tests to allow CI to run with driver 418
+- PR #422: Issue in the PCA tests was solved and CI can run with driver 418
+- PR #409: Add entry to gitmodules to ignore build artifacts
+- PR #412: Fix for svdQR function in ml-prims
+- PR #438: Code that depended on FAISS was building everytime.
+- PR #358: Fixed an issue when switching streams on MLCommon::device_buffer and MLCommon::host_buffer
+- PR #434: Fixing bug in CSR tests
+- PR #443: Remove defaults channel from ci scripts
+- PR #384: 64b index arithmetic updates to the kernels inside ml-prims
+- PR #459: Fix for runtime library path of pip package
+- PR #464: Fix for C++11 destructor warning in qn
+- PR #466: Add support for column-major in LinAlg::*Norm methods
+- PR #465: Fixing deadlock issue in GridSync due to consecutive sync calls
+- PR #468: Fix dbscan example build failure
+- PR #470: Fix resource leakage in Kalman filter python wrapper
+- PR #473: Fix gather ml-prim test for change in rng uniform API
+- PR #477: Fixes default stream initialization in cumlHandle
+- PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -61,7 +98,7 @@
 - PR #312: Last minute cleanup before release
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
-- PR #342 Change default ABI to ON
+- PR #342: Change default ABI to ON
 
 ## Bug Fixes
 
@@ -84,7 +121,6 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-
 
 # cuML 0.5.1 (05 Feb 2019)
 
