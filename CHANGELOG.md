@@ -21,6 +21,7 @@
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #447: Added building and running mlprims tests to CI
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
