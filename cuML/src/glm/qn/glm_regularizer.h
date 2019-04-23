@@ -58,12 +58,12 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
                         const SimpleMat<T> &Xb, const SimpleVec<T> &yb,
                         SimpleMat<T> &Zb, cudaStream_t stream, bool initGradZero = true) {
     SimpleVec<T> lossVal(loss_val, 1);
-    G.fill(0);
+    G.fill(0, stream);
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
     T reg = lossVal[0];
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
     T loss = lossVal[0];
-    lossVal.fill(loss + reg);
+    lossVal.fill(loss + reg, stream);
   }
 };
 }; // namespace GLM

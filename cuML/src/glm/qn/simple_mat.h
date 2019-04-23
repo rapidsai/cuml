@@ -162,7 +162,7 @@ template <typename T> struct SimpleMat {
                                 len, f, stream);
   }
 
-  inline void fill(const T val, cudaStream_t stream = 0) {
+  inline void fill(const T val, cudaStream_t stream) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
@@ -225,7 +225,7 @@ inline void col_slice(const SimpleMat<T> &mat, SimpleMat<T> &mask_mat,
 
 template <typename T>
 inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
-             cudaStream_t stream = 0) {
+             cudaStream_t stream) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
   MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
@@ -235,17 +235,17 @@ inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
 
 template <typename T>
 inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev,
-                     cudaStream_t stream = 0) {
+                     cudaStream_t stream) {
   return dot(u, u, tmp_dev, stream);
 }
 
 template <typename T>
-inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
+inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
 }
 
 template <typename T>
-inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
+inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
                             true, stream, MLCommon::Nop<T>());
   T tmp_host;
