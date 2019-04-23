@@ -74,12 +74,12 @@ def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
         data = iris.data
         labels = iris.target
 
-    if name == 'digits':
+    elif name == 'digits':
         digits = datasets.load_digits(n_class=5)
         data = digits.data
         labels = digits.target
       
-    if name == 'wine':
+    elif name == 'wine':
         wine = datasets.load_wine()
         data = wine.data
         labels = wine.target
