@@ -96,10 +96,10 @@ T run(LossFunction &loss, DevUpload<T> &devUpload, InputSpec &in, T l1, T l2,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(loss, devUpload.devX.data, devUpload.devY.data,
+  qn_fit<T, LossFunction>(cuml, loss, devUpload.devX.data, devUpload.devY.data,
                           z.data, in.n_row, loss.fit_intercept, l1, l2,
                           max_iter, grad_tol, linesearch_max_iter, lbfgs_memory,
-                          verbosity, w0.data, &fx, &num_iters, ROW_MAJOR, cuml);
+                          verbosity, w0.data, &fx, &num_iters, ROW_MAJOR, cuml.getStream());
 
   return fx;
 }
@@ -116,7 +116,7 @@ T run_api(int loss_type, int C, bool fit_intercept, DevUpload<T> &devUpload,
   int num_iters = 0;
 
   SimpleVec<T> w0(w, in.n_col + fit_intercept);
-  w0.fill(T(0));
+  w0.fill(T(0), stream);
   T fx;
 
   qnFit(devUpload.devX.data, devUpload.devY.data, in.n_row, in.n_col, C,

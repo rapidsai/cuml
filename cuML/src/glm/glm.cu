@@ -182,11 +182,10 @@ void qnFit(float *X, float *y, int N, int D, int C, bool fit_intercept,
 
   // TODO cuml will be passed in
   cumlHandle cuml;
-  cuml.setStream(0);
 
-  qnFit(X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
-        linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-        X_col_major, loss_type, cuml.getImpl());
+  qnFit(cuml.getImpl(), X, y, N, D, C, fit_intercept, l1, l2, max_iter,
+        grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
+        num_iters, X_col_major, loss_type, cuml.getStream());
 }
 
 void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
@@ -196,11 +195,10 @@ void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
 
   // TODO cuml will be passed in
   cumlHandle cuml;
-  cuml.setStream(0);
 
-  qnFit(X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
-        linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-        X_col_major, loss_type, cuml.getImpl());
+  qnFit(cuml.getImpl(), X, y, N, D, C, fit_intercept, l1, l2, max_iter,
+        grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
+        num_iters, X_col_major, loss_type, cuml.getStream());
 }
 
 } // namespace GLM
