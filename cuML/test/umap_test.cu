@@ -40,6 +40,8 @@ protected:
 
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
+		umap_params->verbose = true;
+		umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
 
 		kNN *knn = new kNN(d);
 
@@ -52,9 +54,15 @@ protected:
 			23.0, 7.0, 80.0
 		};
 
-		float* X_d;
+		std::vector<float> Y = {
+		        -1, 1, 1, 0
+		};
+
+		float *X_d, *Y_d;
 		MLCommon::allocate(X_d, n*d);
+		MLCommon::allocate(Y_d, n);
 		MLCommon::updateDevice(X_d, X.data(), n*d);
+		MLCommon::updateDevice(Y_d, Y.data(), n);
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
@@ -64,6 +72,12 @@ protected:
 		MLCommon::allocate(xformed, n*umap_params->n_components);
 
 		UMAPAlgo::_transform<float, 32>(X_d, n, d, embeddings, n, knn, umap_params, xformed);
+
+
+		UMAPAlgo::_fit<float, 32>(X_d, Y_d, n, d, knn, umap_params, embeddings);
+
+
+
 	}
 
 	void SetUp() override {

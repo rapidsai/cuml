@@ -163,6 +163,7 @@ namespace UMAPAlgo {
 
             rnnz[row] = nnz;
             atomicAdd(rnnz + n, nnz); // fused operation to count number of nonzeros
+            printf("Row=%d, nnz=%d, rnnz[n]=%d\n", row, nnz, rnnz[n]);
         }
     }
 
@@ -186,8 +187,6 @@ namespace UMAPAlgo {
             orows, ocols, ovals, rnnz, m,
             n_neighbors
         );
-
-        CUDA_CHECK(cudaFree(row_ind));
     }
 
     template<typename T, int TPB_X>
@@ -408,6 +407,10 @@ namespace UMAPAlgo {
 
         find_ab(params);
 
+        if(params->verbose)
+            std::cout << "Running KNN on X" << std::endl;
+
+
         /**
          * Allocate workspace for kNN graph
          */
@@ -420,6 +423,9 @@ namespace UMAPAlgo {
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
         CUDA_CHECK(cudaPeekAtLastError());
 
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
+
         int *rgraph_rows, *rgraph_cols;
         T *rgraph_vals;
 
@@ -429,6 +435,10 @@ namespace UMAPAlgo {
         MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2);
         MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
         MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
+
+        if(params->verbose)
+            std::cout << "Running fuzzy simpl set" << std::endl;
+
 
         /**
          * Run Fuzzy simplicial set
@@ -440,6 +450,9 @@ namespace UMAPAlgo {
                            rgraph_vals,
                            params, &nnz, params->n_neighbors, 0);  // @todo: Break this up to stop overallocation
         CUDA_CHECK(cudaPeekAtLastError());
+
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
 
         int *final_rows, *final_cols, *final_nnz, nnz_before_compress;
         T *final_vals;
@@ -455,22 +468,45 @@ namespace UMAPAlgo {
             if(params->target_weights < 1.0)
                 far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
 
+
+            if(params->verbose)
+                std::cout << "Runnning categorical simpl set intersection" << std::endl;
+
             categorical_simplicial_set_intersection<T, TPB_X>(
                     rgraph_rows, rgraph_cols, rgraph_vals,
                     nnz, y, far_dist);
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+            if(params->verbose)
+                std::cout << "Converting to CSR" << std::endl;
 
             int *result_ind;
             MLCommon::allocate(result_ind, n);
 
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, result_ind, n);
 
+            if(params->verbose) {
+                std::cout << MLCommon::arr2Str(rgraph_rows, nnz, "rgraph_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(rgraph_cols, nnz, "rgraph_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(rgraph_vals, nnz, "rgraph_vals") << std::endl;
+                std::cout << MLCommon::arr2Str(result_ind, n, "result_ind") << std::endl;
+            }
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
             nnz_before_compress = nnz*2;
 
+            if(params->verbose)
+                std::cout << "Resetting local connectivity" << std::endl;
+
             // reset local connectivity
-            MLCommon::allocate(final_nnz, n);
-            MLCommon::allocate(final_rows, nnz_before_compress*2);
-            MLCommon::allocate(final_cols, nnz_before_compress*2);
-            MLCommon::allocate(final_vals, nnz_before_compress*2);
+            MLCommon::allocate(final_nnz, n+1);
+            MLCommon::allocate(final_rows, nnz_before_compress);
+            MLCommon::allocate(final_cols, nnz_before_compress);
+            MLCommon::allocate(final_vals, nnz_before_compress);
 
             reset_local_connectivity<T, TPB_X>(
                 result_ind, rgraph_rows, rgraph_cols,
@@ -478,6 +514,11 @@ namespace UMAPAlgo {
                 final_rows, final_cols, final_vals, final_nnz,
                 n, params->n_neighbors
             );
+
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
 
             CUDA_CHECK(cudaFree(result_ind));
 
@@ -490,6 +531,8 @@ namespace UMAPAlgo {
          */
         } else {
 
+
+
             int *ygraph_rows, *ygraph_cols;
             T *ygraph_vals;
 
@@ -499,6 +542,11 @@ namespace UMAPAlgo {
             MLCommon::allocate(ygraph_rows, n*params->target_n_neighbors*2);
             MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2);
             MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2);
+
+
+
+            if(params->verbose)
+                std::cout << "Runnning knn_Graph on Y" << std::endl;
 
             kNN y_knn(1);
             long *y_knn_indices;
@@ -510,6 +558,15 @@ namespace UMAPAlgo {
             kNNGraph::run(y, n, 1, y_knn_indices, y_knn_dists, &y_knn, params);
             CUDA_CHECK(cudaPeekAtLastError());
 
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+
+
+            if(params->verbose)
+                std::cout << "Runnning Fuzzy simpl set on Y" << std::endl;
+
             int ynnz = 0;
             FuzzySimplSet::run<TPB_X, T>(n, y_knn_indices, y_knn_dists,
                                ygraph_rows,
@@ -517,6 +574,13 @@ namespace UMAPAlgo {
                                ygraph_vals,
                                params, &ynnz, params->target_n_neighbors, 0);
             CUDA_CHECK(cudaPeekAtLastError());
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+            if(params->verbose)
+                std::cout << "Converting to CSR" << std::endl;
+
 
             // perform general simplicial set intersection
             int *result_ind, *result_rows, *xrow_ind, *yrow_ind, *result_cols;
@@ -527,6 +591,13 @@ namespace UMAPAlgo {
 
             MLCommon::Sparse::sorted_coo_to_csr(ygraph_rows, ynnz, yrow_ind, n);
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, xrow_ind, n);
+
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+            if(params->verbose)
+                std::cout << "Running general simpl set intersection" << std::endl;
+
 
             int result_nnz = 0;
 
@@ -547,14 +618,28 @@ namespace UMAPAlgo {
                 result_nnz, n, params->target_weights
             );
 
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+            if(params->verbose)
+                std::cout << "Convert result to COO" << std::endl;
+
+
             dim3 grid_n(MLCommon::ceildiv(result_nnz, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
             MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(result_ind, n, result_rows, result_nnz);
 
+            if(params->verbose)
+                std::cout << "Done." << std::endl;
+
+
+            if(params->verbose)
+                std::cout << "Reset Local connectivity" << std::endl;
+
             nnz_before_compress = result_nnz*2;
 
-            MLCommon::allocate(final_nnz, n);
+            MLCommon::allocate(final_nnz, n+1);
             MLCommon::allocate(final_rows, nnz_before_compress);
             MLCommon::allocate(final_cols, nnz_before_compress);
             MLCommon::allocate(final_vals, nnz_before_compress);
@@ -565,8 +650,13 @@ namespace UMAPAlgo {
                 final_rows, final_cols, final_vals, final_nnz,
                 n, params->n_neighbors
             );
+            CUDA_CHECK(cudaPeekAtLastError());
 
         }
+
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
+
 
         CUDA_CHECK(cudaFree(rgraph_rows));
         CUDA_CHECK(cudaFree(rgraph_cols));
@@ -576,10 +666,22 @@ namespace UMAPAlgo {
          * Remove zeros
          */
 
-        int *orows, *ocols;
+        if(params->verbose)
+            std::cout << "Removing zeros" << std::endl;
+
+        if(params->verbose)
+            std::cout << MLCommon::arr2Str(final_nnz, n+1, "final_nnz") << std::endl;
+
+
+        int *orows, *ocols, onnz = 0;
         T *ovals;
 
-        int onnz = *(final_nnz+n); // actual number of nonzero values
+        MLCommon::updateHost(&onnz, final_nnz+n, 1); // actual number of nonzero values
+
+        if(params->verbose)
+            std::cout << "onnz=" << onnz << std::endl;
+
+
         MLCommon::allocate(ocols, onnz);
         MLCommon::allocate(ovals, onnz);
         MLCommon::allocate(orows, onnz);
@@ -589,24 +691,43 @@ namespace UMAPAlgo {
             orows, ocols, ovals,
             final_nnz, onnz);
 
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
+
 
         /**
          * Initialize embeddings
          */
+
+        if(params->verbose)
+            std::cout << "init embeddings." << std::endl;
 
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists,
                 orows, ocols, ovals, onnz,
                 params, embeddings, params->init);
 
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
+
         /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
+
+        if(params->verbose)
+            std::cout << "Running simpl set embedding." << std::endl;
 
         SimplSetEmbed::run<TPB_X, T>(
                 X, n, d,
                 orows, ocols, ovals, onnz,
                 params, embeddings);
+
+        if(params->verbose)
+            std::cout << "Done." << std::endl;
+
+        if(params->verbose)
+            std::cout << MLCommon::arr2Str(embeddings, n*params->n_components, "embeddings") << std::endl;
+
 
         CUDA_CHECK(cudaPeekAtLastError());
 
