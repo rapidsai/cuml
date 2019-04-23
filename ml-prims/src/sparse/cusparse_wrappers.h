@@ -24,7 +24,7 @@ namespace Sparse {
 #define CUSPARSE_CHECK(call)                                                   \
   do {                                                                         \
     cusparseStatus_t status = call;                                            \
-    ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s'\n", #call);     \
+    ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s', status=%d\n", #call, status);     \
   } while (0)
 
 template <typename T>

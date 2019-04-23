@@ -109,13 +109,15 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
   // cusparseGemmi
   //
   // Case 2: C_cm = alpha * A_cm * B_csr
-  // - we implement it as C_cm = ( alpha * B_csr' * A_cm' )'
-  // - if C_cm.m == 1, we can use cusparseCsrmm because A_cm.m = 1,
-  //    thus A_cm = A_cm' in mem
-  //   and do not need the outer transpose
-  // - if C_cm.m > 1 (multiclass/-task), we use cusparseCsrmm2
-  //    and an (inplace) transpose of the result
+  // - we implement it as C_cm = ( alpha * B_csr' * A_cm' )' using
+  // cusparseCsrmm
   //
+  // TODO constraints: beta = 0, number of outputs C_cm.m == 1
+  // Therefore, we dont need to transpose C before and after the multiplication
+  // If we wanted to support these cases, we would need dynamic allocs here.
+  // Once we have cuml poolig allocators, this might be viable.
+  // Passing in workspace instead for this case would make the API semantics
+  // awkward
   static inline void gemm_(SimpleMat<T> &C, const T alpha,
                            const SimpleMat<T> &A, const bool transA,
                            const CsrMat<T> &B, const bool transB, const T beta,
@@ -141,9 +143,23 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
     ASSERT(C.ord == COL_MAJOR && A.ord == COL_MAJOR,
            "simple_mat.h: Storage orders of dense matrices.");
     // Check that we are either in case 1 or 2
-    ASSERT(beta == 0 || ((!transA) && (!transB)),
-           "simple_mat.h: requested configuration not implemented.");
-    if (beta == 0) { // case 2
+    if (!transA && transB) { // case 1
+      CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
+                                   C.m, // m = C = W.m
+                                   C.n, // n = N = X.m
+                                   A.n, // k = X.n = D
+                                   B.nnz, &alpha, A.data,
+                                   A.m, // lda = C
+                                   B.csrVal.data, B.csrRowPtr.data,
+                                   B.csrColInd.data, &beta, C.data,
+                                   C.m // ldc = C
+                                   ));
+    } else { // case 2
+
+      // if beta != 0, we would also have to transpose C first
+      ASSERT(beta == 0,
+             "simple_mat.h: requested configuration not implemented.");
+
       // TODO If C > 1, we would need to transpose the output of the cusparse
       // call  However, here we do not have the necessary scratch space  We
       // could allocate it using the cuml handle and rely on RMM's mempool  or
@@ -175,18 +191,6 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
                         C.data,           // out data
                         ldc               // ldc flipped
                         ));
-
-    } else { // case 1
-      CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
-                                   C.m, // m = C = W.m
-                                   C.n, // n = N = X.m
-                                   A.n, // k = X.n = D
-                                   B.nnz, &alpha, A.data,
-                                   A.m, // lda = C
-                                   B.csrVal.data, B.csrRowPtr.data,
-                                   B.csrColInd.data, &beta, C.data,
-                                   C.m // ldc = C
-                                   ));
     }
   }
 }; // namespace ML
