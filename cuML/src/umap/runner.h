@@ -483,7 +483,7 @@ namespace UMAPAlgo {
                 std::cout << "Converting to CSR" << std::endl;
 
             int *result_ind;
-            MLCommon::allocate(result_ind, n);
+            MLCommon::allocate(result_ind, n, true);
 
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, result_ind, n);
 
@@ -503,10 +503,10 @@ namespace UMAPAlgo {
                 std::cout << "Resetting local connectivity" << std::endl;
 
             // reset local connectivity
-            MLCommon::allocate(final_nnz, n+1);
-            MLCommon::allocate(final_rows, nnz_before_compress);
-            MLCommon::allocate(final_cols, nnz_before_compress);
-            MLCommon::allocate(final_vals, nnz_before_compress);
+            MLCommon::allocate(final_nnz, n+1, true);
+            MLCommon::allocate(final_rows, nnz_before_compress, true);
+            MLCommon::allocate(final_cols, nnz_before_compress, true);
+            MLCommon::allocate(final_vals, nnz_before_compress, true);
 
             reset_local_connectivity<T, TPB_X>(
                 result_ind, rgraph_rows, rgraph_cols,
@@ -531,19 +531,15 @@ namespace UMAPAlgo {
          */
         } else {
 
-
-
             int *ygraph_rows, *ygraph_cols;
             T *ygraph_vals;
 
             /**
              * Allocate workspace for fuzzy simplicial set.
              */
-            MLCommon::allocate(ygraph_rows, n*params->target_n_neighbors*2);
-            MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2);
-            MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2);
-
-
+            MLCommon::allocate(ygraph_rows, n*params->target_n_neighbors*2, true);
+            MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2, true);
+            MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2, true);
 
             if(params->verbose)
                 std::cout << "Runnning knn_Graph on Y" << std::endl;
@@ -552,8 +548,8 @@ namespace UMAPAlgo {
             long *y_knn_indices;
             T *y_knn_dists;
 
-            MLCommon::allocate(y_knn_indices, n*params->target_n_neighbors);
-            MLCommon::allocate(y_knn_dists, n*params->target_n_neighbors);
+            MLCommon::allocate(y_knn_indices, n*params->target_n_neighbors, true);
+            MLCommon::allocate(y_knn_dists, n*params->target_n_neighbors, true);
 
             kNNGraph::run(y, n, 1, y_knn_indices, y_knn_dists, &y_knn, params);
             CUDA_CHECK(cudaPeekAtLastError());
@@ -561,8 +557,6 @@ namespace UMAPAlgo {
 
             if(params->verbose)
                 std::cout << "Done." << std::endl;
-
-
 
             if(params->verbose)
                 std::cout << "Runnning Fuzzy simpl set on Y" << std::endl;
@@ -585,9 +579,9 @@ namespace UMAPAlgo {
             // perform general simplicial set intersection
             int *result_ind, *result_rows, *xrow_ind, *yrow_ind, *result_cols;
             T *result_vals;
-            MLCommon::allocate(result_ind, n);
-            MLCommon::allocate(xrow_ind, n);
-            MLCommon::allocate(yrow_ind, n);
+            MLCommon::allocate(result_ind, n, true);
+            MLCommon::allocate(xrow_ind, n, true);
+            MLCommon::allocate(yrow_ind, n, true);
 
             MLCommon::Sparse::sorted_coo_to_csr(ygraph_rows, ynnz, yrow_ind, n);
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, xrow_ind, n);
@@ -607,9 +601,9 @@ namespace UMAPAlgo {
                 n, result_ind, &result_nnz
             );
 
-            MLCommon::allocate(result_cols, result_nnz);
-            MLCommon::allocate(result_vals, result_nnz);
-            MLCommon::allocate(result_rows, result_nnz);
+            MLCommon::allocate(result_cols, result_nnz, true);
+            MLCommon::allocate(result_vals, result_nnz, true);
+            MLCommon::allocate(result_rows, result_nnz, true);
 
             general_simplicial_set_intersection<T, TPB_X>(
                 xrow_ind, rgraph_cols, rgraph_vals, nnz,
@@ -639,10 +633,10 @@ namespace UMAPAlgo {
 
             nnz_before_compress = result_nnz*2;
 
-            MLCommon::allocate(final_nnz, n+1);
-            MLCommon::allocate(final_rows, nnz_before_compress);
-            MLCommon::allocate(final_cols, nnz_before_compress);
-            MLCommon::allocate(final_vals, nnz_before_compress);
+            MLCommon::allocate(final_nnz, n+1, true);
+            MLCommon::allocate(final_rows, nnz_before_compress, true);
+            MLCommon::allocate(final_cols, nnz_before_compress, true);
+            MLCommon::allocate(final_vals, nnz_before_compress, true);
 
             reset_local_connectivity<T, TPB_X>(
                 result_ind, result_rows, result_cols,
@@ -678,13 +672,16 @@ namespace UMAPAlgo {
 
         MLCommon::updateHost(&onnz, final_nnz+n, 1); // actual number of nonzero values
 
-        if(params->verbose)
+        if(params->verbose) {
             std::cout << "onnz=" << onnz << std::endl;
+            std::cout << MLCommon::arr2Str(final_rows, nnz_before_compress, "final_rows") << std::endl;
+            std::cout << MLCommon::arr2Str(final_cols, nnz_before_compress, "final_cols") << std::endl;
+            std::cout << MLCommon::arr2Str(final_vals, nnz_before_compress, "final_vals") << std::endl;
+        }
 
-
-        MLCommon::allocate(ocols, onnz);
-        MLCommon::allocate(ovals, onnz);
-        MLCommon::allocate(orows, onnz);
+        MLCommon::allocate(ocols, onnz, true);
+        MLCommon::allocate(ovals, onnz, true);
+        MLCommon::allocate(orows, onnz, true);
 
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(nnz_before_compress,
             final_rows, final_cols, final_vals,
@@ -699,8 +696,12 @@ namespace UMAPAlgo {
          * Initialize embeddings
          */
 
-        if(params->verbose)
+        if(params->verbose) {
             std::cout << "init embeddings." << std::endl;
+            std::cout << MLCommon::arr2Str(orows, onnz, "orows") << std::endl;
+            std::cout << MLCommon::arr2Str(ocols, onnz, "ocols") << std::endl;
+            std::cout << MLCommon::arr2Str(ovals, onnz, "ovals") << std::endl;
+        }
 
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists,
