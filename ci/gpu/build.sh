@@ -14,7 +14,7 @@ function logger() {
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
-export CUDF_VERSION=0.6
+export CUDF_VERSION=0.7
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
