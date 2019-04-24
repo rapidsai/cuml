@@ -41,7 +41,7 @@ protected:
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
 		umap_params->verbose = true;
-		umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
+		umap_params->target_metric = UMAPParams::MetricType::EUCLIDEAN;
 
 		kNN *knn = new kNN(d);
 		cudaStream_t stream;
@@ -74,10 +74,7 @@ protected:
 
 		UMAPAlgo::_transform<float, 32>(X_d, n, d, embeddings, n, knn, umap_params, xformed, stream);
 
-
 		UMAPAlgo::_fit<float, 32>(X_d, Y_d, n, d, knn, umap_params, embeddings, stream);
-
-
 
 		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
