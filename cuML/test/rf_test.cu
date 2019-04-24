@@ -53,8 +53,13 @@ protected:
 
 		params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
+		DecisionTree::DecisionTreeParams tree_params(params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+													params.split_algo, params.min_rows_per_node);
+		RF_params rf_params(params.bootstrap, params.n_trees, params.rows_sample, tree_params);
+		//rf_params.print();
+
 		//--------------------------------------------------------
-		// Random Forest - Single tree 
+		// Random Forest
 		//--------------------------------------------------------
 
 		int data_len = params.n_rows * params.n_cols;
@@ -72,10 +77,8 @@ protected:
 		preprocess_labels(params.n_rows, labels_h, labels_map);
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
-		// Set selected rows: all for forest w/ single decision tree
-		rf_classifier = new rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth,
-							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features,
-							params.split_algo, params.min_rows_per_node);
+		rf_classifier = new typename rfClassifier<T>::rfClassifier(rf_params, RF_type::CLASSIFICATION);
+
 		cumlHandle handle;
 		cudaStream_t stream;
 		CUDA_CHECK(cudaStreamCreate(&stream) );

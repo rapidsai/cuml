@@ -36,6 +36,19 @@ enum RF_type {
 	CLASSIFICATION, REGRESSION,
 };
 
+struct RF_params {
+	bool bootstrap = true;
+	int n_trees;
+	float rows_sample = 1.0f;
+	DecisionTree::DecisionTreeParams tree_params;
+
+	RF_params(int cfg_n_trees);
+	RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample);
+	RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params);
+	void validity_check() const;
+	void print() const;
+};
+
 /* Update labels so they are unique from 0 to n_unique_vals.
    		Create an old_label to new_label map per random forest.
 */
@@ -47,18 +60,12 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 template<class T>
 class rf {
 	protected:
-		int n_trees, n_bins, rf_type;
-		int max_depth, max_leaves, split_algo, min_rows_per_node;
-		bool bootstrap;
-		float rows_sample;
-		float max_features; // ratio of number of features (columns) to consider per node split.
-         					    // TODO SKL's default is sqrt(n_cols)
-
+		RF_params rf_params;
+		int rf_type;
 		DecisionTree::DecisionTreeClassifier<T> * trees;
 
 	public:
-		rf(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-		   float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
+		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
 		~rf();
 
 		int get_ntrees();
@@ -70,8 +77,7 @@ template <class T>
 class rfClassifier : public rf<T> {
 	public:
 
-	rfClassifier(int cfg_n_trees, bool cfg_bootstrap=true, int cfg_max_depth=-1, int cfg_max_leaves=-1, int cfg_rf_type=RF_type::CLASSIFICATION, int cfg_n_bins=8,
-					float cfg_rows_sample=1.0f, float cfg_max_features=1.0f, int cfg_split_algo=SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
+	rfClassifier(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
 
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;

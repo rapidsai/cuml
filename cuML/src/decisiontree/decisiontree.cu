@@ -48,18 +48,37 @@ std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
 	return os;
 }
 
-template<typename T>
-void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
-									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo, int min_rows_per_node) {
+DecisionTreeParams::DecisionTreeParams() {};
+DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_algo,
+										int cfg_min_rows_per_node):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
+										max_features(cfg_max_features), n_bins(cfg_n_bins), split_algo(cfg_split_algo),
+										min_rows_per_node(cfg_min_rows_per_node) {};
 
+void DecisionTreeParams::validity_check() const {
+	ASSERT((max_depth == -1) || (max_depth > 0), "Invalid max depth %d", max_depth);
+	ASSERT((max_leaves == -1) || (max_leaves > 0), "Invalid max leaves %d", max_leaves);
+	ASSERT((max_features > 0) && (max_features <= 1.0), "max_features value %f outside permitted (0, 1] range", max_features);
 	ASSERT((n_bins > 0), "Invalid n_bins %d", n_bins);
-	ASSERT((colper > 0) && (colper <= 1.0), "max_features value %f outside permitted (0, 1] range", colper);
 	ASSERT((split_algo >= 0) && (split_algo < SPLIT_ALGO::SPLIT_ALGO_END), "split_algo value %d outside permitted [0, %d) range",
 			split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-	ASSERT((maxdepth == -1) || (maxdepth > 0), "Invalid max depth %d", maxdepth);
 	ASSERT((min_rows_per_node > 0), "Invalid min # rows per node %d", min_rows_per_node);
+}
 
-	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo, min_rows_per_node);
+void DecisionTreeParams::print() const {
+	std::cout << "max_depth: " << max_depth << std::endl;
+	std::cout << "max_leaves: " << max_leaves << std::endl;
+	std::cout << "max_features: " << max_features << std::endl;
+	std::cout << "n_bins: " << n_bins << std::endl;
+	std::cout << "split_algo: " << split_algo << std::endl;
+	std::cout << "min_rows_per_node: " << min_rows_per_node << std::endl;
+}
+
+template<typename T>
+void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
+									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
+	tree_params.validity_check();
+	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
+				tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node);
 }
 
 template<typename T>
@@ -268,13 +287,13 @@ template class DecisionTreeClassifier<double>;
 
 // Stateless API fit and predict functions
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels, 
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
-	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params) {
+	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params);
 }
 
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels, 
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo) {
-	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params) {
+	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params);
 }
 
 void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
