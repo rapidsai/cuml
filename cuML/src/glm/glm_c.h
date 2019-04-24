@@ -87,6 +87,7 @@ void ridgePredict(const double *input, int n_rows, int n_cols,
 
 /**
  * @defgroup functions to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension
  * NxD (row- or column major: see X_col_major param)
  * @param y                     device pointer to label vector of length N (for
