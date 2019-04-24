@@ -77,6 +77,11 @@ template<typename T>
 void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
 									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
 	tree_params.validity_check();
+	if (tree_params.n_bins > n_sampled_rows) {
+		std::cout << "Warning! Calling with number of bins > number of rows! ";
+		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
+		tree_params.n_bins = n_sampled_rows;
+	}
 	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
 				tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node);
 }

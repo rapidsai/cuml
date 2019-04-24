@@ -94,7 +94,7 @@ public:
 	// data, labels are both device ptr.
 	// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
-			const int n_sampled_rows, const int unique_labels, const DecisionTreeParams tree_params);
+			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
 	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
@@ -126,10 +126,10 @@ private:
 
 // Stateless API functions
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, const DecisionTree::DecisionTreeParams tree_params);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
 
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, const DecisionTree::DecisionTreeParams tree_params);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
 
 void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows,
 			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
