@@ -188,8 +188,9 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 
 	CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 	// Copy sampled column IDs to device memory
-	CUDA_CHECK(cudaMemcpy(tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice));
-
+	CUDA_CHECK(cudaMemcpyAsync(tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, tempmem[0]->stream));
+	CUDA_CHECK(cudaStreamSynchronize(tempmem[0]->stream));
+	
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
 		int *labelptr = tempmem[0]->sampledlabels->data();
