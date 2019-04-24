@@ -47,14 +47,17 @@ TEST(Gemm, Gemm_128x128x8) {
   fill(C, 2.f, M * N);
   CUDA_CHECK(cudaMalloc((void **)&D, sizeof(float) * M * N));
   CUDA_CHECK(cudaMemset(D, 0, sizeof(float) * M * N));
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
   gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
-    CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, 1.f, B, N, A, K, 1.f, C, N, D);
+    CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, 1.f, B, N, A, K, 1.f, C, N, D, stream);
   float *hD = new float[M * N];
   updateHost<float>(hD, D, M * N);
   for (int i = 0; i < M * N; ++i) {
     ASSERT_FLOAT_EQ(0.5f * K + 2.f, hD[i]) << " @hD[" << i << "]";
   }
   delete[] hD;
+  CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(A));
   CUDA_CHECK(cudaFree(B));
   CUDA_CHECK(cudaFree(C));

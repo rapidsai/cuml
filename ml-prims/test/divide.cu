@@ -33,10 +33,10 @@ __global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveDivide(Type *out, const Type *in, Type scalar, int len) {
+void naiveDivide(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveDivideKernel<Type><<<nblks, TPB>>>(out, in, scalar, len);
+  naiveDivideKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -47,13 +47,16 @@ protected:
     params = ::testing::TestWithParam<UnaryOpInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     allocate(in, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0));
-    naiveDivide(out_ref, in, params.scalar, len);
-    divideScalar(out, in, params.scalar, len);
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    naiveDivide(out_ref, in, params.scalar, len, stream);
+    divideScalar(out, in, params.scalar, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

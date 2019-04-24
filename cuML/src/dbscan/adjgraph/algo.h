@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@
 #include <cuda_utils.h>
 #include "pack.h"
 #include "../common.h"
-        
+#include <common/cumlHandle.hpp>
+#include <common/allocatorAdapter.hpp>
+
 using namespace thrust;
 
 namespace Dbscan {
@@ -53,13 +55,16 @@ __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
 static const int TPB_X = 256;
 
 template <typename Type>
-void launcher(Pack<Type> data, int batchSize, cudaStream_t stream) {
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
     dim3 blocks(ceildiv(batchSize, TPB_X));
     dim3 threads(TPB_X);
     device_ptr<int> dev_vd = device_pointer_cast(data.vd); 
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
-    exclusive_scan(dev_vd, dev_vd + batchSize, dev_ex_scan);
-    adj_graph_kernel<Type, TPB_X><<<blocks, threads>>>(data, batchSize);
+
+    ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
+    exclusive_scan(execution_policy, dev_vd, dev_vd + batchSize, dev_ex_scan);
+    adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
 }
 
 }  // End Algo

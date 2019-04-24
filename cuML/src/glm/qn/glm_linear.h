@@ -16,13 +16,31 @@
 
 #pragma once
 
-namespace ML{
+#include "cuda_utils.h"
+#include "glm/qn/glm_base.h"
+#include "linalg/binary_op.h"
+#include <glm/qn/simple_mat.h>
 
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels);
+namespace ML {
+namespace GLM {
 
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels);
+template <typename T>
+struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
+  typedef GLMBase<T, SquaredLoss<T>> Super;
 
-}
+  SquaredLoss(int D, bool has_bias, const cublasHandle_t & cublas)
+      : Super(D, 1, has_bias, cublas) {}
 
+  inline __device__ T lz(const T y, const T z) const {
+    T diff = y - z;
+    return diff * diff * 0.5;
+  }
+
+  inline __device__ T dlz(const T y, const T z) const {
+    return z - y;
+  }
+
+};
+
+}; // namespace GLM
+}; // namespace ML
