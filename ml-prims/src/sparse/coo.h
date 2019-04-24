@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "csr.h"
+
 #include "cusparse_wrappers.h"
 
 #include <cusparse_v2.h>
@@ -163,22 +165,21 @@ namespace MLCommon {
          * @param ex_scan_n: number of elements (chunks) in ex_scan
          */
         template<int TPB_X, typename T>
-        __global__ void coo_remove_zeros_kernel(int nnz,
-                const int *rows, const int *cols, const T *vals,
+        __global__ void coo_remove_zeros_kernel(
+                const int *rows, const int *cols, const T *vals, int nnz,
                 int *crows, int *ccols, T *cvals,
-                int *ex_scan, int ex_scan_n) {
+                int *ex_scan, int *cur_ex_scan, int m) {
 
-            int rows_per_chunk = int(nnz / ex_scan_n);
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
-            int chunk = (blockIdx.x * TPB_X) + threadIdx.x;
-            int i = chunk * rows_per_chunk; // 1 chunk per thread
+            if (row < m) {
+                int start = cur_ex_scan[row];
+                int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+                int cur_out_idx = ex_scan[row];
 
-            if (chunk < ex_scan_n) {
-                int start = ex_scan[chunk];
-                int cur_out_idx = start;
+                printf("row=%d, start=%d, stop=%d, cur_out_idx=%d\n", row, start, stop, cur_out_idx);
 
-                for (int j = 0; j < rows_per_chunk; j++) {
-                    int idx = i + j;
+                for (int idx = start; idx < stop; idx++) {
                     if (vals[idx] != 0.0) {
                         crows[cur_out_idx] = rows[idx];
                         ccols[cur_out_idx] = cols[idx];
@@ -189,13 +190,14 @@ namespace MLCommon {
             }
         }
 
+
         /**
          * Removes the zeros from a COO formatted sparse matrix.
          *
-         * @param nnz: size of current rows/cols/vals arrays
          * @param rows: input array of rows (size n)
          * @param cols: input array of cols (size n)
          * @param vals: input array of vals (size n)
+         * @param nnz: size of current rows/cols/vals arrays
          * @param crows: compressed array of rows
          * @param ccols: compressed array of cols
          * @param cvals: compressed array of vals
@@ -203,29 +205,64 @@ namespace MLCommon {
          * @param cnnz_n: size of cnnz array (eg. num chunks)
          */
         template<int TPB_X, typename T>
-        void coo_remove_zeros(int nnz,
-                const int *rows, const int *cols, const T *vals,
+        void coo_remove_zeros(
+                const int *rows, const int *cols, const T *vals, int nnz,
                 int *crows, int *ccols, T *cvals,
-                int *cnnz, int cnnz_n) {
+                int *cnnz, int *cur_cnnz, int n) {
 
-            int *ex_scan;
-            MLCommon::allocate(ex_scan, cnnz_n);
+            int *ex_scan, *cur_ex_scan;
+            MLCommon::allocate(ex_scan, n, true);
+            MLCommon::allocate(cur_ex_scan, n, true);
+
+            std::cout << "Allocated" << std::endl;
 
             thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(
                     cnnz);
             thrust::device_ptr<int> dev_ex_scan =
                     thrust::device_pointer_cast(ex_scan);
-            thrust::exclusive_scan(dev_cnnz, dev_cnnz + cnnz_n, dev_ex_scan);
+            thrust::exclusive_scan(dev_cnnz, dev_cnnz + n, dev_ex_scan);
             CUDA_CHECK(cudaPeekAtLastError());
 
-            dim3 grid(ceildiv(cnnz_n, TPB_X), 1, 1);
+            thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(
+                    cur_cnnz);
+            thrust::device_ptr<int> dev_cur_ex_scan =
+                    thrust::device_pointer_cast(cur_ex_scan);
+            thrust::exclusive_scan(dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            std::cout << "DOne." << std::endl;
+
+            dim3 grid(ceildiv(n, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
-            coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(nnz, rows, cols, vals,
-                    crows, ccols, cvals, dev_ex_scan.get(), cnnz_n);
+            std::cout << "Printing" << std::endl;
+
+            std::cout << MLCommon::arr2Str(cnnz, n, "cnnz") << std::endl;
+            std::cout << MLCommon::arr2Str(cur_cnnz, n, "cur_cnnz") << std::endl;
+
+
+
+//            std::cout << MLCommon::arr2Str(rows, nnz, "rows") << std::endl;
+//            std::cout << MLCommon::arr2Str(cols, nnz, "cols") << std::endl;
+//            std::cout << MLCommon::arr2Str(vals, nnz, "vals") << std::endl;
+
+            std::cout << "Printed" << std::endl;
+
+            coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(
+                    rows, cols, vals, nnz,
+                    crows, ccols, cvals,
+                    dev_ex_scan.get(), dev_cur_ex_scan.get(), n
+            );
+
+            std::cout << "Ran kernel." << std::endl;
+
+            std::cout << MLCommon::arr2Str(crows, n, "crows") << std::endl;
+            std::cout << MLCommon::arr2Str(ccols, n, "ccols") << std::endl;
+            std::cout << MLCommon::arr2Str(cvals, n, "cvals") << std::endl;
 
             CUDA_CHECK(cudaPeekAtLastError());
             CUDA_CHECK(cudaFree(ex_scan));
+            CUDA_CHECK(cudaFree(cur_ex_scan));
         }
 
         /**

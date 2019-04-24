@@ -109,7 +109,8 @@ namespace MLCommon {
             }
         }
 
-        __device__ int get_stop_idx(int row, int m, int nnz, int *ind) {
+        template<typename T>
+        __device__ int get_stop_idx(T row, int m, int nnz, T *ind) {
             int stop_idx = 0;
             if(row < (m-1))
                 stop_idx = ind[row+1];

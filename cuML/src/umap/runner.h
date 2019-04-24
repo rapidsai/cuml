@@ -93,7 +93,7 @@ namespace UMAPAlgo {
         if(row < nnz) {
             int i = rows[row];
             int j = cols[row];
-            if(target[i] == -1 || target[j] == -1)
+            if(target[i] == -1.0 || target[j] == -1.0)
                 vals[row] *= exp(-unknown_dist);
             else
                 vals[row] *= exp(-far_dist);
@@ -102,35 +102,37 @@ namespace UMAPAlgo {
 
     template< typename T, int TPB_X>
     __global__ void reset_membership_strengths_kernel(
+            int *row_ind,
             int *rows, int *cols, T *vals,
             int *orows, int *ocols, T *ovals, int *rnnz,
-            int n, int n_neighbors) {
+            int n, int cnnz) {
 
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
-        int i = row * n_neighbors; // each thread processes one row
+        int start_idx = row_ind[row]; // each thread processes one row
+        int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
         if (row < n) {
 
             int nnz = 0;
-            for (int j = 0; j < n_neighbors; j++) {
+            for (int idx = start_idx; idx < stop_idx; idx++) {
 
-                int idx = i + j;
-                int out_idx = i * 2;
+                int out_idx = idx * 2;
 
                 int row_lookup = cols[idx];
-                int t_start = row_lookup * n_neighbors; // Start at
+                int t_start = row_ind[row_lookup]; // Start at
+                int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
 
                 T transpose = 0.0;
                 bool found_match = false;
-                for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
+                for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
 
-                    int f_idx = t_idx + t_start;
                     // If we find a match, let's get out of the loop
-                    if (cols[f_idx] == rows[idx]
-                            && rows[f_idx] == cols[idx]
-                            && vals[f_idx] != 0.0) {
-                        transpose = vals[f_idx];
+                    if (cols[t_idx] == rows[idx]
+                            && rows[t_idx] == cols[idx]
+                            && vals[t_idx] != 0.0) {
+                        transpose = vals[t_idx];
                         found_match = true;
+                        printf("FOUND MATCH! row=%d, col=%d, val=%f\n", rows[idx], cols[idx], vals[idx]);
                         break;
                     }
                 }
@@ -142,6 +144,7 @@ namespace UMAPAlgo {
                     ocols[out_idx + nnz] = rows[idx];
                     ovals[out_idx + nnz] = vals[idx];
                     ++nnz;
+                    printf("Didn't find MATCH! row=%d, col=%d, val=%f\n", rows[idx], cols[idx], vals[idx]);
                 }
 
                 T result = vals[idx];
@@ -169,9 +172,10 @@ namespace UMAPAlgo {
 
     template<typename T, int TPB_X>
     void reset_local_connectivity(
-        int *row_ind, int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
+        int *row_ind,
+        int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
         int *orows, int *ocols, T *ovals, int *rnnz, // size = nnz*2
-        int m, int n_neighbors
+        int m
     ) {
 
         dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
@@ -180,12 +184,16 @@ namespace UMAPAlgo {
         // Perform l_inf normalization
         MLCommon::Sparse::csr_row_normalize_max<TPB_X, T><<<grid_n, blk_n>>>(row_ind, graph_vals,nnz, m, graph_vals);
 
-        // reset membership strengths
+        std::cout << MLCommon::arr2Str(graph_rows, nnz, "graph_rows") << std::endl;
+        std::cout << MLCommon::arr2Str(graph_cols, nnz, "graph_cols") << std::endl;
+        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_vals") << std::endl;
 
+        // reset membership strengths
         reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
+            row_ind,
             graph_rows, graph_cols, graph_vals,
-            orows, ocols, ovals, rnnz, m,
-            n_neighbors
+            orows, ocols, ovals, rnnz,
+            m, nnz
         );
     }
 
@@ -206,6 +214,11 @@ namespace UMAPAlgo {
                 unknown_dist,
                 far_dist
         );
+
+        std::cout << MLCommon::arr2Str(graph_rows, nnz, "graph_rows") << std::endl;
+        std::cout << MLCommon::arr2Str(graph_cols, nnz, "graph_cols") << std::endl;
+        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_vals") << std::endl;
+
     }
 
 
@@ -417,8 +430,8 @@ namespace UMAPAlgo {
         long *knn_indices;
         T *knn_dists;
 
-        MLCommon::allocate(knn_indices, n*params->n_neighbors);
-        MLCommon::allocate(knn_dists, n*params->n_neighbors);
+        MLCommon::allocate(knn_indices, n*params->n_neighbors, true);
+        MLCommon::allocate(knn_dists, n*params->n_neighbors, true);
 
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
         CUDA_CHECK(cudaPeekAtLastError());
@@ -432,9 +445,9 @@ namespace UMAPAlgo {
         /**
          * Allocate workspace for fuzzy simplicial set.
          */
-        MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2);
-        MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2);
-        MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2);
+        MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2, true);
+        MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2, true);
+        MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2, true);
 
         if(params->verbose)
             std::cout << "Running fuzzy simpl set" << std::endl;
@@ -509,10 +522,10 @@ namespace UMAPAlgo {
             MLCommon::allocate(final_vals, nnz_before_compress, true);
 
             reset_local_connectivity<T, TPB_X>(
-                result_ind, rgraph_rows, rgraph_cols,
-                rgraph_vals, nnz,
+                result_ind,
+                rgraph_rows, rgraph_cols, rgraph_vals, nnz,
                 final_rows, final_cols, final_vals, final_nnz,
-                n, params->n_neighbors
+                n
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
@@ -639,10 +652,10 @@ namespace UMAPAlgo {
             MLCommon::allocate(final_vals, nnz_before_compress, true);
 
             reset_local_connectivity<T, TPB_X>(
-                result_ind, result_rows, result_cols,
-                result_vals, result_nnz,
+                result_ind,
+                result_rows, result_cols, result_vals, result_nnz,
                 final_rows, final_cols, final_vals, final_nnz,
-                n, params->n_neighbors
+                n
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
@@ -667,13 +680,19 @@ namespace UMAPAlgo {
             std::cout << MLCommon::arr2Str(final_nnz, n+1, "final_nnz") << std::endl;
 
 
-        int *orows, *ocols, onnz = 0;
+        int *orows, *ocols, *cur_rnnz, onnz = 0;
         T *ovals;
+
+        MLCommon::allocate(cur_rnnz, n, true);
 
         MLCommon::updateHost(&onnz, final_nnz+n, 1); // actual number of nonzero values
 
+        MLCommon::Sparse::coo_sort<T>(n, n, nnz_before_compress, final_rows, final_cols, final_vals);
+
+
         if(params->verbose) {
             std::cout << "onnz=" << onnz << std::endl;
+            std::cout << "nnz_before_compress=" << nnz_before_compress << std::endl;
             std::cout << MLCommon::arr2Str(final_rows, nnz_before_compress, "final_rows") << std::endl;
             std::cout << MLCommon::arr2Str(final_cols, nnz_before_compress, "final_cols") << std::endl;
             std::cout << MLCommon::arr2Str(final_vals, nnz_before_compress, "final_vals") << std::endl;
@@ -683,10 +702,21 @@ namespace UMAPAlgo {
         MLCommon::allocate(ovals, onnz, true);
         MLCommon::allocate(orows, onnz, true);
 
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(nnz_before_compress,
-            final_rows, final_cols, final_vals,
+        dim3 grid_rc(MLCommon::ceildiv(nnz_before_compress, TPB_X), 1, 1);
+        dim3 blk_rc(TPB_X, 1, 1);
+
+        MLCommon::Sparse::coo_row_count<TPB_X><<<grid_rc,blk_rc>>>(
+                final_rows, nnz_before_compress, cur_rnnz, n);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        std::cout << MLCommon::arr2Str(cur_rnnz, n, "cur_rnnz") << std::endl;
+        std::cout << MLCommon::arr2Str(final_nnz, n, "final_rnnz") << std::endl;
+
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+            final_rows, final_cols, final_vals, nnz_before_compress,
             orows, ocols, ovals,
-            final_nnz, onnz);
+            final_nnz, cur_rnnz, n);
+        CUDA_CHECK(cudaPeekAtLastError());
 
         if(params->verbose)
             std::cout << "Done." << std::endl;
@@ -821,8 +851,9 @@ namespace UMAPAlgo {
             std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
         }
 
-        int *ia, *ex_scan;
+        int *ia, *cur_ia, *ex_scan;
         MLCommon::allocate(ia, n, true);
+        MLCommon::allocate(cur_ia, n, true);
         MLCommon::allocate(ex_scan, n, true);
 
         // COO should be sorted by row at this point- we get the counts and then normalize
@@ -847,7 +878,12 @@ namespace UMAPAlgo {
 
         reset_vals<TPB_X><<<grid_n,blk>>>(ia, n);
 
+        std::cout << "Inside transform " << std::endl;
+
         MLCommon::Sparse::coo_row_count_nz<TPB_X, T><<<grid_nnz,blk>>>(graph_rows, graph_vals, nnz, ia, n);
+        MLCommon::Sparse::coo_row_count<TPB_X><<<grid_nnz,blk>>>(graph_rows, nnz, cur_ia, n);
+
+        std::cout << MLCommon::arr2Str(cur_ia, n, "cur_ia") << std::endl;
 
         /**
          * Go through COO values and set everything that's less than
@@ -889,11 +925,14 @@ namespace UMAPAlgo {
         MLCommon::allocate(ccols, non_zero_vals, true);
         MLCommon::allocate(cvals, non_zero_vals, true);
 
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(nnz,
-                graph_rows, graph_cols, graph_vals,
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+                graph_rows, graph_cols, graph_vals,nnz,
                 crows, ccols, cvals,
-                ia, n);
+                ia, cur_ia, n);
+
         CUDA_CHECK(cudaPeekAtLastError());
+
+        std::cout << "Done." << std::endl;
 
         T *epochs_per_sample;
         MLCommon::allocate(epochs_per_sample, nnz);
@@ -925,6 +964,7 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(graph_vals));
 
         CUDA_CHECK(cudaFree(ia));
+        CUDA_CHECK(cudaFree(cur_ia));
         CUDA_CHECK(cudaFree(ex_scan));
 
         CUDA_CHECK(cudaFree(epochs_per_sample));
