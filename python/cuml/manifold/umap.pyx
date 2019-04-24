@@ -336,7 +336,7 @@ cdef class UMAP:
 
         del X_m
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y = None):
         """Fit X into an embedded space and return that transformed
         output.
         Parameters
@@ -348,7 +348,7 @@ cdef class UMAP:
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X)
+        self.fit(X, y)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
