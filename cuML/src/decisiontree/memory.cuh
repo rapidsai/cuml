@@ -117,6 +117,7 @@ struct TemporaryMemory
 
 		h_hist->release(stream);
 		d_hist->release(stream);
+		nrowsleftright->release(stream);
 		temp_data->release(stream);
 
 		delete h_hist;
