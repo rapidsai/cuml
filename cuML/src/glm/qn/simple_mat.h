@@ -53,10 +53,10 @@ template <typename T> struct SimpleMat {
 
   void print() const { std::cout << (*this) << std::endl; }
 
-  inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
+  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha, const SimpleMat<T> &A,
                           const bool transA, const SimpleMat<T> &B,
                           const bool transB, const T beta,
-                          const cumlHandle_impl &cuml, cudaStream_t stream) {
+                          cudaStream_t stream) {
 
     int kA = A.n;
     int kB = B.m;
@@ -78,7 +78,7 @@ template <typename T> struct SimpleMat {
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
         B.ord == COL_MAJOR) {                              // base case
-      MLCommon::LinAlg::cublasgemm(cuml.getCublasHandle(), // handle
+      MLCommon::LinAlg::cublasgemm(handle.getCublasHandle(), // handle
                                    transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
                                    transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
                                    this->m, this->n, kA, // dimensions m,n,k
@@ -92,17 +92,17 @@ template <typename T> struct SimpleMat {
     }
     if (A.ord == ROW_MAJOR) {
       SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(alpha, Acm, !transA, B, transB, beta, cuml, stream);
+      assign_gemm(handle, alpha, Acm, !transA, B, transB, beta, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cuml, stream);
+      assign_gemm(handle, alpha, A, transA, Bcm, !transB, beta, stream);
       return;
     }
     if (ord == ROW_MAJOR) {
       SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cuml, stream);
+      Ccm.assign_gemm(handle, alpha, B, !transB, A, !transA, beta, stream);
       return;
     }
   }
@@ -182,10 +182,10 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
   // this = alpha * A * x + beta * this
-  void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA,
-                   const SimpleVec<T> &x, const T beta,
-                   const cumlHandle_impl &cuml) {
-    Super::assign_gemm(alpha, A, transA, x, false, beta, cuml, 0);
+  void assign_gemv(const cumlHandle_impl &handle, const T alpha,
+                   const SimpleMat<T> &A, bool transA, const SimpleVec<T> &x,
+                   const T beta, cudaStream_t stream) {
+    Super::assign_gemm(handle, alpha, A, transA, x, false, beta, stream);
   }
 
   SimpleVec() : Super(COL_MAJOR) {}
@@ -235,8 +235,7 @@ inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
 }
 
 template <typename T>
-inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev,
-                     cudaStream_t stream) {
+inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   return dot(u, u, tmp_dev, stream);
 }
 
