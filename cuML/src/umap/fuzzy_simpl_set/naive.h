@@ -310,7 +310,6 @@ namespace UMAPAlgo {
                             ++nnz;
                         }
                     }
-                    rnnz[row] = nnz;
                     atomicAdd(rnnz + n, nnz);
                 }
             }
@@ -410,12 +409,13 @@ namespace UMAPAlgo {
 
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                int *orows, *ocols, *rnnz;
+                int *orows, *ocols, *rnnz, *cur_rnnz;
                 T *ovals;
                 MLCommon::allocate(orows, n * k * 2, true);
                 MLCommon::allocate(ocols, n * k * 2, true);
                 MLCommon::allocate(ovals, n * k * 2, true);
                 MLCommon::allocate(rnnz, n + 1, true);
+                MLCommon::allocate(cur_rnnz, n, true);
 
                 /**
                  * Weight directed graph of membership strengths (and include
@@ -431,28 +431,30 @@ namespace UMAPAlgo {
 
                 /**
                  * Remove resulting zeros from COO
+                 * @todo: Move this outside of fuzzy simplicial set
                  */
-                int *crows, *ccols;
-                T *cvals;
-                MLCommon::allocate(crows, n_compressed_nonzeros, true);
-                MLCommon::allocate(ccols, n_compressed_nonzeros, true);
-                MLCommon::allocate(cvals, n_compressed_nonzeros, true);
 
-                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(n*k*2,
-                        orows, ocols, ovals,
-                        crows, ccols, cvals,
-                        rnnz, n);
+                MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, orows, ocols, ovals);
 
-                MLCommon::Sparse::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
+                dim3 grid_rc(MLCommon::ceildiv(n*k*2, TPB_X), 1, 1);
+                dim3 blk_rc(TPB_X, 1, 1);
+
+                MLCommon::Sparse::coo_row_count_nz<TPB_X, T><<<grid_rc,blk_rc>>>(
+                        orows, ovals, n*k*2, rnnz, n);
+
+                MLCommon::Sparse::coo_row_count<TPB_X><<<grid_rc,blk_rc>>>(
+                        orows, n*k*2, cur_rnnz, n);
+
+                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+                        orows, ocols, ovals, n*k*2,
+                        rrows, rcols, rvals,
+                        rnnz, cur_rnnz, n);
 
                 nnz[0] = n_compressed_nonzeros;
 
                 if(params->verbose)
                     std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
-                MLCommon::copy(rrows, crows, n_compressed_nonzeros);
-                MLCommon::copy(rcols, ccols, n_compressed_nonzeros);
-                MLCommon::copy(rvals, cvals, n_compressed_nonzeros);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
@@ -465,10 +467,6 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaFree(rows));
                 CUDA_CHECK(cudaFree(cols));
                 CUDA_CHECK(cudaFree(vals));
-
-                CUDA_CHECK(cudaFree(crows));
-                CUDA_CHECK(cudaFree(ccols));
-                CUDA_CHECK(cudaFree(cvals));
             }
         }
     }
