@@ -34,12 +34,10 @@ struct Question {
 	int column;
 	T value;
 	void update(const GiniQuestion<T> & ques);
-
 };
 
 template<class T>
 struct TreeNode {
-
 	TreeNode *left = nullptr;
 	TreeNode *right = nullptr;
 	int class_predict;
@@ -49,16 +47,30 @@ struct TreeNode {
 	void print(std::ostream& os) const;
 };
 
-struct DataInfo
-{
+struct DataInfo {
 	unsigned int NLocalrows;
 	unsigned int NGlobalrows;
 	unsigned int Ncols;
 };
 
+struct DecisionTreeParams {
+	int max_depth = -1;
+	int max_leaves = -1;
+	float max_features = 1.0; // ratio of number of features (columns) to consider per node split.
+								// TODO SKL's default is sqrt(n_cols)
+	int n_bins = 8;
+	int split_algo = SPLIT_ALGO::HIST;
+	int min_rows_per_node = 2;
+
+	DecisionTreeParams();
+	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node);
+	void validity_check() const;
+	void print() const;
+};
+
 template<class T>
-class DecisionTreeClassifier
-{
+class DecisionTreeClassifier {
+
 private:
 	int split_algo;
 	TreeNode<T> *root = nullptr;
@@ -81,8 +93,8 @@ public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
 	// Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST, int min_rows_per_node=2);
+	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
+			const int n_sampled_rows, const int unique_labels, const DecisionTreeParams tree_params);
 
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
 	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
@@ -114,14 +126,14 @@ private:
 
 // Stateless API functions
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0,
-		int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, const DecisionTree::DecisionTreeParams tree_params);
 
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels,
-		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0,
-		int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
+		unsigned int *rowids, const int n_sampled_rows, int unique_labels, const DecisionTree::DecisionTreeParams tree_params);
 
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows,
+			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows,
+			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
 
 } //End namespace ML

@@ -65,25 +65,28 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 	if (verbose) std::cout << "Finished postrocessing labels\n";
 }
 
+RF_params::RF_params(int cfg_n_trees):n_trees(cfg_n_trees) {};
 
-template<typename T>
-rf<T>::rf(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_leaves, int cfg_rf_type, int cfg_n_bins,
-	   float cfg_rows_sample, float cfg_max_features, int cfg_split_algo, int cfg_min_rows_per_node) {
+RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample):bootstrap(cfg_bootstrap), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample) {};
 
-	n_trees = cfg_n_trees;
-	max_depth = cfg_max_depth;
-	max_leaves = cfg_max_leaves;
-	trees = nullptr;
-	rf_type = cfg_rf_type;
-	bootstrap = cfg_bootstrap;
-	n_bins = cfg_n_bins;
-	rows_sample = cfg_rows_sample;
-	max_features = cfg_max_features;
-	split_algo = cfg_split_algo;
-	min_rows_per_node = cfg_min_rows_per_node;
+RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params):bootstrap(cfg_bootstrap), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample), tree_params(cfg_tree_params) {};
 
+void RF_params::validity_check() const {
 	ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
 	ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
+	tree_params.validity_check();
+}
+
+void RF_params::print() const {
+	std::cout << "bootstrap: " << bootstrap << std::endl;
+	std::cout << "n_trees: " << n_trees << std::endl;
+	std::cout << "rows_sample: " << rows_sample << std::endl;
+	tree_params.print();
+}
+
+template<typename T>
+rf<T>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type), trees(nullptr) {
+	rf_params.validity_check();
 }
 
 template<typename T>
@@ -93,7 +96,7 @@ rf<T>::~rf() {
 
 template<typename T>
 int rf<T>::get_ntrees() {
-	return n_trees;
+	return rf_params.n_trees;
 }
 
 
@@ -103,8 +106,9 @@ void rf<T>::print_rf_summary() {
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
-		std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
-		for (int i = 0; i < n_trees; i++) {
+		std::cout << "Forest has " << rf_params.n_trees << " trees, max_depth " << rf_params.tree_params.max_depth;
+		std::cout << ", and max_leaves " << rf_params.tree_params.max_leaves << std::endl;
+		for (int i = 0; i < rf_params.n_trees; i++) {
 			std::cout << "Tree #" << i << std::endl;
 		trees[i].print_tree_summary();
 		}
@@ -117,8 +121,9 @@ void rf<T>::print_rf_detailed() {
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
-		std::cout << "Forest has " << n_trees << " trees, max_depth " << max_depth << ", and max_leaves " << max_leaves << std::endl;
-		for (int i = 0; i < n_trees; i++) {
+		std::cout << "Forest has " << rf_params.n_trees << " trees, max_depth " << rf_params.tree_params.max_depth;
+		std::cout << ", and max_leaves " << rf_params.tree_params.max_leaves << std::endl;
+		for (int i = 0; i < rf_params.n_trees; i++) {
 			std::cout << "Tree #" << i << std::endl;
 			trees[i].print();
 		}
@@ -127,10 +132,7 @@ void rf<T>::print_rf_detailed() {
 
 
 template <typename T>
-rfClassifier<T>::rfClassifier(int cfg_n_trees, bool cfg_bootstrap, int cfg_max_depth, int cfg_max_leaves, int cfg_rf_type, int cfg_n_bins,
-				float cfg_rows_sample, float cfg_max_features, int cfg_split_algo, int cfg_min_rows_per_node)
-			: rf<T>::rf(cfg_n_trees, cfg_bootstrap, cfg_max_depth, cfg_max_leaves, cfg_rf_type, cfg_n_bins, cfg_rows_sample, cfg_max_features, cfg_split_algo,
-						cfg_min_rows_per_node) {};
+rfClassifier<T>::rfClassifier(RF_params cfg_rf_params, int cfg_rf_type): rf<T>::rf(cfg_rf_params, cfg_rf_type) {};
 
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
@@ -151,18 +153,18 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->n_trees];
-	int n_sampled_rows = this->rows_sample * n_rows;
+	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
+	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
 	const cumlHandle_impl& handle = user_handle.getImpl();
 	cudaStream_t stream = user_handle.getStream();
 
-	for (int i = 0; i < this->n_trees; i++) {
+	for (int i = 0; i < this->rf_params.n_trees; i++) {
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
 
-		if (this->bootstrap) {
+		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
 		} else {
@@ -177,8 +179,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->max_depth,
-							this->max_leaves, this->max_features, this-> n_bins, this->split_algo, this->min_rows_per_node);
+		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
 
 		//Cleanup
 		selected_rows.release(stream);
@@ -220,7 +221,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 		int max_cnt_so_far = 0;
 		int majority_prediction = -1;
 
-		for (int i = 0; i < this->n_trees; i++) {
+		for (int i = 0; i < this->rf_params.n_trees; i++) {
 			//Return prediction for one sample.
 			if (verbose) {
 				std::cout << "Printing tree " << i << std::endl;
