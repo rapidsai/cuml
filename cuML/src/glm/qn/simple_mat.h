@@ -169,13 +169,17 @@ template <typename T> struct SimpleMat {
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
   }
 
-  inline void operator=(const SimpleMat<T> &other) {
+  inline void copy(const SimpleMat<T> &other, cudaStream_t stream) {
+    ASSERT((ord == other.ord) && (m == other.m) && (n == other.n),
+           "SimpleMat::copy: matrices not compatible");
 
-    ASSERT(ord == other.ord, "SimpleMat::operator=: Storage orders must match");
-
-    CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
-                          cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(data, other.data, len * sizeof(T),
+                               cudaMemcpyDeviceToDevice, stream));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
+
+  void operator=(const SimpleMat<T> &other) = delete;
+
 };
 
 template <typename T> struct SimpleVec : SimpleMat<T> {
@@ -192,7 +196,6 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
   SimpleVec() : Super(COL_MAJOR) {}
 
   inline void reset(T *new_data, int n) { Super::reset(new_data, n, 1); }
-
 };
 
 template <typename T>
@@ -308,7 +311,7 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
     Super::reset(buf->data(), n);
   }
 
-  void operator=(const SimpleVec<T> &other) { Super::operator=(other); }
+  void operator=(const SimpleVec<T> &other) = delete;
 };
 
 template <typename T> struct SimpleMatOwning : SimpleMat<T> {
@@ -331,6 +334,8 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
     buf.reset(new Buffer(handle.getDeviceAllocator(), stream, m * n));
     Super::reset(buf->data(), m, n);
   }
+
+  void operator=(const SimpleVec<T> &other) = delete;
 };
 
 }; // namespace ML

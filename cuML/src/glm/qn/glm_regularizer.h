@@ -62,16 +62,16 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
     G.fill(0, stream);
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
 
-    T reg; 
-    MLCommon::updateHostAsync(&reg, lossVal.data, 1, stream);
+    T reg_host; 
+    MLCommon::updateHostAsync(&reg_host, lossVal.data, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    T loss;
-    MLCommon::updateHostAsync(&loss, lossVal.data, 1, stream);
+    T loss_host;
+    MLCommon::updateHostAsync(&loss_host, lossVal.data, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    lossVal.fill(loss + reg, stream);
+    lossVal.fill(loss_host + reg_host, stream);
   }
 };
 }; // namespace GLM
