@@ -71,7 +71,7 @@ protected:
     MLCommon::allocate(dComputedOutput, numUniqueClasses*numUniqueClasses);
     MLCommon::allocate(dGoldenOutput, numUniqueClasses*numUniqueClasses);
 
-    size_t workspaceSz = MLCommon::Metrics::getWorkspaceSize(numElements, dY,
+    size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(numElements, dY,
                                                       stream, lowerLabelRange, upperLabelRange);
     
     if (workspaceSz != 0)
@@ -82,9 +82,14 @@ protected:
     MLCommon::updateDeviceAsync(dGoldenOutput, hGoldenOutput, 
                                   numUniqueClasses*numUniqueClasses, stream);
 
-    if (params.calcCardinality)
+    if (params.calcCardinality) {
+      T minLabel, maxLabel;
+      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream, minLabel, maxLabel);
+      // allocate dComputedOutput using minLabel, maxLabel count - already done above
       MLCommon::Metrics::contingencyMatrix(dY, dYHat, numElements, dComputedOutput,
-                                            stream, (void*)pWorkspace, workspaceSz);
+                                            stream, (void*)pWorkspace, workspaceSz,
+                                            minLabel, maxLabel);
+    }
     else
       MLCommon::Metrics::contingencyMatrix(dY, dYHat, numElements, dComputedOutput,
                                             stream, (void*)pWorkspace, workspaceSz, 
