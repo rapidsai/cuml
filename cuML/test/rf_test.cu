@@ -67,7 +67,7 @@ protected:
 		allocate(labels, params.n_rows);
 
 		// Populate data (assume Col major)
-		std::vector<T> data_h = {30.0f, 1.0f, 2.0f, 0.0f, 10.0f, 20.0f, 10.0f, 40.0f};
+		std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
 		data_h.resize(data_len);
 	    updateDevice(data, data_h.data(), data_len);
 
@@ -91,7 +91,7 @@ protected:
 
 		// Inference data: same as train, but row major
 		int inference_data_len = params.n_inference_rows * params.n_cols;
-		inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
+		inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
 		inference_data_h.resize(inference_data_len);
 
 		
@@ -136,18 +136,43 @@ protected:
 
 
 const std::vector<RfInputs<float> > inputsf2 = {
-	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 8, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 8 bins
-	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 8, SPLIT_ALGO::HIST, 2}	// single tree forest, bootstrap false, depth of 8, 8 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 4, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 4 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},	// single tree forest, bootstrap false, depth of 8, 4 bins
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2} //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
+};
+
+const std::vector<RfInputs<double> > inputsd2 = { // Same as inputsf2
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2}
 };
 
 
 typedef RfTest<float> RfTestF;
 TEST_P(RfTestF, Fit) {
-	//rf_classifier->print_rf_detailed();
-	ASSERT_TRUE((accuracy == 1.0f));
+	//rf_classifier->print_rf_detailed(); // Prints all trees in the forest. Leaf nodes use the remapped values from labels_map.
+	if (!params.bootstrap && (params.max_features == 1.0f)) {
+		ASSERT_TRUE(accuracy == 1.0f);
+	} else  {
+		ASSERT_TRUE(accuracy >= 0.75f); // Empirically derived accuracy range
+	}
+}
+
+typedef RfTest<double> RfTestD;
+TEST_P(RfTestD, Fit) {
+	if (!params.bootstrap && (params.max_features == 1.0f)) {
+		ASSERT_TRUE(accuracy == 1.0f);
+	} else  {
+		ASSERT_TRUE(accuracy >= 0.75f);
+	}
 }
 
 INSTANTIATE_TEST_CASE_P(RfTests, RfTestF, ::testing::ValuesIn(inputsf2));
 
+INSTANTIATE_TEST_CASE_P(RfTests, RfTestD, ::testing::ValuesIn(inputsd2));
 
 } // end namespace ML
