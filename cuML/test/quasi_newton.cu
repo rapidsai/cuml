@@ -1,4 +1,5 @@
 #include "test_utils.h"
+#include "utils.h"
 #include <glm/glm_c.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
