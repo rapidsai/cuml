@@ -39,7 +39,7 @@ struct TemporaryMemory
 
 	//Below pointers are shared for split functions
 	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
-
+	MLCommon::host_buffer<int> *nrowsleftright;
 	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
 	size_t split_temp_storage_bytes = 0;
 
@@ -68,7 +68,8 @@ struct TemporaryMemory
 
 		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
 		d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements);
-
+		nrowsleftright = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, 2);
+		
 		int extra_elements = Ncols;
 		int quantile_elements = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
 
