@@ -164,7 +164,10 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
     Mat G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     lossVal.reset(dev_scalar, 1);
-    return lossVal[0];
+    T loss_host;
+    MLCommon::updateHostAsync(&loss_host, lossVal.data, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    return loss_host;
   }
 };
 

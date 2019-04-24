@@ -17,6 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
+#include "utils.h"
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
@@ -60,9 +61,16 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
     SimpleVec<T> lossVal(loss_val, 1);
     G.fill(0, stream);
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
-    T reg = lossVal[0];
+
+    T reg; 
+    MLCommon::updateHostAsync(&reg, lossVal.data, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    T loss = lossVal[0];
+    T loss;
+    MLCommon::updateHostAsync(&loss, lossVal.data, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     lossVal.fill(loss + reg, stream);
   }
 };

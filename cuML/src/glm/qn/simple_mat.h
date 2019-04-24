@@ -193,11 +193,6 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
 
   inline void reset(T *new_data, int n) { Super::reset(new_data, n, 1); }
 
-  inline T operator[](int pos) const {
-    T tmp;
-    MLCommon::updateHost(&tmp, &this->data[pos], 1);
-    return tmp;
-  }
 };
 
 template <typename T>
