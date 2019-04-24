@@ -73,13 +73,9 @@ protected:
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
 		// Set selected rows: all for forest w/ single decision tree
-		allocate(selected_rows, params.n_rows);
-		std::vector<unsigned int> selected_rows_h = {0, 1, 2, 3};
-		selected_rows_h.resize(params.n_rows);
-		updateDevice(selected_rows, selected_rows_h.data(), params.n_rows);
-
 		rf_classifier = new rfClassifier<float>::rfClassifier(params.n_trees, params.bootstrap, params.max_depth,
-							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features, params.split_algo, params.min_rows_per_node);
+							params.max_leaves, 0, params.n_bins, params.rows_sample, params.max_features,
+							params.split_algo, params.min_rows_per_node);
 		cumlHandle handle;
 		cudaStream_t stream;
 		CUDA_CHECK(cudaStreamCreate(&stream) );
@@ -95,8 +91,11 @@ protected:
 		inference_data_h = {30.0f, 10.0f, 1.0f, 20.0f, 2.0f, 10.0f, 0.0f, 40.0f};
 		inference_data_h.resize(inference_data_len);
 
+		
 		// Predict and compare against known labels
-		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels_h.data(), params.n_inference_rows, params.n_cols, false);
+		predicted_labels.resize(params.n_inference_rows);
+		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels_h.data(),
+										params.n_inference_rows, params.n_cols, predicted_labels.data(), false);
 		accuracy = tmp.accuracy;
     }
 
@@ -110,10 +109,10 @@ protected:
 		inference_data_h.clear();
 		labels_h.clear();
 		labels_map.clear();
+		predicted_labels.clear();
 
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(data));
-		CUDA_CHECK(cudaFree(selected_rows));
 		delete rf_classifier;
 	}
 
@@ -124,11 +123,12 @@ protected:
     int * labels;
 	std::vector<T> inference_data_h;
 	std::vector<int> labels_h;
-	unsigned int * selected_rows;
 	std::map<int, int> labels_map; //unique map of labels to int vals starting from 0
 
     rfClassifier<T> * rf_classifier;
 	float accuracy = -1.0f; // overriden in each test SetUp and TearDown
+
+	std::vector<int> predicted_labels;
 };
 
 

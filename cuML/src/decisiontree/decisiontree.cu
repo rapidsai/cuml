@@ -67,7 +67,7 @@ void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * 
 	ASSERT(root, "Cannot predict w/ empty tree!");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	return classify_all(rows, n_rows, n_cols, predictions, verbose);
+	classify_all(rows, n_rows, n_cols, predictions, verbose);
 }
 
 template<typename T>
