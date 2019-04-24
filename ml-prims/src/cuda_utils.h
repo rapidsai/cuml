@@ -186,6 +186,46 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
 }
 
 /**
+ * @defgroup Max maximum of two numbers
+ * @{
+ */
+template <typename T>
+HDI T myMax(T x, T y);
+template <>
+HDI float myMax<float>(float x, float y) {
+  return fmaxf(x, y);
+}
+template <>
+HDI double myMax<double>(double x, double y) {
+  return fmax(x, y);
+}
+/** @} */
+
+/**
+ * Sign function
+ */
+template <typename T>
+HDI int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
+/**
+ * @defgroup Min minimum of two numbers
+ * @{
+ */
+template <typename T>
+HDI T myMin(T x, T y);
+template <>
+HDI float myMin<float>(float x, float y) {
+  return fminf(x, y);
+}
+template <>
+HDI double myMin<double>(double x, double y) {
+  return fmin(x, y);
+}
+/** @} */
+
+/**
  * @defgroup Exp Exponential function
  * @{
  */
@@ -284,13 +324,23 @@ HDI double myPow(double x, double power) {
 /** @} */
 
 /**
- * @defgroup Pow Power function
+ * @defgroup LambdaOps Lambda operations in reduction kernels
  * @{
  */
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
   HDI Type operator()(Type in, IdxType i = 0) { return in; }
+};
+
+template <typename Type, typename IdxType = int>
+struct L1Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+};
+
+template <typename Type, typename IdxType = int>
+struct L2Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
 };
 
 template <typename Type>

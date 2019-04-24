@@ -39,6 +39,7 @@ add_executable(mlcommon_test
   eig.cu
   eltwise.cu
   eltwise2d.cu
+  gather.cu
   gemm.cu
   grid_sync.cu
   kselection.cu
@@ -54,6 +55,7 @@ add_executable(mlcommon_test
   norm.cu
   permute.cu
   power.cu
+  reduce.cu
   reduce_rows_by_key.cu
   rng.cu
   rng_int.cu

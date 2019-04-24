@@ -47,8 +47,10 @@ TEST_P(COOSort, Result) {
 
     params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in_vals, params.nnz);
-    r.uniform(in_vals, params.nnz, float(-1.0), float(1.0));
+    r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
 
     int *in_rows_h = (int*)malloc(params.nnz * sizeof(int));
     int *in_cols_h = (int*)malloc(params.nnz * sizeof(int));
@@ -77,6 +79,7 @@ TEST_P(COOSort, Result) {
     CUDA_CHECK(cudaFree(in_cols));
     CUDA_CHECK(cudaFree(in_vals));
     CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 typedef COOTest<float> COORemoveZeros;
@@ -87,8 +90,10 @@ TEST_P(COORemoveZeros, Result) {
 
     params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in_vals, params.nnz);
-    r.uniform(in_vals, params.nnz, float(-1.0), float(1.0));
+    r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
 
     float *vals_h = (float*)malloc(params.nnz * sizeof(float));
     updateHost(vals_h, in_vals, params.nnz);
@@ -153,6 +158,7 @@ TEST_P(COORemoveZeros, Result) {
     CUDA_CHECK(cudaFree(out_rows_ref));
     CUDA_CHECK(cudaFree(out_cols_ref));
     CUDA_CHECK(cudaFree(out_vals_ref));
+    CUDA_CHECK(cudaStreamDestroy(stream));
     free(out_vals_ref_h);
     free(in_rows_h);
     free(in_cols_h);

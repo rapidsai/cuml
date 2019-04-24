@@ -21,9 +21,9 @@
 namespace MLCommon {
 namespace Functions {
 
-template<typename math_t>
-void sign(math_t *out, const math_t *in, const math_t scalar, const int len) {
-
+template<typename math_t, typename idx_type = int>
+void sign(math_t *out, const math_t *in, const math_t scalar, const idx_type len,
+           cudaStream_t stream) {
     LinAlg::unaryOp(out, in, len, [scalar] __device__ (math_t in) {
                                             if (in < math_t(0))
                                             	return (math_t(-1) * scalar);
@@ -31,17 +31,17 @@ void sign(math_t *out, const math_t *in, const math_t scalar, const int len) {
                                             	return (math_t(1) * scalar);
                                             else
                                             	return math_t(0);
-                                        });
+                                        },
+                                        stream);
 
 }
 
-template<typename math_t>
-void sign(math_t *out, const math_t *in, const int n_len) {
+template<typename math_t, typename idx_type = int>
+void sign(math_t *out, const math_t *in, const idx_type n_len, cudaStream_t stream) {
     math_t scalar = math_t(1);
-    sign(out, in, scalar, n_len);
+    sign(out, in, scalar, n_len, stream);
 }
 
-/** @} */
 }
 ;
 }

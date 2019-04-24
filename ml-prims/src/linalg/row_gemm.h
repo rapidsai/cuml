@@ -77,7 +77,7 @@ template <
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
-              FinalLambda fin_op, cudaStream_t stream = 0) {
+              FinalLambda fin_op, cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
        GemmEpilogueTraits_, GemmEpilogue_>(
@@ -120,7 +120,7 @@ template <
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, EpilogueFunctor_>(
     transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, stream);
@@ -157,7 +157,7 @@ template <
   typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, IType const *B, OType beta,
-              OType const *C, OType *D, cudaStream_t stream = 0) {
+              OType const *C, OType *D, cudaStream_t stream) {
   int lda = (transA == CUBLAS_OP_N) ? k : m;
   int ldb = (transB == CUBLAS_OP_N) ? n : k;
   int ldc = n; // output is always row-major!
