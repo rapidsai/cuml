@@ -148,8 +148,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   in.n_col = 2;
   double alpha = 0.01;
 
-  LogisticLoss<double> loss_b(in.n_col, true, handle);
-  LogisticLoss<double> loss_no_b(in.n_col, false, handle);
+  LogisticLoss<double> loss_b(handle,in.n_col, true);
+  LogisticLoss<double> loss_no_b(handle, in.n_col, false);
 
   SimpleVecOwning<double> w0(handle, in.n_col + 1, handle_ptr->getStream());
   SimpleVecOwning<double> z(handle, in.n_row, handle_ptr->getStream());
@@ -244,8 +244,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   SimpleVecOwning<double> w0(handle, C * (in.n_col + 1),
                              handle_ptr->getStream());
 
-  Softmax<double> loss_b(in.n_col, C, true, handle);
-  Softmax<double> loss_no_b(in.n_col, C, false, handle);
+  Softmax<double> loss_b(handle, in.n_col, C, true);
+  Softmax<double> loss_no_b(handle, in.n_col, C, false);
 
   l1 = alpha;
   l2 = 0.0;
@@ -314,8 +314,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
                               handle.getCublasHandle());
   SimpleVecOwning<double> w0(handle, in.n_col + 1, handle_ptr->getStream());
   SimpleVecOwning<double> z(handle, in.n_row, handle_ptr->getStream());
-  SquaredLoss<double> loss_b(in.n_col, true, handle);
-  SquaredLoss<double> loss_no_b(in.n_col, false, handle);
+  SquaredLoss<double> loss_b(handle, in.n_col, true);
+  SquaredLoss<double> loss_no_b(handle, in.n_col, false);
 
   in.fit_intercept = true;
   l1 = alpha;

@@ -72,7 +72,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   switch (loss_type) {
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
-    LogisticLoss<T> loss(D, fit_intercept, handle);
+    LogisticLoss<T> loss(handle, D, fit_intercept);
     qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, fit_intercept, l1, l2,
                               max_iter, grad_tol, linesearch_max_iter,
                               lbfgs_memory, verbosity, w0, f, num_iters, ord,
@@ -81,7 +81,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   case 1: {
 
     ASSERT(C == 1, "qn.h: squared loss invalid C");
-    SquaredLoss<T> loss(D, fit_intercept, handle);
+    SquaredLoss<T> loss(handle, D, fit_intercept);
     qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, fit_intercept, l1, l2,
                               max_iter, grad_tol, linesearch_max_iter,
                               lbfgs_memory, verbosity, w0, f, num_iters, ord,
@@ -90,7 +90,7 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
-    Softmax<T> loss(D, C, fit_intercept, handle);
+    Softmax<T> loss(handle, D, C, fit_intercept);
     qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, fit_intercept, l1, l2,
                               max_iter, grad_tol, linesearch_max_iter,
                               lbfgs_memory, verbosity, w0, f, num_iters, ord,

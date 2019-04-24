@@ -97,7 +97,7 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
 
   const cumlHandle_impl &handle;
 
-  GLMBase(int D, int C, bool fit_intercept, const cumlHandle_impl &handle)
+  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
       : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*
@@ -135,7 +135,7 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
                         cudaStream_t stream, bool initGradZero = true) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
-    linearFwd(handle, Zb, Xb, W, stream);           // linear part: forward pass
+    linearFwd(handle, Zb, Xb, W, stream);         // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb, stream); // loss specific part
     linearBwd(handle, G, Xb, Zb, initGradZero,
               stream); // linear part: backward pass
