@@ -63,11 +63,11 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 }
 
 template<typename T>
-int * DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, bool verbose) {
+void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
 	ASSERT(root, "Cannot predict w/ empty tree!");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	return classify_all(rows, n_rows, n_cols, verbose);
+	return classify_all(rows, n_rows, n_cols, predictions, verbose);
 }
 
 template<typename T>
@@ -215,12 +215,11 @@ void DecisionTreeClassifier<T>::split_branch(T *data, GiniQuestion<T> & ques, co
 }
 
 template<typename T>
-int * DecisionTreeClassifier<T>::classify_all(const T * rows, const int n_rows, const int n_cols, bool verbose) const {
-	int * preds = new int[n_rows];
+void DecisionTreeClassifier<T>::classify_all(const T * rows, const int n_rows, const int n_cols, int* preds, bool verbose) const {
 	for (int row_id = 0; row_id < n_rows; row_id++) {
 		preds[row_id] = classify(&rows[row_id * n_cols], root, verbose);
 	}
-	return preds;
+	return;
 }
 
 template<typename T>
@@ -277,12 +276,12 @@ void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<doub
 	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, maxdepth, max_leaf_nodes, colper, n_bins, split_algo);
 }
 
-int * predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, bool verbose) {
-	return dt_classifier->predict(handle, rows, n_rows, n_cols, verbose);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
+	return dt_classifier->predict(handle, rows, n_rows, n_cols, predictions, verbose);
 }
 
-int * predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, bool verbose) {
-	return dt_classifier->predict(handle, rows, n_rows, n_cols, verbose);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
+	return dt_classifier->predict(handle, rows, n_rows, n_cols, predictions, verbose);
 }
 
 

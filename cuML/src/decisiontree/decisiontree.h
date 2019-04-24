@@ -85,7 +85,7 @@ public:
 			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo=SPLIT_ALGO::HIST, int min_rows_per_node=2);
 
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
-	int * predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, bool verbose=false);
+	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
 
 	// Printing utility for high level tree info.
 	void print_tree_summary();
@@ -104,7 +104,7 @@ private:
 	void find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids,
 							const int n_sampled_rows, GiniInfo split_info[3], int depth);
 	void split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
-	int * classify_all(const T * rows, const int n_rows, const int n_cols, bool verbose=false) const;
+	void classify_all(const T * rows, const int n_rows, const int n_cols, int* preds, bool verbose=false) const;
 	int classify(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
 	void print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const;
 }; // End DecisionTree Class
@@ -121,7 +121,7 @@ void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<doub
 		unsigned int *rowids, const int n_sampled_rows, int unique_labels, int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0,
 		int n_bins = 8, int split_algo=SPLIT_ALGO::HIST);
 
-int * predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, bool verbose=false);
-int * predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, bool verbose=false);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
 
 } //End namespace ML
