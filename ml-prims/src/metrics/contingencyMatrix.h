@@ -79,6 +79,7 @@ __global__ void devConstructContingencyMatrixSmem(T *groundTruth, T *predicted,
   }
 }
 
+// helper functions to launch kernel for global atomic add
 template <typename T>
 cudaError_t computeCMatWAtomics(T *groundTruth, T *predictedLabel, int nSamples,
                               int *outMat, int outIdxOffset, int outDimN,
@@ -94,6 +95,7 @@ cudaError_t computeCMatWAtomics(T *groundTruth, T *predictedLabel, int nSamples,
   return cudaGetLastError();
 }
 
+// helper function to launch share memory atomic add kernel
 template <typename T>
 cudaError_t computeCMatWSmemAtomics(T *groundTruth, T *predictedLabel, int nSamples,
                               int *outMat, int outIdxOffset, int outDimN,
@@ -108,6 +110,7 @@ cudaError_t computeCMatWSmemAtomics(T *groundTruth, T *predictedLabel, int nSamp
   return cudaGetLastError();
 }
 
+// helper function to sort and global atomic update
 template <typename T>
 void contingencyMatrixWSort(T *groundTruth, T *predictedLabel, int nSamples,
                         int *outMat, T minLabel, T maxLabel, void *workspace,
@@ -158,8 +161,15 @@ inline ContingencyMatrixImplType getImplVersion(int outDimN) {
   return implVersion;
 }
 
-// use this to allocate output matrix size
-// size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
+/**
+ * @brief use this to allocate output matrix size
+ * size of matrix = (maxLabel - minLabel + 1)^2 * sizeof(int)
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param nSamples: number of elements in input array
+ * @param stream: cuda stream for execution
+ * @param minLabel: [out] calculated min value in input array
+ * @param maxLabel: [out] calculated max value in input array
+*/
 template <typename T>
 void getInputClassCardinality(T* groundTruth, int nSamples, cudaStream_t stream, T &minLabel, T &maxLabel) {
   thrust::device_ptr<T> dTrueLabel = thrust::device_pointer_cast(groundTruth);
@@ -169,8 +179,16 @@ void getInputClassCardinality(T* groundTruth, int nSamples, cudaStream_t stream,
     maxLabel = *min_max.second;
 }
 
+/**
+ * @brief Calculate workspace size for running contingency matrix calculations
+ * @param nSamples: number of elements in input array
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param stream: cuda stream for execution
+ * @param minLabel: Optional, min value in input array
+ * @param maxLabel: Optional, max value in input array
+ */
 template <typename T>
-size_t getWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream, 
+size_t getCMatrixWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream, 
                                 T minLabel=std::numeric_limits<T>::max(),
                                 T maxLabel=std::numeric_limits<T>::max()) {
   size_t workspaceSize = 0;
@@ -203,6 +221,20 @@ size_t getWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream,
   return workspaceSize;
 }
 
+/**
+ * @brief contruct contingency matrix given input ground truth and prediction labels
+ * users should call function getInputClassCardinality to find and allocate memory for
+ * output. Similarly workspace requirements should be checked using function getCMatrixWorkspaceSize
+ * @param groundTruth: device 1-d array for ground truth (num of rows)
+ * @param predictedLabel: device 1-d array for prediction (num of columns)
+ * @param nSamples: number of elements in input array
+ * @param outMat: output buffer for contingecy matrix
+ * @param stream: cuda stream for execution
+ * @param workspace: Optional, workspace memory allocation
+ * @param workspaceSize: Optional, size of workspace memory
+ * @param minLabel: Optional, min value in input ground truth array
+ * @param maxLabel: Optional, max value in input ground truth array
+ */
 template <typename T>
 void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples, int *outMat,
                         cudaStream_t stream, void *workspace=NULL, size_t workspaceSize=0,
