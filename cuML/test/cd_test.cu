@@ -58,7 +58,7 @@ protected:
 		T coef3_ref_h[params.n_col] = { 2.932841, 1.15248 };
 		updateDevice(coef3_ref, coef3_ref_h, params.n_col);
 
-		T coef4_ref_h[params.n_col] = { 0.31327, -0.38751 };
+		T coef4_ref_h[params.n_col] = { 0.569439, -0.00542 };
 		updateDevice(coef4_ref, coef4_ref_h, params.n_col);
 
 		bool fit_intercept = false;
@@ -92,6 +92,7 @@ protected:
 
 
 		fit_intercept = true;
+		normalize = true;
 		intercept2 = T(0);
 		cdFit(data, params.n_row, params.n_col, labels, coef4, &intercept2,
 					  fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle,

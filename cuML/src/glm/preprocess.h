@@ -73,8 +73,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	allocate(d_intercept, 1);
 
 	if (normalize) {
-            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true, stream);
-            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
+		Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true, stream);
+        Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
                                                     false, true, stream, true);
 	}
 

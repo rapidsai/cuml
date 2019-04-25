@@ -82,6 +82,9 @@ void cdFit(math_t *input,
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
 		allocate(mu_labels, 1);
+		if (normalize) {
+			allocate(norm2_input, n_cols);
+		}
 
 		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
@@ -169,6 +172,10 @@ void cdFit(math_t *input,
 			CUDA_CHECK(cudaFree(mu_input));
 		if (mu_labels != NULL)
 			CUDA_CHECK(cudaFree(mu_labels));
+		if (normalize) {
+			if (norm2_input != NULL)
+				cudaFree(norm2_input);
+		}
 	} else {
 		*intercept = math_t(0);
 	}
