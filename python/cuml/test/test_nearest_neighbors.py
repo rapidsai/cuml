@@ -22,7 +22,7 @@ import numpy as np
 
 
 @pytest.mark.parametrize('should_downcast', [True, False])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 def test_nn_search(input_type, should_downcast):
 
     dtype = np.float32 if not should_downcast else np.float64
