@@ -241,10 +241,10 @@ namespace MLCommon {
         }
 
         template<typename T, int TPB_X>
-        void csr_add_calc_inds(
+        size_t csr_add_calc_inds(
             int *a_ind, int *a_indptr, T *a_val, int nnz1,
             int *b_ind, int *b_indptr, T *b_val, int nnz2,
-            int m, int *out_nnz, int *out_ind
+            int m, int *out_ind
         ) {
             dim3 grid(ceildiv(m, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -262,13 +262,14 @@ namespace MLCommon {
             int cnnz = 0;
             MLCommon::updateHost(&cnnz, row_counts+m, 1);
 
-            out_nnz[0] = cnnz;
-
             // create csr compressed row index from row counts
             thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
             thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
             exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
             CUDA_CHECK(cudaFree(row_counts));
+
+            return cnnz;
+
         }
 
         template<typename T, int TPB_X>

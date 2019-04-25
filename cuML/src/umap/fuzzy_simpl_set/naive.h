@@ -238,7 +238,9 @@ namespace UMAPAlgo {
 
             /**
              * Combines all the fuzzy simplicial sets into a global
-             * one via a fuzzy union.
+             * one via a fuzzy union. This amounts to a series of
+             * element-wise operations between the original set
+             * and its transpose.
              *
              * @param rows   rows of the fuzzy simplicial set coo
              * @param cols   cols of the fuzzy simplicial set coo
@@ -255,7 +257,7 @@ namespace UMAPAlgo {
             template<int TPB_X, typename T>
             __global__ void compute_result(
                     int *rows, int *cols, T *vals,
-                    int *orows, int *ocols, T *ovals, int *rnnz, int n,
+                    int *orows, int *ocols, T *ovals, int n,
                     int n_neighbors, float set_op_mix_ratio = 1.0) {
 
                 int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -274,6 +276,10 @@ namespace UMAPAlgo {
 
                         T transpose = 0.0;
                         bool found_match = false;
+
+                        /**
+                         * Search for transposed value
+                         */
                         for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
 
                             int f_idx = t_idx + t_start;
@@ -287,15 +293,23 @@ namespace UMAPAlgo {
                             }
                         }
 
-                        // if we didn't find an exact match, we need to add
-                        // the transposed value into our current matrix.
-                          if (!found_match && vals[idx] != 0.0) {
-                            orows[out_idx + nnz] = cols[idx];
-                            ocols[out_idx + nnz] = rows[idx];
-                            ovals[out_idx + nnz] = vals[idx];
-                            ++nnz;
-                        }
+                        // NOTE: We add the row/col even if the value is empty to
+                        // alleviate some hotspotting when removing zeros from the COO.
+                        orows[out_idx + nnz] = cols[idx];
+                        ocols[out_idx + nnz] = rows[idx];
 
+                        /**
+                         * If transposed value is not in current matrix,
+                         * add it if value != 0.0.
+                         */
+                        if (!found_match && vals[idx] != 0.0)
+                          ovals[out_idx + nnz] = vals[idx];
+
+                        ++nnz;
+
+                        /**
+                         * Compute the resulting union weight
+                         */
                         T result = vals[idx];
                         T prod_matrix = result * transpose;
 
@@ -303,14 +317,18 @@ namespace UMAPAlgo {
                                 * (result + transpose - prod_matrix)
                                 + (1.0 - set_op_mix_ratio) * prod_matrix;
 
-                        if (res != 0.0) {
-                            orows[out_idx + nnz] = rows[idx];
-                            ocols[out_idx + nnz] = cols[idx];
+                        // NOTE: We add the row/col even if the value is empty to
+                        // alleviate hotspotting when removing zeros from the COO.
+                        orows[out_idx + nnz] = rows[idx];
+                        ocols[out_idx + nnz] = cols[idx];
+
+                        /**
+                         * Add the new value, if necessary
+                         */
+                        if (res != 0.0)
                             ovals[out_idx + nnz] = T(res);
-                            ++nnz;
-                        }
+                        ++nnz;
                     }
-                    atomicAdd(rnnz + n, nnz);
                 }
             }
 
@@ -365,11 +383,23 @@ namespace UMAPAlgo {
              * approximating geodesic (manifold surface) distance at each point, creating
              * a fuzzy simplicial set for each such point, and then combining all the local
              * fuzzy simplicial sets into a global one via a fuzzy union.
+             *
+             * @param n the number of rows/elements in X
+             * @param knn_indices indexes of knn search
+             * @param knn_dists distances of knn search
+             * @param n_neighbors number of neighbors in knn search arrays
+             * @param rrows output COO rows array
+             * @param rcols output COO cols array
+             * @param rvals output COO vals array
+             * @param params UMAPParams config object
+             * @param stream cuda stream to use for device operations
              */
             template<int TPB_X, typename T>
-            void launcher(int n, const long *knn_indices, const float *knn_dists,
+            void launcher(int n, const
+                    long *knn_indices, const float *knn_dists,
+                    int n_neighbors,
                    int *rrows, int *rcols, T *rvals,
-                   int *nnz, UMAPParams *params, int n_neighbors, cudaStream_t stream) {
+                   UMAPParams *params, cudaStream_t stream) {
 
                 int k = n_neighbors;
 
@@ -395,10 +425,9 @@ namespace UMAPAlgo {
 
                 int *rows, *cols;
                 T *vals;
-                MLCommon::allocate(rows, n*n_neighbors);
-                MLCommon::allocate(cols, n*n_neighbors);
-                MLCommon::allocate(vals, n*n_neighbors);
-
+                MLCommon::allocate(rows, n*n_neighbors, true);
+                MLCommon::allocate(cols, n*n_neighbors, true);
+                MLCommon::allocate(vals, n*n_neighbors, true);
 
                 /**
                  * Compute graph of membership strengths
@@ -410,60 +439,26 @@ namespace UMAPAlgo {
 
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                int *orows, *ocols, *rnnz, *cur_rnnz;
-                T *ovals;
-                MLCommon::allocate(orows, n * k * 2, true);
-                MLCommon::allocate(ocols, n * k * 2, true);
-                MLCommon::allocate(ovals, n * k * 2, true);
-                MLCommon::allocate(rnnz, n + 1, true);
-                MLCommon::allocate(cur_rnnz, n, true);
-
                 /**
                  * Weight directed graph of membership strengths (and include
                  * both sides).
                  */
-                compute_result<TPB_X><<<grid, blk>>>(rows, cols, vals, orows, ocols,
-                        ovals, rnnz, n, n_neighbors,
+                compute_result<TPB_X><<<grid, blk>>>(
+                        rows, cols, vals,
+                        rrows, rcols, rvals,
+                        n, n_neighbors,
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                int n_compressed_nonzeros = 0;
-                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1);
+                MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, rrows, rcols, rvals);
 
-                /**
-                 * Remove resulting zeros from COO
-                 * @todo: Move this outside of fuzzy simplicial set
-                 */
-
-                MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, orows, ocols, ovals);
-
-                dim3 grid_rc(MLCommon::ceildiv(n*k*2, TPB_X), 1, 1);
-                dim3 blk_rc(TPB_X, 1, 1);
-
-                MLCommon::Sparse::coo_row_count_nz<TPB_X, T><<<grid_rc,blk_rc>>>(
-                        orows, ovals, n*k*2, rnnz, n);
-
-                MLCommon::Sparse::coo_row_count<TPB_X><<<grid_rc,blk_rc>>>(
-                        orows, n*k*2, cur_rnnz, n);
-
-                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
-                        orows, ocols, ovals, n*k*2,
-                        rrows, rcols, rvals,
-                        rnnz, cur_rnnz, n);
-
-                nnz[0] = n_compressed_nonzeros;
-
-                if(params->verbose)
-                    std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
+                std::cout << MLCommon::arr2Str(rrows, n*k*2, "rrows") << std::endl;
+                std::cout << MLCommon::arr2Str(rcols, n*k*2, "rcols") << std::endl;
+                std::cout << MLCommon::arr2Str(rvals, n*k*2, "rvals") << std::endl;
 
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
-
-                CUDA_CHECK(cudaFree(orows));
-                CUDA_CHECK(cudaFree(ocols));
-                CUDA_CHECK(cudaFree(ovals));
-                CUDA_CHECK(cudaFree(rnnz));
 
                 CUDA_CHECK(cudaFree(rows));
                 CUDA_CHECK(cudaFree(cols));

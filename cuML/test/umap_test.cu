@@ -67,14 +67,26 @@ protected:
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
+		std::cout << "Performing fit()" << std::endl;
+
 		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings, stream);
+
+		std::cout << "done." << std::endl;
+
+		std::cout << "Performing transform" << std::endl;
 
 		float *xformed;
 		MLCommon::allocate(xformed, n*umap_params->n_components);
 
 		UMAPAlgo::_transform<float, 32>(X_d, n, d, embeddings, n, knn, umap_params, xformed, stream);
 
+		std::cout << "Done." << std::endl;
+
+        std::cout << "Performing supervised fit" << std::endl;
+
 		UMAPAlgo::_fit<float, 32>(X_d, Y_d, n, d, knn, umap_params, embeddings, stream);
+
+		std::cout << "Done." << std::endl;
 
 		CUDA_CHECK(cudaStreamDestroy(stream));
 	}

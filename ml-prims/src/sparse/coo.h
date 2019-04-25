@@ -177,7 +177,7 @@ namespace MLCommon {
                 int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
                 int cur_out_idx = ex_scan[row];
 
-                printf("row=%d, start=%d, stop=%d, cur_out_idx=%d\n", row, start, stop, cur_out_idx);
+//                printf("row=%d, start=%d, stop=%d, cur_out_idx=%d\n", row, start, stop, cur_out_idx);
 
                 for (int idx = start; idx < stop; idx++) {
                     if (vals[idx] != 0.0) {
@@ -214,7 +214,7 @@ namespace MLCommon {
             MLCommon::allocate(ex_scan, n, true);
             MLCommon::allocate(cur_ex_scan, n, true);
 
-            std::cout << "Allocated" << std::endl;
+//            std::cout << "Allocated" << std::endl;
 
             thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(
                     cnnz);
@@ -230,15 +230,15 @@ namespace MLCommon {
             thrust::exclusive_scan(dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
             CUDA_CHECK(cudaPeekAtLastError());
 
-            std::cout << "DOne." << std::endl;
+//            std::cout << "DOne." << std::endl;
 
             dim3 grid(ceildiv(n, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
-            std::cout << "Printing" << std::endl;
+//            std::cout << "Printing" << std::endl;
 
-            std::cout << MLCommon::arr2Str(cnnz, n, "cnnz") << std::endl;
-            std::cout << MLCommon::arr2Str(cur_cnnz, n, "cur_cnnz") << std::endl;
+//            std::cout << MLCommon::arr2Str(cnnz, n, "cnnz") << std::endl;
+//            std::cout << MLCommon::arr2Str(cur_cnnz, n, "cur_cnnz") << std::endl;
 
 
 
@@ -246,7 +246,7 @@ namespace MLCommon {
 //            std::cout << MLCommon::arr2Str(cols, nnz, "cols") << std::endl;
 //            std::cout << MLCommon::arr2Str(vals, nnz, "vals") << std::endl;
 
-            std::cout << "Printed" << std::endl;
+//            std::cout << "Printed" << std::endl;
 
             coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(
                     rows, cols, vals, nnz,
@@ -254,11 +254,11 @@ namespace MLCommon {
                     dev_ex_scan.get(), dev_cur_ex_scan.get(), n
             );
 
-            std::cout << "Ran kernel." << std::endl;
-
-            std::cout << MLCommon::arr2Str(crows, n, "crows") << std::endl;
-            std::cout << MLCommon::arr2Str(ccols, n, "ccols") << std::endl;
-            std::cout << MLCommon::arr2Str(cvals, n, "cvals") << std::endl;
+//            std::cout << "Ran kernel." << std::endl;
+//
+//            std::cout << MLCommon::arr2Str(crows, n, "crows") << std::endl;
+//            std::cout << MLCommon::arr2Str(ccols, n, "ccols") << std::endl;
+//            std::cout << MLCommon::arr2Str(cvals, n, "cvals") << std::endl;
 
             CUDA_CHECK(cudaPeekAtLastError());
             CUDA_CHECK(cudaFree(ex_scan));
@@ -275,13 +275,23 @@ namespace MLCommon {
          * @param n number of rows in coo matrix
          */
         template<int TPB_X>
-        __global__ void coo_row_count(int *rows, int nnz,
+        __global__ void coo_row_count_kernel(int *rows, int nnz,
                 int *results, int n) {
             int row = (blockIdx.x * TPB_X) + threadIdx.x;
             if(row < nnz) {
                 atomicAdd(results+rows[row], 1);
             }
         }
+
+        template<int TPB_X>
+        void coo_row_count(int *rows, int nnz, int *results, int n) {
+            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+                    rows, nnz, results, n);
+        }
+
 
         /**
          * Count all the rows with non-zero values in the coo row and val
@@ -294,13 +304,23 @@ namespace MLCommon {
          * @param n number of rows in coo matrix
          */
         template<int TPB_X, typename T>
-        __global__ void coo_row_count_nz(int *rows, T *vals, int nnz,
+        __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
                 int *results, int n) {
             int row = (blockIdx.x * TPB_X) + threadIdx.x;
             if(row < nnz && vals[row] > 0.0) {
                 atomicAdd(results+rows[row], 1);
             }
         }
+
+        template<int TPB_X, typename T>
+        void coo_row_count_nz(int *rows, T *vals, int nnz, int *results, int n) {
+            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+                    rows, vals, nnz, results, n);
+        }
+
 
         template<int TPB_X, typename T>
         __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
@@ -340,7 +360,7 @@ namespace MLCommon {
             dim3 grid(ceildiv(m, 32), 1, 1);
             dim3 blk(32, 1, 1);
 
-            coo_row_count<32><<<grid, blk>>>(rows, nnz, row_counts, m);
+            coo_row_count<32>(rows, nnz, row_counts, m);
 
             std::cout << MLCommon::arr2Str(row_counts, m, "row_counts");
 
