@@ -147,6 +147,7 @@ protected:
 
 	void SetUp() override {
 		CUDA_CHECK(cudaStreamCreate(&stream));
+                handle.setStream(stream);
 		basicTest();
 		basicTest2();
 	}
