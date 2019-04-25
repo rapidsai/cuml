@@ -73,6 +73,21 @@ void DecisionTreeParams::print() const {
 	std::cout << "min_rows_per_node: " << min_rows_per_node << std::endl;
 }
 
+/**
+ * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] handle: cumlHandle
+ * @param[in] data: train data (nrows samples, ncols features) in column major format, excluding labels. Device pointer.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] labels: 1D array of target features (int only). One label per training sample. Device pointer.
+				  Assumption: labels need to preprocessed to map to ascending numbers from 0;
+				  needed for current gini impl in decision tree
+ * @param[in] n_sampled_rows: number of training samples, after sampling. If using decsion tree directly over the whole dataset (n_sampled_rows = nrows)
+ * @param[in,out] rowids: This array consists of integers from (0 - n_sampled_rows), the same array is then rearranged when splits are made. This allows, us to contruct trees without rearranging the actual dataset. Device pointer.
+ * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] tree_params: Decision Tree training hyper parameter struct
+ */
 template<typename T>
 void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
 									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
@@ -86,6 +101,16 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 				tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node);
 }
 
+/**
+ * @brief Predict target feature for input data; n-ary classification for single feature supported. Inference of tress is CPU only for now.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
 template<typename T>
 void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
 	ASSERT(root, "Cannot predict w/ empty tree!");
@@ -290,22 +315,71 @@ template class DecisionTreeClassifier<double>;
 } //End namespace DecisionTree
 
 
-// Stateless API fit and predict functions
+/**
+ * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
+ * @param[in] handle: cumlHandle
+ * @param[in,out] dt_classifier: Pointer to Decision Tree Classifier object. The object holds the trained tree.
+ * @param[in] data: train data in float (nrows samples, ncols features) in column major format, excluding labels. Device pointer.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] labels: 1D array of target features (int only). One label per training sample. Device pointer.
+				  Assumption: labels need to preprocessed to map to ascending numbers from 0;
+				  needed for current gini impl in decision tree
+ * @param[in] n_sampled_rows: number of training samples, after sampling. If using decsion tree directly over the whole dataset (n_sampled_rows = nrows)
+ * @param[in,out] rowids: This array consists of integers from (0 - n_sampled_rows), the same array is then rearranged when splits are made. This allows, us to contruct trees without rearranging the actual dataset. Device pointer.
+ * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] tree_params: Decision Tree training hyper parameter struct
+ */
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels, 
 		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params) {
 	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params);
 }
 
+/**
+ * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
+ * @param[in] handle: cumlHandle
+ * @param[in,out] dt_classifier: Pointer to Decision Tree Classifier object. The object holds the trained tree.
+ * @param[in] data: train data in double (nrows samples, ncols features) in column major format, excluding labels. Device pointer.
+ * @param[in] nrows: number of training data samples of the whole unsampled dataset.
+ * @param[in] ncols: number of features (i.e., columns) excluding target feature.
+ * @param[in] labels: 1D array of target features (int only). One label per training sample. Device pointer.
+				  Assumption: labels need to preprocessed to map to ascending numbers from 0;
+				  needed for current gini impl in decision tree
+ * @param[in] n_sampled_rows: number of training samples, after sampling. If using decsion tree directly over the whole dataset (n_sampled_rows = nrows)
+ * @param[in,out] rowids: This array consists of integers from (0 - n_sampled_rows), the same array is then rearranged when splits are made. This allows, us to contruct trees without rearranging the actual dataset. Device pointer.
+ * @param[in] n_unique_labels: #unique label values. Number of categories of classification.
+ * @param[in] tree_params: Decision Tree training hyper parameter struct
+ */	
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels, 
 		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params) {
 	dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params);
 }
 
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
+/**
+ * @brief Predict target feature for input data; n-ary classification for single feature supported. Inference of tress is CPU only for now.
+ * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] dt_classifier: Pointer to decision tree object, which holds the trained tree. 
+ * @param[in] rows: test data type float (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
 	return dt_classifier->predict(handle, rows, n_rows, n_cols, predictions, verbose);
 }
-
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
+	
+/**
+ * @brief Predict target feature for input data; n-ary classification for single feature supported. Inference of tress is CPU only for now.
+ * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] dt_classifier: Pointer to decision tree object, which holds the trained tree. 
+ * @param[in] rows: test data type double (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) {
 	return dt_classifier->predict(handle, rows, n_rows, n_cols, predictions, verbose);
 }
 
