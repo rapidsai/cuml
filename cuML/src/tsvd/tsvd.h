@@ -73,7 +73,7 @@ void calCompExpVarsSvd(const cumlHandle_impl& handle, math_t *in, math_t *compon
                           prms.n_components, cublas_handle, stream);
 	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components, stream);
         Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, stream,
-                      handle.getDeviceAllocator());
+                      allocator);
 }
 
 template<typename math_t>
@@ -104,6 +104,8 @@ void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
  * @param n_cols: number of columns of input matrix
  * @param components: components matrix.
  * @param n_cols_comp: number of columns of components matrix
+ * @param allocator device custom allocator object
+ * @param stream cuda stream
  * @{
  */
 template<typename math_t>
@@ -174,8 +176,7 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
         prms.n_components = prms.n_cols;
 
     int len = prms.n_cols * prms.n_cols;
-    device_buffer<math_t> input_cross_mult(handle.getDeviceAllocator(),
-                                           handle.getStream(), len);
+    device_buffer<math_t> input_cross_mult(allocator, stream, len);
 
     math_t alpha = math_t(1);
     math_t beta = math_t(0);
@@ -183,10 +184,8 @@ void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
                  prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
                  cublas_handle, stream);
 
-    device_buffer<math_t> components_all(handle.getDeviceAllocator(),
-                                         handle.getStream(), len);
-    device_buffer<math_t> explained_var_all(handle.getDeviceAllocator(),
-                                            handle.getStream(), prms.n_cols);
+    device_buffer<math_t> components_all(allocator, stream, len);
+    device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
 
     calEig(handle, input_cross_mult.data(), components_all.data(),
            explained_var_all.data(), prms, stream);
