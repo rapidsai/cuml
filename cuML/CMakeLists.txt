@@ -203,7 +203,7 @@ file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
-# - build libcuml shared library ------------------------------------------------------------------
+# - build libcuml++ shared library ------------------------------------------------------------------
 set(CUML_CPP_TARGET "cuml++")
 add_library(${CUML_CPP_TARGET} SHARED
   src/pca/pca.cu
@@ -216,18 +216,19 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/common/cumlHandle.cpp
   src/common/cuml_api.cpp
   src/umap/umap.cu
-  src/solver/solver.cu)
+  src/solver/solver.cu
+  src/metrics/metrics.cu)
 
-set(CUML_LINK_LIBRARIES 
-  ${CUDA_cublas_LIBRARY} 
-  ${CUDA_curand_LIBRARY} 
-  ${CUDA_cusolver_LIBRARY} 
-  ${CUDA_CUDART_LIBRARY} 
-  ${CUDA_cusparse_LIBRARY} 
-  ${CUDA_nvgraph_LIBRARY} 
-  ${ZLIB_LIBRARIES} 
-  gpufaisslib 
-  faisslib 
+set(CUML_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  ${ZLIB_LIBRARIES}
+  gpufaisslib
+  faisslib
   ${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
