@@ -37,18 +37,19 @@ namespace FuzzySimplSet {
 	template<int TPB_X, typename T>
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
-			 int *orows, int *ocols, T *ovals,
-			 UMAPParams *params, int *nnz,
 			 int n_neighbors,
-                         cudaStream_t stream,
+			 int *orows, int *ocols, T *ovals,
+			 UMAPParams *params,
+             cudaStream_t stream,
 			 int algorithm = 0) {
 
 		switch(algorithm) {
 		case 0:
-			Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists,
+			Naive::launcher<TPB_X, T>(n,
+			               knn_indices, knn_dists,
+			               n_neighbors,
 					       orows, ocols, ovals,
-					       nnz,
-					       params, n_neighbors, stream);
+					       params, stream);
 			break;
 		}
 	}
