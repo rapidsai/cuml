@@ -18,10 +18,6 @@
 
 #include <cuML.hpp>
 
-// #include <linalg/eltwise.h>
-// #include <metrics/metrics.h>
-// #include <common/cumlHandle.hpp>
-
 namespace ML {
 
     namespace Metrics {
