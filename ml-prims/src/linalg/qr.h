@@ -55,10 +55,14 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
   device_buffer<math_t> workspace(allocator, stream, Lwork);
   CUSOLVER_CHECK(
       cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
-  ///@todo: without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail
-  /// I've not been able to track down the rabbit hole of function calls to root-cause the
-  /// reason. Hence, as a temporary fix, leaving a device-sync here! :(
+  /// @todo in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims
+  /// unit-tests fail. I have been able to use streamSynchronize successfully
+  /// only from v10.0 onwards. Hence the following usage of macro
+#if defined(CUDART_VERSION) && CUDART_VERSION > 9020
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+#else
   CUDA_CHECK(cudaDeviceSynchronize());
+#endif
   CUSOLVER_CHECK(
       cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
@@ -98,10 +102,14 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   device_buffer<math_t> workspace(allocator, stream, Lwork);
   CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full.data(),
                                  R_full_nrows, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
-  ///@todo: without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail
-  /// I've not been able to track down the rabbit hole of function calls to root-cause the
-  /// reason. Hence, as a temporary fix, leaving a device-sync here! :(
+  /// @todo in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims
+  /// unit-tests fail. I have been able to use streamSynchronize successfully
+  /// only from v10.0 onwards. Hence the following usage of macro
+#if defined(CUDART_VERSION) && CUDART_VERSION > 9020
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+#else
   CUDA_CHECK(cudaDeviceSynchronize());
+#endif
 
   Matrix::copyUpperTriangular(R_full.data(), R, m, n, stream);
 
