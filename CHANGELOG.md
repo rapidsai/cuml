@@ -53,6 +53,7 @@
 - PR #477: Fixes default stream initialization in cumlHandle
 - PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
 - PR #495: Update cuDF and RMM versions in GPU ci test scripts
+- PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 
 # cuML 0.6.0 (22 Mar 2019)
 
