@@ -48,12 +48,22 @@ std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
 	return os;
 }
 
+/**
+ * @brief Decision tree hyper-parameter object constructor. All DecisionTreeParams members have their default values.
+ */
 DecisionTreeParams::DecisionTreeParams() {};
+
+/**
+ * @brief Decision tree hyper-parameter object constructor to set all DecisionTreeParams members.
+ */
 DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_algo,
 										int cfg_min_rows_per_node):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
 										max_features(cfg_max_features), n_bins(cfg_n_bins), split_algo(cfg_split_algo),
 										min_rows_per_node(cfg_min_rows_per_node) {};
 
+/**
+ * @brief Check validity of all decision tree hyper-parameters.
+ */
 void DecisionTreeParams::validity_check() const {
 	ASSERT((max_depth == -1) || (max_depth > 0), "Invalid max depth %d", max_depth);
 	ASSERT((max_leaves == -1) || (max_leaves > 0), "Invalid max leaves %d", max_leaves);
@@ -64,6 +74,9 @@ void DecisionTreeParams::validity_check() const {
 	ASSERT((min_rows_per_node > 0), "Invalid min # rows per node %d", min_rows_per_node);
 }
 
+/**
+ * @brief Print all decision tree hyper-parameters.
+ */
 void DecisionTreeParams::print() const {
 	std::cout << "max_depth: " << max_depth << std::endl;
 	std::cout << "max_leaves: " << max_leaves << std::endl;
@@ -120,6 +133,10 @@ void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * 
 	classify_all(rows, n_rows, n_cols, predictions, verbose);
 }
 
+/**
+ * @brief Print high-level tree information.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 void DecisionTreeClassifier<T>::print_tree_summary() const {
 	std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
@@ -128,6 +145,10 @@ void DecisionTreeClassifier<T>::print_tree_summary() const {
 	std::cout << " Shared memory used --> " << shmem_used << "  bytes " << std::endl;
 }
 
+/**
+ * @brief Print detailed tree information.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 void DecisionTreeClassifier<T>::print() const {
 	print_tree_summary();

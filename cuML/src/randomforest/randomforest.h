@@ -37,9 +37,21 @@ enum RF_type {
 };
 
 struct RF_params {
+	/**
+	 * Control bootstrapping. If set, each tree in the forest is built on a bootstrapped sample.
+	 */
 	bool bootstrap = true;
+	/**
+	 * Number of decision trees in the random forest.
+	 */
 	int n_trees;
+	/**
+	 * Ratio of dataset rows used while fitting each tree.
+	 */
 	float rows_sample = 1.0f;
+	/**
+	 * Decision tree traingin hyper parameter struct.
+	 */
 	DecisionTree::DecisionTreeParams tree_params;
 
 	RF_params(int cfg_n_trees);
@@ -77,7 +89,7 @@ template <class T>
 class rfClassifier : public rf<T> {
 	public:
 
-	rfClassifier(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
+	rfClassifier(RF_params cfg_rf_params);
 
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;

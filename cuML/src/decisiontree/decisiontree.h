@@ -53,13 +53,32 @@ struct DataInfo {
 	unsigned int Ncols;
 };
 
+
 struct DecisionTreeParams {
+	/**
+	 * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
+	 */
 	int max_depth = -1;
+	/**
+	 * Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+	 */
 	int max_leaves = -1;
-	float max_features = 1.0; // ratio of number of features (columns) to consider per node split.
-								// TODO SKL's default is sqrt(n_cols)
+	/**
+	 * Ratio of number of features (columns) to consider per node split.
+	   TODO SKL's default is sqrt(n_cols)
+	 */
+	float max_features = 1.0;
+	/**
+	 * Number of bins used by the split algorithm.
+	 */
 	int n_bins = 8;
+	/**
+	 * The split algorithm: HIST or GLOBAL_QUANTILE.
+	 */
 	int split_algo = SPLIT_ALGO::HIST;
+	/**
+	 * The minimum number of samples (rows) needed to split a node.
+	 */
 	int min_rows_per_node = 2;
 
 	DecisionTreeParams();

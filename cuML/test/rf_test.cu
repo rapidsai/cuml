@@ -77,7 +77,7 @@ protected:
 		preprocess_labels(params.n_rows, labels_h, labels_map);
 	    updateDevice(labels, labels_h.data(), params.n_rows);
 
-		rf_classifier = new typename rfClassifier<T>::rfClassifier(rf_params, RF_type::CLASSIFICATION);
+		rf_classifier = new typename rfClassifier<T>::rfClassifier(rf_params);
 
 		cumlHandle handle;
 		cudaStream_t stream;

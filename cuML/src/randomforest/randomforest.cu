@@ -19,15 +19,27 @@
 
 namespace ML {
 
+/**
+ * @brief Construct RF_metrics.
+ * @param[in] cfg_accuracy: accuracy.
+ */
 RF_metrics::RF_metrics(float cfg_accuracy) : accuracy(cfg_accuracy) {};
 
+/**
+ * @brief Print accuracy metric.
+ */
 void RF_metrics::print() {
 	std::cout << "Accuracy: " << accuracy << std::endl;
 }
 
-/* Update labels so they are unique from 0 to n_unique_vals.
-	Create an old_label to new_label map per random forest.
-*/
+/**
+ * @brief Update labels so they are unique from 0 to n_unique_labels values.
+		  Create/update an old label to new label map per random forest.
+ * @param[in] n_rows: number of rows (labels)
+ * @param[in,out] labels: 1D labels array to be changed in-place.
+ * @param[in,out] labels_map: map of old label values to new ones.
+ * @param[in] verbose: debugging flag.
+ */
 void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose) {
 	std::pair<std::map<int, int>::iterator, bool> ret;
 	int n_unique_labels = 0;
@@ -45,8 +57,13 @@ void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int>
 	if (verbose) std::cout << "Finished preprocessing labels\n";
 }
 
-
-/* Revert preprocessing effect, if needed. */
+/**
+ * @brief Revert label preprocessing effect, if needed.
+ * @param[in] n_rows: number of rows (labels)
+ * @param[in,out] labels: 1D labels array to be changed in-place.
+ * @param[in] labels_map: map of old to new label values used during preprocessing.
+ * @param[in] verbose: debugging flag.
+ */
 void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose) {
 
 	if (verbose) std::cout << "Postrocessing labels\n";
@@ -65,18 +82,34 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 	if (verbose) std::cout << "Finished postrocessing labels\n";
 }
 
+/**
+ * @brief Random forest hyper-parameter object constructor to set n_trees member.
+ */
 RF_params::RF_params(int cfg_n_trees):n_trees(cfg_n_trees) {};
 
+/**
+ * @brief Random forest hyper-parameter object constructor to set bootstrap, n_trees and rows_sample members.
+ */
 RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample):bootstrap(cfg_bootstrap), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample) {};
 
-RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params):bootstrap(cfg_bootstrap), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample), tree_params(cfg_tree_params) {};
+/**
+ * @brief Random forest hyper-parameter object constructor to set all RF_params members.
+ */
+RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params):bootstrap(cfg_bootstrap),
+					n_trees(cfg_n_trees), rows_sample(cfg_rows_sample), tree_params(cfg_tree_params) {};
 
+/**
+ * @brief Check validity of all random forest hyper-parameters.
+ */
 void RF_params::validity_check() const {
 	ASSERT((n_trees > 0), "Invalid n_trees %d", n_trees);
 	ASSERT((rows_sample > 0) && (rows_sample <= 1.0), "rows_sample value %f outside permitted (0, 1] range", rows_sample);
 	tree_params.validity_check();
 }
 
+/**
+ * @brief Print all random forest hyper-parameters.
+ */
 void RF_params::print() const {
 	std::cout << "bootstrap: " << bootstrap << std::endl;
 	std::cout << "n_trees: " << n_trees << std::endl;
@@ -84,22 +117,40 @@ void RF_params::print() const {
 	tree_params.print();
 }
 
+/**
+ * @brief Construct rf (random forest) object.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
+ * @param[in] cfg_rf_type: Random forest type. Only CLASSIFICATION is currently supported.
+ */
 template<typename T>
 rf<T>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type), trees(nullptr) {
 	rf_params.validity_check();
 }
 
+/**
+ * @brief Destructor for random forest object.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 rf<T>::~rf() {
 	delete [] trees;
 }
 
+/**
+ * @brief Return number of trees in the forest.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 int rf<T>::get_ntrees() {
 	return rf_params.n_trees;
 }
 
 
+/**
+ * @brief Print summary for all trees in the random forest.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 void rf<T>::print_rf_summary() {
 
@@ -115,6 +166,10 @@ void rf<T>::print_rf_summary() {
 	}
 }
 
+/**
+ * @brief Print detailed view of all trees in the random forest.
+ * @tparam T: data type for input data (float or double).
+ */
 template<typename T>
 void rf<T>::print_rf_detailed() {
 
@@ -131,8 +186,13 @@ void rf<T>::print_rf_detailed() {
 }
 
 
+/**
+ * @brief Construct rfClassifier object.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
+ */
 template <typename T>
-rfClassifier<T>::rfClassifier(RF_params cfg_rf_params, int cfg_rf_type): rf<T>::rf(cfg_rf_params, cfg_rf_type) {};
+rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, RF_type::CLASSIFICATION) {};
 
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
