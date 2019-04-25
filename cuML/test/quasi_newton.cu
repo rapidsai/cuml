@@ -380,7 +380,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, dense_vs_sparse) {
-  const cumlHandle_impl &cuml = cuml_user.getImpl();
+  cudaStream_t stream = handle_ptr->getStream();
+  const cumlHandle_impl &handle = handle_ptr->getImpl();
 
   CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
@@ -395,48 +396,51 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
       nnz++;
     }
   }
-  SimpleMatOwning<double> X(N, D, COL_MAJOR);
+  SimpleMatOwning<double> X(handle, N, D, stream, COL_MAJOR);
   updateDevice(X.data, &Xsparsified[0], X.len);
-  SimpleVecOwning<double> y(N);
+  SimpleVecOwning<double> y(handle, N, stream);
   updateDevice(y.data, &yhost[0], y.len);
-  SimpleVecOwning<double> csrVal(nnz);
-  SimpleVecOwning<int> csrRowPtr(N + 1);
-  SimpleVecOwning<int> csrColInd(nnz);
+  SimpleVecOwning<double> csrVal(handle, nnz, stream);
+  SimpleVecOwning<int> csrRowPtr(handle, N + 1, stream);
+  SimpleVecOwning<int> csrColInd(handle, nnz, stream);
 
-  SimpleVecOwning<int> nnzPerRow(N);
-  SimpleVecOwning<double> tmp(N);
+  SimpleVecOwning<int> nnzPerRow(handle, N, stream);
+  SimpleMatOwning<double> tmp(handle,1, N, stream);
   int nnzTotal;
 
   cusparseMatDescr_t descr;
   CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
-  cusparseDnnz(cuml.getcusparseHandle(), CUSPARSE_DIRECTION_ROW, N, D, descr,
+  cusparseDnnz(handle.getcusparseHandle(), CUSPARSE_DIRECTION_ROW, N, D, descr,
                X.data, N, nnzPerRow.data, &nnzTotal);
 
-  cusparseDdense2csr(cuml.getcusparseHandle(), N, D, descr, X.data, N,
+  cusparseDdense2csr(handle.getcusparseHandle(), N, D, descr, X.data, N,
                      nnzPerRow.data, csrVal.data, csrRowPtr.data,
                      csrColInd.data);
 
-  LogisticLoss<double> logLoss(D, false, cuml);
-  GLMWithData<double, decltype(logLoss)> lossDense(&logLoss, X.data, y.data,
-                                                   tmp.data, N, COL_MAJOR);
+  LogisticLoss<double> logLoss(handle, D, false);
+  GLMWithData<double, SimpleMat<double>, decltype(logLoss)> lossDense(
+      &logLoss, X, y, tmp);
   LBFGSParam<double> opt_param;
   opt_param.epsilon = 1e-5;
   opt_param.max_iterations = 100;
   opt_param.m = 2;
   opt_param.max_linesearch = 50;
-  SimpleVecOwning<double> w(logLoss.n_param);
+  SimpleVecOwning<double> w(handle, logLoss.n_param, stream);
+  int verbosity = 1;
 
   double fxd, fxs;
   int num_iters;
   double l1 = 0.001;
-  qn_minimize(w, &fxd, &num_iters, lossDense, l1, opt_param, cuml, 0);
+  qn_minimize(handle, w, &fxd, &num_iters, lossDense, l1, opt_param, stream,
+              verbosity);
 
   CsrMat<double> csr(csrVal.data, csrRowPtr.data, csrColInd.data, N, D, nnz);
-  GLMWithCsrData<double, decltype(logLoss)> lossSparse(&logLoss, csr, y.data,
-                                                       tmp.data, N);
+  GLMWithData<double, CsrMat<double>, decltype(logLoss)> lossSparse(
+      &logLoss, csr, y, tmp);
 
-  w.fill(0);
-  qn_minimize(w, &fxs, &num_iters, lossSparse, l1, opt_param, cuml, 0);
+  w.fill(0, stream);
+  qn_minimize(handle, w, &fxs, &num_iters, lossSparse, l1, opt_param, stream,
+              verbosity);
 
   ASSERT_TRUE(compApprox(fxd, fxs));
 }

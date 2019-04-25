@@ -45,13 +45,13 @@ template <typename T, class MatA, class MatB, class MatC> struct Gemm {
   static inline void gemm_() {
     ASSERT(false, "simple_mat.h: Combination of matrix types not implemented.");
   }
-
-  void print() const { std::cout << (*this) << std::endl; }
-
-  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
-                          const SimpleMat<T> &A, const bool transA,
-                          const SimpleMat<T> &B, const bool transB,
-                          const T beta, cudaStream_t stream) {
+};
+template <typename T> struct Gemm<T, SimpleMat<T>, SimpleMat<T>, SimpleMat<T>> {
+  static inline void gemm_(const cumlHandle_impl &handle, SimpleMat<T> &C,
+                           const T alpha, const SimpleMat<T> &A,
+                           const bool transA, const SimpleMat<T> &B,
+                           const bool transB, const T beta,
+                           cudaStream_t stream) {
 
     int kA = A.n;
     int kB = B.m;
@@ -71,7 +71,7 @@ template <typename T, class MatA, class MatB, class MatC> struct Gemm {
     }
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
-    if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
+    if (C.ord == COL_MAJOR && A.ord == COL_MAJOR &&
         B.ord == COL_MAJOR) {                                // base case
       MLCommon::LinAlg::cublasgemm(handle.getCublasHandle(), // handle
                                    transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
@@ -87,17 +87,17 @@ template <typename T, class MatA, class MatB, class MatC> struct Gemm {
     }
     if (A.ord == ROW_MAJOR) {
       SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(handle, alpha, Acm, !transA, B, transB, beta, stream);
+      gemm_(handle, C, alpha, Acm, !transA, B, transB, beta, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(handle, alpha, A, transA, Bcm, !transB, beta, stream);
+      gemm_(handle, C, alpha, A, transA, Bcm, !transB, beta, stream);
       return;
     }
-    if (ord == ROW_MAJOR) {
-      SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(handle, alpha, B, !transB, A, !transA, beta, stream);
+    if (C.ord == ROW_MAJOR) {
+      SimpleMat<T> Ccm(C.data, C.n, C.m, COL_MAJOR);
+      gemm_(handle, Ccm, alpha, B, !transB, A, !transA, beta, stream);
       return;
     }
   }
@@ -105,11 +105,11 @@ template <typename T, class MatA, class MatB, class MatC> struct Gemm {
 
 template <typename T> struct Gemm<T, SimpleMat<T>, SimpleVec<T>, SimpleMat<T>> {
   typedef SimpleMat<T> Mat;
-  static inline void gemm_(Mat &C, const T alpha, const Mat &A,
-                           const bool transA, const SimpleVec<T> &B,
-                           const bool transB, const T beta,
-                           const cumlHandle_impl &cuml, cudaStream_t stream) {
-    Gemm<T, Mat, Mat, Mat>::gemm_(C, alpha, A, transA, B, transB, beta, cuml,
+  static inline void gemm_(const cumlHandle_impl &handle, Mat &C, const T alpha,
+                           const Mat &A, const bool transA,
+                           const SimpleVec<T> &B, const bool transB,
+                           const T beta, cudaStream_t stream) {
+    Gemm<T, Mat, Mat, Mat>::gemm_(handle, C, alpha, A, transA, B, transB, beta,
                                   stream);
   }
 };
@@ -130,10 +130,11 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
   // Once we have cuml poolig allocators, this might be viable.
   // Passing in workspace instead for this case would make the API semantics
   // awkward
-  static inline void gemm_(SimpleMat<T> &C, const T alpha,
-                           const SimpleMat<T> &A, const bool transA,
-                           const CsrMat<T> &B, const bool transB, const T beta,
-                           const cumlHandle_impl &cuml, cudaStream_t stream) {
+  static inline void gemm_(const cumlHandle_impl &handle, SimpleMat<T> &C,
+                           const T alpha, const SimpleMat<T> &A,
+                           const bool transA, const CsrMat<T> &B,
+                           const bool transB, const T beta,
+                           cudaStream_t stream) {
     int kA = A.n;
     int kB = B.m;
 
@@ -195,7 +196,7 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CsrMat<T>, SimpleMat<T>> {
       // ldb, ldc);
 
       CUSPARSE_CHECK(
-          cusparseCsrmm(cuml.getcusparseHandle(),
+          cusparseCsrmm(handle.getcusparseHandle(),
                         opB,           // B, the sparse matrix is A
                         B.m,           // flip for computing the transpose
                         1,             // A.m
@@ -229,6 +230,10 @@ template <typename T> struct SimpleMat {
   SimpleMat(T *data, int m, int n, STORAGE_ORDER order = COL_MAJOR)
       : data(data), len(m * n), m(m), n(n), ord(order) {}
 
+  SimpleMat(const SimpleMat<T> &other)
+      : data(other.data), m(other.m), n(other.n), len(other.len),
+        ord(other.ord) {}
+
   void reset(T *data_, int m_, int n_) {
     m = m_;
     n = n_;
@@ -239,13 +244,13 @@ template <typename T> struct SimpleMat {
   void print() const { std::cout << (*this) << std::endl; }
 
   template <typename MatB>
-  inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
-                          const bool transA, const MatB &B, const bool transB,
-                          const T beta, const cumlHandle_impl &cuml,
+  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
+                          const SimpleMat<T> &A, const bool transA,
+                          const MatB &B, const bool transB, const T beta,
                           cudaStream_t stream) {
 
     Gemm<T, SimpleMat<T>, MatB, SimpleMat<T>>::gemm_(
-        *this, alpha, A, transA, B, transB, beta, cuml, stream);
+        handle, *this, alpha, A, transA, B, transB, beta, stream);
   }
 
   // this = a*x
@@ -319,7 +324,6 @@ template <typename T> struct SimpleMat {
   }
 
   void operator=(const SimpleMat<T> &other) = delete;
-
 };
 
 template <typename T> struct SimpleVec : SimpleMat<T> {
@@ -452,6 +456,8 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   }
 
   void operator=(const SimpleVec<T> &other) = delete;
+
+  SimpleVecOwning(const SimpleMat<T> &other) = delete;
 };
 
 template <typename T> struct SimpleMatOwning : SimpleMat<T> {
@@ -476,6 +482,7 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
   }
 
   void operator=(const SimpleVec<T> &other) = delete;
+  SimpleMatOwning(const SimpleMat<T> &other) = delete;
 };
 
 }; // namespace ML

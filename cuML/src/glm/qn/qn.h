@@ -39,20 +39,24 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w(w0, loss.n_param);
 
-  if (l2 == 0) {
-    GLMWithData<T, LossFunction> lossWith(&loss, Xptr, yptr, zptr, N, ordX);
+  SimpleMat<T> X(Xptr, N, loss.D, ordX);
+  SimpleVec<T> y(yptr, N);
+  SimpleMat<T> Z(zptr, loss.C, N, COL_MAJOR);
 
-    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param, stream,
-                       verbosity);
+  if (l2 == 0) {
+    GLMWithData<T, SimpleMat<T>, LossFunction> lossWith(&loss, X, y, Z);
+
+    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param,
+                       stream, verbosity);
 
   } else {
 
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
-    GLMWithData<T, decltype(obj)> lossWith(&obj, Xptr, yptr, zptr, N, ordX);
+    GLMWithData<T, SimpleMat<T>, decltype(obj)> lossWith(&obj, X, y, Z);
 
-    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param, stream,
-                       verbosity);
+    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param,
+                       stream, verbosity);
   }
 }
 

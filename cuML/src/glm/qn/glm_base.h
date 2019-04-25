@@ -30,9 +30,9 @@
 namespace ML {
 namespace GLM {
 
-template <typename T>
+template <typename T, typename MatX>
 inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
-                      const SimpleMat<T> &X, const SimpleMat<T> &W,
+                      const MatX &X, const SimpleMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
@@ -55,9 +55,9 @@ inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
   }
 }
 
-template <typename T>
+template <typename T, typename MatX>
 inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
-                      const SimpleMat<T> &X, const SimpleMat<T> &dZ,
+                      const MatX &X, const SimpleMat<T> &dZ,
                       bool setZero, cudaStream_t stream) {
   // Backward pass:
   // - compute G <- dZ * X.T
@@ -143,58 +143,35 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
   }
 };
 
-template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
-  typedef SimpleMat<T> Mat;
-  typedef SimpleVec<T> Vec;
+template <typename T, typename MatX, class GLMObjective>
+struct GLMWithData : GLMDims {
 
-  Mat X;
-  Mat Z;
-  Vec y;
+  MatX X;
+  SimpleMat<T> Z;
+  SimpleVec<T> y;
   GLMObjective *objective;
-  Vec lossVal;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N,
-              STORAGE_ORDER ordX)
-      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N),
-        Z(Zptr, obj->C, N), GLMDims(obj->C, obj->D, obj->fit_intercept) {}
+  GLMWithData(GLMObjective *obj, const MatX &X_, const SimpleVec<T> &y_,
+              const SimpleMat<T> &Z_)
+      : objective(obj), X(X_), y(y_), Z(Z_),
+        GLMDims(obj->C, obj->D, obj->fit_intercept) {
+    ASSERT(obj->C == Z.m,
+           "glm_base.h: GLMBase(): inconsistent workspace size ");
+    ASSERT(obj->D == X.n, "glm_base.h: GLMBase(): inconsistent dimensions");
+    ASSERT(Z.n == X.m, "glm_base.h: GLMBase(): inconsistent sizes Z, X");
+    ASSERT(y.len == X.m, "glm_base.h: GLMBase(): inconsistent sizes X, y");
+  }
 
   // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
-                      cudaStream_t stream) {
-    Mat W(wFlat.data, C, dims);
-    Mat G(gradFlat.data, C, dims);
+  inline T operator()(const SimpleVec<T> &wFlat, SimpleVec<T> &gradFlat,
+                      T *dev_scalar, cudaStream_t stream) {
+    SimpleMat<T> W(wFlat.data, C, dims);
+    SimpleMat<T> G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
-    lossVal.reset(dev_scalar, 1);
     T loss_host;
-    MLCommon::updateHostAsync(&loss_host, lossVal.data, 1, stream);
+    MLCommon::updateHostAsync(&loss_host, dev_scalar, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
-  }
-};
-
-template <typename T, class GLMObjective> struct GLMWithCsrData : GLMDims {
-  typedef SimpleMat<T> Mat;
-  typedef SimpleVec<T> Vec;
-
-  CsrMat<T> X;
-  Mat Z;
-  Vec y;
-  GLMObjective *objective;
-  Vec lossVal;
-
-  GLMWithCsrData(GLMObjective *obj, const CsrMat<T> &X_, T *yptr, T *Zptr,
-                 int N)
-      : objective(obj), X(X_), y(yptr, N), Z(Zptr, obj->C, N),
-        GLMDims(obj->C, obj->D, obj->fit_intercept) {}
-
-  // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
-                      cudaStream_t stream) {
-    Mat W(wFlat.data, C, dims);
-    Mat G(gradFlat.data, C, dims);
-    objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
-    lossVal.reset(dev_scalar, 1);
-    return lossVal[0];
   }
 };
 
