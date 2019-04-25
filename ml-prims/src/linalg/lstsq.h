@@ -28,6 +28,7 @@
 #include "matrix/matrix.h"
 #include "matrix/math.h"
 #include "random/rng.h"
+#include "common/device_buffer.hpp"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -42,30 +43,22 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	ASSERT(n_rows > 1,
 			"lstsq: number of rows cannot be less than two");
 
-	math_t *S, *V, *U;
-	math_t *UT_b;
-
 	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
-	allocate(UT_b, n_rows);
+        device_buffer<math_t> S(allocator, stream, n_cols);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> U(allocator, stream, U_len);
+        device_buffer<math_t> UT_b(allocator, stream, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH,
-              allocator, stream);
+	svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
+              cusolverH, cublasH, allocator, stream);
 
-	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
+	gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true, stream);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH, stream);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
-	CUDA_CHECK(cudaFree(UT_b));
+	gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
 }
 
 template<typename math_t>
@@ -78,29 +71,22 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	ASSERT(n_rows > 1,
 			"lstsq: number of rows cannot be less than two");
 
-	math_t *S, *V, *U;
-
 	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
+        device_buffer<math_t> S(allocator, stream, n_cols);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> U(allocator, stream, U_len);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream,
-               allocator);
+	svdEig(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, cublasH,
+               cusolverH, stream, allocator);
 
-	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
+	gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true, stream);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH, stream);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
+	gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
 }
-
 
 
 template<typename math_t>
