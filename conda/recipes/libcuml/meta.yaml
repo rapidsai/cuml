@@ -27,9 +27,9 @@ build:
 requirements:
   build:
     - cmake>=3.12.4
-    - cudf 0.6*
+    - cudf 0.7*
   run:
-    - cudf 0.6*
+    - cudf 0.7*
 
 about:
   home: http://rapids.ai/

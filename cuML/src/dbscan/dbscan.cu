@@ -35,27 +35,9 @@ void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, 
 	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
 }
 
-// Following are two versions of dbscanFit, that do not take cumlHandle as
-// input arguments. The cumlHandle is created inside dbscanFit on each new call.
+}; // end namespace ML
 
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
-               int *labels) {
-    cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
-}
 
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
-               int *labels) {
-
-    cumlHandle handle;
-    dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
-}
-/** @} */
-
-};
-// end namespace ML
 extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
                int *labels) {
     cumlError_t status;
