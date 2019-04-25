@@ -91,17 +91,15 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 template<typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream) {
+             cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+             std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	int m = n_rows;
 	int n = n_cols;
 
-	math_t *d_tau = NULL;
-	int *d_info = NULL;
 	int info = 0;
-	math_t *d_work = NULL;
-	CUDA_CHECK(cudaMalloc((void **)&d_info, sizeof(int)));
-	CUDA_CHECK(cudaMalloc((void **)&d_tau, sizeof(math_t)*n));
+        device_buffer<math_t> d_tau(allocator, stream, n);
+        device_buffer<int> d_info(allocator, stream, 1);
 
 	const cublasSideMode_t side = CUBLAS_SIDE_LEFT;
 	const cublasOperation_t trans = CUBLAS_OP_T;
@@ -121,19 +119,21 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	                                          m,
 	                                          1,
 	                                          n,
-	                                          A, lda, d_tau, b, // C,
-			                                  lda, // ldc,
-			                                  &lwork_ormqr));
+	                                          A, lda, d_tau.data(), b, // C,
+                                                  lda, // ldc,
+                                                  &lwork_ormqr));
 
 	lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
-	CUDA_CHECK(cudaMalloc(&d_work, sizeof(math_t) * lwork));
+        device_buffer<math_t> d_work(allocator, stream, lwork);
 
 	CUSOLVER_CHECK(
-			cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau, d_work, lwork,
-					d_info, stream));
+            cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(), d_work.data(), lwork,
+                            d_info.data(), stream));
 
-	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost,
+                                   stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
 	CUSOLVER_CHECK(cusolverDnormqr(
@@ -145,15 +145,17 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	        n,
 	        A,
 	        lda,
-	        d_tau,
+                d_tau.data(),
 	        b,
 	        ldb,
-	        d_work,
+                d_work.data(),
 	        lwork,
-	        d_info,
+                d_info.data(),
           stream));
 
-	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost,
+                                   stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
     ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
     const math_t one = 1;
@@ -174,10 +176,6 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              stream));
 
     CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
-
-    if (NULL != d_tau)   cudaFree(d_tau);
-    if (NULL != d_info)  cudaFree(d_info);
-    if (NULL != d_work)  cudaFree(d_work);
 }
 
 
