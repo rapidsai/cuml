@@ -172,6 +172,32 @@ void allocate(Type *&ptr, size_t len, bool setZero = false) {
     CUDA_CHECK(cudaMemset(ptr, 0, sizeof(Type) * len));
 }
 
+/** Helper function to check alignment of pointer.
+* @param ptr the pointer to check
+* @param alignment to be checked for
+* @return true if address in bytes is a multiple of alignment
+*/
+template <typename Type>
+bool is_aligned(Type *ptr, size_t alignment) {
+    return reinterpret_cast<uintptr_t>(ptr) % alignment == 0;
+}
+
+/** calculate greatest common divisor of two numbers
+* @a integer
+* @b integer
+* @ return gcd of a and b
+*/
+template <typename IntType>
+IntType gcd(IntType a, IntType b) {
+    while(b!=0) {
+        IntType tmp = b;
+        b = a % b;
+        a = tmp;
+    }
+    return a;
+}
+
+
 /**
  * @defgroup Debug utils for debug device code
  * @{

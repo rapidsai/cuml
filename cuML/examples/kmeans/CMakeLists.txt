@@ -16,4 +16,4 @@
 
 include_directories(${CUDA_INCLUDE_DIRS})
 add_executable(kmeans_example kmeans_example.cpp)
-target_link_libraries(kmeans_example cuml)
+target_link_libraries(kmeans_example cuml++)
