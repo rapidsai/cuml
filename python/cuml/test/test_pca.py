@@ -43,6 +43,8 @@ def test_pca_fit(datatype, input_type, use_handle):
     else:
         cupca.fit(X)
 
+    cupca.handle.sync()
+
     for attr in ['singular_values_', 'components_', 'explained_variance_',
                  'explained_variance_ratio_', 'noise_variance_']:
         with_sign = False if attr in ['components_'] else True
@@ -56,8 +58,6 @@ def test_pca_fit(datatype, input_type, use_handle):
             cuml_res = cuml_res.as_matrix()
         skl_res = getattr(skpca, attr)
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
-    if stream is not None:
-        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -80,10 +80,9 @@ def test_pca_fit_transform(datatype, input_type, use_handle):
 
     else:
         Xcupca = cupca.fit_transform(X)
+    cupca.handle.sync()
 
     assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
-    if stream is not None:
-        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -106,7 +105,7 @@ def test_pca_inverse_transform(datatype, input_type, use_handle):
 
     input_gdf = cupca.inverse_transform(Xcupca)
 
+    cupca.handle.sync()
+
     assert array_equal(input_gdf, gdf,
                        1e-3, with_sign=True)
-    if stream is not None:
-        stream.sync()

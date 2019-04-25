@@ -42,13 +42,13 @@ def test_tsvd_fit(datatype, input_type, use_handle):
     else:
         cutsvd.fit(X)
 
+    cutsvd.handle.sync()
+
     for attr in ['singular_values_', 'components_',
                  'explained_variance_ratio_']:
         with_sign = False if attr in ['components_'] else True
         assert array_equal(getattr(cutsvd, attr), getattr(sktsvd, attr),
                            0.4, with_sign=with_sign)
-    if stream is not None:
-        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -72,9 +72,9 @@ def test_tsvd_fit_transform(datatype, input_type, use_handle):
     else:
         Xcutsvd = cutsvd.fit_transform(X)
 
+    cutsvd.handle.sync()
+
     assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
-    if stream is not None:
-        stream.sync()
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -96,6 +96,7 @@ def test_tsvd_inverse_transform(datatype, input_type, use_handle):
         Xcutsvd = cutsvd.fit_transform(X)
 
     input_gdf = cutsvd.inverse_transform(Xcutsvd)
+
+    cutsvd.handle.sync()
+
     assert array_equal(input_gdf, gdf, 0.4, with_sign=True)
-    if stream is not None:
-        stream.sync()
