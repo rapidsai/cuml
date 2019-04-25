@@ -547,6 +547,10 @@ class PCA(cuml.Base):
                                 <double*> input_ptr,
                                 params)
 
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
+
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
             X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
@@ -624,6 +628,10 @@ class PCA(cuml.Base):
                          <double*> singular_vals_ptr,
                          <double*> mean_ptr,
                          params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
