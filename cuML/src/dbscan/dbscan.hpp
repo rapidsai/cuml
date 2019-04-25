@@ -25,14 +25,5 @@ void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, f
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
 		       int *labels);
 
-// Following are two versions of dbscanFit, that do not take cumlHandle as
-// input arguments. The cumlHandle is created inside dbscanFit on each new call.
-
-void dbscanFit(float *input, int n_rows, int n_cols, float eps, int min_pts,
-               int *labels);
-
-void dbscanFit(double *input, int n_rows, int n_cols, double eps, int min_pts,
-               int *labels);
-
 }
 
