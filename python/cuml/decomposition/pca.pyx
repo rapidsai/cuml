@@ -440,6 +440,10 @@ class PCA(cuml.Base):
                                 <double*> noise_vars_ptr,
                                 params)
 
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
+
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
             components_gdf[str(i)] = self.components_[i*params.n_components:(i+1)*params.n_components]
