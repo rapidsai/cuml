@@ -18,13 +18,16 @@
 
 - PR #481: Refactoring Quasi-Newton to use cumlHandle
 - PR #467: Added validity check on cumlHandle_t
+- PR #461: Rewrote permute and added column major version
 - PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #447: Added building and running mlprims tests to CI
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #475: exposing cumlHandle for dbscan from python-side
 
 ## Bug Fixes
 
@@ -49,6 +52,7 @@
 - PR #473: Fix gather ml-prim test for change in rng uniform API
 - PR #477: Fixes default stream initialization in cumlHandle
 - PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
+- PR #495: Update cuDF and RMM versions in GPU ci test scripts
 
 # cuML 0.6.0 (22 Mar 2019)
 
