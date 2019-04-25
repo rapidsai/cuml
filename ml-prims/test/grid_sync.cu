@@ -21,8 +21,9 @@
 
 namespace MLCommon {
 
-__global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
-    GridSync gs(workspace, type);
+__global__ void gridSyncTestKernel(void* workspace, int* out,
+                                   SyncType type) {
+    GridSync gs(workspace, type, true);
     bool master;
     int updatePosition;
     if(type == ACROSS_ALL) {
@@ -53,16 +54,17 @@ struct GridSyncInputs {
 
 void gridSyncTest(int* out, int* out1, const GridSyncInputs& params) {
     size_t workspaceSize = GridSync::computeWorkspaceSize(params.gridDim,
-                                                          params.type);
-    char* workspace;
+                                                          params.type, true);
+    char *workspace;
     allocate(workspace, workspaceSize);
     CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-    gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out,
-                                                            params.type);
+    gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace,
+                                                            out, params.type);
     CUDA_CHECK(cudaPeekAtLastError());
     if(params.checkWorkspaceReuse) {
         CUDA_CHECK(cudaDeviceSynchronize());
-        gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out1,
+        gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace,
+                                                                out1,
                                                                 params.type);
         CUDA_CHECK(cudaPeekAtLastError());
     }
@@ -120,6 +122,7 @@ const std::vector<GridSyncInputs> inputs = {
   {{2, 1, 1}, {32, 2, 4}, false, ACROSS_X},
   {{2, 2, 1}, {32, 2, 4}, false, ACROSS_X},
   {{2, 2, 2}, {32, 2, 4}, false, ACROSS_X},
+  {{32, 256, 1}, {1, 1, 1}, false, ACROSS_X},
   {{2, 1, 1}, {32, 1, 1}, true, ACROSS_X},
   {{2, 2, 1}, {32, 1, 1}, true, ACROSS_X},
   {{2, 2, 2}, {32, 1, 1}, true, ACROSS_X},
@@ -128,7 +131,8 @@ const std::vector<GridSyncInputs> inputs = {
   {{2, 2, 2}, {32, 2, 1}, true, ACROSS_X},
   {{2, 1, 1}, {32, 2, 4}, true, ACROSS_X},
   {{2, 2, 1}, {32, 2, 4}, true, ACROSS_X},
-  {{2, 2, 2}, {32, 2, 4}, true, ACROSS_X}};
+  {{2, 2, 2}, {32, 2, 4}, true, ACROSS_X},
+  {{32, 256, 1}, {1, 1, 1}, true, ACROSS_X}};
 TEST_P(GridSyncTest, Result) {
   size_t len = computeOutLen();
   // number of blocks atomicAdd'ing the same location
