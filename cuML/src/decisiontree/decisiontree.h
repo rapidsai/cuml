@@ -97,13 +97,13 @@ public:
 			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
-	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
 
 	// Printing utility for high level tree info.
-	void print_tree_summary();
+	void print_tree_summary() const;
 
 	// Printing utility for debug and looking at nodes and leaves.
-	void print();
+	void print() const;
 
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
@@ -131,9 +131,9 @@ void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<floa
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, double *data, const int ncols, const int nrows, int *labels,
 		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
 
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows,
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<float> * dt_classifier, const float * rows,
 			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
-void predict(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows,
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows,
 			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
 
 } //End namespace ML
