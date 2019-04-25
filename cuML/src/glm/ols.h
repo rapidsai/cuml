@@ -89,7 +89,7 @@ void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols
                                  cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle, stream);
+				cublas_handle, allocator, stream);
 	} else if (algo == 3) {
 		ASSERT(false, "olsFit: no algorithm with this id has been implemented");
 	} else {
