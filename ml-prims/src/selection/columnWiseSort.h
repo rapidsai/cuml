@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -145,7 +145,6 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
  * @param out: output value(index) matrix
  * @param n_rows: number rows of input matrix
  * @param n_cols: number columns of input matrix
- * @param colMajor: true for column major input. Not supported
  * @param bAllocWorkspace: check returned value, if true allocate workspace passed in workspaceSize
  * @param workspacePtr: pointer to workspace memory
  * @param workspaceSize: Size of workspace to be allocated
@@ -154,7 +153,7 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
  */
 template <typename InType, typename OutType>
 void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns,
-                        bool bColMajor, bool &bAllocWorkspace, void *workspacePtr,
+                        bool &bAllocWorkspace, void *workspacePtr,
                         size_t &workspaceSize, cudaStream_t stream,
                         InType *sortedKeys=NULL) {
   
@@ -163,13 +162,6 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
   // output : either sorted indices or sorted indices and input values
   // future : this prim can be modified to be more generic and serve as a way to sort column entries per row
   //          i.e. another output format: sorted values only
-
-  if (bColMajor) {
-    // or throw exception
-    // ml-prims need some unified error reporting mechanism
-    cout << "Column Major sorting not supported at the moment" << endl;
-    return;
-  }
 
   int totalElements = n_rows * n_columns;
   size_t perElementSmemUsage = sizeof(InType) + sizeof(OutType);
