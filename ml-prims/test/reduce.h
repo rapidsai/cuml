@@ -50,7 +50,8 @@ void unaryAndGemv(Type *dots, const Type *data, int D, int N, cudaStream_t strea
   //(A input matrix and x column vector) to sum columns
   thrust::device_vector<Type> sq(D * N);
   unaryOp(thrust::raw_pointer_cast(sq.data()), data, D*N,
-          [] __device__(Type v) {return v*v;});
+          [] __device__(Type v) {return v*v;},
+          stream);
   cublasHandle_t handle;
   CUBLAS_CHECK(cublasCreate(&handle));
   thrust::device_vector<Type> ones(N, 1); //column vector [1...1]

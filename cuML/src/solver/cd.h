@@ -85,7 +85,7 @@ void cdFit(math_t *input,
 
 		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle);
+				cusolver_handle, stream);
 	}
 
 	std::vector<int> ri(n_cols);
@@ -124,12 +124,12 @@ void cdFit(math_t *input,
 			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows, stream);
 			LinAlg::add(residual, residual, pred, n_rows, stream);
 			LinAlg::gemm(input_col_loc, n_rows, 1, residual, coef_loc, 1, 1,
-								CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle);
+								CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
 
 			if (l1_ratio > math_t(0.0))
-				Functions::softThres(coef_loc, coef_loc, alpha, 1);
+				Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
-			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1);
+			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1, stream);
 
 			coef_prev = h_coef[ci];
 			updateHost(&(h_coef[ci]), coef_loc, 1);
@@ -163,7 +163,7 @@ void cdFit(math_t *input,
 	if (fit_intercept) {
 		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
 				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-				cublas_handle, cusolver_handle);
+				cublas_handle, cusolver_handle, stream);
 
 		if (mu_input != NULL)
 			CUDA_CHECK(cudaFree(mu_input));
@@ -189,7 +189,7 @@ void cdFit(math_t *input,
 
 template<typename math_t>
 void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss,
+		math_t intercept, math_t *preds, ML::loss_funct loss, cudaStream_t stream,
 		cublasHandle_t cublas_handle) {
 
 	ASSERT(n_cols > 0,
@@ -199,7 +199,7 @@ void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle);
+	Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
 
 }
 

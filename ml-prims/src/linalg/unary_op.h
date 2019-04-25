@@ -42,7 +42,7 @@ __global__ void unaryOpKernel(math_t *out, const math_t *in,
 
 template <typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
 void unaryOpImpl(math_t *out, const math_t *in, IdxType len,
-                 Lambda op, cudaStream_t stream = 0) {
+                 Lambda op, cudaStream_t stream) {
   const IdxType nblks = ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
   unaryOpKernel<math_t, veclen_, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
     out, in, len, op);
@@ -63,7 +63,7 @@ void unaryOpImpl(math_t *out, const math_t *in, IdxType len,
  */
 template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
 void unaryOp(math_t *out, const math_t *in, IdxType len, Lambda op,
-             cudaStream_t stream = 0) {
+             cudaStream_t stream) {	
   if(len <= 0) return; //silently skip in case of 0 length input
   size_t bytes = len * sizeof(math_t);
   uint64_t inAddr = uint64_t(in);
