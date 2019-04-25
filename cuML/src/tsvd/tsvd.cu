@@ -17,7 +17,7 @@
 
 
 #include "tsvd.h"
-#include "tsvd_c.h"
+#include "tsvd.hpp"
 
 
 namespace ML {

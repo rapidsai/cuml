@@ -16,7 +16,7 @@
 
 
 #include "pca.h"
-#include "pca_c.h"
+#include "pca.hpp"
 
 
 namespace ML {

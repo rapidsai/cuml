@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
 
-cdef extern from "tsvd/tsvd_c.h" namespace "ML":
+cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
     cdef void tsvdFit(cumlHandle& handle,
                       float *input,

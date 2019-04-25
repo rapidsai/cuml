@@ -33,7 +33,7 @@ from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
 
-cdef extern from "pca/pca_c.h" namespace "ML":
+cdef extern from "pca/pca.hpp" namespace "ML":
 
     cdef void pcaFit(cumlHandle& handle,
                      float *input,
