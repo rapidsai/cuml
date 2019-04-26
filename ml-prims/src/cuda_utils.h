@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <iomanip>
 #include "utils.h"
 
 namespace MLCommon {
@@ -84,7 +85,7 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name) {
+std::string arr2Str(const T *arr, int size, std::string name, int width = 4) {
 
     std::stringstream ss;
 
@@ -93,7 +94,7 @@ std::string arr2Str(const T *arr, int size, std::string name) {
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+        ss << std::setw(width) << arr_h[i];
 
         if(i < size-1)
             ss << ", ";

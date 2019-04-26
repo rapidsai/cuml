@@ -18,7 +18,6 @@
 
 #include "umap/umapparams.h"
 
-
 #include "sparse/coo.h"
 
 #include "spectral/spectral.h"

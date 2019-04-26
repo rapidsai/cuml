@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#pragma once
+
 namespace MLCommon {
 
     namespace Sparse {
