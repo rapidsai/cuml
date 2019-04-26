@@ -41,7 +41,7 @@ protected:
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
 		umap_params->verbose = true;
-		umap_params->target_metric = UMAPParams::MetricType::EUCLIDEAN;
+		umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
 
 		kNN *knn = new kNN(d);
 		cudaStream_t stream;
