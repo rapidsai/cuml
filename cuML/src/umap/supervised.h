@@ -173,12 +173,7 @@ namespace UMAPAlgo {
             std::cout << MLCommon::arr2Str(in_coo->cols, in_coo->nnz, "graph_cols") << std::endl;
             std::cout << MLCommon::arr2Str(in_coo->vals, in_coo->nnz, "graph_vals") << std::endl;
 
-            out_coo->nnz = in_coo->nnz*2;
-            out_coo->n_rows = in_coo->n_rows;
-            out_coo->n_cols = in_coo->n_cols;
-            MLCommon::allocate(out_coo->rows, out_coo->nnz, true);
-            MLCommon::allocate(out_coo->cols, out_coo->nnz, true);
-            MLCommon::allocate(out_coo->vals, out_coo->nnz, true);
+            out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
 
             // reset membership strengths
             reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
@@ -212,11 +207,6 @@ namespace UMAPAlgo {
                     unknown_dist,
                     far_dist
             );
-
-    //        std::cout << MLCommon::arr2Str(graph_rows, nnz, "graph_rows") << std::endl;
-    //        std::cout << MLCommon::arr2Str(graph_cols, nnz, "graph_cols") << std::endl;
-    //        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_vals") << std::endl;
-    //
         }
 
 
@@ -346,16 +336,12 @@ namespace UMAPAlgo {
             categorical_simplicial_set_intersection<T, TPB_X>(
                     rgraph_coo, y, far_dist);
 
-            int *result_ind;
-            MLCommon::allocate(result_ind, rgraph_coo->n_rows, true);
 
-            MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, result_ind);
 
             if(params->verbose) {
                 std::cout << MLCommon::arr2Str(rgraph_coo->rows, rgraph_coo->nnz, "rgraph_rows") << std::endl;
                 std::cout << MLCommon::arr2Str(rgraph_coo->cols, rgraph_coo->nnz, "rgraph_cols") << std::endl;
                 std::cout << MLCommon::arr2Str(rgraph_coo->vals, rgraph_coo->nnz, "rgraph_vals") << std::endl;
-                std::cout << MLCommon::arr2Str(result_ind, rgraph_coo->n_rows, "result_ind") << std::endl;
             }
 
             // reset local connectivity
@@ -365,6 +351,13 @@ namespace UMAPAlgo {
             COO<T> comp_coo;
             coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, stream);
 
+            int *result_ind;
+            MLCommon::allocate(result_ind, rgraph_coo->n_rows, true);
+
+            MLCommon::Sparse::sorted_coo_to_csr(&comp_coo, result_ind);
+
+            std::cout << MLCommon::arr2Str(result_ind, comp_coo.n_rows, "result_ind") << std::endl;
+
             reset_local_connectivity<T, TPB_X>(
                 result_ind,
                 &comp_coo,
@@ -373,9 +366,6 @@ namespace UMAPAlgo {
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
-
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
 
             CUDA_CHECK(cudaFree(result_ind));
             CUDA_CHECK(cudaFree(final_nnz));
@@ -410,7 +400,7 @@ namespace UMAPAlgo {
             /**
              * Compute fuzzy simplicial set
              */
-            COO<T> ygraph_coo(knn_dims*2, rgraph_coo->n_rows);
+            COO<T> ygraph_coo(knn_dims*2, rgraph_coo->n_rows, rgraph_coo->n_rows);
 
             FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows,
                                y_knn_indices, y_knn_dists,

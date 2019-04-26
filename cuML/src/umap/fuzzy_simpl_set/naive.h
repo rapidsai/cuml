@@ -22,8 +22,6 @@
 #include "cuda_utils.h"
 
 #include "stats/mean.h"
-
-#include "sparse/csr.h"
 #include "sparse/coo.h"
 
 #include <cuda_runtime.h>
@@ -455,8 +453,8 @@ namespace UMAPAlgo {
                 MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, rrows, rcols, rvals);
 
                 std::cout << MLCommon::arr2Str(rrows, n*k*2, "rrows") << std::endl;
-                std::cout << MLCommon::arr2Str(rcols, n*k*2, "rcols") << std::endl;
-                std::cout << MLCommon::arr2Str(rvals, n*k*2, "rvals") << std::endl;
+                std::cout << MLCommon::arr2Str(rcols, n*k*2, "rrows") << std::endl;
+                std::cout << MLCommon::arr2Str(rvals, n*k*2, "rrows") << std::endl;
 
 
                 CUDA_CHECK(cudaFree(rhos));
