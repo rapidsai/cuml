@@ -88,15 +88,14 @@ protected:
     if (params.testKeys)
       updateDevice(keySortGolden, &cKeyGolden[0], len);
 
-    bool isColumnMajor = false;
     bool needWorkspace = false;
     size_t workspaceSize = 0;
-    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor,
-                        needWorkspace, NULL, workspaceSize, stream, keySorted);
+    sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, needWorkspace, NULL,
+                        workspaceSize, stream, keySorted);
     if (needWorkspace) {
       allocate(workspacePtr, workspaceSize);
-      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, isColumnMajor,
-                          needWorkspace, workspacePtr, workspaceSize, stream, keySorted);
+      sortColumnsPerRow(keyIn, valueOut, params.n_row, params.n_col, needWorkspace, 
+                          workspacePtr, workspaceSize, stream, keySorted);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
 }
