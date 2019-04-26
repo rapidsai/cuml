@@ -1,6 +1,6 @@
 #include "test_utils.h"
 #include "utils.h"
-#include <glm/glm_c.h>
+#include <glm/glm.hpp>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_softmax.h>
