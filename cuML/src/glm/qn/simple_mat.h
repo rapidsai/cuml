@@ -300,13 +300,13 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning() : Super() {}
 
-  SimpleVecOwning(const cumlHandle_impl &handle, int n, cudaStream_t stream)
+  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n, cudaStream_t stream)
       : Super() {
-    reset(handle, n, stream);
+    reset(allocator, n, stream);
   }
 
-  void reset(const cumlHandle_impl &handle, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(handle.getDeviceAllocator(), stream, n));
+  void reset(std::shared_ptr<deviceAllocator> allocator, int n, cudaStream_t stream) {
+    buf.reset(new Buffer(allocator, stream, n));
     Super::reset(buf->data(), n);
   }
 
@@ -323,14 +323,14 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
 
-  SimpleMatOwning(const cumlHandle_impl &handle, int m, int n,
+  SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
                   cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
       : Super(order) {
-    reset(handle, m, n, stream);
+    reset(allocator, m, n, stream);
   }
 
-  void reset(const cumlHandle_impl &handle, int m, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(handle.getDeviceAllocator(), stream, m * n));
+  void reset(std::shared_ptr<deviceAllocator> allocator, int m, int n, cudaStream_t stream) {
+    buf.reset(new Buffer(allocator, stream, m * n));
     Super::reset(buf->data(), m, n);
   }
 
