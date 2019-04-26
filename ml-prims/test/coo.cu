@@ -17,7 +17,6 @@
 #include "coo.h"
 #include <gtest/gtest.h>
 #include "sparse/coo.h"
-#include "sparse/matrix.h"
 #include "random/rng.h"
 #include "test_utils.h"
 
