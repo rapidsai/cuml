@@ -14,6 +14,7 @@
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #444: Added supervised training to UMAP
+- PR #491: added doxygen build target for ml-prims
 
 ## Improvements
 
@@ -52,6 +53,9 @@
 - PR #473: Fix gather ml-prim test for change in rng uniform API
 - PR #477: Fixes default stream initialization in cumlHandle
 - PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
+- PR #495: Update cuDF and RMM versions in GPU ci test scripts
+- PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
+- PR #506: Re enable ml-prim tests in CI
 
 # cuML 0.6.0 (22 Mar 2019)
 
