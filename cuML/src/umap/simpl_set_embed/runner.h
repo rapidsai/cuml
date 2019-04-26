@@ -17,6 +17,7 @@
 #include "umap/umapparams.h"
 #include "algo.h"
 
+#include "sparse/coo.h"
 #pragma once
 
 namespace UMAPAlgo {
@@ -27,7 +28,7 @@ namespace UMAPAlgo {
 
 	    template<int TPB_X, typename T>
 		void run(const T *X, int m, int n,
-		        int *rows, int *cols, T *vals, int nnz,
+		        MLCommon::Sparse::COO<T> *coo,
 		        UMAPParams *params, T *embedding,
 		        cudaStream_t stream, int algorithm = 0) {
 
@@ -35,7 +36,7 @@ namespace UMAPAlgo {
 	            case 0:
 	                SimplSetEmbed::Algo::launcher<TPB_X, T>(
 	                        m, n,
-	                        rows, cols, vals, nnz,
+	                        coo->rows, coo->cols, coo->vals, coo->nnz,
 	                        params, embedding, stream);
 	        }
 		}
