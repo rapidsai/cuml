@@ -321,9 +321,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(result_ind, in1->n_rows, true);
 
         result->setSize(in1->n_rows);
-        MLCommon::allocate(result->cols, result->nnz, true);
-        MLCommon::allocate(result->vals, result->nnz, true);
-        MLCommon::allocate(result->rows, result->nnz, true);
+        result->allocate(in1->nnz);
 
         result->nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
             row1_ind, in1->cols, in1->vals, in1->nnz,
@@ -336,7 +334,6 @@ namespace UMAPAlgo {
             row2_ind, in2->cols, in2->vals, in2->nnz,
             in1->n_rows, result_ind, result->cols, result->vals
         );
-
 
         thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals);
         T min1 = *(thrust::min_element(d_ptr1, d_ptr1+in1->nnz));
@@ -385,12 +382,10 @@ namespace UMAPAlgo {
 
         thrust::device_ptr<int> d_row_count_nz =
                 thrust::device_pointer_cast(row_count_nz);
-        out->nnz = thrust::reduce(thrust::cuda::par.on(stream),
+        int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
                 d_row_count_nz, d_row_count_nz+in->n_rows);
 
-        MLCommon::allocate(out->rows, out->nnz, true);
-        MLCommon::allocate(out->cols, out->nnz, true);
-        MLCommon::allocate(out->vals, out->nnz, true);
+        out->allocate(out_nnz);
 
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
             in->rows, in->cols, in->vals, in->nnz,
@@ -449,12 +444,8 @@ namespace UMAPAlgo {
 		/**
 		 * Allocate workspace for fuzzy simplicial set.
 		 */
-		rgraph_coo->nnz = n*k*2;
-		rgraph_coo->n_rows = n;
-		rgraph_coo->n_cols = n;
-        MLCommon::allocate(rgraph_coo->rows, n*k*2);
-        MLCommon::allocate(rgraph_coo->cols, n*k*2);
-        MLCommon::allocate(rgraph_coo->vals, n*k*2);
+		rgraph_coo->allocate(n*k*2);
+		rgraph_coo->setSize(n);
 
 		FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows,
 		                   knn_indices, knn_dists,
@@ -543,12 +534,8 @@ namespace UMAPAlgo {
          */
         MLCommon::Sparse::COO<T> *rgraph_coo =
                 (MLCommon::Sparse::COO<T>*)malloc(sizeof(MLCommon::Sparse::COO<T>));
-        rgraph_coo->nnz = n*k*2;
-        rgraph_coo->n_rows = n;
-        rgraph_coo->n_cols = n;
-        MLCommon::allocate(rgraph_coo->rows, rgraph_coo->nnz, true);
-        MLCommon::allocate(rgraph_coo->cols, rgraph_coo->nnz, true);
-        MLCommon::allocate(rgraph_coo->vals, rgraph_coo->nnz, true);
+        rgraph_coo->allocate(n*k*2);
+        rgraph_coo->setSize(n);
 
         /**
          * Run Fuzzy simplicial set
@@ -641,18 +628,12 @@ namespace UMAPAlgo {
             /**
              * Compute fuzzy simplicial set
              */
-
-
             COO<T> *ygraph_coo = (COO<T>*)malloc(sizeof(COO<T>));
 
             // @todo: This should be initialized inside the fuzzy simpl set
-            ygraph_coo->nnz = n*params->target_n_neighbors*2;
-            ygraph_coo->n_rows = n;
-            ygraph_coo->n_cols = n;
+            ygraph_coo->allocate(n*params->target_n_neighbors*2);
+            ygraph_coo->setSize(n);
 
-            MLCommon::allocate(ygraph_coo->rows, ygraph_coo->nnz, true);
-            MLCommon::allocate(ygraph_coo->cols, ygraph_coo->nnz, true);
-            MLCommon::allocate(ygraph_coo->vals, ygraph_coo->nnz, true);
 
             FuzzySimplSet::run<TPB_X, T>(n,
                                y_knn_indices, y_knn_dists,
@@ -669,9 +650,7 @@ namespace UMAPAlgo {
             /**
              * Compute general simplicial set intersection.
              */
-            int *result_ind, *xrow_ind, *yrow_ind;
-
-            MLCommon::allocate(result_ind, n, true);
+            int *xrow_ind, *yrow_ind;
             MLCommon::allocate(xrow_ind, n, true);
             MLCommon::allocate(yrow_ind, n, true);
 
@@ -689,6 +668,9 @@ namespace UMAPAlgo {
                 params->target_weights
             );
 
+            CUDA_CHECK(cudaFree(xrow_ind));
+            CUDA_CHECK(cudaFree(yrow_ind));
+
             free(ygraph_coo);
 
             /**
@@ -699,15 +681,13 @@ namespace UMAPAlgo {
 
             remove_zeros<TPB_X, T>(result_coo, out, stream);
 
-            result_coo->destroy();
+            result_coo->free();
             free(result_coo);
-
 
             int *out_row_ind;
             MLCommon::allocate(out_row_ind, out->n_rows);
 
             MLCommon::Sparse::sorted_coo_to_csr(out, out_row_ind);
-
 
             if(params->verbose) {
                 std::cout << "Reset Local connectivity" << std::endl;
@@ -726,9 +706,14 @@ namespace UMAPAlgo {
                 final_nnz
             );
             CUDA_CHECK(cudaPeekAtLastError());
+
+            out->free();
+            free(out);
+
+            CUDA_CHECK(cudaFree(out_row_ind));
         }
 
-        rgraph_coo->destroy();
+        rgraph_coo->free();
         free(rgraph_coo);
 
         /**
@@ -742,6 +727,15 @@ namespace UMAPAlgo {
 
         COO<T> *ocoo = (COO<T>*)malloc(sizeof(COO<T>));
         remove_zeros<TPB_X, T>(final_coo, ocoo, stream);
+
+        if(params->verbose) {
+            std::cout << "Reset Local connectivity" << std::endl;
+            std::cout << "result_nnz=" << ocoo->nnz << std::endl;
+            std::cout << MLCommon::arr2Str(ocoo->rows, ocoo->nnz, "final_rows") << std::endl;
+            std::cout << MLCommon::arr2Str(ocoo->cols, ocoo->nnz, "final_cols") << std::endl;
+            std::cout << MLCommon::arr2Str(ocoo->vals, ocoo->nnz, "final_vals") << std::endl;
+        }
+
 
         /**
          * Initialize embeddings
@@ -767,7 +761,7 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
 
-        ocoo->destroy();
+        ocoo->free();
         free(ocoo);
 
 	    return 0;

@@ -29,6 +29,8 @@
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
 
+#include <iostream>
+
 namespace MLCommon {
 
     namespace Sparse {
@@ -43,6 +45,13 @@ namespace MLCommon {
                int n_rows;
                int n_cols;
 
+               friend std::ostream & operator << (std::ostream &out, const COO &c) {
+                   out << arr2Str(c->rows, c->nnz, "rows") << std::endl;
+                   out << arr2Str(c->cols, c->nnz, "cols") << std::endl;
+                   out << arr2Str(c->vals, c->nnz, "vals") << std::endl;
+                   out << c->nnz << std::endl;
+               }
+
                void setSize(int n_rows, int n_cols) {
                    this->n_rows = n_rows;
                    this->n_cols = n_cols;
@@ -53,7 +62,14 @@ namespace MLCommon {
                    this->n_cols = n;
                }
 
-               void destroy() {
+               void allocate(int nnz, bool init = true) {
+                   this->nnz = nnz;
+                   MLCommon::allocate(this->rows, this->nnz, init);
+                   MLCommon::allocate(this->cols, this->nnz, init);
+                   MLCommon::allocate(this->vals, this->nnz, init);
+               }
+
+               void free() {
 
                    try {
                        std::cout << "Cleaning up!" << std::endl;
