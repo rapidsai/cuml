@@ -13,6 +13,7 @@
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #444: Added supervised training to UMAP
 
 ## Improvements
 
