@@ -169,13 +169,12 @@ template <typename T> struct SimpleMat {
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
   }
 
-  inline void copy(const SimpleMat<T> &other, cudaStream_t stream) {
+  inline void copy_async(const SimpleMat<T> &other, cudaStream_t stream) {
     ASSERT((ord == other.ord) && (m == other.m) && (n == other.n),
            "SimpleMat::copy: matrices not compatible");
 
     CUDA_CHECK(cudaMemcpyAsync(data, other.data, len * sizeof(T),
                                cudaMemcpyDeviceToDevice, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void operator=(const SimpleMat<T> &other) = delete;
