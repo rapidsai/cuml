@@ -77,7 +77,6 @@ __global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outpu
   {
     struct {
       typename BlockLoadTypeKey::TempStorage keyLoad;
-      typename BlockLoadTypeVal::TempStorage valLoad;
     } load;
     typename BlockRadixSortType::TempStorage sort;
   } tempStorage;
@@ -87,7 +86,15 @@ __global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outpu
 
   int blockOffset = blockIdx.x * n_cols;
   BlockLoadTypeKey(tempStorage.load.keyLoad).Load(inputKeys + blockOffset, threadKeys, n_cols, MAX_VALUE);
-  BlockLoadTypeVal(tempStorage.load.valLoad).Load(inputVals + blockOffset, threadValues, n_cols, MAX_VALUE);
+
+  OutType idxBase = threadIdx.x * ITEMS_PER_THREAD;
+  for (int i = 0; i < ITEMS_PER_THREAD; i++) {
+    OutType eId = idxBase + (OutType)i;
+    if (eId < n_cols)
+      threadValues[i] = eId;
+    else
+      threadValues[i] = MAX_VALUE;
+  }
 
   __syncthreads();
 
@@ -178,9 +185,6 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
 
   if (dtypeToColumnMap.count(perElementSmemUsage) != 0 && 
         n_columns <= dtypeToColumnMap[perElementSmemUsage]) {
-
-    // layout values
-    CUDA_CHECK(layoutIdx(out, n_rows, n_columns, stream));
 
     // more elements per thread --> more register pressure
     // 512(blockSize) * 8 elements per thread = 71 register / thread
