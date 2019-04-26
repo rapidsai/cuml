@@ -178,7 +178,6 @@ template <typename T> struct SimpleMat {
   }
 
   void operator=(const SimpleMat<T> &other) = delete;
-
 };
 
 template <typename T> struct SimpleVec : SimpleMat<T> {
@@ -298,15 +297,12 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef MLCommon::device_buffer<T> Buffer;
   std::unique_ptr<Buffer> buf;
 
-  SimpleVecOwning() : Super() {}
+  SimpleVecOwning() = delete;
 
-  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n, cudaStream_t stream)
-      : Super() {
-    reset(allocator, n, stream);
-  }
+  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
+                  cudaStream_t stream)
+      : Super(), buf(new Buffer(allocator, stream, n)) {
 
-  void reset(std::shared_ptr<deviceAllocator> allocator, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(allocator, stream, n));
     Super::reset(buf->data(), n);
   }
 
@@ -321,16 +317,11 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
   using Super::n;
   using Super::ord;
 
-  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
+  SimpleMatOwning() = delete;
 
   SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
                   cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
-      : Super(order) {
-    reset(allocator, m, n, stream);
-  }
-
-  void reset(std::shared_ptr<deviceAllocator> allocator, int m, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(allocator, stream, m * n));
+      : Super(order), buf(new Buffer(allocator, stream, m * n)) {
     Super::reset(buf->data(), m, n);
   }
 
