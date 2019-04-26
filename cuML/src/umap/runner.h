@@ -96,9 +96,6 @@ namespace UMAPAlgo {
         Optimize::find_params_ab(params, stream);
     }
 
-    /**
-     * Fit
-     */
 	template<typename T, int TPB_X>
 	size_t _fit(T *X,       // input matrix
 	            int n,      // rows
@@ -179,8 +176,6 @@ namespace UMAPAlgo {
 
         int k = params->n_neighbors;
 
-        std::cout << params->verbose << std::endl;
-
 	    if(params->target_n_neighbors == -1)
 	        params->target_n_neighbors = params->n_neighbors;
 
@@ -217,7 +212,7 @@ namespace UMAPAlgo {
         COO<T> final_coo;
 
         /**
-         * If target metric is 'categorical', apply a
+         * If target metric is 'categorical', perform
          * categorical simplicial set intersection.
          */
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
@@ -239,20 +234,10 @@ namespace UMAPAlgo {
         /**
          * Remove zeros
          */
-        int *final_row_count, *final_row_count_nz;
-        MLCommon::allocate(final_row_count, rgraph_coo.n_rows, true);
-        MLCommon::allocate(final_row_count_nz, rgraph_coo.n_rows, true);
-
         MLCommon::Sparse::coo_sort<T>(&final_coo);
 
         COO<T> ocoo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
-
-        if(params->verbose) {
-            std::cout << "Reset Local connectivity" << std::endl;
-            std::cout << ocoo << std::endl;
-        }
-
 
         /**
          * Initialize embeddings
@@ -268,9 +253,6 @@ namespace UMAPAlgo {
                 X, n, d,
                 &ocoo,
                 params, embeddings, stream);
-
-        if(params->verbose)
-            std::cout << MLCommon::arr2Str(embeddings, n*params->n_components, "embeddings") << std::endl;
 
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -311,9 +293,6 @@ namespace UMAPAlgo {
 
 	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
 
-	    if(params->verbose)
-	        std::cout << "adjusted_local_connectivity=" << adjusted_local_connectivity << std::endl;
-
 	    /**
 	     * Perform smooth_knn_dist
 	     */
@@ -351,11 +330,6 @@ namespace UMAPAlgo {
                 graph_coo.vals, graph_coo.rows, graph_coo.cols, graph_coo.n_rows,
                 params->n_neighbors);
         CUDA_CHECK(cudaPeekAtLastError());
-
-        if(params->verbose) {
-            std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
-            std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-        }
 
         int *row_ind, *ia;
         MLCommon::allocate(row_ind, n);

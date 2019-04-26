@@ -294,8 +294,6 @@ __global__ void coo_remove_zeros_kernel(
         int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
         int cur_out_idx = ex_scan[row];
 
-//                printf("row=%d, start=%d, stop=%d, cur_out_idx=%d\n", row, start, stop, cur_out_idx);
-
         for (int idx = start; idx < stop; idx++) {
             if (vals[idx] != 0.0) {
                 crows[cur_out_idx] = rows[idx];
@@ -517,8 +515,6 @@ void sorted_coo_to_csr(
     dim3 blk(32, 1, 1);
 
     coo_row_count<32>(rows, nnz, row_counts, m);
-
-    std::cout << MLCommon::arr2Str(row_counts, m, "row_counts");
 
     // create csr compressed row index from row counts
     thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
