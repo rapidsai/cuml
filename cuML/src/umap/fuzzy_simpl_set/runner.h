@@ -17,6 +17,8 @@
 #include "umap/umapparams.h"
 #include "naive.h"
 
+#include "sparse/coo.h"
+
 #pragma once
 
 namespace UMAPAlgo {
@@ -38,7 +40,7 @@ namespace FuzzySimplSet {
 	void run(int n,
 			 const long *knn_indices, const T *knn_dists,
 			 int n_neighbors,
-			 int *orows, int *ocols, T *ovals,
+			 MLCommon::Sparse::COO<T> *coo,
 			 UMAPParams *params,
              cudaStream_t stream,
 			 int algorithm = 0) {
@@ -48,7 +50,7 @@ namespace FuzzySimplSet {
 			Naive::launcher<TPB_X, T>(n,
 			               knn_indices, knn_dists,
 			               n_neighbors,
-					       orows, ocols, ovals,
+					       coo->rows, coo->cols, coo->vals,
 					       params, stream);
 			break;
 		}
