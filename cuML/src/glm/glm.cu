@@ -15,7 +15,7 @@
  */
 #include "ols.h"
 #include "ridge.h"
-#include "glm_c.h"
+#include "glm.hpp"
 #include "glm/qn/qn.h"
 #include "glm/glm_api.h"
 
