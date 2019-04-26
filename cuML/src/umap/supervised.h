@@ -120,8 +120,6 @@ namespace UMAPAlgo {
                         ++nnz;
                     }
 
-                    printf("row=%d, start_idx=%d, out_idx=%d, nnz=%d\n", row, start_idx, out_idx, nnz);
-
                     T result = vals[idx+start_idx];
                     T prod_matrix = result * transpose;
 
@@ -137,10 +135,7 @@ namespace UMAPAlgo {
                         ovals[out_idx + nnz] = T(res);
                         ++nnz;
                     }
-
-                    printf("row=%d, start_idx=%d, out_idx=%d, nnz=%d\n", row, start_idx, out_idx, nnz);
                 }
-
 
                 rnnz[row] = nnz;
                 atomicAdd(rnnz + n, nnz); // fused operation to count number of nonzeros
@@ -166,12 +161,7 @@ namespace UMAPAlgo {
                     in_coo->n_rows,
                     in_coo->vals
             );
-
             CUDA_CHECK(cudaPeekAtLastError());
-
-            std::cout << MLCommon::arr2Str(in_coo->rows, in_coo->nnz, "graph_rows") << std::endl;
-            std::cout << MLCommon::arr2Str(in_coo->cols, in_coo->nnz, "graph_cols") << std::endl;
-            std::cout << MLCommon::arr2Str(in_coo->vals, in_coo->nnz, "graph_vals") << std::endl;
 
             out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
 
@@ -182,14 +172,16 @@ namespace UMAPAlgo {
                 out_coo->rows, out_coo->cols, out_coo->vals, rnnz,
                 in_coo->n_rows, in_coo->nnz
             );
-
-            std::cout << MLCommon::arr2Str(out_coo->rows, out_coo->nnz, "orows") << std::endl;
-            std::cout << MLCommon::arr2Str(out_coo->cols, out_coo->nnz, "ocols") << std::endl;
-            std::cout << MLCommon::arr2Str(out_coo->vals, out_coo->nnz, "ovals") << std::endl;
-
             CUDA_CHECK(cudaPeekAtLastError());
         }
 
+        /**
+         * Combine a fuzzy simplicial set with another fuzzy simplicial set
+         * generated from categorical data using categorical distances. The target
+         * data is assumed to be categorical label data (a vector of labels),
+         * and this will update the fuzzy simplicial set to respect that label
+         * data.
+         */
         template<typename T, int TPB_X>
         void categorical_simplicial_set_intersection(
              COO<T> *graph_coo, T *target,
@@ -277,7 +269,6 @@ namespace UMAPAlgo {
             int *result_ind;
             MLCommon::allocate(result_ind, in1->n_rows, true);
 
-
             int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
                 row1_ind, in1->cols, in1->vals, in1->nnz,
                 row2_ind, in2->cols, in2->vals, in2->nnz,
@@ -286,6 +277,9 @@ namespace UMAPAlgo {
 
             result->allocate(result_nnz, in1->n_rows);
 
+            /**
+             * Element-wise sum of two simplicial sets
+             */
             MLCommon::Sparse::csr_add_finalize<float, 32>(
                 row1_ind, in1->cols, in1->vals, in1->nnz,
                 row2_ind, in2->cols, in2->vals, in2->nnz,
@@ -319,8 +313,8 @@ namespace UMAPAlgo {
             MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(
                     result_ind, result->n_rows, result->rows, result->nnz);
 
+            CUDA_CHECK(cudaFree(result_ind));
         }
-
 
         template<int TPB_X, typename T>
         void perform_categorical_intersection(
@@ -336,14 +330,6 @@ namespace UMAPAlgo {
             categorical_simplicial_set_intersection<T, TPB_X>(
                     rgraph_coo, y, far_dist);
 
-
-
-            if(params->verbose) {
-                std::cout << MLCommon::arr2Str(rgraph_coo->rows, rgraph_coo->nnz, "rgraph_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(rgraph_coo->cols, rgraph_coo->nnz, "rgraph_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(rgraph_coo->vals, rgraph_coo->nnz, "rgraph_vals") << std::endl;
-            }
-
             // reset local connectivity
             int *final_nnz;
             MLCommon::allocate(final_nnz, rgraph_coo->n_rows+1, true);
@@ -355,8 +341,6 @@ namespace UMAPAlgo {
             MLCommon::allocate(result_ind, rgraph_coo->n_rows, true);
 
             MLCommon::Sparse::sorted_coo_to_csr(&comp_coo, result_ind);
-
-            std::cout << MLCommon::arr2Str(result_ind, comp_coo.n_rows, "result_ind") << std::endl;
 
             reset_local_connectivity<T, TPB_X>(
                 result_ind,
@@ -382,9 +366,6 @@ namespace UMAPAlgo {
             /**
              * Calculate kNN for Y
              */
-            if(params->verbose)
-                std::cout << "Runnning knn_Graph on Y" << std::endl;
-
             kNN y_knn(1);
             long *y_knn_indices;
             T *y_knn_dists;
@@ -423,9 +404,6 @@ namespace UMAPAlgo {
             MLCommon::Sparse::sorted_coo_to_csr(&ygraph_coo, yrow_ind);
             MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind);
 
-            if(params->verbose)
-                std::cout << "Running general simpl set intersection" << std::endl;
-
             COO<T> result_coo;
             general_simplicial_set_intersection<T, TPB_X>(
                 xrow_ind, rgraph_coo,
@@ -440,9 +418,7 @@ namespace UMAPAlgo {
             /**
              * Remove zeros
              */
-
             COO<T> out;
-
             coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
 
             result_coo.free();
@@ -451,14 +427,6 @@ namespace UMAPAlgo {
             MLCommon::allocate(out_row_ind, out.n_rows);
 
             MLCommon::Sparse::sorted_coo_to_csr(&out, out_row_ind);
-
-            if(params->verbose) {
-                std::cout << "Reset Local connectivity" << std::endl;
-                std::cout << "result_nnz=" << out.nnz << std::endl;
-                std::cout << MLCommon::arr2Str(out.rows, out.nnz, "final_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(out.cols, out.nnz, "final_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(out.vals, out.nnz, "final_vals") << std::endl;
-            }
 
             int *final_nnz;
             MLCommon::allocate(final_nnz, rgraph_coo->n_rows+1, true);
@@ -472,6 +440,7 @@ namespace UMAPAlgo {
             CUDA_CHECK(cudaPeekAtLastError());
 
             CUDA_CHECK(cudaFree(out_row_ind));
+            CUDA_CHECK(cudaFree(final_nnz));
         }
     }
 }
