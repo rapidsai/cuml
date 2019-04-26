@@ -160,7 +160,8 @@ template <typename T>
 void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
                       int N, cudaStream_t stream) {
 
-  CUDA_CHECK(cudaMemset(loss_val, 0, sizeof(T)));
+  CUDA_CHECK(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));

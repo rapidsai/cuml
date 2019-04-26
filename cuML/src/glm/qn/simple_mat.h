@@ -314,13 +314,12 @@ template <typename T> struct SimpleMat {
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
   }
 
-  inline void copy(const SimpleMat<T> &other, cudaStream_t stream) {
+  inline void copy_async(const SimpleMat<T> &other, cudaStream_t stream) {
     ASSERT((ord == other.ord) && (m == other.m) && (n == other.n),
            "SimpleMat::copy: matrices not compatible");
 
     CUDA_CHECK(cudaMemcpyAsync(data, other.data, len * sizeof(T),
                                cudaMemcpyDeviceToDevice, stream));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void operator=(const SimpleMat<T> &other) = delete;
@@ -443,15 +442,12 @@ template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef MLCommon::device_buffer<T> Buffer;
   std::unique_ptr<Buffer> buf;
 
-  SimpleVecOwning() : Super() {}
+  SimpleVecOwning() = delete;
 
-  SimpleVecOwning(const cumlHandle_impl &handle, int n, cudaStream_t stream)
-      : Super() {
-    reset(handle, n, stream);
-  }
+  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
+                  cudaStream_t stream)
+      : Super(), buf(new Buffer(allocator, stream, n)) {
 
-  void reset(const cumlHandle_impl &handle, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(handle.getDeviceAllocator(), stream, n));
     Super::reset(buf->data(), n);
   }
 
@@ -468,16 +464,11 @@ template <typename T> struct SimpleMatOwning : SimpleMat<T> {
   using Super::n;
   using Super::ord;
 
-  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR) : Super(order) {}
+  SimpleMatOwning() = delete;
 
-  SimpleMatOwning(const cumlHandle_impl &handle, int m, int n,
+  SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
                   cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
-      : Super(order) {
-    reset(handle, m, n, stream);
-  }
-
-  void reset(const cumlHandle_impl &handle, int m, int n, cudaStream_t stream) {
-    buf.reset(new Buffer(handle.getDeviceAllocator(), stream, m * n));
+      : Super(order), buf(new Buffer(allocator, stream, m * n)) {
     Super::reset(buf->data(), m, n);
   }
 
