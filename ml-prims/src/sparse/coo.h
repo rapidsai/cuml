@@ -45,6 +45,27 @@ namespace MLCommon {
                int n_rows;
                int n_cols;
 
+               COO(): rows(nullptr), cols(nullptr), vals(nullptr), nnz(-1), n_rows(-1), n_cols(-1){}
+
+               COO(int *rows, int *cols, int *vals, int nnz, int n_rows = -1, int n_cols = -1) {
+                   this->rows = rows;
+                   this->cols = cols;
+                   this->vals = vals;
+                   this->nnz = nnz;
+                   this->n_rows = n_rows;
+                   this->n_cols = n_cols;
+               }
+
+               COO(int nnz, int n_rows = -1, int n_cols = -1, bool init = true):
+                   rows(nullptr), cols(nullptr), vals(nullptr), nnz(nnz),
+                   n_rows(n_rows), n_cols(n_cols) {
+                   this->allocate(nnz, n_rows, n_cols, init);
+               }
+
+               ~COO() {
+                   this->free();
+               }
+
                friend std::ostream & operator << (std::ostream &out, const COO &c) {
                    out << arr2Str(c->rows, c->nnz, "rows") << std::endl;
                    out << arr2Str(c->cols, c->nnz, "cols") << std::endl;
@@ -63,6 +84,16 @@ namespace MLCommon {
                }
 
                void allocate(int nnz, bool init = true) {
+                   this->allocate(nnz, -1, init);
+               }
+
+               void allocate(int nnz, int size, bool init = true) {
+                   this->allocate(nnz, size, size, init);
+               }
+
+               void allocate(int nnz, int n_rows, int n_cols, bool init = true) {
+                   this->n_rows = n_rows;
+                   this->n_cols = n_cols;
                    this->nnz = nnz;
                    MLCommon::allocate(this->rows, this->nnz, init);
                    MLCommon::allocate(this->cols, this->nnz, init);
@@ -90,6 +121,9 @@ namespace MLCommon {
                        std::cout << "An exception occurred freeing COO memory" << std::endl;
                    }
                }
+
+
+               void remove_zeros(COO<T> *out_coo, cudaStream_t stream);
         };
 
         template<typename T>
@@ -258,6 +292,83 @@ namespace MLCommon {
         }
 
 
+
+
+        /**
+         * Count all the rows in the coo row array and place them in the
+         * results matrix, indexed by row.
+         *
+         * @param rows the rows array of the coo matrix
+         * @param nnz the size of the rows array
+         * @param results array to place results
+         * @param n number of rows in coo matrix
+         */
+        template<int TPB_X>
+        __global__ void coo_row_count_kernel(int *rows, int nnz,
+                int *results, int n) {
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            if(row < nnz) {
+                atomicAdd(results+rows[row], 1);
+            }
+        }
+
+        template<int TPB_X>
+        void coo_row_count(int *rows, int nnz, int *results, int n) {
+            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+                    rows, nnz, results, n);
+        }
+
+        template<int TPB_X, typename T>
+        void coo_row_count(COO<T> *in, int *results) {
+            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+                    in->rows, in->nnz, results, in->n_rows);
+        }
+
+        /**
+         * Count all the rows with non-zero values in the coo row and val
+         * arrays. Place the counts in the results matrix, indexed by row.
+         *
+         * @param rows the rows array of the coo matrix
+         * @param vals the vals array of the coo matrix
+         * @param nnz the size of rows / vals
+         * @param results array to place resulting counts
+         * @param n number of rows in coo matrix
+         */
+        template<int TPB_X, typename T>
+        __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
+                int *results, int n) {
+            int row = (blockIdx.x * TPB_X) + threadIdx.x;
+            if(row < nnz && vals[row] > 0.0) {
+                atomicAdd(results+rows[row], 1);
+            }
+        }
+
+        template<int TPB_X, typename T>
+        void coo_row_count_nz(int *rows, T *vals, int nnz, int *results, int n) {
+            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+                    rows, vals, nnz, results, n);
+        }
+
+        template<int TPB_X, typename T>
+        void coo_row_count_nz(COO<T> *in, int *results) {
+            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+                    in->rows, in->vals, in->nnz, results, in->n_rows);
+        }
+
+
+
         /**
          * Removes the zeros from a COO formatted sparse matrix.
          *
@@ -312,79 +423,44 @@ namespace MLCommon {
             CUDA_CHECK(cudaFree(cur_ex_scan));
         }
 
-        /**
-         * Count all the rows in the coo row array and place them in the
-         * results matrix, indexed by row.
-         *
-         * @param rows the rows array of the coo matrix
-         * @param nnz the size of the rows array
-         * @param results array to place results
-         * @param n number of rows in coo matrix
-         */
-        template<int TPB_X>
-        __global__ void coo_row_count_kernel(int *rows, int nnz,
-                int *results, int n) {
-            int row = (blockIdx.x * TPB_X) + threadIdx.x;
-            if(row < nnz) {
-                atomicAdd(results+rows[row], 1);
-            }
-        }
-
-        template<int TPB_X>
-        void coo_row_count(int *rows, int nnz, int *results, int n) {
-            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
-            dim3 blk_rc(TPB_X, 1, 1);
-
-            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
-                    rows, nnz, results, n);
-        }
-
         template<int TPB_X, typename T>
-        void coo_row_count(COO<T> *in, int *results) {
-            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
-            dim3 blk_rc(TPB_X, 1, 1);
+        void coo_remove_zeros(COO<T> *in,
+                            COO<T> *out,
+                            cudaStream_t stream) {
 
-            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
-                    in->rows, in->nnz, results, in->n_rows);
+            int *row_count_nz, *row_count;
+
+            MLCommon::allocate(row_count, in->n_rows, true);
+            MLCommon::allocate(row_count_nz, in->n_rows, true);
+
+            MLCommon::Sparse::coo_row_count<TPB_X>(
+                    in->rows, in->nnz, row_count, in->n_rows);
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            MLCommon::Sparse::coo_row_count_nz<TPB_X>(
+                    in->rows, in->vals, in->nnz, row_count_nz, in->n_rows);
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            thrust::device_ptr<int> d_row_count_nz =
+                    thrust::device_pointer_cast(row_count_nz);
+            int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
+                    d_row_count_nz, d_row_count_nz+in->n_rows);
+
+            out->allocate(out_nnz);
+
+            coo_remove_zeros<TPB_X, T>(
+                in->rows, in->cols, in->vals, in->nnz,
+                out->rows, out->cols, out->vals,
+                row_count_nz, row_count, in->n_rows);
+            CUDA_CHECK(cudaPeekAtLastError());
+
+            out->n_rows = in->n_rows;
+            out->n_cols = in->n_cols;
+
+            CUDA_CHECK(cudaFree(row_count));
+            CUDA_CHECK(cudaFree(row_count_nz));
         }
 
-
-        /**
-         * Count all the rows with non-zero values in the coo row and val
-         * arrays. Place the counts in the results matrix, indexed by row.
-         *
-         * @param rows the rows array of the coo matrix
-         * @param vals the vals array of the coo matrix
-         * @param nnz the size of rows / vals
-         * @param results array to place resulting counts
-         * @param n number of rows in coo matrix
-         */
-        template<int TPB_X, typename T>
-        __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
-                int *results, int n) {
-            int row = (blockIdx.x * TPB_X) + threadIdx.x;
-            if(row < nnz && vals[row] > 0.0) {
-                atomicAdd(results+rows[row], 1);
-            }
-        }
-
-        template<int TPB_X, typename T>
-        void coo_row_count_nz(int *rows, T *vals, int nnz, int *results, int n) {
-            dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
-            dim3 blk_rc(TPB_X, 1, 1);
-
-            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
-                    rows, vals, nnz, results, n);
-        }
-
-        template<int TPB_X, typename T>
-        void coo_row_count_nz(COO<T> *in, int *results) {
-            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
-            dim3 blk_rc(TPB_X, 1, 1);
-
-            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
-                    in->rows, in->vals, in->nnz, results, in->n_rows);
-        }
 
         template<int TPB_X, typename T>
         __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
@@ -442,4 +518,5 @@ namespace MLCommon {
         }
 
     }
+
 }
