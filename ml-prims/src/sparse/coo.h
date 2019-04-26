@@ -66,6 +66,22 @@ namespace MLCommon {
                    this->free();
                }
 
+               bool validate_size() {
+                   if(this->nnz < 0 || n_rows < 0 || n_cols < 0)
+                       return false;
+                   return true;
+               }
+
+               bool validate_mem() {
+                   if(this->rows == nullptr ||
+                           this->cols == nullptr ||
+                           this->vals == nullptr) {
+                       return false;
+                   }
+
+                   return true;
+               }
+
                friend std::ostream & operator << (std::ostream &out, const COO &c) {
                    out << arr2Str(c->rows, c->nnz, "rows") << std::endl;
                    out << arr2Str(c->cols, c->nnz, "cols") << std::endl;
