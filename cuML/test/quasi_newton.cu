@@ -345,8 +345,6 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, dense_vs_sparse) {
-  cudaStream_t stream = handle_ptr->getStream();
-  const cumlHandle_impl &handle = handle_ptr->getImpl();
 
   CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
@@ -361,16 +359,16 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
       nnz++;
     }
   }
-  SimpleMatOwning<double> X(handle, N, D, stream, COL_MAJOR);
+  SimpleMatOwning<double> X(allocator, N, D, stream, COL_MAJOR);
   updateDevice(X.data, &Xsparsified[0], X.len);
-  SimpleVecOwning<double> y(handle, N, stream);
+  SimpleVecOwning<double> y(allocator, N, stream);
   updateDevice(y.data, &yhost[0], y.len);
-  SimpleVecOwning<double> csrVal(handle, nnz, stream);
-  SimpleVecOwning<int> csrRowPtr(handle, N + 1, stream);
-  SimpleVecOwning<int> csrColInd(handle, nnz, stream);
+  SimpleVecOwning<double> csrVal(allocator, nnz, stream);
+  SimpleVecOwning<int> csrRowPtr(allocator, N + 1, stream);
+  SimpleVecOwning<int> csrColInd(allocator, nnz, stream);
 
-  SimpleVecOwning<int> nnzPerRow(handle, N, stream);
-  SimpleMatOwning<double> tmp(handle,1, N, stream);
+  SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
+  SimpleMatOwning<double> tmp(allocator,1, N, stream);
   int nnzTotal;
 
   cusparseMatDescr_t descr;
@@ -390,7 +388,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   opt_param.max_iterations = 100;
   opt_param.m = 2;
   opt_param.max_linesearch = 50;
-  SimpleVecOwning<double> w(handle, logLoss.n_param, stream);
+  SimpleVecOwning<double> w(allocator, logLoss.n_param, stream);
   int verbosity = 1;
 
   double fxd, fxs;
