@@ -49,6 +49,7 @@ namespace UMAPAlgo {
     namespace SimplSetEmbedImpl = SimplSetEmbed::Algo;
 
 	using namespace ML;
+	using namespace MLCommon::Sparse;
 
     template<int TPB_X, typename T>
 	__global__ void init_transform(int *indices, T *weights, int n,
@@ -114,16 +115,17 @@ namespace UMAPAlgo {
             int n, int cnnz) {
 
         int row = (blockIdx.x * TPB_X) + threadIdx.x;
-        int start_idx = row_ind[row]; // each thread processes one row
-        int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
         if (row < n) {
 
-            int nnz = 0;
-            for (int idx = start_idx; idx < stop_idx; idx++) {
+            int start_idx = row_ind[row]; // each thread processes one row
+            int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
 
-                int out_idx = start_idx*2+idx;
-                int row_lookup = cols[idx];
+            int nnz = 0;
+            for (int idx = 0; idx < stop_idx-start_idx; idx++) {
+
+                int out_idx = start_idx*2+nnz;
+                int row_lookup = cols[idx+start_idx];
                 int t_start = row_ind[row_lookup]; // Start at
                 int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
 
@@ -132,8 +134,8 @@ namespace UMAPAlgo {
                 for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
 
                     // If we find a match, let's get out of the loop
-                    if (cols[t_idx] == rows[idx]
-                            && rows[t_idx] == cols[idx]
+                    if (cols[t_idx] == rows[idx+start_idx]
+                            && rows[t_idx] == cols[idx+start_idx]
                             && vals[t_idx] != 0.0) {
                         transpose = vals[t_idx];
                         found_match = true;
@@ -145,14 +147,15 @@ namespace UMAPAlgo {
                 // if we didn't find an exact match, we need to add
                 // the transposed value into our current matrix.
                 if (!found_match && vals[idx] != 0.0) {
-                    orows[out_idx + nnz] = cols[idx];
-                    ocols[out_idx + nnz] = rows[idx];
-                    ovals[out_idx + nnz] = vals[idx];
+                    orows[out_idx + nnz] = cols[idx+start_idx];
+                    ocols[out_idx + nnz] = rows[idx+start_idx];
+                    ovals[out_idx + nnz] = vals[idx+start_idx];
                     ++nnz;
                 }
 
+                printf("row=%d, start_idx=%d, out_idx=%d, nnz=%d\n", row, start_idx, out_idx, nnz);
 
-                T result = vals[idx];
+                T result = vals[idx+start_idx];
                 T prod_matrix = result * transpose;
 
                 // @todo: This line is the only difference between
@@ -162,14 +165,15 @@ namespace UMAPAlgo {
                 T res = result + transpose - prod_matrix;
 
                 if (res != 0.0) {
-                    orows[out_idx + nnz] = rows[idx];
-                    ocols[out_idx + nnz] = cols[idx];
+                    orows[out_idx + nnz] = rows[idx+start_idx];
+                    ocols[out_idx + nnz] = cols[idx+start_idx];
                     ovals[out_idx + nnz] = T(res);
                     ++nnz;
                 }
+
+                printf("row=%d, start_idx=%d, out_idx=%d, nnz=%d\n", row, start_idx, out_idx, nnz);
             }
 
-            printf("nnz=%d\n", nnz);
 
             rnnz[row] = nnz;
             atomicAdd(rnnz + n, nnz); // fused operation to count number of nonzeros
@@ -179,58 +183,64 @@ namespace UMAPAlgo {
     template<typename T, int TPB_X>
     void reset_local_connectivity(
         int *row_ind,
-        int *graph_rows, int *graph_cols, T *graph_vals, int nnz,
-        int *orows, int *ocols, T *ovals, int *rnnz, // size = nnz*2
-        int m
+        COO<T> *in_coo,
+        COO<T> *out_coo,
+        int *rnnz // size = nnz*2
     ) {
 
-        dim3 grid_n(MLCommon::ceildiv(m, TPB_X), 1, 1);
+        dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
         dim3 blk_n(TPB_X, 1, 1);
 
         // Perform l_inf normalization
         MLCommon::Sparse::csr_row_normalize_max<TPB_X, T><<<grid_n, blk_n>>>(
                 row_ind,
-                graph_vals,
-                nnz,
-                m,
-                graph_vals
+                in_coo->vals,
+                in_coo->nnz,
+                in_coo->n_rows,
+                in_coo->vals
         );
 
         CUDA_CHECK(cudaPeekAtLastError());
 
-        std::cout << MLCommon::arr2Str(graph_rows, nnz, "graph_rows") << std::endl;
-        std::cout << MLCommon::arr2Str(graph_cols, nnz, "graph_cols") << std::endl;
-        std::cout << MLCommon::arr2Str(graph_vals, nnz, "graph_vals") << std::endl;
+        std::cout << MLCommon::arr2Str(in_coo->rows, in_coo->nnz, "graph_rows") << std::endl;
+        std::cout << MLCommon::arr2Str(in_coo->cols, in_coo->nnz, "graph_cols") << std::endl;
+        std::cout << MLCommon::arr2Str(in_coo->vals, in_coo->nnz, "graph_vals") << std::endl;
 
+        out_coo->nnz = in_coo->nnz*2;
+        out_coo->n_rows = in_coo->n_rows;
+        out_coo->n_cols = in_coo->n_cols;
+        MLCommon::allocate(out_coo->rows, out_coo->nnz, true);
+        MLCommon::allocate(out_coo->cols, out_coo->nnz, true);
+        MLCommon::allocate(out_coo->vals, out_coo->nnz, true);
 
         // reset membership strengths
         reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
             row_ind,
-            graph_rows, graph_cols, graph_vals,
-            orows, ocols, ovals, rnnz,
-            m, nnz
+            in_coo->rows, in_coo->cols, in_coo->vals,
+            out_coo->rows, out_coo->cols, out_coo->vals, rnnz,
+            in_coo->n_rows, in_coo->nnz
         );
 
-        std::cout << MLCommon::arr2Str(orows, nnz, "orows") << std::endl;
-        std::cout << MLCommon::arr2Str(ocols, nnz, "ocols") << std::endl;
-        std::cout << MLCommon::arr2Str(ovals, nnz, "ovals") << std::endl;
+        std::cout << MLCommon::arr2Str(out_coo->rows, out_coo->nnz, "orows") << std::endl;
+        std::cout << MLCommon::arr2Str(out_coo->cols, out_coo->nnz, "ocols") << std::endl;
+        std::cout << MLCommon::arr2Str(out_coo->vals, out_coo->nnz, "ovals") << std::endl;
 
         CUDA_CHECK(cudaPeekAtLastError());
     }
 
     template<typename T, int TPB_X>
     void categorical_simplicial_set_intersection(
-         int *graph_rows, int *graph_cols, T *graph_vals,
-         int nnz, T *target,
-         float far_dist = 5.0, float unknown_dist = 1.0) {
+         COO<T> *graph_coo, T *target,
+         float far_dist = 5.0,
+         float unknown_dist = 1.0) {
 
-        dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+        dim3 grid(MLCommon::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
         fast_intersection_kernel<TPB_X, T><<<grid,blk>>>(
-                graph_rows,
-                graph_cols,
-                graph_vals,
-                nnz,
+                graph_coo->rows,
+                graph_coo->cols,
+                graph_coo->vals,
+                graph_coo->nnz,
                 target,
                 unknown_dist,
                 far_dist
@@ -296,58 +306,103 @@ namespace UMAPAlgo {
 
 
     /**
-     * Computes the output CSR row index array and nnz for the
-     * general simplicial set intersection.
-     */
-    template<typename T, int TPB_X>
-    size_t general_simplicial_set_intersection_row_ind(
-        int *row1_ind, int *cols1, T *vals1, int nnz1,
-        int *row2_ind, int *cols2, T *vals2, int nnz2,
-        int m, int *result_ind
-    ) {
-        return MLCommon::Sparse::csr_add_calc_inds<float, 32>(
-            row1_ind, cols1, vals1, nnz1,
-            row2_ind, cols2, vals2, nnz2,
-            m, result_ind
-        );
-    }
-
-    /**
      * Computes the CSR column index pointer and values
      * for the general simplicial set intersecftion.
      */
     template<typename T, int TPB_X>
     void general_simplicial_set_intersection(
-        int *row1_ind, int *cols1, T *vals1, int nnz1,
-        int *row2_ind, int *cols2, T *vals2, int nnz2,
-        int *result_ind, int *result_ind_ptr, T *result_val,
-        int nnz, int m, float weight
+        int *row1_ind, COO<T> *in1,
+        int *row2_ind, COO<T> *in2,
+        COO<T> *result,
+        float weight
     ) {
-        MLCommon::Sparse::csr_add_finalize<float, 32>(
-            row1_ind, cols1, vals1, nnz1,
-            row2_ind, cols2, vals2, nnz2,
-            m, result_ind, result_ind_ptr, result_val
+
+        int *result_ind;
+        MLCommon::allocate(result_ind, in1->n_rows, true);
+
+        result->setSize(in1->n_rows);
+        MLCommon::allocate(result->cols, result->nnz, true);
+        MLCommon::allocate(result->vals, result->nnz, true);
+        MLCommon::allocate(result->rows, result->nnz, true);
+
+        result->nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
+            row1_ind, in1->cols, in1->vals, in1->nnz,
+            row2_ind, in2->cols, in2->vals, in2->nnz,
+            in1->n_rows, result_ind
         );
 
-        thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(vals1);
-        T min1 = *(thrust::min_element(d_ptr1, d_ptr1+nnz1));
+        MLCommon::Sparse::csr_add_finalize<float, 32>(
+            row1_ind, in1->cols, in1->vals, in1->nnz,
+            row2_ind, in2->cols, in2->vals, in2->nnz,
+            in1->n_rows, result_ind, result->cols, result->vals
+        );
 
-        thrust::device_ptr<const T> d_ptr2 = thrust::device_pointer_cast(vals2);
-        T min2 = *(thrust::min_element(d_ptr2, d_ptr2+nnz2));
+
+        thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals);
+        T min1 = *(thrust::min_element(d_ptr1, d_ptr1+in1->nnz));
+
+        thrust::device_ptr<const T> d_ptr2 = thrust::device_pointer_cast(in2->vals);
+        T min2 = *(thrust::min_element(d_ptr2, d_ptr2+in2->nnz));
 
         T left_min = min(min1 / 2.0, 1e-8);
         T right_min = min(min2 / 2.0, 1e-8);
 
-        dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+        dim3 grid(MLCommon::ceildiv(in1->nnz, TPB_X), 1, 1);
         dim3 blk(TPB_X, 1, 1);
 
         sset_intersection_kernel<T, TPB_X><<<grid, blk>>>(
-            row1_ind, cols1, vals1, nnz1,
-            row2_ind, cols2, vals2, nnz2,
-            result_ind, result_ind_ptr, result_val, nnz,
+            row1_ind, in1->cols, in1->vals, in1->nnz,
+            row2_ind, in2->cols, in2->vals, in2->nnz,
+            result_ind, result->cols, result->vals, result->nnz,
             left_min, right_min,
-            m, weight
+            in1->n_rows, weight
         );
+
+        dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
+
+        MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(
+                result_ind, result->n_rows, result->rows, result->nnz);
+
+    }
+
+    template<int TPB_X, typename T>
+    void remove_zeros(MLCommon::Sparse::COO<T> *in,
+                        MLCommon::Sparse::COO<T> *out,
+                        cudaStream_t stream) {
+
+        int *row_count_nz, *row_count;
+
+        MLCommon::allocate(row_count, in->n_rows, true);
+        MLCommon::allocate(row_count_nz, in->n_rows, true);
+
+        MLCommon::Sparse::coo_row_count<TPB_X>(
+                in->rows, in->nnz, row_count, in->n_rows);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        MLCommon::Sparse::coo_row_count_nz<TPB_X>(
+                in->rows, in->vals, in->nnz, row_count_nz, in->n_rows);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        thrust::device_ptr<int> d_row_count_nz =
+                thrust::device_pointer_cast(row_count_nz);
+        out->nnz = thrust::reduce(thrust::cuda::par.on(stream),
+                d_row_count_nz, d_row_count_nz+in->n_rows);
+
+        MLCommon::allocate(out->rows, out->nnz, true);
+        MLCommon::allocate(out->cols, out->nnz, true);
+        MLCommon::allocate(out->vals, out->nnz, true);
+
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+            in->rows, in->cols, in->vals, in->nnz,
+            out->rows, out->cols, out->vals,
+            row_count_nz, row_count, in->n_rows);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        out->n_rows = in->n_rows;
+        out->n_cols = in->n_cols;
+
+        CUDA_CHECK(cudaFree(row_count));
+        CUDA_CHECK(cudaFree(row_count_nz));
     }
 
 
@@ -386,29 +441,27 @@ namespace UMAPAlgo {
         MLCommon::allocate(knn_indices, n*k);
 		MLCommon::allocate(knn_dists, n*k);
 
-        std::cout << "Running knn graph" << std::endl;
-
-        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
+		kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
 		CUDA_CHECK(cudaPeekAtLastError());
 
-        int *rgraph_rows, *rgraph_cols;
-        T *rgraph_vals;
+		COO<T> *rgraph_coo = (COO<T>*)malloc(sizeof(COO<T>));
 
 		/**
 		 * Allocate workspace for fuzzy simplicial set.
 		 */
-        MLCommon::allocate(rgraph_rows, n*k*2);
-        MLCommon::allocate(rgraph_cols, n*k*2);
-        MLCommon::allocate(rgraph_vals, n*k*2);
+		rgraph_coo->nnz = n*k*2;
+		rgraph_coo->n_rows = n;
+		rgraph_coo->n_cols = n;
+        MLCommon::allocate(rgraph_coo->rows, n*k*2);
+        MLCommon::allocate(rgraph_coo->cols, n*k*2);
+        MLCommon::allocate(rgraph_coo->vals, n*k*2);
 
-        std::cout << "Running fuzzy simpl set" << std::endl;
-
-		FuzzySimplSet::run<TPB_X, T>(n,
+		FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows,
 		                   knn_indices, knn_dists,
 		                   k,
-                           rgraph_rows,
-                           rgraph_cols,
-                           rgraph_vals,
+                           rgraph_coo->rows,
+                           rgraph_coo->cols,
+                           rgraph_coo->vals,
 						   params, 0);
 		CUDA_CHECK(cudaPeekAtLastError());
 
@@ -419,40 +472,16 @@ namespace UMAPAlgo {
         MLCommon::allocate(row_count_nz, n, true);
         MLCommon::allocate(row_count, n, true);
 
-        std::cout << "Running row counts" << std::endl;
-
-        MLCommon::Sparse::coo_row_count_nz<TPB_X, T>(rgraph_rows, rgraph_vals, n*k*2, row_count_nz, n);
-        MLCommon::Sparse::coo_row_count<TPB_X>(rgraph_rows, n*k*2, row_count, n);
-
-        std::cout << "Done." << MLCommon::arr2Str(row_count_nz, n, "row_count_nz") << std::endl;
-
-        std::cout << "Running reduction." << std::endl;
-
-        thrust::device_ptr<int> d_row_count_nz = thrust::device_pointer_cast(row_count_nz);
-        int compressed_nnz = thrust::reduce(thrust::cuda::par.on(stream), d_row_count_nz, d_row_count_nz+n);
-
-        std::cout << "Done." << std::endl;
-
-        int *crows, *ccols;
-        T *cvals;
-        MLCommon::allocate(crows, compressed_nnz);
-        MLCommon::allocate(ccols, compressed_nnz);
-        MLCommon::allocate(cvals, compressed_nnz);
-
-        std::cout << "Removing zeros" << std::endl;
-
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
-                rgraph_rows, rgraph_cols, rgraph_vals, n*k*2,
-                crows, ccols, cvals,
-                row_count_nz, row_count, n);
+        COO<T> *cgraph_coo = (COO<T>*)malloc(sizeof(COO<T>));
+        remove_zeros<TPB_X, T>(rgraph_coo, cgraph_coo, stream);
 
         /**
          * Run initialization method
          */
 		InitEmbed::run(X, n, d,
 		        knn_indices, knn_dists,
-		        crows, ccols, cvals,
-		        compressed_nnz,
+		        cgraph_coo->rows, cgraph_coo->cols, cgraph_coo->vals,
+		        cgraph_coo->nnz,
 		        params, embeddings, stream,
 		        params->init);
 
@@ -461,16 +490,20 @@ namespace UMAPAlgo {
 		 */
 		SimplSetEmbed::run<TPB_X, T>(
 		        X, n, d,
-		        crows, ccols, cvals, compressed_nnz,
+		        cgraph_coo->rows, cgraph_coo->cols, cgraph_coo->vals,
+		        cgraph_coo->nnz,
 		        params, embeddings, stream);
 
         CUDA_CHECK(cudaPeekAtLastError());
 
 		CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
-        CUDA_CHECK(cudaFree(rgraph_rows));
-        CUDA_CHECK(cudaFree(rgraph_cols));
-        CUDA_CHECK(cudaFree(rgraph_vals));
+        CUDA_CHECK(cudaFree(rgraph_coo->rows));
+        CUDA_CHECK(cudaFree(rgraph_coo->cols));
+        CUDA_CHECK(cudaFree(rgraph_coo->vals));
+        CUDA_CHECK(cudaFree(cgraph_coo->rows));
+        CUDA_CHECK(cudaFree(cgraph_coo->cols));
+        CUDA_CHECK(cudaFree(cgraph_coo->vals));
 
 		return 0;
 	}
@@ -493,56 +526,46 @@ namespace UMAPAlgo {
 
         find_ab(params, stream);
 
-        if(params->verbose)
-            std::cout << "Running KNN on X" << std::endl;
-
         /**
          * Allocate workspace for kNN graph
          */
         long *knn_indices;
         T *knn_dists;
 
-        MLCommon::allocate(knn_indices, n*params->n_neighbors, true);
-        MLCommon::allocate(knn_dists, n*params->n_neighbors, true);
+        MLCommon::allocate(knn_indices, n*k, true);
+        MLCommon::allocate(knn_dists, n*k, true);
 
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        if(params->verbose)
-            std::cout << "Done." << std::endl;
-
-        int *rgraph_rows, *rgraph_cols;
-        T *rgraph_vals;
-
         /**
          * Allocate workspace for fuzzy simplicial set.
          */
-        MLCommon::allocate(rgraph_rows, n*params->n_neighbors*2, true);
-        MLCommon::allocate(rgraph_cols, n*params->n_neighbors*2, true);
-        MLCommon::allocate(rgraph_vals, n*params->n_neighbors*2, true);
-
-        if(params->verbose)
-            std::cout << "Running fuzzy simpl set" << std::endl;
-
+        MLCommon::Sparse::COO<T> *rgraph_coo =
+                (MLCommon::Sparse::COO<T>*)malloc(sizeof(MLCommon::Sparse::COO<T>));
+        rgraph_coo->nnz = n*k*2;
+        rgraph_coo->n_rows = n;
+        rgraph_coo->n_cols = n;
+        MLCommon::allocate(rgraph_coo->rows, rgraph_coo->nnz, true);
+        MLCommon::allocate(rgraph_coo->cols, rgraph_coo->nnz, true);
+        MLCommon::allocate(rgraph_coo->vals, rgraph_coo->nnz, true);
 
         /**
          * Run Fuzzy simplicial set
          */
-        int nnz = n*k*2;
+       //int nnz = n*k*2;
         FuzzySimplSet::run<TPB_X, T>(n,
                            knn_indices, knn_dists,
                            params->n_neighbors,
-                           rgraph_rows,
-                           rgraph_cols,
-                           rgraph_vals,
+                           rgraph_coo->rows,
+                           rgraph_coo->cols,
+                           rgraph_coo->vals,
                            params, 0);
         CUDA_CHECK(cudaPeekAtLastError());
 
-        if(params->verbose)
-            std::cout << "Done." << std::endl;
-
-        int *final_rows, *final_cols, *final_nnz, nnz_before_compress;
-        T *final_vals;
+        int *final_nnz;
+        MLCommon::Sparse::COO<T> *final_coo =
+                (MLCommon::Sparse::COO<T>*)malloc(sizeof(MLCommon::Sparse::COO<T>));
 
         /**
          * If target metric is 'categorical',
@@ -555,51 +578,32 @@ namespace UMAPAlgo {
             if(params->target_weights < 1.0)
                 far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
 
-
-            if(params->verbose)
-                std::cout << "Runnning categorical simpl set intersection" << std::endl;
-
             categorical_simplicial_set_intersection<T, TPB_X>(
-                    rgraph_rows, rgraph_cols, rgraph_vals,
-                    n*k*2, y, far_dist);
+                    rgraph_coo, y, far_dist);
 
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
-
-            if(params->verbose)
-                std::cout << "Converting to CSR" << std::endl;
-
-            int *result_ind;
+            int *result_ind, *final_nnz;
             MLCommon::allocate(result_ind, n, true);
 
-            MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, nnz, result_ind, n);
+            MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, result_ind);
 
             if(params->verbose) {
-                std::cout << MLCommon::arr2Str(rgraph_rows, nnz, "rgraph_rows") << std::endl;
-                std::cout << MLCommon::arr2Str(rgraph_cols, nnz, "rgraph_cols") << std::endl;
-                std::cout << MLCommon::arr2Str(rgraph_vals, nnz, "rgraph_vals") << std::endl;
+                std::cout << MLCommon::arr2Str(rgraph_coo->rows, rgraph_coo->nnz, "rgraph_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(rgraph_coo->cols, rgraph_coo->nnz, "rgraph_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(rgraph_coo->vals, rgraph_coo->nnz, "rgraph_vals") << std::endl;
                 std::cout << MLCommon::arr2Str(result_ind, n, "result_ind") << std::endl;
             }
 
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
-
-            nnz_before_compress = nnz*2;
-
-            if(params->verbose)
-                std::cout << "Resetting local connectivity" << std::endl;
-
             // reset local connectivity
             MLCommon::allocate(final_nnz, n+1, true);
-            MLCommon::allocate(final_rows, nnz_before_compress, true);
-            MLCommon::allocate(final_cols, nnz_before_compress, true);
-            MLCommon::allocate(final_vals, nnz_before_compress, true);
+
+            COO<T> *comp_coo = (COO<T>*)malloc(sizeof(COO<T>));
+            remove_zeros<TPB_X, T>(rgraph_coo, comp_coo, stream);
 
             reset_local_connectivity<T, TPB_X>(
                 result_ind,
-                rgraph_rows, rgraph_cols, rgraph_vals, nnz,
-                final_rows, final_cols, final_vals, final_nnz,
-                n
+                comp_coo,
+                final_coo,
+                final_nnz
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
@@ -618,16 +622,9 @@ namespace UMAPAlgo {
          */
         } else {
 
-            int *ygraph_rows, *ygraph_cols;
-            T *ygraph_vals;
-
             /**
-             * Allocate workspace for fuzzy simplicial set.
+             * Calculate kNN for Y
              */
-            MLCommon::allocate(ygraph_rows, n*params->target_n_neighbors*2, true);
-            MLCommon::allocate(ygraph_cols, n*params->target_n_neighbors*2, true);
-            MLCommon::allocate(ygraph_vals, n*params->target_n_neighbors*2, true);
-
             if(params->verbose)
                 std::cout << "Runnning knn_Graph on Y" << std::endl;
 
@@ -641,207 +638,137 @@ namespace UMAPAlgo {
             kNNGraph::run(y, n, 1, y_knn_indices, y_knn_dists, &y_knn, params, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
+            /**
+             * Compute fuzzy simplicial set
+             */
 
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
 
-            if(params->verbose)
-                std::cout << "Runnning Fuzzy simpl set on Y" << std::endl;
+            COO<T> *ygraph_coo = (COO<T>*)malloc(sizeof(COO<T>));
+
+            // @todo: This should be initialized inside the fuzzy simpl set
+            ygraph_coo->nnz = n*params->target_n_neighbors*2;
+            ygraph_coo->n_rows = n;
+            ygraph_coo->n_cols = n;
+
+            MLCommon::allocate(ygraph_coo->rows, ygraph_coo->nnz, true);
+            MLCommon::allocate(ygraph_coo->cols, ygraph_coo->nnz, true);
+            MLCommon::allocate(ygraph_coo->vals, ygraph_coo->nnz, true);
 
             FuzzySimplSet::run<TPB_X, T>(n,
                                y_knn_indices, y_knn_dists,
                                params->target_n_neighbors,
-                               ygraph_rows,
-                               ygraph_cols,
-                               ygraph_vals,
+                               ygraph_coo->rows,
+                               ygraph_coo->cols,
+                               ygraph_coo->vals,
                                params, 0);
             CUDA_CHECK(cudaPeekAtLastError());
 
             if(params->verbose)
-                std::cout << "Done." << std::endl;
+                std::cout << "Converting to csr" << std::endl;
 
-            if(params->verbose)
-                std::cout << "Converting to CSR" << std::endl;
+            /**
+             * Compute general simplicial set intersection.
+             */
+            int *result_ind, *xrow_ind, *yrow_ind;
 
-            // perform general simplicial set intersection
-            int *result_ind, *result_rows, *xrow_ind, *yrow_ind, *result_cols;
-            T *result_vals;
             MLCommon::allocate(result_ind, n, true);
             MLCommon::allocate(xrow_ind, n, true);
             MLCommon::allocate(yrow_ind, n, true);
 
-            MLCommon::Sparse::sorted_coo_to_csr(ygraph_rows, n*2, yrow_ind, n);
-            MLCommon::Sparse::sorted_coo_to_csr(rgraph_rows, n*k*2, xrow_ind, n);
-
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
+            MLCommon::Sparse::sorted_coo_to_csr(ygraph_coo, yrow_ind);
+            MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind);
 
             if(params->verbose)
                 std::cout << "Running general simpl set intersection" << std::endl;
 
+            COO<T> *result_coo = (COO<T>*)malloc(sizeof(COO<T>));
+            general_simplicial_set_intersection<T, TPB_X>(
+                xrow_ind, rgraph_coo,
+                yrow_ind, ygraph_coo,
+                result_coo,
+                params->target_weights
+            );
+
+            free(ygraph_coo);
 
             /**
-             * Compute general simplicial set intersection.
-             * This is broken into two separate calls so that the first
-             * call can determine how much memory to allocate for the
-             * second call.
+             * Remove zeros
              */
-            int result_nnz = general_simplicial_set_intersection_row_ind<T, TPB_X>(
-                xrow_ind, rgraph_cols, rgraph_vals, nnz,
-                yrow_ind, ygraph_cols, ygraph_vals, n*2,
-                n, result_ind
-            );
+            MLCommon::Sparse::COO<T> *out =
+                    (MLCommon::Sparse::COO<T>*)malloc(sizeof(MLCommon::Sparse::COO<T>));
 
-            MLCommon::allocate(result_cols, result_nnz, true);
-            MLCommon::allocate(result_vals, result_nnz, true);
-            MLCommon::allocate(result_rows, result_nnz, true);
+            remove_zeros<TPB_X, T>(result_coo, out, stream);
 
-            general_simplicial_set_intersection<T, TPB_X>(
-                xrow_ind, rgraph_cols, rgraph_vals, nnz,
-                yrow_ind, ygraph_cols, ygraph_vals, n*2,
-                result_ind, result_cols, result_vals,
-                result_nnz, n, params->target_weights
-            );
-
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
-
-            if(params->verbose)
-                std::cout << "Convert result to COO" << std::endl;
+            result_coo->destroy();
+            free(result_coo);
 
 
-            dim3 grid_n(MLCommon::ceildiv(result_nnz, TPB_X), 1, 1);
-            dim3 blk(TPB_X, 1, 1);
+            int *out_row_ind;
+            MLCommon::allocate(out_row_ind, out->n_rows);
 
-            MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(result_ind, n, result_rows, result_nnz);
-
-            if(params->verbose)
-                std::cout << "Done." << std::endl;
+            MLCommon::Sparse::sorted_coo_to_csr(out, out_row_ind);
 
 
             if(params->verbose) {
                 std::cout << "Reset Local connectivity" << std::endl;
-                std::cout << "result_nnz=" << result_nnz << std::endl;
-
+                std::cout << "result_nnz=" << out->nnz << std::endl;
+                std::cout << MLCommon::arr2Str(out->rows, out->nnz, "final_rows") << std::endl;
+                std::cout << MLCommon::arr2Str(out->cols, out->nnz, "final_cols") << std::endl;
+                std::cout << MLCommon::arr2Str(out->vals, out->nnz, "final_vals") << std::endl;
             }
 
-            nnz_before_compress = result_nnz;
-
             MLCommon::allocate(final_nnz, n+1, true);
-            MLCommon::allocate(final_rows, nnz_before_compress, true);
-            MLCommon::allocate(final_cols, nnz_before_compress, true);
-            MLCommon::allocate(final_vals, nnz_before_compress, true);
 
             reset_local_connectivity<T, TPB_X>(
-                result_ind,
-                result_rows, result_cols, result_vals, result_nnz,
-                final_rows, final_cols, final_vals, final_nnz,
-                n
+                out_row_ind,
+                out,
+                final_coo,
+                final_nnz
             );
             CUDA_CHECK(cudaPeekAtLastError());
         }
 
-        if(params->verbose)
-            std::cout << "Done." << std::endl;
-
-        CUDA_CHECK(cudaFree(rgraph_rows));
-        CUDA_CHECK(cudaFree(rgraph_cols));
-        CUDA_CHECK(cudaFree(rgraph_vals));
+        rgraph_coo->destroy();
+        free(rgraph_coo);
 
         /**
          * Remove zeros
          */
+        int *final_row_count, *final_row_count_nz;
+        MLCommon::allocate(final_row_count, n, true);
+        MLCommon::allocate(final_row_count_nz, n, true);
 
-        if(params->verbose)
-            std::cout << "Removing zeros" << std::endl;
+        MLCommon::Sparse::coo_sort<T>(final_coo);
 
-        if(params->verbose)
-            std::cout << MLCommon::arr2Str(final_nnz, n+1, "final_nnz") << std::endl;
-
-
-        int *orows, *ocols, *cur_rnnz, onnz = 0;
-        T *ovals;
-
-        MLCommon::allocate(cur_rnnz, n, true);
-
-        MLCommon::updateHost(&onnz, final_nnz+n, 1); // actual number of nonzero values
-
-        MLCommon::Sparse::coo_sort<T>(n, n, nnz_before_compress, final_rows, final_cols, final_vals);
-
-        if(params->verbose) {
-            std::cout << "onnz=" << onnz << std::endl;
-            std::cout << "nnz_before_compress=" << nnz_before_compress << std::endl;
-            std::cout << MLCommon::arr2Str(final_rows, nnz_before_compress, "final_rows") << std::endl;
-            std::cout << MLCommon::arr2Str(final_cols, nnz_before_compress, "final_cols") << std::endl;
-            std::cout << MLCommon::arr2Str(final_vals, nnz_before_compress, "final_vals") << std::endl;
-        }
-
-        MLCommon::allocate(ocols, onnz, true);
-        MLCommon::allocate(ovals, onnz, true);
-        MLCommon::allocate(orows, onnz, true);
-
-        MLCommon::Sparse::coo_row_count<TPB_X>(
-                final_rows, nnz_before_compress, cur_rnnz, n);
-        CUDA_CHECK(cudaPeekAtLastError());
-
-        std::cout << MLCommon::arr2Str(cur_rnnz, n, "cur_rnnz") << std::endl;
-        std::cout << MLCommon::arr2Str(final_nnz, n, "final_rnnz") << std::endl;
-
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
-            final_rows, final_cols, final_vals, nnz_before_compress,
-            orows, ocols, ovals,
-            final_nnz, cur_rnnz, n);
-        CUDA_CHECK(cudaPeekAtLastError());
-
-        if(params->verbose)
-            std::cout << "Done." << std::endl;
-
+        COO<T> *ocoo = (COO<T>*)malloc(sizeof(COO<T>));
+        remove_zeros<TPB_X, T>(final_coo, ocoo, stream);
 
         /**
          * Initialize embeddings
          */
-
-        if(params->verbose) {
-            std::cout << "init embeddings." << std::endl;
-            std::cout << MLCommon::arr2Str(orows, onnz, "orows") << std::endl;
-            std::cout << MLCommon::arr2Str(ocols, onnz, "ocols") << std::endl;
-            std::cout << MLCommon::arr2Str(ovals, onnz, "ovals") << std::endl;
-        }
-
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists,
-                orows, ocols, ovals, onnz,
+                ocoo->rows, ocoo->cols, ocoo->vals, ocoo->nnz,
                 params, embeddings, stream, params->init);
-
-        if(params->verbose)
-            std::cout << "Done." << std::endl;
 
         /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
-
-        if(params->verbose)
-            std::cout << "Running simpl set embedding." << std::endl;
-
         SimplSetEmbed::run<TPB_X, T>(
                 X, n, d,
-                orows, ocols, ovals, onnz,
+                ocoo->rows, ocoo->cols, ocoo->vals, ocoo->nnz,
                 params, embeddings, stream);
 
         if(params->verbose)
-            std::cout << "Done." << std::endl;
-
-        if(params->verbose)
             std::cout << MLCommon::arr2Str(embeddings, n*params->n_components, "embeddings") << std::endl;
-
 
         CUDA_CHECK(cudaPeekAtLastError());
 
         CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
-        CUDA_CHECK(cudaFree(orows));
-        CUDA_CHECK(cudaFree(ocols));
-        CUDA_CHECK(cudaFree(ovals));
+
+        ocoo->destroy();
+        free(ocoo);
 
 	    return 0;
 	}
