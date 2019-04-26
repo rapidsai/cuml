@@ -24,12 +24,16 @@ for black_listed in cudaDeviceSynchronize cudaMalloc cudaMallocManaged cudaFree 
     TMP=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$black_listed" $TARGET_BRANCH | grep '^+' | grep -v '^+++' | grep "$black_listed"`
     if [ "$TMP" != "" ]; then
         for filename in `git --no-pager diff --ignore-submodules -w --minimal --name-only -S"$black_listed" $TARGET_BRANCH`; do
-            TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep "$black_listed"`
-            if [ "$TMP2" != "" ]; then
-                echo "=== ERROR: black listed function call $black_listed added to $filename ==="
-                git --no-pager diff --ignore-submodules -w --minimal -S"$black_listed" $TARGET_BRANCH -- $filename
-                echo "=== END ERROR ==="
-                RETVAL=1
+            basefilename=$(basename -- "$filename")
+            filext="${basefilename##*.}"
+            if [ "$filext" != "md" ] && [ "$filext" != "sh" ]; then
+                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep "$black_listed"`
+                if [ "$TMP2" != "" ]; then
+                    echo "=== ERROR: black listed function call $black_listed added to $filename ==="
+                    git --no-pager diff --ignore-submodules -w --minimal -S"$black_listed" $TARGET_BRANCH -- $filename
+                    echo "=== END ERROR ==="
+                    RETVAL=1
+                fi
             fi
         done
     fi
@@ -40,12 +44,16 @@ for cond_black_listed in cudaMemcpy cudaMemset; do
     
     if [ "$TMP" != "" ]; then
         for filename in `git --no-pager diff --ignore-submodules -w --minimal --name-only -S"$cond_black_listed" $TARGET_BRANCH`; do
-            TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$cond_black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep -P "$cond_black_listed(?!Async)"`
-            if [ "$TMP2" != "" ]; then
-                echo "=== ERROR: black listed function call $cond_black_listed added to $filename ==="
-                git --no-pager diff --ignore-submodules -w --minimal -S"$cond_black_listed" $TARGET_BRANCH -- $filename
-                echo "=== END ERROR ==="
-                RETVAL=1
+            basefilename=$(basename -- "$filename")
+            filext="${basefilename##*.}"
+            if [ "$filext" != "md" ] && [ "$filext" != "sh" ]; then
+                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$cond_black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep -P "$cond_black_listed(?!Async)"`
+                if [ "$TMP2" != "" ]; then
+                    echo "=== ERROR: black listed function call $cond_black_listed added to $filename ==="
+                    git --no-pager diff --ignore-submodules -w --minimal -S"$cond_black_listed" $TARGET_BRANCH -- $filename
+                    echo "=== END ERROR ==="
+                    RETVAL=1
+                fi
             fi
         done
     fi
