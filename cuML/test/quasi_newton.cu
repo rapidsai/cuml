@@ -59,7 +59,7 @@ checkParamsEqual(const cumlHandle_impl &handle, const T *host_weights,
       w_ref_cm[idx++] = host_weights[c * D + d];
     }
 
-  SimpleVecOwning<T> w_ref(handle, C * (D + fit_intercept), handle.getStream());
+  SimpleVecOwning<T> w_ref(handle.getDeviceAllocator(), C * (D + fit_intercept), handle.getStream());
   updateDevice(w_ref.data, &w_ref_cm[0], C * D);
   if (fit_intercept) {
     updateDevice(&w_ref.data[C * D], host_bias, C);
@@ -78,10 +78,10 @@ template <class T> struct DevUpload {
   SimpleVecOwning<T> devY;
   DevUpload(const cumlHandle_impl &handle, const InputSpec &inSpec, const T *x,
             const T *y, const cublasHandle_t &cublas)
-      : devX(handle, inSpec.n_row, inSpec.n_col, handle.getStream()),
-        devY(handle, inSpec.n_row, handle.getStream()) {
+      : devX(handle.getDeviceAllocator(), inSpec.n_row, inSpec.n_col, handle.getStream()),
+        devY(handle.getDeviceAllocator(), inSpec.n_row, handle.getStream()) {
 
-    SimpleMatOwning<T> devXtmp(handle, inSpec.n_row, inSpec.n_col,
+    SimpleMatOwning<T> devXtmp(handle.getDeviceAllocator(), inSpec.n_row, inSpec.n_col,
                                handle.getStream());
 
     updateDeviceAsync(devX.data, x, inSpec.n_row * inSpec.n_col,
@@ -140,6 +140,7 @@ T run_api(const cumlHandle &cuml_handle, int loss_type, int C,
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   const cumlHandle_impl &handle = handle_ptr->getImpl();
   CompareApprox<double> compApprox(tol);
+  std::shared_ptr<deviceAllocator> allocator = handle.getDeviceAllocator();
   // Test case generated in python and solved with sklearn
   double y[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
 
@@ -151,8 +152,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   LogisticLoss<double> loss_b(handle,in.n_col, true);
   LogisticLoss<double> loss_no_b(handle, in.n_col, false);
 
-  SimpleVecOwning<double> w0(handle, in.n_col + 1, handle_ptr->getStream());
-  SimpleVecOwning<double> z(handle, in.n_row, handle_ptr->getStream());
+  SimpleVecOwning<double> w0(allocator, in.n_col + 1, handle_ptr->getStream());
+  SimpleVecOwning<double> z(allocator, in.n_row, handle_ptr->getStream());
 
   DevUpload<double> devUpload(handle, in, &X[0][0], &y[0],
                               handle.getCublasHandle());
@@ -227,6 +228,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   // leaving out exact param checks
 
   const cumlHandle_impl &handle = handle_ptr->getImpl();
+  std::shared_ptr<deviceAllocator> allocator = handle.getDeviceAllocator();
   CompareApprox<double> compApprox(tol);
   double y[10] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
 
@@ -240,8 +242,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 
   DevUpload<double> devUpload(handle, in, &X[0][0], &y[0],
                               handle.getCublasHandle());
-  SimpleMatOwning<double> z(handle, C, in.n_row, handle_ptr->getStream());
-  SimpleVecOwning<double> w0(handle, C * (in.n_col + 1),
+  SimpleMatOwning<double> z(allocator, C, in.n_row, handle_ptr->getStream());
+  SimpleVecOwning<double> w0(allocator, C * (in.n_col + 1),
                              handle_ptr->getStream());
 
   Softmax<double> loss_b(handle, in.n_col, C, true);
@@ -299,6 +301,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 
 TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   const cumlHandle_impl &handle = handle_ptr->getImpl();
+  std::shared_ptr<deviceAllocator> allocator = handle.getDeviceAllocator();
   CompareApprox<double> compApprox(tol);
   double y[10] = {0.2675836026202781,  -0.0678277759663704, -0.6334027174275105,
                   -0.1018336189077367, 0.0933815935886932,  -1.1058853496996381,
@@ -312,8 +315,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 
   DevUpload<double> devUpload(handle, in, &X[0][0], &y[0],
                               handle.getCublasHandle());
-  SimpleVecOwning<double> w0(handle, in.n_col + 1, handle_ptr->getStream());
-  SimpleVecOwning<double> z(handle, in.n_row, handle_ptr->getStream());
+  SimpleVecOwning<double> w0(allocator, in.n_col + 1, handle_ptr->getStream());
+  SimpleVecOwning<double> z(allocator, in.n_row, handle_ptr->getStream());
   SquaredLoss<double> loss_b(handle, in.n_col, true);
   SquaredLoss<double> loss_no_b(handle, in.n_col, false);
 
