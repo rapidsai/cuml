@@ -159,7 +159,7 @@ namespace UMAPAlgo {
             dim3 blk_n(TPB_X, 1, 1);
 
             // Perform l_inf normalization
-            MLCommon::Sparse::csr_row_normalize_max<TPB_X, T><<<grid_n, blk_n>>>(
+            MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(
                     row_ind,
                     in_coo->vals,
                     in_coo->nnz,
@@ -314,6 +314,7 @@ namespace UMAPAlgo {
             dim3 grid(MLCommon::ceildiv(in1->nnz, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
 
+            //@todo: Write a wrapper function for this
             sset_intersection_kernel<T, TPB_X><<<grid, blk>>>(
                 row1_ind, in1->cols, in1->vals, in1->nnz,
                 row2_ind, in2->cols, in2->vals, in2->nnz,
@@ -324,6 +325,7 @@ namespace UMAPAlgo {
 
             dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
 
+            //@todo: Write a wrapper function for this
             MLCommon::Sparse::csr_to_coo<TPB_X><<<grid_n, blk>>>(
                     result_ind, result->n_rows, result->rows, result->nnz);
 

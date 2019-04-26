@@ -18,6 +18,7 @@
 #include "algo.h"
 
 #include "sparse/coo.h"
+
 #pragma once
 
 namespace UMAPAlgo {

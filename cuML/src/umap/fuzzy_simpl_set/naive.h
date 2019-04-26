@@ -22,6 +22,8 @@
 #include "cuda_utils.h"
 
 #include "stats/mean.h"
+
+#include "sparse/csr.h"
 #include "sparse/coo.h"
 
 #include <cuda_runtime.h>

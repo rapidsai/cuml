@@ -250,10 +250,7 @@ namespace UMAPAlgo {
 
         if(params->verbose) {
             std::cout << "Reset Local connectivity" << std::endl;
-            std::cout << "result_nnz=" << ocoo.nnz << std::endl;
-            std::cout << MLCommon::arr2Str(ocoo.rows, ocoo.nnz, "final_rows") << std::endl;
-            std::cout << MLCommon::arr2Str(ocoo.cols, ocoo.nnz, "final_cols") << std::endl;
-            std::cout << MLCommon::arr2Str(ocoo.vals, ocoo.nnz, "final_vals") << std::endl;
+            std::cout << ocoo << std::endl;
         }
 
 
@@ -347,6 +344,7 @@ namespace UMAPAlgo {
         COO<T> graph_coo(nnz, n, n);
 
 
+        // @todo: Write a wrapper function for this.
         FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid_n, blk>>>(
                 knn_indices, knn_dists,
                 sigmas, rhos,
@@ -369,9 +367,11 @@ namespace UMAPAlgo {
         T *vals_normed;
         MLCommon::allocate(vals_normed, graph_coo.nnz, true);
 
-         MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T><<<grid_n, blk>>>(row_ind, graph_coo.vals, graph_coo.nnz,
+        // @todo: Write a wrapper function for this
+         MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(row_ind, graph_coo.vals, graph_coo.nnz,
                  graph_coo.n_rows, vals_normed);
 
+        // @todo: Write a wrapper function for this.
         init_transform<TPB_X, T><<<grid_n,blk>>>(graph_coo.cols, vals_normed, graph_coo.n_rows,
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
@@ -379,6 +379,7 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
         CUDA_CHECK(cudaFree(vals_normed));
 
+        //@todo: Write a wrapper function for this
         reset_vals<TPB_X><<<grid_n,blk>>>(ia, n);
 
         /**
