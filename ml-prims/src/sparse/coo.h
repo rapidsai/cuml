@@ -34,6 +34,49 @@ namespace MLCommon {
     namespace Sparse {
 
         template<typename T>
+        class COO {
+            public:
+               int *rows;
+               int *cols;
+               T *vals;
+               int nnz;
+               int n_rows;
+               int n_cols;
+
+               void setSize(int n_rows, int n_cols) {
+                   this->n_rows = n_rows;
+                   this->n_cols = n_cols;
+               }
+
+               void setSize(int n) {
+                   this->n_rows = n;
+                   this->n_cols = n;
+               }
+
+               void destroy() {
+
+                   try {
+                       std::cout << "Cleaning up!" << std::endl;
+                       if(rows != nullptr)
+                           CUDA_CHECK(cudaFree(rows));
+
+                       if(cols != nullptr)
+                           CUDA_CHECK(cudaFree(cols));
+
+                       if(vals != nullptr)
+                           CUDA_CHECK(cudaFree(vals));
+
+                       rows = nullptr;
+                       cols = nullptr;
+                       vals = nullptr;
+
+                   } catch(Exception &e) {
+                       std::cout << "An exception occurred freeing COO memory" << std::endl;
+                   }
+               }
+        };
+
+        template<typename T>
         cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
                 int nnz,
                 float *vals,
@@ -66,6 +109,7 @@ namespace MLCommon {
                 CUSPARSE_INDEX_BASE_ZERO
             );
         }
+
 
 
         /**
@@ -147,6 +191,13 @@ namespace MLCommon {
             cudaStreamDestroy(stream);
         }
 
+
+        template<typename T>
+         void coo_sort(COO<T> *in) {
+             coo_sort<T>(in->n_rows, in->n_cols, in->nnz,
+                     in->rows, in->cols, in->vals);
+         }
+
         /**
          * Remove any zero values from a COO sparse matrix. The input arrays
          * are processed in chunks, where each GPU thread is assigned a chunk.
@@ -201,7 +252,8 @@ namespace MLCommon {
          * @param crows: compressed array of rows
          * @param ccols: compressed array of cols
          * @param cvals: compressed array of vals
-         * @param cnnz: array of non-zero counts per chunk (e.g. row)
+         * @param cnnz: array of non-zero counts per row
+         * @param cur_nnz array of counts per row
          * @param cnnz_n: size of cnnz array (eg. num chunks)
          */
         template<int TPB_X, typename T>
@@ -230,35 +282,14 @@ namespace MLCommon {
             thrust::exclusive_scan(dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
             CUDA_CHECK(cudaPeekAtLastError());
 
-//            std::cout << "DOne." << std::endl;
-
             dim3 grid(ceildiv(n, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
-
-//            std::cout << "Printing" << std::endl;
-
-//            std::cout << MLCommon::arr2Str(cnnz, n, "cnnz") << std::endl;
-//            std::cout << MLCommon::arr2Str(cur_cnnz, n, "cur_cnnz") << std::endl;
-
-
-
-//            std::cout << MLCommon::arr2Str(rows, nnz, "rows") << std::endl;
-//            std::cout << MLCommon::arr2Str(cols, nnz, "cols") << std::endl;
-//            std::cout << MLCommon::arr2Str(vals, nnz, "vals") << std::endl;
-
-//            std::cout << "Printed" << std::endl;
 
             coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(
                     rows, cols, vals, nnz,
                     crows, ccols, cvals,
                     dev_ex_scan.get(), dev_cur_ex_scan.get(), n
             );
-
-//            std::cout << "Ran kernel." << std::endl;
-//
-//            std::cout << MLCommon::arr2Str(crows, n, "crows") << std::endl;
-//            std::cout << MLCommon::arr2Str(ccols, n, "ccols") << std::endl;
-//            std::cout << MLCommon::arr2Str(cvals, n, "cvals") << std::endl;
 
             CUDA_CHECK(cudaPeekAtLastError());
             CUDA_CHECK(cudaFree(ex_scan));
@@ -292,6 +323,15 @@ namespace MLCommon {
                     rows, nnz, results, n);
         }
 
+        template<int TPB_X, typename T>
+        void coo_row_count(COO<T> *in, int *results) {
+            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+                    in->rows, in->nnz, results, in->n_rows);
+        }
+
 
         /**
          * Count all the rows with non-zero values in the coo row and val
@@ -321,6 +361,14 @@ namespace MLCommon {
                     rows, vals, nnz, results, n);
         }
 
+        template<int TPB_X, typename T>
+        void coo_row_count_nz(COO<T> *in, int *results) {
+            dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+            dim3 blk_rc(TPB_X, 1, 1);
+
+            coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+                    in->rows, in->vals, in->nnz, results, in->n_rows);
+        }
 
         template<int TPB_X, typename T>
         __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
@@ -352,7 +400,7 @@ namespace MLCommon {
 
         template<typename T>
         void sorted_coo_to_csr(
-                T *rows, T nnz, T *row_ind, T m) {
+                T *rows, int nnz, T *row_ind, int m) {
 
             T *row_counts;
             MLCommon::allocate(row_counts, m, true);
@@ -371,5 +419,11 @@ namespace MLCommon {
 
             CUDA_CHECK(cudaFree(row_counts));
         }
+
+        template<typename T>
+        void sorted_coo_to_csr(COO<T> *coo, int *row_ind) {
+            sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows);
+        }
+
     }
 }

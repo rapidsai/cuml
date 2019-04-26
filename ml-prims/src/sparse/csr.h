@@ -27,6 +27,15 @@
 namespace MLCommon {
     namespace Sparse {
 
+        struct CSR {
+            int *row_ind;
+            int *row_int_ptr;
+            int *vals;
+            int nnz;
+            int n_rows;
+            int n_cols;
+        };
+
         /**
          * Row-normalizes a CSR matrix using the sum of
          * each row as the normalizer.
