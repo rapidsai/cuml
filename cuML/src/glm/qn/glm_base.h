@@ -171,40 +171,5 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
   }
 };
 
-template <typename T>
-__global__ void modKernel(T *w, const int tidx, const T h) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx == tidx) {
-    w[idx] += h;
-  }
-}
-
-template <typename T, class Loss>
-void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
-                  T *grad_w_host, T *loss_val, cudaStream_t stream,
-                  const T h = 1e-4) {
-  int len = loss.n_param;
-  SimpleVecOwning<T> w_mod(len), grad(len), lossVal(1);
-
-  T lph = 0, lmh = 0;
-
-  for (int d = 0; d < len; d++) {
-    CUDA_CHECK(
-        cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
-
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d,
-                                                               h);
-    cudaThreadSynchronize();
-
-    lph = loss(w_mod, grad, lossVal.data, stream);
-
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d,
-                                                               -2 * h);
-    cudaThreadSynchronize();
-    lmh = loss(w_mod, grad, lossVal.data, stream);
-    grad_w_host[d] = (lph - lmh) / (2 * h);
-  }
-}
-
 }; // namespace GLM
 }; // namespace ML
