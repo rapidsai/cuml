@@ -27,7 +27,7 @@ for black_listed in cudaDeviceSynchronize cudaMalloc cudaMallocManaged cudaFree 
             basefilename=$(basename -- "$filename")
             filext="${basefilename##*.}"
             if [ "$filext" != "md" ] && [ "$filext" != "sh" ]; then
-                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep "$black_listed"`
+                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep "$black_listed" | grep -vE "^\+[[:space:]]*/{2,}.*$black_listed"`
                 if [ "$TMP2" != "" ]; then
                     echo "=== ERROR: black listed function call $black_listed added to $filename ==="
                     git --no-pager diff --ignore-submodules -w --minimal -S"$black_listed" $TARGET_BRANCH -- $filename
@@ -47,7 +47,7 @@ for cond_black_listed in cudaMemcpy cudaMemset; do
             basefilename=$(basename -- "$filename")
             filext="${basefilename##*.}"
             if [ "$filext" != "md" ] && [ "$filext" != "sh" ]; then
-                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$cond_black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep -P "$cond_black_listed(?!Async)"`
+                TMP2=`git --no-pager diff --ignore-submodules -w --minimal -U0 -S"$cond_black_listed" $TARGET_BRANCH -- $filename | grep '^+' | grep -v '^+++' | grep -P "$cond_black_listed(?!Async)" | grep -vE "^\+[[:space:]]*/{2,}.*$cond_black_listed"`
                 if [ "$TMP2" != "" ]; then
                     echo "=== ERROR: black listed function call $cond_black_listed added to $filename ==="
                     git --no-pager diff --ignore-submodules -w --minimal -S"$cond_black_listed" $TARGET_BRANCH -- $filename
