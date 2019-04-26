@@ -271,6 +271,13 @@ void reciprocal(math_t *in, math_t *out, IdxType len, cudaStream_t stream) {
   reciprocal(in, out, scalar, len, stream);
 }
 
+template <typename math_t>
+void setValue(math_t* out, const math_t* in, math_t scalar, int len, cudaStream_t stream = 0) {
+	MLCommon::LinAlg::unaryOp(out, in, len,
+			          [scalar] __device__(math_t in) { return scalar; },
+			          stream);
+}
+
 /**
  * @defgroup ratio math operation on the input matrix. ratio of every element
  * over sum of input vector is calculated
