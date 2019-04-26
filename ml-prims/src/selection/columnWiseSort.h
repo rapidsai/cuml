@@ -23,9 +23,6 @@
 #include <cub/cub.cuh>
 #include <limits>
 
-#define ALIGN_BYTE 256
-#define ALIGN_MEMORY(x) (x + ALIGN_BYTE - 1) & ~(ALIGN_BYTE - 1)
-
 #define VALIDATE_TEMPLATE (is_same< InType, float >::value && BLOCK_SIZE <= 512) || \
     (is_same< InType, double >::value && \
     (is_same< OutType, int >::value || is_same< OutType, float >::value) &&       \
@@ -148,14 +145,14 @@ cudaError_t layoutSortOffset(T *in, T value, int n_times, cudaStream_t stream) {
  * @param bAllocWorkspace: check returned value, if true allocate workspace passed in workspaceSize
  * @param workspacePtr: pointer to workspace memory
  * @param workspaceSize: Size of workspace to be allocated
- * @param sortedKeys: Optional, output matrix for sorted keys (input)
  * @param stream: cuda stream to execute prim on
+ * @param sortedKeys: Optional, output matrix for sorted keys (input)
  */
 template <typename InType, typename OutType>
 void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns,
                         bool &bAllocWorkspace, void *workspacePtr,
                         size_t &workspaceSize, cudaStream_t stream,
-                        InType *sortedKeys=NULL) {
+                        InType *sortedKeys=nullptr) {
   
   // assume non-square row-major matrices
   // current use-case: KNN, trustworthiness scores
@@ -165,6 +162,7 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
 
   int totalElements = n_rows * n_columns;
   size_t perElementSmemUsage = sizeof(InType) + sizeof(OutType);
+  size_t memAlignWidth = 256;
 
   // @ToDo: Figure out dynamic shared memory for block sort kernel - better for volta and beyond
   // int currDevice = 0, smemLimit = 0;
@@ -175,10 +173,10 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
   // for 48KB smem/block, can fit in 6144 4byte key-value pair
   // assuming key-value sort for now - smem computation will change for value only sort
   // dtype being size of key-value pair
-  map<size_t, int> dtypeToColumnMap = { {4, 12288}, // short + short
-                                        {8, 6144},  // float + int/float
-                                        {12, 4096}, // double + int/float
-                                        {16, 3072}}; // double + double
+  std::map<size_t, int> dtypeToColumnMap = { {4, 12288}, // short + short
+                                          {8, 6144},  // float + int/float
+                                          {12, 4096}, // double + int/float
+                                          {16, 3072}}; // double + double
 
   if (dtypeToColumnMap.count(perElementSmemUsage) != 0 && 
         n_columns <= dtypeToColumnMap[perElementSmemUsage]) {
@@ -211,9 +209,9 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
 
       // need auxillary storage: cub sorting + keys (if user not passing) + 
       // staging for values out + segment partition
-      if (workspaceSize == 0) {
-        OutType *tmpValIn = NULL;
-        int *tmpOffsetBuffer = NULL;
+      if (workspaceSize == 0 || !workspacePtr) {
+        OutType *tmpValIn = nullptr;
+        int *tmpOffsetBuffer = nullptr;
 
         // first call is to get size of workspace
         CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortPairs(workspacePtr, workspaceSize, in, sortedKeys, 
@@ -222,13 +220,13 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
         bAllocWorkspace = true;
         // more staging space for temp output of keys
         if (!sortedKeys)
-          workspaceSize += ALIGN_MEMORY(sizeof(InType) * (size_t)totalElements);
+          workspaceSize += alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
         
         // value in KV pair need to be passed in, out buffer is separate
-        workspaceSize += ALIGN_MEMORY(sizeof(OutType) * (size_t)totalElements);
+        workspaceSize += alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
 
         // for segment offsets
-        workspaceSize += ALIGN_MEMORY(sizeof(int) * (size_t)numSegments);
+        workspaceSize += alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
       }
       else {
           
@@ -236,16 +234,16 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
 
           if (!sortedKeys) {
             sortedKeys = reinterpret_cast<InType *>(workspacePtr);
-            workspaceOffset = ALIGN_MEMORY(sizeof(InType) * (size_t)totalElements);
+            workspaceOffset = alignTo(sizeof(InType) * (size_t)totalElements, memAlignWidth);
             workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
           }
 
           OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
-          workspaceOffset = ALIGN_MEMORY(sizeof(OutType) * (size_t)totalElements);
+          workspaceOffset = alignTo(sizeof(OutType) * (size_t)totalElements, memAlignWidth);
           workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
           int *dSegmentOffsets = reinterpret_cast<int *>(workspacePtr);
-          workspaceOffset = ALIGN_MEMORY(sizeof(int) * (size_t)numSegments);
+          workspaceOffset = alignTo(sizeof(int) * (size_t)numSegments, memAlignWidth);
           workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
           // layout idx
@@ -261,8 +259,8 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
   }
   else {
       // batched per row device wide sort
-      if (workspaceSize == 0) {
-        OutType *tmpValIn = NULL;
+      if (workspaceSize == 0 || !workspacePtr) {
+        OutType *tmpValIn = nullptr;
 
         // first call is to get size of workspace
         CUDA_CHECK(cub::DeviceRadixSort::SortPairs(workspacePtr, workspaceSize, in, sortedKeys, 
@@ -270,9 +268,9 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
         bAllocWorkspace = true;
 
         if (!sortedKeys)
-          workspaceSize += ALIGN_MEMORY(sizeof(InType) * (size_t)n_columns);
+          workspaceSize += alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
 
-        workspaceSize += ALIGN_MEMORY(sizeof(OutType) * (size_t)n_columns);
+        workspaceSize += alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
       }
       else {
 
@@ -282,12 +280,12 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
         if (!sortedKeys) {
           userKeyOutputBuffer = false;
           sortedKeys = reinterpret_cast<InType *>(workspacePtr);
-          workspaceOffset = ALIGN_MEMORY(sizeof(InType) * (size_t)n_columns);
+          workspaceOffset = alignTo(sizeof(InType) * (size_t)n_columns, memAlignWidth);
           workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
         }
 
         OutType *dValuesIn = reinterpret_cast<OutType *>(workspacePtr);
-        workspaceOffset = ALIGN_MEMORY(sizeof(OutType) * (size_t)n_columns);
+        workspaceOffset = alignTo(sizeof(OutType) * (size_t)n_columns, memAlignWidth);
         workspacePtr = (void *)((size_t)workspacePtr + workspaceOffset);
 
         // layout idx
