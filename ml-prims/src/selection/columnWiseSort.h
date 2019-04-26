@@ -23,21 +23,19 @@
 #include <cub/cub.cuh>
 #include <limits>
 
-#define VALIDATE_TEMPLATE (is_same< InType, float >::value && BLOCK_SIZE <= 512) || \
-    (is_same< InType, double >::value && \
-    (is_same< OutType, int >::value || is_same< OutType, float >::value) &&       \
+#define VALIDATE_TEMPLATE (std::is_same< InType, float >::value && BLOCK_SIZE <= 512) || \
+    (std::is_same< InType, double >::value && \
+    (std::is_same< OutType, int >::value || std::is_same< OutType, float >::value) &&       \
            BLOCK_SIZE <= 512 && ITEMS_PER_THREAD <= 8) || \
-    (is_same< InType, double >::value && is_same< OutType, double >::value &&    \
+    (std::is_same< InType, double >::value && std::is_same< OutType, double >::value &&    \
           BLOCK_SIZE <= 512 && ITEMS_PER_THREAD <= 6)
 
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream) \
 devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>> \
-        (keyIn, keyOut, valueInOut, rows, columns, numeric_limits<InType>::max())
+        (keyIn, keyOut, valueInOut, rows, columns, std::numeric_limits<InType>::max())
 
 namespace MLCommon {
 namespace Selection {
-
-using namespace std;
 
 template <typename InType>
 __global__ void devLayoutIdx(InType *in, int n_cols, int totalElements) {

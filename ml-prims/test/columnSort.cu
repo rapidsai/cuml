@@ -24,7 +24,7 @@ namespace MLCommon {
 namespace Selection {
 
 template <typename T>
-  std::vector<int>* sort_indexes(const vector<T> &v) {
+  std::vector<int>* sort_indexes(const std::vector<T> &v) {
   // initialize original index locations
   std::vector<int> *idx = new std::vector<int>(v.size());
   std::iota((*idx).begin(), (*idx).end(), 0);
