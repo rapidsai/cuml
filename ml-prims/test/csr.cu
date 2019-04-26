@@ -17,7 +17,7 @@
 #include "csr.h"
 #include <gtest/gtest.h>
 #include "sparse/matrix.h"
-#include "sparse/csr_functions.h"
+#include "sparse/csr.h"
 
 #include "random/rng.h"
 #include "test_utils.h"
