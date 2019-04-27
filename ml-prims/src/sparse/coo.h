@@ -544,7 +544,7 @@ void sorted_coo_to_csr(
     dim3 grid(ceildiv(m, 32), 1, 1);
     dim3 blk(32, 1, 1);
 
-    coo_row_count<32>(rows, nnz, row_counts, m);
+    coo_row_count<32>(rows, nnz, row_counts);
 
     // create csr compressed row index from row counts
     thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);

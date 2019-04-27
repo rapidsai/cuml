@@ -421,7 +421,7 @@ namespace UMAPAlgo {
             COO<T> out;
             coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
 
-            result_coo.free();
+            result_coo.destroy();
 
             int *out_row_ind;
             MLCommon::allocate(out_row_ind, out.n_rows);
