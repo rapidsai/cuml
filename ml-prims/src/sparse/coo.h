@@ -45,26 +45,30 @@ class COO {
        int nnz;
        int n_rows;
        int n_cols;
+       bool device;
 
-       COO(): rows(nullptr), cols(nullptr), vals(nullptr), nnz(-1), n_rows(-1), n_cols(-1){}
+       COO(bool device = true): rows(nullptr), cols(nullptr), vals(nullptr),
+               nnz(-1), n_rows(-1), n_cols(-1),
+               device(device){}
 
-       COO(int *rows, int *cols, T *vals, int nnz, int n_rows = -1, int n_cols = -1) {
-           this->rows = rows;
-           this->cols = cols;
-           this->vals = vals;
-           this->nnz = nnz;
-           this->n_rows = n_rows;
-           this->n_cols = n_cols;
-       }
+       COO(int *rows, int *cols, T *vals,
+               int nnz, int n_rows = -1, int n_cols = -1,
+               bool device = true):
+           rows(rows), cols(cols), vals(vals),
+           nnz(nnz), n_rows(n_rows), n_cols(n_cols),
+           device(device){}
 
-       COO(int nnz, int n_rows = -1, int n_cols = -1, bool init = true):
+       COO(int nnz,
+               int n_rows = -1, int n_cols = -1,
+               bool device = true, bool init = true):
            rows(nullptr), cols(nullptr), vals(nullptr), nnz(nnz),
-           n_rows(n_rows), n_cols(n_cols) {
-           this->allocate(nnz, n_rows, n_cols, init);
+           n_rows(n_rows), n_cols(n_cols),
+           device(device){
+           this->allocate(nnz, n_rows, n_cols, device, init);
        }
 
        ~COO() {
-           this->free();
+           this->destroy();
        }
 
        bool validate_size() {
@@ -101,35 +105,60 @@ class COO {
            this->n_cols = n;
        }
 
-       void allocate(int nnz, bool init = true) {
-           this->allocate(nnz, -1, init);
+       void allocate(int nnz,
+               bool device = true,
+               bool init = true) {
+           this->allocate(nnz, -1, device, init);
        }
 
-       void allocate(int nnz, int size, bool init = true) {
-           this->allocate(nnz, size, size, init);
+       void allocate(int nnz, int size,
+               bool device = true,
+               bool init = true) {
+           this->allocate(nnz, size, size, device, init);
        }
 
-       void allocate(int nnz, int n_rows, int n_cols, bool init = true) {
+       void allocate(int nnz, int n_rows, int n_cols,
+               bool device = true,
+               bool init = true) {
            this->n_rows = n_rows;
            this->n_cols = n_cols;
            this->nnz = nnz;
-           MLCommon::allocate(this->rows, this->nnz, init);
-           MLCommon::allocate(this->cols, this->nnz, init);
-           MLCommon::allocate(this->vals, this->nnz, init);
+
+           if(device) {
+               MLCommon::allocate(this->rows, this->nnz, init);
+               MLCommon::allocate(this->cols, this->nnz, init);
+               MLCommon::allocate(this->vals, this->nnz, init);
+           } else {
+               this->rows = (int*)malloc(this->nnz*sizeof(int));
+               this->cols = (int*)malloc(this->nnz*sizeof(int));
+               this->vals = (T*)malloc(this->nnz*sizeof(T));
+           }
        }
 
-       void free() {
+       void destroy() {
 
            try {
                std::cout << "Cleaning up!" << std::endl;
-               if(rows != nullptr)
-                   CUDA_CHECK(cudaFree(rows));
+               if(rows != nullptr) {
+                   if(this->device)
+                       CUDA_CHECK(cudaFree(rows));
+                   else
+                       free(rows);
+               }
 
-               if(cols != nullptr)
-                   CUDA_CHECK(cudaFree(cols));
+               if(cols != nullptr) {
+                   if(this->device)
+                       CUDA_CHECK(cudaFree(cols));
+                   else
+                       free(cols);
+               }
 
-               if(vals != nullptr)
-                   CUDA_CHECK(cudaFree(vals));
+               if(vals != nullptr) {
+                   if(this->device)
+                       CUDA_CHECK(cudaFree(vals));
+                   else
+                       free(vals);
+               }
 
                rows = nullptr;
                cols = nullptr;
@@ -319,7 +348,7 @@ __global__ void coo_remove_zeros_kernel(
  */
 template<int TPB_X>
 __global__ void coo_row_count_kernel(int *rows, int nnz,
-        int *results, int n) {
+        int *results) {
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
     if(row < nnz) {
         atomicAdd(results+rows[row], 1);
@@ -327,12 +356,12 @@ __global__ void coo_row_count_kernel(int *rows, int nnz,
 }
 
 template<int TPB_X>
-void coo_row_count(int *rows, int nnz, int *results, int n) {
+void coo_row_count(int *rows, int nnz, int *results) {
     dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
     coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
-            rows, nnz, results, n);
+            rows, nnz, results);
 }
 
 template<int TPB_X, typename T>
@@ -341,7 +370,7 @@ void coo_row_count(COO<T> *in, int *results) {
     dim3 blk_rc(TPB_X, 1, 1);
 
     coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
-            in->rows, in->nnz, results, in->n_rows);
+            in->rows, in->nnz, results);
 }
 
 /**
@@ -356,20 +385,21 @@ void coo_row_count(COO<T> *in, int *results) {
  */
 template<int TPB_X, typename T>
 __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
-        int *results, int n) {
+        int *results) {
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
-    if(row < nnz && vals[row] > 0.0) {
+    if(row < nnz && vals[row] != 0.0) {
+        printf("row=%d, val=%f\n", rows[row], vals[row]);
         atomicAdd(results+rows[row], 1);
     }
 }
 
 template<int TPB_X, typename T>
-void coo_row_count_nz(int *rows, T *vals, int nnz, int *results, int n) {
+void coo_row_count_nz(int *rows, T *vals, int nnz, int *results) {
     dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
     coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
-            rows, vals, nnz, results, n);
+            rows, vals, nnz, results);
 }
 
 template<int TPB_X, typename T>
@@ -378,7 +408,7 @@ void coo_row_count_nz(COO<T> *in, int *results) {
     dim3 blk_rc(TPB_X, 1, 1);
 
     coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
-            in->rows, in->vals, in->nnz, results, in->n_rows);
+            in->rows, in->vals, in->nnz, results);
 }
 
 
@@ -448,28 +478,28 @@ void coo_remove_zeros(COO<T> *in,
     MLCommon::allocate(row_count_nz, in->n_rows, true);
 
     MLCommon::Sparse::coo_row_count<TPB_X>(
-            in->rows, in->nnz, row_count, in->n_rows);
+            in->rows, in->nnz, row_count);
     CUDA_CHECK(cudaPeekAtLastError());
 
     MLCommon::Sparse::coo_row_count_nz<TPB_X>(
-            in->rows, in->vals, in->nnz, row_count_nz, in->n_rows);
+            in->rows, in->vals, in->nnz, row_count_nz);
     CUDA_CHECK(cudaPeekAtLastError());
+
+
+    std::cout << arr2Str(row_count_nz, in->nnz, "row_count_nz") << std::endl;
 
     thrust::device_ptr<int> d_row_count_nz =
             thrust::device_pointer_cast(row_count_nz);
     int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
             d_row_count_nz, d_row_count_nz+in->n_rows);
 
-    out->allocate(out_nnz);
+    out->allocate(out_nnz, in->n_rows, in->n_cols);
 
     coo_remove_zeros<TPB_X, T>(
         in->rows, in->cols, in->vals, in->nnz,
         out->rows, out->cols, out->vals,
         row_count_nz, row_count, in->n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    out->n_rows = in->n_rows;
-    out->n_cols = in->n_cols;
 
     CUDA_CHECK(cudaFree(row_count));
     CUDA_CHECK(cudaFree(row_count_nz));

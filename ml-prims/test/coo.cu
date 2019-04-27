@@ -85,84 +85,64 @@ TEST_P(COOSort, Result) {
 typedef COOTest<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
 
-    int *in_rows, *in_cols;
-    float *in_vals;
+    COO<float> in_h(params.nnz, 5, 5, false);
+    COO<float> in(params.nnz, 5, 5);
 
     params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
+
     Random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in_vals, params.nnz);
-    r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
+    r.uniform(in.vals, params.nnz, float(-1.0), float(1.0), stream);
 
-    float *vals_h = (float*)malloc(params.nnz * sizeof(float));
-    updateHost(vals_h, in_vals, params.nnz);
+    updateHost(in_h.vals, in.vals, params.nnz);
 
-    vals_h[0] = 0;
-    vals_h[2] = 0;
-    vals_h[3] = 0;
-
-    updateDevice(in_vals, vals_h, params.nnz);
-
-    int out_rows_ref_h[2]  = { 3, 0 };
-    int out_cols_ref_h[2] =  { 1, 4 };
-
-    float *out_vals_ref_h = (float*)malloc(2*sizeof(float));
-    out_vals_ref_h[0] = vals_h[1];
-    out_vals_ref_h[1] = vals_h[4];
-
-    int *out_rows, *out_cols, *out_rows_ref, *out_cols_ref;
-    float *out_vals, *out_vals_ref;
-    allocate(out_rows, 2);
-    allocate(out_cols, 2);
-    allocate(out_vals, 2);
-    allocate(out_rows_ref, 2);
-    allocate(out_vals_ref, 2);
-    allocate(out_cols_ref, 2);
-
-    updateDevice(out_rows_ref, *&out_rows_ref_h, 2);
-    updateDevice(out_cols_ref, *&out_cols_ref_h, 2);
-    updateDevice(out_vals_ref, out_vals_ref_h, 2);
-
-    int *cnnz, cnnz_h[5] = { 0, 1, 0, 0, 1 };
-    allocate(cnnz, 5);
-
-    updateDevice(cnnz, *&cnnz_h, 5);
-
-    int *in_rows_h = (int*)malloc(params.nnz * sizeof(int));
-    int *in_cols_h = (int*)malloc(params.nnz * sizeof(int));
+    in_h.vals[0] = 0;
+    in_h.vals[2] = 0;
+    in_h.vals[3] = 0;
 
     for(int i = 0; i < params.nnz; i++) {
-        in_rows_h[i] = params.nnz-i-1;
-        in_cols_h[i] = i;
+        in_h.rows[i] = params.nnz-i-1;
+        in_h.cols[i] = i;
     }
 
-    allocate(in_rows, params.nnz);
-    allocate(in_cols, params.nnz);
+    updateDevice(in.rows, in_h.rows, params.nnz);
+    updateDevice(in.cols, in_h.cols, params.nnz);
+    updateDevice(in.vals, in_h.vals, params.nnz);
 
-    updateDevice(in_rows, in_rows_h, params.nnz);
-    updateDevice(in_cols, in_cols_h, params.nnz);
+    std::cout << in << std::endl;
 
-    coo_remove_zeros<16, float>(params.nnz, in_rows, in_cols, in_vals, out_rows, out_cols, out_vals, cnnz, 5);
+    coo_sort<float>(&in);
 
-    ASSERT_TRUE(devArrMatch<int>(out_rows_ref, out_rows, 2, Compare<int>()));
-    ASSERT_TRUE(devArrMatch<int>(out_cols_ref, out_cols, 2, Compare<int>()));
-    ASSERT_TRUE(devArrMatch<float>(out_vals_ref, out_vals, 2, Compare<float>()));
+    int out_rows_ref_h[2]  = { 0, 3 };
+    int out_cols_ref_h[2] =  { 4, 1 };
 
-    CUDA_CHECK(cudaFree(in_rows));
-    CUDA_CHECK(cudaFree(in_cols));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(out_rows));
-    CUDA_CHECK(cudaFree(out_cols));
-    CUDA_CHECK(cudaFree(out_vals));
-    CUDA_CHECK(cudaFree(out_rows_ref));
-    CUDA_CHECK(cudaFree(out_cols_ref));
-    CUDA_CHECK(cudaFree(out_vals_ref));
+    float *out_vals_ref_h = (float*)malloc(2*sizeof(float));
+    out_vals_ref_h[0] = in_h.vals[4];
+    out_vals_ref_h[1] = in_h.vals[1];
+
+    COO<float> out_ref(2, 5, 5);
+    COO<float> out;
+
+    std::cout << in << std::endl;
+
+    updateDevice(out_ref.rows, *&out_rows_ref_h, 2);
+    updateDevice(out_ref.cols, *&out_cols_ref_h, 2);
+    updateDevice(out_ref.vals, out_vals_ref_h, 2);
+
+    std::cout << out_ref << std::endl;
+
+
+    coo_remove_zeros<32, float>(&in, &out, stream);
+
+    std::cout << out << std::endl;
+
+    ASSERT_TRUE(devArrMatch<int>(out_ref.rows, out.rows, 2, Compare<int>()));
+    ASSERT_TRUE(devArrMatch<int>(out_ref.cols, out.cols, 2, Compare<int>()));
+    ASSERT_TRUE(devArrMatch<float>(out_ref.vals, out.vals, 2, Compare<float>()));
+
     CUDA_CHECK(cudaStreamDestroy(stream));
     free(out_vals_ref_h);
-    free(in_rows_h);
-    free(in_cols_h);
-    free(vals_h);
 }
 
 
@@ -183,7 +163,7 @@ TEST_P(COORowCount, Result) {
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
-    coo_row_count<32><<<grid, blk>>>(in_rows, 5, results, 5);
+    coo_row_count<32>(in_rows, 5, results);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
@@ -213,7 +193,7 @@ TEST_P(COORowCountNonzero, Result) {
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
-    coo_row_count_nz<32, float><<<grid, blk>>>(in_rows, in_vals, 5, results, 5);
+    coo_row_count_nz<32, float>(in_rows, in_vals, 5, results);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<int>(verify, results, 5, Compare<int>()));
