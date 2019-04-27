@@ -60,10 +60,7 @@ TEST_P(CSRRowNormalizeL1, Result) {
     updateDevice(in_vals, *&in_vals_h, 10);
     updateDevice(verify, *&verify_h, 10);
 
-    dim3 grid(ceildiv(10, 32), 1, 1);
-    dim3 blk(32, 1, 1);
-
-    csr_row_normalize_l1<32, float><<<grid, blk>>>(ex_scan, in_vals, 10, 4, result);
+    csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
@@ -110,12 +107,10 @@ TEST_P(CSRSum, Result) {
     int *result_ind;
     allocate(result_ind, 4);
 
-    int nnz = 0;
-
-    csr_add_calc_inds<float, 32>(
+    int nnz = csr_add_calc_inds<float, 32>(
         ex_scan, ind_ptr_a, in_vals_a, 10,
         ex_scan, ind_ptr_b, in_vals_b, 10,
-        4, &nnz, result_ind
+        4, result_ind
     );
 
     int *result_indptr;
