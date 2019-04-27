@@ -481,12 +481,17 @@ void coo_remove_zeros(COO<T> *in,
             in->rows, in->nnz, row_count);
     CUDA_CHECK(cudaPeekAtLastError());
 
+
+
     MLCommon::Sparse::coo_row_count_nz<TPB_X>(
             in->rows, in->vals, in->nnz, row_count_nz);
     CUDA_CHECK(cudaPeekAtLastError());
 
 
-    std::cout << arr2Str(row_count_nz, in->nnz, "row_count_nz") << std::endl;
+    std::cout << "PRINTING!" << std::endl;
+
+    std::cout << arr2Str(row_count_nz, in->n_rows, "row_count_nz") << std::endl;
+    std::cout << "PRINTING!" << std::endl;
 
     thrust::device_ptr<int> d_row_count_nz =
             thrust::device_pointer_cast(row_count_nz);

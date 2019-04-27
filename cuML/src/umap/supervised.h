@@ -390,7 +390,6 @@ namespace UMAPAlgo {
                                params, 0);
             CUDA_CHECK(cudaPeekAtLastError());
 
-
             CUDA_CHECK(cudaFree(y_knn_indices));
             CUDA_CHECK(cudaFree(y_knn_dists));
 
