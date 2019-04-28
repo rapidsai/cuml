@@ -28,6 +28,7 @@
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
 - PR #475: exposing cumlHandle for dbscan from python-side
+- PR #395: Edited the CONTRIBUTING.md file
 
 ## Bug Fixes
 
