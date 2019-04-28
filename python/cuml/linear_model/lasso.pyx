@@ -159,7 +159,7 @@ class Lasso:
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
-        if alpha<= 0.0:
+        if alpha <= 0.0:
             msg = "alpha value has to be positive"
             raise TypeError(msg.format(alpha))
 
