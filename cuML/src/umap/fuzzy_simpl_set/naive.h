@@ -336,7 +336,8 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
-                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors);
+                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
 
                 float sum = 0.0;
                 for (int i = 0; i < params->n_neighbors; i++)
@@ -428,7 +429,8 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 int n_compressed_nonzeros = 0;
-                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1);
+                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
 
                 /**
                  * Remove resulting zeros from COO
