@@ -34,7 +34,7 @@ namespace LinAlg {
  * @param stream cuda-stream where to launch this kernel
  */
 template<typename math_t, int TPB = 256>
-    void meanSquaredError(math_t* out, const math_t * A, const math_t *B, size_t len, math_t weight = 1.0, cudaStream_t stream){
+    void meanSquaredError(math_t* out, const math_t * A, const math_t *B, size_t len, math_t weight, cudaStream_t stream){
         auto sq_diff = [len, weight] __device__(const math_t a, const math_t b){
             math_t diff = a - b;
             return diff * diff * weight / len;
