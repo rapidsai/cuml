@@ -21,30 +21,6 @@
 
 using namespace MLCommon::Random;
 
-namespace MLCommon {
-    namespace Random {
-        class RPROJ_Rng : protected Rng {
-            public:
-                RPROJ_Rng(int random_state)
-                    : Rng(random_state)
-                {}
-
-                template <typename Type, typename LenType = int>
-                void sparse_rand_gen(Type *ptr, LenType len, Type scale,
-                                        cudaStream_t stream)
-                {
-                    static_assert(std::is_floating_point<Type>::value,
-                                "Type for 'uniform' can only be floating point type!");
-                    randImpl(offset, ptr, len,
-                            [=] __device__(Type val, LenType idx) {
-                            return val < Type(0.5) ? -scale : scale;
-                            },
-                            NumThreads, nBlocks, type, stream);
-                }
-        };
-    }
-}
-
 inline void sample_without_replacement(size_t n_population, size_t n_samples,
 											int* indices, size_t& indices_idx)
 {
