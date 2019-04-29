@@ -90,57 +90,65 @@ class CD:
         import cudf
         from cuml.solvers import CD as cumlCD
 
+        cd = cumlCD(alpha=0.0)
+
         X = cudf.DataFrame()
         X['col1'] = np.array([1,1,2,2], dtype = np.float32)
         X['col2'] = np.array([1,2,2,3], dtype = np.float32)
-        y = cudf.Series(np.array([1, 1, 2, 2], dtype=np.float32))
-        pred_data = cudf.DataFrame()
-        pred_data['col1'] = np.asarray([3, 2], dtype=datatype)
-        pred_data['col2'] = np.asarray([5, 5], dtype=datatype)
 
-        cu_cd = cumlCD(max_iter=2000, fit_intercept=True,
-                        tol=0.0, penalty=penalty, loss=loss)
+        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
 
-        cu_cd.fit(X, y)
-        cu_pred = cu_cd.predict(pred_data).to_array()
-        print(" cuML intercept : ", cu_sgd.intercept_)
-        print(" cuML coef : ", cu_sgd.coef_)
-        print("cuML predictions : ", cu_pred)
+        reg = cd.fit(X,y)
+        print("Coefficients:")
+        print(reg.coef_)
+        print("intercept:")
+        print(reg.intercept_)
+
+        X_new = cudf.DataFrame()
+        X_new['col1'] = np.array([3,2], dtype = np.float32)
+        X_new['col2'] = np.array([5,5], dtype = np.float32)
+        preds = cd.predict(X_new)
+
+        print(preds)
 
     Output:
 
     .. code-block:: python
-            
-        cuML intercept :  0.004561662673950195
-        cuML coef :  0      0.9834546
-                    1    0.010128272
-                   dtype: float32
-        cuML predictions :  [3.0055666 2.0221121]
-            
-           
+
+        Coefficients:
+
+                    0 1.0019531
+                    1 1.9980469
+
+        Intercept:
+                    3.0
+
+        Preds:
+
+                    0 15.997
+                    1 14.995
+
+                   
     Parameters
     -----------
-    loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM   
-       'log' uses logistic regression
+    loss : 'squared_loss' (Only 'squared_loss' is supported right now)      
        'squared_loss' uses linear regression
-    penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
-       'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted average of L1 and L2 norms
     alpha: float (default = 0.0001)
-        The constant value which decides the degree of regularization
+        The constant value which decides the degree of regularization.
+        'alpha = 0' is equivalent to an ordinary least square, solved by the LinearRegression object.
+    l1_ratio: float (default = 0.15)
+        The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1. For l1_ratio = 0 the penalty is an L2 penalty. 
+        For l1_ratio = 1 it is an L1 penalty. For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
        If False, the model expects that you have centered the data.        
     max_iter : int (default = 1000)
         The number of times the model should iterate through the entire dataset during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol 
+       The tolerance for the optimization: if the updates are smaller than tol, solver stops. 
     shuffle : boolean (default = True)
-       True, shuffles the training data after each epoch
-       False, does not shuffle the training data after each epoch
+       If set to ‘True’, a random coefficient is updated every iteration rather than looping over features sequentially by default. 
+       This (setting to ‘True’) often leads to significantly faster convergence especially when tol is higher than 1e-4.
     
     """
     
@@ -151,7 +159,7 @@ class CD:
             self.loss = self._get_loss_int(loss)
         else:
             msg = "loss {!r} is not supported"
-            raise TypeError(msg.format(loss))
+            raise NotImplementedError(msg.format(loss))
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio

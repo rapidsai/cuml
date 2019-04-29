@@ -158,7 +158,6 @@ void cdFit(math_t *input,
 		}
 
 		if (!flag_continue) {
-			//printf("iter:%d, coef_max: %f, d_coef_max: %f\n", i, coef_max, d_coef_max);
 			break;
 		}
 	}
