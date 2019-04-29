@@ -32,3 +32,37 @@ def test_r2_score(datatype):
 
     # assert score == 0.98
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
+
+
+def test_sklean_search():
+    """Test ensures scoring function works with sklearn machinery
+    """
+    import numpy as np
+    from cuml import Ridge as cumlRidge
+    import cudf
+    from sklearn import datasets
+    from sklearn.model_selection import train_test_split, GridSearchCV
+    diabetes = datasets.load_diabetes()
+    X_train, X_test, y_train, y_test = train_test_split(diabetes.data,
+                                                        diabetes.target,
+                                                        test_size=0.2,
+                                                        shuffle=False,
+                                                        random_state=1)
+
+    alpha = np.array([1.0])
+    fit_intercept = True
+    normalize = False
+
+    params = {'alpha': np.logspace(-3, -1, 10)}
+    cu_clf = cumlRidge(alpha=alpha, fit_intercept=fit_intercept,
+                        normalize=normalize, solver="eig")
+
+    assert getattr(cu_clf, 'score', False)
+    sk_cu_grid = GridSearchCV(cu_clf, params, cv=5, iid=False)
+
+    record_data = (('fea%d' % i, X_train[:, i]) for i in range(X_train.shape[1]))
+    gdf_data = cudf.DataFrame(record_data)
+    gdf_train = cudf.DataFrame(dict(train=y_train))
+
+    sk_cu_grid.fit(gdf_data, gdf_train.train)
+    assert sk_cu_grid.best_params_ == {'alpha': 0.1}
