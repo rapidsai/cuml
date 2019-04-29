@@ -19,7 +19,7 @@ from cuml.test.utils import get_handle
 from sklearn.cluster import DBSCAN as skDBSCAN
 import cudf
 import numpy as np
-
+from sklearn.datasets.samples_generator import make_blobs
 from sklearn.preprocessing import StandardScaler
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
@@ -27,16 +27,16 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_dbscan_predict(datatype, input_type, run_stress, 
+def test_dbscan_predict(datatype, input_type, run_stress,
                         run_correctness_test): 
     n_samples = 10000
     n_feats = 50
     if run_stress == True:
-        X, y = make_blobs(n_samples=n_samples*50,
+        X,y = make_blobs(n_samples=n_samples*50,
                           n_features=n_feats, random_state=0)
 
     elif run_correctness_test == True:
-        X, y = make_blobs(n_samples=n_samples,
+        X,y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
     else:
