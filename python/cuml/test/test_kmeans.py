@@ -18,7 +18,6 @@ import numpy as np
 import cuml
 from sklearn import cluster
 from sklearn.preprocessing import StandardScaler
-import pdb
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'noisy_circles', 'blobs']
@@ -34,20 +33,16 @@ def test_kmeans_sklearn_comparison(name, run_stress, run_correctness_test):
                     'n_neighbors': 10,
                     'n_clusters': 20}
     n_samples = 10000
-    n_feats = 50
-    if run_stress==True:
+    if run_stress == True:
         pat = get_pattern(name, n_samples*50)
         params = default_base.copy()
         params.update(pat[1])
-        train_rows = np.int32(n_samples*8)
         X, y = pat[0]
 
     elif run_correctness_test==True:
         pat = get_pattern(name, n_samples)
         params = default_base.copy()
         params.update(pat[1])
-        train_rows = np.int32(n_samples*0.8)
-        #pdb.set_trace()
         X, y = pat[0] 
 
     else:
