@@ -50,6 +50,7 @@ add_executable(mlcommon_test
   mean.cu
   mean_center.cu
   metrics.cu
+  minmax.cu
   mvg.cu
   multiply.cu
   norm.cu
