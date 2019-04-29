@@ -451,9 +451,9 @@ namespace UMAPAlgo {
                 if(params->verbose)
                     std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
-                MLCommon::copy(rrows, crows, n_compressed_nonzeros);
-                MLCommon::copy(rcols, ccols, n_compressed_nonzeros);
-                MLCommon::copy(rvals, cvals, n_compressed_nonzeros);
+                MLCommon::copy(rrows, crows, n_compressed_nonzeros, stream);
+                MLCommon::copy(rcols, ccols, n_compressed_nonzeros, stream);
+                MLCommon::copy(rvals, cvals, n_compressed_nonzeros, stream);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
