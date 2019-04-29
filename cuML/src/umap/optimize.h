@@ -93,8 +93,8 @@ namespace UMAPAlgo {
              */
             T *a_deriv;
             MLCommon::allocate(a_deriv, n_rows);
-            MLCommon::copy(a_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(a_deriv, a_deriv, n_rows, coef,
+            MLCommon::copy(a_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(a_deriv, a_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(pow(x, 2.0*b)) /
                                 pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
@@ -109,8 +109,8 @@ namespace UMAPAlgo {
              */
             T *b_deriv;
             MLCommon::allocate(b_deriv, n_rows);
-            MLCommon::copy(b_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(b_deriv, b_deriv, n_rows, coef,
+            MLCommon::copy(b_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(b_deriv, b_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(2.0 * a * pow(x, 2.0 * b) * log(x))
                                 / pow(1 + a * pow(x, 2.0 * b), 2.0);
