@@ -47,7 +47,7 @@ template <typename T, class Comp>
 ::testing::AssertionResult
 checkParamsEqual(const T *host_weights, const T *host_bias, const T *w,
                  const int C, const int D, const bool fit_intercept,
-                 Comp &comp) {
+                 Comp &comp, cudaStream_t stream = 0) {
   std::vector<T> w_ref_cm(C * D);
   int idx = 0;
   for (int d = 0; d < D; d++)
@@ -56,11 +56,11 @@ checkParamsEqual(const T *host_weights, const T *host_bias, const T *w,
     }
 
   SimpleVecOwning<T> w_ref(C * (D + fit_intercept));
-  updateDevice(w_ref.data, &w_ref_cm[0], C * D);
+  updateDevice(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) {
-    updateDevice(&w_ref.data[C * D], host_bias, C);
+    updateDevice(&w_ref.data[C * D], host_bias, C, stream);
   }
-  return devArrMatch(w_ref.data, w, w_ref.len, comp);
+  return devArrMatch(w_ref.data, w, w_ref.len, comp, stream);
 }
 
 struct InputSpec {
@@ -78,8 +78,8 @@ template <class T> struct DevUpload {
 
     SimpleMatOwning<T> devXtmp(inSpec.n_row, inSpec.n_col);
 
-    updateDevice(devX.data, x, inSpec.n_row * inSpec.n_col);
-    updateDevice(devY.data, y, inSpec.n_row);
+    updateDevice(devX.data, x, inSpec.n_row * inSpec.n_col, 0);
+    updateDevice(devY.data, y, inSpec.n_row, 0);
   }
 };
 
