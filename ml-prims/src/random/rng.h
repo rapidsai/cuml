@@ -422,7 +422,7 @@ public:
              NumThreads, nBlocks, type, stream);
   }
 
-private:
+protected:
   /** generator type */
   GeneratorType type;
   /**
