@@ -140,7 +140,6 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     // Save the curent x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
@@ -177,7 +176,6 @@ inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
                           cudaStream_t stream) {
   if (grad.len > pg_limit) {
     pseudo.copy_async(grad, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
     SimpleVec<T> mask(pseudo.data, pg_limit);
     mask.assign_binary(x, grad, pseudo_grad, stream);
   } else {
@@ -279,7 +277,6 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     // Save the curent x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Projected line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
