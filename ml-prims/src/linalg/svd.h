@@ -50,8 +50,8 @@ namespace LinAlg {
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
-           T *right_sing_vecs, bool gen_left_vec, bool gen_right_vec,
-           cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+           T *right_sing_vecs, bool trans_right, bool gen_left_vec, bool gen_right_vec,
+           cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream,
            DeviceAllocator &mgr) {
   const int m = n_rows;
   const int n = n_cols;
@@ -59,35 +59,42 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   int *devInfo = (int *)mgr.alloc(sizeof(int));
   T *d_rwork = nullptr;
 
-  // The transposed right singular vector
-  T *right_sing_vecs_trans = (T *)mgr.alloc(sizeof(T) * n * n);
-
   int lwork = 0;
   CUSOLVER_CHECK(
     cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
   T *d_work = (T *)mgr.alloc(sizeof(T) * lwork);
 
-  signed char jobu = 'A';
-  signed char jobvt = 'A';
+  char jobu = 'S';
+  char jobvt = 'A';
+
+  if (!gen_left_vec) {
+	  char new_u = 'N';
+	  strcpy(&jobu, &new_u);
+  }
+
+  if (!gen_right_vec) {
+	  char new_vt = 'N';
+  	  strcpy(&jobvt, &new_vt);
+  }
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
-                                 left_sing_vecs, m, right_sing_vecs_trans, n,
-                                 d_work, lwork, d_rwork, devInfo));
+                                 left_sing_vecs, m, right_sing_vecs, n,
+                                 d_work, lwork, d_rwork, devInfo, stream));
 
   // Transpose the right singular vector back
-  transpose(right_sing_vecs_trans, right_sing_vecs, n, n, cublasH);
+  if (trans_right)
+	  transpose(right_sing_vecs, n_cols, stream);
+
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
-  updateHost(&dev_info, devInfo, 1);
+  updateHost(&dev_info, devInfo, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "svd.h: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
   
   ///@todo: what if stream from cusolver handle is different!?
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
-  mgr.free(right_sing_vecs_trans, stream);
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }
@@ -96,7 +103,7 @@ template <typename T>
 void svdEig(T* in, int n_rows, int n_cols, T* S,
 		   T* U, T* V, bool gen_left_vec,
             cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-    DeviceAllocator &mgr) {
+            cudaStream_t stream, DeviceAllocator &mgr) {
 
 	T *in_cross_mult;
 	int len = n_cols * n_cols;
@@ -105,19 +112,20 @@ void svdEig(T* in, int n_rows, int n_cols, T* S,
 	T alpha = T(1);
 	T beta = T(0);
 	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
-             CUBLAS_OP_N, alpha, beta, cublasH);
+             CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
-	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, mgr);
+	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, stream, mgr);
 
-	Matrix::colReverse(V, n_cols, n_cols);
-	Matrix::rowReverse(S, n_cols, 1);
+	Matrix::colReverse(V, n_cols, n_cols, stream);
+	Matrix::rowReverse(S, n_cols, 1, stream);
 
-	Matrix::seqRoot(S, S, alpha, n_cols, true);
+	Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
     if (gen_left_vec) {
     	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-             alpha, beta, cublasH);
-    	Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true);
+             alpha, beta, cublasH, stream);
+      // @ToDo: Add stream param for below prim
+      Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, stream);
     }
 
 	CUDA_CHECK(cudaFree(in_cross_mult));
@@ -148,7 +156,7 @@ template <typename math_t>
 void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
                bool gen_left_vec, bool gen_right_vec, math_t tol,
-               int max_sweeps, cusolverDnHandle_t cusolverH,
+               int max_sweeps, cusolverDnHandle_t cusolverH, cudaStream_t stream,
                DeviceAllocator &mgr) {
   gesvdjInfo_t gesvdj_params = NULL;
 
@@ -173,10 +181,8 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
   CUSOLVER_CHECK(cusolverDngesvdj(cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m,
                                   n, in, m, sing_vals, left_sing_vecs, m,
                                   right_sing_vecs, n, d_work, lwork, devInfo,
-                                  gesvdj_params));
+                                  gesvdj_params, stream));
 
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
   mgr.free(devInfo, stream);
   mgr.free(d_work);
 
@@ -199,18 +205,16 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  */
 template <typename math_t>
 void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
-                       int n_cols, int k, cublasHandle_t cublasH,
+                       int n_cols, int k, cublasHandle_t cublasH, cudaStream_t stream,
                        DeviceAllocator &mgr) {
   const math_t alpha = 1.0, beta = 0.0;
   math_t *SVT = (math_t *)mgr.alloc(sizeof(math_t) * k * n_cols);
 
   gemm(S, k, k, V, SVT, k, n_cols, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-       cublasH);
+       cublasH, stream);
   gemm(U, n_rows, k, SVT, out, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha,
-       beta, cublasH);
+       beta, cublasH, stream);
 
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
   mgr.free(SVT, stream);
 }
 
@@ -231,10 +235,9 @@ void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
 template <typename math_t>
 bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
                          int n_rows, int n_cols, int k, math_t tol,
-                         cublasHandle_t cublasH, DeviceAllocator &mgr) {
+                         cublasHandle_t cublasH, cudaStream_t stream,
+                         DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
-  cudaStream_t stream;
-  CUBLAS_CHECK(cublasGetStream(cublasH, &stream));
 
   // form product matrix
   math_t *P_d = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
@@ -242,15 +245,15 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   math_t *S_mat = (math_t *)mgr.alloc(sizeof(math_t) * k * k);
   CUDA_CHECK(cudaMemsetAsync(S_mat, 0, sizeof(math_t) * k * k, stream));
 
-  Matrix::initializeDiagonalMatrix(S_vec, S_mat, k, k);
-  svdReconstruction(U, S_mat, V, P_d, m, n, k, cublasH, mgr);
+  Matrix::initializeDiagonalMatrix(S_vec, S_mat, k, k, stream);
+  svdReconstruction(U, S_mat, V, P_d, m, n, k, cublasH, stream, mgr);
 
   // get norms of each
-  math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH);
-  math_t normU = Matrix::getL2Norm(U, m * k, cublasH);
-  math_t normS = Matrix::getL2Norm(S_mat, k * k, cublasH);
-  math_t normV = Matrix::getL2Norm(V, n * k, cublasH);
-  math_t normP = Matrix::getL2Norm(P_d, m * n, cublasH);
+  math_t normA = Matrix::getL2Norm(A_d, m * n, cublasH, stream);
+  math_t normU = Matrix::getL2Norm(U, m * k, cublasH, stream);
+  math_t normS = Matrix::getL2Norm(S_mat, k * k, cublasH, stream);
+  math_t normV = Matrix::getL2Norm(V, n * k, cublasH, stream);
+  math_t normP = Matrix::getL2Norm(P_d, m * n, cublasH, stream);
 
   // calculate percent error
   const math_t alpha = 1.0, beta = -1.0;
@@ -258,9 +261,9 @@ bool evaluateSVDByL2Norm(math_t *A_d, math_t *U, math_t *S_vec, math_t *V,
   CUDA_CHECK(cudaMemsetAsync(A_minus_P, 0, sizeof(math_t) * m * n, stream));
 
   CUBLAS_CHECK(cublasgeam(cublasH, CUBLAS_OP_N, CUBLAS_OP_N, m, n, &alpha, A_d,
-                          m, &beta, P_d, m, A_minus_P, m));
+                          m, &beta, P_d, m, A_minus_P, m, stream));
 
-  math_t norm_A_minus_P = Matrix::getL2Norm(A_minus_P, m * n, cublasH);
+  math_t norm_A_minus_P = Matrix::getL2Norm(A_minus_P, m * n, cublasH, stream);
   math_t percent_error = 100.0 * norm_A_minus_P / normA;
 
   mgr.free(A_minus_P, stream);

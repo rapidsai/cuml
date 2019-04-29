@@ -39,6 +39,7 @@ namespace FuzzySimplSet {
 			 const long *knn_indices, const T *knn_dists,
 			 int *orows, int *ocols, T *ovals,
 			 UMAPParams *params, int *nnz,
+       cudaStream_t stream,
 			 int algorithm = 0) {
 
 		switch(algorithm) {
@@ -46,7 +47,7 @@ namespace FuzzySimplSet {
 			Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists,
 					       orows, ocols, ovals,
 					       nnz,
-					       params);
+					       params, stream);
 			break;
 		}
 	}

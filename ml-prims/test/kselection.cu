@@ -46,7 +46,7 @@ void sortTest(TypeK *key) {
   CUDA_CHECK(cudaMalloc((void **)&dkey, sizeof(TypeK) * TPB * N));
   sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey);
   CUDA_CHECK(cudaPeekAtLastError());
-  updateHost<TypeK>(key, dkey, TPB * N);
+  updateHost<TypeK>(key, dkey, TPB * N, 0);
   CUDA_CHECK(cudaFree(dkey));
 }
 
@@ -77,7 +77,7 @@ template <typename TypeV, typename TypeK, bool Greater>
   for (int rIndex = 0; rIndex < rows; rIndex++) {
     // input data
     TypeV *h_arr = new TypeV[N];
-    updateHost(h_arr, d_arr + rIndex * N, N);
+    updateHost(h_arr, d_arr + rIndex * N, N, 0);
     KVPair<TypeV, TypeK> *topk = new KVPair<TypeV, TypeK>[N];
     for (int j = 0; j < N; j++) {
       topk[j].val = h_arr[j];
@@ -85,9 +85,9 @@ template <typename TypeV, typename TypeK, bool Greater>
     }
     // result reference
     TypeV *h_outv = new TypeV[k];
-    updateHost(h_outv, d_outv + rIndex * k, k);
+    updateHost(h_outv, d_outv + rIndex * k, k, 0);
     TypeK *h_outk = new TypeK[k];
-    updateHost(h_outk, d_outk + rIndex * k, k);
+    updateHost(h_outk, d_outk + rIndex * k, k, 0);
     // calculate the result
     partSortKVPair<TypeV, TypeK, Greater>(topk, N, k);
 
@@ -133,15 +133,18 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(arr, params.rows * params.cols);
     allocate(outk, params.rows * params.k);
     allocate(outv, params.rows * params.k);
-    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0));
+    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort = false;
     static const bool Greater = true;
     warpTopK<T, int, Greater, Sort>(outv, outk, arr, params.k, params.rows,
-                                    params.cols);
+                                    params.cols, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

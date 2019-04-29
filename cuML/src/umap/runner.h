@@ -105,8 +105,8 @@ namespace UMAPAlgo {
      * a and b, which are based on min_dist and spread
      * parameters.
      */
-    void find_ab(UMAPParams *params) {
-        Optimize::find_params_ab(params);
+    void find_ab(UMAPParams *params, cudaStream_t stream) {
+        Optimize::find_params_ab(params, stream);
     }
 
     /**
@@ -118,9 +118,10 @@ namespace UMAPAlgo {
 	            int d,      // cols
 	            kNN *knn,
 	            UMAPParams *params,
-	            T *embeddings) {
+	            T *embeddings,
+              cudaStream_t stream) {
 
-	    find_ab(params);
+	    find_ab(params, stream);
 
 		/**
 		 * Allocate workspace for kNN graph
@@ -131,7 +132,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(knn_indices, n*params->n_neighbors);
 		MLCommon::allocate(knn_dists, n*params->n_neighbors);
 
-        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params);
+        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
 		CUDA_CHECK(cudaPeekAtLastError());
 
         int *rgraph_rows, *rgraph_cols;
@@ -161,7 +162,7 @@ namespace UMAPAlgo {
 		        knn_indices, knn_dists,
 		        rgraph_rows, rgraph_cols, rgraph_vals,
 		        nnz,
-		        params, embeddings, params->init);
+		        params, embeddings, stream, params->init);
 
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
@@ -170,7 +171,7 @@ namespace UMAPAlgo {
 		SimplSetEmbed::run<TPB_X, T>(
 		        X, n, d,
 		        rgraph_rows, rgraph_cols, rgraph_vals, nnz,
-		        params, embeddings);
+		        params, embeddings, stream);
 
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -194,7 +195,8 @@ namespace UMAPAlgo {
 	                  int embedding_n,
                       kNN *knn,
 	                  UMAPParams *params,
-	                  T *transformed) {
+	                  T *transformed,
+                    cudaStream_t stream) {
 
 	    /**
 	     * Perform kNN of X
@@ -208,8 +210,8 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
 
         MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, n*params->n_neighbors,
-            [] __device__(T input) { return sqrt(input); }
-        );
+            [] __device__(T input) { return sqrt(input); },
+        stream);
 
 	    float adjusted_local_connectivity = max(0.0, params->local_connectivity - 1.0);
 
@@ -228,7 +230,7 @@ namespace UMAPAlgo {
         dim3 blk(TPB_X, 1, 1);
 
         FuzzySimplSetImpl::smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                rhos, sigmas, params, adjusted_local_connectivity
+                rhos, sigmas, params, adjusted_local_connectivity, stream
         );
 
         /**
@@ -259,8 +261,8 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
 
         if(params->verbose) {
-            std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
-            std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+            std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
+            std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
         }
 
         int *ia, *ex_scan;
@@ -306,8 +308,8 @@ namespace UMAPAlgo {
                     return 0.0f;
                 else
                     return input;
-            }
-        );
+            },
+            stream);
 
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -340,7 +342,8 @@ namespace UMAPAlgo {
         T *epochs_per_sample;
         MLCommon::allocate(epochs_per_sample, nnz);
 
-        SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs, epochs_per_sample);
+        SimplSetEmbedImpl::make_epochs_per_sample(cvals, non_zero_vals, params->n_epochs,
+                                                    epochs_per_sample, stream);
         CUDA_CHECK(cudaPeekAtLastError());
 
         SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
@@ -351,7 +354,8 @@ namespace UMAPAlgo {
             n,
             params->repulsion_strength,
             params,
-            n_epochs
+            n_epochs,
+            stream
         );
         CUDA_CHECK(cudaPeekAtLastError());
 

@@ -42,18 +42,21 @@ protected:
     params = ::testing::TestWithParam<MatrixInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.n_row * params.n_col;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);
     allocate(in2, len);
     allocate(in1_revr, len);
-    r.uniform(in1, len, T(-1.0), T(1.0));
+    r.uniform(in1, len, T(-1.0), T(1.0), stream);
 
-    copy(in1, in2, params.n_row, params.n_col);
+    copy(in1, in2, params.n_row, params.n_col, stream);
     // copy(in1, in1_revr, params.n_row, params.n_col);
     // colReverse(in1_revr, params.n_row, params.n_col);
 
     T *outTrunc;
     allocate(outTrunc, 6);
-    truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2);
+    truncZeroOrigin(in1, params.n_row, outTrunc, 3, 2, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

@@ -72,7 +72,8 @@ namespace UMAPAlgo {
          * to a smooth function based on exponential decay
          */
         template<typename T, int TPB_X>
-        void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads, UMAPParams *params) {
+        void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
+                          UMAPParams *params, cudaStream_t stream) {
 
             dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -84,7 +85,7 @@ namespace UMAPAlgo {
             MLCommon::allocate(residuals, n_rows);
 
             f<T, TPB_X>(input, n_rows, coef, residuals);
-            MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows);
+            MLCommon::LinAlg::eltwiseSub(residuals, residuals, labels, n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -92,15 +93,15 @@ namespace UMAPAlgo {
              */
             T *a_deriv;
             MLCommon::allocate(a_deriv, n_rows);
-            MLCommon::copy(a_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(a_deriv, a_deriv, n_rows, coef,
+            MLCommon::copy(a_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(a_deriv, a_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(pow(x, 2.0*b)) /
                                 pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
                     }
             );
 
-            MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals , n_rows);
+            MLCommon::LinAlg::eltwiseMultiply(a_deriv, a_deriv, residuals , n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
@@ -108,8 +109,8 @@ namespace UMAPAlgo {
              */
             T *b_deriv;
             MLCommon::allocate(b_deriv, n_rows);
-            MLCommon::copy(b_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(b_deriv, b_deriv, n_rows, coef,
+            MLCommon::copy(b_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(b_deriv, b_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(2.0 * a * pow(x, 2.0 * b) * log(x))
                                 / pow(1 + a * pow(x, 2.0 * b), 2.0);
@@ -119,14 +120,14 @@ namespace UMAPAlgo {
             /**
              * Multiply partial derivs by residuals
              */
-            MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows);
+            MLCommon::LinAlg::eltwiseMultiply(b_deriv, b_deriv, residuals, n_rows, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             /**
              * Finally, take the mean
              */
-            MLCommon::Stats::mean(grads,  a_deriv, 1, n_rows, false, false);
-            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false);
+            MLCommon::Stats::mean(grads,  a_deriv, 1, n_rows, false, false, stream);
+            MLCommon::Stats::mean(grads+1,b_deriv, 1, n_rows, false, false, stream);
 
             CUDA_CHECK(cudaPeekAtLastError());
 
@@ -141,7 +142,8 @@ namespace UMAPAlgo {
          */
         template<typename T, int TPB_X>
         void optimize_params(T *input, int n_rows, const T *labels,
-                T *coef, UMAPParams *params, float tolerance = 1e-6, int max_epochs = 25000) {
+                T *coef, UMAPParams *params, cudaStream_t stream,
+                float tolerance = 1e-6, int max_epochs = 25000) {
 
             // Don't really need a learning rate since
             // we aren't using stochastic GD
@@ -154,13 +156,14 @@ namespace UMAPAlgo {
                 T *grads;
                 MLCommon::allocate(grads, 2, true);
 
-                abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params);
+                abLossGrads<T, TPB_X>(input, n_rows, labels, coef, grads, params, stream);
 
-                MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2);
-                MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2);
+                MLCommon::LinAlg::multiplyScalar(grads, grads, learning_rate, 2, stream);
+                MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
 
                 T * grads_h = (T*)malloc(2 * sizeof(T));
-                MLCommon::updateHost(grads_h, grads, 2);
+                MLCommon::updateHost(grads_h, grads, 2, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
                 for(int i = 0; i < 2; i++) {
                     if(abs(grads_h[i]) - tolerance <= 0)
                         tol_grads += 1;
@@ -175,7 +178,7 @@ namespace UMAPAlgo {
 
         }
 
-        void find_params_ab(UMAPParams *params) {
+        void find_params_ab(UMAPParams *params, cudaStream_t stream) {
 
             float spread = params->spread;
             float min_dist = params->min_dist;
@@ -196,23 +199,24 @@ namespace UMAPAlgo {
 
             float *X_d;
             MLCommon::allocate(X_d, 300);
-            MLCommon::updateDevice(X_d, X, 300);
+            MLCommon::updateDevice(X_d, X, 300, stream);
 
             float *y_d;
             MLCommon::allocate(y_d, 300);
-            MLCommon::updateDevice(y_d, y, 300);
+            MLCommon::updateDevice(y_d, y, 300, stream);
             float *coeffs_h = (float*)malloc(2 * sizeof(float));
             coeffs_h[0] = 1.0;
             coeffs_h[1] = 1.0;
 
             float *coeffs;
             MLCommon::allocate(coeffs, 2, true);
-            MLCommon::updateDevice(coeffs, coeffs_h, 2);
+            MLCommon::updateDevice(coeffs, coeffs_h, 2, stream);
 
-            optimize_params<float, 256>(X_d, 300, y_d, coeffs, params);
+            optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
 
-            MLCommon::updateHost(&(params->a), coeffs, 1);
-            MLCommon::updateHost(&(params->b), coeffs+1, 1);
+            MLCommon::updateHost(&(params->a), coeffs, 1, stream);
+            MLCommon::updateHost(&(params->b), coeffs+1, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
 
             if(params->verbose)
                 std::cout << "a=" << params->a << ", " << params->b << std::endl;
