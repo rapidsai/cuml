@@ -63,9 +63,9 @@ namespace ML {
 		{
 			int len = params.n_components * params.n_features;
 			allocate(random_matrix->dense_data, len);
-			auto rproj_rng = RPROJ_Rng(params.random_state);
+			auto rng = Random::Rng(params.random_state);
 			math_t scale = 1.0 / sqrt(math_t(params.n_components));
-			rproj_rng.sparse_rand_gen(random_matrix->dense_data, len, scale, stream);
+			rng.scaled_bernoulli(random_matrix->dense_data, len, math_t(0.5), scale, stream);
 		}
 		else
 		{
@@ -104,9 +104,9 @@ namespace ML {
 
 			len = offset;
 			allocate(random_matrix->sparse_data, len);
-			auto rproj_rng = RPROJ_Rng(params.random_state);
+			auto rng = Random::Rng(params.random_state);
 			math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
-			rproj_rng.sparse_rand_gen(random_matrix->sparse_data, len, scale, stream);
+			rng.scaled_bernoulli(random_matrix->sparse_data, len, math_t(0.5), scale, stream);
 
 			random_matrix->sparse_data_size = len;
 		}
