@@ -16,11 +16,10 @@
 
 #pragma once
 
-#include <cublas_v2.h>
 #include "cublas_wrappers.h"
-#include "cutlass_wrappers.h"
 #include "cuda_utils.h"
-
+#include "cutlass_wrappers.h"
+#include <cublas_v2.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -63,28 +62,28 @@ namespace LinAlg {
  * @param stream cuda stream where to launch work
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename Index_ = int,
-  typename GemmConfig_ = CustomGemmConfig<
-    IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-     MainLoopFunctor_>,
-  typename EpilogueFunctor_ = LinearScaling<OType>,
-  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
-    GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
-  typename Lambda, typename FinalLambda>
+    typename IType, typename AccType, typename OType, typename OutputTile_,
+    typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+    typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+        AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+    typename Index_ = int,
+    typename GemmConfig_ =
+        CustomGemmConfig<IType, AccType, OType, OutputTile_,
+                         AccumulatorsPerThread_, MainLoopFunctor_>,
+    typename EpilogueFunctor_ = LinearScaling<OType>,
+    typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
+        GemmConfig_, EpilogueFunctor_, Index_>,
+    typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+    typename Lambda, typename FinalLambda>
 void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
           int k, OType alpha, IType const *A, int lda, IType const *B, int ldb,
           OType beta, OType const *C, int ldc, OType *D, Lambda op,
           FinalLambda fin_op, cudaStream_t stream) {
   baseGemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-           MainLoopFunctor_, Index_, GemmConfig_,
-           EpilogueFunctor_, GemmEpilogueTraits_, GemmEpilogue_>(
-    transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, op, fin_op,
-    stream);
+           MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
+           GemmEpilogueTraits_, GemmEpilogue_>(transA, transB, m, n, k, alpha,
+                                               A, lda, B, ldb, beta, C, ldc, D,
+                                               op, fin_op, stream);
 }
 
 /**
@@ -115,26 +114,24 @@ void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @{
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
+    typename IType, typename AccType, typename OType, typename OutputTile_,
+    typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+    typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+        AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+    typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
 void gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
           int k, OType alpha, IType const *A, int lda, IType const *B, int ldb,
-          OType beta, OType const *C, int ldc, OType *D,
-          cudaStream_t stream) {
+          OType beta, OType const *C, int ldc, OType *D, cudaStream_t stream) {
   typedef CustomGemmConfig<IType, AccType, OType, OutputTile_,
                            AccumulatorsPerThread_, MainLoopFunctor_>
       GemmConfig_;
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, int, GemmConfig_, EpilogueFunctor_>(
-           transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
-           [](typename EpilogueFunctor_::Params &p) { return 0; },
-           0,   // missing final lambda here
-           stream);
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D,
+      [](typename EpilogueFunctor_::Params &p) { return 0; },
+      0, // missing final lambda here
+      stream);
 }
-
 
 /**
  * @brief the wrapper of cublas gemm function
@@ -172,13 +169,14 @@ void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
 template <typename math_t>
 void gemm(const math_t *a, int n_rows_a, int n_cols_a, const math_t *b,
           math_t *c, int n_rows_c, int n_cols_c, cublasOperation_t trans_a,
-          cublasOperation_t trans_b, cublasHandle_t cublas_h, cudaStream_t stream) {
+          cublasOperation_t trans_b, cublasHandle_t cublas_h,
+          cudaStream_t stream) {
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
+  math_t alpha = math_t(1);
+  math_t beta = math_t(0);
 
-	 gemm(a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a,
-	           trans_b, alpha, beta, cublas_h, stream);
+  gemm(a, n_rows_a, n_cols_a, b, c, n_rows_c, n_cols_c, trans_a, trans_b, alpha,
+       beta, cublas_h, stream);
 }
 
 } // end namespace LinAlg

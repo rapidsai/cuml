@@ -18,7 +18,6 @@
 
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
 
 /** functor for allocating a chunk of memory */
@@ -26,7 +25,6 @@ typedef void *(*AllocFunctor)(size_t);
 
 /** functor for deallocating a chunk of memory */
 typedef void (*DeallocFunctor)(void *, cudaStream_t);
-
 
 /**
  * @brief An interface class to provide custom memory management interface
@@ -73,7 +71,6 @@ private:
   /** functor for buffer deallocation */
   DeallocFunctor deallocF;
 };
-
 
 /** Create a default allocator object which just uses cudaMalloc and cudaFree */
 inline DeviceAllocator makeDefaultAllocator() {

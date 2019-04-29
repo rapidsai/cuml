@@ -31,16 +31,16 @@ struct FragmentSqrt : public cutlass::gemm::FragmentMultiplyAdd<Scalar_> {
 
   /// d = sqrt(b).
   template <typename FragmentB_, typename FragmentCd_>
-  CUTLASS_DEVICE void sqrt(FragmentB_ const& b, FragmentCd_& d) {
+  CUTLASS_DEVICE void sqrt(FragmentB_ const &b, FragmentCd_ &d) {
     int const kReduction = FragmentB_::kElements / FragmentCd_::kElements;
     for (int j = 0; j < FragmentCd_::kElements; ++j) {
-      d[j] = MLCommon::mySqrt( b[j * kReduction + 0] );
+      d[j] = MLCommon::mySqrt(b[j * kReduction + 0]);
       for (int k = 1; k < kReduction; ++k) {
-        d[j] += MLCommon::mySqrt( b[j * kReduction + k] );
+        d[j] += MLCommon::mySqrt(b[j * kReduction + k]);
       }
     }
   }
 };
 
-} // MLCommon
-} // Distance
+} // namespace Distance
+} // namespace MLCommon

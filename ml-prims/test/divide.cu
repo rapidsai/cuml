@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include "test_utils.h"
 #include "linalg/divide.h"
 #include "random/rng.h"
+#include "test_utils.h"
 #include "unary_op.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -33,14 +33,15 @@ __global__ void naiveDivideKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveDivide(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
+void naiveDivide(Type *out, const Type *in, Type scalar, int len,
+                 cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveDivideKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template<typename T>
+template <typename T>
 class DivideTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
 protected:
   void SetUp() override {
@@ -71,24 +72,22 @@ protected:
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef DivideTest<float> DivideTestF;
 TEST_P(DivideTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestF,
-                    ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestF, ::testing::ValuesIn(inputsf));
 
 typedef DivideTest<double> DivideTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(DivideTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestD,
-                    ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DivideTests, DivideTestD, ::testing::ValuesIn(inputsd));
 
 } // end namespace LinAlg
 } // end namespace MLCommon

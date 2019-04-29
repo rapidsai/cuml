@@ -16,13 +16,12 @@
 
 #pragma once
 
-#include <stdint.h>
-#include <cstdio>
-#include <cstdlib>
 #include "cuda_utils.h"
 #include "rng_impl.h"
+#include <cstdio>
+#include <cstdlib>
+#include <stdint.h>
 #include <type_traits>
-
 
 namespace MLCommon {
 namespace Random {
@@ -36,7 +35,6 @@ enum GeneratorType {
   /** kiss99 generator (currently the fastest) */
   GenKiss99
 };
-
 
 inline uint64_t _nextSeed() {
   // because rand() has poor randomness in lower 16b
@@ -83,8 +81,8 @@ __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
 }
 
 template <bool IsNormal, typename Type, typename LenType>
-uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len, int nThreads,
-                     int nBlocks) {
+uint64_t _setupSeeds(uint64_t &seed, uint64_t &offset, LenType len,
+                     int nThreads, int nBlocks) {
   LenType itemsPerThread = ceildiv(len, LenType(nBlocks * nThreads));
   if (IsNormal && itemsPerThread % 2 == 1) {
     ++itemsPerThread;
@@ -112,23 +110,23 @@ void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
   if (len <= 0)
     return;
   uint64_t seed = _nextSeed();
-  auto newOffset =
-    _setupSeeds<false, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
+  auto newOffset = _setupSeeds<false, MathType, LenType>(seed, offset, len,
+                                                         nThreads, nBlocks);
   switch (type) {
-    case GenPhilox:
-      randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
+  case GenPhilox:
+    randKernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    case GenTaps:
-      randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
+    break;
+  case GenTaps:
+    randKernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    case GenKiss99:
-      randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
+    break;
+  case GenKiss99:
+    randKernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, randOp);
-      break;
-    default:
-      ASSERT(false, "randImpl: Incorrect generator type! %d", type);
+    break;
+  default:
+    ASSERT(false, "randImpl: Incorrect generator type! %d", type);
   };
   CUDA_CHECK(cudaPeekAtLastError());
   offset = newOffset;
@@ -142,23 +140,23 @@ void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
   if (len <= 0)
     return;
   uint64_t seed = _nextSeed();
-  auto newOffset =
-    _setupSeeds<true, MathType, LenType>(seed, offset, len, nThreads, nBlocks);
+  auto newOffset = _setupSeeds<true, MathType, LenType>(seed, offset, len,
+                                                        nThreads, nBlocks);
   switch (type) {
-    case GenPhilox:
-      rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda2>
+  case GenPhilox:
+    rand2Kernel<OutType, MathType, detail::PhiloxGenerator, LenType, Lambda2>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    case GenTaps:
-      rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
+    break;
+  case GenTaps:
+    rand2Kernel<OutType, MathType, detail::TapsGenerator, LenType, Lambda2>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    case GenKiss99:
-      rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda2>
+    break;
+  case GenKiss99:
+    rand2Kernel<OutType, MathType, detail::Kiss99Generator, LenType, Lambda2>
         <<<nBlocks, nThreads, 0, stream>>>(seed, offset, ptr, len, rand2Op);
-      break;
-    default:
-      ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
+    break;
+  default:
+    ASSERT(false, "rand2Impl: Incorrect generator type! %d", type);
   };
   CUDA_CHECK(cudaPeekAtLastError());
   offset = newOffset;
@@ -172,7 +170,6 @@ __global__ void constFillKernel(Type *ptr, int len, Type val) {
     ptr[idx] = val;
   }
 }
-
 
 /** The main random number generator class, fully on GPUs */
 class Rng {
@@ -206,22 +203,24 @@ public:
                cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point type!");
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               return (val * (end - start)) + start;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          return (val * (end - start)) + start;
+        },
+        NumThreads, nBlocks, type, stream);
   }
   template <typename IntType, typename LenType = int>
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
                   cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer type!");
-    randImpl(offset, ptr, len,
-             [=] __device__(IntType val, LenType idx) {
-               return (val % (end - start)) + start;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(IntType val, LenType idx) {
+          return (val % (end - start)) + start;
+        },
+        NumThreads, nBlocks, type, stream);
   }
   /** @} */
 
@@ -238,18 +237,19 @@ public:
   template <typename Type, typename LenType = int>
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
               cudaStream_t stream) {
-    rand2Impl(offset, ptr, len,
-              [=] __device__(Type & val1, Type & val2, LenType idx) {
-                constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-                constexpr Type minus2 = -Type(2.0);
-                Type R = mySqrt(minus2 * myLog(val1));
-                Type theta = twoPi * val2;
-                Type s, c;
-                mySinCos(theta, s, c);
-                val1 = R * c * sigma + mu;
-                val2 = R * s * sigma + mu;
-              },
-              NumThreads, nBlocks, type, stream);
+    rand2Impl(
+        offset, ptr, len,
+        [=] __device__(Type & val1, Type & val2, LenType idx) {
+          constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+          constexpr Type minus2 = -Type(2.0);
+          Type R = mySqrt(minus2 * myLog(val1));
+          Type theta = twoPi * val2;
+          Type s, c;
+          mySinCos(theta, s, c);
+          val1 = R * c * sigma + mu;
+          val2 = R * s * sigma + mu;
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -278,9 +278,10 @@ public:
    */
   template <typename Type, typename LenType = int>
   void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) { return val > prob; },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) { return val > prob; },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -295,13 +296,13 @@ public:
    * @note https://en.wikipedia.org/wiki/Gumbel_distribution
    */
   template <typename Type, typename LenType = int>
-  void gumbel(Type *ptr, LenType len, Type mu, Type beta,
-              cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               return mu - beta * myLog(-myLog(val));
-             },
-             NumThreads, nBlocks, type, stream);
+  void gumbel(Type *ptr, LenType len, Type mu, Type beta, cudaStream_t stream) {
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          return mu - beta * myLog(-myLog(val));
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -317,20 +318,21 @@ public:
   template <typename Type, typename LenType = int>
   void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
                  cudaStream_t stream) {
-    rand2Impl(offset, ptr, len,
-              [=] __device__(Type & val1, Type & val2, LenType idx) {
-                constexpr Type twoPi = Type(2.0) * Type(3.141592654);
-                constexpr Type minus2 = -Type(2.0);
-                Type R = mySqrt(minus2 * myLog(val1));
-                Type theta = twoPi * val2;
-                Type s, c;
-                mySinCos(theta, s, c);
-                val1 = R * c * sigma + mu;
-                val2 = R * s * sigma + mu;
-                val1 = myExp(val1);
-                val2 = myExp(val2);
-              },
-              NumThreads, nBlocks, type, stream);
+    rand2Impl(
+        offset, ptr, len,
+        [=] __device__(Type & val1, Type & val2, LenType idx) {
+          constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+          constexpr Type minus2 = -Type(2.0);
+          Type R = mySqrt(minus2 * myLog(val1));
+          Type theta = twoPi * val2;
+          Type s, c;
+          mySinCos(theta, s, c);
+          val1 = R * c * sigma + mu;
+          val2 = R * s * sigma + mu;
+          val1 = myExp(val1);
+          val2 = myExp(val2);
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -346,12 +348,13 @@ public:
   template <typename Type, typename LenType = int>
   void logistic(Type *ptr, LenType len, Type mu, Type scale,
                 cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               return mu - scale * myLog(one / val - one);
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          constexpr Type one = (Type)1.0;
+          return mu - scale * myLog(one / val - one);
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -365,12 +368,13 @@ public:
    */
   template <typename Type, typename LenType = int>
   void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               return -myLog(one - val) / lambda;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          constexpr Type one = (Type)1.0;
+          return -myLog(one - val) / lambda;
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -384,13 +388,14 @@ public:
    */
   template <typename Type, typename LenType = int>
   void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               constexpr Type two = (Type)2.0;
-               return mySqrt(-two * myLog(one - val)) * sigma;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          constexpr Type one = (Type)1.0;
+          constexpr Type two = (Type)2.0;
+          return mySqrt(-two * myLog(one - val)) * sigma;
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
   /**
@@ -406,20 +411,21 @@ public:
   template <typename Type, typename LenType = int>
   void laplace(Type *ptr, LenType len, Type mu, Type scale,
                cudaStream_t stream) {
-    randImpl(offset, ptr, len,
-             [=] __device__(Type val, LenType idx) {
-               constexpr Type one = (Type)1.0;
-               constexpr Type two = (Type)2.0;
-               constexpr Type oneHalf = (Type)0.5;
-               Type out;
-               if (val <= oneHalf) {
-                 out = mu + scale * myLog(two * val);
-               } else {
-                 out = mu - scale * myLog(two * (one - val));
-               }
-               return out;
-             },
-             NumThreads, nBlocks, type, stream);
+    randImpl(
+        offset, ptr, len,
+        [=] __device__(Type val, LenType idx) {
+          constexpr Type one = (Type)1.0;
+          constexpr Type two = (Type)2.0;
+          constexpr Type oneHalf = (Type)0.5;
+          Type out;
+          if (val <= oneHalf) {
+            out = mu + scale * myLog(two * val);
+          } else {
+            out = mu - scale * myLog(two * (one - val));
+          }
+          return out;
+        },
+        NumThreads, nBlocks, type, stream);
   }
 
 private:

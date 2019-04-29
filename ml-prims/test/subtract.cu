@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/subtract.h"
 #include "random/rng.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -33,7 +33,7 @@ __global__ void naiveSubtractElemKernel(Type *out, const Type *in1,
 
 template <typename Type>
 void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len,
-                        cudaStream_t stream) {
+                       cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
@@ -51,15 +51,15 @@ __global__ void naiveSubtractScalarKernel(Type *out, const Type *in1,
 
 template <typename Type>
 void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len,
-                          cudaStream_t stream) {
+                         cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveSubtractScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
+  naiveSubtractScalarKernel<Type>
+      <<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-struct SubtractInputs {
+template <typename T> struct SubtractInputs {
   T tolerance;
   int len;
   unsigned long long int seed;
@@ -109,10 +109,10 @@ protected:
 };
 
 const std::vector<SubtractInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+    {0.000001f, 1024 * 1024, 1234ULL}};
 
 const std::vector<SubtractInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+    {0.00000001, 1024 * 1024, 1234ULL}};
 
 typedef SubtractTest<float> SubtractTestF;
 TEST_P(SubtractTestF, Result) {

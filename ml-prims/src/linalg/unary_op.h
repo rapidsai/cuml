@@ -19,13 +19,12 @@
 #include "cuda_utils.h"
 #include "vectorized.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
 template <typename math_t, int veclen_, typename Lambda, typename IdxType>
-__global__ void unaryOpKernel(math_t *out, const math_t *in,
-                              IdxType len, Lambda op) {
+__global__ void unaryOpKernel(math_t *out, const math_t *in, IdxType len,
+                              Lambda op) {
   typedef TxN_t<math_t, veclen_> VecType;
   VecType a;
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
@@ -40,12 +39,13 @@ __global__ void unaryOpKernel(math_t *out, const math_t *in,
   a.store(out, idx);
 }
 
-template <typename math_t, int veclen_, typename Lambda, typename IdxType, int TPB>
-void unaryOpImpl(math_t *out, const math_t *in, IdxType len,
-                 Lambda op, cudaStream_t stream) {
+template <typename math_t, int veclen_, typename Lambda, typename IdxType,
+          int TPB>
+void unaryOpImpl(math_t *out, const math_t *in, IdxType len, Lambda op,
+                 cudaStream_t stream) {
   const IdxType nblks = ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
-  unaryOpKernel<math_t, veclen_, Lambda, IdxType><<<nblks, TPB, 0, stream>>>(
-    out, in, len, op);
+  unaryOpKernel<math_t, veclen_, Lambda, IdxType>
+      <<<nblks, TPB, 0, stream>>>(out, in, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -61,10 +61,12 @@ void unaryOpImpl(math_t *out, const math_t *in, IdxType len,
  * @param op the device-lambda
  * @param stream cuda stream where to launch work
  */
-template <typename math_t, typename Lambda, typename IdxType = int, int TPB = 256>
+template <typename math_t, typename Lambda, typename IdxType = int,
+          int TPB = 256>
 void unaryOp(math_t *out, const math_t *in, IdxType len, Lambda op,
-             cudaStream_t stream) {	
-  if(len <= 0) return; //silently skip in case of 0 length input
+             cudaStream_t stream) {
+  if (len <= 0)
+    return; // silently skip in case of 0 length input
   size_t bytes = len * sizeof(math_t);
   uint64_t inAddr = uint64_t(in);
   uint64_t outAddr = uint64_t(out);

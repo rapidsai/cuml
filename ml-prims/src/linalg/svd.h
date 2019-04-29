@@ -16,15 +16,15 @@
 
 #pragma once
 
-#include "matrix/matrix.h"
 #include "cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "device_allocator.h"
-#include "gemm.h"
-#include "transpose.h"
-#include "matrix/math.h"
 #include "eig.h"
+#include "gemm.h"
+#include "matrix/math.h"
+#include "matrix/matrix.h"
+#include "transpose.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -50,9 +50,9 @@ namespace LinAlg {
 // cusolverSnSgesvd. Check if there is any other way.
 template <typename T>
 void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
-           T *right_sing_vecs, bool trans_right, bool gen_left_vec, bool gen_right_vec,
-           cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream,
-           DeviceAllocator &mgr) {
+           T *right_sing_vecs, bool trans_right, bool gen_left_vec,
+           bool gen_right_vec, cusolverDnHandle_t cusolverH,
+           cublasHandle_t cublasH, cudaStream_t stream, DeviceAllocator &mgr) {
   const int m = n_rows;
   const int n = n_cols;
 
@@ -61,29 +61,29 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
 
   int lwork = 0;
   CUSOLVER_CHECK(
-    cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
+      cusolverDngesvd_bufferSize<T>(cusolverH, n_rows, n_cols, &lwork));
   T *d_work = (T *)mgr.alloc(sizeof(T) * lwork);
 
   char jobu = 'S';
   char jobvt = 'A';
 
   if (!gen_left_vec) {
-	  char new_u = 'N';
-	  strcpy(&jobu, &new_u);
+    char new_u = 'N';
+    strcpy(&jobu, &new_u);
   }
 
   if (!gen_right_vec) {
-	  char new_vt = 'N';
-  	  strcpy(&jobvt, &new_vt);
+    char new_vt = 'N';
+    strcpy(&jobvt, &new_vt);
   }
 
   CUSOLVER_CHECK(cusolverDngesvd(cusolverH, jobu, jobvt, m, n, in, m, sing_vals,
-                                 left_sing_vecs, m, right_sing_vecs, n,
-                                 d_work, lwork, d_rwork, devInfo, stream));
+                                 left_sing_vecs, m, right_sing_vecs, n, d_work,
+                                 lwork, d_rwork, devInfo, stream));
 
   // Transpose the right singular vector back
   if (trans_right)
-	  transpose(right_sing_vecs, n_cols, stream);
+    transpose(right_sing_vecs, n_cols, stream);
 
   CUDA_CHECK(cudaGetLastError());
 
@@ -93,44 +93,43 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   ASSERT(dev_info == 0,
          "svd.h: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
-  
+
   ///@todo: what if stream from cusolver handle is different!?
   mgr.free(devInfo, stream);
   mgr.free(d_work, stream);
 }
 
 template <typename T>
-void svdEig(T* in, int n_rows, int n_cols, T* S,
-		   T* U, T* V, bool gen_left_vec,
+void svdEig(T *in, int n_rows, int n_cols, T *S, T *U, T *V, bool gen_left_vec,
             cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
             cudaStream_t stream, DeviceAllocator &mgr) {
 
-	T *in_cross_mult;
-	int len = n_cols * n_cols;
-	allocate(in_cross_mult, len);
+  T *in_cross_mult;
+  int len = n_cols * n_cols;
+  allocate(in_cross_mult, len);
 
-	T alpha = T(1);
-	T beta = T(0);
-	gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
-             CUBLAS_OP_N, alpha, beta, cublasH, stream);
+  T alpha = T(1);
+  T beta = T(0);
+  gemm(in, n_rows, n_cols, in, in_cross_mult, n_cols, n_cols, CUBLAS_OP_T,
+       CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
-	eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, stream, mgr);
+  eigDC(in_cross_mult, n_cols, n_cols, V, S, cusolverH, stream, mgr);
 
-	Matrix::colReverse(V, n_cols, n_cols, stream);
-	Matrix::rowReverse(S, n_cols, 1, stream);
+  Matrix::colReverse(V, n_cols, n_cols, stream);
+  Matrix::rowReverse(S, n_cols, 1, stream);
 
-	Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
+  Matrix::seqRoot(S, S, alpha, n_cols, stream, true);
 
-    if (gen_left_vec) {
-    	gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
-             alpha, beta, cublasH, stream);
-      // @ToDo: Add stream param for below prim
-      Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true, stream);
-    }
+  if (gen_left_vec) {
+    gemm(in, n_rows, n_cols, V, U, n_rows, n_cols, CUBLAS_OP_N, CUBLAS_OP_N,
+         alpha, beta, cublasH, stream);
+    // @ToDo: Add stream param for below prim
+    Matrix::matrixVectorBinaryDivSkipZero(U, S, n_rows, n_cols, false, true,
+                                          stream);
+  }
 
-	CUDA_CHECK(cudaFree(in_cross_mult));
+  CUDA_CHECK(cudaFree(in_cross_mult));
 }
-
 
 /**
  * @defgroup singular value decomposition (SVD) on the column major input matrix
@@ -156,8 +155,8 @@ template <typename math_t>
 void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
                math_t *left_sing_vecs, math_t *right_sing_vecs,
                bool gen_left_vec, bool gen_right_vec, math_t tol,
-               int max_sweeps, cusolverDnHandle_t cusolverH, cudaStream_t stream,
-               DeviceAllocator &mgr) {
+               int max_sweeps, cusolverDnHandle_t cusolverH,
+               cudaStream_t stream, DeviceAllocator &mgr) {
   gesvdjInfo_t gesvdj_params = NULL;
 
   CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
@@ -173,8 +172,8 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
   int econ = 1;
 
   CUSOLVER_CHECK(cusolverDngesvdj_bufferSize(
-    cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
-    left_sing_vecs, m, right_sing_vecs, n, &lwork, gesvdj_params));
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, econ, m, n, in, m, sing_vals,
+      left_sing_vecs, m, right_sing_vecs, n, &lwork, gesvdj_params));
 
   math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
 
@@ -205,8 +204,8 @@ void svdJacobi(math_t *in, int n_rows, int n_cols, math_t *sing_vals,
  */
 template <typename math_t>
 void svdReconstruction(math_t *U, math_t *S, math_t *V, math_t *out, int n_rows,
-                       int n_cols, int k, cublasHandle_t cublasH, cudaStream_t stream,
-                       DeviceAllocator &mgr) {
+                       int n_cols, int k, cublasHandle_t cublasH,
+                       cudaStream_t stream, DeviceAllocator &mgr) {
   const math_t alpha = 1.0, beta = 0.0;
   math_t *SVT = (math_t *)mgr.alloc(sizeof(math_t) * k * n_cols);
 

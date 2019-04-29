@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <stdlib.h>
-#include <algorithm>
-#include <limits>
 #include "random/rng.h"
 #include "selection/kselection.h"
+#include <algorithm>
+#include <gtest/gtest.h>
+#include <limits>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Selection {
@@ -98,8 +98,8 @@ template <typename TypeV, typename TypeK, bool Greater>
       //<<h_outk[j] <<std::endl<<std::endl;
 
       if (abs(h_outv[j] - topk[j].val) > tolerance) {
-        return ::testing::AssertionFailure() << "actual=" << topk[j].val
-                                             << " != expected=" << h_outv[j];
+        return ::testing::AssertionFailure()
+               << "actual=" << topk[j].val << " != expected=" << h_outv[j];
       }
     }
     // delete resource
@@ -111,10 +111,8 @@ template <typename TypeV, typename TypeK, bool Greater>
   return ::testing::AssertionSuccess();
 }
 
-
 // Structure  WarpTopKInputs
-template <typename T>
-struct WarpTopKInputs {
+template <typename T> struct WarpTopKInputs {
   T tolerance;
   int rows;                    // batch size
   int cols;                    // N the length of variables
@@ -164,17 +162,16 @@ protected:
 // Milestone 2: Support all the values of k between 1 and 1024; both inclusive
 // Milestone 2.1: Using the POC code to Support all the values
 const std::vector<WarpTopKInputs<float>> inputs2_0 = {
-  {0.00000001, 2, 1024, 256, 1234ULL}};
+    {0.00000001, 2, 1024, 256, 1234ULL}};
 const std::vector<WarpTopKInputs<float>> inputs2_1 = {
-  {0.00000001, 4, 2048, 1024, 1234ULL}};
+    {0.00000001, 4, 2048, 1024, 1234ULL}};
 const std::vector<WarpTopKInputs<float>> inputs2_2 = {
-  {0.00000001, 4, 2048, 1, 1234ULL}};
+    {0.00000001, 4, 2048, 1, 1234ULL}};
 
 // Milestone 2.2: Using the full thread queue and warp queue  code to support
 // all the values
 // @TODO: Milestone 3: Support not sorted
 // @TODO: Milestone 4: Support multi-gpu
-
 
 // Define the function TEST_P
 typedef WarpTopKTest<float> TestD2_0;
@@ -183,17 +180,17 @@ typedef WarpTopKTest<float> TestD2_2;
 TEST_P(TestD2_0, Result) {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+      arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
 }
 TEST_P(TestD2_1, Result) {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+      arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
 }
 TEST_P(TestD2_2, Result) {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+      arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
 }
 
 // Instantiate
@@ -203,7 +200,6 @@ INSTANTIATE_TEST_CASE_P(WarpTopKTests, TestD2_1,
                         ::testing::ValuesIn(inputs2_1));
 INSTANTIATE_TEST_CASE_P(WarpTopKTests, TestD2_2,
                         ::testing::ValuesIn(inputs2_2));
-
 
 } // end namespace Selection
 } // end namespace MLCommon

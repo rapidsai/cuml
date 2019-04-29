@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/eltwise2d.h"
 #include "random/rng.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -48,13 +48,12 @@ void naiveEltwise2DAdd(int rows, int cols, const Type *aPtr, const Type *bPtr,
                        cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(rows * cols, TPB);
-  naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(rows, cols, aPtr, bPtr, cPtr,
-                                                dPtr, alpha, beta);
+  naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(
+      rows, cols, aPtr, bPtr, cPtr, dPtr, alpha, beta);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-struct Eltwise2dInputs {
+template <typename T> struct Eltwise2dInputs {
   T tolerance;
   int w;
   int h;
@@ -65,7 +64,6 @@ template <typename T>
 ::std::ostream &operator<<(::std::ostream &os, const Eltwise2dInputs<T> &dims) {
   return os;
 }
-
 
 template <typename Type>
 void WrapperEltwise2d(int rows, int cols, const Type *aPtr, const Type *bPtr,
@@ -110,10 +108,10 @@ protected:
 };
 
 const std::vector<Eltwise2dInputs<float>> inputsf2 = {
-  {0.000001f, 1024, 1024, 1234ULL}};
+    {0.000001f, 1024, 1024, 1234ULL}};
 
 const std::vector<Eltwise2dInputs<double>> inputsd2 = {
-  {0.00000001, 1024, 1024, 1234ULL}};
+    {0.00000001, 1024, 1024, 1234ULL}};
 
 typedef Eltwise2dTest<float> Eltwise2dTestF;
 TEST_P(Eltwise2dTestF, Result) {

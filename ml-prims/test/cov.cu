@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "random/rng.h"
 #include "stats/cov.h"
 #include "stats/mean.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Stats {
 
-template <typename T>
-struct CovInputs {
+template <typename T> struct CovInputs {
   T tolerance, mean, var;
   int rows, cols;
   bool sample, rowMajor, stable;
@@ -95,40 +93,40 @@ protected:
 
 ///@todo: add stable=false after it has been implemented
 const std::vector<CovInputs<float>> inputsf = {
-  {0.03f, 1.f, 2.f, 32 * 1024, 32, true, false, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 64, true, false, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 128, true, false, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 256, true, false, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 32, false, false, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 64, false, false, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 128, false, false, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 256, false, false, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 32, true, true, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 64, true, true, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 128, true, true, true, 1234ULL},
-  {0.03f, 1.f, 2.f, 32 * 1024, 256, true, true, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 32, false, true, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 64, false, true, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 128, false, true, true, 1234ULL},
-  {0.03f, -1.f, 2.f, 32 * 1024, 256, false, true, true, 1234ULL}};
+    {0.03f, 1.f, 2.f, 32 * 1024, 32, true, false, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 64, true, false, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 128, true, false, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 256, true, false, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 32, false, false, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 64, false, false, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 128, false, false, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 256, false, false, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 32, true, true, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 64, true, true, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 128, true, true, true, 1234ULL},
+    {0.03f, 1.f, 2.f, 32 * 1024, 256, true, true, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 32, false, true, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 64, false, true, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 128, false, true, true, 1234ULL},
+    {0.03f, -1.f, 2.f, 32 * 1024, 256, false, true, true, 1234ULL}};
 
 const std::vector<CovInputs<double>> inputsd = {
-  {0.03, 1.0, 2.0, 32 * 1024, 32, true, false, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 64, true, false, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 128, true, false, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 256, true, false, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 32, false, false, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 64, false, false, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 128, false, false, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 256, false, false, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 32, true, true, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 64, true, true, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 128, true, true, true, 1234ULL},
-  {0.03, 1.0, 2.0, 32 * 1024, 256, true, true, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 32, false, true, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 64, false, true, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 128, false, true, true, 1234ULL},
-  {0.03, -1.0, 2.0, 32 * 1024, 256, false, true, true, 1234ULL}};
+    {0.03, 1.0, 2.0, 32 * 1024, 32, true, false, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 64, true, false, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 128, true, false, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 256, true, false, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 32, false, false, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 64, false, false, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 128, false, false, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 256, false, false, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 32, true, true, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 64, true, true, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 128, true, true, true, 1234ULL},
+    {0.03, 1.0, 2.0, 32 * 1024, 256, true, true, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 32, false, true, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 64, false, true, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 128, false, true, true, 1234ULL},
+    {0.03, -1.0, 2.0, 32 * 1024, 256, false, true, true, 1234ULL}};
 
 typedef CovTest<float> CovTestF;
 TEST_P(CovTestF, Result) {

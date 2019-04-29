@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "distance/distance.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-__global__ void naiveDistanceKernel(DataType *dist, const DataType *x, const DataType *y,
-                                    int m, int n, int k, DistanceType type) {
+__global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
+                                    const DataType *y, int m, int n, int k,
+                                    DistanceType type) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n)
@@ -42,8 +42,8 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x, const Dat
 }
 
 template <typename DataType>
-__global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x, const DataType *y,
-                                      int m, int n, int k) {
+__global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x,
+                                      const DataType *y, int m, int n, int k) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -63,7 +63,8 @@ __global__ void naiveL1DistanceKernel(DataType *dist, const DataType *x, const D
 
 template <typename DataType>
 __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
-                                          const DataType *y, int m, int n, int k) {
+                                          const DataType *y, int m, int n,
+                                          int k) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n) {
@@ -87,51 +88,52 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
 }
 
 template <typename DataType>
-void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m, int n,
-                   int k, DistanceType type) {
+void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
+                   int n, int k, DistanceType type) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
-    case EucUnexpandedL1:
-      naiveL1DistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
-      break;
-    case EucUnexpandedL2Sqrt:
-    case EucUnexpandedL2:
-    case EucExpandedL2Sqrt:
-    case EucExpandedL2:
-      naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type);
-      break;
-    case EucExpandedCosine:
-      naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
-      break;
-    default:
-      FAIL() << "should be here\n";
+  case EucUnexpandedL1:
+    naiveL1DistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
+    break;
+  case EucUnexpandedL2Sqrt:
+  case EucUnexpandedL2:
+  case EucExpandedL2Sqrt:
+  case EucExpandedL2:
+    naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type);
+    break;
+  case EucExpandedCosine:
+    naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k);
+    break;
+  default:
+    FAIL() << "should be here\n";
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename DataType>
-struct DistanceInputs {
+template <typename DataType> struct DistanceInputs {
   DataType tolerance;
   int m, n, k;
   unsigned long long int seed;
 };
 
 template <typename DataType>
-::std::ostream &operator<<(::std::ostream &os, const DistanceInputs<DataType> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const DistanceInputs<DataType> &dims) {
   return os;
 }
 
 template <DistanceType distanceType, typename DataType, typename OutputTile_t>
-void distanceLauncher(DataType* x, DataType* y, DataType* dist, DataType* dist2, int m, int n, int k,
-                      DistanceInputs<DataType>& params, DataType threshold, char* workspace,
-                      size_t worksize, cudaStream_t stream) {
-    auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
-      dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
-      return d_val;
-    };
-    distance<distanceType, DataType, DataType, DataType, OutputTile_t>(
+void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
+                      int m, int n, int k, DistanceInputs<DataType> &params,
+                      DataType threshold, char *workspace, size_t worksize,
+                      cudaStream_t stream) {
+  auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
+    dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
+    return d_val;
+  };
+  distance<distanceType, DataType, DataType, DataType, OutputTile_t>(
       x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
 }
 
@@ -155,7 +157,9 @@ public:
     r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     naiveDistance(dist_ref, x, y, m, n, k, distanceType);
     char *workspace = nullptr;
-    size_t worksize = getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n, k);
+    size_t worksize =
+        getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n,
+                                                                     k);
 
     if (worksize != 0) {
       allocate(workspace, worksize);
@@ -163,8 +167,9 @@ public:
 
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType, OutputTile_t>(x, y, dist, dist2, m, n, k, params,
-                                                           threshold, workspace, worksize, stream);
+    distanceLauncher<distanceType, DataType, OutputTile_t>(
+        x, y, dist, dist2, m, n, k, params, threshold, workspace, worksize,
+        stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }

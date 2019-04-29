@@ -51,14 +51,14 @@ void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
   math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
-  CUSOLVER_CHECK(
-    cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo, stream));
+  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork,
+                                 devInfo, stream));
   mgr.free(workspace, stream);
   CUSOLVER_CHECK(
-    cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
+      cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
   workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
-  CUSOLVER_CHECK(
-    cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo, stream));
+  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace,
+                                 Lwork, devInfo, stream));
   mgr.free(workspace, stream);
   mgr.free(devInfo, stream);
 
@@ -93,10 +93,11 @@ void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
   int *devInfo = (int *)mgr.alloc(sizeof(int));
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(
-    cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
+      cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
   math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
   CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full,
-                                 R_full_nrows, tau, workspace, Lwork, devInfo, stream));
+                                 R_full_nrows, tau, workspace, Lwork, devInfo,
+                                 stream));
   mgr.free(workspace, stream);
 
   Matrix::copyUpperTriangular(R_full, R, m, n, stream);

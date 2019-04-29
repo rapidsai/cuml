@@ -16,10 +16,9 @@
 
 #pragma once
 
-#include <stdlib.h>
-#include <limits>
 #include "cuda_utils.h"
-
+#include <limits>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Selection {
@@ -29,20 +28,17 @@ namespace Selection {
  * @tparam Greater whether to apply greater or lesser than comparison
  * @tparam T data type
  */
-template <bool Greater, typename T>
-struct Compare {
+template <bool Greater, typename T> struct Compare {
   /** compare the two input operands */
   static DI bool op(T a, T b) { return Greater ? a > b : a < b; }
 };
-
 
 /**
  * @brief Struct to abstract compare-and-swap operation
  * @tparam TypeV value type
  * @tparam TypeK key type
  */
-template <typename TypeV, typename TypeK>
-struct KVPair {
+template <typename TypeV, typename TypeK> struct KVPair {
   /** the value used to compare and decide for swap */
   TypeV val;
   /** key associated with the value */
@@ -55,8 +51,7 @@ struct KVPair {
    * @param other the other pair
    * @param reverse whether the comparison needs to be reversed or not
    */
-  template <bool Greater>
-  DI void cas(Pair &other, bool reverse) {
+  template <bool Greater> DI void cas(Pair &other, bool reverse) {
     bool swap_ = compare<Greater>(other, reverse);
     if (swap_)
       swap(other);
@@ -123,8 +118,7 @@ struct KVPair {
   }
 
 private:
-  template <bool Greater>
-  DI bool compare(const Pair &other, bool reverse) {
+  template <bool Greater> DI bool compare(const Pair &other, bool reverse) {
     return reverse ? Compare<!Greater, TypeV>::op(val, other.val)
                    : Compare<Greater, TypeV>::op(val, other.val);
   }
@@ -135,7 +129,6 @@ private:
     other = tmp;
   }
 };
-
 
 /**
  * @brief perform a warp-wide parallel one-pass bitonic sort stage
@@ -177,7 +170,6 @@ DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
   bitonicSortStage<TypeV, TypeK, Greater, 4>(current);
 }
 
-
 /**
  * @brief perform a warp-wide parallel one-pass bitonic kind of network
  * traversal
@@ -197,7 +189,6 @@ DI void warpSort(KVPair<TypeV, TypeK> &current) {
   }
 }
 
-
 /**
  * @brief Struct to abstract an array of key-val pairs.
  * It is assumed to be strided across warp. Meaning, this array is assumed to be
@@ -208,8 +199,7 @@ DI void warpSort(KVPair<TypeV, TypeK> &current) {
  * @tparam N number of elements in the array
  * @tparam Greater whether to do a greater than comparison
  */
-template <typename TypeV, typename TypeK, int N, bool Greater>
-struct KVArray {
+template <typename TypeV, typename TypeK, int N, bool Greater> struct KVArray {
   typedef KVPair<TypeV, TypeK> Pair;
   /** the array of pairs */
   Pair arr[N];
@@ -258,7 +248,6 @@ struct KVArray {
       warpWideSort();
     }
   }
-
 
 private:
   DI void mergeHalves(int stride, int start) {
@@ -333,9 +322,8 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
 
 #define CASE_K(kval)                                                           \
   case kval:                                                                   \
-    warpTopKkernel<TypeV, TypeK, kval, TPB, Greater,                           \
-                   Sort><<<nblks, TPB, 0, stream>>>(outV, outK, arr, k, rows,  \
-                                                    cols, iV, iK);             \
+    warpTopKkernel<TypeV, TypeK, kval, TPB, Greater, Sort>                     \
+        <<<nblks, TPB, 0, stream>>>(outV, outK, arr, k, rows, cols, iV, iK);   \
     break
 /**
  * @brief Perform warp-wide top-k selection on the input matrix
@@ -350,7 +338,7 @@ template <typename TypeV, typename TypeK, bool Greater, bool Sort>
 void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
               TypeK cols, cudaStream_t stream) {
   static_assert(std::is_same<TypeV, float>::value &&
-                  (std::is_same<TypeK, int>::value),
+                    (std::is_same<TypeK, int>::value),
                 "type not support");
   constexpr int TPB = 256;
   constexpr int RowsPerBlk = TPB / WarpSize;
@@ -393,8 +381,8 @@ void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
     CASE_K(30);
     CASE_K(31);
     CASE_K(32);
-    default:
-      ASSERT(false, "TopK kernels only support k <= 1024 [%d]", k);
+  default:
+    ASSERT(false, "TopK kernels only support k <= 1024 [%d]", k);
   };
 }
 #undef CASE_K

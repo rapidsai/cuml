@@ -15,14 +15,14 @@
  */
 
 #pragma once
-#include <stdio.h>
-#include <cmath>
 #include "cuda_utils.h"
 #include "curand_wrappers.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/cusolver_wrappers.h"
 #include "linalg/matrix_vector_op.h"
 #include "linalg/unary_op.h"
+#include <cmath>
+#include <stdio.h>
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
@@ -44,10 +44,12 @@ enum Filler : unsigned char {
  */
 template <typename T>
 void epsilonToZero(T *eig, T epsilon, int size, cudaStream_t stream) {
-  LinAlg::unaryOp(eig, eig, size, [epsilon] __device__(T in) {
-    return (in < epsilon && in > -epsilon) ? T(0.0) : in;
-  },
-  stream);
+  LinAlg::unaryOp(
+      eig, eig, size,
+      [epsilon] __device__(T in) {
+        return (in < epsilon && in > -epsilon) ? T(0.0) : in;
+      },
+      stream);
 }
 
 /**
@@ -63,8 +65,8 @@ template <typename T>
 void matVecAdd(T *out, const T *in_m, const T *in_v, T scalar, int rows,
                int cols, cudaStream_t stream) {
   LinAlg::matrixVectorOp(
-    out, in_m, in_v, cols, rows, true, true,
-    [=] __device__(T mat, T vec) { return mat + scalar * vec; }, stream);
+      out, in_m, in_v, cols, rows, true, true,
+      [=] __device__(T mat, T vec) { return mat + scalar * vec; }, stream);
 }
 
 // helper kernels
@@ -98,9 +100,7 @@ __global__ void fill_uplo(int dim, Filler uplo, T value, T *A) {
   }
 }
 
-
-template <typename T>
-class MultiVarGaussian {
+template <typename T> class MultiVarGaussian {
 public:
   enum Decomposer : unsigned char { chol_decomp, jacobi, qr };
 
@@ -140,10 +140,10 @@ private:
 public: // functions
   MultiVarGaussian() = delete;
   MultiVarGaussian(const int dim, Decomposer method)
-    : dim(dim), method(method) {}
+      : dim(dim), method(method) {}
 
   size_t init(cublasHandle_t cublasH, cusolverDnHandle_t cusolverH,
-                cudaStream_t stream) {
+              cudaStream_t stream) {
     cublasHandle = cublasH;
     cusolverHandle = cusolverH;
     cudaStream = stream;
@@ -157,10 +157,10 @@ public: // functions
       CUSOLVER_CHECK(cusolverDnXsyevjSetTolerance(syevj_params, tol));
       CUSOLVER_CHECK(cusolverDnXsyevjSetMaxSweeps(syevj_params, max_sweeps));
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevj_bufferSize(
-        cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork, syevj_params));
+          cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork, syevj_params));
     } else { // method == qr
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevd_bufferSize(
-        cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork));
+          cusolverHandle, jobz, uplo, dim, P, dim, eig, &Lwork));
     }
     return give_buffer_size();
   }
@@ -175,12 +175,14 @@ public: // functions
     if (method == chol_decomp) {
       // lower part will contains chol_decomp
       CUSOLVER_CHECK(LinAlg::cusolverDnpotrf(cusolverHandle, uplo, dim, P, dim,
-                                             workspace_decomp, Lwork, info, cudaStream));
+                                             workspace_decomp, Lwork, info,
+                                             cudaStream));
     } else if (method == jacobi) {
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevj(
-        cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
-        info, syevj_params, cudaStream)); // vectors stored as cols. & col major
-    } else {                  // qr
+          cusolverHandle, jobz, uplo, dim, P, dim, eig, workspace_decomp, Lwork,
+          info, syevj_params,
+          cudaStream)); // vectors stored as cols. & col major
+    } else {            // qr
       CUSOLVER_CHECK(LinAlg::cusolverDnsyevd(cusolverHandle, jobz, uplo, dim, P,
                                              dim, eig, workspace_decomp, Lwork,
                                              info, cudaStream));
@@ -192,7 +194,7 @@ public: // functions
     T mean = 0.0, stddv = 1.0;
     // generate nxN gaussian nums in X
     CURAND_CHECK(curandGenerateNormal(
-      gen, X, (nPoints * dim) + (nPoints * dim) % 2, mean, stddv));
+        gen, X, (nPoints * dim) + (nPoints * dim) % 2, mean, stddv));
     T alfa = 1.0, beta = 0.0;
     if (method == chol_decomp) {
       // upper part (0) being filled with 0.0
@@ -211,7 +213,8 @@ public: // functions
       dim3 grid(ceildiv(dim, (int)block.x));
       CUDA_CHECK(cudaMemsetAsync(info, 0, sizeof(int), cudaStream));
       grid.x = ceildiv(dim * dim, (int)block.x);
-      combined_dot_product<T><<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
+      combined_dot_product<T>
+          <<<grid, block, 0, cudaStream>>>(dim, dim, eig, P, info);
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative

@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
-#include "reduce.h"
 #include "linalg/reduce.h"
 #include "random/rng.h"
+#include "reduce.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
-struct ReduceInputs {
+template <typename T> struct ReduceInputs {
   T tolerance;
   int rows, cols;
   bool rowMajor, alongRows;
@@ -57,22 +55,22 @@ protected:
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    outlen = params.alongRows? rows : cols;
+    outlen = params.alongRows ? rows : cols;
     allocate(data, len);
     allocate(dots_exp, outlen);
     allocate(dots_act, outlen);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveReduction(dots_exp, data, cols, rows, params.rowMajor, params.alongRows,
-                   stream);
+    naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
+                   params.alongRows, stream);
 
     // Perform reduction with default inplace = false first
     reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,
                  false, stream);
     // Add to result with inplace = true next, which shouldn't affect
     // in the case of coalescedReduction!
-    if(!(params.rowMajor ^ params.alongRows)) {
-      reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,
-                   true, stream);
+    if (!(params.rowMajor ^ params.alongRows)) {
+      reduceLaunch(dots_act, data, cols, rows, params.rowMajor,
+                   params.alongRows, true, stream);
     }
   }
 
@@ -91,40 +89,40 @@ protected:
 };
 
 const std::vector<ReduceInputs<float>> inputsf = {
-  {0.000002f, 1024,  32, true, true, 1234ULL},
-  {0.000002f, 1024,  64, true, true, 1234ULL},
-  {0.000002f, 1024, 128, true, true, 1234ULL},
-  {0.000002f, 1024, 256, true, true, 1234ULL},
-  {0.000002f, 1024,  32, true, false, 1234ULL},
-  {0.000002f, 1024,  64, true, false, 1234ULL},
-  {0.000002f, 1024, 128, true, false, 1234ULL},
-  {0.000002f, 1024, 256, true, false, 1234ULL},
-  {0.000002f, 1024,  32, false, true, 1234ULL},
-  {0.000002f, 1024,  64, false, true, 1234ULL},
-  {0.000002f, 1024, 128, false, true, 1234ULL},
-  {0.000002f, 1024, 256, false, true, 1234ULL},
-  {0.000002f, 1024,  32, false, false, 1234ULL},
-  {0.000002f, 1024,  64, false, false, 1234ULL},
-  {0.000002f, 1024, 128, false, false, 1234ULL},
-  {0.000002f, 1024, 256, false, false, 1234ULL}};
+    {0.000002f, 1024, 32, true, true, 1234ULL},
+    {0.000002f, 1024, 64, true, true, 1234ULL},
+    {0.000002f, 1024, 128, true, true, 1234ULL},
+    {0.000002f, 1024, 256, true, true, 1234ULL},
+    {0.000002f, 1024, 32, true, false, 1234ULL},
+    {0.000002f, 1024, 64, true, false, 1234ULL},
+    {0.000002f, 1024, 128, true, false, 1234ULL},
+    {0.000002f, 1024, 256, true, false, 1234ULL},
+    {0.000002f, 1024, 32, false, true, 1234ULL},
+    {0.000002f, 1024, 64, false, true, 1234ULL},
+    {0.000002f, 1024, 128, false, true, 1234ULL},
+    {0.000002f, 1024, 256, false, true, 1234ULL},
+    {0.000002f, 1024, 32, false, false, 1234ULL},
+    {0.000002f, 1024, 64, false, false, 1234ULL},
+    {0.000002f, 1024, 128, false, false, 1234ULL},
+    {0.000002f, 1024, 256, false, false, 1234ULL}};
 
 const std::vector<ReduceInputs<double>> inputsd = {
-  {0.000000001, 1024,  32, true, true, 1234ULL},
-  {0.000000001, 1024,  64, true, true, 1234ULL},
-  {0.000000001, 1024, 128, true, true, 1234ULL},
-  {0.000000001, 1024, 256, true, true, 1234ULL},
-  {0.000000001, 1024,  32, true, false, 1234ULL},
-  {0.000000001, 1024,  64, true, false, 1234ULL},
-  {0.000000001, 1024, 128, true, false, 1234ULL},
-  {0.000000001, 1024, 256, true, false, 1234ULL},
-  {0.000000001, 1024,  32, false, true, 1234ULL},
-  {0.000000001, 1024,  64, false, true, 1234ULL},
-  {0.000000001, 1024, 128, false, true, 1234ULL},
-  {0.000000001, 1024, 256, false, true, 1234ULL},
-  {0.000000001, 1024,  32, false, false, 1234ULL},
-  {0.000000001, 1024,  64, false, false, 1234ULL},
-  {0.000000001, 1024, 128, false, false, 1234ULL},
-  {0.000000001, 1024, 256, false, false, 1234ULL}};
+    {0.000000001, 1024, 32, true, true, 1234ULL},
+    {0.000000001, 1024, 64, true, true, 1234ULL},
+    {0.000000001, 1024, 128, true, true, 1234ULL},
+    {0.000000001, 1024, 256, true, true, 1234ULL},
+    {0.000000001, 1024, 32, true, false, 1234ULL},
+    {0.000000001, 1024, 64, true, false, 1234ULL},
+    {0.000000001, 1024, 128, true, false, 1234ULL},
+    {0.000000001, 1024, 256, true, false, 1234ULL},
+    {0.000000001, 1024, 32, false, true, 1234ULL},
+    {0.000000001, 1024, 64, false, true, 1234ULL},
+    {0.000000001, 1024, 128, false, true, 1234ULL},
+    {0.000000001, 1024, 256, false, true, 1234ULL},
+    {0.000000001, 1024, 32, false, false, 1234ULL},
+    {0.000000001, 1024, 64, false, false, 1234ULL},
+    {0.000000001, 1024, 128, false, false, 1234ULL},
+    {0.000000001, 1024, 256, false, false, 1234ULL}};
 
 typedef ReduceTest<float> ReduceTestF;
 TEST_P(ReduceTestF, Result) {

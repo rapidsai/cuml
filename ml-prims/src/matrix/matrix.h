@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <cuda_runtime.h>
-#include <thrust/device_vector.h>
-#include <thrust/execution_policy.h>
-#include <algorithm>
-#include <cstddef>
 #include "../linalg/cublas_wrappers.h"
 #include "cuda_utils.h"
 #include "cusolverDn.h"
+#include <algorithm>
+#include <cstddef>
+#include <cuda_runtime.h>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
 
 namespace MLCommon {
 namespace Matrix {
@@ -38,25 +38,25 @@ using namespace std;
  * @param n_cols: number of columns of output matrix
  * @{
  */
-template<typename m_t>
-void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
-		int *indices, int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
+template <typename m_t>
+void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out, int *indices,
+              int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
 
-	if (rowMajor) {
-		ASSERT(false,
-				"matrix.h: row major is not supported yet!");
-	}
+  if (rowMajor) {
+    ASSERT(false, "matrix.h: row major is not supported yet!");
+  }
 
-	auto size = n_rows_indices * n_cols;
-	auto counting = thrust::make_counting_iterator<int>(0);
+  auto size = n_rows_indices * n_cols;
+  auto counting = thrust::make_counting_iterator<int>(0);
 
-	thrust::for_each(thrust::cuda::par.on(stream), counting, counting+size,
-    [=]__device__(int idx) {
-		int row = idx % n_rows_indices;
-		int col = idx / n_rows_indices;
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+                   [=] __device__(int idx) {
+                     int row = idx % n_rows_indices;
+                     int col = idx / n_rows_indices;
 
-	    out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
-	});
+                     out[col * n_rows_indices + row] =
+                         in[col * n_rows + indices[row]];
+                   });
 }
 
 /**
@@ -68,7 +68,8 @@ void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
  * @{
  */
 template <typename m_t>
-void copy(const m_t *in, m_t *out, int n_rows, int n_cols, cudaStream_t stream) {
+void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
+          cudaStream_t stream) {
   auto m = n_rows;
   auto size = n_rows * n_rows;
   auto d_q_in = in;
@@ -76,11 +77,11 @@ void copy(const m_t *in, m_t *out, int n_rows, int n_cols, cudaStream_t stream) 
   auto counting = thrust::make_counting_iterator<int>(0);
 
   thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
-    [=] __device__(int idx) {
-    int row = idx % m;
-    int col = idx / m;
-    d_q_out[col * m + row] = d_q_in[col * m + row];
-  });
+                   [=] __device__(int idx) {
+                     int row = idx % m;
+                     int col = idx / m;
+                     d_q_out[col * m + row] = d_q_in[col * m + row];
+                   });
 }
 /** @} */
 
@@ -105,11 +106,11 @@ void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
   auto counting = thrust::make_counting_iterator<int>(0);
 
   thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
-    [=] __device__(int idx) {
-    int row = idx % m;
-    int col = idx / m;
-    d_q_trunc[col * m + row] = d_q[col * k + row];
-  });
+                   [=] __device__(int idx) {
+                     int row = idx % m;
+                     int col = idx / m;
+                     d_q_trunc[col * m + row] = d_q[col * k + row];
+                   });
 }
 /** @} */
 
@@ -130,16 +131,16 @@ void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + (size / 2),
-    [=] __device__(int idx) {
-    int dest_row = idx % m;
-    int dest_col = idx / m;
-    int src_row = dest_row;
-    int src_col = (n - dest_col) - 1;
-    m_t temp = (m_t)d_q_reversed[idx];
-    d_q_reversed[idx] = d_q[src_col * m + src_row];
-    d_q[src_col * m + src_row] = temp;
-  });
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + (size / 2), [=] __device__(int idx) {
+                     int dest_row = idx % m;
+                     int dest_col = idx / m;
+                     int src_row = dest_row;
+                     int src_col = (n - dest_col) - 1;
+                     m_t temp = (m_t)d_q_reversed[idx];
+                     d_q_reversed[idx] = d_q[src_col * m + src_row];
+                     d_q[src_col * m + src_row] = temp;
+                   });
 }
 /** @} */
 
@@ -159,18 +160,18 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream),counting, counting + (size / 2),
-    [=] __device__(int idx) {
-    int dest_row = idx % m;
-    int dest_col = idx / m;
-    int src_row = (m - dest_row) - 1;
-    ;
-    int src_col = dest_col;
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + (size / 2), [=] __device__(int idx) {
+                     int dest_row = idx % m;
+                     int dest_col = idx / m;
+                     int src_row = (m - dest_row) - 1;
+                     ;
+                     int src_col = dest_col;
 
-    m_t temp = (m_t)d_q_reversed[idx];
-    d_q_reversed[idx] = d_q[src_col * m + src_row];
-    d_q[src_col * m + src_row] = temp;
-  });
+                     m_t temp = (m_t)d_q_reversed[idx];
+                     d_q_reversed[idx] = d_q[src_col * m + src_row];
+                     d_q[src_col * m + src_row] = temp;
+                   });
 }
 /** @} */
 
@@ -181,11 +182,11 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
  * @param n_cols: number of columns of input matrix
  * @{
  */
-template <typename m_t>
-void print(m_t *in, int n_rows, int n_cols) {
+template <typename m_t> void print(m_t *in, int n_rows, int n_cols) {
   // couldn't find a way to pass stream to constructor below
   thrust::host_vector<m_t> h_matrix(
-    thrust::device_ptr<m_t>(in), thrust::device_ptr<m_t>(in + n_cols * n_rows));
+      thrust::device_ptr<m_t>(in),
+      thrust::device_ptr<m_t>(in + n_cols * n_rows));
 
   for (auto i = 0; i < n_rows; i++) {
     for (auto j = 0; j < n_cols; j++) {
@@ -203,8 +204,7 @@ void print(m_t *in, int n_rows, int n_cols) {
  * @param n_cols: number of columns of input matrix
  * @{
  */
-template <typename m_t>
-void printHost(m_t *in, int n_rows, int n_cols) {
+template <typename m_t> void printHost(m_t *in, int n_rows, int n_cols) {
   for (auto i = 0; i < n_rows; i++) {
     for (auto j = 0; j < n_cols; j++) {
       printf("%1.4f ", in[j * n_rows + i]);
@@ -294,7 +294,7 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  */
 template <typename m_t>
 void copyUpperTriangular(m_t *&src, m_t *&dst, int n_rows, int n_cols,
-                          cudaStream_t stream) {
+                         cudaStream_t stream) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   dim3 block(64);
@@ -332,11 +332,12 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  */
 template <typename m_t>
 void initializeDiagonalMatrix(m_t *vec, m_t *&matrix, int n_rows, int n_cols,
-                                cudaStream_t stream) {
+                              cudaStream_t stream) {
   int k = min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
-  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
+  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows,
+                                                         n_cols, k);
 }
 /** @} */
 

@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "matrix_vector_op.h"
 #include "random/rng.h"
 #include "stats/mean.h"
 #include "stats/mean_center.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Stats {
 
-template <typename T, typename IdxType>
-struct MeanCenterInputs {
+template <typename T, typename IdxType> struct MeanCenterInputs {
   T tolerance, mean;
   IdxType rows, cols;
   bool sample, rowMajor, bcastAlongRows;
@@ -40,7 +38,8 @@ template <typename T, typename IdxType>
 }
 
 template <typename T, typename IdxType>
-class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxType>> {
+class MeanCenterTest
+    : public ::testing::TestWithParam<MeanCenterInputs<T, IdxType>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
@@ -77,32 +76,31 @@ protected:
   T *data, *meanVec, *out, *out_ref;
 };
 
-
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
-  {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, true, false, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, true, false, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
+    {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, true, false, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, true, false, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<float, int> MeanCenterTestF_i32;
 TEST_P(MeanCenterTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
@@ -112,30 +110,30 @@ INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<MeanCenterInputs<float, size_t>> inputsf_i64 = {
-  {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, false, true, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, false, true, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, true, true, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, true, true, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, false, false, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, false, false, 1234ULL},
-  {0.05f, 1.f, 1024, 32, true, true, false, 1234ULL},
-  {0.05f, 1.f, 1024, 64, true, true, false, 1234ULL},
-  {0.05f, 1.f, 1024, 128, true, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 32, false, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 64, false, true, false, 1234ULL},
-  {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
+    {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, false, true, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, false, true, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, true, true, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, true, true, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, false, false, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, false, false, 1234ULL},
+    {0.05f, 1.f, 1024, 32, true, true, false, 1234ULL},
+    {0.05f, 1.f, 1024, 64, true, true, false, 1234ULL},
+    {0.05f, 1.f, 1024, 128, true, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 32, false, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 64, false, true, false, 1234ULL},
+    {0.05f, -1.f, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<float, size_t> MeanCenterTestF_i64;
 TEST_P(MeanCenterTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
@@ -144,32 +142,31 @@ TEST_P(MeanCenterTestF_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
-
 const std::vector<MeanCenterInputs<double, int>> inputsd_i32 = {
-  {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, true, false, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, true, false, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
+    {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, true, false, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, true, false, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<double, int> MeanCenterTestD_i32;
 TEST_P(MeanCenterTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,
@@ -179,30 +176,30 @@ INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<MeanCenterInputs<double, size_t>> inputsd_i64 = {
-  {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, false, true, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, false, true, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, true, true, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, true, true, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, false, false, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, false, false, 1234ULL},
-  {0.05, 1.0, 1024, 32, true, true, false, 1234ULL},
-  {0.05, 1.0, 1024, 64, true, true, false, 1234ULL},
-  {0.05, 1.0, 1024, 128, true, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 32, false, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 64, false, true, false, 1234ULL},
-  {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
+    {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, false, true, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, false, true, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, true, true, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, true, true, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, false, false, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, false, false, 1234ULL},
+    {0.05, 1.0, 1024, 32, true, true, false, 1234ULL},
+    {0.05, 1.0, 1024, 64, true, true, false, 1234ULL},
+    {0.05, 1.0, 1024, 128, true, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 32, false, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 64, false, true, false, 1234ULL},
+    {0.05, -1.0, 1024, 128, false, true, false, 1234ULL}};
 typedef MeanCenterTest<double, size_t> MeanCenterTestD_i64;
 TEST_P(MeanCenterTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out, out_ref, params.cols,

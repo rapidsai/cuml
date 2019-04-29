@@ -19,8 +19,8 @@
 #include "cuda_utils.h"
 #include "distance/distance_epilogue.h"
 #include "distance/distance_epilogue_functor.h"
-#include "distance/distance_fragment_multiply_add.h"
 #include "distance/distance_epilogue_traits.h"
+#include "distance/distance_fragment_multiply_add.h"
 #include "linalg/gemm.h"
 #include "linalg/norm.h"
 #include "linalg/row_gemm.h"
@@ -30,7 +30,6 @@
 #include <cutlass/shape.h>
 
 #include <type_traits>
-
 
 namespace MLCommon {
 namespace Distance {
@@ -67,8 +66,10 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                    size_t worksize, FinalLambda fin_op, NormLambda norm_op,
                    cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
-  EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
+  typedef typename std::conditional<is_bool::value, AccType, OutType>::type
+      EffOutType;
+  EffOutType *pDCast =
+      reinterpret_cast<EffOutType *>(pD); // Pretend to be EffOutType;
 
   if (((pA != pB) && (worksize < (m + n) * sizeof(AccType))) ||
       (worksize < m * sizeof(AccType))) {
@@ -90,25 +91,26 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
 
   typedef typename cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
-    MainLoopFunctor_;
+      AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
+      MainLoopFunctor_;
   typedef int Index_;
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
-    GemmConfig_;
+      GemmConfig_;
 
-  typedef ExpandedDistanceEpilogueFunctor<
-    InType, AccType, GemmConfig_, FragmentMultiplyAdd_>
-    EpilogueFunctor_;
+  typedef ExpandedDistanceEpilogueFunctor<InType, AccType, GemmConfig_,
+                                          FragmentMultiplyAdd_>
+      EpilogueFunctor_;
 
-  typedef typename std::conditional<is_bool::value,
-    BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-    cutlass::gemm::GemmEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>>::type
-    EpilogueTraitsHelper_;
+  typedef typename std::conditional<
+      is_bool::value,
+      BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
+      cutlass::gemm::GemmEpilogueTraitsHelper<
+          GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
 
   typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
-    GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
-    GemmEpilogueTraits_;
+      GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
+      GemmEpilogueTraits_;
   typedef ExpandedDistanceGemmEpilogue<GemmEpilogueTraits_> GemmEpilogue_;
   typedef typename EpilogueFunctor_::Params EpiParams;
 
@@ -116,13 +118,13 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                    AccumulatorsPerThread_, MainLoopFunctor_, Index_,
                    GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
                    GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k, (EffOutType)0,
-    nullptr, n, pDCast,
-    [col_vec, row_vec, enable_sqrt] HD (EpiParams & p) {
-      int err = p.initializeExtra(col_vec, row_vec, enable_sqrt);
-      return err;
-    },
-    fin_op, stream);
+      CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
+      (EffOutType)0, nullptr, n, pDCast,
+      [col_vec, row_vec, enable_sqrt] HD(EpiParams & p) {
+        int err = p.initializeExtra(col_vec, row_vec, enable_sqrt);
+        return err;
+      },
+      fin_op, stream);
 }
 
 }; // end namespace Distance

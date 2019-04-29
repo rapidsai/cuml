@@ -14,19 +14,19 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "distance/distance.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Distance {
 
 template <typename DataType>
-__global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x, const DataType *y,
-                                       int m, int n, int k, DataType eps) {
+__global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x,
+                                       const DataType *y, int m, int n, int k,
+                                       DataType eps) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
   if (midx >= m || nidx >= n)
@@ -40,28 +40,29 @@ __global__ void naiveDistanceAdjKernel(bool *dist, const DataType *x, const Data
 }
 
 template <typename DataType>
-void naiveDistanceAdj(bool *dist, const DataType *x, const DataType *y, int m, int n,
-                      int k, DataType eps) {
+void naiveDistanceAdj(bool *dist, const DataType *x, const DataType *y, int m,
+                      int n, int k, DataType eps) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(ceildiv(m, (int)TPB.x), ceildiv(n, (int)TPB.y), 1);
   naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename DataType>
-struct DistanceAdjInputs {
+template <typename DataType> struct DistanceAdjInputs {
   DataType eps;
   int m, n, k;
   unsigned long long int seed;
 };
 
 template <typename DataType>
-::std::ostream &operator<<(::std::ostream &os, const DistanceAdjInputs<DataType> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const DistanceAdjInputs<DataType> &dims) {
   return os;
 }
 
 template <typename DataType>
-class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataType>> {
+class DistanceAdjTest
+    : public ::testing::TestWithParam<DistanceAdjInputs<DataType>> {
 public:
   void SetUp() override {
     params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
@@ -82,7 +83,8 @@ public:
 
     naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold);
     char *workspace = nullptr;
-    size_t worksize = getWorkspaceSize<EucExpandedL2, DataType, DataType, bool>(x, y, m, n, k);
+    size_t worksize = getWorkspaceSize<EucExpandedL2, DataType, DataType, bool>(
+        x, y, m, n, k);
     if (worksize != 0) {
       allocate(workspace, worksize);
     }
@@ -94,7 +96,7 @@ public:
     };
 
     distance<EucExpandedL2, DataType, DataType, bool, OutputTile_t>(
-      x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
+        x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
@@ -112,12 +114,11 @@ protected:
   bool *dist_ref, *dist;
 };
 
-
 const std::vector<DistanceAdjInputs<float>> inputsf = {
-  {0.01f, 1024, 1024, 32, 1234ULL},
-  {0.1f, 1024, 1024, 32, 1234ULL},
-  {1.0f, 1024, 1024, 32, 1234ULL},
-  {10.0f, 1024, 1024, 32, 1234ULL}};
+    {0.01f, 1024, 1024, 32, 1234ULL},
+    {0.1f, 1024, 1024, 32, 1234ULL},
+    {1.0f, 1024, 1024, 32, 1234ULL},
+    {10.0f, 1024, 1024, 32, 1234ULL}};
 typedef DistanceAdjTest<float> DistanceAdjTestF;
 TEST_P(DistanceAdjTestF, Result) {
   ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
@@ -125,12 +126,11 @@ TEST_P(DistanceAdjTestF, Result) {
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF,
                         ::testing::ValuesIn(inputsf));
 
-
 const std::vector<DistanceAdjInputs<double>> inputsd = {
-  {0.01, 1024, 1024, 32, 1234ULL},
-  {0.1, 1024, 1024, 32, 1234ULL},
-  {1.0, 1024, 1024, 32, 1234ULL},
-  {10.0, 1024, 1024, 32, 1234ULL}};
+    {0.01, 1024, 1024, 32, 1234ULL},
+    {0.1, 1024, 1024, 32, 1234ULL},
+    {1.0, 1024, 1024, 32, 1234ULL},
+    {10.0, 1024, 1024, 32, 1234ULL}};
 typedef DistanceAdjTest<double> DistanceAdjTestD;
 TEST_P(DistanceAdjTestD, Result) {
   ASSERT_TRUE(devArrMatch(dist_ref, dist, params.m, params.n, Compare<bool>()));
@@ -138,5 +138,5 @@ TEST_P(DistanceAdjTestD, Result) {
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD,
                         ::testing::ValuesIn(inputsd));
 
-} // end namespace DistanceAdj
+} // namespace Distance
 } // end namespace MLCommon

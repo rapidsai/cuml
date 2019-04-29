@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/transpose.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
-struct TranposeInputs {
+template <typename T> struct TranposeInputs {
   T tolerance;
   int len;
   int n_row;
@@ -79,10 +77,10 @@ protected:
 };
 
 const std::vector<TranposeInputs<float>> inputsf2 = {
-  {0.1f, 3 * 3, 3, 3, 1234ULL}};
+    {0.1f, 3 * 3, 3, 3, 1234ULL}};
 
 const std::vector<TranposeInputs<double>> inputsd2 = {
-  {0.1, 3 * 3, 3, 3, 1234ULL}};
+    {0.1, 3 * 3, 3, 3, 1234ULL}};
 
 typedef TransposeTest<float> TransposeTestValF;
 TEST_P(TransposeTestValF, Result) {
@@ -102,13 +100,11 @@ TEST_P(TransposeTestValD, Result) {
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
-
 INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValF,
                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(TransposeTests, TransposeTestValD,
                         ::testing::ValuesIn(inputsd2));
-
 
 } // end namespace LinAlg
 } // end namespace MLCommon

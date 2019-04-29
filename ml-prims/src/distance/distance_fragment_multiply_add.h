@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include "cuda_utils.h"
 #include <cutlass/fragment.h>
 #include <cutlass/shape.h>
-#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Distance {
@@ -28,8 +28,7 @@ namespace Distance {
  *  which calls FusedDistance and user lambda
  * @tparam FusedDistance used to generate the final distance value
  */
-template <typename FusedDistance>
-struct ExpandedDistanceFragmentMultiplyAdd {
+template <typename FusedDistance> struct ExpandedDistanceFragmentMultiplyAdd {
   /// Ctor.
   CUTLASS_DEVICE ExpandedDistanceFragmentMultiplyAdd() {}
 

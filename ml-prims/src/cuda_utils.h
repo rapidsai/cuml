@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <stdint.h>
 #include "utils.h"
+#include <stdint.h>
 
 namespace MLCommon {
 
@@ -57,8 +57,7 @@ constexpr HDI IntType alignDown(IntType a, IntType b) {
  * @brief Check if the input is a power of 2
  * @tparam IntType data type (checked only for integers)
  */
-template <typename IntType>
-constexpr HDI bool isPo2(IntType num) {
+template <typename IntType> constexpr HDI bool isPo2(IntType num) {
   return (num && !(num & (num - 1)));
 }
 
@@ -72,8 +71,7 @@ constexpr HDI IntType log2(IntType num, IntType ret = IntType(0)) {
 }
 
 /** Device function to apply the input lambda across threads in the grid */
-template <int ItemsPerThread, typename L>
-DI void forEach(int num, L lambda) {
+template <int ItemsPerThread, typename L> DI void forEach(int num, L lambda) {
   int idx = (blockDim.x * blockIdx.x) + threadIdx.x;
   const int numThreads = blockDim.x * gridDim.x;
 #pragma unroll
@@ -83,30 +81,29 @@ DI void forEach(int num, L lambda) {
   }
 }
 
-template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream) {
+template <typename T>
+std::string arr2Str(const T *arr, int size, std::string name,
+                    cudaStream_t stream) {
 
-    std::stringstream ss;
+  std::stringstream ss;
 
-    T* arr_h = (T*)malloc(size * sizeof(T));
-    updateHost(arr_h, arr, size, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+  T *arr_h = (T *)malloc(size * sizeof(T));
+  updateHost(arr_h, arr, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ss << name << " = [ ";
-    for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+  ss << name << " = [ ";
+  for (int i = 0; i < size; i++) {
+    ss << arr_h[i];
 
-        if(i < size-1)
-            ss << ", ";
-    }
-    ss << " ]" << std::endl;
+    if (i < size - 1)
+      ss << ", ";
+  }
+  ss << " ]" << std::endl;
 
-    free(arr_h);
+  free(arr_h);
 
-    return ss.str();
+  return ss.str();
 }
-
-
 
 /** number of threads per warp */
 static const int WarpSize = 32;
@@ -118,17 +115,14 @@ DI int laneId() {
   return id;
 }
 
-
 /** Device function to have atomic add support for older archs */
 #if __CUDA_ARCH__ < 600
-template <typename Type>
-DI void myAtomicAdd(Type *address, Type val) {
+template <typename Type> DI void myAtomicAdd(Type *address, Type val) {
   atomicAdd(address, val);
 }
 // Ref:
 // http://on-demand.gputechconf.com/gtc/2013/presentations/S3101-Atomic-Memory-Operations.pdf
-template <>
-DI void myAtomicAdd(double *address, double val) {
+template <> DI void myAtomicAdd(double *address, double val) {
   unsigned long long int *address_as_ull = (unsigned long long int *)address;
   unsigned long long int old = *address_as_ull, assumed;
   do {
@@ -141,48 +135,47 @@ DI void myAtomicAdd(double *address, double val) {
 #define myAtomicAdd(a, b) atomicAdd(a, b)
 #endif // __CUDA_ARCH__
 
-template<typename T, typename ReduceLambda>
+template <typename T, typename ReduceLambda>
 DI void myAtomicReduce(T *address, T val, ReduceLambda op);
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
   unsigned long long int *address_as_ull = (unsigned long long int *)address;
   unsigned long long int old = *address_as_ull, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address_as_ull, assumed,
-                    __double_as_longlong( op(val, __longlong_as_double(assumed)) ));
+    old =
+        atomicCAS(address_as_ull, assumed,
+                  __double_as_longlong(op(val, __longlong_as_double(assumed))));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
   unsigned int *address_as_uint = (unsigned int *)address;
   unsigned int old = *address_as_uint, assumed;
   do {
     assumed = old;
     old = atomicCAS(address_as_uint, assumed,
-                    __float_as_uint( op(val, __uint_as_float(assumed)) ));
+                    __float_as_uint(op(val, __uint_as_float(assumed))));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
   int old = *address, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address, assumed,
-                    op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   long long old = *address, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address, assumed,
-                    op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
@@ -190,23 +183,15 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
  * @defgroup Max maximum of two numbers
  * @{
  */
-template <typename T>
-HDI T myMax(T x, T y);
-template <>
-HDI float myMax<float>(float x, float y) {
-  return fmaxf(x, y);
-}
-template <>
-HDI double myMax<double>(double x, double y) {
-  return fmax(x, y);
-}
+template <typename T> HDI T myMax(T x, T y);
+template <> HDI float myMax<float>(float x, float y) { return fmaxf(x, y); }
+template <> HDI double myMax<double>(double x, double y) { return fmax(x, y); }
 /** @} */
 
 /**
  * Sign function
  */
-template <typename T>
-HDI int sgn(const T val) {
+template <typename T> HDI int sgn(const T val) {
   return (T(0) < val) - (val < T(0));
 }
 
@@ -214,78 +199,47 @@ HDI int sgn(const T val) {
  * @defgroup Min minimum of two numbers
  * @{
  */
-template <typename T>
-HDI T myMin(T x, T y);
-template <>
-HDI float myMin<float>(float x, float y) {
-  return fminf(x, y);
-}
-template <>
-HDI double myMin<double>(double x, double y) {
-  return fmin(x, y);
-}
+template <typename T> HDI T myMin(T x, T y);
+template <> HDI float myMin<float>(float x, float y) { return fminf(x, y); }
+template <> HDI double myMin<double>(double x, double y) { return fmin(x, y); }
 /** @} */
 
 /**
  * @defgroup Exp Exponential function
  * @{
  */
-template <typename T>
-HDI T myExp(T x);
-template <>
-HDI float myExp(float x) {
-  return expf(x);
-}
-template <>
-HDI double myExp(double x) {
-  return exp(x);
-}
+template <typename T> HDI T myExp(T x);
+template <> HDI float myExp(float x) { return expf(x); }
+template <> HDI double myExp(double x) { return exp(x); }
 /** @} */
 
 /**
  * @defgroup Log Natural logarithm
  * @{
  */
-template <typename T>
-HDI T myLog(T x);
-template <>
-HDI float myLog(float x) {
-  return logf(x);
-}
-template <>
-HDI double myLog(double x) {
-  return log(x);
-}
+template <typename T> HDI T myLog(T x);
+template <> HDI float myLog(float x) { return logf(x); }
+template <> HDI double myLog(double x) { return log(x); }
 /** @} */
 
 /**
  * @defgroup Sqrt Square root
  * @{
  */
-template <typename T>
-HDI T mySqrt(T x);
-template <>
-HDI float mySqrt(float x) {
-  return sqrtf(x);
-}
-template <>
-HDI double mySqrt(double x) {
-  return sqrt(x);
-}
+template <typename T> HDI T mySqrt(T x);
+template <> HDI float mySqrt(float x) { return sqrtf(x); }
+template <> HDI double mySqrt(double x) { return sqrt(x); }
 /** @} */
 
 /**
  * @defgroup SineCosine Sine and cosine calculation
  * @{
  */
-template <typename T>
-DI void mySinCos(T x, T &s, T &c);
-template <>
-DI void mySinCos(float x, float &s, float &c) {
+template <typename T> DI void mySinCos(T x, T &s, T &c);
+template <> DI void mySinCos(float x, float &s, float &c) {
   sincosf(x, &s, &c);
 }
-template <>
-DI void mySinCos(double x, double &s, double &c) {
+template <> DI void mySinCos(double x, double &s, double &c) {
   sincos(x, &s, &c);
 }
 /** @} */
@@ -294,34 +248,18 @@ DI void mySinCos(double x, double &s, double &c) {
  * @defgroup Abs Absolute value
  * @{
  */
-template <typename T>
-DI T myAbs(T x) {
-  return x < 0 ? -x : x;
-}
-template <>
-DI float myAbs(float x) {
-  return fabsf(x);
-}
-template <>
-DI double myAbs(double x) {
-  return fabs(x);
-}
+template <typename T> DI T myAbs(T x) { return x < 0 ? -x : x; }
+template <> DI float myAbs(float x) { return fabsf(x); }
+template <> DI double myAbs(double x) { return fabs(x); }
 /** @} */
 
 /**
  * @defgroup Pow Power function
  * @{
  */
-template <typename T>
-HDI T myPow(T x, T power);
-template <>
-HDI float myPow(float x, float power) {
-  return powf(x, power);
-}
-template <>
-HDI double myPow(double x, double power) {
-  return pow(x, power);
-}
+template <typename T> HDI T myPow(T x, T power);
+template <> HDI float myPow(float x, float power) { return powf(x, power); }
+template <> HDI double myPow(double x, double power) { return pow(x, power); }
 /** @} */
 
 /**
@@ -329,23 +267,19 @@ HDI double myPow(double x, double power) {
  * @{
  */
 // IdxType mostly to be used for MainLambda in *Reduction kernels
-template <typename Type, typename IdxType = int>
-struct Nop {
+template <typename Type, typename IdxType = int> struct Nop {
   HDI Type operator()(Type in, IdxType i = 0) { return in; }
 };
 
-template <typename Type, typename IdxType = int>
-struct L1Op {
+template <typename Type, typename IdxType = int> struct L1Op {
   HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
 };
 
-template <typename Type, typename IdxType = int>
-struct L2Op {
+template <typename Type, typename IdxType = int> struct L2Op {
   HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
 };
 
-template <typename Type>
-struct Sum {
+template <typename Type> struct Sum {
   HDI Type operator()(Type a, Type b) { return a + b; }
 };
 /** @} */
@@ -356,24 +290,30 @@ struct Sum {
  */
 
 /** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-*/
+ * @param x input
+ * @return +1 if x>=0 and -1 otherwise
+ */
 template <typename T> DI T signPrim(T x) { return x < 0 ? -1 : +1; }
 
 /** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
-*/
-template <> DI float signPrim(float x) { return signbit(x) == true ? -1.0f : +1.0f; }
+ * @param x input
+ * @return +1 if x>=0 and -1 otherwise
+ * @link
+ * https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+ */
+template <> DI float signPrim(float x) {
+  return signbit(x) == true ? -1.0f : +1.0f;
+}
 
 /** Obtain sign of x
-* @param x input
-* @return +1 if x>=0 and -1 otherwise
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
-*/
-template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1.0; }
+ * @param x input
+ * @return +1 if x>=0 and -1 otherwise
+ * @link
+ * https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
+ */
+template <> DI double signPrim(double x) {
+  return signbit(x) == true ? -1.0 : +1.0;
+}
 /** @} */
 
 /**
@@ -382,28 +322,31 @@ template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1
  */
 
 /** Obtain maximum of two values
-* @param x one item
-* @param y second item
-* @return maximum of two items
-*/
+ * @param x one item
+ * @param y second item
+ * @return maximum of two items
+ */
 template <typename T> DI T maxPrim(T x, T y) { return x > y ? x : y; }
 
-/** Obtain maximum of two values with template specialization which exploit cuda mathematical funcions
-* @param x one item
-* @param y second item
-* @return maximum of two items
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
-*/
+/** Obtain maximum of two values with template specialization which exploit cuda
+ * mathematical funcions
+ * @param x one item
+ * @param y second item
+ * @return maximum of two items
+ * @link
+ * https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
+ */
 template <> DI float maxPrim(float x, float y) { return fmaxf(x, y); }
 
-/** Obtain maximum of two values with template specialization which exploit mathematical funcions
-* @param x one item
-* @param y second item
-* @return maximum of two items
-* @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
-*/
+/** Obtain maximum of two values with template specialization which exploit
+ * mathematical funcions
+ * @param x one item
+ * @param y second item
+ * @return maximum of two items
+ * @link
+ * https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
+ */
 template <> DI double maxPrim(double x, double y) { return fmax(x, y); }
-
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
 DI void warpFence() {

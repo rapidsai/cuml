@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <cmath>
-#include <iostream>
-#include <random>
 #include "random/mvg.h"
 #include "test_utils.h"
+#include <cmath>
+#include <gtest/gtest.h>
+#include <iostream>
+#include <random>
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
 #define IDX2C(i, j, ld) (j * ld + i)
@@ -63,8 +63,7 @@ enum Correlation : unsigned char {
   UNCORRELATED
 };
 
-template <typename T>
-struct MVGInputs {
+template <typename T> struct MVGInputs {
   T tolerance;
   typename MultiVarGaussian<T>::Decomposer method;
   Correlation corr;
@@ -202,32 +201,32 @@ protected:
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)
 // Declare your inputs
 const std::vector<MVGInputs<float>> inputsf = {
-  {0.3f, MultiVarGaussian<float>::Decomposer::chol_decomp,
-   Correlation::CORRELATED, 5, 30000, 6ULL},
-  {0.1f, MultiVarGaussian<float>::Decomposer::chol_decomp,
-   Correlation::UNCORRELATED, 5, 30000, 6ULL},
-  {0.25f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::CORRELATED,
-   5, 30000, 6ULL},
-  {0.1f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::UNCORRELATED,
-   5, 30000, 6ULL},
-  {0.2f, MultiVarGaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5,
-   30000, 6ULL},
-  // { 0.2f,          MultiVarGaussian<float>::Decomposer::qr,
-  // Correlation::UNCORRELATED, 5, 30000, 6ULL}
+    {0.3f, MultiVarGaussian<float>::Decomposer::chol_decomp,
+     Correlation::CORRELATED, 5, 30000, 6ULL},
+    {0.1f, MultiVarGaussian<float>::Decomposer::chol_decomp,
+     Correlation::UNCORRELATED, 5, 30000, 6ULL},
+    {0.25f, MultiVarGaussian<float>::Decomposer::jacobi,
+     Correlation::CORRELATED, 5, 30000, 6ULL},
+    {0.1f, MultiVarGaussian<float>::Decomposer::jacobi,
+     Correlation::UNCORRELATED, 5, 30000, 6ULL},
+    {0.2f, MultiVarGaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5,
+     30000, 6ULL},
+    // { 0.2f,          MultiVarGaussian<float>::Decomposer::qr,
+    // Correlation::UNCORRELATED, 5, 30000, 6ULL}
 };
 const std::vector<MVGInputs<double>> inputsd = {
-  {0.25, MultiVarGaussian<double>::Decomposer::chol_decomp,
-   Correlation::CORRELATED, 10, 3000000, 6ULL},
-  {0.1, MultiVarGaussian<double>::Decomposer::chol_decomp,
-   Correlation::UNCORRELATED, 10, 3000000, 6ULL},
-  {0.25, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::CORRELATED,
-   10, 3000000, 6ULL},
-  {0.1, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::UNCORRELATED,
-   10, 3000000, 6ULL},
-  {0.2, MultiVarGaussian<double>::Decomposer::qr, Correlation::CORRELATED, 10,
-   3000000, 6ULL},
-  // { 0.2,          MultiVarGaussian<double>::Decomposer::qr,
-  // Correlation::UNCORRELATED, 10, 3000000, 6ULL}
+    {0.25, MultiVarGaussian<double>::Decomposer::chol_decomp,
+     Correlation::CORRELATED, 10, 3000000, 6ULL},
+    {0.1, MultiVarGaussian<double>::Decomposer::chol_decomp,
+     Correlation::UNCORRELATED, 10, 3000000, 6ULL},
+    {0.25, MultiVarGaussian<double>::Decomposer::jacobi,
+     Correlation::CORRELATED, 10, 3000000, 6ULL},
+    {0.1, MultiVarGaussian<double>::Decomposer::jacobi,
+     Correlation::UNCORRELATED, 10, 3000000, 6ULL},
+    {0.2, MultiVarGaussian<double>::Decomposer::qr, Correlation::CORRELATED, 10,
+     3000000, 6ULL},
+    // { 0.2,          MultiVarGaussian<double>::Decomposer::qr,
+    // Correlation::UNCORRELATED, 10, 3000000, 6ULL}
 };
 
 // make the tests
@@ -235,22 +234,22 @@ typedef MVGTest<float> MVGTestF;
 typedef MVGTest<double> MVGTestD;
 TEST_P(MVGTestF, MeanIsCorrectF) {
   EXPECT_TRUE(devArrMatch(x_d, Rand_mean, dim, CompareApprox<float>(tolerance)))
-    << " in MeanIsCorrect";
+      << " in MeanIsCorrect";
 }
 TEST_P(MVGTestF, CovIsCorrectF) {
   EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<float>(tolerance)))
-    << " in CovIsCorrect";
+      devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<float>(tolerance)))
+      << " in CovIsCorrect";
 }
 TEST_P(MVGTestD, MeanIsCorrectD) {
   EXPECT_TRUE(
-    devArrMatch(x_d, Rand_mean, dim, CompareApprox<double>(tolerance)))
-    << " in MeanIsCorrect";
+      devArrMatch(x_d, Rand_mean, dim, CompareApprox<double>(tolerance)))
+      << " in MeanIsCorrect";
 }
 TEST_P(MVGTestD, CovIsCorrectD) {
   EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<double>(tolerance)))
-    << " in CovIsCorrect";
+      devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<double>(tolerance)))
+      << " in CovIsCorrect";
 }
 
 // call the tests

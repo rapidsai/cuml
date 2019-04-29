@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/rsvd.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-
-template <typename T>
-struct RsvdInputs {
+template <typename T> struct RsvdInputs {
   T tolerance;
   int n_row;
   int n_col;
@@ -75,15 +72,16 @@ protected:
       allocate(sing_vals_ref, 1);
 
       updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
-      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1, stream);
+      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1,
+                   stream);
       updateDevice(sing_vals_ref, sing_vals_ref_h, 1, stream);
 
     } else { // Other normal tests
       r.normal(A, m * n, mu, sigma, stream);
     }
     A_backup_cpu = (T *)malloc(
-      sizeof(T) * m *
-      n); // Backup A matrix as svdJacobi will destroy the content of A
+        sizeof(T) * m *
+        n); // Backup A matrix as svdJacobi will destroy the content of A
     updateHost(A_backup_cpu, A, m * n, stream);
 
     auto mgr = makeDefaultAllocator();
@@ -129,68 +127,68 @@ protected:
 protected:
   RsvdInputs<T> params;
   T *A, *A_backup_cpu,
-    *U = nullptr, *S = nullptr, *V = nullptr, *left_eig_vectors_ref = nullptr,
-    *right_eig_vectors_ref = nullptr, *sing_vals_ref = nullptr;
+      *U = nullptr, *S = nullptr, *V = nullptr, *left_eig_vectors_ref = nullptr,
+      *right_eig_vectors_ref = nullptr, *sing_vals_ref = nullptr;
   cusolverDnHandle_t cusolverH = nullptr;
   cublasHandle_t cublasH = nullptr;
   cudaStream_t stream;
 };
 
 const std::vector<RsvdInputs<float>> inputs_fx = {
-  // Test with ratios
-  {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},    // Square + BBT
-  {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Tall + BBT
-  {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Square + non-BBT
-  {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Tall + non-BBT
-  {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Square + BBT
-  {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL}, // Tall + BBT
-  {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL}, // Square + non-BBT
-  {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL} // Tall + non-BBT
+    // Test with ratios
+    {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},    // Square + BBT
+    {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, true, 4321ULL},   // Tall + BBT
+    {0.20f, 256, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},   // Square + non-BBT
+    {0.20f, 2048, 256, 0.2f, 0.05f, 0, 0, false, 4321ULL},  // Tall + non-BBT
+    {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL},  // Square + BBT
+    {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, true, 4321ULL}, // Tall + BBT
+    {0.20f, 2048, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL}, // Square + non-BBT
+    {0.60f, 16384, 2048, 0.2f, 0.05f, 0, 0, false, 4321ULL} // Tall + non-BBT
 
-  ,                                                     // Test with fixed ranks
-  {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL}, // Square + BBT
-  {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Tall + BBT
-  {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Square + non-BBT
-  {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Tall + non-BBT
-  {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Square + BBT
-  {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL}, // Tall + BBT
-  {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL}, // Square + non-BBT
-  {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL} // Tall + non-BBT
+    , // Test with fixed ranks
+    {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL},    // Square + BBT
+    {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, true, 4321ULL},   // Tall + BBT
+    {0.10f, 256, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},   // Square + non-BBT
+    {0.12f, 2048, 256, 0.0f, 0.0f, 100, 5, false, 4321ULL},  // Tall + non-BBT
+    {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL},  // Square + BBT
+    {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, true, 4321ULL}, // Tall + BBT
+    {0.60f, 2048, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL}, // Square + non-BBT
+    {1.00f, 16384, 2048, 0.0f, 0.0f, 100, 5, false, 4321ULL} // Tall + non-BBT
 };
 
 const std::vector<RsvdInputs<double>> inputs_dx = {
-  // Test with ratios
-  {0.20, 256, 256, 0.2, 0.05, 0, 0, true, 4321ULL},    // Square + BBT
-  {0.20, 2048, 256, 0.2, 0.05, 0, 0, true, 4321ULL},   // Tall + BBT
-  {0.20, 256, 256, 0.2, 0.05, 0, 0, false, 4321ULL},   // Square + non-BBT
-  {0.20, 2048, 256, 0.2, 0.05, 0, 0, false, 4321ULL},  // Tall + non-BBT
-  {0.20, 2048, 2048, 0.2, 0.05, 0, 0, true, 4321ULL},  // Square + BBT
-  {0.60, 16384, 2048, 0.2, 0.05, 0, 0, true, 4321ULL}, // Tall + BBT
-  {0.20, 2048, 2048, 0.2, 0.05, 0, 0, false, 4321ULL}, // Square + non-BBT
-  {0.60, 16384, 2048, 0.2, 0.05, 0, 0, false, 4321ULL} // Tall + non-BBT
+    // Test with ratios
+    {0.20, 256, 256, 0.2, 0.05, 0, 0, true, 4321ULL},    // Square + BBT
+    {0.20, 2048, 256, 0.2, 0.05, 0, 0, true, 4321ULL},   // Tall + BBT
+    {0.20, 256, 256, 0.2, 0.05, 0, 0, false, 4321ULL},   // Square + non-BBT
+    {0.20, 2048, 256, 0.2, 0.05, 0, 0, false, 4321ULL},  // Tall + non-BBT
+    {0.20, 2048, 2048, 0.2, 0.05, 0, 0, true, 4321ULL},  // Square + BBT
+    {0.60, 16384, 2048, 0.2, 0.05, 0, 0, true, 4321ULL}, // Tall + BBT
+    {0.20, 2048, 2048, 0.2, 0.05, 0, 0, false, 4321ULL}, // Square + non-BBT
+    {0.60, 16384, 2048, 0.2, 0.05, 0, 0, false, 4321ULL} // Tall + non-BBT
 
-  ,                                                     // Test with fixed ranks
-  {0.10, 256, 256, 0.0, 0.0, 100, 5, true, 4321ULL},    // Square + BBT
-  {0.12, 2048, 256, 0.0, 0.0, 100, 5, true, 4321ULL},   // Tall + BBT
-  {0.10, 256, 256, 0.0, 0.0, 100, 5, false, 4321ULL},   // Square + non-BBT
-  {0.12, 2048, 256, 0.0, 0.0, 100, 5, false, 4321ULL},  // Tall + non-BBT
-  {0.60, 2048, 2048, 0.0, 0.0, 100, 5, true, 4321ULL},  // Square + BBT
-  {1.00, 16384, 2048, 0.0, 0.0, 100, 5, true, 4321ULL}, // Tall + BBT
-  {0.60, 2048, 2048, 0.0, 0.0, 100, 5, false, 4321ULL}, // Square + non-BBT
-  {1.00, 16384, 2048, 0.0, 0.0, 100, 5, false, 4321ULL} // Tall + non-BBT
+    ,                                                   // Test with fixed ranks
+    {0.10, 256, 256, 0.0, 0.0, 100, 5, true, 4321ULL},  // Square + BBT
+    {0.12, 2048, 256, 0.0, 0.0, 100, 5, true, 4321ULL}, // Tall + BBT
+    {0.10, 256, 256, 0.0, 0.0, 100, 5, false, 4321ULL}, // Square + non-BBT
+    {0.12, 2048, 256, 0.0, 0.0, 100, 5, false, 4321ULL},  // Tall + non-BBT
+    {0.60, 2048, 2048, 0.0, 0.0, 100, 5, true, 4321ULL},  // Square + BBT
+    {1.00, 16384, 2048, 0.0, 0.0, 100, 5, true, 4321ULL}, // Tall + BBT
+    {0.60, 2048, 2048, 0.0, 0.0, 100, 5, false, 4321ULL}, // Square + non-BBT
+    {1.00, 16384, 2048, 0.0, 0.0, 100, 5, false, 4321ULL} // Tall + non-BBT
 };
 
 const std::vector<RsvdInputs<float>> sanity_inputs_fx = {
-  {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, true, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, true, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, false, 4321ULL},
-  {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, false, 4321ULL}};
+    {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, true, 4321ULL},
+    {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, true, 4321ULL},
+    {100000000000000000.0f, 3, 2, 0.2f, 0.05f, 0, 0, false, 4321ULL},
+    {100000000000000000.0f, 3, 2, 0.0f, 0.0f, 1, 1, false, 4321ULL}};
 
 const std::vector<RsvdInputs<double>> sanity_inputs_dx = {
-  {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, true, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, true, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, false, 4321ULL},
-  {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, false, 4321ULL}};
+    {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, true, 4321ULL},
+    {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, true, 4321ULL},
+    {100000000000000000.0, 3, 2, 0.2, 0.05, 0, 0, false, 4321ULL},
+    {100000000000000000.0, 3, 2, 0.0, 0.0, 1, 1, false, 4321ULL}};
 
 typedef RsvdTest<float> RsvdSanityCheckValF;
 TEST_P(RsvdSanityCheckValF, Result) {
@@ -216,7 +214,6 @@ TEST_P(RsvdSanityCheckLeftVecD, Result) {
                           CompareApproxAbs<double>(params.tolerance)));
 }
 
-
 typedef RsvdTest<float> RsvdSanityCheckRightVecF;
 TEST_P(RsvdSanityCheckRightVecF, Result) {
   ASSERT_TRUE(devArrMatch(right_eig_vectors_ref, V, params.n_col * params.k,
@@ -237,7 +234,8 @@ TEST_P(RsvdTestSquareMatrixNormF, Result) {
   CUDA_CHECK(cudaStreamCreate(&stream));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
+                                  params.k, 4 * params.tolerance, cublasH,
+                                  stream, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
@@ -250,7 +248,8 @@ TEST_P(RsvdTestSquareMatrixNormD, Result) {
   CUDA_CHECK(cudaStreamCreate(&stream));
   auto mgr = makeDefaultAllocator();
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, stream, mgr));
+                                  params.k, 4 * params.tolerance, cublasH,
+                                  stream, mgr));
   CUBLAS_CHECK(cublasDestroy(cublasH));
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
@@ -278,7 +277,6 @@ INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdTestSquareMatrixNormF,
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdTestSquareMatrixNormD,
                         ::testing::ValuesIn(inputs_dx));
-
 
 } // end namespace LinAlg
 } // end namespace MLCommon

@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 #include "distance/distance_fragment_multiply_add.h"
 #include "distance/distance_tile_traits.h"
 
@@ -34,8 +33,8 @@ namespace Distance {
  * @tparam OutputScalar_ output scalar type
  * @tparam FragmentMultiplyAdd_ fragment-level epilogue function
  */
-template <typename InputScalar_, typename OutputScalar_,
-          typename GemmConfig_, typename FragmentMultiplyAdd_>
+template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
+          typename FragmentMultiplyAdd_>
 struct DistanceEpilogueFunctor {
   // The input scalar
   typedef InputScalar_ InputScalar;
@@ -49,48 +48,53 @@ struct DistanceEpilogueFunctor {
   /// The number of iterations in the epilogue.
   typedef cutlass::Shape<1,
                          GemmConfig_::MultiplyAdd::AccumulatorsPerThread::kH /
-                           GemmConfig_::kAccumulatorsPerLdsB,
+                             GemmConfig_::kAccumulatorsPerLdsB,
                          GemmConfig_::kAccumulatorsPerLdsB>
-    Iterations;
+      Iterations;
 
   /// The iteration strides in the H/W dimension.
   typedef cutlass::Shape<
-    0,
-    GemmConfig_::kAccumulatorsPerLdsB *(
-      GemmConfig_::Warps::kH *GemmConfig_::MultiplyAdd::ThreadsPerWarp::kH - 1),
-    0>
-    Delta;
+      0,
+      GemmConfig_::kAccumulatorsPerLdsB *(
+          GemmConfig_::Warps::kH *GemmConfig_::MultiplyAdd::ThreadsPerWarp::kH -
+          1),
+      0>
+      Delta;
 
   /// The traits class to build the iterator to load data from global memory for
   /// AA
   typedef DistanceGlobalTileAATraits<
-    InputScalar const,
-    cutlass::Shape<1, GemmConfig_::OutputTile::kH /
-                        cutlass::ShapeCount<Iterations>::kCount,
-                   GemmConfig_::OutputTile::kW>,
-    cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
-                   GemmConfig_::kWarpSize>,
-    // How many elements do we jump over at each iteration?
-    Iterations::kW, GemmConfig_::kScalarsPerLdgA>
-    GlobalLoadTileAATraits;
+      InputScalar const,
+      cutlass::Shape<1,
+                     GemmConfig_::OutputTile::kH /
+                         cutlass::ShapeCount<Iterations>::kCount,
+                     GemmConfig_::OutputTile::kW>,
+      cutlass::Shape<1,
+                     cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
+                     GemmConfig_::kWarpSize>,
+      // How many elements do we jump over at each iteration?
+      Iterations::kW, GemmConfig_::kScalarsPerLdgA>
+      GlobalLoadTileAATraits;
   /// The iterator for AA in global memory.
   typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalLoadTileAATraits, int>
-    GlobalLoadIteratorAA;
+      GlobalLoadIteratorAA;
 
   /// The traits class to build the iterator to load data from global memory for
   /// BB
   typedef DistanceGlobalTileBBTraits<
-    InputScalar const,
-    cutlass::Shape<1, GemmConfig_::OutputTile::kH /
-                        cutlass::ShapeCount<Iterations>::kCount,
-                   GemmConfig_::OutputTile::kW>,
-    cutlass::Shape<1, cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
-                   GemmConfig_::kWarpSize>,
-    GemmConfig_::kScalarsPerLdgB>
-    GlobalLoadTileBBTraits;
+      InputScalar const,
+      cutlass::Shape<1,
+                     GemmConfig_::OutputTile::kH /
+                         cutlass::ShapeCount<Iterations>::kCount,
+                     GemmConfig_::OutputTile::kW>,
+      cutlass::Shape<1,
+                     cutlass::ShapeCount<typename GemmConfig_::Warps>::kCount,
+                     GemmConfig_::kWarpSize>,
+      GemmConfig_::kScalarsPerLdgB>
+      GlobalLoadTileBBTraits;
   /// The iterator for BB in global memory.
   typedef cutlass::gemm::GemmGlobalIteratorCd<GlobalLoadTileBBTraits, int>
-    GlobalLoadIteratorBB;
+      GlobalLoadIteratorBB;
 
   /// The parameters.
   struct Params {
@@ -120,7 +124,8 @@ struct DistanceEpilogueFunctor {
                                             bool enable_sqrt) {
       this->enable_sqrt = enable_sqrt;
       int error_code = iterator_aa.initialize(col_vec, 1, n, 0, 0);
-      if (error_code) return error_code;
+      if (error_code)
+        return error_code;
       error_code = iterator_bb.initialize(row_vec, ldd, 1, 0, 0);
       return error_code;
     }
@@ -133,7 +138,6 @@ struct DistanceEpilogueFunctor {
   Params params;
 }; // end struct DistanceEpilogueFunctor
 
-
 /**
  * @brief EpilogueFunctor to work with expanded cases (eg: expanded L2 metric)
  * @tparam InputScalar_  input scalar type
@@ -143,28 +147,28 @@ struct DistanceEpilogueFunctor {
 template <typename InputScalar_, typename OutputScalar_, typename GemmConfig_,
           typename FragmentMultiplyAdd_,
           typename BaseClass = DistanceEpilogueFunctor<
-            InputScalar_, OutputScalar_, GemmConfig_, FragmentMultiplyAdd_>>
+              InputScalar_, OutputScalar_, GemmConfig_, FragmentMultiplyAdd_>>
 struct ExpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
-  CUTLASS_DEVICE ExpandedDistanceEpilogueFunctor(
-    typename BaseClass::Params const &params): BaseClass(params) {}
+  CUTLASS_DEVICE
+  ExpandedDistanceEpilogueFunctor(typename BaseClass::Params const &params)
+      : BaseClass(params) {}
 
   /// Evaluate the functor.
-  template <typename FragmentA_, typename FragmentB_,
-            typename FragmentCol_, typename FragmentRow_, typename FinalLambda>
+  template <typename FragmentA_, typename FragmentB_, typename FragmentCol_,
+            typename FragmentRow_, typename FinalLambda>
   CUTLASS_DEVICE void evaluate(FragmentA_ const &accum, FragmentB_ &output,
                                const int index[FragmentB_::kElements],
-                               FragmentCol_ const &col,
-                               FragmentRow_ const &row, FinalLambda fin_op) {
+                               FragmentCol_ const &col, FragmentRow_ const &row,
+                               FinalLambda fin_op) {
     FragmentMultiplyAdd_ mad;
-    if(this->params.enable_sqrt) {
+    if (this->params.enable_sqrt) {
       mad.multiply<true>(accum, output, index, col, row, fin_op);
     } else {
       mad.multiply<false>(accum, output, index, col, row, fin_op);
     }
   }
 };
-
 
 /**
  * @brief EpilogueFunctor for L1 and unexpanded L2 distance
@@ -173,11 +177,12 @@ struct ExpandedDistanceEpilogueFunctor : public BaseClass {
  */
 template <typename Scalar_, typename GemmConfig_, typename FragmentMultiplyAdd_,
           typename BaseClass = DistanceEpilogueFunctor<
-            Scalar_, Scalar_, GemmConfig_, FragmentMultiplyAdd_>>
+              Scalar_, Scalar_, GemmConfig_, FragmentMultiplyAdd_>>
 struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
   /// Ctor.
-  CUTLASS_DEVICE UnexpandedDistanceEpilogueFunctor(
-    typename BaseClass::Params const &params): BaseClass(params) {}
+  CUTLASS_DEVICE
+  UnexpandedDistanceEpilogueFunctor(typename BaseClass::Params const &params)
+      : BaseClass(params) {}
 
   /// Evaluate the functor.
   template <typename FragmentA_, typename FragmentB_, typename FinalLambda>
@@ -185,7 +190,7 @@ struct UnexpandedDistanceEpilogueFunctor : public BaseClass {
                                const int index[FragmentB_::kElements],
                                FinalLambda fin_op) {
     FragmentMultiplyAdd_ mad;
-    if(this->params.enable_sqrt) {
+    if (this->params.enable_sqrt) {
       mad.multiply<true>(accum, output, index, fin_op);
     } else {
       mad.multiply<false>(accum, output, index, fin_op);

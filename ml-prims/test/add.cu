@@ -14,16 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "add.h"
 #include "linalg/add.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
-
 
 template <typename T>
 class AddTest : public ::testing::TestWithParam<AddInputs<T>> {
@@ -59,9 +57,8 @@ protected:
   T *in1, *in2, *out_ref, *out;
 };
 
-
 const std::vector<AddInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+    {0.000001f, 1024 * 1024, 1234ULL}};
 typedef AddTest<float> AddTestF;
 TEST_P(AddTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -69,9 +66,8 @@ TEST_P(AddTestF, Result) {
 }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestF, ::testing::ValuesIn(inputsf2));
 
-
 const std::vector<AddInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+    {0.00000001, 1024 * 1024, 1234ULL}};
 typedef AddTest<double> AddTestD;
 TEST_P(AddTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,

@@ -31,22 +31,22 @@ namespace Distance {
 namespace {
 template <typename OutputIterator>
 CUTLASS_HOST_DEVICE void
-  extract_index_from_iterator(OutputIterator &iterator,
-                              typename OutputIterator::Pointer base_ptr,
-                              int index[OutputIterator::Fragment::kElements]) {
+extract_index_from_iterator(OutputIterator &iterator,
+                            typename OutputIterator::Pointer base_ptr,
+                            int index[OutputIterator::Fragment::kElements]) {
   int st = 0;
   typename OutputIterator::Pointer current_ptr = iterator.params.pointer;
   typename OutputIterator::Index current_pred_offset =
-    iterator.params.predicate_offset;
+      iterator.params.predicate_offset;
   for (int d = 0; d < OutputIterator::Iterations::kD; ++d) {
     for (int h = 0; h < OutputIterator::Iterations::kH; ++h) {
       for (int w = 0; w < OutputIterator::Iterations::kW; ++w) {
         int const imm = cutlass::ComputeOffsetFromStrides<
-          typename OutputIterator::Base::ImmediateOffsetStrides>::get(0, 0, w,
-                                                                      0);
+            typename OutputIterator::Base::ImmediateOffsetStrides>::get(0, 0, w,
+                                                                        0);
         index[st++] = iterator.valid(d, h, w, 0)
-                        ? (&iterator.params.pointer[imm] - base_ptr)
-                        : -1;
+                          ? (&iterator.params.pointer[imm] - base_ptr)
+                          : -1;
         if (w < OutputIterator::Iterations::kW - 1) {
           iterator.inc_w();
         }
@@ -66,14 +66,11 @@ CUTLASS_HOST_DEVICE void
 
 } // end anonymous namespace
 
-
-
 /**
  * @brief Base Epilogue for distance metrics
  * @tparam GemmEpilogueTraits_ the traits class to configure this epilogue
  */
-template <typename GemmEpilogueTraits_>
-struct DistanceGemmEpilogue {
+template <typename GemmEpilogueTraits_> struct DistanceGemmEpilogue {
   /// The traits class.
   typedef GemmEpilogueTraits_ Traits;
   /// The params.
@@ -112,7 +109,7 @@ struct DistanceGemmEpilogue {
   typedef typename Traits::SharedLoadIteratorD SharedLoadIteratorD;
   /// The shared load transformer for D.
   typedef cutlass::Copy<typename SharedLoadIteratorD::Fragment>
-    SharedLoadTransformerD;
+      SharedLoadTransformerD;
 
   /// The index.
   typedef typename Traits::Index Index;
@@ -129,9 +126,9 @@ struct DistanceGemmEpilogue {
 
   /// Ctor.
   CUTLASS_DEVICE DistanceGemmEpilogue(Params const &params_,
-                                      SharedStorage &shared_storage_,
-                                      Index m_, Index n_)
-    : params(params_), shared_storage(shared_storage_), m(m_), n(n_) {}
+                                      SharedStorage &shared_storage_, Index m_,
+                                      Index n_)
+      : params(params_), shared_storage(shared_storage_), m(m_), n(n_) {}
 
   /// The memory fence for shared loads.
   CUTLASS_DEVICE void shared_load_fence() { __syncthreads(); }
@@ -147,7 +144,6 @@ struct DistanceGemmEpilogue {
   Index m, n;
 }; // end struct DistanceGemmEpilogue
 
-
 /**
  * @brief Epilogue for Cosine and Expanded L2 distance,
  *  which accesses A^2 and B^2 in global memory,
@@ -157,27 +153,28 @@ struct DistanceGemmEpilogue {
 template <typename GemmEpilogueTraits_,
           typename BaseClass = DistanceGemmEpilogue<GemmEpilogueTraits_>>
 struct ExpandedDistanceGemmEpilogue : public BaseClass {
-  using typename BaseClass::Params;
-  using typename BaseClass::SharedStorage;
-  using typename BaseClass::Index;
+  using BaseClass::shared_load_fence;
+  using BaseClass::shared_store_fence;
   using typename BaseClass::Accumulators;
   using typename BaseClass::Functor;
-  using typename BaseClass::Traits;
   using typename BaseClass::GlobalLoadIteratorAA;
   using typename BaseClass::GlobalLoadIteratorBB;
   using typename BaseClass::GlobalStoreIteratorD;
   using typename BaseClass::GlobalTransformerD;
-  using typename BaseClass::SharedStoreTransformerD;
-  using typename BaseClass::SharedLoadIteratorD;
-  using typename BaseClass::SharedStoreIteratorD;
+  using typename BaseClass::Index;
   using typename BaseClass::Iterations;
-  using BaseClass::shared_load_fence;
-  using BaseClass::shared_store_fence;
+  using typename BaseClass::Params;
+  using typename BaseClass::SharedLoadIteratorD;
+  using typename BaseClass::SharedStorage;
+  using typename BaseClass::SharedStoreIteratorD;
+  using typename BaseClass::SharedStoreTransformerD;
+  using typename BaseClass::Traits;
 
   /// Ctor.
-  CUTLASS_DEVICE ExpandedDistanceGemmEpilogue(
-    Params const &params_, SharedStorage &shared_storage_, Index m_, Index n_)
-    : BaseClass(params_, shared_storage_, m_, n_) {}
+  CUTLASS_DEVICE ExpandedDistanceGemmEpilogue(Params const &params_,
+                                              SharedStorage &shared_storage_,
+                                              Index m_, Index n_)
+      : BaseClass(params_, shared_storage_, m_, n_) {}
 
   /// Execute the epilogue
   template <typename FinalLambda>
@@ -201,50 +198,52 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
 
     // The iterator to load the elements of the BB row vector.
     GlobalLoadIteratorBB global_load_iterator_bb(
-      this->params.functor.iterator_bb, bb_bounds, bb_block, 0, 0);
+        this->params.functor.iterator_bb, bb_bounds, bb_block, 0, 0);
     iterator_load(global_load_iterator_bb, fragment_bb);
 
     // Preserve the base pointer of the output D matrix
     typename GlobalStoreIteratorD::Pointer global_base_ptr =
-      this->params.iterator_d.pointer;
+        this->params.iterator_d.pointer;
 
     CUTLASS_PRAGMA_UNROLL
     for (int h = 0; h < Iterations::kH; ++h) {
       // Compute pointer and predicate offsets for C and D global iterators.
       int const pointer_offset =
-        ((this->params.iterator_d.inc_h * (GlobalStoreIteratorD::Iterations::kH - 1) +
-          this->params.iterator_d.inc_advance) *
-           Iterations::kW +
-         this->params.stride_h) *
-        h;
+          ((this->params.iterator_d.inc_h *
+                (GlobalStoreIteratorD::Iterations::kH - 1) +
+            this->params.iterator_d.inc_advance) *
+               Iterations::kW +
+           this->params.stride_h) *
+          h;
       int const predicate_offset =
-        ((this->params.iterator_d.predicate_inc_h *
-            (GlobalStoreIteratorD::Iterations::kH - 1) +
-          this->params.iterator_d.predicate_inc_advance) *
-           Iterations::kW +
-         Traits::Delta::kH) *
-        h;
+          ((this->params.iterator_d.predicate_inc_h *
+                (GlobalStoreIteratorD::Iterations::kH - 1) +
+            this->params.iterator_d.predicate_inc_advance) *
+               Iterations::kW +
+           Traits::Delta::kH) *
+          h;
 
       // The transformer for D.
       GlobalTransformerD transformer_d;
       // The iterator to store into the D matrix.
-      GlobalStoreIteratorD global_store_iterator(
-        this->params.iterator_d, bounds, block, pointer_offset, predicate_offset);
+      GlobalStoreIteratorD global_store_iterator(this->params.iterator_d,
+                                                 bounds, block, pointer_offset,
+                                                 predicate_offset);
 
       // The transformer to transform before storing to shared memory.
       SharedStoreTransformerD shared_store_transformer;
       typename SharedStoreTransformerD::OutputFragment
-        shared_store_transformed_d;
+          shared_store_transformed_d;
 
       // The iterator to store to shared memory.
       SharedStoreIteratorD shared_store_iterator(
-        this->params.shared_store_iterator_d,
-        this->shared_storage.shared_stream.store);
+          this->params.shared_store_iterator_d,
+          this->shared_storage.shared_stream.store);
 
       // The iterator to load from shared memory. TODO: Use a stream.
       SharedLoadIteratorD shared_load_iterator(
-        this->params.shared_load_iterator_d,
-        this->shared_storage.shared_stream.load);
+          this->params.shared_load_iterator_d,
+          this->shared_storage.shared_stream.load);
 
       // The AA column vector size.
       cutlass::Coord<3> const aa_bounds = cutlass::make_Coord(0, this->n, 1);
@@ -253,23 +252,23 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
 
       // Compute pointer and predicate offsets for AA global iterators.
       int const aa_pointer_offset =
-        ((this->params.functor.iterator_aa.inc_h *
-            (GlobalLoadIteratorAA::Iterations::kH - 1) +
-          this->params.functor.iterator_aa.inc_advance) *
-           Iterations::kW +
-         Traits::Delta::kH) *
-        h;
+          ((this->params.functor.iterator_aa.inc_h *
+                (GlobalLoadIteratorAA::Iterations::kH - 1) +
+            this->params.functor.iterator_aa.inc_advance) *
+               Iterations::kW +
+           Traits::Delta::kH) *
+          h;
       int const aa_predicate_offset =
-        ((this->params.functor.iterator_aa.predicate_inc_h *
-            (GlobalLoadIteratorAA::Iterations::kH - 1) +
-          this->params.functor.iterator_aa.predicate_inc_advance) *
-           Iterations::kW +
-         Traits::Delta::kH) *
-        h;
+          ((this->params.functor.iterator_aa.predicate_inc_h *
+                (GlobalLoadIteratorAA::Iterations::kH - 1) +
+            this->params.functor.iterator_aa.predicate_inc_advance) *
+               Iterations::kW +
+           Traits::Delta::kH) *
+          h;
       // The iterator to load the elements of the AA column vector.
       GlobalLoadIteratorAA global_load_iterator_aa(
-        this->params.functor.iterator_aa, aa_bounds, aa_block, aa_pointer_offset,
-        aa_predicate_offset);
+          this->params.functor.iterator_aa, aa_bounds, aa_block,
+          aa_pointer_offset, aa_predicate_offset);
 
       CUTLASS_PRAGMA_UNROLL
       for (int w = 0; w < Iterations::kW; ++w) {
@@ -279,8 +278,8 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
         shared_load_fence();
 
         // Copy the accumulators to shared memory.
-        int const offset =
-          (h * Iterations::kW + w) * SharedStoreIteratorD::Fragment::kElements;
+        int const offset = (h * Iterations::kW + w) *
+                           SharedStoreIteratorD::Fragment::kElements;
 
         shared_store_transformer.transform(accumulators, offset,
                                            shared_store_transformed_d);
@@ -302,8 +301,8 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
         extract_index_from_iterator(global_store_iterator, global_base_ptr,
                                     index);
 
-        functor.evaluate(fetched_d, fragment_d, index, fragment_aa,
-                         fragment_bb, fin_op);
+        functor.evaluate(fetched_d, fragment_d, index, fragment_aa, fragment_bb,
+                         fin_op);
 
         // Transform D fragment.
         typename GlobalTransformerD::OutputFragment transformed_d;
@@ -316,7 +315,6 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
   }
 }; // end struct ExpandedDistanceGemmEpilogue
 
-
 /**
  * @brief Epilogue for L1 and Unexpanded L2 distance,
  *  which passes the global index of C to its EpilogueFunctor
@@ -325,27 +323,28 @@ struct ExpandedDistanceGemmEpilogue : public BaseClass {
 template <typename GemmEpilogueTraits_,
           typename BaseClass = DistanceGemmEpilogue<GemmEpilogueTraits_>>
 struct UnexpandedDistanceGemmEpilogue : public BaseClass {
-  using typename BaseClass::Params;
-  using typename BaseClass::SharedStorage;
-  using typename BaseClass::Index;
+  using BaseClass::shared_load_fence;
+  using BaseClass::shared_store_fence;
   using typename BaseClass::Accumulators;
   using typename BaseClass::Functor;
-  using typename BaseClass::Traits;
   using typename BaseClass::GlobalLoadIteratorAA;
   using typename BaseClass::GlobalLoadIteratorBB;
   using typename BaseClass::GlobalStoreIteratorD;
   using typename BaseClass::GlobalTransformerD;
-  using typename BaseClass::SharedStoreTransformerD;
-  using typename BaseClass::SharedLoadIteratorD;
-  using typename BaseClass::SharedStoreIteratorD;
+  using typename BaseClass::Index;
   using typename BaseClass::Iterations;
-  using BaseClass::shared_load_fence;
-  using BaseClass::shared_store_fence;
+  using typename BaseClass::Params;
+  using typename BaseClass::SharedLoadIteratorD;
+  using typename BaseClass::SharedStorage;
+  using typename BaseClass::SharedStoreIteratorD;
+  using typename BaseClass::SharedStoreTransformerD;
+  using typename BaseClass::Traits;
 
   /// Ctor.
-  CUTLASS_DEVICE UnexpandedDistanceGemmEpilogue(
-    Params const &params_, SharedStorage &shared_storage_, Index m_, Index n_)
-    : BaseClass(params_, shared_storage_, m_, n_) {}
+  CUTLASS_DEVICE UnexpandedDistanceGemmEpilogue(Params const &params_,
+                                                SharedStorage &shared_storage_,
+                                                Index m_, Index n_)
+      : BaseClass(params_, shared_storage_, m_, n_) {}
 
   /// Execute the epilogue
   template <typename FinalLambda>
@@ -359,45 +358,47 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
 
     // Preserve the base pointer of the output D matrix
     typename GlobalStoreIteratorD::Pointer global_base_ptr =
-      this->params.iterator_d.pointer;
+        this->params.iterator_d.pointer;
 
     CUTLASS_PRAGMA_UNROLL
     for (int h = 0; h < Iterations::kH; ++h) {
       // Compute pointer and predicate offsets for C and D global iterators.
       int const pointer_offset =
-        ((this->params.iterator_d.inc_h * (GlobalStoreIteratorD::Iterations::kH - 1) +
-          this->params.iterator_d.inc_advance) *
-           Iterations::kW +
-         this->params.stride_h) *
-        h;
+          ((this->params.iterator_d.inc_h *
+                (GlobalStoreIteratorD::Iterations::kH - 1) +
+            this->params.iterator_d.inc_advance) *
+               Iterations::kW +
+           this->params.stride_h) *
+          h;
       int const predicate_offset =
-        ((this->params.iterator_d.predicate_inc_h *
-            (GlobalStoreIteratorD::Iterations::kH - 1) +
-          this->params.iterator_d.predicate_inc_advance) *
-           Iterations::kW +
-         Traits::Delta::kH) *
-        h;
+          ((this->params.iterator_d.predicate_inc_h *
+                (GlobalStoreIteratorD::Iterations::kH - 1) +
+            this->params.iterator_d.predicate_inc_advance) *
+               Iterations::kW +
+           Traits::Delta::kH) *
+          h;
 
       // The transformer for D.
       GlobalTransformerD transformer_d;
       // The iterator to store into the D matrix.
-      GlobalStoreIteratorD global_store_iterator(
-        this->params.iterator_d, bounds, block, pointer_offset, predicate_offset);
+      GlobalStoreIteratorD global_store_iterator(this->params.iterator_d,
+                                                 bounds, block, pointer_offset,
+                                                 predicate_offset);
 
       // The transformer to transform before storing to shared memory.
       SharedStoreTransformerD shared_store_transformer;
       typename SharedStoreTransformerD::OutputFragment
-        shared_store_transformed_d;
+          shared_store_transformed_d;
 
       // The iterator to store to shared memory.
       SharedStoreIteratorD shared_store_iterator(
-        this->params.shared_store_iterator_d,
-        this->shared_storage.shared_stream.store);
+          this->params.shared_store_iterator_d,
+          this->shared_storage.shared_stream.store);
 
       // The iterator to load from shared memory. TODO: Use a stream.
       SharedLoadIteratorD shared_load_iterator(
-        this->params.shared_load_iterator_d,
-        this->shared_storage.shared_stream.load);
+          this->params.shared_load_iterator_d,
+          this->shared_storage.shared_stream.load);
 
       CUTLASS_PRAGMA_UNROLL
       for (int w = 0; w < Iterations::kW; ++w) {
@@ -405,8 +406,8 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
         shared_load_fence();
 
         // Copy the accumulators to shared memory.
-        int const offset =
-          (h * Iterations::kW + w) * SharedStoreIteratorD::Fragment::kElements;
+        int const offset = (h * Iterations::kW + w) *
+                           SharedStoreIteratorD::Fragment::kElements;
 
         shared_store_transformer.transform(accumulators, offset,
                                            shared_store_transformed_d);
@@ -440,7 +441,6 @@ struct UnexpandedDistanceGemmEpilogue : public BaseClass {
     }
   }
 }; // end struct UnexpandedDistanceGemmEpilogue
-
 
 } // end namespace Distance
 } // end namespace MLCommon

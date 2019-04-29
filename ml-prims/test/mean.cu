@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include "cuda_utils.h"
 #include "random/rng.h"
 #include "stats/mean.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 namespace MLCommon {
 namespace Stats {
 
-template <typename T>
-struct MeanInputs {
+template <typename T> struct MeanInputs {
   T tolerance, mean;
   int rows, cols;
   bool sample, rowMajor;
@@ -78,40 +77,40 @@ protected:
 // measured mean (of a normal distribution) will fall outside of an epsilon of
 // 0.15 only 4/10000 times. (epsilon of 0.1 will fail 30/100 times)
 const std::vector<MeanInputs<float>> inputsf = {
-  {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
-  {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
-  {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
-  {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
-  {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
+    {0.15f, 1.f, 1024, 32, true, false, 1234ULL},
+    {0.15f, 1.f, 1024, 64, true, false, 1234ULL},
+    {0.15f, 1.f, 1024, 128, true, false, 1234ULL},
+    {0.15f, 1.f, 1024, 256, true, false, 1234ULL},
+    {0.15f, -1.f, 1024, 32, false, false, 1234ULL},
+    {0.15f, -1.f, 1024, 64, false, false, 1234ULL},
+    {0.15f, -1.f, 1024, 128, false, false, 1234ULL},
+    {0.15f, -1.f, 1024, 256, false, false, 1234ULL},
+    {0.15f, 1.f, 1024, 32, true, true, 1234ULL},
+    {0.15f, 1.f, 1024, 64, true, true, 1234ULL},
+    {0.15f, 1.f, 1024, 128, true, true, 1234ULL},
+    {0.15f, 1.f, 1024, 256, true, true, 1234ULL},
+    {0.15f, -1.f, 1024, 32, false, true, 1234ULL},
+    {0.15f, -1.f, 1024, 64, false, true, 1234ULL},
+    {0.15f, -1.f, 1024, 128, false, true, 1234ULL},
+    {0.15f, -1.f, 1024, 256, false, true, 1234ULL}};
 
 const std::vector<MeanInputs<double>> inputsd = {
-  {0.15, 1.0, 1024, 32, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, false, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, false, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, false, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, false, 1234ULL},
-  {0.15, 1.0, 1024, 32, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 64, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 128, true, true, 1234ULL},
-  {0.15, 1.0, 1024, 256, true, true, 1234ULL},
-  {0.15, -1.0, 1024, 32, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 64, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 128, false, true, 1234ULL},
-  {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
+    {0.15, 1.0, 1024, 32, true, false, 1234ULL},
+    {0.15, 1.0, 1024, 64, true, false, 1234ULL},
+    {0.15, 1.0, 1024, 128, true, false, 1234ULL},
+    {0.15, 1.0, 1024, 256, true, false, 1234ULL},
+    {0.15, -1.0, 1024, 32, false, false, 1234ULL},
+    {0.15, -1.0, 1024, 64, false, false, 1234ULL},
+    {0.15, -1.0, 1024, 128, false, false, 1234ULL},
+    {0.15, -1.0, 1024, 256, false, false, 1234ULL},
+    {0.15, 1.0, 1024, 32, true, true, 1234ULL},
+    {0.15, 1.0, 1024, 64, true, true, 1234ULL},
+    {0.15, 1.0, 1024, 128, true, true, 1234ULL},
+    {0.15, 1.0, 1024, 256, true, true, 1234ULL},
+    {0.15, -1.0, 1024, 32, false, true, 1234ULL},
+    {0.15, -1.0, 1024, 64, false, true, 1234ULL},
+    {0.15, -1.0, 1024, 128, false, true, 1234ULL},
+    {0.15, -1.0, 1024, 256, false, true, 1234ULL}};
 
 typedef MeanTest<float> MeanTestF;
 TEST_P(MeanTestF, Result) {

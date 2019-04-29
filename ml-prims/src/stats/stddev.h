@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
+#include <cub/cub.cuh>
 
 namespace MLCommon {
 namespace Stats {
@@ -67,7 +67,6 @@ __global__ void stddevKernelColMajor(Type *std, const Type *data,
   }
 }
 
-
 template <typename Type, typename IdxType, int TPB>
 __global__ void varsKernelColMajor(Type *var, const Type *data, const Type *mu,
                                    IdxType D, IdxType N) {
@@ -115,17 +114,21 @@ void stddev(Type *std, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(std, 0, sizeof(Type) * D));
-    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
-      std, data, D, N);
+    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+        <<<grid, TPB, 0, stream>>>(std, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::binaryOp(std, std, mu, D, [ratio] __device__(Type a, Type b) {
-      return mySqrt(a * ratio - b * b);}, stream);
+    LinAlg::binaryOp(
+        std, std, mu, D,
+        [ratio] __device__(Type a, Type b) {
+          return mySqrt(a * ratio - b * b);
+        },
+        stream);
   } else {
-    stddevKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(std, data, mu, D, N);
+    stddevKernelColMajor<Type, IdxType, TPB>
+        <<<D, TPB, 0, stream>>>(std, data, mu, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }
-
 
 /**
  * @brief Compute variance of the input matrix
@@ -155,13 +158,16 @@ void vars(Type *var, const Type *data, const Type *mu, IdxType D, IdxType N,
     static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
     dim3 grid(ceildiv(N, (IdxType)RowsPerBlk), ceildiv(D, (IdxType)ColsPerBlk));
     CUDA_CHECK(cudaMemset(var, 0, sizeof(Type) * D));
-    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk><<<grid, TPB, 0, stream>>>(
-      var, data, D, N);
+    stddevKernelRowMajor<Type, IdxType, TPB, ColsPerBlk>
+        <<<grid, TPB, 0, stream>>>(var, data, D, N);
     Type ratio = Type(1) / (sample ? Type(N - 1) : Type(N));
-    LinAlg::binaryOp(var, var, mu, D, [ratio] __device__(Type a, Type b) {
-      return a * ratio - b * b;}, stream);
+    LinAlg::binaryOp(
+        var, var, mu, D,
+        [ratio] __device__(Type a, Type b) { return a * ratio - b * b; },
+        stream);
   } else {
-    varsKernelColMajor<Type, IdxType, TPB><<<D, TPB, 0, stream>>>(var, data, mu, D, N);
+    varsKernelColMajor<Type, IdxType, TPB>
+        <<<D, TPB, 0, stream>>>(var, data, mu, D, N);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

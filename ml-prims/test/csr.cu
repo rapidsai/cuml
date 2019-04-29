@@ -15,10 +15,10 @@
  */
 
 #include "csr.h"
-#include <gtest/gtest.h>
-#include "sparse/csr.h"
 #include "random/rng.h"
+#include "sparse/csr.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 #include <iostream>
 
@@ -36,46 +36,45 @@ protected:
   CSRInputs<T> params;
 };
 
-const std::vector<CSRInputs<float>> inputsf = {
-  {5, 10, 5, 1234ULL}};
+const std::vector<CSRInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef CSRTest<float> CSRRowNormalizeL1;
 TEST_P(CSRRowNormalizeL1, Result) {
 
-    int *ex_scan;
-    float *in_vals, *result, *verify;
+  int *ex_scan;
+  float *in_vals, *result, *verify;
 
-    int ex_scan_h[4] = {0, 4, 8, 9 };
-    float in_vals_h[10] = { 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
+  int ex_scan_h[4] = {0, 4, 8, 9};
+  float in_vals_h[10] = {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0};
 
-    float verify_h[10] =  { 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0 };
+  float verify_h[10] = {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0};
 
-    allocate(in_vals, 10);
-    allocate(verify, 10);
-    allocate(ex_scan, 4);
-    allocate(result, 10, true);
+  allocate(in_vals, 10);
+  allocate(verify, 10);
+  allocate(ex_scan, 4);
+  allocate(result, 10, true);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4, 0);
-    updateDevice(in_vals, *&in_vals_h, 10, 0);
-    updateDevice(verify, *&verify_h, 10, 0);
+  updateDevice(ex_scan, *&ex_scan_h, 4, 0);
+  updateDevice(in_vals, *&in_vals_h, 10, 0);
+  updateDevice(verify, *&verify_h, 10, 0);
 
-    dim3 grid(ceildiv(10, 32), 1, 1);
-    dim3 blk(32, 1, 1);
+  dim3 grid(ceildiv(10, 32), 1, 1);
+  dim3 blk(32, 1, 1);
 
-    csr_row_normalize_l1<32, float><<<grid, blk>>>(ex_scan, in_vals, 10, 4, result);
-    cudaDeviceSynchronize();
+  csr_row_normalize_l1<32, float>
+      <<<grid, blk>>>(ex_scan, in_vals, 10, 4, result);
+  cudaDeviceSynchronize();
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(in_vals));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
-
 
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeL1,
                         ::testing::ValuesIn(inputsf));
 
-}}
-
+} // namespace Sparse
+} // namespace MLCommon

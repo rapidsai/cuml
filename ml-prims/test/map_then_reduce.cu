@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/map_then_reduce.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -33,16 +32,16 @@ __global__ void naiveMapReduceKernel(Type *out, const Type *in, size_t len,
 }
 
 template <typename Type, typename MapOp>
-void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map, cudaStream_t stream) {
+void naiveMapReduce(Type *out, const Type *in, size_t len, MapOp map,
+                    cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, (size_t)TPB);
-  naiveMapReduceKernel<Type, MapOp><<<nblks, TPB, 0, stream>>>(out, in, len, map);
+  naiveMapReduceKernel<Type, MapOp>
+      <<<nblks, TPB, 0, stream>>>(out, in, len, map);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-template <typename T>
-struct MapReduceInputs {
+template <typename T> struct MapReduceInputs {
   T tolerance;
   size_t len;
   unsigned long long int seed;
@@ -57,7 +56,8 @@ template <typename T>
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T>
-void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len, cudaStream_t stream) {
+void mapReduceLaunch(T *out_ref, T *out, const T *in, size_t len,
+                     cudaStream_t stream) {
   auto op = [] __device__(T in) { return in; };
   naiveMapReduce(out_ref, in, len, op, stream);
   mapThenSumReduce(out, len, op, 0, in);
@@ -91,9 +91,8 @@ protected:
   T *in, *out_ref, *out;
 };
 
-
 const std::vector<MapReduceInputs<float>> inputsf = {
-  {0.001f, 1024 * 1024, 1234ULL}};
+    {0.001f, 1024 * 1024, 1234ULL}};
 typedef MapReduceTest<float> MapReduceTestF;
 TEST_P(MapReduceTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -102,9 +101,8 @@ TEST_P(MapReduceTestF, Result) {
 INSTANTIATE_TEST_CASE_P(MapReduceTests, MapReduceTestF,
                         ::testing::ValuesIn(inputsf));
 
-
 const std::vector<MapReduceInputs<double>> inputsd = {
-  {0.000001, 1024 * 1024, 1234ULL}};
+    {0.000001, 1024 * 1024, 1234ULL}};
 typedef MapReduceTest<double> MapReduceTestD;
 TEST_P(MapReduceTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,

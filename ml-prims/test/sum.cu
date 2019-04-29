@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/eltwise.h"
 #include "random/rng.h"
 #include "stats/sum.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Stats {
 
-template <typename T>
-struct SumInputs {
+template <typename T> struct SumInputs {
   T tolerance;
   int rows, cols;
   unsigned long long int seed;

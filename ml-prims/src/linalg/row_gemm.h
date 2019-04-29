@@ -61,28 +61,28 @@ namespace LinAlg {
  * @param stream cuda stream where to launch work
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename Index_ = int,
-  typename GemmConfig_ = CustomGemmConfig<
-    IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-    MainLoopFunctor_>,
-  typename EpilogueFunctor_ = LinearScaling<OType>,
-  typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
-    GemmConfig_, EpilogueFunctor_, Index_>,
-  typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
-  typename Lambda, typename FinalLambda>
+    typename IType, typename AccType, typename OType, typename OutputTile_,
+    typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+    typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+        AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+    typename Index_ = int,
+    typename GemmConfig_ =
+        CustomGemmConfig<IType, AccType, OType, OutputTile_,
+                         AccumulatorsPerThread_, MainLoopFunctor_>,
+    typename EpilogueFunctor_ = LinearScaling<OType>,
+    typename GemmEpilogueTraits_ = cutlass::gemm::SimplifiedGemmEpilogueTraits<
+        GemmConfig_, EpilogueFunctor_, Index_>,
+    typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
+    typename Lambda, typename FinalLambda>
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
               FinalLambda fin_op, cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
-       GemmEpilogueTraits_, GemmEpilogue_>(
-    transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, op, fin_op,
-    stream);
+       GemmEpilogueTraits_, GemmEpilogue_>(transB, transA, n, m, k, alpha, B,
+                                           ldb, A, lda, beta, C, ldc, D, op,
+                                           fin_op, stream);
 }
 
 /**
@@ -112,18 +112,18 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @param stream cuda stream where to launch work
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename EpilogueFunctor_ = LinearScaling<OType>>
+    typename IType, typename AccType, typename OType, typename OutputTile_,
+    typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+    typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+        AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+    typename EpilogueFunctor_ = LinearScaling<OType>>
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D,
               cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, EpilogueFunctor_>(
-    transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, stream);
+      transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, stream);
 }
 
 /**
@@ -150,11 +150,11 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @param stream cuda stream where to launch work
  */
 template <
-  typename IType, typename AccType, typename OType, typename OutputTile_,
-  typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
-  typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
-    AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
-  typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
+    typename IType, typename AccType, typename OType, typename OutputTile_,
+    typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
+    typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
+        AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+    typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
 void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, IType const *B, OType beta,
               OType const *C, OType *D, cudaStream_t stream) {
@@ -163,7 +163,7 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
   int ldc = n; // output is always row-major!
   row_gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, EpilogueFunctor_>(
-    transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, stream);
+      transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, stream);
 }
 
 }; // end namespace LinAlg

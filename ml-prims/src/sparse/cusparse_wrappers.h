@@ -20,13 +20,12 @@
 
 namespace MLCommon {
 
-    namespace Sparse {
-        #define CUSPARSE_CHECK(call)  \
-            do { \
-                cusparseStatus_t status = call; \
-                ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s'\n", #call); \
-            } while(0)
+namespace Sparse {
+#define CUSPARSE_CHECK(call)                                                   \
+  do {                                                                         \
+    cusparseStatus_t status = call;                                            \
+    ASSERT(status == CUSPARSE_STATUS_SUCCESS, "FAIL: call='%s'\n", #call);     \
+  } while (0)
 
-
-    }
-}
+} // namespace Sparse
+} // namespace MLCommon

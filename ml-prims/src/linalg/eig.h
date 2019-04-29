@@ -51,10 +51,9 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
-                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work, lwork, d_dev_info,
-                                 stream));
+  CUSOLVER_CHECK(cusolverDnsyevd(
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
+      eig_vectors, n_cols, eig_vals, d_work, lwork, d_dev_info, stream));
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -68,7 +67,6 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   mgr.free(d_dev_info, stream);
 }
 
-
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the
  * column-major symmetric matrices (in parameter)
@@ -80,10 +78,12 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
  */
 template <typename math_t>
 void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
-               math_t *eig_vals, cusolverDnHandle_t cusolverH, cudaStream_t stream) {
+               math_t *eig_vals, cusolverDnHandle_t cusolverH,
+               cudaStream_t stream) {
   math_t tol = 1.e-7;
   int sweeps = 15;
-  eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH, stream);
+  eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH,
+            stream);
 }
 
 /**
@@ -104,7 +104,7 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 template <typename math_t>
 void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
                math_t *eig_vals, math_t tol, int sweeps,
-               cusolverDnHandle_t cusolverH, cudaStream_t stream, 
+               cusolverDnHandle_t cusolverH, cudaStream_t stream,
                DeviceAllocator &mgr) {
   syevjInfo_t syevj_params = nullptr;
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
@@ -113,21 +113,22 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   int lwork;
   CUSOLVER_CHECK(cusolverDnsyevj_bufferSize(
-    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
-    eig_vectors, n_cols, eig_vals, &lwork, syevj_params));
+      cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
+      eig_vectors, n_cols, eig_vals, &lwork, syevj_params));
 
   math_t *d_work = (math_t *)mgr.alloc(sizeof(math_t) * lwork);
   int *dev_info = (int *)mgr.alloc(sizeof(int));
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevj(
-    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
-    eig_vectors, n_cols, eig_vals, d_work, lwork, dev_info, syevj_params, stream));
+  CUSOLVER_CHECK(cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work, lwork, dev_info,
+                                 syevj_params, stream));
 
   int executed_sweeps;
   CUSOLVER_CHECK(
-    cusolverDnXsyevjGetSweeps(cusolverH, syevj_params, &executed_sweeps));
+      cusolverDnXsyevjGetSweeps(cusolverH, syevj_params, &executed_sweeps));
 
   mgr.free(d_work, stream);
   mgr.free(dev_info, stream);

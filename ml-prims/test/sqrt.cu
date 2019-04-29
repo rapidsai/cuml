@@ -14,17 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/sqrt.h"
 #include "random/rng.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type>
-__global__ void naiveSqrtElemKernel(Type *out, const Type *in1,
-                                    int len) {
+__global__ void naiveSqrtElemKernel(Type *out, const Type *in1, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
     out[idx] = mySqrt(in1[idx]);
@@ -39,8 +38,7 @@ void naiveSqrtElem(Type *out, const Type *in1, int len) {
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-struct SqrtInputs {
+template <typename T> struct SqrtInputs {
   T tolerance;
   int len;
   unsigned long long int seed;
@@ -85,10 +83,10 @@ protected:
 };
 
 const std::vector<SqrtInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+    {0.000001f, 1024 * 1024, 1234ULL}};
 
 const std::vector<SqrtInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+    {0.00000001, 1024 * 1024, 1234ULL}};
 
 typedef SqrtTest<float> SqrtTestF;
 TEST_P(SqrtTestF, Result) {
@@ -97,7 +95,6 @@ TEST_P(SqrtTestF, Result) {
 
   ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
                           CompareApprox<float>(params.tolerance)));
-
 }
 
 typedef SqrtTest<double> SqrtTestD;
@@ -109,11 +106,9 @@ TEST_P(SqrtTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF,
-                        ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestD,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestD, ::testing::ValuesIn(inputsd2));
 
 } // end namespace LinAlg
 } // end namespace MLCommon

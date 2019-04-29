@@ -16,19 +16,18 @@
 
 #pragma once
 
-#include <linalg/unary_op.h>
 #include "cuda_utils.h"
+#include <linalg/unary_op.h>
 
 namespace MLCommon {
 namespace Functions {
 
 template <typename T, typename IdxType = int>
 void sigmoid(T *out, T *in, IdxType len, cudaStream_t stream) {
-    T one = T(1);
-    LinAlg::unaryOp(out, in, len, [one] __device__ (T in) {
-                                      return one / (one + myExp(-in));
-                                  },
-                                  stream);
+  T one = T(1);
+  LinAlg::unaryOp(
+      out, in, len, [one] __device__(T in) { return one / (one + myExp(-in)); },
+      stream);
 }
 
 }; // end namespace Functions

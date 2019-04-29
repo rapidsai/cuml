@@ -18,7 +18,6 @@
 
 #include <curand.h>
 
-
 namespace MLCommon {
 namespace Random {
 

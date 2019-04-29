@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/gemm.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
-__global__ void fillKernel(T *arr, T val, int N) {
+template <typename T> __global__ void fillKernel(T *arr, T val, int N) {
   const int stride = blockDim.x * gridDim.x;
   int tid = threadIdx.x + (blockIdx.x * blockDim.x);
   for (int i = tid; i < N; i += stride)
@@ -50,7 +48,7 @@ TEST(Gemm, Gemm_128x128x8) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
-    CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, 1.f, B, N, A, K, 1.f, C, N, D, stream);
+      CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, 1.f, B, N, A, K, 1.f, C, N, D, stream);
   float *hD = new float[M * N];
   updateHost<float>(hD, D, M * N, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));

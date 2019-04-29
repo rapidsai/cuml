@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/unary_op.h"
 #include "random/rng.h"
 #include "test_utils.h"
 #include "unary_op.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -28,10 +27,10 @@ namespace LinAlg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType = int>
-void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, cudaStream_t stream) {
-  unaryOp(out, in, len,
-          [scalar] __device__(T in) { return in * scalar; },
-          stream);
+void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len,
+                   cudaStream_t stream) {
+  unaryOp(
+      out, in, len, [scalar] __device__(T in) { return in * scalar; }, stream);
 }
 
 template <typename T, typename IdxType>
@@ -67,7 +66,7 @@ protected:
 };
 
 const std::vector<UnaryOpInputs<float, int>> inputsf_i32 = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef UnaryOpTest<float, int> UnaryOpTestF_i32;
 TEST_P(UnaryOpTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -77,7 +76,7 @@ INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<UnaryOpInputs<float, size_t>> inputsf_i64 = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef UnaryOpTest<float, size_t> UnaryOpTestF_i64;
 TEST_P(UnaryOpTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -87,7 +86,7 @@ INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<UnaryOpInputs<double, int>> inputsd_i32 = {
-  {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
+    {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
 typedef UnaryOpTest<double, int> UnaryOpTestD_i32;
 TEST_P(UnaryOpTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
@@ -97,7 +96,7 @@ INSTANTIATE_TEST_CASE_P(UnaryOpTests, UnaryOpTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<UnaryOpInputs<double, size_t>> inputsd_i64 = {
-  {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
+    {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
 typedef UnaryOpTest<double, size_t> UnaryOpTestD_i64;
 TEST_P(UnaryOpTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,

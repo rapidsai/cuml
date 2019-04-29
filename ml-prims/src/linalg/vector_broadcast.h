@@ -16,42 +16,40 @@
 
 #pragma once
 
-#include "vectorized.h"
 #include "cuda_utils.h"
-
+#include "vectorized.h"
 
 namespace MLCommon {
 namespace Broadcast {
 
-
 ///@todo: investigate if using shared mem for vector would help with perf
 template <typename math_t, int veclen_, typename Lambda>
-__global__ void vectorBcastKernel(math_t* out, const math_t* matrix,
-                                  const math_t* vector, int rows, int cols,
+__global__ void vectorBcastKernel(math_t *out, const math_t *matrix,
+                                  const math_t *vector, int rows, int cols,
                                   Lambda op) {
-    typedef TxN_t<math_t,veclen_> VecType;
-    VecType mat, vec;
-    int len = rows * cols;
-    int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
-    int colIdx = idx % cols;
-    if(idx >= len)
-        return;
-    mat.load(matrix, idx);
-    vec.load(vector, colIdx);
-    #pragma unroll
-    for(int i=0;i<VecType::Ratio;++i)
-        mat.val.data[i] = op(mat.val.data[i], vec.val.data[i]);
-    mat.store(out, idx);
+  typedef TxN_t<math_t, veclen_> VecType;
+  VecType mat, vec;
+  int len = rows * cols;
+  int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
+  int colIdx = idx % cols;
+  if (idx >= len)
+    return;
+  mat.load(matrix, idx);
+  vec.load(vector, colIdx);
+#pragma unroll
+  for (int i = 0; i < VecType::Ratio; ++i)
+    mat.val.data[i] = op(mat.val.data[i], vec.val.data[i]);
+  mat.store(out, idx);
 }
 
 template <typename math_t, int veclen_, typename Lambda, int TPB>
-void vectorBcastImpl(math_t* out, const math_t* matrix, const math_t* vector,
+void vectorBcastImpl(math_t *out, const math_t *matrix, const math_t *vector,
                      int rows, int cols, Lambda op, cudaStream_t stream) {
-    int len = rows * cols;
-    const int nblks = ceildiv(veclen_? len/veclen_ : len, TPB);
-    vectorBcastKernel<math_t,veclen_,Lambda><<<nblks,TPB, 0, stream>>>
-        (out, matrix, vector, rows, cols, op);
-    CUDA_CHECK(cudaPeekAtLastError());
+  int len = rows * cols;
+  const int nblks = ceildiv(veclen_ ? len / veclen_ : len, TPB);
+  vectorBcastKernel<math_t, veclen_, Lambda>
+      <<<nblks, TPB, 0, stream>>>(out, matrix, vector, rows, cols, op);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
@@ -70,30 +68,30 @@ void vectorBcastImpl(math_t* out, const math_t* matrix, const math_t* vector,
  * wanting to work on the input vector, then just swap rows and cols while
  * calling this method.
  */
-template <typename math_t, typename Lambda, int TPB=128>
-void vectorBroadcast(math_t* out, const math_t* matrix, const math_t* vector,
+template <typename math_t, typename Lambda, int TPB = 128>
+void vectorBroadcast(math_t *out, const math_t *matrix, const math_t *vector,
                      int rows, int cols, Lambda op, cudaStream_t stream) {
-    // need to use 'cols' here since vector access is based on this!
-    size_t bytes = cols * sizeof(math_t);
-    if(16/sizeof(math_t) && bytes % 16 == 0) {
-        vectorBcastImpl<math_t,16/sizeof(math_t),Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    } else if(8/sizeof(math_t) && bytes % 8 == 0) {
-        vectorBcastImpl<math_t,8/sizeof(math_t),Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    } else if(4/sizeof(math_t) && bytes % 4 == 0) {
-        vectorBcastImpl<math_t,4/sizeof(math_t),Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    } else if(2/sizeof(math_t) && bytes % 2 == 0) {
-        vectorBcastImpl<math_t,2/sizeof(math_t),Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    } else if(1/sizeof(math_t)) {
-        vectorBcastImpl<math_t,1/sizeof(math_t),Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    } else {
-        vectorBcastImpl<math_t,1,Lambda,TPB>
-            (out, matrix, vector, rows, cols, op, stream);
-    }
+  // need to use 'cols' here since vector access is based on this!
+  size_t bytes = cols * sizeof(math_t);
+  if (16 / sizeof(math_t) && bytes % 16 == 0) {
+    vectorBcastImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(
+        out, matrix, vector, rows, cols, op, stream);
+  } else if (8 / sizeof(math_t) && bytes % 8 == 0) {
+    vectorBcastImpl<math_t, 8 / sizeof(math_t), Lambda, TPB>(
+        out, matrix, vector, rows, cols, op, stream);
+  } else if (4 / sizeof(math_t) && bytes % 4 == 0) {
+    vectorBcastImpl<math_t, 4 / sizeof(math_t), Lambda, TPB>(
+        out, matrix, vector, rows, cols, op, stream);
+  } else if (2 / sizeof(math_t) && bytes % 2 == 0) {
+    vectorBcastImpl<math_t, 2 / sizeof(math_t), Lambda, TPB>(
+        out, matrix, vector, rows, cols, op, stream);
+  } else if (1 / sizeof(math_t)) {
+    vectorBcastImpl<math_t, 1 / sizeof(math_t), Lambda, TPB>(
+        out, matrix, vector, rows, cols, op, stream);
+  } else {
+    vectorBcastImpl<math_t, 1, Lambda, TPB>(out, matrix, vector, rows, cols, op,
+                                            stream);
+  }
 }
 
 }; // end namespace Broadcast

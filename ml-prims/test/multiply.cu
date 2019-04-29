@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include "test_utils.h"
 #include "linalg/multiply.h"
 #include "random/rng.h"
+#include "test_utils.h"
 #include "unary_op.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-template<typename T>
+template <typename T>
 class MultiplyTest : public ::testing::TestWithParam<UnaryOpInputs<T>> {
 protected:
   void SetUp() override {
@@ -54,24 +54,24 @@ protected:
 };
 
 const std::vector<UnaryOpInputs<float>> inputsf = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 typedef MultiplyTest<float> MultiplyTestF;
 TEST_P(MultiplyTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestF,
-                    ::testing::ValuesIn(inputsf));
+                        ::testing::ValuesIn(inputsf));
 
 typedef MultiplyTest<double> MultiplyTestD;
 const std::vector<UnaryOpInputs<double>> inputsd = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 TEST_P(MultiplyTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(MultiplyTests, MultiplyTestD,
-                    ::testing::ValuesIn(inputsd));
+                        ::testing::ValuesIn(inputsd));
 
 } // end namespace LinAlg
 } // end namespace MLCommon

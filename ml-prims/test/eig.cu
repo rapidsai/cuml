@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/eig.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-
-template <typename T>
-struct EigInputs {
+template <typename T> struct EigInputs {
   T tolerance;
   int len;
   int n_row;
@@ -67,7 +64,6 @@ protected:
                              0.4874, -0.5123, 0.6498, 0.2789,  -0.2789, -0.6498,
                              0.4874, 0.5123,  0.5123, 0.4874};
     T eig_vals_ref_h[] = {0.0614, 0.1024, 0.3096, 3.5266};
-
 
     allocate(eig_vectors_ref, len);
     allocate(eig_vals_ref, params.n_col);
@@ -114,20 +110,20 @@ protected:
 protected:
   EigInputs<T> params;
   T *cov_matrix, *eig_vectors, *eig_vectors_jacobi, *eig_vectors_ref, *eig_vals,
-    *eig_vals_jacobi, *eig_vals_ref;
+      *eig_vals_jacobi, *eig_vals_ref;
 
   T *cov_matrix_large, *eig_vectors_large, *eig_vectors_jacobi_large,
-    *eig_vals_large, *eig_vals_jacobi_large;
+      *eig_vals_large, *eig_vals_jacobi_large;
 
   cusolverDnHandle_t cusolverH = NULL;
   cudaStream_t stream;
 };
 
 const std::vector<EigInputs<float>> inputsf2 = {
-  {0.001f, 4 * 4, 4, 4, 1234ULL, 256}};
+    {0.001f, 4 * 4, 4, 4, 1234ULL, 256}};
 
 const std::vector<EigInputs<double>> inputsd2 = {
-  {0.001, 4 * 4, 4, 4, 1234ULL, 256}};
+    {0.001, 4 * 4, 4, 4, 1234ULL, 256}};
 
 typedef EigTest<float> EigTestValF;
 TEST_P(EigTestValF, Result) {
@@ -195,7 +191,6 @@ INSTANTIATE_TEST_CASE_P(EigTests, EigTestValF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestValD, ::testing::ValuesIn(inputsd2));
 
-
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecF, ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecD, ::testing::ValuesIn(inputsd2));
@@ -206,13 +201,11 @@ INSTANTIATE_TEST_CASE_P(EigTests, EigTestValJacobiF,
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestValJacobiD,
                         ::testing::ValuesIn(inputsd2));
 
-
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecJacobiF,
                         ::testing::ValuesIn(inputsf2));
 
 INSTANTIATE_TEST_CASE_P(EigTests, EigTestVecJacobiD,
                         ::testing::ValuesIn(inputsd2));
-
 
 } // end namespace LinAlg
 } // end namespace MLCommon

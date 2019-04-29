@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "matrix/math.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Matrix {
@@ -47,8 +46,7 @@ __global__ void nativeSqrtKernel(Type *in, Type *out, int len) {
   }
 }
 
-template <typename Type>
-void naiveSqrt(Type *in, Type *out, int len) {
+template <typename Type> void naiveSqrt(Type *in, Type *out, int len) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   nativeSqrtKernel<Type><<<nblks, TPB>>>(in, out, len);
@@ -57,7 +55,7 @@ void naiveSqrt(Type *in, Type *out, int len) {
 
 template <typename Type>
 __global__ void naiveSignFlipKernel(Type *in, Type *out, int rowCount,
-                                     int colCount) {
+                                    int colCount) {
   int d_i = blockIdx.x * rowCount;
   int end = d_i + rowCount;
 
@@ -74,7 +72,6 @@ __global__ void naiveSignFlipKernel(Type *in, Type *out, int rowCount,
         max_index = i;
       }
     }
-
 
     for (int i = d_i; i < end; i++) {
       if (in[max_index] < 0.0) {
@@ -94,8 +91,7 @@ void naiveSignFlip(Type *in, Type *out, int rowCount, int colCount) {
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T>
-struct MathInputs {
+template <typename T> struct MathInputs {
   T tolerance;
   int n_row;
   int n_col;
@@ -176,7 +172,6 @@ protected:
     setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
     setSmallValuesZero(in_smallzero, 4, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-
   }
 
   void TearDown() override {
@@ -194,21 +189,21 @@ protected:
     CUDA_CHECK(cudaFree(in_smallzero));
     CUDA_CHECK(cudaFree(out_smallzero));
     CUDA_CHECK(cudaFree(out_smallzero_ref));
-
   }
 
 protected:
   MathInputs<T> params;
   T *in_power, *out_power_ref, *in_sqrt, *out_sqrt_ref, *in_ratio,
-    *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip,
-    *in_recip_ref, *out_recip, *in_smallzero, *out_smallzero, *out_smallzero_ref;
+      *out_ratio_ref, *in_sign_flip, *out_sign_flip_ref, *in_recip,
+      *in_recip_ref, *out_recip, *in_smallzero, *out_smallzero,
+      *out_smallzero_ref;
 };
 
 const std::vector<MathInputs<float>> inputsf = {
-  {0.00001f, 1024, 1024, 1024 * 1024, 1234ULL}};
+    {0.00001f, 1024, 1024, 1024 * 1024, 1234ULL}};
 
 const std::vector<MathInputs<double>> inputsd = {
-  {0.00001, 1024, 1024, 1024 * 1024, 1234ULL}};
+    {0.00001, 1024, 1024, 1024 * 1024, 1234ULL}};
 
 typedef MathTest<float> MathPowerTestF;
 TEST_P(MathPowerTestF, Result) {
@@ -263,7 +258,8 @@ TEST_P(MathReciprocalTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
                           CompareApprox<float>(params.tolerance)));
 
-  // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
+  // 4-th term tests `setzero=true` functionality, not present in this version
+  // of `reciprocal`.
   ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
                           CompareApprox<float>(params.tolerance)));
 }
@@ -273,7 +269,8 @@ TEST_P(MathReciprocalTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_recip, in_recip_ref, 4,
                           CompareApprox<double>(params.tolerance)));
 
-  // 4-th term tests `setzero=true` functionality, not present in this version of `reciprocal`.
+  // 4-th term tests `setzero=true` functionality, not present in this version
+  // of `reciprocal`.
   ASSERT_TRUE(devArrMatch(out_recip, in_recip_ref, 3,
                           CompareApprox<double>(params.tolerance)));
 }
@@ -282,7 +279,6 @@ typedef MathTest<float> MathSetSmallZeroTestF;
 TEST_P(MathSetSmallZeroTestF, Result) {
   ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
                           CompareApprox<float>(params.tolerance)));
-
 
   ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
                           CompareApprox<float>(params.tolerance)));
@@ -293,7 +289,6 @@ TEST_P(MathSetSmallZeroTestD, Result) {
   ASSERT_TRUE(devArrMatch(in_smallzero, out_smallzero_ref, 4,
                           CompareApprox<double>(params.tolerance)));
 
-
   ASSERT_TRUE(devArrMatch(out_smallzero, out_smallzero_ref, 4,
                           CompareApprox<double>(params.tolerance)));
 }
@@ -303,7 +298,6 @@ INSTANTIATE_TEST_CASE_P(MathTests, MathPowerTestF,
 
 INSTANTIATE_TEST_CASE_P(MathTests, MathPowerTestD,
                         ::testing::ValuesIn(inputsd));
-
 
 INSTANTIATE_TEST_CASE_P(MathTests, MathSqrtTestF, ::testing::ValuesIn(inputsf));
 
@@ -331,7 +325,6 @@ INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestF,
                         ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(MathTests, MathSetSmallZeroTestD,
                         ::testing::ValuesIn(inputsd));
-
 
 } // end namespace Matrix
 } // end namespace MLCommon

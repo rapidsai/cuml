@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "matrix/math.h"
 #include "random/rng.h"
 #include "stats/mean.h"
 #include "stats/stddev.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Stats {
 
-template <typename T>
-struct StdDevInputs {
+template <typename T> struct StdDevInputs {
   T tolerance, mean, stddev;
   int rows, cols;
   bool sample, rowMajor;
@@ -65,7 +63,8 @@ protected:
     stddev(stddev_act, data, mean_act, cols, rows, params.sample,
            params.rowMajor, stream);
 
-    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor, stream);
+    vars(vars_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
+         stream);
 
     Matrix::seqRoot(vars_act, T(1), cols, stream);
   }
@@ -83,40 +82,40 @@ protected:
 };
 
 const std::vector<StdDevInputs<float>> inputsf = {
-  {0.1f, 1.f, 2.f, 1024, 32, true, false, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 64, true, false, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 128, true, false, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 256, true, false, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 32, false, false, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 64, false, false, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 128, false, false, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 256, false, false, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 32, true, true, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 64, true, true, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 128, true, true, 1234ULL},
-  {0.1f, 1.f, 2.f, 1024, 256, true, true, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 32, false, true, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 64, false, true, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 128, false, true, 1234ULL},
-  {0.1f, -1.f, 2.f, 1024, 256, false, true, 1234ULL}};
+    {0.1f, 1.f, 2.f, 1024, 32, true, false, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 64, true, false, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 128, true, false, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 256, true, false, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 32, false, false, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 64, false, false, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 128, false, false, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 256, false, false, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 32, true, true, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 64, true, true, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 128, true, true, 1234ULL},
+    {0.1f, 1.f, 2.f, 1024, 256, true, true, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 32, false, true, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 64, false, true, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 128, false, true, 1234ULL},
+    {0.1f, -1.f, 2.f, 1024, 256, false, true, 1234ULL}};
 
 const std::vector<StdDevInputs<double>> inputsd = {
-  {0.1, 1.0, 2.0, 1024, 32, true, false, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 64, true, false, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 128, true, false, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 256, true, false, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 32, false, false, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 64, false, false, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 128, false, false, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 256, false, false, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 32, true, true, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 64, true, true, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 128, true, true, 1234ULL},
-  {0.1, 1.0, 2.0, 1024, 256, true, true, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 32, false, true, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 64, false, true, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 128, false, true, 1234ULL},
-  {0.1, -1.0, 2.0, 1024, 256, false, true, 1234ULL}};
+    {0.1, 1.0, 2.0, 1024, 32, true, false, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 64, true, false, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 128, true, false, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 256, true, false, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 32, false, false, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 64, false, false, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 128, false, false, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 256, false, false, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 32, true, true, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 64, true, true, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 128, true, true, 1234ULL},
+    {0.1, 1.0, 2.0, 1024, 256, true, true, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 32, false, true, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 64, false, true, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 128, false, true, 1234ULL},
+    {0.1, -1.0, 2.0, 1024, 256, false, true, 1234ULL}};
 
 typedef StdDevTest<float> StdDevTestF;
 TEST_P(StdDevTestF, Result) {
@@ -136,11 +135,9 @@ TEST_P(StdDevTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(StdDevTests, StdDevTestD, ::testing::ValuesIn(inputsd));
-
 
 } // end namespace Stats
 } // end namespace MLCommon

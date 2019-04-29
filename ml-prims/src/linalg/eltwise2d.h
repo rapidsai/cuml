@@ -50,7 +50,7 @@ void eltwise2D(int rows, // m
   size_t threads = 256;
   size_t blocks = ((cols * rows) + threads - 1) / threads;
   eltwise2DKernel<Type><<<blocks, threads, 0, stream>>>(
-    rows, cols, dotA, dotB, pC, pD, alpha, beta, op);
+      rows, cols, dotA, dotB, pC, pD, alpha, beta, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

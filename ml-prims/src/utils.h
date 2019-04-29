@@ -17,12 +17,12 @@
 #pragma once
 
 #include <cstdio>
+#include <cuda_runtime.h>
 #include <execinfo.h>
-#include <stdexcept>
-#include <string>
 #include <iostream>
 #include <sstream>
-#include <cuda_runtime.h>
+#include <stdexcept>
+#include <string>
 
 namespace MLCommon {
 
@@ -30,15 +30,15 @@ namespace MLCommon {
 class Exception : public std::exception {
 public:
   /** default ctor */
-  Exception() throw(): std::exception(), msg() {}
+  Exception() throw() : std::exception(), msg() {}
 
   /** copy ctor */
-  Exception(const Exception& src) throw(): std::exception(), msg(src.what()) {
+  Exception(const Exception &src) throw() : std::exception(), msg(src.what()) {
     collectCallStack();
   }
 
   /** ctor from an input message */
-  Exception(const std::string& _msg) throw(): std::exception(), msg(_msg) {
+  Exception(const std::string &_msg) throw() : std::exception(), msg(_msg) {
     collectCallStack();
   }
 
@@ -46,22 +46,23 @@ public:
   virtual ~Exception() throw() {}
 
   /** get the message associated with this exception */
-  virtual const char* what() const throw() { return msg.c_str(); }
+  virtual const char *what() const throw() { return msg.c_str(); }
 
 private:
   /** message associated with this exception */
   std::string msg;
 
   /** append call stack info to this exception's message for ease of debug */
-  // Courtesy: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
+  // Courtesy:
+  // https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
   void collectCallStack() throw() {
 #ifdef __GNUC__
     const int MaxStackDepth = 64;
-    void* stack[MaxStackDepth];
+    void *stack[MaxStackDepth];
     auto depth = backtrace(stack, MaxStackDepth);
     std::ostringstream oss;
     oss << std::endl << "Obtained " << depth << " stack frames" << std::endl;
-    char** strings = backtrace_symbols(stack, depth);
+    char **strings = backtrace_symbols(stack, depth);
     if (strings == nullptr) {
       oss << "But no stack trace could be found!" << std::endl;
       msg += oss.str();
@@ -105,8 +106,6 @@ private:
            cudaGetErrorString(status));                                        \
   } while (0)
 
-
-
 ///@todo: add a similar CUDA_CHECK_NO_THROW
 /// (Ref: https://github.com/rapidsai/cuml/issues/229)
 
@@ -120,8 +119,8 @@ private:
  */
 template <typename Type>
 void copy(Type *dst, const Type *src, size_t len, cudaStream_t stream) {
-    CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type),
-                               cudaMemcpyDefault, stream));
+  CUDA_CHECK(
+      cudaMemcpyAsync(dst, src, len * sizeof(Type), cudaMemcpyDefault, stream));
 }
 
 /**
@@ -139,18 +138,17 @@ void updateDevice(Type *dPtr, const Type *hPtr, size_t len,
 
 /** performs a device to host copy */
 template <typename Type>
-void updateHost(Type *hPtr, const Type *dPtr, size_t len,
-                cudaStream_t stream) {
+void updateHost(Type *hPtr, const Type *dPtr, size_t len, cudaStream_t stream) {
   copy(hPtr, dPtr, len, stream);
 }
 /** @} */
 
 /** Helper function to calculate need memory for allocate to store dense matrix.
-* @param rows number of rows in matrix
-* @param columns number of columns in matrix
-* @return need number of items to allocate via allocate()
-* @sa allocate()
-*/
+ * @param rows number of rows in matrix
+ * @param columns number of columns in matrix
+ * @return need number of items to allocate via allocate()
+ * @sa allocate()
+ */
 inline size_t allocLengthForMatrix(size_t rows, size_t columns) {
   return rows * columns;
 }
@@ -164,69 +162,66 @@ void allocate(Type *&ptr, size_t len, bool setZero = false) {
 }
 
 /** Helper function to check alignment of pointer.
-* @param ptr the pointer to check
-* @param alignment to be checked for
-* @return true if address in bytes is a multiple of alignment
-*/
-template <typename Type>
-bool is_aligned(Type *ptr, size_t alignment) {
-    return reinterpret_cast<uintptr_t>(ptr) % alignment == 0;
+ * @param ptr the pointer to check
+ * @param alignment to be checked for
+ * @return true if address in bytes is a multiple of alignment
+ */
+template <typename Type> bool is_aligned(Type *ptr, size_t alignment) {
+  return reinterpret_cast<uintptr_t>(ptr) % alignment == 0;
 }
 
 /** calculate greatest common divisor of two numbers
-* @a integer
-* @b integer
-* @ return gcd of a and b
-*/
-template <typename IntType>
-IntType gcd(IntType a, IntType b) {
-    while(b!=0) {
-        IntType tmp = b;
-        b = a % b;
-        a = tmp;
-    }
-    return a;
+ * @a integer
+ * @b integer
+ * @ return gcd of a and b
+ */
+template <typename IntType> IntType gcd(IntType a, IntType b) {
+  while (b != 0) {
+    IntType tmp = b;
+    b = a % b;
+    a = tmp;
+  }
+  return a;
 }
-
 
 /**
  * @defgroup Debug utils for debug device code
  * @{
  */
-template<class T, class OutStream>
-void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount, OutStream& out)
-{
-    out << variableName << "=[";
-    for (size_t i = 0; i < componentsCount; ++i)
-    {
-        if (i != 0)
-            out << ",";
-        out << hostMem[i];
-    }
-    out << "];\n";
+template <class T, class OutStream>
+void myPrintHostVector(const char *variableName, const T *hostMem,
+                       size_t componentsCount, OutStream &out) {
+  out << variableName << "=[";
+  for (size_t i = 0; i < componentsCount; ++i) {
+    if (i != 0)
+      out << ",";
+    out << hostMem[i];
+  }
+  out << "];\n";
 }
 
-template<class T>
-void myPrintHostVector(const char * variableName, const T * hostMem, size_t componentsCount)
-{
-    myPrintHostVector(variableName, hostMem, componentsCount, std::cout);
-    std::cout.flush();
+template <class T>
+void myPrintHostVector(const char *variableName, const T *hostMem,
+                       size_t componentsCount) {
+  myPrintHostVector(variableName, hostMem, componentsCount, std::cout);
+  std::cout.flush();
 }
 
-template<class T, class OutStream>
-void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount, OutStream& out)
-{
-    T* hostMem = new T[componentsCount];
-    CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T), cudaMemcpyDeviceToHost));
-    myPrintHostVector(variableName, hostMem, componentsCount, out);
-    delete []hostMem;
+template <class T, class OutStream>
+void myPrintDevVector(const char *variableName, const T *devMem,
+                      size_t componentsCount, OutStream &out) {
+  T *hostMem = new T[componentsCount];
+  CUDA_CHECK(cudaMemcpy(hostMem, devMem, componentsCount * sizeof(T),
+                        cudaMemcpyDeviceToHost));
+  myPrintHostVector(variableName, hostMem, componentsCount, out);
+  delete[] hostMem;
 }
 
-template<class T>
-void myPrintDevVector(const char * variableName, const T * devMem, size_t componentsCount)
-{
-    myPrintDevVector(variableName, devMem, componentsCount, std::cout);
-    std::cout.flush();
+template <class T>
+void myPrintDevVector(const char *variableName, const T *devMem,
+                      size_t componentsCount) {
+  myPrintDevVector(variableName, devMem, componentsCount, std::cout);
+  std::cout.flush();
 }
 /** @} */
 

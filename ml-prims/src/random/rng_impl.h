@@ -16,10 +16,9 @@
 
 #pragma once
 
+#include "cuda_utils.h"
 #include <curand_kernel.h>
 #include <stdint.h>
-#include "cuda_utils.h"
-
 
 namespace MLCommon {
 namespace Random {
@@ -42,24 +41,24 @@ struct PhiloxGenerator {
    * @defgroup NextRand Generate the next random number
    * @{
    */
-  DI void next(float& ret) { ret = curand_uniform(&(this->state)); }
-  DI void next(double& ret) { ret = curand_uniform_double(&(this->state)); }
-  DI void next(uint32_t& ret) { ret = curand(&(this->state)); }
-  DI void next(uint64_t& ret) {
+  DI void next(float &ret) { ret = curand_uniform(&(this->state)); }
+  DI void next(double &ret) { ret = curand_uniform_double(&(this->state)); }
+  DI void next(uint32_t &ret) { ret = curand(&(this->state)); }
+  DI void next(uint64_t &ret) {
     uint32_t a, b;
     next(a);
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
-  DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
@@ -67,7 +66,6 @@ private:
   /** the state for RNG */
   curandStatePhilox4_32_10_t state;
 };
-
 
 /** LFSR taps-filter for generating random numbers. */
 // Courtesy: Vinay Deshpande
@@ -91,35 +89,34 @@ struct TapsGenerator {
    * @defgroup NextRand Generate the next random number
    * @{
    */
-  template <typename Type>
-  DI void next(Type& ret) {
+  template <typename Type> DI void next(Type &ret) {
     constexpr double ULL_LARGE = 1.8446744073709551614e19;
     uint64_t val;
     next(val);
     ret = static_cast<Type>(val);
     ret /= static_cast<Type>(ULL_LARGE);
   }
-  DI void next(uint64_t& ret) {
+  DI void next(uint64_t &ret) {
     constexpr uint64_t TAPS = 0x8000100040002000ULL;
     constexpr int ROUNDS = 128;
     for (int i = 0; i < ROUNDS; i++)
       state = (state >> 1) ^ (-(state & 1ULL) & TAPS);
     ret = state;
   }
-  DI void next(uint32_t& ret) {
+  DI void next(uint32_t &ret) {
     uint64_t val;
     next(val);
     ret = (uint32_t)val;
   }
-  DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
@@ -127,7 +124,6 @@ private:
   /** the state for RNG */
   uint64_t state;
 };
-
 
 /** Kiss99-based random number generator */
 // Courtesy: Vinay Deshpande
@@ -146,15 +142,14 @@ struct Kiss99Generator {
    * @defgroup NextRand Generate the next random number
    * @{
    */
-  template <typename Type>
-  DI void next(Type& ret) {
+  template <typename Type> DI void next(Type &ret) {
     constexpr double U_LARGE = 4.294967295e9;
     uint32_t val;
     next(val);
     ret = static_cast<Type>(val);
     ret /= static_cast<Type>(U_LARGE);
   }
-  DI void next(uint32_t& ret) {
+  DI void next(uint32_t &ret) {
     uint32_t MWC;
     z = 36969 * (z & 65535) + (z >> 16);
     w = 18000 * (w & 65535) + (w >> 16);
@@ -166,21 +161,21 @@ struct Kiss99Generator {
     MWC = ((MWC ^ jcong) + jsr);
     ret = MWC;
   }
-  DI void next(uint64_t& ret) {
+  DI void next(uint64_t &ret) {
     uint32_t a, b;
     next(a);
     next(b);
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
-  DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+  DI void next(int32_t &ret) {
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
-  DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+  DI void next(int64_t &ret) {
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
@@ -227,18 +222,15 @@ private:
   }
 };
 
-
 /**
  * @brief generator-agnostic way of generating random numbers
  * @tparam GenType the generator object that expose 'next' method
  */
-template <typename GenType>
-struct Generator {
+template <typename GenType> struct Generator {
   DI Generator(uint64_t seed, uint64_t subsequence, uint64_t offset)
-    : gen(seed, subsequence, offset) {}
+      : gen(seed, subsequence, offset) {}
 
-  template <typename Type>
-  DI void next(Type& ret) { gen.next(ret); }
+  template <typename Type> DI void next(Type &ret) { gen.next(ret); }
 
 private:
   /** the actual generator */

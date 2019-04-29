@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <cutlass/shape.h>
 #include "cuda_utils.h"
 #include "distance/cosine.h"
 #include "distance/euclidean.h"
 #include "distance/l1.h"
+#include <cutlass/shape.h>
 
 namespace MLCommon {
 namespace Distance {
@@ -42,79 +42,85 @@ enum DistanceType {
 };
 
 namespace {
-template <DistanceType distanceType, typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
+template <DistanceType distanceType, typename InType, typename AccType,
+          typename OutType, typename OutputTile_, typename FinalLambda>
 struct DistanceImpl {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {}
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {}
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucExpandedL2, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucExpandedL2, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
     euclideanAlgo1<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
-      stream);
+        m, n, k, x, y, dist, false, (AccType *)workspace, worksize, fin_op,
+        stream);
   }
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucExpandedL2Sqrt, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucExpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
     euclideanAlgo1<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op,
-      stream);
+        m, n, k, x, y, dist, true, (AccType *)workspace, worksize, fin_op,
+        stream);
   }
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucExpandedCosine, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucExpandedCosine, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
     cosineAlgo1<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, (AccType *)workspace, worksize, fin_op, stream);
+        m, n, k, x, y, dist, (AccType *)workspace, worksize, fin_op, stream);
   }
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucUnexpandedL2, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucUnexpandedL2, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
     euclideanAlgo2<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, false, fin_op, stream);
+        m, n, k, x, y, dist, false, fin_op, stream);
   }
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucUnexpandedL2Sqrt, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
-    euclideanAlgo2<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, true, fin_op, stream);
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
+    euclideanAlgo2<InType, AccType, OutType, OutputTile_>(m, n, k, x, y, dist,
+                                                          true, fin_op, stream);
   }
 };
 
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_, FinalLambda> {
+struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
+                    FinalLambda> {
   void run(InType *x, InType *y, OutType *dist, int m, int n, int k,
-                void *workspace, size_t worksize,
-                FinalLambda fin_op, cudaStream_t stream) {
-    l1Impl<InType, AccType, OutType, OutputTile_>(
-      m, n, k, x, y, dist, fin_op, stream);
+           void *workspace, size_t worksize, FinalLambda fin_op,
+           cudaStream_t stream) {
+    l1Impl<InType, AccType, OutType, OutputTile_>(m, n, k, x, y, dist, fin_op,
+                                                  stream);
   }
 };
 
@@ -132,20 +138,21 @@ struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_, Fina
  * @param n number of points in y
  * @param k dimensionality
  *
- * @note If the specifed distanceType doesn't need the workspace at all, it returns 0.
+ * @note If the specifed distanceType doesn't need the workspace at all, it
+ * returns 0.
  */
-template <DistanceType distanceType, typename InType, typename AccType, typename OutType>
-size_t getWorkspaceSize(InType* x, InType* y, int m, int n, int k) {
+template <DistanceType distanceType, typename InType, typename AccType,
+          typename OutType>
+size_t getWorkspaceSize(InType *x, InType *y, int m, int n, int k) {
   size_t worksize = 0;
   constexpr bool is_allocated = distanceType <= EucExpandedCosine;
-  if(is_allocated) {
+  if (is_allocated) {
     worksize += m * sizeof(AccType);
-    if(x != y)
+    if (x != y)
       worksize += n * sizeof(AccType);
   }
   return worksize;
 }
-
 
 /**
  * @brief Evaluate pairwise distances with the user epilogue lamba allowed
@@ -171,12 +178,13 @@ size_t getWorkspaceSize(InType* x, InType* y, int m, int n, int k) {
  * any other parameters, feel free to pass them via closure.
  */
 
-template <DistanceType distanceType,typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
+template <DistanceType distanceType, typename InType, typename AccType,
+          typename OutType, typename OutputTile_, typename FinalLambda>
 void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
-              void *workspace, size_t worksize,
-              FinalLambda fin_op, cudaStream_t stream) {
-  DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda> distImpl;
+              void *workspace, size_t worksize, FinalLambda fin_op,
+              cudaStream_t stream) {
+  DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda>
+      distImpl;
   distImpl.run(x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
 }
 
@@ -199,15 +207,15 @@ void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
  * @note if workspace is passed as nullptr, this will return in
  *  worksize, the number of bytes of workspace required
  */
-template <DistanceType distanceType, typename InType, typename AccType, typename OutType,
-          typename OutputTile_>
+template <DistanceType distanceType, typename InType, typename AccType,
+          typename OutType, typename OutputTile_>
 void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
-              void *workspace,
-              size_t worksize, cudaStream_t stream) {
-  auto default_fin_op =
-      [] __device__(AccType d_val, int g_d_idx) { return d_val; };
+              void *workspace, size_t worksize, cudaStream_t stream) {
+  auto default_fin_op = [] __device__(AccType d_val, int g_d_idx) {
+    return d_val;
+  };
   distance<distanceType, InType, AccType, OutType, OutputTile_>(
-    x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream);
+      x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream);
 }
 
 }; // end namespace Distance

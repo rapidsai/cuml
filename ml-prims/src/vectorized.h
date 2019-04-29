@@ -16,188 +16,64 @@
 
 #pragma once
 
-#include <cuda_fp16.h>
 #include "cuda_utils.h"
-
+#include <cuda_fp16.h>
 
 namespace MLCommon {
 
+template <typename math_, int VecLen> struct IOType {};
 
-template <typename math_, int VecLen>
-struct IOType {};
+template <> struct IOType<int8_t, 1> { typedef int8_t Type; };
+template <> struct IOType<int8_t, 2> { typedef int16_t Type; };
+template <> struct IOType<int8_t, 4> { typedef int32_t Type; };
+template <> struct IOType<int8_t, 8> { typedef int2 Type; };
+template <> struct IOType<int8_t, 16> { typedef int4 Type; };
 
-template <>
-struct IOType<int8_t, 1> {
-  typedef int8_t Type;
-};
-template <>
-struct IOType<int8_t, 2> {
-  typedef int16_t Type;
-};
-template <>
-struct IOType<int8_t, 4> {
-  typedef int32_t Type;
-};
-template <>
-struct IOType<int8_t, 8> {
-  typedef int2 Type;
-};
-template <>
-struct IOType<int8_t, 16> {
-  typedef int4 Type;
-};
+template <> struct IOType<uint8_t, 1> { typedef uint8_t Type; };
+template <> struct IOType<uint8_t, 2> { typedef uint16_t Type; };
+template <> struct IOType<uint8_t, 4> { typedef uint32_t Type; };
+template <> struct IOType<uint8_t, 8> { typedef uint2 Type; };
+template <> struct IOType<uint8_t, 16> { typedef uint4 Type; };
 
-template <>
-struct IOType<uint8_t, 1> {
-  typedef uint8_t Type;
-};
-template <>
-struct IOType<uint8_t, 2> {
-  typedef uint16_t Type;
-};
-template <>
-struct IOType<uint8_t, 4> {
-  typedef uint32_t Type;
-};
-template <>
-struct IOType<uint8_t, 8> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<uint8_t, 16> {
-  typedef uint4 Type;
-};
+template <> struct IOType<int16_t, 1> { typedef int16_t Type; };
+template <> struct IOType<int16_t, 2> { typedef int32_t Type; };
+template <> struct IOType<int16_t, 4> { typedef int2 Type; };
+template <> struct IOType<int16_t, 8> { typedef int4 Type; };
 
-template <>
-struct IOType<int16_t, 1> {
-  typedef int16_t Type;
-};
-template <>
-struct IOType<int16_t, 2> {
-  typedef int32_t Type;
-};
-template <>
-struct IOType<int16_t, 4> {
-  typedef int2 Type;
-};
-template <>
-struct IOType<int16_t, 8> {
-  typedef int4 Type;
-};
+template <> struct IOType<uint16_t, 1> { typedef uint16_t Type; };
+template <> struct IOType<uint16_t, 2> { typedef uint32_t Type; };
+template <> struct IOType<uint16_t, 4> { typedef uint2 Type; };
+template <> struct IOType<uint16_t, 8> { typedef uint4 Type; };
 
-template <>
-struct IOType<uint16_t, 1> {
-  typedef uint16_t Type;
-};
-template <>
-struct IOType<uint16_t, 2> {
-  typedef uint32_t Type;
-};
-template <>
-struct IOType<uint16_t, 4> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<uint16_t, 8> {
-  typedef uint4 Type;
-};
+template <> struct IOType<__half, 1> { typedef __half Type; };
+template <> struct IOType<__half, 2> { typedef __half2 Type; };
+template <> struct IOType<__half, 4> { typedef uint2 Type; };
+template <> struct IOType<__half, 8> { typedef uint4 Type; };
 
-template <>
-struct IOType<__half, 1> {
-  typedef __half Type;
-};
-template <>
-struct IOType<__half, 2> {
-  typedef __half2 Type;
-};
-template <>
-struct IOType<__half, 4> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<__half, 8> {
-  typedef uint4 Type;
-};
+template <> struct IOType<__half2, 1> { typedef __half2 Type; };
+template <> struct IOType<__half2, 2> { typedef uint2 Type; };
+template <> struct IOType<__half2, 4> { typedef uint4 Type; };
 
-template <>
-struct IOType<__half2, 1> {
-  typedef __half2 Type;
-};
-template <>
-struct IOType<__half2, 2> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<__half2, 4> {
-  typedef uint4 Type;
-};
+template <> struct IOType<int32_t, 1> { typedef int32_t Type; };
+template <> struct IOType<int32_t, 2> { typedef uint2 Type; };
+template <> struct IOType<int32_t, 4> { typedef uint4 Type; };
 
-template <>
-struct IOType<int32_t, 1> {
-  typedef int32_t Type;
-};
-template <>
-struct IOType<int32_t, 2> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<int32_t, 4> {
-  typedef uint4 Type;
-};
+template <> struct IOType<uint32_t, 1> { typedef uint32_t Type; };
+template <> struct IOType<uint32_t, 2> { typedef uint2 Type; };
+template <> struct IOType<uint32_t, 4> { typedef uint4 Type; };
 
-template <>
-struct IOType<uint32_t, 1> {
-  typedef uint32_t Type;
-};
-template <>
-struct IOType<uint32_t, 2> {
-  typedef uint2 Type;
-};
-template <>
-struct IOType<uint32_t, 4> {
-  typedef uint4 Type;
-};
+template <> struct IOType<float, 1> { typedef float Type; };
+template <> struct IOType<float, 2> { typedef float2 Type; };
+template <> struct IOType<float, 4> { typedef float4 Type; };
 
-template <>
-struct IOType<float, 1> {
-  typedef float Type;
-};
-template <>
-struct IOType<float, 2> {
-  typedef float2 Type;
-};
-template <>
-struct IOType<float, 4> {
-  typedef float4 Type;
-};
+template <> struct IOType<int64_t, 1> { typedef int64_t Type; };
+template <> struct IOType<int64_t, 2> { typedef uint4 Type; };
 
-template <>
-struct IOType<int64_t, 1> {
-  typedef int64_t Type;
-};
-template <>
-struct IOType<int64_t, 2> {
-  typedef uint4 Type;
-};
+template <> struct IOType<uint64_t, 1> { typedef uint64_t Type; };
+template <> struct IOType<uint64_t, 2> { typedef uint4 Type; };
 
-template <>
-struct IOType<uint64_t, 1> {
-  typedef uint64_t Type;
-};
-template <>
-struct IOType<uint64_t, 2> {
-  typedef uint4 Type;
-};
-
-template <>
-struct IOType<double, 1> {
-  typedef double Type;
-};
-template <>
-struct IOType<double, 2> {
-  typedef double2 Type;
-};
-
+template <> struct IOType<double, 1> { typedef double Type; };
+template <> struct IOType<double, 2> { typedef double2 Type; };
 
 // template <int Size> struct Cases {};
 
@@ -213,7 +89,6 @@ struct IOType<double, 2> {
 // template <> struct Cases<8> {
 //     static const int arr[2] = {1, 2};
 // };
-
 
 /**
  * @struct TxN_t
@@ -252,8 +127,7 @@ struct IOType<double, 2> {
  * @tparam veclen_ the number of 'math_' types to be loaded/stored per
  * instruction
  */
-template <typename math_, int veclen_>
-struct TxN_t {
+template <typename math_, int veclen_> struct TxN_t {
   /** underlying math data type */
   typedef math_ math_t;
   /** internal storage data type */
@@ -299,30 +173,25 @@ struct TxN_t {
    * case of stores, the data in the val.data will be stored to that location.
    * @{
    */
-  template <typename idx_t = int>
-  DI void load(const math_t *ptr, idx_t idx) {
+  template <typename idx_t = int> DI void load(const math_t *ptr, idx_t idx) {
     const io_t *bptr = reinterpret_cast<const io_t *>(&ptr[idx]);
     val.internal = __ldg(bptr);
   }
 
-  template <typename idx_t = int>
-  DI void load(math_t *ptr, idx_t idx) {
+  template <typename idx_t = int> DI void load(math_t *ptr, idx_t idx) {
     io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
     val.internal = *bptr;
   }
 
-  template <typename idx_t = int>
-  DI void store(math_t *ptr, idx_t idx) {
+  template <typename idx_t = int> DI void store(math_t *ptr, idx_t idx) {
     io_t *bptr = reinterpret_cast<io_t *>(&ptr[idx]);
     *bptr = val.internal;
   }
   /** @} */
 };
 
-
 /** this is just to keep the compiler happy! */
-template <typename math_>
-struct TxN_t<math_, 0> {
+template <typename math_> struct TxN_t<math_, 0> {
   typedef math_ math_t;
   static const int Ratio = 1;
 
@@ -331,12 +200,9 @@ struct TxN_t<math_, 0> {
   } val;
 
   DI void fill(math_t _val) {}
-  template <typename idx_t = int>
-  DI void load(const math_t *ptr, idx_t idx) {}
-  template <typename idx_t = int>
-  DI void load(math_t *ptr, idx_t idx) {}
-  template <typename idx_t = int>
-  DI void store(math_t *ptr, idx_t idx) {}
+  template <typename idx_t = int> DI void load(const math_t *ptr, idx_t idx) {}
+  template <typename idx_t = int> DI void load(math_t *ptr, idx_t idx) {}
+  template <typename idx_t = int> DI void store(math_t *ptr, idx_t idx) {}
 };
 
 }; // namespace MLCommon

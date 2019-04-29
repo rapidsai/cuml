@@ -49,10 +49,10 @@ void cosineAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                  OutType *pD, AccType *workspace, size_t worksize,
                  FinalLambda fin_op, cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
-    FragmentMultiplyAdd_;
+      FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
   distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_>(
-    m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
+      m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
 }
 
 }; // end namespace Distance

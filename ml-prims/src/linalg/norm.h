@@ -18,13 +18,11 @@
 
 #include "linalg/reduce.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
 /** different types of norms supported on the input buffers */
 enum NormType { L1Norm = 0, L2Norm };
-
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -52,19 +50,18 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              bool rowMajor, cudaStream_t stream,
              Lambda fin_op = Nop<Type, IdxType>()) {
   switch (type) {
-    case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
-      break;
-    case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
-                     L2Op<Type>(), Sum<Type>(), fin_op);
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
+  case L1Norm:
+    LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
+                   L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
+    break;
+  case L2Norm:
+    LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, true, stream, false,
+                   L2Op<Type>(), Sum<Type>(), fin_op);
+    break;
+  default:
+    ASSERT(false, "Invalid norm type passed! [%d]", type);
   };
 }
-
 
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
@@ -86,16 +83,16 @@ void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
              bool rowMajor, cudaStream_t stream,
              Lambda fin_op = Nop<Type, IdxType>()) {
   switch (type) {
-    case L1Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
-      break;
-    case L2Norm:
-      LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
-                     L2Op<Type, IdxType>(), Sum<Type>(), fin_op);
-      break;
-    default:
-      ASSERT(false, "Invalid norm type passed! [%d]", type);
+  case L1Norm:
+    LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
+                   L1Op<Type, IdxType>(), Sum<Type>(), fin_op);
+    break;
+  case L2Norm:
+    LinAlg::reduce(dots, data, D, N, (Type)0, rowMajor, false, stream, false,
+                   L2Op<Type, IdxType>(), Sum<Type>(), fin_op);
+    break;
+  default:
+    ASSERT(false, "Invalid norm type passed! [%d]", type);
   };
 }
 

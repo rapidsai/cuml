@@ -14,26 +14,25 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "cuda_utils.h"
 #include "linalg/coalesced_reduction.h"
-#include "reduce.h"
 #include "random/rng.h"
+#include "reduce.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
 
-template <typename T>
-struct coalescedReductionInputs {
+template <typename T> struct coalescedReductionInputs {
   T tolerance;
   int rows, cols;
   unsigned long long int seed;
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const coalescedReductionInputs<T> &dims) {
+::std::ostream &operator<<(::std::ostream &os,
+                           const coalescedReductionInputs<T> &dims) {
   return os;
 }
 
@@ -43,13 +42,13 @@ template <typename T>
 template <typename T>
 void coalescedReductionLaunch(T *dots, const T *data, int cols, int rows,
                               cudaStream_t stream, bool inplace = false) {
-  coalescedReduction(dots, data, cols, rows, (T)0,
-                     stream, inplace,
+  coalescedReduction(dots, data, cols, rows, (T)0, stream, inplace,
                      [] __device__(T in, int i) { return in * in; });
 }
 
 template <typename T>
-class coalescedReductionTest : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
+class coalescedReductionTest
+    : public ::testing::TestWithParam<coalescedReductionInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<coalescedReductionInputs<T>>::GetParam();
@@ -84,16 +83,16 @@ protected:
 };
 
 const std::vector<coalescedReductionInputs<float>> inputsf = {
-  {0.000002f, 1024,  32, 1234ULL},
-  {0.000002f, 1024,  64, 1234ULL},
-  {0.000002f, 1024, 128, 1234ULL},
-  {0.000002f, 1024, 256, 1234ULL}};
+    {0.000002f, 1024, 32, 1234ULL},
+    {0.000002f, 1024, 64, 1234ULL},
+    {0.000002f, 1024, 128, 1234ULL},
+    {0.000002f, 1024, 256, 1234ULL}};
 
 const std::vector<coalescedReductionInputs<double>> inputsd = {
-  {0.000000001, 1024,  32, 1234ULL},
-  {0.000000001, 1024,  64, 1234ULL},
-  {0.000000001, 1024, 128, 1234ULL},
-  {0.000000001, 1024, 256, 1234ULL}};
+    {0.000000001, 1024, 32, 1234ULL},
+    {0.000000001, 1024, 64, 1234ULL},
+    {0.000000001, 1024, 128, 1234ULL},
+    {0.000000001, 1024, 256, 1234ULL}};
 
 typedef coalescedReductionTest<float> coalescedReductionTestF;
 TEST_P(coalescedReductionTestF, Result) {
@@ -107,9 +106,11 @@ TEST_P(coalescedReductionTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF, ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestF,
+                        ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(coalescedReductionTests, coalescedReductionTestD,
+                        ::testing::ValuesIn(inputsd));
 
 } // end namespace LinAlg
 } // end namespace MLCommon

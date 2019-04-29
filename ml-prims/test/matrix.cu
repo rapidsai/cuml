@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "matrix/matrix.h"
 #include "random/rng.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace Matrix {
 
-template <typename T>
-struct MatrixInputs {
+template <typename T> struct MatrixInputs {
   T tolerance;
   int n_row;
   int n_col;
@@ -73,7 +72,7 @@ protected:
 const std::vector<MatrixInputs<float>> inputsf2 = {{0.000001f, 4, 4, 1234ULL}};
 
 const std::vector<MatrixInputs<double>> inputsd2 = {
-  {0.00000001, 4, 4, 1234ULL}};
+    {0.00000001, 4, 4, 1234ULL}};
 
 typedef MatrixTest<float> MatrixTestF;
 TEST_P(MatrixTestF, Result) {

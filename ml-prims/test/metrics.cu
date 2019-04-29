@@ -15,9 +15,9 @@
  */
 
 #include "metrics/metrics.h"
-#include <gtest/gtest.h>
 #include "random/rng.h"
 #include "test_utils.h"
+#include <gtest/gtest.h>
 
 #include "device_allocator.h"
 
@@ -31,54 +31,53 @@ protected:
   void SetUp() override {}
 
   void TearDown() override {}
-
 };
 
 typedef MetricsTest MetricsTestHighScore;
 TEST(MetricsTestHighScore, Result) {
 
-    float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
-    float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
+  float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
+  float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    float *d_y;
-    MLCommon::allocate(d_y, 5);
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  float *d_y;
+  MLCommon::allocate(d_y, 5);
 
-    float *d_y_hat;
-    MLCommon::allocate(d_y_hat, 5);
+  float *d_y_hat;
+  MLCommon::allocate(d_y_hat, 5);
 
-    MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
-    MLCommon::updateDevice(d_y, y, 5, stream);
+  MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
+  MLCommon::updateDevice(d_y, y, 5, stream);
 
-    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
-    ASSERT_TRUE(result == 0.98f);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
+  ASSERT_TRUE(result == 0.98f);
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 typedef MetricsTest MetricsTestLowScore;
 TEST(MetricsTestLowScore, Result) {
 
-    float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
-    float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
+  float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
+  float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    float *d_y;
-    MLCommon::allocate(d_y, 5);
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  float *d_y;
+  MLCommon::allocate(d_y, 5);
 
-    float *d_y_hat;
-    MLCommon::allocate(d_y_hat, 5);
+  float *d_y_hat;
+  MLCommon::allocate(d_y_hat, 5);
 
-    MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
-    MLCommon::updateDevice(d_y, y, 5, stream);
+  MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
+  MLCommon::updateDevice(d_y, y, 5, stream);
 
-    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
+  float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
 
-    std::cout << "Result: " << result - -3.4012f << std::endl;
-    ASSERT_TRUE(result - -3.4012f < 0.00001);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+  std::cout << "Result: " << result - -3.4012f << std::endl;
+  ASSERT_TRUE(result - -3.4012f < 0.00001);
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-}}
-
+} // namespace Metrics
+} // namespace MLCommon

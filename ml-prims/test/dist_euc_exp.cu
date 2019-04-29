@@ -23,10 +23,10 @@ template <typename DataType>
 class DistanceEucExpTest : public DistanceTest<EucExpandedL2, DataType> {};
 
 const std::vector<DistanceInputs<float>> inputsf = {
-  {0.001f, 1024, 1024, 32, 1234ULL},
-  {0.001f, 1024, 32, 1024, 1234ULL},
-  {0.001f, 32, 1024, 1024, 1234ULL},
-  {0.003f, 1024, 1024, 1024, 1234ULL},
+    {0.001f, 1024, 1024, 32, 1234ULL},
+    {0.001f, 1024, 32, 1024, 1234ULL},
+    {0.001f, 32, 1024, 1024, 1234ULL},
+    {0.003f, 1024, 1024, 1024, 1234ULL},
 };
 typedef DistanceEucExpTest<float> DistanceEucExpTestF;
 TEST_P(DistanceEucExpTestF, Result) {
@@ -36,12 +36,11 @@ TEST_P(DistanceEucExpTestF, Result) {
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceEucExpTestF,
                         ::testing::ValuesIn(inputsf));
 
-
 const std::vector<DistanceInputs<double>> inputsd = {
-  {0.001, 1024, 1024, 32, 1234ULL},
-  {0.001, 1024, 32, 1024, 1234ULL},
-  {0.001, 32, 1024, 1024, 1234ULL},
-  {0.003, 1024, 1024, 1024, 1234ULL},
+    {0.001, 1024, 1024, 32, 1234ULL},
+    {0.001, 1024, 32, 1024, 1234ULL},
+    {0.001, 32, 1024, 1024, 1234ULL},
+    {0.003, 1024, 1024, 1024, 1234ULL},
 };
 typedef DistanceEucExpTest<double> DistanceEucExpTestD;
 TEST_P(DistanceEucExpTestD, Result) {

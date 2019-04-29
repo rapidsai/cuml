@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include "linalg/eltwise.h"
 #include "random/rng.h"
 #include "test_utils.h"
-
+#include <gtest/gtest.h>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -35,16 +34,15 @@ __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type>
-void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
+void naiveScale(Type *out, const Type *in, Type scalar, int len,
+                cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-template <typename T>
-struct ScalarMultiplyInputs {
+template <typename T> struct ScalarMultiplyInputs {
   T tolerance;
   int len;
   T scalar;
@@ -59,7 +57,7 @@ template <typename T>
 
 template <typename T>
 class ScalarMultiplyTest
-  : public ::testing::TestWithParam<ScalarMultiplyInputs<T>> {
+    : public ::testing::TestWithParam<ScalarMultiplyInputs<T>> {
 protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ScalarMultiplyInputs<T>>::GetParam();
@@ -89,10 +87,10 @@ protected:
 };
 
 const std::vector<ScalarMultiplyInputs<float>> inputsf1 = {
-  {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
+    {0.000001f, 1024 * 1024, 2.f, 1234ULL}};
 
 const std::vector<ScalarMultiplyInputs<double>> inputsd1 = {
-  {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
+    {0.00000001, 1024 * 1024, 2.0, 1234ULL}};
 
 typedef ScalarMultiplyTest<float> ScalarMultiplyTestF;
 TEST_P(ScalarMultiplyTestF, Result) {
@@ -112,7 +110,6 @@ INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestF,
 INSTANTIATE_TEST_CASE_P(ScalarMultiplyTests, ScalarMultiplyTestD,
                         ::testing::ValuesIn(inputsd1));
 
-
 //// Testing binary ops
 
 template <typename Type>
@@ -125,16 +122,15 @@ __global__ void naiveAddKernel(Type *out, const Type *in1, const Type *in2,
 }
 
 template <typename Type>
-void naiveAdd(Type *out, const Type *in1, const Type *in2, int len, cudaStream_t stream) {
+void naiveAdd(Type *out, const Type *in1, const Type *in2, int len,
+              cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveAddKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-template <typename T>
-struct EltwiseAddInputs {
+template <typename T> struct EltwiseAddInputs {
   T tolerance;
   int len;
   unsigned long long int seed;
@@ -179,10 +175,10 @@ protected:
 };
 
 const std::vector<EltwiseAddInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+    {0.000001f, 1024 * 1024, 1234ULL}};
 
 const std::vector<EltwiseAddInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+    {0.00000001, 1024 * 1024, 1234ULL}};
 
 typedef EltwiseAddTest<float> EltwiseAddTestF;
 TEST_P(EltwiseAddTestF, Result) {

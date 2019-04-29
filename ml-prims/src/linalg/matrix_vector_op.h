@@ -19,16 +19,14 @@
 #include "cuda_utils.h"
 #include "vectorized.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
-
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void
-  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector,
-                       IdxType D, IdxType N, bool rowMajor, bool bcastAlongRows,
-                       Lambda op) {
+__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
+                                     const Type *vector, IdxType D, IdxType N,
+                                     bool rowMajor, bool bcastAlongRows,
+                                     Lambda op) {
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = threadIdx.x;
@@ -64,13 +62,12 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
           int TPB>
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec,
                         IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream) {
+                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType len = N * D;
-  IdxType nblks = ceildiv(veclen_? len / veclen_ : veclen_, (IdxType)TPB);
+  IdxType nblks = ceildiv(veclen_ ? len / veclen_ : veclen_, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
-                                bcastAlongRows, op);
+      <<<nblks, TPB, 0, stream>>>(out, matrix, vec, D, N, rowMajor,
+                                  bcastAlongRows, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -99,33 +96,32 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec, IdxType D,
   size_t bytes = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (8 / sizeof(Type) && bytes % 8 == 0) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (4 / sizeof(Type) && bytes % 4 == 0) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (2 / sizeof(Type) && bytes % 2 == 0) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (1 / sizeof(Type)) {
     matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   } else {
     matrixVectorOpImpl<Type, 1, Lambda, IdxType, TPB>(
-      out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec, D, N, rowMajor, bcastAlongRows, op, stream);
   }
 }
-
 
 ///@todo: come up with a cleaner interface to support these cases in future!
 
 template <typename Type, int veclen_, typename Lambda, typename IdxType>
-__global__ void
-  matrixVectorOpKernel(Type *out, const Type *matrix, const Type *vector1,
-                       const Type *vector2, IdxType D, IdxType N, bool rowMajor,
-                       bool bcastAlongRows, Lambda op) {
+__global__ void matrixVectorOpKernel(Type *out, const Type *matrix,
+                                     const Type *vector1, const Type *vector2,
+                                     IdxType D, IdxType N, bool rowMajor,
+                                     bool bcastAlongRows, Lambda op) {
   typedef TxN_t<Type, veclen_> VecType;
   IdxType len = N * D;
   IdxType idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
@@ -163,12 +159,11 @@ template <typename Type, int veclen_, typename Lambda, typename IdxType,
           int TPB>
 void matrixVectorOpImpl(Type *out, const Type *matrix, const Type *vec1,
                         const Type *vec2, IdxType D, IdxType N, bool rowMajor,
-                        bool bcastAlongRows, Lambda op,
-                        cudaStream_t stream) {
+                        bool bcastAlongRows, Lambda op, cudaStream_t stream) {
   IdxType nblks = ceildiv(N * D, (IdxType)TPB);
   matrixVectorOpKernel<Type, veclen_, Lambda, IdxType>
-    <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
-                                bcastAlongRows, op);
+      <<<nblks, TPB, 0, stream>>>(out, matrix, vec1, vec2, D, N, rowMajor,
+                                  bcastAlongRows, op);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -198,22 +193,22 @@ void matrixVectorOp(Type *out, const Type *matrix, const Type *vec1,
   size_t bytes = stride * sizeof(Type);
   if (16 / sizeof(Type) && bytes % 16 == 0) {
     matrixVectorOpImpl<Type, 16 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (8 / sizeof(Type) && bytes % 8 == 0) {
     matrixVectorOpImpl<Type, 8 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (4 / sizeof(Type) && bytes % 4 == 0) {
     matrixVectorOpImpl<Type, 4 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (2 / sizeof(Type) && bytes % 2 == 0) {
     matrixVectorOpImpl<Type, 2 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else if (1 / sizeof(Type)) {
     matrixVectorOpImpl<Type, 1 / sizeof(Type), Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   } else {
     matrixVectorOpImpl<Type, 1, Lambda, IdxType, TPB>(
-      out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
+        out, matrix, vec1, vec2, D, N, rowMajor, bcastAlongRows, op, stream);
   }
 }
 
