@@ -52,7 +52,8 @@ TEST(Gemm, Gemm_128x128x8) {
   gemm<float, float, float, cutlass::Shape<8, 128, 128>>(
     CUBLAS_OP_N, CUBLAS_OP_N, M, N, K, 1.f, B, N, A, K, 1.f, C, N, D, stream);
   float *hD = new float[M * N];
-  updateHost<float>(hD, D, M * N);
+  updateHost<float>(hD, D, M * N, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < M * N; ++i) {
     ASSERT_FLOAT_EQ(0.5f * K + 2.f, hD[i]) << " @hD[" << i << "]";
   }
