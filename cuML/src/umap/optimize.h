@@ -162,7 +162,8 @@ namespace UMAPAlgo {
                 MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
 
                 T * grads_h = (T*)malloc(2 * sizeof(T));
-                MLCommon::updateHost(grads_h, grads, 2);
+                MLCommon::updateHost(grads_h, grads, 2, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
                 for(int i = 0; i < 2; i++) {
                     if(abs(grads_h[i]) - tolerance <= 0)
                         tol_grads += 1;
@@ -198,23 +199,24 @@ namespace UMAPAlgo {
 
             float *X_d;
             MLCommon::allocate(X_d, 300);
-            MLCommon::updateDevice(X_d, X, 300);
+            MLCommon::updateDevice(X_d, X, 300, stream);
 
             float *y_d;
             MLCommon::allocate(y_d, 300);
-            MLCommon::updateDevice(y_d, y, 300);
+            MLCommon::updateDevice(y_d, y, 300, stream);
             float *coeffs_h = (float*)malloc(2 * sizeof(float));
             coeffs_h[0] = 1.0;
             coeffs_h[1] = 1.0;
 
             float *coeffs;
             MLCommon::allocate(coeffs, 2, true);
-            MLCommon::updateDevice(coeffs, coeffs_h, 2);
+            MLCommon::updateDevice(coeffs, coeffs_h, 2, stream);
 
             optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
 
-            MLCommon::updateHost(&(params->a), coeffs, 1);
-            MLCommon::updateHost(&(params->b), coeffs+1, 1);
+            MLCommon::updateHost(&(params->a), coeffs, 1, stream);
+            MLCommon::updateHost(&(params->b), coeffs+1, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
 
             if(params->verbose)
                 std::cout << "a=" << params->a << ", " << params->b << std::endl;
