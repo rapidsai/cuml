@@ -60,7 +60,8 @@ namespace UMAPAlgo {
 	         * @returns an array of number of epochs per sample, one for each 1-simplex
 	         */
 	        template<typename T>
-	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result) {
+	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
+                                        cudaStream_t stream) {
 	            thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
 	            T weights_max = *(thrust::max_element(d_weights, d_weights+weights_n));
                 MLCommon::LinAlg::unaryOp<T>(result, weights, weights_n,
@@ -70,8 +71,8 @@ namespace UMAPAlgo {
                             return v;
                         else
                             return T(-1.0);
-                    }
-                );
+                    },
+                stream);
 	        }
 
 	        /**
@@ -239,7 +240,8 @@ namespace UMAPAlgo {
 	                int n_vertices,
 	                float gamma,
 	                UMAPParams *params,
-	                int n_epochs) {
+	                int n_epochs,
+                  cudaStream_t stream) {
 
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
@@ -252,16 +254,16 @@ namespace UMAPAlgo {
                 int nsr = params->negative_sample_rate;
 	            MLCommon::LinAlg::unaryOp<T>(epochs_per_negative_sample, epochs_per_sample,
 	                     nnz,
-	                    [=] __device__(T input) { return input / float(nsr); }
-	            );
+	                    [=] __device__(T input) { return input / float(nsr); },
+	            stream);
 
 	            T *epoch_of_next_negative_sample;
                 MLCommon::allocate(epoch_of_next_negative_sample, nnz);
-                MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
+                MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz, stream);
 
 	            T *epoch_of_next_sample;
                 MLCommon::allocate(epoch_of_next_sample, nnz);
-                MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
+                MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz, stream);
 
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);
@@ -305,7 +307,7 @@ namespace UMAPAlgo {
 	        template<int TPB_X, typename T>
 	        void launcher(int m, int n,
 	                const int *rows, const int *cols, T *vals, int nnz,
-	                UMAPParams *params, T* embedding) {
+	                UMAPParams *params, T* embedding, cudaStream_t stream) {
 
 	            dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
 	            dim3 blk(TPB_X, 1, 1);
@@ -327,13 +329,13 @@ namespace UMAPAlgo {
                             return 0.0f;
                         else
                             return input;
-                    }
-                );
+                    },
+                stream);
 
 	            T *epochs_per_sample;
 	            MLCommon::allocate(epochs_per_sample, nnz);
 
-	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample);
+	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample, stream);
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
 	                            rows, cols, nnz,
@@ -341,7 +343,8 @@ namespace UMAPAlgo {
 	                            m,
 	                            params->repulsion_strength,
 	                            params,
-	                            params->n_epochs);
+	                            params->n_epochs,
+                              stream);
 
 	            CUDA_CHECK(cudaPeekAtLastError());
                 CUDA_CHECK(cudaFree(epochs_per_sample));

@@ -29,6 +29,9 @@ protected:
         cublasHandle_t cublas_handle;
         CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
+
         allocate(in, len);
         allocate(out, 1);
         allocate(out_lasso, 1);
@@ -51,78 +54,79 @@ protected:
         allocate(coef, params.n_cols);
 
         T h_in[len] = {0.1, 0.35, -0.9, -1.4, 2.0, 3.1};
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         T h_labels[n_rows] = {0.3, 2.0, -1.1};
-        updateDevice(labels, h_labels, n_rows);
+        updateDevice(labels, h_labels, n_rows, stream);
 
         T h_coef[n_cols] = {0.35, -0.24};
-        updateDevice(coef, h_coef, n_cols);
+        updateDevice(coef, h_coef, n_cols, stream);
 
         T h_out_ref[1] = {2.6037};
-        updateDevice(out_ref, h_out_ref, 1);
+        updateDevice(out_ref, h_out_ref, 1, stream);
 
         T h_out_lasso_ref[1] = {2.9577};
-        updateDevice(out_lasso_ref, h_out_lasso_ref, 1);
+        updateDevice(out_lasso_ref, h_out_lasso_ref, 1, stream);
 
         T h_out_ridge_ref[1] = {2.71176};
-        updateDevice(out_ridge_ref, h_out_ridge_ref, 1);
+        updateDevice(out_ridge_ref, h_out_ridge_ref, 1, stream);
 
         T h_out_elasticnet_ref[1] = {2.83473};
-        updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1);
+        updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
 
         T h_out_grad_ref[n_cols] = {-0.24333, -1.1933};
-        updateDevice(out_grad_ref, h_out_grad_ref, n_cols);
+        updateDevice(out_grad_ref, h_out_grad_ref, n_cols, stream);
 
         T h_out_lasso_grad_ref[n_cols] = {0.3566, -1.7933};
-        updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, n_cols);
+        updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, n_cols, stream);
 
         T h_out_ridge_grad_ref[n_cols] = {0.1766, -1.4813};
-        updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, n_cols);
+        updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, n_cols, stream);
 
         T h_out_elasticnet_grad_ref[n_cols] = {0.2666, -1.63733};
-        updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, n_cols);
+        updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, n_cols, stream);
 
         T alpha = 0.6;
         T l1_ratio = 0.5;
 
         hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out, penalty::NONE,
-                		             alpha, l1_ratio, cublas_handle);
+                    alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_grad, penalty::NONE,
-                        		      alpha, l1_ratio, cublas_handle);
+                        alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso, penalty::L1,
-        		             alpha, l1_ratio, cublas_handle);
+                    alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_lasso_grad, penalty::L1,
-                		             alpha, l1_ratio, cublas_handle);
+                        alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge, penalty::L2,
-                		             alpha, l1_ratio, cublas_handle);
+                    alpha, l1_ratio, cublas_handle, stream);
 
         hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_ridge_grad, penalty::L2,
-                        		     alpha, l1_ratio, cublas_handle);
+                        alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         hingeLoss(in, params.n_rows, params.n_cols, labels, coef, out_elasticnet, penalty::ELASTICNET,
-                		             alpha, l1_ratio, cublas_handle);
+                    alpha, l1_ratio, cublas_handle, stream);
 
         hingeLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_elasticnet_grad, penalty::ELASTICNET,
-                        		     alpha, l1_ratio, cublas_handle);
+                        alpha, l1_ratio, cublas_handle, stream);
 
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         CUBLAS_CHECK(cublasDestroy(cublas_handle));
+        CUDA_CHECK(cudaStreamDestroy(stream));
         CUDA_CHECK(cudaFree(labels));
         CUDA_CHECK(cudaFree(coef));
 

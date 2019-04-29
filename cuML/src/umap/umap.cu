@@ -45,7 +45,10 @@ namespace ML {
      */
     void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
         this->knn = new kNN(d);
-        UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings);
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
+        UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     /**
@@ -66,9 +69,12 @@ namespace ML {
     void UMAP_API::transform(float *X, int n, int d,
             float *embedding, int embedding_n,
             float *out) {
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
         UMAPAlgo::_transform<float, TPB_X>(X, n, d,
                 embedding, embedding_n, knn,
-                get_params(), out);
+                get_params(), out, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     /**

@@ -55,7 +55,7 @@ template <typename InType, typename AccType, typename OutType,
 void euclideanAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
                     OutType *pD, bool enable_sqrt, AccType *workspace,
                     size_t &worksize, FinalLambda fin_op,
-                    cudaStream_t stream = 0) {
+                    cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(InType in) { return in; };
@@ -87,7 +87,7 @@ template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
 void euclideanAlgo2(int m, int n, int k, InType const *pA, InType const *pB,
                     OutType *pD, bool enable_sqrt, FinalLambda fin_op,
-                    cudaStream_t stream = 0) {
+                    cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
   typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
   EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;

@@ -320,7 +320,8 @@ namespace UMAPAlgo {
              */
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
-                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity) {
+                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity,
+                    cudaStream_t stream) {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
 
@@ -331,11 +332,12 @@ namespace UMAPAlgo {
                 MLCommon::allocate(dist_means_dev, params->n_neighbors);
 
                 MLCommon::Stats::mean(dist_means_dev, knn_dists,
-                        params->n_neighbors, n, false, false);
+                        params->n_neighbors, n, false, false, stream);
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
-                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors);
+                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
 
                 float sum = 0.0;
                 for (int i = 0; i < params->n_neighbors; i++)
@@ -369,7 +371,7 @@ namespace UMAPAlgo {
             template<int TPB_X, typename T>
             void launcher(int n, const long *knn_indices, const float *knn_dists,
                    int *rrows, int *rcols, T *rvals,
-                   int *nnz, UMAPParams *params) {
+                   int *nnz, UMAPParams *params, cudaStream_t stream) {
 
                 int k = params->n_neighbors;
 
@@ -390,7 +392,7 @@ namespace UMAPAlgo {
                 MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                        rhos, sigmas, params, params->local_connectivity
+                        rhos, sigmas, params, params->local_connectivity, stream
                 );
 
                 int *rows, *cols;
@@ -427,7 +429,8 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 int n_compressed_nonzeros = 0;
-                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1);
+                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
 
                 /**
                  * Remove resulting zeros from COO
@@ -450,9 +453,9 @@ namespace UMAPAlgo {
                 if(params->verbose)
                     std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
 
-                MLCommon::copy(rrows, crows, n_compressed_nonzeros);
-                MLCommon::copy(rcols, ccols, n_compressed_nonzeros);
-                MLCommon::copy(rvals, cvals, n_compressed_nonzeros);
+                MLCommon::copy(rrows, crows, n_compressed_nonzeros, stream);
+                MLCommon::copy(rcols, ccols, n_compressed_nonzeros, stream);
+                MLCommon::copy(rvals, cvals, n_compressed_nonzeros, stream);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
