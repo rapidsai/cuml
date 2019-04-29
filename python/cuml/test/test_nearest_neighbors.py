@@ -20,7 +20,6 @@ from sklearn.datasets.samples_generator import make_blobs
 import cudf
 import pandas as pd
 import numpy as np
-import pdb
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
@@ -28,11 +27,13 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*5,n_features=n_feats,random_state=0) 
+    if run_stress == True:
+        X, y = make_blobs(n_samples=n_samples*5, 
+            n_features=n_feats, random_state=0) 
 
     elif run_correctness_test==True:
-        X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
+        X, y = make_blobs(n_samples=n_samples, 
+            n_features=n_feats, random_state=0) 
 
     else:
         X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
@@ -46,7 +47,7 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
 
     if input_type == 'dataframe':
         X_pd= pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X_pd) 
+        X_cudf = cudf.DataFrame.from_pandas(X_pd)
         knn_cu.fit(X_cudf)
         D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, len(X_cudf))
 
@@ -72,16 +73,17 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
     assert np.array_equal(I_cuml_arr, I_sk)
 
 
-
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_nn_downcast_fails(input_type, run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+    if run_stress == True:
+        X,y = make_blobs(n_samples=n_samples*50, 
+            n_features=n_feats, random_state=0) 
 
-    elif run_correctness_test==True:
-        X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
+    elif run_correctness_test == True:
+        X,y = make_blobs(n_samples=n_samples, 
+            n_features=n_feats, random_state=0) 
 
     else:
         X= np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
