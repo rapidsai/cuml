@@ -55,12 +55,13 @@ def test_sklean_search():
 
     params = {'alpha': np.logspace(-3, -1, 10)}
     cu_clf = cumlRidge(alpha=alpha, fit_intercept=fit_intercept,
-                        normalize=normalize, solver="eig")
+                       normalize=normalize, solver="eig")
 
     assert getattr(cu_clf, 'score', False)
     sk_cu_grid = GridSearchCV(cu_clf, params, cv=5, iid=False)
 
-    record_data = (('fea%d' % i, X_train[:, i]) for i in range(X_train.shape[1]))
+    record_data = (('fea%d' % i, X_train[:, i]) for i in
+                   range(X_train.shape[1]))
     gdf_data = cudf.DataFrame(record_data)
     gdf_train = cudf.DataFrame(dict(train=y_train))
 
