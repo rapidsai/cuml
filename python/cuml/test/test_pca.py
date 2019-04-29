@@ -31,7 +31,7 @@ def test_pca_fit(datatype, input_type, run_stress, run_correctness_test):
 
     n_samples = 10000
     n_feats = 50
-    if run_stress == True:
+    if run_stress == True: 
         X, y = make_blobs(n_samples=n_samples*50,
                          n_features=n_feats, random_state=0) 
 
@@ -48,7 +48,7 @@ def test_pca_fit(datatype, input_type, run_stress, run_correctness_test):
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe':
+    if input_type == 'dataframe': 
         X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X) 
         cupca.fit(X_cudf)
@@ -80,7 +80,7 @@ def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_tes
         X, y = make_blobs(n_samples=n_samples*50, 
                           n_features=n_feats, random_state=0) 
 
-    elif run_correctness_test == True:
+    elif run_correctness_test == True: 
         iris = datasets.load_iris()
         X = iris.data  
 
@@ -93,7 +93,7 @@ def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_tes
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe':
+    if input_type == 'dataframe': 
         X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X) 
         Xcupca = cupca.fit_transform(X_cudf)
@@ -108,8 +108,8 @@ def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_tes
 def test_pca_inverse_transform(datatype, input_type, run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
-    if run_stress == True:
-        X,y = make_blobs(n_samples=n_samples*50,
+    if run_stress == True: 
+        X, y = make_blobs(n_samples=n_samples*50,
                          n_features=n_feats, random_state=0) 
 
     elif run_correctness_test == True:
@@ -126,7 +126,7 @@ def test_pca_inverse_transform(datatype, input_type, run_stress, run_correctness
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe':
+    if input_type == 'dataframe': 
         Xcupca = cupca.fit_transform(X_cudf)
 
     else:
