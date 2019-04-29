@@ -31,18 +31,19 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_dbscan_predict(datatype, input_type, run_stress, run_correctness_test):
-
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+    if run_stress == True:
+        X, y = make_blobs(n_samples=n_samples*50, 
+            n_features=n_feats, random_state=0) 
 
-    elif run_correctness_test==True:
-        X,y = make_blobs(n_samples=n_samples,n_features=n_feats,random_state=0) 
+    elif run_correctness_test == True:
+        X, y = make_blobs(n_samples=n_samples, 
+            n_features=n_feats, random_state=0) 
 
     else:
         X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
-                 dtype=datatype)
+                 dtype = datatype)
 
     skdbscan = skDBSCAN(eps=3, min_samples=10)
     sk_labels = skdbscan.fit_predict(X)
@@ -50,7 +51,7 @@ def test_dbscan_predict(datatype, input_type, run_stress, run_correctness_test):
     cudbscan = cuDBSCAN(eps=3, min_samples=10)
 
     if input_type == 'dataframe':
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
+        X = pd.DataFrame({'fea%d'%i:X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X) 
         cu_labels = cudbscan.fit_predict(X_cudf)
     else:
@@ -65,9 +66,6 @@ def test_dbscan_predict(datatype, input_type, run_stress, run_correctness_test):
                                  'no_structure'])
 @pytest.mark.stress
 def test_dbscan_sklearn_comparison(name, run_stress, run_correctness_test):
-
-    # Skipping datasets of known discrepancies in PR83 while they are corrected
-
     default_base = {'quantile': .3,
                     'eps': .3,
                     'damping': .9,
@@ -75,19 +73,16 @@ def test_dbscan_sklearn_comparison(name, run_stress, run_correctness_test):
                     'n_neighbors': 10,
                     'n_clusters': 20}
     n_samples = 10000
-    n_feats = 50
-    if run_stress==True:
+    if run_stress == True:
         pat = get_pattern(name, n_samples*50)
         params = default_base.copy()
         params.update(pat[1])
-        train_rows = np.int32(n_samples*8)
         X, y = pat[0]
 
-    elif run_correctness_test==True:
+    elif run_correctness_test == True:
         pat = get_pattern(name, n_samples)
         params = default_base.copy()
         params.update(pat[1])
-        train_rows = np.int32(n_samples*0.8)
         #pdb.set_trace()
         X, y = pat[0] 
 
