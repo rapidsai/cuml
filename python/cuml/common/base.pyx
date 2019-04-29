@@ -59,8 +59,10 @@ class Base:
         algo = MyAlgo(handle=handle)
         algo.fit(...)
         result = algo.predict(...)
-        # final synchronization of all work launched/dependent on this stream
-        stream.sync()
+        # final sync of all gpu-work launched inside this object
+        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # the default stream inside the `cumlHandle` is being used
+        base.handle.sync()
         del base  # optional!
     """
 
@@ -75,12 +77,7 @@ class Base:
         verbose : bool
                 Whether to print debug spews
         """
-        if handle is None:
-            self.handle = cuml.common.handle.Handle()
-            self.stream = cuml.common.cuda.Stream()
-            self.handle.setStream(self.stream)
-        else:
-            self.handle = handle
+        self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
 
 
@@ -92,6 +89,7 @@ class Base:
         implementation of `get_params` and `set_params` methods.
         """
         return []
+
 
     def get_params(self, deep=True):
         """
