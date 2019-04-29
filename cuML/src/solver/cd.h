@@ -38,6 +38,43 @@ namespace Solver {
 
 using namespace MLCommon;
 
+/**
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param labels
+ *        pointer to an array for labels (size of n_rows)
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). This will be filled with coefficients
+ *        once the function is executed.
+ * @param intercept
+ *        pointer to a scalar for intercept. This will be filled
+ *        once the function is executed
+ * @param fit_intercept
+ *        boolean parameter to control if the intercept will be fitted or not
+ * @param normalize
+ *        boolean parameter to control if the data will be normalized or not
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param alpha
+ *        L1 parameter
+ * @param l1_ratio
+ *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2.
+ * @param shuffle
+ *        boolean parameter to control whether coordinates will be picked randomly or not.
+ * @param tol
+ *        tolerance to stop the solver
+ * @param stream
+ *        cuda stream
+ * @param cublas_handle
+ *        cublas handle
+ * @param cusolver_handle
+ *        cusolver handle
+*/
 template<typename math_t>
 void cdFit(math_t *input,
 		   int n_rows,
@@ -64,13 +101,13 @@ void cdFit(math_t *input,
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	math_t *mu_input = NULL;
-	math_t *mu_labels = NULL;
-	math_t *norm2_input = NULL;
-	math_t *pred = NULL;
-	math_t *residual = NULL;
-	math_t *squared = NULL;
-	math_t *loss_value = NULL;
+	math_t *mu_input = nullptr;
+	math_t *mu_labels = nullptr;
+	math_t *norm2_input = nullptr;
+	math_t *pred = nullptr;
+	math_t *residual = nullptr;
+	math_t *squared = nullptr;
+	math_t *loss_value = nullptr;
 
 	allocate(loss_value, 1);
 	allocate(pred, n_rows, true);
@@ -167,32 +204,53 @@ void cdFit(math_t *input,
 				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
 				cublas_handle, cusolver_handle, stream);
 
-		if (mu_input != NULL)
+		if (mu_input != nullptr)
 			CUDA_CHECK(cudaFree(mu_input));
-		if (mu_labels != NULL)
+		if (mu_labels != nullptr)
 			CUDA_CHECK(cudaFree(mu_labels));
 		if (normalize) {
-			if (norm2_input != NULL)
+			if (norm2_input != nullptr)
 				cudaFree(norm2_input);
 		}
 	} else {
 		*intercept = math_t(0);
 	}
 
-	if (pred != NULL)
+	if (pred != nullptr)
 		CUDA_CHECK(cudaFree(pred));
 
-	if (residual != NULL)
+	if (residual != nullptr)
 		CUDA_CHECK(cudaFree(residual));
 
-	if (squared != NULL)
+	if (squared != nullptr)
 		CUDA_CHECK(cudaFree(squared));
 
-	if (loss_value != NULL)
+	if (loss_value != nullptr)
 		CUDA_CHECK(cudaFree(loss_value));
 
 }
 
+/**
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
+ * @param intercept
+ *        intercept value calculated in cdFit function
+ * @param preds
+ *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param stream
+ *        cuda stream
+ * @param cublas_handle
+ *        cublas handle
+*/
 template<typename math_t>
 void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 		math_t intercept, math_t *preds, ML::loss_funct loss, cudaStream_t stream,

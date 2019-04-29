@@ -40,7 +40,6 @@ class Lasso:
 
         import numpy as np
         import cudf
-
         from cuml.linear_model import Lasso
 
         ls = Lasso(alpha = 0.1)
@@ -127,6 +126,7 @@ class Lasso:
         tol: float or double.
         selection : str, ‘cyclic’, or 'random'
 
+        For additional docs, see `scikitlearn's Lasso <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
         """
         self._check_alpha(alpha)
         self.alpha = alpha
@@ -148,7 +148,7 @@ class Lasso:
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
             msg = "alpha value has to be positive"
-            raise TypeError(msg.format(alpha))
+            raise ValueError(msg.format(alpha))
 
     def fit(self, X, y):
         """

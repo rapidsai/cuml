@@ -27,13 +27,11 @@ from cuml.solvers import CD
 class ElasticNet:
 
     """
-    Ridge extends LinearRegression by providing L2 regularization on the coefficients when
+    ElasticNet extends LinearRegression with combined L1 and L2 regularizations on the coefficients when
     predicting response y with a linear combination of the predictors in X. It can reduce
-    the variance of the predictors, and improves the conditioning of the problem.
+    the variance of the predictors, force some coefficients to be smaell, and improves the conditioning of the problem.
 
-    cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig and CD to
-    fit a linear model. SVD is more stable, but Eig (default) is much more faster. CD uses
-    Coordinate Descent and can be faster if the data is large.
+    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit a linear model. 
 
     Examples
     ---------
@@ -42,30 +40,26 @@ class ElasticNet:
 
         import numpy as np
         import cudf
+        from cuml.linear_model import ElasticNet
 
-        # Both import methods supported
-        from cuml import Ridge
-        from cuml.linear_model import Ridge
-
-        alpha = np.array([1.0])
-        ridge = Ridge(alpha = alpha, fit_intercept = True, normalize = False, solver = "eig")
+        enet = ElasticNet(alpha = 0.1, l1_ratio=0.5)
 
         X = cudf.DataFrame()
-        X['col1'] = np.array([1,1,2,2], dtype = np.float32)
-        X['col2'] = np.array([1,2,2,3], dtype = np.float32)
+        X['col1'] = np.array([0, 1, 2], dtype = np.float32)
+        X['col2'] = np.array([0, 1, 2], dtype = np.float32)
 
-        y = cudf.Series( np.array([6.0, 8.0, 9.0, 11.0], dtype = np.float32) )
+        y = cudf.Series( np.array([0.0, 1.0, 2.0], dtype = np.float32) )
 
-        result_ridge = ridge.fit(X_cudf, y_cudf)
+        result_enet = enet.fit(X, y)
         print("Coefficients:")
-        print(result_ridge.coef_)
+        print(result_enet.coef_)
         print("intercept:")
-        print(result_ridge.intercept_)
+        print(result_enet.intercept_)
 
         X_new = cudf.DataFrame()
         X_new['col1'] = np.array([3,2], dtype = np.float32)
         X_new['col2'] = np.array([5,5], dtype = np.float32)
-        preds = result_ridge.predict(X_new)
+        preds = result_enet.predict(X_new)
 
         print(preds)
 
@@ -75,32 +69,41 @@ class ElasticNet:
 
         Coefficients:
 
-                    0 1.0000001
-                    1 1.9999998
+                    0 0.448408
+                    1 0.443341
 
         Intercept:
-                    3.0
+                    0.1082506
 
         Preds:
 
-                    0 15.999999
-                    1 14.999999
+                    0 3.67018
+                    1 3.22177
 
     Parameters
     -----------
     alpha : float or double
-        Regularization strength - must be a positive float. Larger values specify
-        stronger regularization. Array input will be supported later.
-    solver : 'eig' or 'svd' or 'cd' (default = 'eig')
-        Eig uses a eigendecomposition of the covariance matrix, and is much faster.
-        SVD is slower, but is guaranteed to be stable.
-        CD or Coordinate Descent is very fast and is suitable for large problems.
+        Constant that multiplies the L1 term. Defaults to 1.0.
+        alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object. 
+        For numerical reasons, using alpha = 0 with the Lasso object is not advised. 
+        Given this, you should use the LinearRegression object.
+    l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1. 
+        For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is an L1 penalty. 
+        For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     fit_intercept : boolean (default = True)
-        If True, Ridge tries to correct for the global mean of y.
+        If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
         If True, the predictors in X will be normalized by dividing by it's L2 norm.
         If False, no scaling will be done.
+    max_iter : int
+        The maximum number of iterations
+    tol : float, optional
+        The tolerance for the optimization: if the updates are smaller than tol, 
+        the optimization code checks the dual gap for optimality and continues until it is smaller than tol.
+    selection : str, default ‘cyclic’
+        If set to ‘random’, a random coefficient is updated every iteration rather than looping over features sequentially by default. 
+        This (setting to ‘random’) often leads to significantly faster convergence especially when tol is higher than 1e-4.
 
     Attributes
     -----------
@@ -109,37 +112,26 @@ class ElasticNet:
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
         
-    Notes
-    ------
-    Ridge provides L2 regularization. This means that the coefficients can shrink to become
-    very very small, but not zero. This can cause issues of interpretabiliy on the coefficients.
-    Consider using Lasso, or thresholding small coefficients to zero.
-    
-    **Applications of Ridge**
-        
-        Ridge Regression is used in the same way as LinearRegression, but is used more frequently
-        as it does not suffer from multicollinearity issues. Ridge is used in insurance premium
-        prediction, stock market analysis and much more.
 
-
-    For additional docs, see `scikitlearn's Ridge <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html>`_.
+    For additional docs, see `scikitlearn's ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
-    # Link will work later
-    # For an additional example see `the Ridge notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/ridge.ipynb>`_.
-    # New link : https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb
 
-
-    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-4, selection='cyclic'):
+    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, selection='cyclic'):
 
         """
-        Initializes the linear ridge regression class.
+        Initializes the elastic-net regression class.
 
         Parameters
         ----------
-        solver : Type: string. 'eig' (default) and 'svd' are supported algorithms.
-        fit_intercept: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+        alpha : float or double.
+        l1_ratio : float or double.
+        fit_intercept: boolean. 
+        normalize: boolean. 
+        max_iter: int
+        tol: float or double.
+        selection : str, ‘cyclic’, or 'random'
 
+        For additional docs, see `scikitlearn's ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
         """
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
@@ -164,12 +156,12 @@ class ElasticNet:
     def _check_alpha(self, alpha):
         if alpha<= 0.0:
             msg = "alpha value has to be positive"
-            raise TypeError(msg.format(alpha))
+            raise ValueError(msg.format(alpha))
 
     def _check_l1_ratio(self, l1_ratio):
         if l1_ratio < 0.0 or l1_ratio > 1.0:
             msg = "l1_ratio value has to be between 0.0 and 1.0"
-            raise TypeError(msg.format(l1_ratio))
+            raise ValueError(msg.format(l1_ratio))
 
     def fit(self, X, y):
         """
