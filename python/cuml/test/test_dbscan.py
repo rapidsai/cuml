@@ -15,12 +15,13 @@
 
 import pytest
 from cuml import DBSCAN as cuDBSCAN
-from cuml.test.utils import get_handle
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets.samples_generator import make_blobs
+import pandas as pd
 import cudf
 import numpy as np
-from sklearn.datasets.samples_generator import make_blobs
 from sklearn.preprocessing import StandardScaler
+from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
