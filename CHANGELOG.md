@@ -29,6 +29,7 @@
 - PR #394: Introducing cumlHandle API to dbscan and add example
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
+- PR #512: generic copy method for copying buffers between device/host
 
 ## Bug Fixes
 
