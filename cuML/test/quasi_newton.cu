@@ -5,6 +5,7 @@
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn.h>
+#include <glm/qn/cs_mat.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <vector>
@@ -397,8 +398,8 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   qn_minimize(handle, w, &fxd, &num_iters, lossDense, l1, opt_param, stream,
               verbosity);
 
-  CsrMat<double> csr(csrVal.data, csrRowPtr.data, csrColInd.data, N, D, nnz);
-  GLMWithData<double, CsrMat<double>, decltype(logLoss)> lossSparse(
+  CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
+  GLMWithData<double, CSMat<double>, decltype(logLoss)> lossSparse(
       &logLoss, csr, y, tmp);
 
   w.fill(0, stream);
