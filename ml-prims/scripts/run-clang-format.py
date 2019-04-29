@@ -21,33 +21,38 @@ import subprocess
 import argparse
 
 
-# TODO: prepare 'dst' correctly!
-def listAllSources(fileRegexStr, srcdir, bindir, inplace):
+def listAllSources(fileRegexStr, srcdir, dstdir, inplace):
     fileRegex = re.compile(fileRegexStr)
     allFiles = []
-    for d, s, files in os.walk(srcdir):
+    for root, dirs, files in os.walk(srcdir):
         for f in files:
             if re.search(fileRegex, f):
-                src = os.path.join(d, f)
-                dst = src + ".clang.format" if not inplace else src
+                src = os.path.join(root, f)
+                if inplace:
+                    _dir = root
+                else:
+                    _dir = os.path.join(dstdir, os.path.basename(root))
+                dst = os.path.join(_dir, f)
                 allFiles.append((src, dst))
     return allFiles
 
+
 def parseArgs():
     argparser = argparse.ArgumentParser("Run clang-format on a project")
-    argparser.add_argument("-bindir", type=str, default=".",
+    argparser.add_argument("-dstdir", type=str, default=".",
                            help="Path to the current build directory.")
     argparser.add_argument("-exe", type=str, default="clang-format",
                            help="Path to clang-format exe")
     argparser.add_argument("-inplace", default=False, action="store_true",
                            help="Replace the source files itself.")
-    argparser.add_argument("-regex", type=str, default=r"[.](h|cpp|cu)$",
+    argparser.add_argument("-regex", type=str, default=r"[.](hpp|h|cpp|cu|cuh)$",
                            help="Regex string to filter in sources")
     argparser.add_argument("-srcdir", type=str, default=".",
                            help="Path to directory containing the dirs.")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
     return argparser.parse_args()
+
 
 def isNewer(src, dst):
     if not os.path.exists(dst):
@@ -56,7 +61,11 @@ def isNewer(src, dst):
     b = os.path.getmtime(dst)
     return a >= b
 
+
 def runClangFormat(src, dst, exe):
+    dstdir = os.path.dirname(dst)
+    if not os.path.exists(dstdir):
+        os.makedirs(dstdir)
     # run the clang format command itself
     if isNewer(src, dst):
         if src == dst:
@@ -78,13 +87,14 @@ def runClangFormat(src, dst, exe):
         return False
     return True
 
+
 def main():
     args = parseArgs()
     allFiles = []
     for d in args.dirs:
         srcdir = os.path.join(args.srcdir, d)
-        bindir = os.path.join(args.bindir, d)
-        allFiles += listAllSources(args.regex, srcdir, bindir, args.inplace)
+        dstdir = os.path.join(args.dstdir, d)
+        allFiles += listAllSources(args.regex, srcdir, dstdir, args.inplace)
     status = True
     for src, dst in allFiles:
         if not runClangFormat(src, dst, args.exe):
@@ -93,10 +103,12 @@ def main():
         print("Clang-format failed! Look at errors above and fix them, or if")
         print("you trust the clang-format, you can also run the following")
         print("command to bulk fix the files!")
-        print("  %s -inplace -srcdir %s -exe %s %s" %
-              (sys.argv[0], args.srcdir, args.exe, " ".join(args.dirs)))
+        print("  python %s -inplace -dstdir %s -srcdir %s -exe %s %s" %
+              (sys.argv[0], args.dstdir, args.srcdir, args.exe,
+               " ".join(args.dirs)))
         sys.exit(-1)
     return
+
 
 if __name__ == "__main__":
     main()

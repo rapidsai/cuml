@@ -18,8 +18,7 @@ string(REPLACE ":" ";" EnvPath $ENV{PATH})
 find_program(ClangFormat_EXE
   NAMES clang-format
   PATHS EnvPath
-  DOC "path to clang-format exe"
-  NO_DEFAULT_PATH)
+  DOC "path to clang-format exe")
 find_program(ClangFormat_PY
   NAMES run-clang-format.py
   PATHS ${MLPRIMS_DIR}/scripts
@@ -34,7 +33,7 @@ include(CMakeParseArguments)
 function(add_clang_format)
   if(ClangFormat_FOUND)
     set(options "")
-    set(oneValueArgs "")
+    set(oneValueArgs DSTDIR SRCDIR)
     set(multiValueArgs TARGETS SRCS)
     cmake_parse_arguments(cf "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     foreach(cf_TARGET ${cf_TARGETS})
@@ -47,9 +46,10 @@ function(add_clang_format)
       COMMENT "Clang-Format ${cf_TARGET}"
       COMMAND python
         ${ClangFormat_PY}
-        -bindir ${CMAKE_SOURCE_DIR}
+        -dstdir ${cf_DSTDIR}
         -exe ${ClangFormat_EXE}
-        -srcdir ${CMAKE_SOURCE_DIR} ${cf_SRCS})
+        -srcdir ${cf_SRCDIR}
+        ${cf_SRCS})
     # add the dependency on this dummy target
     # So, if the main source file has been modified, clang-format will
     # automatically be run on it!

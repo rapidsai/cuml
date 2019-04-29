@@ -22,9 +22,9 @@ set(CMAKE_MODULE_PATH ${MLPRIMS_DIR}/cmake)
 
 find_package(CUDA 8.0 REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(ClangFormat 8.0.0 EXACT REQUIRED)
 # TODO: enable this when we are ready!
-#find_package(ClangFormat REQUIRED)
-#find_package(ClangTidy REQUIRED)
+#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
 
 # Submodules
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
@@ -96,14 +96,16 @@ include_directories(src
 if(TESTS)
   add_subdirectory(${GTEST_DIR}/googletest ${PROJECT_BINARY_DIR}/googletest)
   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
-
-  # formatting!
-  # add_clang_format(
-  #   TARGETS mlcommon_test
-  #   SRCS src test)
 endif()
 
 include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE ${MLPRIMS_DIR}/Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
+
+# formatting
+add_clang_format(
+  TARGETS mlcommon_test
+  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
+  SRCDIR ${MLPRIMS_DIR}
+  SRCS src test)
