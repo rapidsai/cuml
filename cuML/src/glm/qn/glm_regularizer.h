@@ -55,8 +55,9 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
   RegularizedGLM(Loss *loss, Reg *reg)
       : reg(reg), loss(loss), GLMDims(loss->C, loss->D, loss->fit_intercept) {}
 
+  template <typename MatX>
   inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                        const SimpleMat<T> &Xb, const SimpleVec<T> &yb,
+                        const MatX &Xb, const SimpleVec<T> &yb,
                         SimpleMat<T> &Zb, cudaStream_t stream,
                         bool initGradZero = true) {
     T reg_host, loss_host;
