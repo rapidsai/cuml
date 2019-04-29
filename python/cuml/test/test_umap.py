@@ -50,7 +50,8 @@ def test_umap_fit_transform_score(run_stress, run_correctness_test):
         n_samples = 500
         n_features = 10
 
-    data, labels = make_blobs(n_samples=n_samples, n_features=n_features, centers=10, random_state=42)
+    data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
+        centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
     cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
@@ -84,7 +85,8 @@ def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
         data = wine.data
         labels = wine.target
     else:
-        data, labels = make_blobs(n_samples=5000, n_features=100, centers=10, random_state=42)
+        data, labels = make_blobs(n_samples=5000, n_features=100,
+            centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
     cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
@@ -104,11 +106,13 @@ def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctn
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = 50000
     n_feats = 50
-    if run_stress==True:
-        X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
+    if run_stress == True:
+        X, y = datasets.make_blobs(n_samples=n_samples*10, 
+            n_features=n_feats, random_state=0) 
 
-    elif run_correctness_test==True:
-        X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
+    elif run_correctness_test == True:
+        X, y = datasets.make_blobs(n_samples=int(n_samples/10),
+            n_features=n_feats,random_state=0) 
     
     else:
         # For now, FAISS based nearest_neighbors only supports single precision
@@ -133,14 +137,17 @@ def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctn
 def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
     n_samples = 50000
     n_feats = 50
-    if run_stress==True:
-        X,y = datasets.make_blobs(n_samples=n_samples*10,n_features=n_feats,random_state=0) 
+    if run_stress == True:
+        X, y = datasets.make_blobs(n_samples=n_samples*10,
+            n_features=n_feats,random_state=0) 
 
-    elif run_correctness_test==True:
-        X,y = datasets.make_blobs(n_samples=int(n_samples/10),n_features=n_feats,random_state=0) 
+    elif run_correctness_test == True:
+        X, y = datasets.make_blobs(n_samples=int(n_samples/10),
+            n_features=n_feats,random_state=0) 
     
     else:
-        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], dtype=np.float64)
+        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], 
+            dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
     umap = UMAP_cuml(should_downcast=False)
