@@ -58,6 +58,7 @@
 - PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
+- PR #519: README.md Updates and adding BUILD.md back
 
 # cuML 0.6.0 (22 Mar 2019)
 
