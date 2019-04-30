@@ -23,19 +23,37 @@
 #include <cub/cub.cuh>
 #include <limits>
 
-#define VALIDATE_TEMPLATE (std::is_same< InType, float >::value && BLOCK_SIZE <= 512) || \
-    (std::is_same< InType, double >::value && \
-    (std::is_same< OutType, int >::value || std::is_same< OutType, float >::value) &&       \
-           BLOCK_SIZE <= 512 && ITEMS_PER_THREAD <= 8) || \
-    (std::is_same< InType, double >::value && std::is_same< OutType, double >::value &&    \
-          BLOCK_SIZE <= 512 && ITEMS_PER_THREAD <= 6)
-
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream) \
 devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>> \
         (keyIn, keyOut, valueInOut, rows, columns, std::numeric_limits<InType>::max())
 
 namespace MLCommon {
 namespace Selection {
+
+template <typename InType, int BLOCK_SIZE>
+struct TemplateChecker {
+  enum {
+    IsValid = (std::is_same< InType, short >::value && BLOCK_SIZE <= 1024) || \
+              (std::is_same< InType, int >::value && BLOCK_SIZE <= 1024) || \
+              (std::is_same< InType, float >::value && BLOCK_SIZE <= 1024) || \
+              (std::is_same< InType, double >::value && BLOCK_SIZE <= 512)
+  };
+};
+
+template <typename InType, typename OutType, int BLOCK_SIZE, int ITEMS_PER_THREAD>
+struct SmemPerBlock {
+  typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD,
+                          cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadTypeKey;
+
+  typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD,
+                                OutType> BlockRadixSortType;
+
+  union TempStorage
+  {
+    typename BlockLoadTypeKey::TempStorage keyLoad;
+    typename BlockRadixSortType::TempStorage sort;
+  } tempStorage;
+};
 
 template <typename InType>
 __global__ void devLayoutIdx(InType *in, int n_cols, int totalElements) {
@@ -60,32 +78,26 @@ template <
     typename    OutType,
     int         BLOCK_SIZE,
     int         ITEMS_PER_THREAD,
-    typename    std::enable_if<VALIDATE_TEMPLATE,  InType>::type* = nullptr>
-__global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outputKeys, 
+    typename    std::enable_if<TemplateChecker<InType, BLOCK_SIZE>::IsValid,
+                               InType>::type* = nullptr>
+__global__ void
+__launch_bounds__(1024, 1) devKeyValSortColumnPerRow(const InType *inputKeys, InType *outputKeys,
                                             OutType *inputVals, int n_rows, 
                                             int n_cols, InType MAX_VALUE) {
 
   typedef cub::BlockLoad<InType, BLOCK_SIZE, ITEMS_PER_THREAD, 
                           cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadTypeKey;
-  typedef cub::BlockLoad<OutType, BLOCK_SIZE, ITEMS_PER_THREAD, 
-                          cub::BLOCK_LOAD_WARP_TRANSPOSE> BlockLoadTypeVal;
 
   typedef cub::BlockRadixSort<InType, BLOCK_SIZE, ITEMS_PER_THREAD, 
                                 OutType> BlockRadixSortType;
 
-  __shared__ union TempStorage
-  {
-    struct {
-      typename BlockLoadTypeKey::TempStorage keyLoad;
-    } load;
-    typename BlockRadixSortType::TempStorage sort;
-  } tempStorage;
+  __shared__ SmemPerBlock<InType, OutType, BLOCK_SIZE, ITEMS_PER_THREAD> tmpSmem;
 
   InType threadKeys[ITEMS_PER_THREAD];
   OutType threadValues[ITEMS_PER_THREAD];
 
   int blockOffset = blockIdx.x * n_cols;
-  BlockLoadTypeKey(tempStorage.load.keyLoad).Load(inputKeys + blockOffset, threadKeys, n_cols, MAX_VALUE);
+  BlockLoadTypeKey(tmpSmem.tempStorage.keyLoad).Load(inputKeys + blockOffset, threadKeys, n_cols, MAX_VALUE);
 
   OutType idxBase = threadIdx.x * ITEMS_PER_THREAD;
   for (int i = 0; i < ITEMS_PER_THREAD; i++) {
@@ -98,7 +110,7 @@ __global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outpu
 
   __syncthreads();
 
-  BlockRadixSortType(tempStorage.sort).SortBlockedToStriped(threadKeys, threadValues);
+  BlockRadixSortType(tmpSmem.tempStorage.sort).SortBlockedToStriped(threadKeys, threadValues);
 
   // storing index values back (not keys)
   cub::StoreDirectStriped<BLOCK_SIZE>(threadIdx.x, inputVals + blockOffset, threadValues, n_cols);
@@ -112,7 +124,7 @@ template <
     typename    OutType,
     int         BLOCK_SIZE,
     int         ITEMS_PER_THREAD,
-    typename    std::enable_if<!(VALIDATE_TEMPLATE),  InType>::type* = nullptr>
+    typename    std::enable_if<!(TemplateChecker<InType, BLOCK_SIZE>::IsValid), InType>::type* = nullptr>
 __global__ void devKeyValSortColumnPerRow(const InType *inputKeys, InType *outputKeys, 
                                             OutType *inputVals, int n_rows, 
                                             int n_cols, InType MAX_VALUE) {
@@ -179,9 +191,9 @@ void sortColumnsPerRow(const InType *in, OutType *out, int n_rows, int n_columns
   // assuming key-value sort for now - smem computation will change for value only sort
   // dtype being size of key-value pair
   std::map<size_t, int> dtypeToColumnMap = { {4, 12288}, // short + short
-                                          {8, 6144},  // float + int/float
-                                          {12, 4096}, // double + int/float
-                                          {16, 3072}}; // double + double
+                                          {8, 12288},  // float/int + int/float
+                                          {12, 6144}, // double + int/float
+                                          {16, 6144}}; // double + double
 
   if (dtypeToColumnMap.count(perElementSmemUsage) != 0 && 
         n_columns <= dtypeToColumnMap[perElementSmemUsage]) {
