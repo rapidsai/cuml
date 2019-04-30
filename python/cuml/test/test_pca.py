@@ -20,7 +20,6 @@ from cuml.test.utils import array_equal
 import cudf
 import numpy as np
 import pandas as pd
-import pdb
 from sklearn import datasets
 from sklearn.datasets.samples_generator import make_blobs
 
@@ -31,26 +30,26 @@ def test_pca_fit(datatype, input_type, run_stress, run_correctness_test):
 
     n_samples = 10000
     n_feats = 50
-    if run_stress == True: 
+    if run_stress:
         X, y = make_blobs(n_samples=n_samples*50,
-                         n_features=n_feats, random_state=0) 
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test == True:
+    elif run_correctness_test:
         iris = datasets.load_iris()
-        X = iris.data 
+        X = iris.data
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
+                     dtype=datatype)
 
     skpca = skPCA(n_components=2)
     skpca.fit(X)
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe': 
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X) 
+    if input_type == 'dataframe':
+        X = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
         cupca.fit(X_cudf)
 
     else:
@@ -73,29 +72,31 @@ def test_pca_fit(datatype, input_type, run_stress, run_correctness_test):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_test):
+def test_pca_fit_transform(datatype, input_type,
+                           run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
-    if run_stress == True:
-        X, y = make_blobs(n_samples=n_samples*50, 
-                          n_features=n_feats, random_state=0) 
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test == True: 
+    elif run_correctness_test:
         iris = datasets.load_iris()
-        X = iris.data  
+        X = iris.data
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
+                     dtype=datatype)
 
     skpca = skPCA(n_components=2)
     Xskpca = skpca.fit_transform(X)
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe': 
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X) 
+    if input_type == 'dataframe':
+        X = pd.DataFrame(
+                        {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
         Xcupca = cupca.fit_transform(X_cudf)
 
     else:
@@ -103,30 +104,32 @@ def test_pca_fit_transform(datatype, input_type, run_stress, run_correctness_tes
 
     assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
 
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_inverse_transform(datatype, input_type, run_stress, run_correctness_test):
+def test_pca_inverse_transform(datatype, input_type,
+                               run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
-    if run_stress == True: 
+    if run_stress:
         X, y = make_blobs(n_samples=n_samples*50,
-                         n_features=n_feats, random_state=0) 
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test == True:
+    elif run_correctness_test:
         iris = datasets.load_iris()
-        X = iris.data  
+        X = iris.data
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
-        #pdb.set_trace()
+                     dtype=datatype)
 
-    X_pd = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-    X_cudf = cudf.DataFrame.from_pandas(X_pd) 
+    X_pd = pd.DataFrame(
+                       {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+    X_cudf = cudf.DataFrame.from_pandas(X_pd)
 
     cupca = cuPCA(n_components=2)
 
-    if input_type == 'dataframe': 
+    if input_type == 'dataframe':
         Xcupca = cupca.fit_transform(X_cudf)
 
     else:
