@@ -138,7 +138,7 @@ namespace MLCommon {
             cudaDeviceSynchronize();
 
 
-            copy(vals, vals_sorted, nnz);
+            copy(vals, vals_sorted, nnz, stream);
 
             cudaFree(d_P);
             cudaFree(vals_sorted);
