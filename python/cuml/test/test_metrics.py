@@ -17,20 +17,24 @@ import cuml
 import numpy as np
 import pytest
 
+from cuml.test.utils import get_handle
+
 from numba import cuda
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-def test_r2_score(datatype):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_r2_score(datatype, use_handle):
     a = np.array([0.1, 0.2, 0.3, 0.4, 0.5], dtype=datatype)
     b = np.array([0.12, 0.22, 0.32, 0.42, 0.52], dtype=datatype)
 
     a_dev = cuda.to_device(a)
     b_dev = cuda.to_device(b)
 
-    score = cuml.metrics.r2_score(a_dev, b_dev)
+    handle, stream = get_handle(use_handle)
 
-    # assert score == 0.98
+    score = cuml.metrics.r2_score(a_dev, b_dev, handle=handle)
+
     np.testing.assert_almost_equal(score, 0.98, decimal=7)
 
 
