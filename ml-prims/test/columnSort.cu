@@ -82,11 +82,11 @@ protected:
       }
     }
 
-    updateDevice(keyIn, &vals[0], len);
-    updateDevice(goldenValOut, &cValGolden[0], len);
+    updateDevice(keyIn, &vals[0], len, stream);
+    updateDevice(goldenValOut, &cValGolden[0], len, stream);
 
     if (params.testKeys)
-      updateDevice(keySortGolden, &cKeyGolden[0], len);
+      updateDevice(keySortGolden, &cKeyGolden[0], len, stream);
 
     bool needWorkspace = false;
     size_t workspaceSize = 0;
@@ -123,11 +123,9 @@ protected:
 
 const std::vector<columnSort<float>> inputsf1 = {
   {0.000001f, 503, 2000, false},
-  {0.000001f, 128, 20000, false},
-  {0.000001f, 20, 300000, false},
   {0.000001f, 503, 2000, true},
   {0.000001f, 113, 20000, true},
-  {0.000001f, 19, 300000, true}};
+  {0.000001f, 5, 300000, true}};
 
 typedef ColumnSort<float> ColumnSortF;
 TEST_P(ColumnSortF, Result) {
