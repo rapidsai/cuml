@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <common/cumlHandle.hpp>
 
 namespace ML{
 
@@ -68,10 +69,14 @@ namespace ML{
     };
 
     template<typename math_t>
-    void RPROJfit(rand_mat<math_t> *random_matrix, paramsRPROJ* params);
+    void RPROJfit(cumlHandle& handle, rand_mat<math_t> *random_matrix,
+                    paramsRPROJ* params);
 
     template<typename math_t>
-    void RPROJtransform(math_t *input, rand_mat<math_t> *random_matrix,
+    void RPROJtransform(cumlHandle& handle, math_t *input,
+                            rand_mat<math_t> *random_matrix,
                             math_t *output, paramsRPROJ* params);
+
+    size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps);
     
 }

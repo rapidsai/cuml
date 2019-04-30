@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,15 @@ namespace ML {
 
 	/**
 	 * @brief generates a gaussian random matrix
+	 * @input param h: cuML handle
 	 * @output param random_matrix: the random matrix to be allocated and generated
 	 * @input param params: data structure that includes all the parameters of the model
-	 * @input param stream: cuda stream
 	 */
 	template<typename math_t>
-	void gaussian_random_matrix(rand_mat<math_t> *random_matrix, paramsRPROJ& params,
-																		cudaStream_t stream)
+	void gaussian_random_matrix(cumlHandle& h, rand_mat<math_t> *random_matrix,
+									paramsRPROJ& params)
 	{
+		cudaStream_t stream = h.getStream();
 		int len = params.n_components * params.n_features;
 		allocate(random_matrix->dense_data, len);
 		auto rng = Random::Rng(params.random_state);
@@ -51,14 +52,16 @@ namespace ML {
 
 	/**
 	 * @brief generates a sparse random matrix
+	 * @input param h: cuML handle
 	 * @output param random_matrix: the random matrix to be allocated and generated
 	 * @input param params: data structure that includes all the parameters of the model
-	 * @input param stream: cuda stream
 	 */
 	template<typename math_t>
-	void sparse_random_matrix(rand_mat<math_t> *random_matrix, paramsRPROJ& params,
-																		cudaStream_t stream)
+	void sparse_random_matrix(cumlHandle& h, rand_mat<math_t> *random_matrix,
+								paramsRPROJ& params)
 	{
+		cudaStream_t stream = h.getStream();
+
 		if (params.density == 1.0f)
 		{
 			int len = params.n_components * params.n_features;
@@ -69,7 +72,6 @@ namespace ML {
 		}
 		else
 		{
-			ML::cumlHandle h;
 			auto alloc = h.getHostAllocator();
 
 			double max_total_density = params.density * 1.2;
@@ -114,18 +116,13 @@ namespace ML {
 
 	/**
 	 * @brief fits the model by generating appropriate random matrix
+	 * @input param handle: cuML handle
 	 * @output param random_matrix: the random matrix to be allocated and generated
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void RPROJfit(rand_mat<math_t> *random_matrix, paramsRPROJ* params)
+	void RPROJfit(cumlHandle& handle, rand_mat<math_t> *random_matrix, paramsRPROJ* params)
 	{
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
-
 		random_matrix->reset();
 
 		build_parameters(*params);
@@ -133,37 +130,33 @@ namespace ML {
 
 		if (params->gaussian_method)
 		{
-			gaussian_random_matrix<math_t>(random_matrix, *params, stream);
+			gaussian_random_matrix<math_t>(handle, random_matrix, *params);
 		}
 		else
 		{
-			sparse_random_matrix<math_t>(random_matrix, *params, stream);
+			sparse_random_matrix<math_t>(handle, random_matrix, *params);
 		}
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	/**
 	 * @brief transforms data according to generated random matrix
+	 * @input param handle: cuML handle
 	 * @input param input: unprojected original dataset
 	 * @input param random_matrix: the random matrix to be allocated and generated
 	 * @output param output: projected dataset
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void RPROJtransform(math_t *input, rand_mat<math_t> *random_matrix, math_t *output,
-						paramsRPROJ* params)
+	void RPROJtransform(cumlHandle& handle, math_t *input, rand_mat<math_t> *random_matrix,
+							math_t *output, paramsRPROJ* params)
 	{
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
+		cudaStream_t stream = handle.getStream();
 
 		check_parameters(*params);
 
 		if (random_matrix->dense_data)
 		{
-			cublasHandle_t cublas_handle;
-			CUBLAS_CHECK(cublasCreate(&cublas_handle));
+			cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
 
 			const math_t alfa = 1;
 			const math_t beta = 0;
@@ -179,12 +172,10 @@ namespace ML {
 			CUBLAS_CHECK(cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
 				&alfa, input, lda, random_matrix->dense_data, ldb, &beta, output, ldc, stream));
 
-			CUBLAS_CHECK(cublasDestroy(cublas_handle));
 		}
 		else if (random_matrix->sparse_data)
 		{
-			cusparseHandle_t cusparse_handle;
-			CUSPARSE_CHECK(cusparseCreate(&cusparse_handle));
+			cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
 			CUSPARSE_CHECK(cusparseSetStream(cusparse_handle, stream));
 
 			const math_t alfa = 1;
@@ -201,16 +192,12 @@ namespace ML {
 			CUSPARSE_CHECK(cusparsegemmi(cusparse_handle, m, n, k, nnz, &alfa, input, lda,
 							random_matrix->sparse_data, random_matrix->indptr,
 							random_matrix->indices, &beta, output, ldc));
-
-			CUSPARSE_CHECK(cusparseDestroy(cusparse_handle));
 		}
 		else
 		{
 			ASSERT(false,
 					"Could not find a random matrix. Please perform a fit operation before applying transformation");
 		}
-
-		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 	/** @} */

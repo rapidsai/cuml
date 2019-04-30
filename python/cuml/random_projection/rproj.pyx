@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,46 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
-include "rproj.pxi"
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
+
+cdef extern from "random_projection/rproj_c.h" namespace "ML":
+
+    # Structure holding random projection hyperparameters
+    cdef struct paramsRPROJ:
+        int n_samples           # number of samples
+        int n_features          # number of features (original dimension)
+        int n_components        # number of components (target dimension)
+        double eps              # error tolerance according to Johnson-Lindenstrauss lemma
+        bool gaussian_method    # toggle Gaussian or Sparse random projection methods
+        double density		    # ratio of non-zero component in the random projection matrix (used for sparse random projection)
+        bool dense_output       # toggle random projection's transformation as a dense or sparse matrix
+        int random_state        # seed used by random generator
+
+    # Structure describing random matrix
+    cdef cppclass rand_mat[T]:
+        rand_mat() except +     # random matrix structure constructor (set all to nullptr)
+        T *dense_data           # dense random matrix data
+        int *indices            # sparse CSC random matrix indices
+        int *indptr             # sparse CSC random matrix indptr
+        T *sparse_data          # sparse CSC random matrix data
+        size_t sparse_data_size # sparse CSC random matrix number of non-zero elements
+
+    # Function used to fit the model
+    cdef void RPROJfit[T](cumlHandle& handle, rand_mat[T] *random_matrix,
+                            paramsRPROJ* params)
+    
+    # Function used to apply data transformation
+    cdef void RPROJtransform[T](cumlHandle& handle, T *input,
+                                rand_mat[T] *random_matrix, T *output,
+                                paramsRPROJ* params)
+
+    # Function used to compute the Johnson Lindenstrauss minimal distance
+    cdef size_t c_johnson_lindenstrauss_min_dim "ML::johnson_lindenstrauss_min_dim" (size_t n_samples, double eps)
+
+
+def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
+    return c_johnson_lindenstrauss_min_dim(<size_t>n_samples, <double>eps)
 
 cdef class BaseRandomProjection():
     """
@@ -58,7 +97,7 @@ cdef class BaseRandomProjection():
     dense_output : boolean (default = True)
         If set to True transformed matrix will be dense otherwise sparse.
 
-    random_state : int (default = 42)
+    random_state : int (default = None)
         Seed used to initilize random generator
 
     Attributes
@@ -88,12 +127,13 @@ cdef class BaseRandomProjection():
         del self.rand_matS
         del self.rand_matD
 
-    def __init__(self, n_components='auto', eps=0.1, dense_output=True,
-                 random_state=42):
+    def __init__(self, n_components='auto', eps=0.1,
+                dense_output=True, random_state=None):
         self.params.n_components = n_components if n_components != 'auto' else -1
         self.params.eps = eps
         self.params.dense_output = dense_output
-        self.params.random_state = random_state
+        if random_state is not None:
+            self.params.random_state = random_state
 
         self.params.gaussian_method = self.gaussian_method
         self.params.density = self.density
@@ -138,13 +178,16 @@ cdef class BaseRandomProjection():
             msg = "X matrix format not supported"
             raise TypeError(msg)
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
         self.params.n_features = n_features
 
         if self.gdf_datatype.type == np.float32:
-            RPROJfit[float](self.rand_matS, &self.params)
+            RPROJfit[float](handle_[0], self.rand_matS, &self.params)
         else:
-            RPROJfit[double](self.rand_matD, &self.params)
+            RPROJfit[double](handle_[0], self.rand_matD, &self.params)
+
+        self.handle.sync()
 
         return self
 
@@ -190,16 +233,22 @@ cdef class BaseRandomProjection():
             raise ValueError("n_features must be same as on fitting: %d" %
                          self.params.n_features)
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
-            RPROJtransform[float](<float*> input_ptr,
+            RPROJtransform[float](handle_[0],
+                        <float*> input_ptr,
                         self.rand_matS,
                         <float*> output_ptr,
                         &self.params)
         else:
-            RPROJtransform[double](<double*> input_ptr,
+            RPROJtransform[double](handle_[0],
+                        <double*> input_ptr,
                         self.rand_matD,
                         <double*> output_ptr,
                         &self.params)
+
+        self.handle.sync()
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
@@ -207,7 +256,7 @@ cdef class BaseRandomProjection():
         return X_new
 
 
-class GaussianRandomProjection(BaseRandomProjection):
+class GaussianRandomProjection(Base, BaseRandomProjection):
     """
     Gaussian Random Projection method derivated from BaseRandomProjection class.
 
@@ -227,7 +276,7 @@ class GaussianRandomProjection(BaseRandomProjection):
         from sklearn.svm import SVC
 
         # dataset generation
-        data, target = make_blobs(n_samples=800, centers=400, n_features=3000, random_state=0)
+        data, target = make_blobs(n_samples=800, centers=400, n_features=3000, random_state=42)
 
         # model fitting
         model = GaussianRandomProjection(n_components=5, random_state=42).fit(data)
@@ -252,6 +301,9 @@ class GaussianRandomProjection(BaseRandomProjection):
     Parameters
     ----------
 
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+
     n_components : int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
@@ -265,7 +317,7 @@ class GaussianRandomProjection(BaseRandomProjection):
         Error tolerance during projection. Used by Johnson–Lindenstrauss
         automatic deduction when n_components is set to 'auto'.
 
-    random_state : int (default = 42)
+    random_state : int (default = None)
         Seed used to initilize random generator
 
     Attributes
@@ -280,18 +332,21 @@ class GaussianRandomProjection(BaseRandomProjection):
 
     """
 
-    def __init__(self, n_components='auto', eps=0.1, random_state=42):
+    def __init__(self, handle=None, n_components='auto', eps=0.1,
+                    random_state=None, verbose=False):
+        Base.__init__(self, handle, verbose)
         self.gaussian_method = True
         self.density = -1.0 # not used
         
-        super().__init__(
+        BaseRandomProjection.__init__(
+            self,
             n_components=n_components,
             eps=eps,
             dense_output=True,
             random_state=random_state)
 
 
-class SparseRandomProjection(BaseRandomProjection):
+class SparseRandomProjection(Base, BaseRandomProjection):
     """
     Sparse Random Projection method derivated from BaseRandomProjection class.
 
@@ -318,7 +373,7 @@ class SparseRandomProjection(BaseRandomProjection):
         from sklearn.svm import SVC
 
         # dataset generation
-        data, target = make_blobs(n_samples=800, centers=400, n_features=3000, random_state=0)
+        data, target = make_blobs(n_samples=800, centers=400, n_features=3000, random_state=42)
 
         # model fitting
         model = SparseRandomProjection(n_components=5, random_state=42).fit(data)
@@ -343,6 +398,9 @@ class SparseRandomProjection(BaseRandomProjection):
     Parameters
     ----------
 
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+
     n_components : int (default = 'auto')
         Dimensionality of the target projection space. If set to 'auto',
         the parameter is deducted thanks to Johnson–Lindenstrauss lemma.
@@ -365,7 +423,7 @@ class SparseRandomProjection(BaseRandomProjection):
     dense_output : boolean (default = True)
         If set to True transformed matrix will be dense otherwise sparse.
 
-    random_state : int (default = 42)
+    random_state : int (default = None)
         Seed used to initilize random generator
 
     Attributes
@@ -380,12 +438,14 @@ class SparseRandomProjection(BaseRandomProjection):
 
     """
 
-    def __init__(self, n_components='auto', density='auto', eps=0.1,
-                 dense_output=True, random_state=42):
+    def __init__(self, handle=None, n_components='auto', density='auto',
+                    eps=0.1, dense_output=True, random_state=None, verbose=False):
+        Base.__init__(self, handle, verbose)
         self.gaussian_method = False
         self.density = density if density != 'auto' else -1.0
 
-        super().__init__(
+        BaseRandomProjection.__init__(
+            self,
             n_components=n_components,
             eps=eps,
             dense_output=dense_output,
