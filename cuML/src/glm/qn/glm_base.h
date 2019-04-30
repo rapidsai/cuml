@@ -17,12 +17,13 @@
 #pragma once
 
 #include "cuda_utils.h"
+#include "utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
-#include <glm/qn/csr_mat.h>
+#include <glm/qn/cs_mat.h>
 #include <glm/qn/simple_mat.h>
 #include <linalg/matrix_vector_op.h>
 #include <vector>
@@ -169,7 +170,7 @@ struct GLMWithData : GLMDims {
     SimpleMat<T> G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     T loss_host;
-    MLCommon::updateHostAsync(&loss_host, dev_scalar, 1, stream);
+    MLCommon::updateHost(&loss_host, dev_scalar, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

@@ -65,8 +65,8 @@ protected:
     allocate(cov_cm_ref, 4);
     allocate(mean_cm, 2);
 
-    updateDevice(data_cm, data_h, 6);
-    updateDevice(cov_cm_ref, cov_cm_ref_h, 4);
+    updateDevice(data_cm, data_h, 6, stream);
+    updateDevice(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
     mean(mean_cm, data_cm, 2, 3, true, false, stream);
     cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);
