@@ -211,6 +211,7 @@ void qnFit(const cumlHandle &cuml_handle, float *X_data, int *X_ind_ptr,
            bool fit_intercept, float l1, float l2, int max_iter, float grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
            float *f, int *num_iters, bool is_csr, int loss_type) {
+  ASSERT(loss_type != 2, "Sparse support for softmax not yet implemented");
 
   COMPRESSED_STORAGE_FORMAT format = is_csr ? CSR : CSC;
   int len_ind_ptr = is_csr ? N + 1 : D + 1;
@@ -232,6 +233,7 @@ void qnFit(const cumlHandle &cuml_handle, double *X_data, int *X_ind_ptr,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters, bool is_csr,
            int loss_type) {
+  ASSERT(loss_type != 2, "Sparse support for softmax not yet implemented");
 
   COMPRESSED_STORAGE_FORMAT format = is_csr ? CSR : CSC;
   int len_ind_ptr = is_csr ? N + 1 : D + 1;
