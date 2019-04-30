@@ -65,7 +65,7 @@ protected:
 
 		std::vector<T> data_h = { 1.0, 2.0, 4.0, 2.0, 4.0, 5.0, 5.0, 4.0, 2.0, 1.0, 6.0, 4.0 };
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
@@ -76,7 +76,7 @@ protected:
 		components_ref_h.resize(len_comp);
 
 		allocate(components_ref, len_comp);
-		updateDevice(components_ref, components_ref_h.data(), len_comp);
+		updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
 
 		paramsTSVD prms;
 		prms.n_cols = params.n_col;

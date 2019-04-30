@@ -66,10 +66,10 @@ TEST_P(COOSort, Result) {
     allocate(in_cols, params.nnz);
     allocate(verify, params.nnz);
 
-    updateDevice(in_rows, in_rows_h, params.nnz);
+    updateDevice(in_rows, in_rows_h, params.nnz, stream);
 
-    updateDevice(in_cols, in_cols_h, params.nnz);
-    updateDevice(verify, verify_h, params.nnz);
+    updateDevice(in_cols, in_cols_h, params.nnz, stream);
+    updateDevice(verify, verify_h, params.nnz, stream);
 
     coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals);
 
@@ -96,13 +96,14 @@ TEST_P(COORemoveZeros, Result) {
     r.uniform(in_vals, params.nnz, float(-1.0), float(1.0), stream);
 
     float *vals_h = (float*)malloc(params.nnz * sizeof(float));
-    updateHost(vals_h, in_vals, params.nnz);
+    updateHost(vals_h, in_vals, params.nnz, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     vals_h[0] = 0;
     vals_h[2] = 0;
     vals_h[3] = 0;
 
-    updateDevice(in_vals, vals_h, params.nnz);
+    updateDevice(in_vals, vals_h, params.nnz, stream);
 
     int out_rows_ref_h[2]  = { 3, 0 };
     int out_cols_ref_h[2] =  { 1, 4 };
@@ -120,14 +121,14 @@ TEST_P(COORemoveZeros, Result) {
     allocate(out_vals_ref, 2);
     allocate(out_cols_ref, 2);
 
-    updateDevice(out_rows_ref, *&out_rows_ref_h, 2);
-    updateDevice(out_cols_ref, *&out_cols_ref_h, 2);
-    updateDevice(out_vals_ref, out_vals_ref_h, 2);
+    updateDevice(out_rows_ref, *&out_rows_ref_h, 2, stream);
+    updateDevice(out_cols_ref, *&out_cols_ref_h, 2, stream);
+    updateDevice(out_vals_ref, out_vals_ref_h, 2, stream);
 
     int *cnnz, cnnz_h[5] = { 0, 1, 0, 0, 1 };
     allocate(cnnz, 5);
 
-    updateDevice(cnnz, *&cnnz_h, 5);
+    updateDevice(cnnz, *&cnnz_h, 5, stream);
 
     int *in_rows_h = (int*)malloc(params.nnz * sizeof(int));
     int *in_cols_h = (int*)malloc(params.nnz * sizeof(int));
@@ -140,8 +141,8 @@ TEST_P(COORemoveZeros, Result) {
     allocate(in_rows, params.nnz);
     allocate(in_cols, params.nnz);
 
-    updateDevice(in_rows, in_rows_h, params.nnz);
-    updateDevice(in_cols, in_cols_h, params.nnz);
+    updateDevice(in_rows, in_rows_h, params.nnz, stream);
+    updateDevice(in_cols, in_cols_h, params.nnz, stream);
 
     coo_remove_zeros<16, float>(params.nnz, in_rows, in_cols, in_vals, out_rows, out_cols, out_vals, cnnz, 5);
 
@@ -178,8 +179,8 @@ TEST_P(COORowCount, Result) {
     allocate(verify, 5, true);
     allocate(results, 5, true);
 
-    updateDevice(in_rows, *&in_rows_h, 5);
-    updateDevice(verify, *&verify_h, 5);
+    updateDevice(in_rows, *&in_rows_h, 5, 0);
+    updateDevice(verify, *&verify_h, 5, 0);
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
@@ -207,9 +208,9 @@ TEST_P(COORowCountNonzero, Result) {
     allocate(results, 5, true);
     allocate(in_vals, 5, true);
 
-    updateDevice(in_rows, *&in_rows_h, 5);
-    updateDevice(verify, *&verify_h, 5);
-    updateDevice(in_vals, *&in_vals_h, 5);
+    updateDevice(in_rows, *&in_rows_h, 5, 0);
+    updateDevice(verify, *&verify_h, 5, 0);
+    updateDevice(in_vals, *&in_vals_h, 5, 0);
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);

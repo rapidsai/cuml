@@ -82,7 +82,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1, stream);
-	updateHost(intercept, d_intercept, 1);
+	updateHost(intercept, d_intercept, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	if (d_intercept != NULL)
 		cudaFree(d_intercept);
 
