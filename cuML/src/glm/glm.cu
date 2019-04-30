@@ -176,26 +176,33 @@ void ridgePredict(const double *input, int n_rows, int n_cols, const double *coe
 
 }
 
-void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
-           int C, bool fit_intercept, float l1, float l2, int max_iter,
+void qnFit(const cumlHandle &cuml_handle, float *Xptr, float *yptr, int N,
+           int D, int C, bool fit_intercept, float l1, float l2, int max_iter,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type) {
+  STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
+  SimpleMat<float> X(Xptr, N, D, ordX);
+  SimpleVec<float> y(yptr, N);
 
-  qnFit(cuml_handle.getImpl(), X, y, N, D, C, fit_intercept, l1, l2, max_iter,
+  qnFit(cuml_handle.getImpl(), X, y, C, fit_intercept, l1, l2, max_iter,
         grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, X_col_major, loss_type, cuml_handle.getStream());
+        num_iters, loss_type, cuml_handle.getStream());
 }
 
-void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
-           int C, bool fit_intercept, double l1, double l2, int max_iter,
+void qnFit(const cumlHandle &cuml_handle, double *Xptr, double *yptr, int N,
+           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters,
            bool X_col_major, int loss_type) {
 
-  qnFit(cuml_handle.getImpl(), X, y, N, D, C, fit_intercept, l1, l2, max_iter,
+  STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
+  SimpleMat<double> X(Xptr, N, D, ordX);
+  SimpleVec<double> y(yptr, N);
+
+  qnFit(cuml_handle.getImpl(), X, y, C, fit_intercept, l1, l2, max_iter,
         grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, X_col_major, loss_type, cuml_handle.getStream());
+        num_iters, loss_type, cuml_handle.getStream());
 }
 
 } // namespace GLM

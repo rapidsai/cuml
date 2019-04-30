@@ -88,9 +88,9 @@ void ridgePredict(const double *input, int n_rows, int n_cols,
 /**
  * @defgroup functions to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to cumlHandle object
- * @param X                     device pointer to feature matrix of dimension
+ * @param Xptr                  device pointer to feature matrix of dimension
  * NxD (row- or column major: see X_col_major param)
- * @param y                     device pointer to label vector of length N (for
+ * @param yptr                  device pointer to label vector of length N (for
  * binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @param N                     number of examples
  * @param D                     number of features
@@ -122,14 +122,14 @@ void ridgePredict(const double *input, int n_rows, int n_cols,
  * multinomial/softmax, 2: normal/squared)
  * @{
  */
-void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
-           int C, bool fit_intercept, float l1, float l2, int max_iter,
+void qnFit(const cumlHandle &cuml_handle, float *Xptr, float *yptr, int N,
+           int D, int C, bool fit_intercept, float l1, float l2, int max_iter,
            float grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
            int loss_type);
 
-void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
-           int C, bool fit_intercept, double l1, double l2, int max_iter,
+void qnFit(const cumlHandle &cuml_handle, double *Xptr, double *yptr, int N,
+           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
            int verbosity, double *w0, double *f, int *num_iters,
            bool X_col_major, int loss_type);

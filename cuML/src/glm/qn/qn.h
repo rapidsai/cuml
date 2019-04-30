@@ -25,12 +25,12 @@
 
 namespace ML {
 namespace GLM {
-template <typename T, typename LossFunction>
-int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
-           T *zptr, int N, T l1, T l2, int max_iter, T grad_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity,
+template <typename T, typename LossFunction, typename MatX>
+int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, const MatX &X,
+           const SimpleVec<T> &y, SimpleMat<T> &Z, T l1, T l2, int max_iter,
+           T grad_tol, int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0, // initial value and result
-           T *fx, int *num_iters, STORAGE_ORDER ordX, cudaStream_t stream) {
+           T *fx, int *num_iters, cudaStream_t stream) {
 
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
@@ -38,10 +38,6 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
   opt_param.m = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w(w0, loss.n_param);
-
-  SimpleMat<T> X(Xptr, N, loss.D, ordX);
-  SimpleVec<T> y(yptr, N);
-  SimpleMat<T> Z(zptr, loss.C, N, COL_MAJOR);
 
   if (l2 == 0) {
     GLMWithData<T, SimpleMat<T>, LossFunction> lossWith(&loss, X, y, Z);
@@ -60,14 +56,14 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, T *Xptr, T *yptr,
   }
 }
 
-template <typename T>
-void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
-           bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
+template <typename T, typename MatX>
+void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
+           int C, bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
-           T *f, int *num_iters, bool X_col_major, int loss_type,
-           cudaStream_t stream) {
+           T *f, int *num_iters, int loss_type, cudaStream_t stream) {
 
-  STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
+  const int D = X.n, N = X.m;
+  ASSERT(y.len == N, "qn.h - qnFit(): inconsistent number of samples");
 
   MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
 
@@ -77,25 +73,25 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
     LogisticLoss<T> loss(handle, D, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                              grad_tol, linesearch_max_iter, lbfgs_memory,
-                              verbosity, w0, f, num_iters, ord, stream);
+    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                              linesearch_max_iter, lbfgs_memory, verbosity, w0,
+                              f, num_iters, stream);
   } break;
   case 1: {
 
     ASSERT(C == 1, "qn.h: squared loss invalid C");
     SquaredLoss<T> loss(handle, D, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                              grad_tol, linesearch_max_iter, lbfgs_memory,
-                              verbosity, w0, f, num_iters, ord, stream);
+    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                              linesearch_max_iter, lbfgs_memory, verbosity, w0,
+                              f, num_iters, stream);
   } break;
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
     Softmax<T> loss(handle, D, C, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                              grad_tol, linesearch_max_iter, lbfgs_memory,
-                              verbosity, w0, f, num_iters, ord, stream);
+    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                              linesearch_max_iter, lbfgs_memory, verbosity, w0,
+                              f, num_iters, stream);
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
   }

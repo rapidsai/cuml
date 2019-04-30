@@ -1,11 +1,11 @@
 #include "test_utils.h"
 #include "utils.h"
 #include <glm/glm.hpp>
+#include <glm/qn/cs_mat.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn.h>
-#include <glm/qn/cs_mat.h>
 #include <gtest/gtest.h>
 #include <linalg/transpose.h>
 #include <vector>
@@ -97,9 +97,9 @@ T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(handle, loss, X.data, y.data, z.data, X.m, l1, l2,
-                          max_iter, grad_tol, linesearch_max_iter, lbfgs_memory,
-                          verbosity, w0.data, &fx, &num_iters, X.ord, stream);
+  qn_fit<T, LossFunction>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                          linesearch_max_iter, lbfgs_memory, verbosity, w0.data,
+                          &fx, &num_iters, stream);
 
   return fx;
 }
@@ -140,7 +140,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   LogisticLoss<double> loss_no_b(handle, D, false);
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
 
   double l1, l2, fx;
 
@@ -283,7 +283,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double alpha = 0.01;
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
   SquaredLoss<double> loss_b(handle, D, true);
   SquaredLoss<double> loss_no_b(handle, D, false);
 
@@ -372,7 +372,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   SimpleVecOwning<int> csrColInd(allocator, nnz, stream);
 
   SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
-  SimpleMatOwning<double> tmp(allocator,1, N, stream);
+  SimpleMatOwning<double> tmp(allocator, 1, N, stream);
   int nnzTotal;
 
   cusparseMatDescr_t descr;
@@ -402,8 +402,8 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
               verbosity);
 
   CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
-  GLMWithData<double, CSMat<double>, decltype(logLoss)> lossSparse(
-      &logLoss, csr, y, tmp);
+  GLMWithData<double, CSMat<double>, decltype(logLoss)> lossSparse(&logLoss,
+                                                                   csr, y, tmp);
 
   w.fill(0, stream);
   qn_minimize(handle, w, &fxs, &num_iters, lossSparse, l1, opt_param, stream,
