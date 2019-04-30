@@ -25,12 +25,26 @@
 
 namespace ML {
 namespace GLM {
+
+template <typename T, typename LossFunction>
+size_t qn_workspace_size(T l1, int lbfgs_memory, LossFunction &loss) {
+  LBFGSParam<T> opt_param;
+  opt_param.m = lbfgs_memory;
+
+  if (l1 == 0) { // lbfgs
+    return lbfgs_workspace_size(opt_param, loss.n_param);
+  } else { // owlqn
+    return owlqn_workspace_size(opt_param, loss.n_param);
+  }
+}
+
 template <typename T, typename LossFunction, typename MatX>
-int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, const MatX &X,
-           const SimpleVec<T> &y, SimpleMat<T> &Z, T l1, T l2, int max_iter,
-           T grad_tol, int linesearch_max_iter, int lbfgs_memory, int verbosity,
+int qn_fit(LossFunction &loss, const MatX &X, const SimpleVec<T> &y,
+           SimpleMat<T> &Z, T l1, T l2, int max_iter, T grad_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0, // initial value and result
-           T *fx, int *num_iters, cudaStream_t stream) {
+           T *fx, int *num_iters, SimpleVec<T> &workspace,
+           cudaStream_t stream) {
 
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
@@ -40,19 +54,19 @@ int qn_fit(const cumlHandle_impl &handle, LossFunction &loss, const MatX &X,
   SimpleVec<T> w(w0, loss.n_param);
 
   if (l2 == 0) {
-    GLMWithData<T, SimpleMat<T>, LossFunction> lossWith(&loss, X, y, Z);
+    GLMWithData<T, MatX, LossFunction> lossWith(&loss, X, y, Z);
 
-    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param,
-                       stream, verbosity);
+    return min_owlqn(opt_param, lossWith, l1,
+                     loss.D * loss.C, // number of params without bias
+                     w, *fx, num_iters, workspace, stream, verbosity);
 
   } else {
-
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
-    GLMWithData<T, SimpleMat<T>, decltype(obj)> lossWith(&obj, X, y, Z);
+    GLMWithData<T, MatX, decltype(obj)> lossWith(&obj, X, y, Z);
 
-    return qn_minimize(handle, w, fx, num_iters, lossWith, l1, opt_param,
-                       stream, verbosity);
+    return min_lbfgs(opt_param, lossWith, w, *fx, num_iters, workspace, stream,
+                     verbosity);
   }
 }
 
@@ -61,11 +75,12 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
            int C, bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
            T *f, int *num_iters, int loss_type, cudaStream_t stream) {
+  typedef MLCommon::device_buffer<T> Buffer;
 
   const int D = X.n, N = X.m;
   ASSERT(y.len == N, "qn.h - qnFit(): inconsistent number of samples");
 
-  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
+  Buffer tmp(handle.getDeviceAllocator(), stream, C * N);
 
   SimpleMat<T> z(tmp.data(), C, N);
 
@@ -73,25 +88,40 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
     LogisticLoss<T> loss(handle, D, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+
+    Buffer ws_buf(handle.getDeviceAllocator(), stream,
+                  qn_workspace_size(l1, lbfgs_memory, loss));
+    SimpleVec<T> workspace(ws_buf.data(), ws_buf.size());
+
+    qn_fit<T, decltype(loss)>(loss, X, y, z, l1, l2, max_iter, grad_tol,
                               linesearch_max_iter, lbfgs_memory, verbosity, w0,
-                              f, num_iters, stream);
+                              f, num_iters, workspace, stream);
   } break;
   case 1: {
 
     ASSERT(C == 1, "qn.h: squared loss invalid C");
     SquaredLoss<T> loss(handle, D, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+
+    Buffer ws_buf(handle.getDeviceAllocator(), stream,
+                  qn_workspace_size(l1, lbfgs_memory, loss));
+    SimpleVec<T> workspace(ws_buf.data(), ws_buf.size());
+
+    qn_fit<T, decltype(loss)>(loss, X, y, z, l1, l2, max_iter, grad_tol,
                               linesearch_max_iter, lbfgs_memory, verbosity, w0,
-                              f, num_iters, stream);
+                              f, num_iters, workspace, stream);
   } break;
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
     Softmax<T> loss(handle, D, C, fit_intercept);
-    qn_fit<T, decltype(loss)>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+
+    Buffer ws_buf(handle.getDeviceAllocator(), stream,
+                  qn_workspace_size(l1, lbfgs_memory, loss));
+    SimpleVec<T> workspace(ws_buf.data(), ws_buf.size());
+
+    qn_fit<T, decltype(loss)>(loss, X, y, z, l1, l2, max_iter, grad_tol,
                               linesearch_max_iter, lbfgs_memory, verbosity, w0,
-                              f, num_iters, stream);
+                              f, num_iters, workspace, stream);
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
   }

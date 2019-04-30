@@ -192,7 +192,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   int n = x.len;
   const int workspace_size = owlqn_workspace_size(param, n);
-  ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
+  ASSERT(workspace.len >= workspace_size, "OWLQN: workspace insufficient");
   ASSERT(pg_limit <= n && pg_limit > 0,
          "OWL-QN: Invalid pseudo grad limit parameter");
 
@@ -315,19 +315,14 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  * Chooses the right algorithm, depending on presence of l1 term
  */
 template <typename T, typename LossFunction>
-inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
-                       int *num_iters, LossFunction &loss, const T l1,
+inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
+                       LossFunction &loss, const T l1,
                        const LBFGSParam<T> &opt_param, cudaStream_t stream,
-                       const int verbosity = 0) {
+                       SimpleVec<T> &workspace, const int verbosity = 0) {
 
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-
-    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
-                                   lbfgs_workspace_size(opt_param, x.len));
-    SimpleVec<T> workspace(tmp.data(), tmp.size());
-
     ret = min_lbfgs(opt_param,
                     loss,      // function to minimize
                     x,         // initial point, holds result
@@ -345,11 +340,6 @@ inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
     // function f(x). It takes care of adding and
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
-
-    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
-                                   owlqn_workspace_size(opt_param, x.len));
-    SimpleVec<T> workspace(tmp.data(), tmp.size());
-
     ret = min_owlqn(opt_param,
                     loss, // function to minimize
                     l1, loss.D * loss.C,

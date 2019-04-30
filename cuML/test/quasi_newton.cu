@@ -97,9 +97,12 @@ T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+  SimpleVecOwning<T> workspace(handle.getDeviceAllocator(),
+                               qn_workspace_size(l1, lbfgs_memory, loss),
+                               stream);
+  qn_fit<T, LossFunction>(loss, X, y, z, l1, l2, max_iter, grad_tol,
                           linesearch_max_iter, lbfgs_memory, verbosity, w0.data,
-                          &fx, &num_iters, stream);
+                          &fx, &num_iters, workspace, stream);
 
   return fx;
 }
@@ -398,7 +401,13 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   double fxd, fxs;
   int num_iters;
   double l1 = 0.001;
-  qn_minimize(handle, w, &fxd, &num_iters, lossDense, l1, opt_param, stream,
+
+  MLCommon::device_buffer<double> buf(
+      handle.getDeviceAllocator(), stream,
+      owlqn_workspace_size(opt_param, lossDense.n_param));
+  SimpleVec<double> workspace(buf.data(), buf.size());
+
+  qn_minimize(w, &fxd, &num_iters, lossDense, l1, opt_param, stream, workspace,
               verbosity);
 
   CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
@@ -406,7 +415,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
                                                                    csr, y, tmp);
 
   w.fill(0, stream);
-  qn_minimize(handle, w, &fxs, &num_iters, lossSparse, l1, opt_param, stream,
+  qn_minimize(w, &fxs, &num_iters, lossSparse, l1, opt_param, stream, workspace,
               verbosity);
 
   ASSERT_TRUE(compApprox(fxd, fxs));
