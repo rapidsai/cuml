@@ -60,22 +60,22 @@ protected:
 		allocate(coef4_ref, params.n_col, true);
 
 		T data_h[len] = { 1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0 };
-		updateDevice(data, data_h, len);
+		updateDevice(data, data_h, len, stream);
 
 		T labels_h[params.n_row] = { 6.0, 8.3, 9.8, 11.2 };
-		updateDevice(labels, labels_h, params.n_row);
+		updateDevice(labels, labels_h, params.n_row, stream);
 
 		T coef_ref_h[params.n_col] = { 4.90832, 0.35031 };
-		updateDevice(coef_ref, coef_ref_h, params.n_col);
+		updateDevice(coef_ref, coef_ref_h, params.n_col, stream);
 
 		T coef2_ref_h[params.n_col] = { 2.53530, -0.36832 };
-		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
+		updateDevice(coef2_ref, coef2_ref_h, params.n_col, stream);
 
 		T coef3_ref_h[params.n_col] = { 2.932841, 1.15248 };
-		updateDevice(coef3_ref, coef3_ref_h, params.n_col);
+		updateDevice(coef3_ref, coef3_ref_h, params.n_col, stream);
 
 		T coef4_ref_h[params.n_col] = { 0.569439, -0.00542 };
-		updateDevice(coef4_ref, coef4_ref_h, params.n_col);
+		updateDevice(coef4_ref, coef4_ref_h, params.n_col, stream);
 
 		bool fit_intercept = false;
 		bool normalize = false;
