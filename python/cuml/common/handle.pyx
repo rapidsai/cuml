@@ -25,9 +25,9 @@ from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
-cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
-    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
-        pass
+#cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
+#    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
+#        pass
 
 
 cdef class Handle:
@@ -81,9 +81,9 @@ cdef class Handle:
         Second, the allocator based on RMM. So, this function, basically makes
         the cumlHandle use a more efficient allocator, instead of the default.
         """
-        cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
+#        cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
+#        cdef cumlHandle* h_ = <cumlHandle*>self.h
+#        h_.setDeviceAllocator(rmmAlloc)
 
     def sync(self):
         """

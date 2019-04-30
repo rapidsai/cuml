@@ -20,10 +20,13 @@
 
 #include <cstdlib>
 
+#include "sparse/coo.h"
+
 #include <curand.h>
 
 #include <thrust/extrema.h>
 #include <thrust/device_ptr.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 #include <math.h>
 #include <string>
@@ -63,14 +66,17 @@ namespace UMAPAlgo {
 	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
                                         cudaStream_t stream) {
 	            thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
-	            T weights_max = *(thrust::max_element(d_weights, d_weights+weights_n));
-                MLCommon::LinAlg::unaryOp<T>(result, weights, weights_n,
+	            T weights_max = *(thrust::max_element(thrust::cuda::par.on(stream), d_weights, d_weights+weights_n));
+
+
+
+	            MLCommon::LinAlg::unaryOp<T>(result, weights, weights_n,
                     [=] __device__(T input) {
-                        T v = input / weights_max;
+                        T v = n_epochs * (input / weights_max);
                         if(v*n_epochs > 0)
-                            return v;
+                            return float(n_epochs) / v;
                         else
-                            return T(-1.0);
+                            return T(100.0);
                     },
                 stream);
 	        }
@@ -177,7 +183,7 @@ namespace UMAPAlgo {
 
                         // number of negative samples to choose
                         int n_neg_samples = int(
-                            (epoch - epoch_of_next_negative_sample[row]) /
+                            T(epoch - epoch_of_next_negative_sample[row]) /
                             epochs_per_negative_sample[row]
                         );
 
@@ -218,6 +224,7 @@ namespace UMAPAlgo {
                             epoch_of_next_negative_sample[row] +=
                                 n_neg_samples * epochs_per_negative_sample[row];
                         }
+
                     }
                 }
 	        }
@@ -245,6 +252,8 @@ namespace UMAPAlgo {
 
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
+
+	            std::cout << MLCommon::arr2Str(epochs_per_sample, nnz, "epochs_per_sample") << std::endl;
 
 	            T alpha = params->initial_alpha;
 
@@ -274,7 +283,8 @@ namespace UMAPAlgo {
                     gettimeofday(&tp, NULL);
                     long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-                    optimize_batch_kernel<T, TPB_X><<<grid,blk>>>(
+
+                    optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
 	                    head_embedding, head_n,
 	                    tail_embedding, tail_n,
 	                    head, tail, nnz,
@@ -306,16 +316,18 @@ namespace UMAPAlgo {
 	         */
 	        template<int TPB_X, typename T>
 	        void launcher(int m, int n,
-	                const int *rows, const int *cols, T *vals, int nnz,
+	                MLCommon::Sparse::COO<T> *in,
 	                UMAPParams *params, T* embedding, cudaStream_t stream) {
 
 	            dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
 	            dim3 blk(TPB_X, 1, 1);
 
+	            int nnz = in->nnz;
+
 	            /**
 	             * Find vals.max()
 	             */
-	            thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(vals);
+	            thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals);
 	            T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
 
 	            /**
@@ -323,7 +335,7 @@ namespace UMAPAlgo {
 	             * vals.max() / params->n_epochs to 0.0
 	             */
                 float n_epochs = float(params->n_epochs);
-                MLCommon::LinAlg::unaryOp<T>(vals, vals, nnz,
+                MLCommon::LinAlg::unaryOp<T>(in->vals, in->vals, nnz,
                     [=] __device__(T input) {
                         if (input < (max / n_epochs))
                             return 0.0f;
@@ -332,13 +344,21 @@ namespace UMAPAlgo {
                     },
                 stream);
 
-	            T *epochs_per_sample;
-	            MLCommon::allocate(epochs_per_sample, nnz);
+                MLCommon::Sparse::COO<T> out;
+                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+                        in, &out, stream
+                );
 
-	            make_epochs_per_sample(vals, nnz, params->n_epochs, epochs_per_sample, stream);
+	            T *epochs_per_sample;
+	            MLCommon::allocate(epochs_per_sample, nnz, true);
+
+	            make_epochs_per_sample(out.vals, nnz, params->n_epochs, epochs_per_sample, stream);
+
+	            CUDA_CHECK(cudaDeviceSynchronize());
+
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
-	                            rows, cols, nnz,
+	                            out.rows, out.cols, out.nnz,
 	                            epochs_per_sample,
 	                            m,
 	                            params->repulsion_strength,

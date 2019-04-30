@@ -334,6 +334,29 @@ __global__ void coo_remove_zeros_kernel(
     }
 }
 
+template<int TPB_X, typename T>
+__global__ void coo_remove_scalar_kernel(
+        const int *rows, const int *cols, const T *vals, int nnz,
+        int *crows, int *ccols, T *cvals,
+        int *ex_scan, int *cur_ex_scan, int m, T scalar) {
+
+    int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+    if (row < m) {
+        int start = cur_ex_scan[row];
+        int stop = MLCommon::Sparse::get_stop_idx(row, m, nnz, cur_ex_scan);
+        int cur_out_idx = ex_scan[row];
+
+        for (int idx = start; idx < stop; idx++) {
+            if (vals[idx] != scalar) {
+                crows[cur_out_idx] = rows[idx];
+                ccols[cur_out_idx] = cols[idx];
+                cvals[cur_out_idx] = vals[idx];
+                ++cur_out_idx;
+            }
+        }
+    }
+}
 
 
 
@@ -388,10 +411,40 @@ __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
         int *results) {
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
     if(row < nnz && vals[row] != 0.0) {
-        printf("row=%d, val=%f\n", rows[row], vals[row]);
+//        printf("row=%d, val=%f\n", rows[row], vals[row]);
         atomicAdd(results+rows[row], 1);
     }
 }
+
+template<int TPB_X, typename T>
+__global__ void coo_row_count_scalar_kernel(int *rows, T *vals, int nnz,
+        T scalar, int *results) {
+    int row = (blockIdx.x * TPB_X) + threadIdx.x;
+    if(row < nnz && vals[row] != scalar) {
+//        printf("row=%d, val=%f\n", rows[row], vals[row]);
+        atomicAdd(results+rows[row], 1);
+    }
+}
+
+
+template<int TPB_X, typename T>
+void coo_row_count_scalar(COO<T> *in, T scalar, int *results) {
+    dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
+    dim3 blk_rc(TPB_X, 1, 1);
+
+    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+            in->rows, in->vals, in->nnz, scalar, results);
+}
+
+template<int TPB_X, typename T>
+void coo_row_count_scalar(int *rows, T *vals, int nnz, T scalar, int *results) {
+    dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
+    dim3 blk_rc(TPB_X, 1, 1);
+
+    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+            rows, vals, nnz, scalar, results);
+}
+
 
 template<int TPB_X, typename T>
 void coo_row_count_nz(int *rows, T *vals, int nnz, int *results) {
@@ -428,10 +481,10 @@ void coo_row_count_nz(COO<T> *in, int *results) {
  * @param cnnz_n: size of cnnz array (eg. num chunks)
  */
 template<int TPB_X, typename T>
-void coo_remove_zeros(
+void coo_remove_scalar(
         const int *rows, const int *cols, const T *vals, int nnz,
         int *crows, int *ccols, T *cvals,
-        int *cnnz, int *cur_cnnz, int n) {
+        int *cnnz, int *cur_cnnz, T scalar, int n) {
 
     int *ex_scan, *cur_ex_scan;
     MLCommon::allocate(ex_scan, n, true);
@@ -456,10 +509,10 @@ void coo_remove_zeros(
     dim3 grid(ceildiv(n, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
-    coo_remove_zeros_kernel<TPB_X><<<grid, blk>>>(
+    coo_remove_scalar_kernel<TPB_X><<<grid, blk>>>(
             rows, cols, vals, nnz,
             crows, ccols, cvals,
-            dev_ex_scan.get(), dev_cur_ex_scan.get(), n
+            dev_ex_scan.get(), dev_cur_ex_scan.get(), n, scalar
     );
 
     CUDA_CHECK(cudaPeekAtLastError());
@@ -468,8 +521,9 @@ void coo_remove_zeros(
 }
 
 template<int TPB_X, typename T>
-void coo_remove_zeros(COO<T> *in,
+void coo_remove_scalar(COO<T> *in,
                     COO<T> *out,
+                    T scalar,
                     cudaStream_t stream) {
 
     int *row_count_nz, *row_count;
@@ -481,18 +535,16 @@ void coo_remove_zeros(COO<T> *in,
             in->rows, in->nnz, row_count);
     CUDA_CHECK(cudaPeekAtLastError());
 
-
-
-    MLCommon::Sparse::coo_row_count_nz<TPB_X>(
-            in->rows, in->vals, in->nnz, row_count_nz);
+    MLCommon::Sparse::coo_row_count_scalar<TPB_X>(
+            in->rows, in->vals, in->nnz, scalar, row_count_nz);
     CUDA_CHECK(cudaPeekAtLastError());
 
-
-    std::cout << "PRINTING!" << std::endl;
-
-    std::cout << arr2Str(row_count_nz, in->n_rows, "row_count_nz") << std::endl;
-    std::cout << "PRINTING!" << std::endl;
-
+//
+//    std::cout << "PRINTING!" << std::endl;
+//
+//    std::cout << arr2Str(row_count_nz, in->n_rows, "row_count_nz") << std::endl;
+//    std::cout << "PRINTING!" << std::endl;
+//
     thrust::device_ptr<int> d_row_count_nz =
             thrust::device_pointer_cast(row_count_nz);
     int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
@@ -500,16 +552,22 @@ void coo_remove_zeros(COO<T> *in,
 
     out->allocate(out_nnz, in->n_rows, in->n_cols);
 
-    coo_remove_zeros<TPB_X, T>(
+    coo_remove_scalar<TPB_X, T>(
         in->rows, in->cols, in->vals, in->nnz,
         out->rows, out->cols, out->vals,
-        row_count_nz, row_count, in->n_rows);
+        row_count_nz, row_count, scalar, in->n_rows);
     CUDA_CHECK(cudaPeekAtLastError());
 
     CUDA_CHECK(cudaFree(row_count));
     CUDA_CHECK(cudaFree(row_count_nz));
 }
 
+template<int TPB_X, typename T>
+void coo_remove_zeros(COO<T> *in,
+                    COO<T> *out,
+                    cudaStream_t stream) {
+    coo_remove_scalar<TPB_X, T>(in, out, T(0.0), stream);
+}
 
 template<int TPB_X, typename T>
 __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, int k,
