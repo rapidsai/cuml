@@ -226,7 +226,7 @@ inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
   auto f = [] __device__(const T x, const T y) { return x * y; };
   MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
-  MLCommon::updateHostAsync(&tmp_host, tmp_dev, 1, stream);
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);
   return tmp_host;
 }
@@ -246,7 +246,7 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
                             true, stream, MLCommon::Nop<T>());
   T tmp_host;
-  MLCommon::updateHostAsync(&tmp_host, tmp_dev, 1, stream);
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
   cudaStreamSynchronize(stream);
   return tmp_host;
 }
@@ -254,7 +254,8 @@ inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleVec<T> &v) {
   std::vector<T> out(v.len);
-  MLCommon::updateHost(&out[0], v.data, v.len);
+  MLCommon::updateHost(&out[0], v.data, v.len, 0);
+  CUDA_CHECK(cudaStreamSynchronize(0));
   int it = 0;
   for (; it < v.len - 1;) {
     os << out[it] << " ";
@@ -268,7 +269,8 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
-  MLCommon::updateHost(&out[0], mat.data, mat.len);
+  MLCommon::updateHost(&out[0], mat.data, mat.len, 0);
+  CUDA_CHECK(cudaStreamSynchronize(0));
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
       int idx = r;

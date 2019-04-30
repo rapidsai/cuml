@@ -65,10 +65,10 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
     G.fill(0, stream);
 
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
-    MLCommon::updateHostAsync(&reg_host, lossVal.data, 1, stream);
+    MLCommon::updateHost(&reg_host, lossVal.data, 1, stream);
 
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    MLCommon::updateHostAsync(&loss_host, lossVal.data, 1, stream);
+    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
