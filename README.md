@@ -39,26 +39,21 @@ For additional examples, browse our complete [API documentation](https://docs.ra
 | Algorithm | Scale | Notes |
 | --- | --- | --- |
 | Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
-| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package <br> Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
 | Principal Component Analysis (PCA) | Single GPU |
 | Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
-| K-Means Clustering | Multi-GPU |
-| K-Nearest Neighbors (KNN) | Multi-GPU | Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| K-Means Clustering | Single-GPU |
+| K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
 | Ridge Regression | Single-GPU |
-| Kalman Filter | Single-GPU |
+| Linear Kalman Filter | Single-GPU |
 | UMAP | Single-GPU |
 | Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
+| Coordinate Descent | Single-GPU | |
+| Limited-memory BFGS | Single-GPU | |
 
 ---
 
-Algorithms in progress:
-
-- More Kalman Filter versions
-- Lasso
-- Elastic-Net
-- Logistic Regression
-
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them t-sne, decision trees, random forests and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
 
 ## Installation
 
@@ -70,23 +65,11 @@ sudo apt install libopenblas-base libomp-dev
 #### Conda
 cuML can be installed using the `rapidsai` conda channel:
 ```bash
-conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml
-```
-
-#### Pip
-cuML can also be installed using pip. Select the package based on your version of CUDA.
-
-
-```bash
-# cuda 9.2
-pip install cuml-cuda92
-
-# cuda 10.0
-pip install cuml-cuda100
+conda install -c nvidia -c rapidsai -c conda-forge cuml
 ```
 
 ## Build/Install from Source
-See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+See the build [guide](BUILD.md).
 
 ## Contributing
 
