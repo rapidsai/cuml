@@ -17,6 +17,7 @@
 #include "ridge.h"
 #include "glm.hpp"
 #include "glm/qn/qn.h"
+#include "glm/qn/cs_mat.h"
 #include "glm/glm_api.h"
 
 namespace ML {
@@ -198,6 +199,47 @@ void qnFit(const cumlHandle &cuml_handle, double *Xptr, double *yptr, int N,
 
   STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
   SimpleMat<double> X(Xptr, N, D, ordX);
+  SimpleVec<double> y(yptr, N);
+
+  qnFit(cuml_handle.getImpl(), X, y, C, fit_intercept, l1, l2, max_iter,
+        grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
+        num_iters, loss_type, cuml_handle.getStream());
+}
+
+void qnFit(const cumlHandle &cuml_handle, float *X_data, int *X_ind_ptr,
+           int *X_indices, float *yptr, int N, int D, int C, int nnz,
+           bool fit_intercept, float l1, float l2, int max_iter, float grad_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
+           float *f, int *num_iters, bool is_csr, int loss_type) {
+
+  COMPRESSED_STORAGE_FORMAT format = is_csr ? CSR : CSC;
+  int len_ind_ptr = is_csr ? N + 1 : D + 1;
+  SimpleVec<float> Xdata(X_data, nnz);
+  SimpleVec<int> XindPtr(X_ind_ptr, len_ind_ptr);
+  SimpleVec<int> Xindices(X_indices, nnz);
+  CSMat<float> X(Xdata, XindPtr, Xindices, N, D, format);
+
+  SimpleVec<float> y(yptr, N);
+
+  qnFit(cuml_handle.getImpl(), X, y, C, fit_intercept, l1, l2, max_iter,
+        grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
+        num_iters, loss_type, cuml_handle.getStream());
+}
+
+void qnFit(const cumlHandle &cuml_handle, double *X_data, int *X_ind_ptr,
+           int *X_indices, double *yptr, int N, int D, int C, int nnz,
+           bool fit_intercept, double l1, double l2, int max_iter,
+           double grad_tol, int linesearch_max_iter, int lbfgs_memory,
+           int verbosity, double *w0, double *f, int *num_iters, bool is_csr,
+           int loss_type) {
+
+  COMPRESSED_STORAGE_FORMAT format = is_csr ? CSR : CSC;
+  int len_ind_ptr = is_csr ? N + 1 : D + 1;
+  SimpleVec<double> Xdata(X_data, nnz);
+  SimpleVec<int> XindPtr(X_ind_ptr, len_ind_ptr);
+  SimpleVec<int> Xindices(X_indices, nnz);
+  CSMat<double> X(Xdata, XindPtr, Xindices, N, D, format);
+
   SimpleVec<double> y(yptr, N);
 
   qnFit(cuml_handle.getImpl(), X, y, C, fit_intercept, l1, l2, max_iter,
