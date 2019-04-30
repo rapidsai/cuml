@@ -90,8 +90,8 @@ protected:
     r.normal(data, len, (T)0.0, (T)1.0, stream);
     naiveMinMax(data, params.rows, params.cols, minmax_ref,
                 minmax_ref+params.cols, stream);
-    minmax<T>(data, nullptr, nullptr, params.rows, params.cols, minmax_act,
-              minmax_act+params.cols, nullptr, stream);
+    minmax<T>(data, nullptr, nullptr, params.rows, params.cols, params.rows,
+              minmax_act, minmax_act+params.cols, nullptr, stream);
   }
 
   void TearDown() override {
