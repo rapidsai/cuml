@@ -259,11 +259,11 @@ namespace UMAPAlgo {
 
 	            T *epoch_of_next_negative_sample;
                 MLCommon::allocate(epoch_of_next_negative_sample, nnz);
-                MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz);
+                MLCommon::copy(epoch_of_next_negative_sample, epochs_per_negative_sample, nnz, stream);
 
 	            T *epoch_of_next_sample;
                 MLCommon::allocate(epoch_of_next_sample, nnz);
-                MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz);
+                MLCommon::copy(epoch_of_next_sample, epochs_per_sample, nnz, stream);
 
                 dim3 grid(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
                 dim3 blk(TPB_X, 1, 1);

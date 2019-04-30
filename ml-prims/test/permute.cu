@@ -63,13 +63,7 @@ protected:
     } else {
         in = out = nullptr;
     }
-    char *workspace = nullptr;
-    size_t workspaceSize;
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
-    allocate(workspace, workspaceSize);
-    permute(outPerms, out, in, D, N, params.rowMajor, workspace, workspaceSize, stream);
-    CUDA_CHECK(cudaFree(workspace));
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    permute(outPerms, out, in, D, N, params.rowMajor);
   }
 
   void TearDown() override {
@@ -91,9 +85,11 @@ protected:
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatchRange(const T *actual, size_t size,
                                             T start, L eq_compare,
-                                            bool doSort = true) {
+                                            bool doSort = true,
+                                            cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size);
+  updateHost<T>(&(act_h[0]), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   if(doSort)
     std::sort(act_h.begin(), act_h.end());
   for (size_t i(0); i < size; ++i) {
@@ -110,12 +106,14 @@ template <typename T, typename L>
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatchShuffle(const int *perms, const T *out,
                                               const T *in, int D, int N,
-                                              bool rowMajor, L eq_compare) {
+                                              bool rowMajor, L eq_compare,
+                                              cudaStream_t stream = 0) {
   std::vector<int> h_perms(N);
-  updateHost<int>(&(h_perms[0]), perms, N);
+  updateHost<int>(&(h_perms[0]), perms, N, stream);
   std::vector<T> h_out(N * D), h_in(N * D);
-  updateHost<T>(&(h_out[0]), out, N * D);
-  updateHost<T>(&(h_in[0]), in, N * D);
+  updateHost<T>(&(h_out[0]), out, N * D, stream);
+  updateHost<T>(&(h_in[0]), in, N * D, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < N; ++i) {
       for (int j = 0; j < D; ++j) {
           int outPos = rowMajor? i * D + j : j * N + i;
@@ -145,7 +143,8 @@ const std::vector<PermInputs<float>> inputsf = {
   {2*1024+500, 32, true, false, true, 1234567890ULL},
   {100000, 32, true, false, true, 1234ULL},
   {100000, 32, true, false, true, 1234567890ULL},
-  // permute and shuffle the data
+  {100001, 33, true, false, true, 1234567890ULL},
+  // permute and shuffle the data row major
   {32, 8, true, true, true, 1234ULL},
   {32, 8, true, true, true, 1234567890ULL},
   {1024, 32, true, true, true, 1234ULL},
@@ -155,7 +154,21 @@ const std::vector<PermInputs<float>> inputsf = {
   {2*1024+500, 32, true, true, true, 1234ULL},
   {2*1024+500, 32, true, true, true, 1234567890ULL},
   {100000, 32, true, true, true, 1234ULL},
-  {100000, 32, true, true, true, 1234567890ULL}};
+  {100000, 32, true, true, true, 1234567890ULL},
+  {100001, 31, true, true, true, 1234567890ULL},
+  // permute and shuffle the data column major
+  {32, 8, true, true, false, 1234ULL},
+  {32, 8, true, true, false, 1234567890ULL},
+  {1024, 32, true, true, false, 1234ULL},
+  {1024, 32, true, true, false, 1234567890ULL},
+  {2*1024, 32, true, true, false, 1234ULL},
+  {2*1024, 32, true, true, false, 1234567890ULL},
+  {2*1024+500, 32, true, true, false, 1234ULL},
+  {2*1024+500, 32, true, true, false, 1234567890ULL},
+  {100000, 32, true, true, false, 1234ULL},
+  {100000, 32, true, true, false, 1234567890ULL},
+  {100001, 33, true, true, false, 1234567890ULL}};
+
 typedef PermTest<float> PermTestF;
 TEST_P(PermTestF, Result) {
   if(params.needPerms) {
@@ -181,7 +194,8 @@ const std::vector<PermInputs<double>> inputsd = {
   {2*1024+500, 32, true, false, true, 1234567890ULL},
   {100000, 32, true, false, true, 1234ULL},
   {100000, 32, true, false, true, 1234567890ULL},
-  // permute and shuffle the data
+  {100001, 33, true, false, true, 1234567890ULL},
+  // permute and shuffle the data row major
   {32, 8, true, true, true, 1234ULL},
   {32, 8, true, true, true, 1234567890ULL},
   {1024, 32, true, true, true, 1234ULL},
@@ -191,7 +205,20 @@ const std::vector<PermInputs<double>> inputsd = {
   {2*1024+500, 32, true, true, true, 1234ULL},
   {2*1024+500, 32, true, true, true, 1234567890ULL},
   {100000, 32, true, true, true, 1234ULL},
-  {100000, 32, true, true, true, 1234567890ULL}};
+  {100000, 32, true, true, true, 1234567890ULL},
+  {100001, 31, true, true, true, 1234567890ULL},
+  // permute and shuffle the data column major
+  {32, 8, true, true, false, 1234ULL},
+  {32, 8, true, true, false, 1234567890ULL},
+  {1024, 32, true, true, false, 1234ULL},
+  {1024, 32, true, true, false, 1234567890ULL},
+  {2*1024, 32, true, true, false, 1234ULL},
+  {2*1024, 32, true, true, false, 1234567890ULL},
+  {2*1024+500, 32, true, true, false, 1234ULL},
+  {2*1024+500, 32, true, true, false, 1234567890ULL},
+  {100000, 32, true, true, false, 1234ULL},
+  {100000, 32, true, true, false, 1234567890ULL},
+  {100001, 33, true, true, false, 1234567890ULL}};
 typedef PermTest<double> PermTestD;
 TEST_P(PermTestD, Result) {
   if(params.needPerms) {
