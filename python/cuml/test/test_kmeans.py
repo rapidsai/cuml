@@ -33,17 +33,17 @@ def test_kmeans_sklearn_comparison(name, run_stress, run_correctness_test):
                     'n_neighbors': 10,
                     'n_clusters': 20}
     n_samples = 10000
-    if run_stress == True:
+    if run_stress:
         pat = get_pattern(name, n_samples*50)
         params = default_base.copy()
         params.update(pat[1])
         X, y = pat[0]
 
-    elif run_correctness_test==True:
+    elif run_correctness_test:
         pat = get_pattern(name, n_samples)
         params = default_base.copy()
         params.update(pat[1])
-        X, y = pat[0] 
+        X, y = pat[0]
 
     else:
         pat = get_pattern(name, np.int32(n_samples/2))
