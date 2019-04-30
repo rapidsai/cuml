@@ -144,7 +144,7 @@ void cdFit(math_t *input,
 		LinAlg::addScalar(squared, squared, l2_alpha, n_cols, stream);
 	}
 
-	copy(residual, labels, n_rows);
+	copy(residual, labels, n_rows, stream);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -172,7 +172,7 @@ void cdFit(math_t *input,
 			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1, stream);
 
 			coef_prev = h_coef[ci];
-			updateHost(&(h_coef[ci]), coef_loc, 1);
+			updateHost(&(h_coef[ci]), coef_loc, 1, stream);
 			math_t diff = abs(coef_prev - h_coef[ci]);
 
 			if (diff > d_coef_max)
