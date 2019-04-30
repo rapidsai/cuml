@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ namespace ML {
     
     using namespace MLCommon;
 
-    template void RPROJfit(rand_mat<float> *random_matrix, paramsRPROJ* params);
-    template void RPROJfit(rand_mat<double> *random_matrix, paramsRPROJ* params);
-    template void RPROJtransform(float *input, rand_mat<float> *random_matrix, float *output, paramsRPROJ* params);
-    template void RPROJtransform(double *input, rand_mat<double> *random_matrix, double *output, paramsRPROJ* params);
+    template void RPROJfit(cumlHandle& handle, rand_mat<float> *random_matrix, paramsRPROJ* params);
+    template void RPROJfit(cumlHandle& handle, rand_mat<double> *random_matrix, paramsRPROJ* params);
+    template void RPROJtransform(cumlHandle& handle, float *input, rand_mat<float> *random_matrix, float *output, paramsRPROJ* params);
+    template void RPROJtransform(cumlHandle& handle, double *input, rand_mat<double> *random_matrix, double *output, paramsRPROJ* params);
  
  };

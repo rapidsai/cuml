@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,25 +60,24 @@ inline double check_density(double density, size_t n_features)
     return density;
 }
 
-/**
- * @brief computes minimum target dimension to preserve information according to error tolerance (eps parameter)
- * @input param n_samples: number of samples
- * @input param eps: error tolerance
- * @return minimum target dimension
- */
-inline size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps)
-{
-    ASSERT(eps > 0.0 && eps < 1.0,
-                "Parameter eps: must be in range ]0, 1[");
-    ASSERT(n_samples > 0,
-            "Parameter n_samples: must be strictly positive");
-
-    double denominator = (pow(eps, 2.0) / 2.0) - (pow(eps, 3) / 3.0);
-    size_t res = 4.0 * log(n_samples) / denominator;
-    return res;
-}
-
 namespace ML{
+    /**
+     * @brief computes minimum target dimension to preserve information according to error tolerance (eps parameter)
+     * @input param n_samples: number of samples
+     * @input param eps: error tolerance
+     * @return minimum target dimension
+     */
+    size_t johnson_lindenstrauss_min_dim(size_t n_samples, double eps)
+    {
+        ASSERT(eps > 0.0 && eps < 1.0,
+                    "Parameter eps: must be in range (0, 1)");
+        ASSERT(n_samples > 0,
+                "Parameter n_samples: must be strictly positive");
+
+        double denominator = (pow(eps, 2.0) / 2.0) - (pow(eps, 3) / 3.0);
+        size_t res = 4.0 * log(n_samples) / denominator;
+        return res;
+    }
 
     inline void check_parameters(paramsRPROJ& params)
     {
@@ -95,7 +94,7 @@ namespace ML{
             params.n_features, params.n_components, params.eps);
 
         ASSERT(params.gaussian_method || (params.density > 0.0 && params.density <= 1.0),
-                "Parameter density: must be in range ]0, 1]");
+                "Parameter density: must be in range (0, 1]");
     }
 
     inline void build_parameters(paramsRPROJ& params)
