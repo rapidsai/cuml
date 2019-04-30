@@ -56,7 +56,7 @@ protected:
     T cov_matrix_h[] = {1.0,  0.9, 0.81, 0.729, 0.9,   1.0,  0.9, 0.81,
                         0.81, 0.9, 1.0,  0.9,   0.729, 0.81, 0.9, 1.0};
     ASSERT(len == 16, "This test only works with 4x4 matrices!");
-    updateDevice(cov_matrix, cov_matrix_h, len);
+    updateDevice(cov_matrix, cov_matrix_h, len, stream);
 
     allocate(eig_vectors, len);
     allocate(eig_vals, params.n_col);
@@ -72,8 +72,8 @@ protected:
     allocate(eig_vectors_ref, len);
     allocate(eig_vals_ref, params.n_col);
 
-    updateDevice(eig_vectors_ref, eig_vectors_ref_h, len);
-    updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col);
+    updateDevice(eig_vectors_ref, eig_vectors_ref_h, len, stream);
+    updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col, stream);
 
     eigDC(cov_matrix, params.n_row, params.n_col, eig_vectors, eig_vals,
           cusolverH, stream, mgr);

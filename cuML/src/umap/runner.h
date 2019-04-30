@@ -261,8 +261,8 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaPeekAtLastError());
 
         if(params->verbose) {
-            std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
-            std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+            std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
+            std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
         }
 
         int *ia, *ex_scan;
