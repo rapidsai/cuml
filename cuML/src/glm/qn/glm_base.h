@@ -17,6 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
+#include "utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
@@ -165,7 +166,7 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     lossVal.reset(dev_scalar, 1);
     T loss_host;
-    MLCommon::updateHostAsync(&loss_host, lossVal.data, 1, stream);
+    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

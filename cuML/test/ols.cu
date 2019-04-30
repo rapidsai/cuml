@@ -70,39 +70,39 @@ protected:
 
 		std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0};
 		labels_h.resize(params.n_row);
-		updateDevice(labels, labels_h.data(), params.n_row);
+		updateDevice(labels, labels_h.data(), params.n_row, stream);
 
 		std::vector<T> coef_ref_h = {2.090908, 2.5454557};
 		coef_ref_h.resize(params.n_col);
-		updateDevice(coef_ref, coef_ref_h.data(), params.n_col);
+		updateDevice(coef_ref, coef_ref_h.data(), params.n_col, stream);
 
 		std::vector<T> coef2_ref_h = {1.000001 , 1.9999998};
 		coef2_ref_h.resize(params.n_col);
-		updateDevice(coef2_ref, coef2_ref_h.data(), params.n_col);
+		updateDevice(coef2_ref, coef2_ref_h.data(), params.n_col, stream);
 
 		std::vector<T> coef3_ref_h = {0.99999 , 2.00000};
 		coef3_ref_h.resize(params.n_col);
-		updateDevice(coef3_ref, coef3_ref_h.data(), params.n_col);
+		updateDevice(coef3_ref, coef3_ref_h.data(), params.n_col, stream);
 
 		std::vector<T> pred_data_h = {3.0, 2.0, 5.0, 5.0};
 		pred_data_h.resize(len2);
-		updateDevice(pred_data, pred_data_h.data(), len2);
+		updateDevice(pred_data, pred_data_h.data(), len2, stream);
 
 		std::vector<T> pred_ref_h = {19.0, 16.9090};
 		pred_ref_h.resize(params.n_row_2);
-		updateDevice(pred_ref, pred_ref_h.data(), params.n_row_2);
+		updateDevice(pred_ref, pred_ref_h.data(), params.n_row_2, stream);
 
 		std::vector<T> pred2_ref_h = {16.0, 15.0};
 		pred2_ref_h.resize(params.n_row_2);
-		updateDevice(pred2_ref, pred2_ref_h.data(), params.n_row_2);
+		updateDevice(pred2_ref, pred2_ref_h.data(), params.n_row_2, stream);
 
 		std::vector<T> pred3_ref_h = {16.0, 15.0};
 		pred3_ref_h.resize(params.n_row_2);
-		updateDevice(pred3_ref, pred3_ref_h.data(), params.n_row_2);
+		updateDevice(pred3_ref, pred3_ref_h.data(), params.n_row_2, stream);
 
 		intercept = T(0);
 
@@ -112,8 +112,8 @@ protected:
 		olsPredict(pred_data, params.n_row_2, params.n_col, coef, intercept,
 				pred, cublas_handle, stream);
 
-		updateDevice(data, data_h.data(), len);
-		updateDevice(labels, labels_h.data(), params.n_row);
+		updateDevice(data, data_h.data(), len, stream);
+		updateDevice(labels, labels_h.data(), params.n_row, stream);
 
 		intercept2 = T(0);
 		olsFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
@@ -122,8 +122,8 @@ protected:
 		olsPredict(pred_data, params.n_row_2, params.n_col, coef2, intercept2,
 				pred2, cublas_handle, stream);
 
-		updateDevice(data, data_h.data(), len);
-		updateDevice(labels, labels_h.data(), params.n_row);
+		updateDevice(data, data_h.data(), len, stream);
+		updateDevice(labels, labels_h.data(), params.n_row, stream);
 
 		intercept3 = T(0);
 		olsFit(data, params.n_row, params.n_col, labels, coef3, &intercept3,
@@ -158,15 +158,15 @@ protected:
 
 		std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
 		data_h.resize(len);
-		updateDevice(data_sc, data_h.data(), len);
+		updateDevice(data_sc, data_h.data(), len, stream);
 
 		std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0, -3.6, 3.3};
 		labels_h.resize(len);
-		updateDevice(labels_sc, labels_h.data(), len);
+		updateDevice(labels_sc, labels_h.data(), len, stream);
 
 		std::vector<T> coef_sc_ref_h = {-0.29285714};
 		coef_sc_ref_h.resize(1);
-		updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1);
+		updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
 
 		T intercept_sc = T(0);
 

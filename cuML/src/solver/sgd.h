@@ -130,7 +130,7 @@ void sgdFit(math_t *input,
 			if (cbs == 0)
 				break;
 
-			updateDevice(indices, &rand_indices[j], cbs);
+			updateDevice(indices, &rand_indices[j], cbs, stream);
 			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs, stream);
 			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs, stream);
 
@@ -170,7 +170,8 @@ void sgdFit(math_t *input,
 						penalty, alpha, l1_ratio, cublas_handle, stream);
 			}
 
-			updateHost(&curr_loss_value, loss_value, 1);
+			updateHost(&curr_loss_value, loss_value, 1, stream);
+                        CUDA_CHECK(cudaStreamSynchronize(stream));
 
 			if (i > 0) {
                 if (curr_loss_value > (prev_loss_value - tol)) {

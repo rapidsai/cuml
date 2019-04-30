@@ -33,7 +33,7 @@ struct QuasiNewtonTest : ::testing::Test {
     stream = cuml_handle.getStream();
     Xdev.reset(new SimpleMatOwning<double>(handle.getDeviceAllocator(), N, D,
                                            stream, ROW_MAJOR));
-    updateDeviceAsync(Xdev->data, &X[0][0], Xdev->len, stream);
+    updateDevice(Xdev->data, &X[0][0], Xdev->len, stream);
 
     ydev.reset(
         new SimpleVecOwning<double>(handle.getDeviceAllocator(), N, stream));
@@ -74,9 +74,9 @@ checkParamsEqual(const cumlHandle_impl &handle, const T *host_weights,
     }
 
   SimpleVecOwning<T> w_ref(handle.getDeviceAllocator(), dims.n_param, stream);
-  updateDeviceAsync(w_ref.data, &w_ref_cm[0], C * D, stream);
+  updateDevice(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) {
-    updateDeviceAsync(&w_ref.data[C * D], host_bias, C, stream);
+    updateDevice(&w_ref.data[C * D], host_bias, C, stream);
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return devArrMatch(w_ref.data, w, w_ref.len, comp);
@@ -130,7 +130,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
-  updateDeviceAsync(ydev->data, &y[0], ydev->len, stream);
+  updateDevice(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double alpha = 0.01;
@@ -209,7 +209,7 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 
   CompareApprox<double> compApprox(tol);
   double y[N] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
-  updateDeviceAsync(ydev->data, &y[0], ydev->len, stream);
+  updateDevice(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
@@ -275,7 +275,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
                  -0.1018336189077367, 0.0933815935886932,  -1.1058853496996381,
                  -0.1658298189619160, -0.2954290675648911, 0.7966520536712608,
                  -1.0767450516284769};
-  updateDeviceAsync(ydev->data, &y[0], ydev->len, stream);
+  updateDevice(ydev->data, &y[0], ydev->len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   double fx, l1, l2;
