@@ -88,7 +88,8 @@ void svdQR(T *in, int n_rows, int n_cols, T *sing_vals, T *left_sing_vecs,
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
-  updateHost(&dev_info, devInfo, 1);
+  updateHost(&dev_info, devInfo, 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "svd.h: svd couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
