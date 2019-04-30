@@ -29,6 +29,9 @@
 namespace MLCommon {
 namespace Sparse {
 
+static const float MIN_FLOAT = std::numeric_limits<float>::min();
+
+
 template <typename T>
 class CSR {
 
@@ -114,7 +117,6 @@ public:
     void free() {
 
         try {
-            std::cout << "Cleaning up!" << std::endl;
             if(row_ind != nullptr)
                 CUDA_CHECK(cudaFree(row_ind));
 
@@ -165,7 +167,7 @@ __global__ void csr_row_normalize_l1_kernel(
         }
 
         for(int j = start_idx; j < stop_idx; j++) {
-            if(sum > 0.0) {
+            if(sum != 0.0) {
                 T val = vals[j];
                 result[j] = val / sum;
             }
@@ -213,14 +215,14 @@ __global__ void csr_row_normalize_max_kernel(
         } else
             stop_idx = nnz;
 
-        T max = 0.0;  // todo: Make this min possible T
+        T max = MIN_FLOAT;  // todo: Make this min possible T
         for(int j = start_idx; j < stop_idx; j++) {
             if(vals[j] > max)
                 max = vals[j];
         }
 
         for(int j = start_idx; j < stop_idx; j++) {
-            if(max > 0.0) {
+            if(max != 0.0) {
                 T val = vals[j];
                 result[j] = val / max;
             }
@@ -258,7 +260,7 @@ __device__ int get_stop_idx(T row, int m, int nnz, T *ind) {
 }
 
 template<int TPB_X>
-__global__ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz) {
+__global__ void csr_to_coo_kernel(int *row_ind, int m, int *coo_rows, int nnz) {
 
     // row-based matrix 1 thread per row
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -269,6 +271,16 @@ __global__ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz) {
             coo_rows[i] = row;
     }
 }
+
+template<int TPB_X>
+void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz,
+        cudaStream_t stream) {
+    dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+
+    csr_to_coo_kernel<TPB_X><<<grid,blk, 0, stream>>>(row_ind, m, coo_rows, nnz);
+}
+
 
 /**
  * Calculate how many unique columns per row
@@ -290,6 +302,10 @@ __global__ void csr_add_calc_row_counts_kernel(
         int b_start_idx = b_ind[row];
         int b_stop_idx = get_stop_idx(row, m, nnz2, b_ind);
 
+        /**
+         * Union of columns within each row of A and B so that we can scan through
+         * them, adding their values together.
+         */
         int max_size = (a_stop_idx - a_start_idx) +
                 (b_stop_idx - b_start_idx);
 
@@ -301,7 +317,6 @@ __global__ void csr_add_calc_row_counts_kernel(
         }
 
         int arr_size = cur_arr_idx;
-
         int final_size = arr_size;
 
         for(int j = b_start_idx; j < b_stop_idx; j++) {
@@ -311,6 +326,7 @@ __global__ void csr_add_calc_row_counts_kernel(
             for(int k = 0; k < arr_size; k++) {
                 if(arr[k] == cur_col) {
                     found = true;
+                    break;
                 }
             }
 

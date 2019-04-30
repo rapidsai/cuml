@@ -107,6 +107,8 @@ namespace UMAPAlgo {
 
         int k = params->n_neighbors;
 
+        std::cout << params->n_neighbors << std::endl;
+
 	    find_ab(params, stream);
 
 		/**
@@ -118,7 +120,7 @@ namespace UMAPAlgo {
         MLCommon::allocate(knn_indices, n*k);
 		MLCommon::allocate(knn_dists, n*k);
 
-		kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
+		kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, k, params, stream);
 		CUDA_CHECK(cudaPeekAtLastError());
 
 		COO<T> rgraph_coo(n*k*2, n, n);
@@ -129,6 +131,7 @@ namespace UMAPAlgo {
                            &rgraph_coo,
 						   params, 0);
 		CUDA_CHECK(cudaPeekAtLastError());
+		CUDA_CHECK(cudaDeviceSynchronize());
 
 		/**
 		 * Remove zeros from simplicial set
@@ -139,6 +142,7 @@ namespace UMAPAlgo {
 
         COO<T> cgraph_coo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo, stream);
+
 
         /**
          * Run initialization method
@@ -190,13 +194,15 @@ namespace UMAPAlgo {
         MLCommon::allocate(knn_indices, n*k, true);
         MLCommon::allocate(knn_dists, n*k, true);
 
-        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, params, stream);
+        kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, k, params, stream);
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaDeviceSynchronize());
 
         /**
          * Allocate workspace for fuzzy simplicial set.
          */
-        COO<T> rgraph_coo(n*k*2, n, n);
+        COO<T> rgraph_coo;
+        COO<T> tmp_coo(n*k*2, n, n);
 
         /**
          * Run Fuzzy simplicial set
@@ -205,9 +211,11 @@ namespace UMAPAlgo {
         FuzzySimplSet::run<TPB_X, T>(n,
                            knn_indices, knn_dists,
                            params->n_neighbors,
-                           &rgraph_coo,
-                           params, 0);
+                           &tmp_coo,
+                           params, stream);
         CUDA_CHECK(cudaPeekAtLastError());
+
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&tmp_coo, &rgraph_coo, stream);
 
         COO<T> final_coo;
 
@@ -215,6 +223,9 @@ namespace UMAPAlgo {
          * If target metric is 'categorical', perform
          * categorical simplicial set intersection.
          */
+
+        std::cout << "Performing categorical intersection" << std::endl;
+
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
             Supervised::perform_categorical_intersection<TPB_X, T>(
                     y,
@@ -225,6 +236,8 @@ namespace UMAPAlgo {
          * Otherwise, perform general simplicial set intersection
          */
         } else {
+            std::cout << "Performing general intersection" << std::endl;
+
             Supervised::perform_general_intersection<TPB_X, T>(
                     y,
                     &rgraph_coo, &final_coo,
@@ -245,6 +258,13 @@ namespace UMAPAlgo {
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists, &ocoo,
                 params, embeddings, stream, params->init);
+
+        // @todo: We need to add some noise to this, similar to Leland's impl
+
+
+        std::cout << "Final before embedding" << std::endl;
+        std::cout << ocoo << std::endl;
+
 
         /**
          * Run simplicial set embedding to approximate low-dimensional representation

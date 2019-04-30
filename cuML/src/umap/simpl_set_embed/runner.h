@@ -37,7 +37,7 @@ namespace UMAPAlgo {
 	            case 0:
 	                SimplSetEmbed::Algo::launcher<TPB_X, T>(
 	                        m, n,
-	                        coo->rows, coo->cols, coo->vals, coo->nnz,
+	                        coo,
 	                        params, embedding, stream);
 	        }
 		}

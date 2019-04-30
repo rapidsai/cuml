@@ -200,6 +200,7 @@ cdef class UMAP:
         self.umap_params = new UMAPParams()
 
         self.n_neighbors = n_neighbors
+        self.umap_params.n_neighbors = n_neighbors
 
         self.umap_params.n_components = <int>n_components
         self.umap_params.n_epochs = <int>n_epochs
@@ -309,7 +310,8 @@ cdef class UMAP:
 
         self.raw_data = X_m.device_ctypes_pointer.value
 
-        self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0], self.umap_params.n_components),
+        self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0],
+                                                  self.umap_params.n_components),
                                             order = "C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 

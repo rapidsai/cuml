@@ -39,6 +39,7 @@ namespace UMAPAlgo {
             using namespace ML;
 
             static const float MAX_FLOAT = std::numeric_limits<float>::max();
+            static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
             static const float SMOOTH_K_TOLERANCE = 1e-5;
             static const float MIN_K_DIST_SCALE = 1e-3;
@@ -106,7 +107,7 @@ namespace UMAPAlgo {
                         float cur_dist = knn_dists[i+idx];
                         sum += cur_dist;
 
-                        if (cur_dist > 0.0) {
+                        if (cur_dist > 0.01) {
                             if (start_nonzero == -1)
                                 start_nonzero = idx;
                             total_nonzero++;
@@ -220,18 +221,24 @@ namespace UMAPAlgo {
                         if (cur_knn_ind == -1)
                             continue;
 
-                        T val = 0.0;
+                        double val = 0.0;
                         if (cur_knn_ind == row)
                             val = 0.0;
                         else if (cur_knn_dist - cur_rho <= 0.0)
                             val = 1.0;
-                        else
+                        else {
                             val = exp(
-                                    -((cur_knn_dist - cur_rho) / (cur_sigma)));
+                                    -((double(cur_knn_dist) - double(cur_rho)) / (double(cur_sigma))));
+
+                            // @todo: We should be using double precision
+                            // across the internal computations
+                            if(val < MIN_FLOAT)
+                                val = MIN_FLOAT;
+                        }
 
                         rows[idx] = row;
                         cols[idx] = cur_knn_ind;
-                        vals[idx] = val;
+                        vals[idx] = float(val);
                     }
                 }
             }
@@ -276,10 +283,6 @@ namespace UMAPAlgo {
 
                         T transpose = 0.0;
                         bool found_match = false;
-
-                        /**
-                         * Search for transposed value
-                         */
                         for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
 
                             int f_idx = t_idx + t_start;
@@ -293,23 +296,15 @@ namespace UMAPAlgo {
                             }
                         }
 
-                        // NOTE: We add the row/col even if the value is empty to
-                        // alleviate some hotspotting when removing zeros from the COO.
-                        orows[out_idx + nnz] = cols[idx];
-                        ocols[out_idx + nnz] = rows[idx];
+                        // if we didn't find an exact match, we need to add
+                        // the transposed value into our current matrix.
+                          if (!found_match && vals[idx] != 0.0) {
+                            orows[out_idx + nnz] = cols[idx];
+                            ocols[out_idx + nnz] = rows[idx];
+                            ovals[out_idx + nnz] = vals[idx];
+                            ++nnz;
+                        }
 
-                        /**
-                         * If transposed value is not in current matrix,
-                         * add it if value != 0.0.
-                         */
-                        if (!found_match && vals[idx] != 0.0)
-                          ovals[out_idx + nnz] = vals[idx];
-
-                        ++nnz;
-
-                        /**
-                         * Compute the resulting union weight
-                         */
                         T result = vals[idx];
                         T prod_matrix = result * transpose;
 
@@ -317,18 +312,15 @@ namespace UMAPAlgo {
                                 * (result + transpose - prod_matrix)
                                 + (1.0 - set_op_mix_ratio) * prod_matrix;
 
-                        // NOTE: We add the row/col even if the value is empty to
-                        // alleviate hotspotting when removing zeros from the COO.
-                        orows[out_idx + nnz] = rows[idx];
-                        ocols[out_idx + nnz] = cols[idx];
-
-                        /**
-                         * Add the new value, if necessary
-                         */
-                        if (res != 0.0)
+                        if (res != 0.0) {
+                            orows[out_idx + nnz] = rows[idx];
+                            ocols[out_idx + nnz] = cols[idx];
                             ovals[out_idx + nnz] = T(res);
-                        ++nnz;
+                            ++nnz;
+                        }
                     }
+//                    rnnz[row] = nnz;
+//                    atomicAdd(rnnz + n, nnz);
                 }
             }
 
@@ -359,7 +351,7 @@ namespace UMAPAlgo {
                 for (int i = 0; i < n_neighbors; i++)
                     sum += dist_means_host[i];
 
-                T mean_dist = sum / n_neighbors;
+                T mean_dist = sum / float(n_neighbors);
 
                 /**
                  * Clean up memory for subsequent algorithms
@@ -370,7 +362,7 @@ namespace UMAPAlgo {
                 /**
                  * Smooth kNN distances to be continuous
                  */
-                smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
+                smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(knn_dists, n, mean_dist, sigmas,
                         rhos, n_neighbors, local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
             }
@@ -423,6 +415,9 @@ namespace UMAPAlgo {
                         rhos, sigmas, params, n_neighbors, params->local_connectivity, stream
                 );
 
+//                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+//                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+
                 int *rows, *cols;
                 T *vals;
                 MLCommon::allocate(rows, n*n_neighbors, true);
@@ -432,18 +427,26 @@ namespace UMAPAlgo {
                 /**
                  * Compute graph of membership strengths
                  */
-                compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
+                compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         n_neighbors);
 
+//                std::cout << "Compute membership strengths" << std::endl;
+//                std::cout << MLCommon::arr2Str(rows, n*n_neighbors, "rows") << std::endl;
+//                std::cout << MLCommon::arr2Str(cols, n*n_neighbors, "cols") << std::endl;
+//                std::cout << MLCommon::arr2Str(vals, n*n_neighbors, "vals") << std::endl;
+
 
                 CUDA_CHECK(cudaPeekAtLastError());
+
+
 
                 /**
                  * Weight directed graph of membership strengths (and include
                  * both sides).
                  */
-                compute_result<TPB_X><<<grid, blk>>>(
+
+                compute_result<TPB_X><<<grid, blk, 0, stream>>>(
                         rows, cols, vals,
                         rrows, rcols, rvals,
                         n, n_neighbors,
@@ -451,11 +454,6 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, rrows, rcols, rvals);
-
-                std::cout << MLCommon::arr2Str(rrows, n*k*2, "rrows") << std::endl;
-                std::cout << MLCommon::arr2Str(rcols, n*k*2, "rrows") << std::endl;
-                std::cout << MLCommon::arr2Str(rvals, n*k*2, "rrows") << std::endl;
-
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
