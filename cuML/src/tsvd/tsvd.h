@@ -244,7 +244,8 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	Stats::sum(total_vars, vars, 1, prms.n_cols, false, stream);
 
 	math_t total_vars_h;
-	updateHost(&total_vars_h, total_vars, 1);
+	updateHost(&total_vars_h, total_vars, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	math_t scalar = math_t(1) / total_vars_h;
 
 	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
