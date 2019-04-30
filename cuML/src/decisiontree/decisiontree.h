@@ -80,9 +80,13 @@ struct DecisionTreeParams {
 	 * The minimum number of samples (rows) needed to split a node.
 	 */
 	int min_rows_per_node = 2;
-
+	/**
+	 * Wheather to bootstarp columns with or without replacement
+	 */
+	bool bootstrap_features =  false;
+	
 	DecisionTreeParams();
-	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node);
+	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node, bool cfg_bootstrap_features);
 	void validity_check() const;
 	void print() const;
 };
@@ -107,7 +111,9 @@ private:
 	int n_unique_labels = -1; // number of unique labels in dataset
 	double construct_time;
 	int min_rows_per_node;
-
+	bool bootstrap_features;
+	std::vector<int> feature_selector;
+	
 public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
@@ -127,7 +133,7 @@ public:
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-				int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2);
+		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false);
 
 	TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info);
 

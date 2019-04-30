@@ -38,9 +38,14 @@ enum RF_type {
 
 struct RF_params {
 	/**
-	 * Control bootstrapping. If set, each tree in the forest is built on a bootstrapped sample.
+	 * Control bootstrapping. If set, each tree in the forest is built on a bootstrapped sample with replacement.
+	 * If false, sampling without replacement is done.
 	 */
 	bool bootstrap = true;
+	/**
+	 * Control bootstrapping for features. If features are drawn with or without replacement
+	 */
+	bool bootstrap_features = false;
 	/**
 	 * Number of decision trees in the random forest.
 	 */
@@ -55,8 +60,8 @@ struct RF_params {
 	DecisionTree::DecisionTreeParams tree_params;
 
 	RF_params(int cfg_n_trees);
-	RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample);
-	RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params);
+	RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees, float cfg_rows_sample);
+	RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params);
 	void validity_check() const;
 	void print() const;
 };

@@ -35,6 +35,7 @@ struct RfInputs {
 	int max_depth;
 	int max_leaves;
 	bool bootstrap;
+	bool bootstrap_features;
 	int n_bins;
 	int split_algo;
 	int min_rows_per_node;
@@ -54,8 +55,8 @@ protected:
 		params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
 		DecisionTree::DecisionTreeParams tree_params(params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-													params.split_algo, params.min_rows_per_node);
-		RF_params rf_params(params.bootstrap, params.n_trees, params.rows_sample, tree_params);
+							     params.split_algo, params.min_rows_per_node, params.bootstrap_features);
+		RF_params rf_params(params.bootstrap, params.bootstrap_features, params.n_trees, params.rows_sample, tree_params);
 		//rf_params.print();
 
 		//--------------------------------------------------------
@@ -136,19 +137,19 @@ protected:
 
 
 const std::vector<RfInputs<float> > inputsf2 = {
-	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 4, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 4 bins
-	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},	// single tree forest, bootstrap false, depth of 8, 4 bins
-	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2} //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 4 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},	// single tree forest, bootstrap false, depth of 8, 4 bins
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2} //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
 };
 
 const std::vector<RfInputs<double> > inputsd2 = { // Same as inputsf2
-	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2}
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2}
 };
 
 

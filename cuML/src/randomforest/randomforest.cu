@@ -85,18 +85,21 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 /**
  * @brief Random forest hyper-parameter object constructor to set n_trees member.
  */
-RF_params::RF_params(int cfg_n_trees):n_trees(cfg_n_trees) {};
+RF_params::RF_params(int cfg_n_trees):n_trees(cfg_n_trees) {}
 
 /**
- * @brief Random forest hyper-parameter object constructor to set bootstrap, n_trees and rows_sample members.
+ * @brief Random forest hyper-parameter object constructor to set bootstrap, bootstrap_features, n_trees and rows_sample members.
  */
-RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample):bootstrap(cfg_bootstrap), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample) {};
+RF_params::RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees, float cfg_rows_sample):bootstrap(cfg_bootstrap), bootstrap_features(cfg_bootstrap_features), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample) {
+	tree_params.bootstrap_features = cfg_bootstrap_features;
+}
 
 /**
  * @brief Random forest hyper-parameter object constructor to set all RF_params members.
  */
-RF_params::RF_params(bool cfg_bootstrap, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params):bootstrap(cfg_bootstrap),
-					n_trees(cfg_n_trees), rows_sample(cfg_rows_sample), tree_params(cfg_tree_params) {};
+RF_params::RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees, float cfg_rows_sample, DecisionTree::DecisionTreeParams cfg_tree_params):bootstrap(cfg_bootstrap), bootstrap_features(cfg_bootstrap_features), n_trees(cfg_n_trees), rows_sample(cfg_rows_sample), tree_params(cfg_tree_params) {
+	tree_params.bootstrap_features = cfg_bootstrap_features;
+}
 
 /**
  * @brief Check validity of all random forest hyper-parameters.
@@ -112,6 +115,7 @@ void RF_params::validity_check() const {
  */
 void RF_params::print() const {
 	std::cout << "bootstrap: " << bootstrap << std::endl;
+	std::cout << "bootstrap features: " << bootstrap_features << std::endl;
 	std::cout << "n_trees: " << n_trees << std::endl;
 	std::cout << "rows_sample: " << rows_sample << std::endl;
 	tree_params.print();
@@ -228,8 +232,10 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
 		} else {
-			std::vector<unsigned int> h_selected_rows(n_sampled_rows);
+			std::vector<unsigned int> h_selected_rows(n_rows);
 			std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
+			std::random_shuffle(h_selected_rows.begin(), h_selected_rows.end());
+			h_selected_rows.resize(n_sampled_rows);
 			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows);
 		}
 

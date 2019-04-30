@@ -51,15 +51,15 @@ std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
 /**
  * @brief Decision tree hyper-parameter object constructor. All DecisionTreeParams members have their default values.
  */
-DecisionTreeParams::DecisionTreeParams() {};
+DecisionTreeParams::DecisionTreeParams() {}
 
 /**
  * @brief Decision tree hyper-parameter object constructor to set all DecisionTreeParams members.
  */
 DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_algo,
-										int cfg_min_rows_per_node):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
-										max_features(cfg_max_features), n_bins(cfg_n_bins), split_algo(cfg_split_algo),
-										min_rows_per_node(cfg_min_rows_per_node) {};
+				       int cfg_min_rows_per_node, bool cfg_bootstrap_features):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
+											       max_features(cfg_max_features), n_bins(cfg_n_bins), split_algo(cfg_split_algo),
+											       min_rows_per_node(cfg_min_rows_per_node), bootstrap_features(cfg_bootstrap_features) {}
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
@@ -112,7 +112,7 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 		tree_params.n_bins = n_sampled_rows;
 	}
 	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
-				tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node);
+		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
 
 /**
@@ -157,7 +157,7 @@ void DecisionTreeClassifier<T>::print() const {
 
 template<typename T>
 void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
-									int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag, int cfg_min_rows_per_node) {
+				      int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features) {
 
 	split_algo = split_algo_flag;
 	dinfo.NLocalrows = nrows;
@@ -169,7 +169,22 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	tempmem.resize(MAXSTREAMS);
 	n_unique_labels = unique_labels;
 	min_rows_per_node = cfg_min_rows_per_node;
+	bootstrap_features = cfg_bootstrap_features;
 
+	//Bootstrap features
+	feature_selector.resize(dinfo.Ncols);
+	if (bootstrap_features) {
+		srand( n_bins );
+		for(int i=0; i < dinfo.Ncols; i++) {
+			feature_selector.push_back( rand() % dinfo.Ncols );
+		}
+	} else {
+		std::iota(feature_selector.begin(), feature_selector.end(), 0);
+	}
+	
+	std::random_shuffle(feature_selector.begin(),feature_selector.end());
+	feature_selector.resize((int) (colper * dinfo.Ncols));
+	
 	cudaDeviceProp prop;
 	CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
 	max_shared_mem = prop.sharedMemPerBlock;
@@ -250,31 +265,25 @@ TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, i
 template<typename T>
 void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain,
 												unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth) {
-
-	// Bootstrap columns
-	std::vector<int> colselector(dinfo.Ncols);
-	std::iota(colselector.begin(), colselector.end(), 0);
-	std::random_shuffle(colselector.begin(), colselector.end());
-	colselector.resize((int)(colper * dinfo.Ncols ));
-
-	CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
-	// Copy sampled column IDs to device memory
-	CUDA_CHECK(cudaMemcpyAsync(tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, tempmem[0]->stream));
-	CUDA_CHECK(cudaStreamSynchronize(tempmem[0]->stream));
+	std::vector<int>& colselector = feature_selector;
 	
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
+		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
+		// Copy sampled column IDs to device memory
+		CUDA_CHECK(cudaMemcpyAsync(tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, tempmem[0]->stream));
+		CUDA_CHECK(cudaStreamSynchronize(tempmem[0]->stream));
+	
 		int *labelptr = tempmem[0]->sampledlabels->data();
 		get_sampled_labels(labels, labelptr, rowids, n_sampled_rows, tempmem[0]->stream);
 		gini(labelptr, n_sampled_rows, tempmem[0], split_info[0], n_unique_labels);
+		//Unregister
+		CUDA_CHECK(cudaHostUnregister(colselector.data()));
 	}
-
+	
 	int current_nbins = (n_sampled_rows < nbins) ? n_sampled_rows : nbins;
 	best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, n_unique_labels, dinfo.NLocalrows, colselector,
 						tempmem[0], &split_info[0], ques, gain, split_algo);
-
-	//Unregister
-	CUDA_CHECK(cudaHostUnregister(colselector.data()));
 }
 
 template<typename T>
