@@ -47,7 +47,9 @@ namespace kNNGraph {
 			p[0].N = x_n;
 
 			knn->fit(p, 1);
-			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors, stream);
+
+			CUDA_CHECK(cudaDeviceSynchronize());
 
             auto adjust_vals_op = [] __device__(T input) {
                 return sqrt(input);

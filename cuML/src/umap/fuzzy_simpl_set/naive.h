@@ -414,9 +414,7 @@ namespace UMAPAlgo {
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
                         rhos, sigmas, params, n_neighbors, params->local_connectivity, stream
                 );
-
-//                std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
-//                std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
+                CUDA_CHECK(cudaPeekAtLastError());
 
                 int *rows, *cols;
                 T *vals;
@@ -430,16 +428,7 @@ namespace UMAPAlgo {
                 compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(knn_indices,
                         knn_dists, sigmas, rhos, vals, rows, cols, n,
                         n_neighbors);
-
-//                std::cout << "Compute membership strengths" << std::endl;
-//                std::cout << MLCommon::arr2Str(rows, n*n_neighbors, "rows") << std::endl;
-//                std::cout << MLCommon::arr2Str(cols, n*n_neighbors, "cols") << std::endl;
-//                std::cout << MLCommon::arr2Str(vals, n*n_neighbors, "vals") << std::endl;
-
-
                 CUDA_CHECK(cudaPeekAtLastError());
-
-
 
                 /**
                  * Weight directed graph of membership strengths (and include
@@ -453,7 +442,7 @@ namespace UMAPAlgo {
                         params->set_op_mix_ratio);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, rrows, rcols, rvals);
+                MLCommon::Sparse::coo_sort<T>(n, k, n*k*2, rrows, rcols, rvals, stream);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));

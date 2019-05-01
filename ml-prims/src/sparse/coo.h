@@ -138,7 +138,6 @@ class COO {
        void destroy() {
 
            try {
-               std::cout << "Cleaning up!" << std::endl;
                if(rows != nullptr) {
                    if(this->device)
                        CUDA_CHECK(cudaFree(rows));
@@ -187,8 +186,6 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
     );
 }
 
-
-
 template<typename T>
 cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
         int nnz,
@@ -219,16 +216,14 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
  */
 template<typename T>
 void coo_sort(int m, int n, int nnz,
-              int *rows, int *cols, T *vals) {
+              int *rows, int *cols, T *vals,
+              cudaStream_t stream = 0) {
 
     cusparseHandle_t handle = NULL;
-    cudaStream_t stream = NULL;
 
     size_t pBufferSizeInBytes = 0;
     void *pBuffer = NULL;
     int *d_P = NULL;
-
-    cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking);
 
     CUSPARSE_CHECK(cusparseCreate(&handle));
 
@@ -283,14 +278,13 @@ void coo_sort(int m, int n, int nnz,
     cudaFree(vals_sorted);
     cudaFree(pBuffer);
     CUSPARSE_CHECK(cusparseDestroy(handle));
-    cudaStreamDestroy(stream);
 }
 
 
 template<typename T>
- void coo_sort(COO<T> *in) {
+ void coo_sort(COO<T> *in, cudaStream_t stream = 0) {
      coo_sort<T>(in->n_rows, in->n_cols, in->nnz,
-             in->rows, in->cols, in->vals);
+             in->rows, in->cols, in->vals, stream);
  }
 
 /**
@@ -379,20 +373,21 @@ __global__ void coo_row_count_kernel(int *rows, int nnz,
 }
 
 template<int TPB_X>
-void coo_row_count(int *rows, int nnz, int *results) {
+void coo_row_count(int *rows, int nnz, int *results,
+        cudaStream_t stream) {
     dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc, 0, stream>>>(
             rows, nnz, results);
 }
 
 template<int TPB_X, typename T>
-void coo_row_count(COO<T> *in, int *results) {
+void coo_row_count(COO<T> *in, int *results, cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc>>>(
+    coo_row_count_kernel<TPB_X><<<grid_rc,blk_rc, 0, stream>>>(
             in->rows, in->nnz, results);
 }
 
@@ -428,39 +423,42 @@ __global__ void coo_row_count_scalar_kernel(int *rows, T *vals, int nnz,
 
 
 template<int TPB_X, typename T>
-void coo_row_count_scalar(COO<T> *in, T scalar, int *results) {
+void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
+        cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
             in->rows, in->vals, in->nnz, scalar, results);
 }
 
 template<int TPB_X, typename T>
-void coo_row_count_scalar(int *rows, T *vals, int nnz, T scalar, int *results) {
+void coo_row_count_scalar(int *rows, T *vals, int nnz, T scalar,
+        int *results, cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+    coo_row_count_scalar_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
             rows, vals, nnz, scalar, results);
 }
 
 
 template<int TPB_X, typename T>
-void coo_row_count_nz(int *rows, T *vals, int nnz, int *results) {
+void coo_row_count_nz(int *rows, T *vals, int nnz, int *results,
+        cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
             rows, vals, nnz, results);
 }
 
 template<int TPB_X, typename T>
-void coo_row_count_nz(COO<T> *in, int *results) {
+void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
     dim3 blk_rc(TPB_X, 1, 1);
 
-    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc>>>(
+    coo_row_count_nz_kernel<TPB_X, T><<<grid_rc,blk_rc, 0, stream>>>(
             in->rows, in->vals, in->nnz, results);
 }
 
@@ -484,38 +482,40 @@ template<int TPB_X, typename T>
 void coo_remove_scalar(
         const int *rows, const int *cols, const T *vals, int nnz,
         int *crows, int *ccols, T *cvals,
-        int *cnnz, int *cur_cnnz, T scalar, int n) {
+        int *cnnz, int *cur_cnnz, T scalar, int n,
+        cudaStream_t stream) {
 
     int *ex_scan, *cur_ex_scan;
     MLCommon::allocate(ex_scan, n, true);
     MLCommon::allocate(cur_ex_scan, n, true);
 
-//            std::cout << "Allocated" << std::endl;
-
     thrust::device_ptr<int> dev_cnnz = thrust::device_pointer_cast(
             cnnz);
     thrust::device_ptr<int> dev_ex_scan =
             thrust::device_pointer_cast(ex_scan);
-    thrust::exclusive_scan(dev_cnnz, dev_cnnz + n, dev_ex_scan);
+    thrust::exclusive_scan(thrust::cuda::par.on(stream),
+            dev_cnnz, dev_cnnz + n, dev_ex_scan);
     CUDA_CHECK(cudaPeekAtLastError());
 
     thrust::device_ptr<int> dev_cur_cnnz = thrust::device_pointer_cast(
             cur_cnnz);
     thrust::device_ptr<int> dev_cur_ex_scan =
             thrust::device_pointer_cast(cur_ex_scan);
-    thrust::exclusive_scan(dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
+    thrust::exclusive_scan(thrust::cuda::par.on(stream),
+            dev_cur_cnnz, dev_cur_cnnz + n, dev_cur_ex_scan);
     CUDA_CHECK(cudaPeekAtLastError());
+
 
     dim3 grid(ceildiv(n, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
-    coo_remove_scalar_kernel<TPB_X><<<grid, blk>>>(
+    coo_remove_scalar_kernel<TPB_X><<<grid, blk, 0, stream>>>(
             rows, cols, vals, nnz,
             crows, ccols, cvals,
             dev_ex_scan.get(), dev_cur_ex_scan.get(), n, scalar
     );
-
     CUDA_CHECK(cudaPeekAtLastError());
+
     CUDA_CHECK(cudaFree(ex_scan));
     CUDA_CHECK(cudaFree(cur_ex_scan));
 }
@@ -532,19 +532,16 @@ void coo_remove_scalar(COO<T> *in,
     MLCommon::allocate(row_count_nz, in->n_rows, true);
 
     MLCommon::Sparse::coo_row_count<TPB_X>(
-            in->rows, in->nnz, row_count);
+            in->rows, in->nnz, row_count, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     MLCommon::Sparse::coo_row_count_scalar<TPB_X>(
-            in->rows, in->vals, in->nnz, scalar, row_count_nz);
+            in->rows, in->vals, in->nnz, scalar, row_count_nz,
+            stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-//
-//    std::cout << "PRINTING!" << std::endl;
-//
-//    std::cout << arr2Str(row_count_nz, in->n_rows, "row_count_nz") << std::endl;
-//    std::cout << "PRINTING!" << std::endl;
-//
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
     thrust::device_ptr<int> d_row_count_nz =
             thrust::device_pointer_cast(row_count_nz);
     int out_nnz = thrust::reduce(thrust::cuda::par.on(stream),
@@ -555,7 +552,8 @@ void coo_remove_scalar(COO<T> *in,
     coo_remove_scalar<TPB_X, T>(
         in->rows, in->cols, in->vals, in->nnz,
         out->rows, out->cols, out->vals,
-        row_count_nz, row_count, scalar, in->n_rows);
+        row_count_nz, row_count, scalar, in->n_rows,
+        stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     CUDA_CHECK(cudaFree(row_count));
@@ -599,7 +597,8 @@ void from_knn(long *knn_indices, T *knn_dists, int m, int k,
 
 template<typename T>
 void sorted_coo_to_csr(
-        T *rows, int nnz, T *row_ind, int m) {
+        T *rows, int nnz, T *row_ind, int m,
+        cudaStream_t stream = 0) {
 
     T *row_counts;
     MLCommon::allocate(row_counts, m, true);
@@ -607,19 +606,19 @@ void sorted_coo_to_csr(
     dim3 grid(ceildiv(m, 32), 1, 1);
     dim3 blk(32, 1, 1);
 
-    coo_row_count<32>(rows, nnz, row_counts);
+    coo_row_count<32>(rows, nnz, row_counts, stream);
 
     // create csr compressed row index from row counts
     thrust::device_ptr<T> row_counts_d = thrust::device_pointer_cast(row_counts);
     thrust::device_ptr<T> c_ind_d = thrust::device_pointer_cast(row_ind);
-    exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
+    exclusive_scan(thrust::cuda::par.on(stream),row_counts_d, row_counts_d + m, c_ind_d);
 
     CUDA_CHECK(cudaFree(row_counts));
 }
 
 template<typename T>
-void sorted_coo_to_csr(COO<T> *coo, int *row_ind) {
-    sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows);
+void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream = 0) {
+    sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
 
 };

@@ -30,7 +30,7 @@ namespace kNNGraph {
 			 kNN *knn,
 			 int n_neighbors,
 			 UMAPParams *params,
-       cudaStream_t stream,
+			 cudaStream_t stream,
 			 int algo = 0) {
 		switch(algo) {
 
