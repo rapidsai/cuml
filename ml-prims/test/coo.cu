@@ -51,7 +51,7 @@ TEST_P(SortedCOOToCSR, Result) {
     int *in, *out, *exp;
 
     int *in_h = new int[nnz]    { 0,   0,   1,   1,   2,   2,   3,   3 };
-    int *exp_h = new int[4]   {0, 3, 5, 7 };
+    int *exp_h = new int[4]   {0, 2, 4, 6 };
 
     allocate(in, nnz, true);
     allocate(exp, 4, true);
@@ -71,6 +71,7 @@ TEST_P(SortedCOOToCSR, Result) {
 
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(exp));
+    CUDA_CHECK(cudaFree(out));
 
 }
 
@@ -159,6 +160,10 @@ TEST_P(COOSort, Result) {
     coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals);
 
     ASSERT_TRUE(devArrMatch<int>(verify, in_rows, params.nnz, Compare<int>()));
+
+    free(in_rows_h);
+    free(in_cols_h);
+    free(verify_h);
 
     CUDA_CHECK(cudaFree(in_rows));
     CUDA_CHECK(cudaFree(in_cols));
