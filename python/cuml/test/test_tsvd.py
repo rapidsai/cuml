@@ -29,17 +29,18 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
 
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test==True:
+    elif run_correctness_test:
         shape = n_samples, n_feats
         rng = check_random_state(42)
-        X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
+        X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
+                     dtype=datatype)
 
     sktsvd = skTSVD(n_components=1)
     sktsvd.fit(X)
@@ -47,8 +48,9 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
     cutsvd = cuTSVD(n_components=1)
 
     if input_type == 'dataframe':
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X) 
+        X = pd.DataFrame(
+            {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
         cutsvd.fit(X_cudf)
 
     else:
@@ -63,20 +65,22 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_fit_transform(datatype, input_type, run_stress, run_correctness_test):
+def test_tsvd_fit_transform(datatype, input_type,
+                            run_stress, run_correctness_test):
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test==True:
+    elif run_correctness_test:
         shape = n_samples, n_feats
         rng = check_random_state(42)
-        X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
+        X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
+                     dtype=datatype)
 
     skpca = skTSVD(n_components=1)
     Xsktsvd = skpca.fit_transform(X)
@@ -84,8 +88,9 @@ def test_tsvd_fit_transform(datatype, input_type, run_stress, run_correctness_te
     cutsvd = cuTSVD(n_components=1)
 
     if input_type == 'dataframe':
-        X = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-        X_cudf = cudf.DataFrame.from_pandas(X) 
+        X = pd.DataFrame(
+            {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
         Xcutsvd = cutsvd.fit_transform(X_cudf)
 
     else:
@@ -96,24 +101,27 @@ def test_tsvd_fit_transform(datatype, input_type, run_stress, run_correctness_te
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_inverse_transform(datatype, input_type, run_stress, run_correctness_test):
+def test_tsvd_inverse_transform(datatype, input_type,
+                                run_stress, run_correctness_test):
 
     n_samples = 10000
     n_feats = 50
-    if run_stress==True:
-        X,y = make_blobs(n_samples=n_samples*50,n_features=n_feats,random_state=0) 
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
 
-    elif run_correctness_test==True:
+    elif run_correctness_test:
         shape = n_samples, n_feats
         rng = check_random_state(42)
-        X = rng.randint(-100, 20, np.product(shape)).reshape(shape) 
+        X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
 
     else:
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
-                 dtype=datatype)
+                     dtype=datatype)
 
-    X_pd = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
-    X_cudf = cudf.DataFrame.from_pandas(X_pd) 
+    X_pd = pd.DataFrame(
+           {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+    X_cudf = cudf.DataFrame.from_pandas(X_pd)
     cutsvd = cuTSVD(n_components=1)
 
     if input_type == 'dataframe':
