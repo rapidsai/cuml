@@ -43,13 +43,13 @@ def test_dbscan_predict(datatype, input_type, run_stress,
 
     else:
         X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
-               dtype=datatype)
+                     dtype=datatype)
     skdbscan = skDBSCAN(eps=3, min_samples=10)
     sk_labels = skdbscan.fit_predict(X)
     cudbscan = cuDBSCAN(eps=3, min_samples=10)
     if input_type == 'dataframe':
         X = pd.DataFrame(
-            {'fea%d' %i: X[0:, i] for i in range(X.shape[1])})
+            {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X)
         cu_labels = cudbscan.fit_predict(X_cudf)
     else:
