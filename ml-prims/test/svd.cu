@@ -58,7 +58,7 @@ protected:
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
     T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-    updateDevice(data, data_h, len);
+    updateDevice(data, data_h, len, stream);
 
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
@@ -82,9 +82,9 @@ protected:
     allocate(right_eig_vectors_ref, right_evl);
     allocate(sing_vals_ref, params.n_col);
 
-    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl);
-    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl);
-    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col);
+    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl, stream);
+    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl, stream);
+    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
 
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
           right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,

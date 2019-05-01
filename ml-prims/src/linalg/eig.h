@@ -61,7 +61,7 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
-  updateHostAsync(&dev_info, d_dev_info.data(), 1, stream);
+  updateHost(&dev_info, d_dev_info, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(dev_info == 0,
          "eig.h: eigensolver couldn't converge to a solution. "

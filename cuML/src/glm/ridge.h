@@ -50,7 +50,7 @@ void ridgeSolve(const cumlHandle_impl& handle, math_t *S, math_t *V, math_t *U, 
 
 	Matrix::setSmallValuesZero(S, n_cols, stream, thres);
 	allocate(S_nnz, n_cols, true);
-	copy(S_nnz, S, n_cols);
+	copy(S_nnz, S, n_cols, stream);
 	Matrix::power(S_nnz, n_cols, stream);
 	LinAlg::addScalar(S_nnz, S_nnz, alpha[0], n_cols, stream);
 	Matrix::matrixVectorBinaryDivSkipZero(S, S_nnz, 1, n_cols, false, true, stream, true);
