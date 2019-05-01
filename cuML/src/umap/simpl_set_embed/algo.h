@@ -84,8 +84,7 @@ namespace UMAPAlgo {
 	        /**
 	         * Clip a value to within a lower and upper bound
 	         */
-	        template<typename T>
-	        __device__ __host__ T clip(T val, T lb, T ub) {
+	        __device__ __host__ double clip(double val, double lb, double ub) {
 	            if(val > ub)
 	                return ub;
 	            else if(val < lb)
@@ -98,10 +97,10 @@ namespace UMAPAlgo {
 	         * Calculate the repulsive gradient
 	         */
 	        template<typename T>
-	        __device__ __host__ T repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
-                T grad_coeff = 2.0 * gamma * params.b;
-                grad_coeff /= (0.001 + dist_squared) * (
-                    params.a * pow(dist_squared, params.b) + 1
+	        __device__ __host__ double repulsive_grad(T dist_squared, float gamma, UMAPParams params) {
+                double grad_coeff = 2.0 * double(gamma) * double(params.b);
+                grad_coeff /= (0.001 + double(dist_squared)) * (
+                    double(params.a) * pow(double(dist_squared), double(params.b)) + 1
                 );
                 return grad_coeff;
 	        }
@@ -111,9 +110,9 @@ namespace UMAPAlgo {
 	         */
 	        template<typename T>
 	        __device__ __host__ T attractive_grad(T dist_squared, UMAPParams params) {
-                T grad_coeff = -2.0 * params.a * params.b *
-                        pow(dist_squared, params.b - 1.0);
-                grad_coeff /= params.a * pow(dist_squared, params.b) + 1.0;
+                double grad_coeff = -2.0 * double(params.a) * double(params.b) *
+                        pow(double(dist_squared), double(params.b) - 1.0);
+                grad_coeff /= double(params.a) * pow(double(dist_squared), double(params.b)) + 1.0;
                 return grad_coeff;
 	        }
 
@@ -154,11 +153,11 @@ namespace UMAPAlgo {
                         T *current = head_embedding+(j*params.n_components);
                         T *other = tail_embedding+(k*params.n_components);
 
-                        float dist_squared = rdist(current, other, params.n_components);
+                        double dist_squared = rdist(current, other, params.n_components);
 
                         // Attractive force between the two vertices, since they
                         // are connected by an edge in the 1-skeleton.
-                        T attractive_grad_coeff = 0.0;
+                        double attractive_grad_coeff = 0.0;
                         if(dist_squared > 0.0) {
                             attractive_grad_coeff = attractive_grad(dist_squared, params);
                         }
@@ -171,12 +170,12 @@ namespace UMAPAlgo {
                          * performing unsupervised training).
                          */
                         for(int d = 0; d < params.n_components; d++) {
-                            T grad_d = clip(attractive_grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
-                            atomicAdd(current+d, grad_d * alpha);
+                            double grad_d = clip(attractive_grad_coeff * (current[d]-other[d]), -4.0f, 4.0f);
+                            atomicAdd(current+d, float(grad_d) * alpha);
 
                             // happens only during unsupervised training
                             if(move_other)
-                                atomicAdd(other+d, -grad_d * alpha);
+                                atomicAdd(other+d, float(-grad_d) * alpha);
                         }
 
                         epoch_of_next_sample[row] += epochs_per_sample[row];
@@ -193,15 +192,15 @@ namespace UMAPAlgo {
                         MLCommon::Random::detail::TapsGenerator gen((uint64_t)seed, (uint64_t)row, 0);
                         for(int p = 0; p < n_neg_samples; p++) {
 
-                            float r;
-                            gen.next<float>(r);
+                            double r;
+                            gen.next<double>(r);
                             int t = r*tail_n;
 
                             T *negative_sample = tail_embedding+(t*params.n_components);
                             dist_squared = rdist(current, negative_sample, params.n_components);
 
                             // repulsive force between two vertices
-                            T repulsive_grad_coeff = 0.0;
+                            double repulsive_grad_coeff = 0.0;
                             if(dist_squared > 0.0) {
                                 repulsive_grad_coeff = repulsive_grad(dist_squared, gamma, params);
                             } else if(j == t)
@@ -213,12 +212,12 @@ namespace UMAPAlgo {
                              * their 'weights' to push them farther in Euclidean space.
                              */
                             for(int d = 0; d < params.n_components; d++) {
-                                T grad_d = 0.0;
+                                double grad_d = 0.0;
                                 if(repulsive_grad_coeff > 0.0)
                                     grad_d = clip(repulsive_grad_coeff * (current[d] - negative_sample[d]), -4.0f, 4.0f);
                                 else
                                     grad_d = 4.0;
-                                atomicAdd(current+d, grad_d * alpha);
+                                atomicAdd(current+d, float(grad_d) * alpha);
                             }
 
                             epoch_of_next_negative_sample[row] +=
@@ -280,7 +279,6 @@ namespace UMAPAlgo {
                     struct timeval tp;
                     gettimeofday(&tp, NULL);
                     long long seed = tp.tv_sec * 1000 + tp.tv_usec;
-
 
                     optimize_batch_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
 	                    head_embedding, head_n,
@@ -352,6 +350,9 @@ namespace UMAPAlgo {
 
 	            make_epochs_per_sample(out.vals, out.nnz, params->n_epochs, epochs_per_sample,
 	                    stream);
+
+	            if(params->verbose)
+	                std::cout << MLCommon::arr2Str(epochs_per_sample, out.nnz, "epochs_per_sample") << std::endl;
 
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,

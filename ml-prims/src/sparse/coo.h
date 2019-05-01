@@ -621,5 +621,100 @@ void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream = 0) {
     sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
 
+/**
+ * This takes a COO and symmetrizes it by adding
+ * transposed elements. A custom reduction function
+ * allows each value to be aggregated with its
+ * transposed value.
+ */
+template< int TPB_X, typename T, typename Lambda>
+__global__ void coo_symmetrize_kernel(
+        int *row_ind, int *rows, int *cols, T *vals,
+        int *orows, int *ocols, T *ovals,
+        int n, int cnnz,
+        Lambda reduction_op) {
+
+    int row = (blockIdx.x * TPB_X) + threadIdx.x;
+
+    if (row < n) {
+
+        int start_idx = row_ind[row]; // each thread processes one row
+        int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
+
+        int nnz = 0;
+        for (int idx = 0; idx < stop_idx-start_idx; idx++) {
+
+            int out_idx = start_idx*2+nnz;
+            int row_lookup = cols[idx+start_idx];
+            int t_start = row_ind[row_lookup]; // Start at
+            int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
+
+            T transpose = 0.0;
+            bool found_match = false;
+            for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
+
+                // If we find a match, let's get out of the loop
+                if (cols[t_idx] == rows[idx+start_idx]
+                        && rows[t_idx] == cols[idx+start_idx]
+                        && vals[t_idx] != 0.0) {
+                    transpose = vals[t_idx];
+                    found_match = true;
+                    break;
+                }
+            }
+
+
+            // if we didn't find an exact match, we need to add
+            // the transposed value into our current matrix.
+            if (!found_match && vals[idx] != 0.0) {
+                orows[out_idx + nnz] = cols[idx+start_idx];
+                ocols[out_idx + nnz] = rows[idx+start_idx];
+                ovals[out_idx + nnz] = vals[idx+start_idx];
+                ++nnz;
+            }
+
+            T val = vals[idx+start_idx];
+
+            // Custom reduction op on value and its transpose
+            T res = reduction_op(rows[idx+start_idx], cols[idx+start_idx], val, transpose);
+
+            if (res != 0.0) {
+                orows[out_idx + nnz] = rows[idx+start_idx];
+                ocols[out_idx + nnz] = cols[idx+start_idx];
+                ovals[out_idx + nnz] = T(res);
+                ++nnz;
+            }
+        }
+    }
+}
+
+
+template<int TPB_X, typename T, typename Lambda>
+void coo_symmetrize(COO<T> *in,
+                    COO<T> *out,
+                    Lambda reduction_op, // two-argument reducer
+                    cudaStream_t stream) {
+
+    dim3 grid(ceildiv(in->n_rows, TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+
+    ASSERT(!out->validate_mem(), "Expecting unallocated COO for output");
+
+    int *in_row_ind;
+    MLCommon::allocate(in_row_ind, in->n_rows);
+
+    sorted_coo_to_csr(in, in_row_ind, stream);
+
+    out->allocate(in->nnz*2, in->n_rows, in->n_cols);
+
+    coo_symmetrize_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
+            in_row_ind, in->rows, in->cols, in->vals,
+            out->rows, out->cols, out->vals,
+            in->n_rows, in->nnz, reduction_op
+    );
+    CUDA_CHECK(cudaPeekAtLastError());
+
+}
+
 };
 };
