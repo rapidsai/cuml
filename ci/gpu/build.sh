@@ -62,8 +62,6 @@ fi
 # BUILD - Build libcuml and cuML from source
 ################################################################################
 
-git submodule update --init --recursive
-
 logger "Build libcuml..."
 mkdir -p $WORKSPACE/cuML/build
 cd $WORKSPACE/cuML/build

@@ -118,7 +118,8 @@ protected:
     static const int threads = 128;
     meanKernel<T, threads><<<ceildiv(params.len, threads), threads, 0, stream>>>(
       stats, data, params.len);
-    updateHost<T>(h_stats, stats, 2);
+    updateHost<T>(h_stats, stats, 2, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
     h_stats[0] /= params.len;
     h_stats[1] = (h_stats[1] / params.len) - (h_stats[0] * h_stats[0]);
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -395,8 +396,9 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
                       false, stream);
       std::vector<float> h_mean_result(num_experiments);
       std::vector<float> h_std_result(num_experiments);
-      updateHost(h_mean_result.data(), mean_result, num_experiments);
-      updateHost(h_std_result.data(), std_result, num_experiments);
+      updateHost(h_mean_result.data(), mean_result, num_experiments, stream);
+      updateHost(h_std_result.data(), std_result, num_experiments, stream);
+      CUDA_CHECK(cudaStreamSynchronize(stream));
       auto d_mean = quick_mean(h_mean_result);
 
       // std-dev of mean; also known as mean error
