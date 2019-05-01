@@ -76,7 +76,7 @@ namespace UMAPAlgo {
                         if(v*n_epochs > 0)
                             return float(n_epochs) / v;
                         else
-                            return T(100.0);
+                            return T(-1);
                     },
                 stream);
 	        }

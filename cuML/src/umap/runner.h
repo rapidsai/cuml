@@ -108,8 +108,8 @@ namespace UMAPAlgo {
 
         int k = params->n_neighbors;
 
-        std::cout << params->n_neighbors << std::endl;
-
+        if(params->verbose)
+            std::cout << params->n_neighbors << std::endl;
 	    find_ab(params, stream);
 
 		/**
@@ -222,7 +222,9 @@ namespace UMAPAlgo {
          * categorical simplicial set intersection.
          */
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
-            std::cout << "Performing categorical intersection" << std::endl;
+
+            if(params->verbose)
+                std::cout << "Performing categorical intersection" << std::endl;
             Supervised::perform_categorical_intersection<TPB_X, T>(
                     y,
                     &rgraph_coo, &final_coo,
@@ -232,7 +234,9 @@ namespace UMAPAlgo {
          * Otherwise, perform general simplicial set intersection
          */
         } else {
-            std::cout << "Performing general intersection" << std::endl;
+
+            if(params->verbose)
+                std::cout << "Performing general intersection" << std::endl;
             Supervised::perform_general_intersection<TPB_X, T>(
                     y,
                     &rgraph_coo, &final_coo,
@@ -246,9 +250,6 @@ namespace UMAPAlgo {
 
         COO<T> ocoo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
-
-        if(params->verbose)
-            std::cout << ocoo << std::endl;
 
         /**
          * Initialize embeddings
