@@ -38,18 +38,17 @@ For additional examples, browse our complete [API documentation](https://docs.ra
 
 | Algorithm | Scale | Notes |
 | --- | --- | --- |
-| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
 | Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
-| Principal Component Analysis (PCA) | Single GPU |
+| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
+| Coordinate Descent | Single-GPU | |
+| Ridge Regression | Single-GPU |
+| UMAP | Single-GPU |
 | Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
 | K-Means Clustering | Single-GPU |
 | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
-| Ridge Regression | Single-GPU |
+| Principal Component Analysis (PCA) | Single GPU |
+| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
 | Linear Kalman Filter | Single-GPU |
-| UMAP | Single-GPU |
-| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
-| Coordinate Descent | Single-GPU | |
-| Limited-memory BFGS | Single-GPU | |
 
 ---
 
