@@ -31,6 +31,7 @@
 #include <thrust/count.h>
 #include <thrust/reduce.h>
 #include <thrust/extrema.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 #include "sparse/csr.h"
 #include "sparse/coo.h"
@@ -129,9 +130,8 @@ namespace UMAPAlgo {
 		                   knn_indices, knn_dists,
 		                   k,
                            &rgraph_coo,
-						   params, 0);
+						   params, stream);
 		CUDA_CHECK(cudaPeekAtLastError());
-		CUDA_CHECK(cudaDeviceSynchronize());
 
 		/**
 		 * Remove zeros from simplicial set
@@ -141,7 +141,8 @@ namespace UMAPAlgo {
         MLCommon::allocate(row_count, n, true);
 
         COO<T> cgraph_coo;
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo, stream);
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo,
+                stream);
 
 
         /**
@@ -196,7 +197,6 @@ namespace UMAPAlgo {
 
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, k, params, stream);
         CUDA_CHECK(cudaPeekAtLastError());
-        CUDA_CHECK(cudaDeviceSynchronize());
 
         /**
          * Allocate workspace for fuzzy simplicial set.
@@ -224,9 +224,9 @@ namespace UMAPAlgo {
          * categorical simplicial set intersection.
          */
 
-        std::cout << "Performing categorical intersection" << std::endl;
 
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+            std::cout << "Performing categorical intersection" << std::endl;
             Supervised::perform_categorical_intersection<TPB_X, T>(
                     y,
                     &rgraph_coo, &final_coo,
@@ -237,7 +237,6 @@ namespace UMAPAlgo {
          */
         } else {
             std::cout << "Performing general intersection" << std::endl;
-
             Supervised::perform_general_intersection<TPB_X, T>(
                     y,
                     &rgraph_coo, &final_coo,
@@ -247,7 +246,7 @@ namespace UMAPAlgo {
         /**
          * Remove zeros
          */
-        MLCommon::Sparse::coo_sort<T>(&final_coo);
+        MLCommon::Sparse::coo_sort<T>(&final_coo, stream);
 
         COO<T> ocoo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
@@ -261,18 +260,14 @@ namespace UMAPAlgo {
 
         // @todo: We need to add some noise to this, similar to Leland's impl
 
-
-        std::cout << "Final before embedding" << std::endl;
-        std::cout << ocoo << std::endl;
-
-
         /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
         SimplSetEmbed::run<TPB_X, T>(
                 X, n, d,
                 &ocoo,
-                params, embeddings, stream);
+                params, embeddings,
+                stream);
 
         CUDA_CHECK(cudaPeekAtLastError());
 
@@ -344,7 +339,7 @@ namespace UMAPAlgo {
 
 
         // @todo: Write a wrapper function for this.
-        FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid_n, blk>>>(
+        FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid_n, blk, 0, stream>>>(
                 knn_indices, knn_dists,
                 sigmas, rhos,
                 graph_coo.vals, graph_coo.rows, graph_coo.cols, graph_coo.n_rows,
@@ -355,18 +350,18 @@ namespace UMAPAlgo {
         MLCommon::allocate(row_ind, n);
         MLCommon::allocate(ia, n);
 
-        MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind);
-        MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia);
+        MLCommon::Sparse::sorted_coo_to_csr(&graph_coo, row_ind, stream);
+        MLCommon::Sparse::coo_row_count<TPB_X>(&graph_coo, ia, stream);
 
         T *vals_normed;
         MLCommon::allocate(vals_normed, graph_coo.nnz, true);
 
         // @todo: Write a wrapper function for this
          MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(row_ind, graph_coo.vals, graph_coo.nnz,
-                 graph_coo.n_rows, vals_normed);
+                 graph_coo.n_rows, vals_normed, stream);
 
         // @todo: Write a wrapper function for this.
-        init_transform<TPB_X, T><<<grid_n,blk>>>(graph_coo.cols, vals_normed, graph_coo.n_rows,
+        init_transform<TPB_X, T><<<grid_n,blk, 0, stream>>>(graph_coo.cols, vals_normed, graph_coo.n_rows,
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
 
@@ -374,14 +369,14 @@ namespace UMAPAlgo {
         CUDA_CHECK(cudaFree(vals_normed));
 
         //@todo: Write a wrapper function for this
-        reset_vals<TPB_X><<<grid_n,blk>>>(ia, n);
+        reset_vals<TPB_X><<<grid_n,blk, 0, stream>>>(ia, n);
 
         /**
          * Go through COO values and set everything that's less than
          * vals.max() / params->n_epochs to 0.0
          */
         thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(graph_coo.vals);
-        T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
+        T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr+nnz));
 
         int n_epochs = 1000;//params->n_epochs;
 

@@ -116,7 +116,7 @@ namespace ML {
 	 * @param k			   number of neighbors to query
 	 */
 	void kNN::search(const float *search_items, int n,
-			long *res_I, float *res_D, int k) {
+			long *res_I, float *res_D, int k, cudaStream_t stream) {
 
 		float *result_D = new float[k*size_t(n)];
 		long*result_I = new long[k*size_t(n)];

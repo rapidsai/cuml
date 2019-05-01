@@ -183,12 +183,13 @@ void csr_row_normalize_l1(
         int *ia,    // csr row ex_scan (sorted by row)
         T *vals, int nnz,  // array of values and number of non-zeros
         int m,          // num rows in csr
-        T *result) {    // output array
+        T *result,
+        cudaStream_t stream) {    // output array
 
     dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
-    csr_row_normalize_l1_kernel<TPB_X, T><<<grid, blk>>>(ia, vals, nnz,
+    csr_row_normalize_l1_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(ia, vals, nnz,
                      m, result);
 }
 
@@ -238,12 +239,13 @@ void csr_row_normalize_max(
         int *ia,    // csr row ind array (sorted by row)
         T *vals, int nnz,  // array of values and number of non-zeros
         int m,          // num total rows in csr
-        T *result) {
+        T *result,
+        cudaStream_t stream) {
 
     dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
-    csr_row_normalize_max_kernel<TPB_X, T><<<grid, blk>>>(ia, vals, nnz,
+    csr_row_normalize_max_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(ia, vals, nnz,
                      m, result);
 
 }
@@ -397,7 +399,8 @@ template<typename T, int TPB_X>
 size_t csr_add_calc_inds(
     int *a_ind, int *a_indptr, T *a_val, int nnz1,
     int *b_ind, int *b_indptr, T *b_val, int nnz2,
-    int m, int *out_ind
+    int m, int *out_ind,
+    cudaStream_t stream
 ) {
     dim3 grid(ceildiv(m, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
@@ -405,7 +408,7 @@ size_t csr_add_calc_inds(
     int *row_counts;
     MLCommon::allocate(row_counts, m+1, true);
 
-    csr_add_calc_row_counts_kernel<T,TPB_X><<<grid, blk>>>(
+    csr_add_calc_row_counts_kernel<T,TPB_X><<<grid, blk, 0, stream>>>(
         a_ind, a_indptr, a_val, nnz1,
         b_ind, b_indptr, b_val, nnz2,
         m, row_counts
@@ -418,7 +421,7 @@ size_t csr_add_calc_inds(
     // create csr compressed row index from row counts
     thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);
     thrust::device_ptr<int> c_ind_d = thrust::device_pointer_cast(out_ind);
-    exclusive_scan(row_counts_d, row_counts_d + m, c_ind_d);
+    exclusive_scan(thrust::cuda::par.on(stream),row_counts_d, row_counts_d + m, c_ind_d);
     CUDA_CHECK(cudaFree(row_counts));
 
     return cnnz;
@@ -429,12 +432,13 @@ template<typename T, int TPB_X>
 void csr_add_finalize(
     int *a_ind, int *a_indptr, T *a_val, int nnz1,
     int *b_ind, int *b_indptr, T *b_val, int nnz2,
-    int m, int *c_ind, int *c_indptr, T *c_val
+    int m, int *c_ind, int *c_indptr, T *c_val,
+    cudaStream_t stream
 ) {
     dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
-    csr_add_kernel<T, TPB_X><<<grid,blk>>>(
+    csr_add_kernel<T, TPB_X><<<grid,blk, 0, stream>>>(
         a_ind, a_indptr, a_val, nnz1,
         b_ind, b_indptr, b_val, nnz2,
         m, c_ind, c_indptr, c_val

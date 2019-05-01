@@ -65,10 +65,10 @@ namespace UMAPAlgo {
 	        template<typename T>
 	        void make_epochs_per_sample(T *weights, int weights_n, int n_epochs, T *result,
                                         cudaStream_t stream) {
+
 	            thrust::device_ptr<T> d_weights = thrust::device_pointer_cast(weights);
-	            T weights_max = *(thrust::max_element(thrust::cuda::par.on(stream), d_weights, d_weights+weights_n));
-
-
+	            T weights_max = *(thrust::max_element(thrust::cuda::par.on(stream),
+	                    d_weights, d_weights+weights_n));
 
 	            MLCommon::LinAlg::unaryOp<T>(result, weights, weights_n,
                     [=] __device__(T input) {
@@ -253,8 +253,6 @@ namespace UMAPAlgo {
 	            // have we been given y-values?
 	            bool move_other = head_n == tail_n;
 
-	            std::cout << MLCommon::arr2Str(epochs_per_sample, nnz, "epochs_per_sample") << std::endl;
-
 	            T alpha = params->initial_alpha;
 
 	            T *epochs_per_negative_sample;
@@ -328,7 +326,7 @@ namespace UMAPAlgo {
 	             * Find vals.max()
 	             */
 	            thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals);
-	            T max = *(thrust::max_element(d_ptr, d_ptr+nnz));
+	            T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr+nnz));
 
 	            /**
 	             * Go through COO values and set everything that's less than
@@ -349,12 +347,11 @@ namespace UMAPAlgo {
                         in, &out, stream
                 );
 
-	            T *epochs_per_sample;
-	            MLCommon::allocate(epochs_per_sample, nnz, true);
+                T *epochs_per_sample;
+	            MLCommon::allocate(epochs_per_sample, out.nnz, true);
 
-	            make_epochs_per_sample(out.vals, nnz, params->n_epochs, epochs_per_sample, stream);
-
-	            CUDA_CHECK(cudaDeviceSynchronize());
+	            make_epochs_per_sample(out.vals, out.nnz, params->n_epochs, epochs_per_sample,
+	                    stream);
 
 	            optimize_layout<TPB_X, T>(embedding, m,
 	                            embedding, m,
@@ -364,7 +361,7 @@ namespace UMAPAlgo {
 	                            params->repulsion_strength,
 	                            params,
 	                            params->n_epochs,
-                              stream);
+                                stream);
 
 	            CUDA_CHECK(cudaPeekAtLastError());
                 CUDA_CHECK(cudaFree(epochs_per_sample));

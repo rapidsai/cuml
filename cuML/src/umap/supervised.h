@@ -30,6 +30,7 @@
 #include <thrust/count.h>
 #include <thrust/reduce.h>
 #include <thrust/extrema.h>
+#include <thrust/system/cuda/execution_policy.h>
 
 #include "sparse/csr.h"
 #include "sparse/coo.h"
@@ -146,7 +147,8 @@ namespace UMAPAlgo {
             int *row_ind,
             COO<T> *in_coo,
             COO<T> *out_coo,
-            int *rnnz // size = nnz*2
+            int *rnnz,
+            cudaStream_t stream// size = nnz*2
         ) {
 
             dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
@@ -158,14 +160,15 @@ namespace UMAPAlgo {
                     in_coo->vals,
                     in_coo->nnz,
                     in_coo->n_rows,
-                    in_coo->vals
+                    in_coo->vals,
+                    stream
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
             out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
 
             // reset membership strengths
-            reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n>>>(
+            reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n, 0, stream>>>(
                 row_ind,
                 in_coo->rows, in_coo->cols, in_coo->vals,
                 out_coo->rows, out_coo->cols, out_coo->vals, rnnz,
@@ -184,12 +187,13 @@ namespace UMAPAlgo {
         template<typename T, int TPB_X>
         void categorical_simplicial_set_intersection(
              COO<T> *graph_coo, T *target,
+             cudaStream_t stream,
              float far_dist = 5.0,
              float unknown_dist = 1.0) {
 
             dim3 grid(MLCommon::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
-            fast_intersection_kernel<TPB_X, T><<<grid,blk>>>(
+            fast_intersection_kernel<TPB_X, T><<<grid,blk, 0, stream>>>(
                     graph_coo->rows,
                     graph_coo->cols,
                     graph_coo->vals,
@@ -272,7 +276,8 @@ namespace UMAPAlgo {
             int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
                 row1_ind, in1->cols, in1->vals, in1->nnz,
                 row2_ind, in2->cols, in2->vals, in2->nnz,
-                in1->n_rows, result_ind
+                in1->n_rows, result_ind,
+                stream
             );
 
             result->allocate(result_nnz, in1->n_rows);
@@ -283,7 +288,8 @@ namespace UMAPAlgo {
             MLCommon::Sparse::csr_add_finalize<float, 32>(
                 row1_ind, in1->cols, in1->vals, in1->nnz,
                 row2_ind, in2->cols, in2->vals, in2->nnz,
-                in1->n_rows, result_ind, result->cols, result->vals
+                in1->n_rows, result_ind, result->cols, result->vals,
+                stream
             );
 
             //@todo: Write a wrapper function for this
@@ -292,16 +298,13 @@ namespace UMAPAlgo {
                     stream);
 
             thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals);
-            T min1 = *(thrust::min_element(d_ptr1, d_ptr1+in1->nnz));
+            T min1 = *(thrust::min_element(thrust::cuda::par.on(stream), d_ptr1, d_ptr1+in1->nnz));
 
             thrust::device_ptr<const T> d_ptr2 = thrust::device_pointer_cast(in2->vals);
-            T min2 = *(thrust::min_element(d_ptr2, d_ptr2+in2->nnz));
+            T min2 = *(thrust::min_element(thrust::cuda::par.on(stream), d_ptr2, d_ptr2+in2->nnz));
 
             T left_min = max(min1 / 2.0, 1e-8);
             T right_min = max(min2 / 2.0, 1e-8);
-
-            std::cout << "left_min=" << left_min << std::endl;
-            std::cout << "right_min=" << right_min << std::endl;
 
             dim3 grid(MLCommon::ceildiv(in1->nnz, TPB_X), 1, 1);
             dim3 blk(TPB_X, 1, 1);
@@ -331,7 +334,7 @@ namespace UMAPAlgo {
                 far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
 
             categorical_simplicial_set_intersection<T, TPB_X>(
-                    rgraph_coo, y, far_dist);
+                    rgraph_coo, y, stream, far_dist);
 
             COO<T> comp_coo;
             coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, stream);
@@ -340,7 +343,7 @@ namespace UMAPAlgo {
             int *result_ind;
             MLCommon::allocate(result_ind, rgraph_coo->n_rows, true);
 
-            MLCommon::Sparse::sorted_coo_to_csr(&comp_coo, result_ind);
+            MLCommon::Sparse::sorted_coo_to_csr(&comp_coo, result_ind, stream);
 
             // reset local connectivity
             int *final_nnz;
@@ -350,7 +353,8 @@ namespace UMAPAlgo {
                 result_ind,
                 &comp_coo,
                 final_coo,
-                final_nnz
+                final_nnz,
+                stream
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
@@ -383,10 +387,6 @@ namespace UMAPAlgo {
                     params->target_n_neighbors, params, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
-
-//            std::cout << MLCommon::arr2Str(y_knn_indices, knn_dims, "y_knn_inds") << std::endl;
-//            std::cout << MLCommon::arr2Str(y_knn_dists, knn_dims, "y_knn_dists") << std::endl;
-
             /**
              * Compute fuzzy simplicial set
              */
@@ -396,12 +396,9 @@ namespace UMAPAlgo {
                                y_knn_indices, y_knn_dists,
                                params->target_n_neighbors,
                                &ygraph_coo,
-                               params, 0);
+                               params, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
-//            std::cout << "Target Fuzzy simpl set" << std::endl;
-//            std::cout << ygraph_coo << std::endl;
-//
             CUDA_CHECK(cudaFree(y_knn_indices));
             CUDA_CHECK(cudaFree(y_knn_dists));
 
@@ -415,12 +412,9 @@ namespace UMAPAlgo {
 
             COO<T> cygraph_coo;
             coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, stream);
-//
-//            std::cout << "Target Fuzzy simpl set" << std::endl;
-//            std::cout << cygraph_coo << std::endl;
 
-            MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind);
-            MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind);
+            MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind, stream);
+            MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind, stream);
 
             COO<T> result_coo;
             general_simplicial_set_intersection<T, TPB_X>(
@@ -441,14 +435,11 @@ namespace UMAPAlgo {
             coo_remove_zeros<TPB_X, T>(&result_coo, &out, stream);
 
             result_coo.destroy();
-//
-//            std::cout << "Simplicial Intersection" << std::endl;
-//            std::cout << out << std::endl;
 
             int *out_row_ind;
             MLCommon::allocate(out_row_ind, out.n_rows);
 
-            MLCommon::Sparse::sorted_coo_to_csr(&out, out_row_ind);
+            MLCommon::Sparse::sorted_coo_to_csr(&out, out_row_ind, stream);
 
             int *final_nnz;
             MLCommon::allocate(final_nnz, rgraph_coo->n_rows+1, true);
@@ -457,7 +448,8 @@ namespace UMAPAlgo {
                 out_row_ind,
                 &out,
                 final_coo,
-                final_nnz
+                final_nnz,
+                stream
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
