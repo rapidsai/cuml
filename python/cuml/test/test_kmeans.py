@@ -24,7 +24,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'noisy_circles', 'blobs']
 
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_kmeans_sklearn_comparison(name, run_stress, run_correctness_test):
+def test_kmeans_sklearn_comparison(name, run_stress, run_quality):
 
     default_base = {'quantile': .3,
                     'eps': .3,
@@ -39,7 +39,7 @@ def test_kmeans_sklearn_comparison(name, run_stress, run_correctness_test):
         params.update(pat[1])
         X, y = pat[0]
 
-    elif run_correctness_test:
+    elif run_quality:
         pat = get_pattern(name, n_samples)
         params = default_base.copy()
         params.update(pat[1])
