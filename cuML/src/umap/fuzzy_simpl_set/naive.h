@@ -366,7 +366,6 @@ namespace UMAPAlgo {
                         T res = set_op_mix_ratio
                                 * (result + transpose - prod_matrix)
                                 + (1.0 - set_op_mix_ratio) * prod_matrix;
-                                row, col, result, transpose, res);
                         return T(res);
                     },
                     stream);
