@@ -62,8 +62,8 @@ protected:
 		float *X_d, *Y_d;
 		MLCommon::allocate(Y_d, n);
 		MLCommon::allocate(X_d, n*d);
-		MLCommon::updateDevice(X_d, X.data(), n*d);
-		MLCommon::updateDevice(Y_d, Y.data(), n);
+		MLCommon::updateDevice(X_d, X.data(), n*d, stream);
+		MLCommon::updateDevice(Y_d, Y.data(), n, stream);
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 

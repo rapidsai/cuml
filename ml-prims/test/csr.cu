@@ -56,9 +56,9 @@ TEST_P(CSRRowNormalizeL1, Result) {
     allocate(ex_scan, 4);
     allocate(result, 10, true);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4);
-    updateDevice(in_vals, *&in_vals_h, 10);
-    updateDevice(verify, *&verify_h, 10);
+    updateDevice(ex_scan, *&ex_scan_h, 4, 0);
+    updateDevice(in_vals, *&in_vals_h, 10, 0);
+    updateDevice(verify, *&verify_h, 10, 0);
 
     csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
     cudaDeviceSynchronize();

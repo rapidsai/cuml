@@ -416,7 +416,7 @@ size_t csr_add_calc_inds(
     CUDA_CHECK(cudaPeekAtLastError());
 
     int cnnz = 0;
-    MLCommon::updateHost(&cnnz, row_counts+m, 1);
+    MLCommon::updateHost(&cnnz, row_counts+m, 1, stream);
 
     // create csr compressed row index from row counts
     thrust::device_ptr<int> row_counts_d = thrust::device_pointer_cast(row_counts);

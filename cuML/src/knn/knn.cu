@@ -266,7 +266,7 @@ namespace ML {
 
             float *ptr_d;
             MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
-            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D));
+            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D), 0);
 
             kNNParams p;
             p.N = length;
