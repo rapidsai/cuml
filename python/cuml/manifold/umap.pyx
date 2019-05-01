@@ -149,6 +149,24 @@ cdef class UMAP:
         ``spread``.
     verbose: bool (optional, default False)
         Controls verbosity of logging.
+
+    Notes
+    -----
+    This UMAP module is heavily based on Leland McInnes' umap.py package.
+    However, there are a number of differences and features that are not yet
+    implemented in cuml.umap:
+      * Supervised training (planned for implementation soon)
+      * Specifying the random seed
+      * Specifying a custom distance metric (cuml.umap always uses euclidean
+        distance)
+      * Manual initialization of initial embedding positions
+
+    References
+    ----------
+    * Leland McInnes, John Healy, James Melville
+      UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction
+      https://arxiv.org/abs/1802.03426
+
     """
 
     cpdef UMAPParams *umap_params
