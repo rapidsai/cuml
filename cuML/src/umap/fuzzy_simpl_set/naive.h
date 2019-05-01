@@ -107,7 +107,7 @@ namespace UMAPAlgo {
                         float cur_dist = knn_dists[i+idx];
                         sum += cur_dist;
 
-                        if (cur_dist > 0.01) {
+                        if (cur_dist > 0.0) { // 0.01
                             if (start_nonzero == -1)
                                 start_nonzero = idx;
                             total_nonzero++;
