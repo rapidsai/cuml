@@ -166,7 +166,7 @@ endif(NOT CMAKE_CXX11_ABI)
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
@@ -218,16 +218,16 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/umap/umap.cu
   src/solver/solver.cu)
 
-set(CUML_LINK_LIBRARIES 
-  ${CUDA_cublas_LIBRARY} 
-  ${CUDA_curand_LIBRARY} 
-  ${CUDA_cusolver_LIBRARY} 
-  ${CUDA_CUDART_LIBRARY} 
-  ${CUDA_cusparse_LIBRARY} 
-  ${CUDA_nvgraph_LIBRARY} 
-  ${ZLIB_LIBRARIES} 
-  gpufaisslib 
-  faisslib 
+set(CUML_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  ${CUDA_nvgraph_LIBRARY}
+  ${ZLIB_LIBRARIES}
+  gpufaisslib
+  faisslib
   ${BLAS_LIBRARIES})
 
 if(OPENMP_FOUND)
