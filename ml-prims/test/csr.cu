@@ -60,7 +60,7 @@ TEST_P(CSRRowNormalizeL1, Result) {
     updateDevice(in_vals, *&in_vals_h, 10);
     updateDevice(verify, *&verify_h, 10);
 
-    csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result);
+    csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
     cudaDeviceSynchronize();
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
@@ -110,7 +110,8 @@ TEST_P(CSRSum, Result) {
     int nnz = csr_add_calc_inds<float, 32>(
         ex_scan, ind_ptr_a, in_vals_a, 10,
         ex_scan, ind_ptr_b, in_vals_b, 10,
-        4, result_ind
+        4, result_ind,
+        0
     );
 
     int *result_indptr;
@@ -121,7 +122,8 @@ TEST_P(CSRSum, Result) {
     csr_add_finalize<float, 32>(
         ex_scan, ind_ptr_a, in_vals_a, 10,
         ex_scan, ind_ptr_b, in_vals_b, 10,
-        4, result_ind, result_indptr, result_val
+        4, result_ind, result_indptr, result_val,
+        0
     );
 
     ASSERT_TRUE(nnz==14);
