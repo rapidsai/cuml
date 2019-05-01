@@ -15,6 +15,7 @@
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #491: added doxygen build target for ml-prims
 - PR #511: a minmax ml-prim
+- PR #520: Add local build script to mimic gpuCI
 
 ## Improvements
 
@@ -28,8 +29,10 @@
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #500: Added CI check for black listed CUDA Runtime API calls
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
+- PR #512: generic copy method for copying buffers between device/host
 
 ## Bug Fixes
 
@@ -57,6 +60,7 @@
 - PR #495: Update cuDF and RMM versions in GPU ci test scripts
 - PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
+- PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 
 # cuML 0.6.0 (22 Mar 2019)
 
