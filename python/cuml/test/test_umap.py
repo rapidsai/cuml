@@ -34,13 +34,13 @@ from sklearn.datasets.samples_generator import make_blobs
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
 
-def test_umap_fit_transform_score(run_stress, run_correctness_test):
+def test_umap_fit_transform_score(run_stress, run_quality):
 
     if run_stress:
         n_samples = 500000
         n_features = 1000
 
-    elif run_correctness_test:
+    elif run_quality:
         n_samples = 5000
         n_features = 100
 
@@ -66,7 +66,7 @@ def test_umap_fit_transform_score(run_stress, run_correctness_test):
 
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
+def test_umap_fit_transform_trust(name, run_stress, run_quality):
 
     if name == 'iris':
         iris = datasets.load_iris()
@@ -100,7 +100,7 @@ def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_data_formats(input_type, should_downcast,
-                           run_stress, run_correctness_test):
+                           run_stress, run_quality):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = 50000
@@ -109,7 +109,7 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples*10,
                                    n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         X, y = datasets.make_blobs(n_samples=int(n_samples/10),
                                    n_features=n_feats, random_state=0)
 
@@ -134,14 +134,14 @@ def test_umap_data_formats(input_type, should_downcast,
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
+def test_umap_downcast_fails(input_type, run_stress, run_quality):
     n_samples = 50000
     n_feats = 50
     if run_stress:
         X, y = datasets.make_blobs(n_samples=n_samples*10,
                                    n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         X, y = datasets.make_blobs(n_samples=int(n_samples/10),
                                    n_features=n_feats, random_state=0)
 
