@@ -50,6 +50,7 @@ def test_umap_transform_on_iris():
     trust = trustworthiness(new_data, embedding, 10)
     assert trust >= 0.90
 
+
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
@@ -58,6 +59,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     )
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
+
 
 def test_semisupervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
