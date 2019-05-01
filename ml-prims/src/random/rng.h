@@ -299,7 +299,7 @@ public:
       static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point type!");
       randImpl(offset, ptr, len,
-              [=] __device__(Type val, LenType idx) { return val < prob ? -scale : scale; },
+              [=] __device__(Type val, LenType idx) { return val > prob ? -scale : scale; },
               NumThreads, nBlocks, type, stream);
   }
 
