@@ -30,7 +30,7 @@ from sklearn.datasets import make_regression
 @pytest.mark.parametrize('y_type', ['series', 'ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 def test_ols(datatype, X_type, y_type, algorithm,
-             run_stress, run_correctness_test):
+             run_stress, run_quality):
     nrows = 5000
     ncols = 1000
     n_info = 500
@@ -42,7 +42,7 @@ def test_ols(datatype, X_type, y_type, algorithm,
         X_train = np.array(X[0:train_rows, :]).astype(datatype)
         y_train = np.array(y[0:train_rows, ]).astype(datatype)
 
-    elif run_correctness_test:
+    elif run_quality:
         train_rows = np.int32(nrows*0.8)
         X, y = make_regression(n_samples=nrows, n_features=int(ncols/2),
                                n_informative=int(n_info/2), random_state=0)
@@ -93,7 +93,7 @@ def test_ols(datatype, X_type, y_type, algorithm,
 @pytest.mark.parametrize('y_type', ['series', 'ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 def test_ridge(datatype, X_type, y_type, algorithm,
-               run_stress, run_correctness_test):
+               run_stress, run_quality):
     nrows = 5000
     ncols = 1000
     n_info = 500
@@ -105,7 +105,7 @@ def test_ridge(datatype, X_type, y_type, algorithm,
         X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
         y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
-    elif run_correctness_test:
+    elif run_quality:
         train_rows = np.int32(nrows*0.8)
         X, y = make_regression(n_samples=nrows, n_features=ncols,
                                n_informative=n_info, random_state=0)
