@@ -27,7 +27,6 @@ build:
 requirements:
   build:
     - cmake>=3.12.4
-  host:
     - cudf 0.7*
     - lapack
   run:
