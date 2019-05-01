@@ -88,10 +88,17 @@ class COO {
        }
 
        friend std::ostream & operator << (std::ostream &out, const COO &c) {
-           out << arr2Str(c.rows, c.nnz, "rows") << std::endl;
-           out << arr2Str(c.cols, c.nnz, "cols") << std::endl;
-           out << arr2Str(c.vals, c.nnz, "vals") << std::endl;
+
+           cudaStream_t stream;
+           cudaStreamCreate(&stream);
+
+           out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
+           out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
+           out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
            out << c.nnz << std::endl;
+
+           cudaStreamDestroy(stream);
+
            return out;
        }
 
@@ -272,7 +279,7 @@ void coo_sort(int m, int n, int nnz,
     cudaDeviceSynchronize();
 
 
-    copy(vals, vals_sorted, nnz);
+    copy(vals, vals_sorted, nnz, stream);
 
     cudaFree(d_P);
     cudaFree(vals_sorted);

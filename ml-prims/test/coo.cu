@@ -66,10 +66,10 @@ TEST_P(COOSort, Result) {
     allocate(in_cols, params.nnz);
     allocate(verify, params.nnz);
 
-    updateDevice(in_rows, in_rows_h, params.nnz);
+    updateDevice(in_rows, in_rows_h, params.nnz, stream);
 
-    updateDevice(in_cols, in_cols_h, params.nnz);
-    updateDevice(verify, verify_h, params.nnz);
+    updateDevice(in_cols, in_cols_h, params.nnz, stream);
+    updateDevice(verify, verify_h, params.nnz, stream);
 
     coo_sort(params.m, params.n, params.nnz, in_rows, in_cols, in_vals);
 
@@ -95,7 +95,7 @@ TEST_P(COORemoveZeros, Result) {
     CUDA_CHECK(cudaStreamCreate(&stream));
     r.uniform(in.vals, params.nnz, float(-1.0), float(1.0), stream);
 
-    updateHost(in_h.vals, in.vals, params.nnz);
+    updateHost(in_h.vals, in.vals, params.nnz, stream);
 
     in_h.vals[0] = 0;
     in_h.vals[2] = 0;
@@ -106,9 +106,9 @@ TEST_P(COORemoveZeros, Result) {
         in_h.cols[i] = i;
     }
 
-    updateDevice(in.rows, in_h.rows, params.nnz);
-    updateDevice(in.cols, in_h.cols, params.nnz);
-    updateDevice(in.vals, in_h.vals, params.nnz);
+    updateDevice(in.rows, in_h.rows, params.nnz, stream);
+    updateDevice(in.cols, in_h.cols, params.nnz, stream);
+    updateDevice(in.vals, in_h.vals, params.nnz, stream);
 
     std::cout << in << std::endl;
 
@@ -158,8 +158,8 @@ TEST_P(COORowCount, Result) {
     allocate(verify, 5, true);
     allocate(results, 5, true);
 
-    updateDevice(in_rows, *&in_rows_h, 5);
-    updateDevice(verify, *&verify_h, 5);
+    updateDevice(in_rows, *&in_rows_h, 5, 0);
+    updateDevice(verify, *&verify_h, 5, 0);
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);
@@ -187,9 +187,9 @@ TEST_P(COORowCountNonzero, Result) {
     allocate(results, 5, true);
     allocate(in_vals, 5, true);
 
-    updateDevice(in_rows, *&in_rows_h, 5);
-    updateDevice(verify, *&verify_h, 5);
-    updateDevice(in_vals, *&in_vals_h, 5);
+    updateDevice(in_rows, *&in_rows_h, 5, 0);
+    updateDevice(verify, *&verify_h, 5, 0);
+    updateDevice(in_vals, *&in_vals_h, 5, 0);
 
     dim3 grid(ceildiv(5, 32), 1, 1);
     dim3 blk(32, 1, 1);

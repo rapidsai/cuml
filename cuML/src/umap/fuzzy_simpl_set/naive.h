@@ -262,7 +262,7 @@ namespace UMAPAlgo {
                 CUDA_CHECK(cudaPeekAtLastError());
 
                 T *dist_means_host = (T*) malloc(n_neighbors * sizeof(T));
-                MLCommon::updateHost(dist_means_host, dist_means_dev,n_neighbors);
+                MLCommon::updateHost(dist_means_host, dist_means_dev,n_neighbors, stream);
 
                 float sum = 0.0;
                 for (int i = 0; i < n_neighbors; i++)
@@ -334,8 +334,8 @@ namespace UMAPAlgo {
 
                 if(params->verbose) {
                     std::cout << "Smooth kNN Distances" << std::endl;
-                    std::cout << MLCommon::arr2Str(sigmas, n, "sigmas") << std::endl;
-                    std::cout << MLCommon::arr2Str(rhos, n, "rhos") << std::endl;
+                    std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
+                    std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
                 }
 
                 CUDA_CHECK(cudaPeekAtLastError());
@@ -366,7 +366,6 @@ namespace UMAPAlgo {
                         T res = set_op_mix_ratio
                                 * (result + transpose - prod_matrix)
                                 + (1.0 - set_op_mix_ratio) * prod_matrix;
-                        printf("row=%d, col=%d, val=%f, trans=%f, res=%f\n",
                                 row, col, result, transpose, res);
                         return T(res);
                     },

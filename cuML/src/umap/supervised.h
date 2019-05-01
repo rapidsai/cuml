@@ -166,9 +166,6 @@ namespace UMAPAlgo {
 
             MLCommon::Sparse::coo_symmetrize<TPB_X, T>(in_coo, out_coo,
                     [] __device__(int row, int col, T result, T transpose) {
-
-                        printf("row=%d, col=%d, val=%f, trans=%f\n", row, col, result, transpose);
-
                         T prod_matrix = result * transpose;
                         return result + transpose - prod_matrix;
                     },
@@ -382,11 +379,12 @@ namespace UMAPAlgo {
                     params->target_n_neighbors, params, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
-
             if(params->verbose) {
                 std::cout << "Target kNN Graph" << std::endl;
-                std::cout << MLCommon::arr2Str(y_knn_indices, rgraph_coo->n_rows*params->target_n_neighbors, "knn_indices") << std::endl;
-                std::cout << MLCommon::arr2Str(y_knn_dists, rgraph_coo->n_rows*params->target_n_neighbors, "knn_dists") << std::endl;
+                std::cout << MLCommon::arr2Str(y_knn_indices,
+                        rgraph_coo->n_rows*params->target_n_neighbors, "knn_indices", stream) << std::endl;
+                std::cout << MLCommon::arr2Str(y_knn_dists,
+                        rgraph_coo->n_rows*params->target_n_neighbors, "knn_dists", stream) << std::endl;
             }
 
 
