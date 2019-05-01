@@ -40,6 +40,79 @@ protected:
 const std::vector<CSRInputs<float>> inputsf = {
   {5, 10, 5, 1234ULL}};
 
+typedef CSRTest<float> CSRToCOO;
+TEST_P(CSRToCOO, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int *ex_scan;
+    int *result, *verify;
+
+    int *ex_scan_h = new int[4]{0, 4, 8, 9 };
+    int *verify_h = new int[10]{ 0, 0, 0, 0, 1, 1, 1, 1, 2, 3 };
+
+    allocate(verify, 10);
+    allocate(ex_scan, 4);
+    allocate(result, 10, true);
+
+    updateDevice(ex_scan, ex_scan_h, 4, stream);
+    updateDevice(verify, verify_h, 10, stream);
+
+    csr_to_coo<32>(ex_scan, 4, result, 10, stream);
+
+    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
+
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>()));
+
+    cudaStreamDestroy(stream);
+
+    delete ex_scan;
+    delete verify_h;
+
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+}
+
+
+typedef CSRTest<float> CSRRowNormalizeMax;
+TEST_P(CSRRowNormalizeMax, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int *ex_scan;
+    float *in_vals, *result, *verify;
+
+    int ex_scan_h[4] = {0, 4, 8, 9 };
+    float in_vals_h[10] = { 5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
+
+    float verify_h[10] =  { 1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0 };
+
+    allocate(in_vals, 10);
+    allocate(verify, 10);
+    allocate(ex_scan, 4);
+    allocate(result, 10, true);
+
+    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+    updateDevice(in_vals, *&in_vals_h, 10, stream);
+    updateDevice(verify, *&verify_h, 10, stream);
+
+    csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
+
+    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
+
+    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+
+    cudaStreamDestroy(stream);
+
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(in_vals));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+}
+
 typedef CSRTest<float> CSRRowNormalizeL1;
 TEST_P(CSRRowNormalizeL1, Result) {
 
@@ -146,6 +219,11 @@ TEST_P(CSRSum, Result) {
     CUDA_CHECK(cudaFree(result_val));
 }
 
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRToCOO,
+                        ::testing::ValuesIn(inputsf));
+
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeMax,
+                        ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeL1,
                         ::testing::ValuesIn(inputsf));
