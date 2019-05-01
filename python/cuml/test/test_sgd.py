@@ -13,7 +13,7 @@ import pandas as pd
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
 def test_svd(datatype, lrate, input_type, penalty,
-             loss, run_stress, run_correctness_test):
+             loss, run_stress, run_quality):
     n_samples = 10000
     n_feats = 50
     if run_stress:
@@ -24,7 +24,7 @@ def test_svd(datatype, lrate, input_type, penalty,
         X_train = np.array(X[0:train_rows, :]).astype(datatype)
         y_train = np.array(y[0:train_rows, ]).astype(datatype)
 
-    elif run_correctness_test:
+    elif run_quality:
         iris = datasets.load_iris()
         X = iris.data
         y = iris.target
