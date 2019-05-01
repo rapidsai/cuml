@@ -129,11 +129,11 @@ protected:
 
     allocate(in_ratio, 4);
     T in_ratio_h[4] = {1.0, 2.0, 2.0, 3.0};
-    updateDevice(in_ratio, in_ratio_h, 4);
+    updateDevice(in_ratio, in_ratio_h, 4, stream);
 
     allocate(out_ratio_ref, 4);
     T out_ratio_ref_h[4] = {0.125, 0.25, 0.25, 0.375};
-    updateDevice(out_ratio_ref, out_ratio_ref_h, 4);
+    updateDevice(out_ratio_ref, out_ratio_ref_h, 4, stream);
 
     r.uniform(in_power, len, T(-1.0), T(1.0), stream);
     r.uniform(in_sqrt, len, T(0.0), T(1.0), stream);
@@ -157,8 +157,8 @@ protected:
     // default threshold is 1e-15
     std::vector<T> in_recip_h = {0.1, 0.01, -0.01, 0.1e-16};
     std::vector<T> in_recip_ref_h = {10.0, 100.0, -100.0, 0.0};
-    updateDevice(in_recip, in_recip_h.data(), 4);
-    updateDevice(in_recip_ref, in_recip_ref_h.data(), 4);
+    updateDevice(in_recip, in_recip_h.data(), 4, stream);
+    updateDevice(in_recip_ref, in_recip_ref_h.data(), 4, stream);
     T recip_scalar = T(1.0);
 
     // this `reciprocal()` has to go first bc next one modifies its input
@@ -171,8 +171,8 @@ protected:
     allocate(in_smallzero, 4);
     allocate(out_smallzero, 4);
     allocate(out_smallzero_ref, 4);
-    updateDevice(in_smallzero, in_small_val_zero_h.data(), 4);
-    updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4);
+    updateDevice(in_smallzero, in_small_val_zero_h.data(), 4, stream);
+    updateDevice(out_smallzero_ref, in_small_val_zero_ref_h.data(), 4, stream);
     setSmallValuesZero(out_smallzero, in_smallzero, 4, stream);
     setSmallValuesZero(in_smallzero, 4, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));

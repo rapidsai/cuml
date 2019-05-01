@@ -132,12 +132,12 @@ void label(const ML::cumlHandle_impl& handle, Pack<Type> data, int startVertexId
         CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) ); 
         label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
         //** swapping F1 and F2
-        MLCommon::updateHostAsync(host_fa.data(), data.fa, N, stream);
-        MLCommon::updateHostAsync(host_xa.data(), data.xa, N, stream);
-        MLCommon::updateDeviceAsync(data.fa, host_xa.data(), N, stream);
-        MLCommon::updateDeviceAsync(data.xa, host_fa.data(), N, stream);
+        MLCommon::updateHost(host_fa.data(), data.fa, N, stream);
+        MLCommon::updateHost(host_xa.data(), data.xa, N, stream);
+        MLCommon::updateDevice(data.fa, host_xa.data(), N, stream);
+        MLCommon::updateDevice(data.xa, host_fa.data(), N, stream);
         //** Updating m *
-        MLCommon::updateHostAsync(&host_m, data.m, 1, stream);
+        MLCommon::updateHost(&host_m, data.m, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
     } while(host_m);
 }
@@ -162,14 +162,14 @@ void relabel(const ML::cumlHandle_impl& handle, Pack<Type> data, cudaStream_t st
     MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
     MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, N);
     memset(host_map_id.data(), 0, N*sizeof(Type));
-    MLCommon::updateHostAsync(host_db_cluster.data(), data.db_cluster, N, stream);
+    MLCommon::updateHost(host_db_cluster.data(), data.db_cluster, N, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     sort(host, host_db_cluster.data(), host_db_cluster.data() + N);
     Type *uid = unique(host, host_db_cluster.data(), host_db_cluster.data() + N, equal_to<Type>());
     Type num_clusters = uid - host_db_cluster.data();
     for(int i=0; i<num_clusters; i++)
         host_map_id[i] = host_db_cluster[i];
-    MLCommon::updateDeviceAsync(data.map_id, host_map_id.data(), N, stream);
+    MLCommon::updateDevice(data.map_id, host_map_id.data(), N, stream);
     map_label<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL);
 }
 

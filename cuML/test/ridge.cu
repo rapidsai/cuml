@@ -61,31 +61,31 @@ protected:
 		T alpha = params.alpha;
 
 		T data_h[len] = { 0.0, 0.0, 1.0, 0.0, 0.0, 1.0 };
-		updateDevice(data, data_h, len);
+		updateDevice(data, data_h, len, stream);
 
 		T labels_h[params.n_row] = { 0.0, 0.1, 1.0 };
-		updateDevice(labels, labels_h, params.n_row);
+		updateDevice(labels, labels_h, params.n_row, stream);
 
 		T coef_ref_h[params.n_col] = { 0.39999998, 0.4 };
-		updateDevice(coef_ref, coef_ref_h, params.n_col);
+		updateDevice(coef_ref, coef_ref_h, params.n_col, stream);
 
 		T coef2_ref_h[params.n_col] = { 0.3454546, 0.34545454 };
-		updateDevice(coef2_ref, coef2_ref_h, params.n_col);
+		updateDevice(coef2_ref, coef2_ref_h, params.n_col, stream);
 
 		T coef3_ref_h[params.n_col] = { 0.3799999, 0.38000008 };
-		updateDevice(coef3_ref, coef3_ref_h, params.n_col);
+		updateDevice(coef3_ref, coef3_ref_h, params.n_col, stream);
 
 		T pred_data_h[len2] = { 0.5, 2.0, 0.2, 1.0 };
-		updateDevice(pred_data, pred_data_h, len2);
+		updateDevice(pred_data, pred_data_h, len2, stream);
 
 		T pred_ref_h[params.n_row_2] = { 0.28, 1.1999999 };
-		updateDevice(pred_ref, pred_ref_h, params.n_row_2);
+		updateDevice(pred_ref, pred_ref_h, params.n_row_2, stream);
 
 		T pred2_ref_h[params.n_row_2] = { 0.37818184, 1.1727273 };
-		updateDevice(pred2_ref, pred2_ref_h, params.n_row_2);
+		updateDevice(pred2_ref, pred2_ref_h, params.n_row_2, stream);
 
 		T pred3_ref_h[params.n_row_2] = { 0.37933332, 1.2533332 };
-		updateDevice(pred3_ref, pred3_ref_h, params.n_row_2);
+		updateDevice(pred3_ref, pred3_ref_h, params.n_row_2, stream);
 
 		intercept = T(0);
 
@@ -95,8 +95,8 @@ protected:
 		ridgePredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef, intercept,
 				pred, stream);
 
-		updateDevice(data, data_h, len);
-		updateDevice(labels, labels_h, params.n_row);
+		updateDevice(data, data_h, len, stream);
+		updateDevice(labels, labels_h, params.n_row, stream);
 
 		intercept2 = T(0);
 		ridgeFit(handle.getImpl(), data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
@@ -105,8 +105,8 @@ protected:
 		ridgePredict(handle.getImpl(), pred_data, params.n_row_2, params.n_col, coef2, intercept2,
 				pred2, stream);
 
-		updateDevice(data, data_h, len);
-		updateDevice(labels, labels_h, params.n_row);
+		updateDevice(data, data_h, len, stream);
+		updateDevice(labels, labels_h, params.n_row, stream);
 
 		intercept3 = T(0);
 		ridgeFit(handle.getImpl(), data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
@@ -127,15 +127,15 @@ protected:
 
 		std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0};
 		data_h.resize(len);
-		updateDevice(data_sc, data_h.data(), len);
+		updateDevice(data_sc, data_h.data(), len, stream);
 
 		std::vector<T> labels_h = {6.0, 8.0, 9.0, 11.0, -1.0, 2.0};
 		labels_h.resize(len);
-		updateDevice(labels_sc, labels_h.data(), len);
+		updateDevice(labels_sc, labels_h.data(), len, stream);
 
 		std::vector<T> coef_sc_ref_h = {1.8};
 		coef_sc_ref_h.resize(1);
-		updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1);
+		updateDevice(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
 
 		T intercept_sc = T(0);
 		T alpha_sc = T(1.0);

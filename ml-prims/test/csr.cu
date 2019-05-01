@@ -55,9 +55,9 @@ TEST_P(CSRRowNormalizeL1, Result) {
     allocate(ex_scan, 4);
     allocate(result, 10, true);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4);
-    updateDevice(in_vals, *&in_vals_h, 10);
-    updateDevice(verify, *&verify_h, 10);
+    updateDevice(ex_scan, *&ex_scan_h, 4, 0);
+    updateDevice(in_vals, *&in_vals_h, 10, 0);
+    updateDevice(verify, *&verify_h, 10, 0);
 
     dim3 grid(ceildiv(10, 32), 1, 1);
     dim3 blk(32, 1, 1);

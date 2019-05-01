@@ -65,7 +65,7 @@ protected:
       ASSERT(m == 3, "This test only supports mxn=3x2!");
       ASSERT(m * n == 6, "This test only supports mxn=3x2!");
       T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-      updateDevice(A, data_h, m * n);
+      updateDevice(A, data_h, m * n, stream);
 
       T left_eig_vectors_ref_h[] = {-0.308219, -0.906133, -0.289695};
       T right_eig_vectors_ref_h[] = {-0.638636, -0.769509};
@@ -75,9 +75,9 @@ protected:
       allocate(right_eig_vectors_ref, n * 1);
       allocate(sing_vals_ref, 1);
 
-      updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1);
-      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1);
-      updateDevice(sing_vals_ref, sing_vals_ref_h, 1);
+      updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
+      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1, stream);
+      updateDevice(sing_vals_ref, sing_vals_ref_h, 1, stream);
 
     } else { // Other normal tests
       r.normal(A, m * n, mu, sigma, stream);
@@ -85,7 +85,7 @@ protected:
     A_backup_cpu = (T *)malloc(
       sizeof(T) * m *
       n); // Backup A matrix as svdJacobi will destroy the content of A
-    updateHost(A_backup_cpu, A, m * n);
+    updateHost(A_backup_cpu, A, m * n, stream);
 
     // RSVD tests
     if (params.k == 0) { // Test with PC and upsampling ratio
@@ -105,7 +105,7 @@ protected:
                     true, true, eig_svd_tol, max_sweeps, cusolverH, cublasH,
                     stream, allocator);
     }
-    updateDevice(A, A_backup_cpu, m * n);
+    updateDevice(A, A_backup_cpu, m * n, stream);
 
     free(A_backup_cpu);
   }

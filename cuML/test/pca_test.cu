@@ -61,11 +61,11 @@ protected:
 
 		std::vector<T> data_h = { 1.0, 2.0, 5.0, 4.0, 2.0, 1.0 };
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		std::vector<T> trans_data_ref_h = { -2.3231, -0.3517, 2.6748, -0.3979, 0.6571, -0.2592 };
 		trans_data_ref_h.resize(len);
-		updateDevice(trans_data_ref, trans_data_ref_h.data(), len);
+		updateDevice(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
@@ -83,8 +83,8 @@ protected:
 		allocate(components_ref, len_comp);
 		allocate(explained_vars_ref, params.n_col);
 
-		updateDevice(components_ref, components_ref_h.data(), len_comp);
-		updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col);
+		updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
+		updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col, stream);
 
 		paramsPCA prms;
 		prms.n_cols = params.n_col;
