@@ -39,6 +39,42 @@ protected:
 const std::vector<COOInputs<float>> inputsf = {
   {5, 10, 5, 1234ULL}};
 
+
+typedef COOTest<float> SortedCOOToCSR;
+TEST_P(SortedCOOToCSR, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int nnz = 8;
+
+    int *in, *out, *exp;
+
+    int *in_h = new int[nnz]    { 0,   0,   1,   1,   2,   2,   3,   3 };
+    int *exp_h = new int[4]   {0, 3, 5, 7 };
+
+    allocate(in, nnz, true);
+    allocate(exp, 4, true);
+    allocate(out, 4, true);
+
+    updateDevice(in, in_h, nnz, stream);
+    updateDevice(exp, exp_h, 4, stream);
+
+    sorted_coo_to_csr<int>(in, nnz, out, 4, stream);
+
+    ASSERT_TRUE(devArrMatch<int>(out, exp, 4, Compare<int>()));
+
+    cudaStreamDestroy(stream);
+
+    delete in_h;
+    delete exp_h;
+
+    CUDA_CHECK(cudaFree(in));
+    CUDA_CHECK(cudaFree(exp));
+
+}
+
+
 typedef COOTest<float> COOSymmetrize;
 TEST_P(COOSymmetrize, Result) {
 
@@ -54,7 +90,6 @@ TEST_P(COOSymmetrize, Result) {
     int *exp_rows_h = new int[nnz*2]   {1,    0,    0,    0,    0,    1,    0,    0,    3,    1,    0,    0,    2,    0,    2,    3 };
     int *exp_cols_h = new int[nnz*2]   {0,    1,    0,    0,    3,    2,    0,    0,    1,    3,    0,    0,    1,    0,    3,    2 };
     float *exp_vals_h = new float[nnz*2] {0.5,  0.5,    0,    0,    1,  0.5,    0,    0,  0.5,  0.5,    0,    0,  0.5,    0,  0.5,  0.5 };
-
 
     COO<float> expected(exp_rows_h, exp_cols_h, exp_vals_h, nnz*2, 4, 4, false);
 
@@ -77,6 +112,14 @@ TEST_P(COOSymmetrize, Result) {
     ASSERT_TRUE(devArrMatch<float>(out.vals, expected.vals, out.nnz, Compare<float>()));
 
     cudaStreamDestroy(stream);
+
+    delete in_rows_h;
+    delete in_cols_h;
+    delete in_vals_h;
+
+    delete exp_rows_h;
+    delete exp_cols_h;
+    delete exp_vals_h;
 }
 
 
@@ -239,6 +282,9 @@ TEST_P(COORowCountNonzero, Result) {
     CUDA_CHECK(cudaFree(in_rows));
     CUDA_CHECK(cudaFree(verify));
 }
+
+INSTANTIATE_TEST_CASE_P(COOTests, SortedCOOToCSR,
+                        ::testing::ValuesIn(inputsf));
 
 
 INSTANTIATE_TEST_CASE_P(COOTests, COOSort,
