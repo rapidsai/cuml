@@ -238,7 +238,7 @@ void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
     Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
 
     math_t total_vars_h;
-    updateHostAsync(&total_vars_h, total_vars.data(), 1, stream);
+    updateHost(&total_vars_h, total_vars.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t scalar = math_t(1) / total_vars_h;
 
