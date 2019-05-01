@@ -605,7 +605,8 @@ __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, in
 }
 
 /**
- * Converts a knn graph into a COO format.
+ * Converts a knn graph, defined by index and distance matrices,
+ * into COO format.
  */
 template<typename T>
 void from_knn(long *knn_indices, T *knn_dists, int m, int k,
@@ -616,6 +617,21 @@ void from_knn(long *knn_indices, T *knn_dists, int m, int k,
     from_knn_graph_kernel<32, T><<<grid, blk>>>(
             knn_indices, knn_dists, m, k, rows, cols, vals);
 }
+
+/**
+ * Converts a knn graph, defined by index and distance matrices,
+ * into COO format.
+ */
+template<typename T>
+void from_knn(long *knn_indices, T *knn_dists, int m, int k,
+        COO<T> *out) {
+
+    out->allocate(m*k, m, m);
+
+    from_knn(knn_indices, knn_dists, m, k,
+            out->rows, out->cols, out->vals);
+}
+
 
 template<typename T>
 void sorted_coo_to_csr(

@@ -124,14 +124,13 @@ namespace UMAPAlgo {
 		kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, k, params, stream);
 		CUDA_CHECK(cudaPeekAtLastError());
 
-		COO<T> rgraph_coo(n*k*2, n, n);
+		COO<T> rgraph_coo;
 
-		FuzzySimplSet::run<TPB_X, T>(rgraph_coo.n_rows,
+		FuzzySimplSet::run<TPB_X, T>(n,
 		                   knn_indices, knn_dists,
 		                   k,
                            &rgraph_coo,
 						   params, stream);
-		CUDA_CHECK(cudaPeekAtLastError());
 
 		/**
 		 * Remove zeros from simplicial set
@@ -141,9 +140,9 @@ namespace UMAPAlgo {
         MLCommon::allocate(row_count, n, true);
 
         COO<T> cgraph_coo;
-        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&rgraph_coo, &cgraph_coo,
+        MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(
+                &rgraph_coo, &cgraph_coo,
                 stream);
-
 
         /**
          * Run initialization method
@@ -161,8 +160,6 @@ namespace UMAPAlgo {
 		        X, n, d,
 		        &cgraph_coo,
 		        params, embeddings, stream);
-
-        CUDA_CHECK(cudaPeekAtLastError());
 
 		CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
@@ -224,8 +221,6 @@ namespace UMAPAlgo {
          * If target metric is 'categorical', perform
          * categorical simplicial set intersection.
          */
-
-
         if(params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
             std::cout << "Performing categorical intersection" << std::endl;
             Supervised::perform_categorical_intersection<TPB_X, T>(
@@ -370,12 +365,14 @@ namespace UMAPAlgo {
         init_transform<TPB_X, T><<<grid_n,blk, 0, stream>>>(graph_coo.cols, vals_normed, graph_coo.n_rows,
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
-
         CUDA_CHECK(cudaPeekAtLastError());
+
         CUDA_CHECK(cudaFree(vals_normed));
 
         //@todo: Write a wrapper function for this
         reset_vals<TPB_X><<<grid_n,blk, 0, stream>>>(ia, n);
+        CUDA_CHECK(cudaPeekAtLastError());
+
 
         /**
          * Go through COO values and set everything that's less than
@@ -403,14 +400,11 @@ namespace UMAPAlgo {
         MLCommon::Sparse::COO<T> comp_coo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&graph_coo, &comp_coo, stream);
 
-        CUDA_CHECK(cudaPeekAtLastError());
-
         T *epochs_per_sample;
         MLCommon::allocate(epochs_per_sample, nnz);
 
         SimplSetEmbedImpl::make_epochs_per_sample(comp_coo.vals, comp_coo.nnz, params->n_epochs,
                                                     epochs_per_sample, stream);
-        CUDA_CHECK(cudaPeekAtLastError());
 
         SimplSetEmbedImpl::optimize_layout<TPB_X, T>(
             transformed, n,
@@ -423,7 +417,6 @@ namespace UMAPAlgo {
             n_epochs,
             stream
         );
-        CUDA_CHECK(cudaPeekAtLastError());
 
         CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
