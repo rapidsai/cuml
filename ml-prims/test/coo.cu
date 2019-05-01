@@ -39,6 +39,48 @@ protected:
 const std::vector<COOInputs<float>> inputsf = {
   {5, 10, 5, 1234ULL}};
 
+typedef COOTest<float> COOSymmetrize;
+TEST_P(COOSymmetrize, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int nnz = 8;
+
+    int *in_rows_h = new int[nnz]    { 0,   0,   1,   1,   2,   2,   3,   3 };
+    int *in_cols_h = new int[nnz]    { 1,   3,   2,   3,   0,   1,   0,   2 };
+    float *in_vals_h = new float[nnz]{ 0.5, 0.5, 0.5, 0.5, 0.5, 0, 0.5, 0.5 };
+
+    int *exp_rows_h = new int[nnz*2]   {1,    0,    0,    0,    0,    1,    0,    0,    3,    1,    0,    0,    2,    0,    2,    3 };
+    int *exp_cols_h = new int[nnz*2]   {0,    1,    0,    0,    3,    2,    0,    0,    1,    3,    0,    0,    1,    0,    3,    2 };
+    float *exp_vals_h = new float[nnz*2] {0.5,  0.5,    0,    0,    1,  0.5,    0,    0,  0.5,  0.5,    0,    0,  0.5,    0,  0.5,  0.5 };
+
+
+    COO<float> expected(exp_rows_h, exp_cols_h, exp_vals_h, nnz*2, 4, 4, false);
+
+    COO<float> in(nnz, 4, 4);
+    updateDevice(in.rows, *&in_rows_h, nnz, stream);
+    updateDevice(in.cols, *&in_cols_h, nnz, stream);
+    updateDevice(in.vals, *&in_vals_h, nnz, stream);
+
+    COO<float> out;
+
+    coo_symmetrize<32, float>(&in, &out,
+            [] __device__ (int row, int col, float val, float trans) { return val+trans; },
+            stream);
+
+    std::cout << out << std::endl;
+
+    ASSERT_TRUE(out.nnz == expected.nnz);
+    ASSERT_TRUE(devArrMatch<int>(out.rows, expected.rows, out.nnz, Compare<int>()));
+    ASSERT_TRUE(devArrMatch<int>(out.cols, expected.cols, out.nnz, Compare<int>()));
+    ASSERT_TRUE(devArrMatch<float>(out.vals, expected.vals, out.nnz, Compare<float>()));
+
+    cudaStreamDestroy(stream);
+}
+
+
+
 typedef COOTest<float> COOSort;
 TEST_P(COOSort, Result) {
 
@@ -85,14 +127,15 @@ TEST_P(COOSort, Result) {
 typedef COOTest<float> COORemoveZeros;
 TEST_P(COORemoveZeros, Result) {
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
     COO<float> in_h(params.nnz, 5, 5, false);
     COO<float> in(params.nnz, 5, 5);
 
     params = ::testing::TestWithParam<COOInputs<float>>::GetParam();
 
     Random::Rng r(params.seed);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     r.uniform(in.vals, params.nnz, float(-1.0), float(1.0), stream);
 
     updateHost(in_h.vals, in.vals, params.nnz, stream);
@@ -126,16 +169,11 @@ TEST_P(COORemoveZeros, Result) {
 
     std::cout << in << std::endl;
 
-    updateDevice(out_ref.rows, *&out_rows_ref_h, 2);
-    updateDevice(out_ref.cols, *&out_cols_ref_h, 2);
-    updateDevice(out_ref.vals, out_vals_ref_h, 2);
-
-    std::cout << out_ref << std::endl;
-
+    updateDevice(out_ref.rows, *&out_rows_ref_h, 2, stream);
+    updateDevice(out_ref.cols, *&out_cols_ref_h, 2, stream);
+    updateDevice(out_ref.vals, out_vals_ref_h, 2, stream);
 
     coo_remove_zeros<32, float>(&in, &out, stream);
-
-    std::cout << out << std::endl;
 
     ASSERT_TRUE(devArrMatch<int>(out_ref.rows, out.rows, 2, Compare<int>()));
     ASSERT_TRUE(devArrMatch<int>(out_ref.cols, out.cols, 2, Compare<int>()));
@@ -214,5 +252,9 @@ INSTANTIATE_TEST_CASE_P(COOTests, COORowCount,
 
 INSTANTIATE_TEST_CASE_P(COOTests, COORowCountNonzero,
                         ::testing::ValuesIn(inputsf));
+
+INSTANTIATE_TEST_CASE_P(COOTests, COOSymmetrize,
+                        ::testing::ValuesIn(inputsf));
+
 }
 }

@@ -74,6 +74,9 @@ TEST_P(CSRRowNormalizeL1, Result) {
 typedef CSRTest<float> CSRSum;
 TEST_P(CSRSum, Result) {
 
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
     int *ex_scan, *ind_ptr_a, *ind_ptr_b,  *verify_indptr;
     float *in_vals_a, *in_vals_b, *verify;
 
@@ -96,13 +99,13 @@ TEST_P(CSRSum, Result) {
     allocate(ind_ptr_a, 10);
     allocate(ind_ptr_b, 10);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4);
-    updateDevice(in_vals_a, *&in_vals_h, 10);
-    updateDevice(in_vals_b, *&in_vals_h, 10);
-    updateDevice(verify, *&verify_h, 14);
-    updateDevice(verify_indptr, *&verify_indptr_h, 14);
-    updateDevice(ind_ptr_a, *&indptr_a_h, 10);
-    updateDevice(ind_ptr_b, *&indptr_b_h, 10);
+    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+    updateDevice(in_vals_a, *&in_vals_h, 10, stream);
+    updateDevice(in_vals_b, *&in_vals_h, 10, stream);
+    updateDevice(verify, *&verify_h, 14, stream);
+    updateDevice(verify_indptr, *&verify_indptr_h, 14, stream);
+    updateDevice(ind_ptr_a, *&indptr_a_h, 10, stream);
+    updateDevice(ind_ptr_b, *&indptr_b_h, 10, stream);
 
     int *result_ind;
     allocate(result_ind, 4);
@@ -130,6 +133,8 @@ TEST_P(CSRSum, Result) {
 
     ASSERT_TRUE(devArrMatch<float>(verify, result_val, nnz, Compare<float>()));
     ASSERT_TRUE(devArrMatch<int>(verify_indptr, result_indptr, nnz, Compare<int>()));
+
+    cudaStreamDestroy(stream);
 
     CUDA_CHECK(cudaFree(ex_scan));
     CUDA_CHECK(cudaFree(in_vals_a));
