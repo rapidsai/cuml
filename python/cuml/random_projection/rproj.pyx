@@ -165,12 +165,12 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        if (isinstance(X, cudf.DataFrame)):
+        if isinstance(X, cudf.DataFrame):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             n_samples = len(X)
             n_features = len(X._cols)
 
-        elif (isinstance(X, np.ndarray)):
+        elif isinstance(X, np.ndarray):
             self.gdf_datatype = X.dtype
             n_samples, n_features = X.shape
 
@@ -208,23 +208,25 @@ cdef class BaseRandomProjection():
             Result of multiplication between input matrix and random matrix
 
         """
-        if (isinstance(X, cudf.DataFrame)):
+
+        if isinstance(X, cudf.DataFrame):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix()
             n_samples = len(X)
             n_features = len(X._cols)
 
-        elif (isinstance(X, np.ndarray)):
+        elif isinstance(X, np.ndarray):
             self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
+            X_m = cuda.to_device(np.array(X, order='F'))
             n_samples, n_features = X.shape
 
         else:
             msg = "X matrix format not supported"
             raise TypeError(msg)
 
-        X_new = cuda.to_device(np.zeros((n_samples,self.params.n_components),
-                                        dtype=self.gdf_datatype))
+        X_new = cuda.device_array((n_samples, self.params.n_components),
+                                        dtype=self.gdf_datatype,
+                                        order='F')
 
         cdef uintptr_t input_ptr = self._get_ctype_ptr(X_m)
         cdef uintptr_t output_ptr = self._get_ctype_ptr(X_new)
@@ -252,8 +254,15 @@ cdef class BaseRandomProjection():
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
+            h_X_new = X_new.copy_to_host()
+            del(X_new)
+            gdf_X_new = cudf.DataFrame()
+            for i in range(0, h_X_new.shape[1]):
+                gdf_X_new[str(i)] = h_X_new[:,i]
+            return gdf_X_new
 
-        return X_new
+        else:
+            return X_new.copy_to_host()
 
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
