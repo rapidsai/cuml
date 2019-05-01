@@ -63,16 +63,20 @@ TEST_P(CSRToCOO, Result) {
 
     std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>()));
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
 
-    cudaStreamDestroy(stream);
 
-    delete ex_scan;
+    std::cout << "Verified!" << std::endl;
+
+    delete ex_scan_h;
     delete verify_h;
 
     CUDA_CHECK(cudaFree(ex_scan));
     CUDA_CHECK(cudaFree(verify));
     CUDA_CHECK(cudaFree(result));
+
+    cudaStreamDestroy(stream);
+
 }
 
 

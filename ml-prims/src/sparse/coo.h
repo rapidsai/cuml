@@ -38,6 +38,10 @@ namespace Sparse {
 
 template<typename T>
 class COO {
+
+
+    protected:
+       bool owner;
     public:
        int *rows;
        int *cols;
@@ -47,23 +51,24 @@ class COO {
        int n_cols;
        bool device;
 
+
        COO(bool device = true): rows(nullptr), cols(nullptr), vals(nullptr),
                nnz(-1), n_rows(-1), n_cols(-1),
-               device(device){}
+               device(device), owner(true){}
 
        COO(int *rows, int *cols, T *vals,
                int nnz, int n_rows = -1, int n_cols = -1,
                bool device = true):
            rows(rows), cols(cols), vals(vals),
            nnz(nnz), n_rows(n_rows), n_cols(n_cols),
-           device(device){}
+           device(device), owner(false){}
 
        COO(int nnz,
                int n_rows = -1, int n_cols = -1,
                bool device = true, bool init = true):
            rows(nullptr), cols(nullptr), vals(nullptr), nnz(nnz),
            n_rows(n_rows), n_cols(n_cols),
-           device(device){
+           device(device), owner(true){
            this->allocate(nnz, n_rows, n_cols, device, init);
        }
 
@@ -71,13 +76,13 @@ class COO {
            this->destroy();
        }
 
-       bool validate_size() {
+       bool validate_size() const {
            if(this->nnz < 0 || n_rows < 0 || n_cols < 0)
                return false;
            return true;
        }
 
-       bool validate_mem() {
+       bool validate_mem() const {
            if(this->rows == nullptr ||
                    this->cols == nullptr ||
                    this->vals == nullptr) {
@@ -87,17 +92,25 @@ class COO {
            return true;
        }
 
-       friend std::ostream & operator << (std::ostream &out, const COO &c) {
+       friend std::ostream & operator << (std::ostream &out, const COO<T> &c) {
 
-           cudaStream_t stream;
-           cudaStreamCreate(&stream);
+           if(c.validate_size() && c.validate_mem() ) {
 
-           out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
-           out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
-           out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
-           out << c.nnz << std::endl;
+               cudaStream_t stream;
+               cudaStreamCreate(&stream);
 
-           cudaStreamDestroy(stream);
+               out << arr2Str(c.rows, c.nnz, "rows", stream) << std::endl;
+               out << arr2Str(c.cols, c.nnz, "cols", stream) << std::endl;
+               out << arr2Str(c.vals, c.nnz, "vals", stream) << std::endl;
+               out << "nnz=" << c.nnz << std::endl;
+               out << "n_rows=" << c.n_rows << std::endl;
+               out << "n_cols=" << c.n_cols << std::endl;
+               out << "owner=" << c.owner << std::endl;
+
+               cudaStreamDestroy(stream);
+           } else {
+               out << "Cannot print COO object: Uninitialized or invalid." << std::endl;
+           }
 
            return out;
        }
@@ -130,6 +143,7 @@ class COO {
            this->n_rows = n_rows;
            this->n_cols = n_cols;
            this->nnz = nnz;
+           this->owner = true;
 
            if(device) {
                MLCommon::allocate(this->rows, this->nnz, init);
@@ -144,37 +158,38 @@ class COO {
 
        void destroy() {
 
-           try {
-               if(rows != nullptr) {
-                   if(this->device)
-                       CUDA_CHECK(cudaFree(rows));
-                   else
-                       free(rows);
+           if(this->owner) {
+               try {
+                   if(rows != nullptr) {
+                       if(this->device)
+                           CUDA_CHECK(cudaFree(rows));
+                       else
+                           free(rows);
+                   }
+
+                   if(cols != nullptr) {
+                       if(this->device)
+                           CUDA_CHECK(cudaFree(cols));
+                       else
+                           free(cols);
+                   }
+
+                   if(vals != nullptr) {
+                       if(this->device)
+                           CUDA_CHECK(cudaFree(vals));
+                       else
+                           free(vals);
+                   }
+
+                   rows = nullptr;
+                   cols = nullptr;
+                   vals = nullptr;
+
+               } catch(Exception &e) {
+                   std::cout << "An exception occurred freeing COO memory" << std::endl;
                }
-
-               if(cols != nullptr) {
-                   if(this->device)
-                       CUDA_CHECK(cudaFree(cols));
-                   else
-                       free(cols);
-               }
-
-               if(vals != nullptr) {
-                   if(this->device)
-                       CUDA_CHECK(cudaFree(vals));
-                   else
-                       free(vals);
-               }
-
-               rows = nullptr;
-               cols = nullptr;
-               vals = nullptr;
-
-           } catch(Exception &e) {
-               std::cout << "An exception occurred freeing COO memory" << std::endl;
            }
        }
-
 };
 
 template<typename T>
