@@ -198,11 +198,12 @@ namespace UMAPAlgo {
         kNNGraph::run(X, n,d, knn_indices, knn_dists, knn, k, params, stream);
         CUDA_CHECK(cudaPeekAtLastError());
 
+
         /**
          * Allocate workspace for fuzzy simplicial set.
          */
         COO<T> rgraph_coo;
-        COO<T> tmp_coo(n*k*2, n, n);
+        COO<T> tmp_coo;
 
         /**
          * Run Fuzzy simplicial set
@@ -251,12 +252,16 @@ namespace UMAPAlgo {
         COO<T> ocoo;
         MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(&final_coo, &ocoo, stream);
 
+        if(params->verbose)
+            std::cout << ocoo << std::endl;
+
         /**
          * Initialize embeddings
          */
         InitEmbed::run(X, n, d,
                 knn_indices, knn_dists, &ocoo,
-                params, embeddings, stream, params->init);
+                params, embeddings, stream,
+                params->init);
 
         // @todo: We need to add some noise to this, similar to Leland's impl
 
@@ -266,7 +271,8 @@ namespace UMAPAlgo {
         SimplSetEmbed::run<TPB_X, T>(
                 X, n, d,
                 &ocoo,
-                params, embeddings,
+                params,
+                embeddings,
                 stream);
 
         CUDA_CHECK(cudaPeekAtLastError());

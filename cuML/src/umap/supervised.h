@@ -78,7 +78,7 @@ namespace UMAPAlgo {
         __global__ void reset_membership_strengths_kernel(
                 int *row_ind,
                 int *rows, int *cols, T *vals,
-                int *orows, int *ocols, T *ovals, int *rnnz,
+                int *orows, int *ocols, T *ovals,
                 int n, int cnnz) {
 
             int row = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -110,7 +110,6 @@ namespace UMAPAlgo {
                         }
                     }
 
-
                     // if we didn't find an exact match, we need to add
                     // the transposed value into our current matrix.
                     if (!found_match && vals[idx] != 0.0) {
@@ -136,23 +135,23 @@ namespace UMAPAlgo {
                         ++nnz;
                     }
                 }
-
-                rnnz[row] = nnz;
-                atomicAdd(rnnz + n, nnz); // fused operation to count number of nonzeros
             }
         }
 
         template<typename T, int TPB_X>
         void reset_local_connectivity(
-            int *row_ind,
             COO<T> *in_coo,
             COO<T> *out_coo,
-            int *rnnz,
             cudaStream_t stream// size = nnz*2
         ) {
 
             dim3 grid_n(MLCommon::ceildiv(in_coo->n_rows, TPB_X), 1, 1);
             dim3 blk_n(TPB_X, 1, 1);
+
+            int *row_ind;
+            MLCommon::allocate(row_ind, in_coo->n_rows);
+
+            MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind, stream);
 
             // Perform l_inf normalization
             MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(
@@ -165,15 +164,26 @@ namespace UMAPAlgo {
             );
             CUDA_CHECK(cudaPeekAtLastError());
 
-            out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
+            MLCommon::Sparse::coo_symmetrize<TPB_X, T>(in_coo, out_coo,
+                    [] __device__(int row, int col, T result, T transpose) {
 
-            // reset membership strengths
-            reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n, 0, stream>>>(
-                row_ind,
-                in_coo->rows, in_coo->cols, in_coo->vals,
-                out_coo->rows, out_coo->cols, out_coo->vals, rnnz,
-                in_coo->n_rows, in_coo->nnz
-            );
+                        printf("row=%d, col=%d, val=%f, trans=%f\n", row, col, result, transpose);
+
+                        T prod_matrix = result * transpose;
+                        return result + transpose - prod_matrix;
+                    },
+                    stream);
+
+
+//            out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
+//
+//            reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n, 0, stream>>>(
+//                row_ind,
+//                in_coo->rows, in_coo->cols, in_coo->vals,
+//                out_coo->rows, out_coo->cols, out_coo->vals,
+//                in_coo->n_rows, in_coo->nnz
+//            );
+            CUDA_CHECK(cudaFree(row_ind));
             CUDA_CHECK(cudaPeekAtLastError());
         }
 
@@ -339,28 +349,13 @@ namespace UMAPAlgo {
             COO<T> comp_coo;
             coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, stream);
 
-
-            int *result_ind;
-            MLCommon::allocate(result_ind, rgraph_coo->n_rows, true);
-
-            MLCommon::Sparse::sorted_coo_to_csr(&comp_coo, result_ind, stream);
-
-            // reset local connectivity
-            int *final_nnz;
-            MLCommon::allocate(final_nnz, rgraph_coo->n_rows+1, true);
-
             reset_local_connectivity<T, TPB_X>(
-                result_ind,
                 &comp_coo,
                 final_coo,
-                final_nnz,
                 stream
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
-
-            CUDA_CHECK(cudaFree(result_ind));
-            CUDA_CHECK(cudaFree(final_nnz));
         }
 
 
@@ -387,11 +382,18 @@ namespace UMAPAlgo {
                     params->target_n_neighbors, params, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
+
+            if(params->verbose) {
+                std::cout << "Target kNN Graph" << std::endl;
+                std::cout << MLCommon::arr2Str(y_knn_indices, rgraph_coo->n_rows*params->target_n_neighbors, "knn_indices") << std::endl;
+                std::cout << MLCommon::arr2Str(y_knn_dists, rgraph_coo->n_rows*params->target_n_neighbors, "knn_dists") << std::endl;
+            }
+
+
             /**
              * Compute fuzzy simplicial set
              */
-            COO<T> ygraph_coo(knn_dims*2, rgraph_coo->n_rows, rgraph_coo->n_rows);
-
+            COO<T> ygraph_coo;
             FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows,
                                y_knn_indices, y_knn_dists,
                                params->target_n_neighbors,
@@ -402,6 +404,11 @@ namespace UMAPAlgo {
             CUDA_CHECK(cudaFree(y_knn_indices));
             CUDA_CHECK(cudaFree(y_knn_dists));
 
+
+            if(params->verbose) {
+                std::cout << "Target Fuzzy Simplicial Set" << std::endl;
+                std::cout << ygraph_coo << std::endl;
+            }
 
             /**
              * Compute general simplicial set intersection.
@@ -436,26 +443,13 @@ namespace UMAPAlgo {
 
             result_coo.destroy();
 
-            int *out_row_ind;
-            MLCommon::allocate(out_row_ind, out.n_rows);
-
-            MLCommon::Sparse::sorted_coo_to_csr(&out, out_row_ind, stream);
-
-            int *final_nnz;
-            MLCommon::allocate(final_nnz, rgraph_coo->n_rows+1, true);
-
             reset_local_connectivity<T, TPB_X>(
-                out_row_ind,
                 &out,
                 final_coo,
-                final_nnz,
                 stream
             );
 
             CUDA_CHECK(cudaPeekAtLastError());
-
-            CUDA_CHECK(cudaFree(out_row_ind));
-            CUDA_CHECK(cudaFree(final_nnz));
         }
     }
 }

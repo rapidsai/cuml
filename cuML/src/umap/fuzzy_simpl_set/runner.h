@@ -50,7 +50,7 @@ namespace FuzzySimplSet {
 			Naive::launcher<TPB_X, T>(n,
 			               knn_indices, knn_dists,
 			               n_neighbors,
-					       coo->rows, coo->cols, coo->vals,
+					       coo,
 					       params, stream);
 			break;
 		}
