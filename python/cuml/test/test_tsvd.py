@@ -25,7 +25,7 @@ from sklearn.datasets.samples_generator import make_blobs
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
+def test_tsvd_fit(datatype, input_type, run_stress, run_quality):
 
     n_samples = 10000
     n_feats = 50
@@ -33,7 +33,7 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
         X, y = make_blobs(n_samples=n_samples*50,
                           n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
@@ -66,14 +66,14 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_correctness_test):
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_tsvd_fit_transform(datatype, input_type,
-                            run_stress, run_correctness_test):
+                            run_stress, run_quality):
     n_samples = 10000
     n_feats = 50
     if run_stress:
         X, y = make_blobs(n_samples=n_samples*50,
                           n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
@@ -102,7 +102,7 @@ def test_tsvd_fit_transform(datatype, input_type,
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_tsvd_inverse_transform(datatype, input_type,
-                                run_stress, run_correctness_test):
+                                run_stress, run_quality):
 
     n_samples = 10000
     n_feats = 50
@@ -110,7 +110,7 @@ def test_tsvd_inverse_transform(datatype, input_type,
         X, y = make_blobs(n_samples=n_samples*50,
                           n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         shape = n_samples, n_feats
         rng = check_random_state(42)
         X = rng.randint(-100, 20, np.product(shape)).reshape(shape)
