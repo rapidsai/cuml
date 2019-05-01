@@ -14,11 +14,8 @@
 #
 
 
-
-"""
-Please install UMAP before running the code 
-use 'conda install -c conda-forge umap-learn' command to install it
-"""
+# Please install UMAP before running the code
+# use 'conda install -c conda-forge umap-learn' command to install it
 
 import pytest
 from cuml.test.utils import array_equal
@@ -36,22 +33,23 @@ from sklearn.datasets.samples_generator import make_blobs
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
-#@pytest.mark.parametrize('name', dataset_names)
+
 def test_umap_fit_transform_score(run_stress, run_correctness_test):
 
-    if run_stress == True:
+    if run_stress:
         n_samples = 500000
         n_features = 1000
 
-    elif run_correctness_test == True:
+    elif run_correctness_test:
         n_samples = 5000
         n_features = 100
+
     else:
         n_samples = 500
         n_features = 10
 
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
-        centers=10, random_state=42)
+                              centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
     cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
@@ -60,12 +58,12 @@ def test_umap_fit_transform_score(run_stress, run_correctness_test):
     cuml_embedding = cuml_model.fit_transform(data)
 
     cuml_score = adjusted_rand_score(labels,
-                                KMeans(10).fit_predict(cuml_embedding))
-    score = adjusted_rand_score(labels, 
-                                KMeans(10).fit_predict(cuml_embedding))
-
+                                     KMeans(10).fit_predict(cuml_embedding))
+    score = adjusted_rand_score(labels,
+                                KMeans(10).fit_predict(embedding))
 
     assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
@@ -79,20 +77,20 @@ def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
         digits = datasets.load_digits(n_class=5)
         data = digits.data
         labels = digits.target
-      
+
     elif name == 'wine':
         wine = datasets.load_wine()
         data = wine.data
         labels = wine.target
     else:
-        data, labels = make_blobs(n_samples=5000, n_features=100,
-            centers=10, random_state=42)
+        data, labels = make_blobs(n_samples=5000, n_features=10,
+                                  centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
     cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
-    
+
     trust = trustworthiness(data, embedding, 10)
     cuml_trust = trustworthiness(data, cuml_embedding, 10)
 
@@ -101,29 +99,31 @@ def test_umap_fit_transform_trust(name, run_stress, run_correctness_test):
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctness_test):
+def test_umap_data_formats(input_type, should_downcast,
+                           run_stress, run_correctness_test):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = 50000
     n_feats = 50
-    if run_stress == True:
-        X, y = datasets.make_blobs(n_samples=n_samples*10, 
-            n_features=n_feats, random_state=0) 
+    if run_stress:
+        X, y = datasets.make_blobs(n_samples=n_samples*10,
+                                   n_features=n_feats, random_state=0)
 
-    elif run_correctness_test == True:
+    elif run_correctness_test:
         X, y = datasets.make_blobs(n_samples=int(n_samples/10),
-            n_features=n_feats,random_state=0) 
-    
+                                   n_features=n_feats, random_state=0)
+
     else:
         # For now, FAISS based nearest_neighbors only supports single precision
         digits = datasets.load_digits(n_class=9)
         X = digits["data"].astype(dtype)
 
     umap = UMAP_cuml(n_neighbors=3, n_components=2,
-                should_downcast=should_downcast)
+                     should_downcast=should_downcast)
 
     if input_type == 'dataframe':
-        X_pd = pd.DataFrame({'fea%d'%i:X[0:,i] for i in range(X.shape[1])})
+        X_pd = pd.DataFrame(
+               {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X_pd)
         embeds = umap.fit_transform(X_cudf)
         assert type(embeds) == cudf.DataFrame
@@ -137,17 +137,17 @@ def test_umap_data_formats(input_type, should_downcast, run_stress, run_correctn
 def test_umap_downcast_fails(input_type, run_stress, run_correctness_test):
     n_samples = 50000
     n_feats = 50
-    if run_stress == True:
+    if run_stress:
         X, y = datasets.make_blobs(n_samples=n_samples*10,
-            n_features=n_feats,random_state=0) 
+                                   n_features=n_feats, random_state=0)
 
-    elif run_correctness_test == True:
+    elif run_correctness_test:
         X, y = datasets.make_blobs(n_samples=int(n_samples/10),
-            n_features=n_feats,random_state=0) 
-    
+                                   n_features=n_feats, random_state=0)
+
     else:
-        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]], 
-            dtype=np.float64)
+        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]],
+                     dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
     umap = UMAP_cuml(should_downcast=False)
