@@ -31,6 +31,12 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+if(NOT DEFINED LAPACK_LIBRARIES)
+  find_package( LAPACK REQUIRED )
+else()
+  message(STATUS "Manually setting LAPACK to ${LAPACK_LIBRARIES}")
+endif()
+
 find_package(CUDA 9.0 REQUIRED)
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
@@ -166,7 +172,7 @@ endif(NOT CMAKE_CXX11_ABI)
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${CMAKE_INSTALL_PREFIX}/lib/libopenblas.a --with-lapack=${CMAKE_INSTALL_PREFIX}/lib/liblapacke.so --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-lapack=${LAPACK_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
