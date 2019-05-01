@@ -75,14 +75,14 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_nn_downcast_fails(input_type, run_stress, run_correctness_test):
+def test_nn_downcast_fails(input_type, run_stress, run_quality):
     n_samples = 10000
     n_feats = 50
     if run_stress:
         X, y = make_blobs(n_samples=n_samples*50,
                           n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
