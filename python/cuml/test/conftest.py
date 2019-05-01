@@ -6,8 +6,8 @@ def pytest_addoption(parser):
                      default=False, help="run correctness tests")
     parser.addoption("--run_stress", action="store_true",
                      default=False, help="run stress tests")
-    
-    
+
+
 @pytest.fixture
 def run_stress(request):
     return request.config.getoption("--run_stress")
