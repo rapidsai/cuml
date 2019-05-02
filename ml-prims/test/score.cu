@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "score/metrics.h"
+#include "score/score.h"
 #include <gtest/gtest.h>
 #include "random/rng.h"
 #include "test_utils.h"
