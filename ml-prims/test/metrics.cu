@@ -48,8 +48,8 @@ TEST(MetricsTestHighScore, Result) {
     float *d_y_hat;
     MLCommon::allocate(d_y_hat, 5);
 
-    MLCommon::updateDevice(d_y_hat, y_hat, 5);
-    MLCommon::updateDevice(d_y, y, 5);
+    MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
+    MLCommon::updateDevice(d_y, y, 5, stream);
 
     float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
     ASSERT_TRUE(result == 0.98f);
@@ -70,8 +70,8 @@ TEST(MetricsTestLowScore, Result) {
     float *d_y_hat;
     MLCommon::allocate(d_y_hat, 5);
 
-    MLCommon::updateDevice(d_y_hat, y_hat, 5);
-    MLCommon::updateDevice(d_y, y, 5);
+    MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
+    MLCommon::updateDevice(d_y, y, 5, stream);
 
     float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
 
