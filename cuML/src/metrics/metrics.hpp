@@ -32,6 +32,7 @@ namespace ML {
          * in a linear regression model. The larger the R-squared value, the
          * more variability is explained by the linear regression model.
          *
+         * @param handle: cumlHandle
          * @param y: Array of ground-truth response variables
          * @param y_hat: Array of predicted response variables
          * @param n: Number of elements in y and y_hat
@@ -50,6 +51,7 @@ namespace ML {
          * in a linear regression model. The larger the R-squared value, the
          * more variability is explained by the linear regression model.
          *
+         * @param handle: cumlHandle
          * @param y: Array of ground-truth response variables
          * @param y_hat: Array of predicted response variables
          * @param n: Number of elements in y and y_hat
