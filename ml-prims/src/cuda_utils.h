@@ -186,6 +186,45 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   } while (assumed != old);
 }
 
+
+/**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val);
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val);
+
+DI float myAtomicMin(float *address, float val) {
+    myAtomicReduce(address, val, fminf);
+    return *address;
+}
+
+DI float myAtomicMax(float *address, float val) {
+    myAtomicReduce(address, val, fmaxf);
+    return *address;
+}
+
+DI double myAtomicMin(double *address, double val) {
+    myAtomicReduce<double(double, double)>(address, val, fmin);
+    return *address;
+}
+
+DI double myAtomicMax(double *address, double val) {
+    myAtomicReduce<double(double, double)>(address, val, fmax);
+    return *address;
+}
+
 /**
  * @defgroup Max maximum of two numbers
  * @{
@@ -203,14 +242,6 @@ HDI double myMax<double>(double x, double y) {
 /** @} */
 
 /**
- * Sign function
- */
-template <typename T>
-HDI int sgn(const T val) {
-  return (T(0) < val) - (val < T(0));
-}
-
-/**
  * @defgroup Min minimum of two numbers
  * @{
  */
@@ -225,6 +256,38 @@ HDI double myMin<double>(double x, double y) {
   return fmin(x, y);
 }
 /** @} */
+
+/**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val) {
+    myAtomicReduce(address, val, myMin<T>);
+    return *address;
+}
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val) {
+    myAtomicReduce(address, val, myMax<T>);
+    return *address;
+}
+
+/**
+ * Sign function
+ */
+template <typename T>
+HDI int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
 
 /**
  * @defgroup Exp Exponential function
