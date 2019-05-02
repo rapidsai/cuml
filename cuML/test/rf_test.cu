@@ -66,24 +66,24 @@ protected:
 		int data_len = params.n_rows * params.n_cols;
 		allocate(data, data_len);
 		allocate(labels, params.n_rows);
+                cudaStream_t stream;
+                CUDA_CHECK(cudaStreamCreate(&stream) );
 
 		// Populate data (assume Col major)
 		std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
 		data_h.resize(data_len);
-	    updateDevice(data, data_h.data(), data_len);
+	    updateDevice(data, data_h.data(), data_len, stream);
 
 		// Populate labels
 		labels_h = {0, 1, 0, 4};
 		labels_h.resize(params.n_rows);
 		preprocess_labels(params.n_rows, labels_h, labels_map);
-	    updateDevice(labels, labels_h.data(), params.n_rows);
+	    updateDevice(labels, labels_h.data(), params.n_rows, stream);
 
 		rf_classifier = new typename rfClassifier<T>::rfClassifier(rf_params);
 
 		cumlHandle handle;
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream) );
-		handle.setStream(stream);
+                handle.setStream(stream);
 
 		fit(handle, rf_classifier, data, params.n_rows, params.n_cols, labels, labels_map.size());
 
