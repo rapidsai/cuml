@@ -15,119 +15,84 @@
 
 import pytest
 from cuml import DBSCAN as cuDBSCAN
-from cuml.test.utils import get_handle
 from sklearn.cluster import DBSCAN as skDBSCAN
+from sklearn.datasets.samples_generator import make_blobs
+import pandas as pd
 import cudf
 import numpy as np
-
 from sklearn.preprocessing import StandardScaler
-
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
-dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
-                 'no_structure']
+
+dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
+                 'noisy_circles', 'no_structure']
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('use_handle', [True, False])
-def test_dbscan_predict(datatype, input_type, use_handle):
+def test_dbscan_predict(datatype, input_type, run_stress,
+                        run_quality):
+    n_samples = 10000
+    n_feats = 50
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
+    elif run_quality:
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
 
-    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
-                 dtype=datatype)
-    skdbscan = skDBSCAN(eps=3, min_samples=2)
+    else:
+        X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
+                     dtype=datatype)
+    skdbscan = skDBSCAN(eps=3, min_samples=10)
     sk_labels = skdbscan.fit_predict(X)
-
-    handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2)
-
+    cudbscan = cuDBSCAN(eps=3, min_samples=10)
     if input_type == 'dataframe':
-        gdf = cudf.DataFrame()
-        gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
-        gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
-        cu_labels = cudbscan.fit_predict(gdf)
+        X = pd.DataFrame(
+            {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X)
+        cu_labels = cudbscan.fit_predict(X_cudf)
     else:
         cu_labels = cudbscan.fit_predict(X)
-    cudbscan.handle.sync()
 
     for i in range(X.shape[0]):
         assert cu_labels[i] == sk_labels[i]
-
-
-@pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('use_handle', [True, False])
-def test_dbscan_predict_numpy(datatype, use_handle):
-    gdf = cudf.DataFrame()
-    gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
-    gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
-
-    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
-                 dtype=datatype)
-
-    print("Calling fit_predict")
-    handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2)
-    cu_labels = cudbscan.fit_predict(gdf)
-    skdbscan = skDBSCAN(eps=3, min_samples=2)
-    sk_labels = skdbscan.fit_predict(X)
-    print(X.shape[0])
-    cudbscan.handle.sync()
-    for i in range(X.shape[0]):
-        assert cu_labels[i] == sk_labels[i]
-
-
-def test_dbscan_predict_multiple_streams():
-    datatype = np.float32
-    gdf = cudf.DataFrame()
-    gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
-    gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
-
-    X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
-                 dtype=datatype)
-
-    skdbscan = skDBSCAN(eps=3, min_samples=2)
-    sk_labels = skdbscan.fit_predict(X)
-
-    handle1, stream1 = get_handle(True)
-    handle2, stream2 = get_handle(True)
-    cudbscan1 = cuDBSCAN(handle=handle1, eps=3, min_samples=2)
-    cudbscan2 = cuDBSCAN(handle=handle2, eps=3, min_samples=2)
-    cu_labels1 = cudbscan1.fit_predict(gdf)
-    cu_labels2 = cudbscan2.fit_predict(gdf)
-    cudbscan1.handle.sync()
-    cudbscan2.handle.sync()
-    for i in range(X.shape[0]):
-        assert cu_labels1[i] == sk_labels[i]
-        assert cu_labels2[i] == sk_labels[i]
 
 
 @pytest.mark.parametrize("name", [
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
-@pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.stress
-def test_dbscan_sklearn_comparison(name, use_handle):
-    # Skipping datasets of known discrepancies in PR83 while they are corrected
+def test_dbscan_sklearn_comparison(name, run_stress, run_quality):
     default_base = {'quantile': .3,
                     'eps': .3,
                     'damping': .9,
                     'preference': -200,
                     'n_neighbors': 10,
-                    'n_clusters': 3}
+                    'n_clusters': 20}
+    n_samples = 10000
+    if run_stress:
+        pat = get_pattern(name, n_samples*50)
+        params = default_base.copy()
+        params.update(pat[1])
+        X, y = pat[0]
 
-    pat = get_pattern(name, 1500)
+    elif run_quality:
+        pat = get_pattern(name, n_samples)
+        params = default_base.copy()
+        params.update(pat[1])
+        X, y = pat[0]
 
-    params = default_base.copy()
-    params.update(pat[1])
-
-    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
-    handle, stream = get_handle(use_handle)
-    cuml_dbscan = cuDBSCAN(handle=handle, eps=params['eps'], min_samples=5)
-
-    X, y = pat[0]
+    else:
+        pat = get_pattern(name, np.int32(n_samples/2))
+        params = default_base.copy()
+        params.update(pat[1])
+        X, y = pat[0]
 
     X = StandardScaler().fit_transform(X)
+
+    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+    cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
 
     clustering_algorithms = (
         ('sk_DBSCAN', dbscan),
@@ -139,8 +104,6 @@ def test_dbscan_sklearn_comparison(name, use_handle):
 
     cu_y_pred, cu_n_clusters = fit_predict(clustering_algorithms[1][1],
                                            clustering_algorithms[1][0], X)
-
-    cuml_dbscan.handle.sync()
 
     assert(sk_n_clusters == cu_n_clusters)
 
