@@ -52,16 +52,16 @@ protected:
         // make testdata on host
         std::vector<T> h_srcdata = {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
         h_srcdata.resize(n * m);
-        updateDevice(d_srcdata, h_srcdata.data(), m*n);
+        updateDevice(d_srcdata, h_srcdata.data(), m*n, stream);
 
         // make and assign reference output
         std::vector<int> h_labels_ref_fit = {1, 1, 0, 0};
         h_labels_ref_fit.resize(m);
-        updateDevice(labels_ref_fit, h_labels_ref_fit.data(), m);
+        updateDevice(labels_ref_fit, h_labels_ref_fit.data(), m, stream);
 
         std::vector<T> h_centroids_ref = {3.5,2.5, 1.0,1.5};
         h_centroids_ref.resize(k * n);
-        updateDevice(centroids_ref, h_centroids_ref.data(), k * n);
+        updateDevice(centroids_ref, h_centroids_ref.data(), k * n, stream);
 
         // The actual kmeans api calls
         // fit
@@ -71,7 +71,8 @@ protected:
     }
 
  	void SetUp() override {
-		basicTest();
+            CUDA_CHECK(cudaStreamCreate(&stream));
+            basicTest();
 	}
 
 	void TearDown() override {
@@ -80,7 +81,7 @@ protected:
 		CUDA_CHECK(cudaFree(pred_centroids));
 		CUDA_CHECK(cudaFree(labels_ref_fit));
 		CUDA_CHECK(cudaFree(centroids_ref));
-
+                CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -95,6 +96,7 @@ protected:
     char ord = 'c'; // here c means col order, NOT C (vs F) order
     int max_iterations = 300;
     int init_from_data = 0;
+    cudaStream_t stream;
 };
 
 const std::vector<KmeansInputs<float> > inputsf2 = {

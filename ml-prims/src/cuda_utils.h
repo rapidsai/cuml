@@ -84,12 +84,13 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name) {
+std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream) {
 
     std::stringstream ss;
 
     T* arr_h = (T*)malloc(size * sizeof(T));
-    updateHost(arr_h, arr, size);
+    updateHost(arr_h, arr, size, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
