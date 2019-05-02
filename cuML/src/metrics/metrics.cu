@@ -25,11 +25,11 @@ namespace ML {
     namespace Metrics {
 
         float r2_score_py(const cumlHandle& handle, float *y, float *y_hat, int n){
-            return MLCommon::Metrics::r2_score(y, y_hat, n, handle.getStream());
+            return MLCommon::Score::r2_score(y, y_hat, n, handle.getStream());
         }
 
         double r2_score_py(const cumlHandle& handle, double *y, double *y_hat, int n){
-            return MLCommon::Metrics::r2_score(y, y_hat, n, handle.getStream());
+            return MLCommon::Score::r2_score(y, y_hat, n, handle.getStream());
         }
 
     }

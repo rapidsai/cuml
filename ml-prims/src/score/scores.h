@@ -27,7 +27,7 @@
 #include <thrust/device_ptr.h>
 
 namespace MLCommon {
-    namespace Metrics {
+    namespace Score {
         template<typename math_t>
 
         /**
