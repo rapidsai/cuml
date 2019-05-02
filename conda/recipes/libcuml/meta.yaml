@@ -28,6 +28,7 @@ requirements:
   build:
     - cmake>=3.12.4
     - cudf 0.7*
+    - lapack
   run:
     - cudf 0.7*
 

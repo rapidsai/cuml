@@ -26,6 +26,7 @@ add_executable(mlcommon_test
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
+  columnSort.cu
   coo.cu
   cov.cu
   csr.cu
