@@ -24,18 +24,19 @@ namespace ML {
 using namespace Dbscan;
 
 
-int computeBatchCount(int n_rows) {
+int computeBatchCount(int n_rows,
+        size_t max_elems = (size_t)1024 * 1024 * 1024 * 2 // 2e9
+        ) {
 
     int n_batches = 1;
     // There seems to be a weird overflow bug with cutlass gemm kernels
     // hence, artifically limiting to a smaller batchsize!
     ///TODO: in future, when we bump up the underlying cutlass version, this should go away
     // paving way to cudaMemGetInfo based workspace allocation
-    static const size_t MaxElems = (size_t)1024 * 1024 * 1024 * 2;  // 2e9
     while(true) {
 
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-        if(batchSize * n_rows < MaxElems)
+        if(batchSize * n_rows < max_elems)
             break;
         ++n_batches;
     }
@@ -44,11 +45,16 @@ int computeBatchCount(int n_rows) {
 }
 
 template<typename T>
-void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels, cudaStream_t stream) {
+void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input,
+        int n_rows, int n_cols,
+        T eps, int min_pts,
+        int *labels,
+        size_t max_elems,
+        cudaStream_t stream) {
     int algoVd = 1;
     int algoAdj = 1;
     int algoCcl = 2;
-    int n_batches = computeBatchCount(n_rows);
+    int n_batches = computeBatchCount(n_rows, max_elems);
     size_t workspaceSize = Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts,
                                        labels, algoVd, algoAdj, algoCcl, NULL,
                                        n_batches, stream);

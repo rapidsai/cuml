@@ -26,27 +26,27 @@ using namespace Dbscan;
 
 
 void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+		       int *labels, size_t max_elems) {
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_elems, handle.getStream());
 }
 
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, handle.getStream());
+		       int *labels, size_t max_elems) {
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_elems, handle.getStream());
 }
 
 }; // end namespace ML
 
 
 extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
-               int *labels) {
+               int *labels, size_t max_elems) {
     cumlError_t status;
     ML::cumlHandle *handle_ptr;
     std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
     if (status == CUML_SUCCESS) {
         try
         {
-            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels);
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_elems);
         }
         //TODO: Implement this
         //catch (const MLCommon::Exception& e)
@@ -64,14 +64,14 @@ extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_
 }
 
 extern "C" cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
-               int *labels) {
+               int *labels, size_t max_elems) {
     cumlError_t status;
     ML::cumlHandle *handle_ptr;
     std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
     if (status == CUML_SUCCESS) {
         try
         {
-            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels);
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_elems);
         }
         //TODO: Implement this
         //catch (const MLCommon::Exception& e)

@@ -43,7 +43,8 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                    int n_cols,
                    float eps,
                    int min_pts,
-                   int *labels)
+                   int *labels,
+                   size_t max_elems)
 
     cdef void dbscanFit(cumlHandle& handle,
                    double *input,
@@ -51,7 +52,8 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                    int n_cols,
                    double eps,
                    int min_pts,
-                   int *labels)
+                   int *labels,
+                   size_t max_elems)
 
 
 class DBSCAN(Base):
@@ -103,6 +105,9 @@ class DBSCAN(Base):
         an important core point (including the point itself).
     verbose : bool
         Whether to print debug spews
+    max_elems_per_batch : int64
+        Calculate batch size using no more than this number of elements. This enables
+        the trade-off between runtime and memory usage.
 
     Attributes
     -----------
@@ -126,12 +131,13 @@ class DBSCAN(Base):
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False):
+    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_elems_per_batch = 2e6):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
         self.labels_array = None
+        self.max_elems_per_batch = max_elems_per_batch
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -189,7 +195,8 @@ class DBSCAN(Base):
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
-                       <int*> labels_ptr)
+                               <int*> labels_ptr,
+                               <size_t>max_elems_per_batch)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
@@ -197,7 +204,8 @@ class DBSCAN(Base):
                                <int> self.n_cols,
                                <double> self.eps,
                                <int> self.min_samples,
-                       <int*> labels_ptr)
+                               <int*> labels_ptr,
+                               <size_t> max_elems_per_batch)
         # make sure that the `dbscanFit` is complete before the following delete
         # call happens
         self.handle.sync()
