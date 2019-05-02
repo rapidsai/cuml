@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -54,6 +54,7 @@ add_executable(mlcommon_test
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
+  minmax.cu
   mvg.cu
   multiply.cu
   norm.cu
