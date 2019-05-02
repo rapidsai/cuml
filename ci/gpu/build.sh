@@ -36,7 +36,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} cudf=${CUDF_VERSION} rmm=${RMM_VERSION} nvstrings=${NVSTRINGS_VERSION}
-conda install -c conda-forge lapack
+conda install -c conda-forge lapack cmake==3.14.3
 
 logger "Check versions..."
 python --version
@@ -67,7 +67,7 @@ logger "Build libcuml..."
 mkdir -p $WORKSPACE/cuML/build
 cd $WORKSPACE/cuML/build
 logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON $GPU_ARCH ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH ..
 
 logger "Clean up make..."
 make clean
