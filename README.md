@@ -56,15 +56,24 @@ More ML algorithms in cuML and more ML primitives in ml-prims are being worked o
 
 ## Installation
 
-Ensure `libomp` and `libopenblas` are installed, for example via apt:
+1. Install NVIDIA drivers with CUDA 9.2 or 10.0 
+2. Ensure `libomp` and `libopenblas` are installed, for example via apt:
 ```bash
 sudo apt install libopenblas-base libomp-dev
 ```
 
 #### Conda
 cuML can be installed using the `rapidsai` conda channel:
+
+CUDA 9.2
 ```bash
-conda install -c nvidia -c rapidsai -c conda-forge cuml
+
+conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=9.2
+```
+
+CUDA 10.0
+```bash
+conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=10.0
 ```
 
 ## Build/Install from Source

@@ -31,12 +31,14 @@ requirements:
     - cudf 0.7*
     - libcuml={{ version }}
     - libcumlMG
+    - cudatoolkit {{ cuda_version }}.*
   run:
     - python x.x
     - setuptools
     - cudf 0.7*
     - libcuml={{ version }}
     - libcumlMG
+    - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
   home: http://rapids.ai/
