@@ -13,8 +13,10 @@
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
 - PR #520: Add local build script to mimic gpuCI
+- PR #503: Added column-wise matrix sort primitive
 
 ## Improvements
 
@@ -33,6 +35,7 @@
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
 - PR #512: generic copy method for copying buffers between device/host
+- PR #524: Use cmake find blas and find lapack to pass configure options to faiss
 
 ## Bug Fixes
 
@@ -61,6 +64,7 @@
 - PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
+- PR #531: Fixing missing arguments in updateDevice() for RF
 
 # cuML 0.6.0 (22 Mar 2019)
 
