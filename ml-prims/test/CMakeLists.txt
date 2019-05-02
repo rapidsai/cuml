@@ -50,7 +50,6 @@ add_executable(mlcommon_test
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
-  metrics.cu
   mvg.cu
   multiply.cu
   norm.cu
@@ -74,6 +73,7 @@ add_executable(mlcommon_test
   log.cu
   logisticReg.cu
   penalty.cu
+  score.cu
   sigmoid.cu
   weighted_mean.cu
   )
