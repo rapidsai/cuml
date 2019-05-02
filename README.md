@@ -38,25 +38,25 @@ For additional examples, browse our complete [API documentation](https://docs.ra
 
 | Algorithm | Scale | Notes |
 | --- | --- | --- |
-| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
-| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
 | Coordinate Descent | Single-GPU | |
-| Ridge Regression | Single-GPU |
-| UMAP | Single-GPU |
 | Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
 | K-Means Clustering | Single-GPU |
 | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
-| Principal Component Analysis (PCA) | Single GPU |
-| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
 | Linear Kalman Filter | Single-GPU |
+| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| Principal Component Analysis (PCA) | Single GPU |
+| Ridge Regression | Single-GPU |
+| Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
+| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
+| UMAP | Single-GPU |
 
 ---
 
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them t-sne, decision trees, random forests and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them: t-sne, random forests, spectral embedding, spectral clustering, random projections, support vector machine and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
 
 ## Installation
 
-1. Install NVIDIA drivers with CUDA 9.2 or 10.0 
+1. Install NVIDIA drivers with CUDA 9.2 or 10.0
 2. Ensure `libomp` and `libopenblas` are installed, for example via apt:
 ```bash
 sudo apt install libopenblas-base libomp-dev
