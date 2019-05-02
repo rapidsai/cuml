@@ -36,9 +36,14 @@ namespace MLCommon {
 namespace Sparse {
 
 
+/** @brief A Container object for sparse coordinate
+ * format.
+ *
+ * @tparam T: the type of the value array.
+ *
+ */
 template<typename T>
 class COO {
-
 
     protected:
        bool owner;
@@ -52,10 +57,22 @@ class COO {
        bool device;
 
 
+       /**
+        * @param device: are the underlying arrays going to be on device?
+        */
        COO(bool device = true): rows(nullptr), cols(nullptr), vals(nullptr),
                nnz(-1), n_rows(-1), n_cols(-1),
                device(device), owner(true){}
 
+       /**
+        * @param rows: coo rows array
+        * @param cols: coo cols array
+        * @param vals: coo vals array
+        * @param nnz: size of the rows/cols/vals arrays
+        * @param n_rows: number of rows in the dense matrix
+        * @param n_cols: number of cols in the dense matrix
+        * @param device: are the underlying arrays on device?
+        */
        COO(int *rows, int *cols, T *vals,
                int nnz, int n_rows = -1, int n_cols = -1,
                bool device = true):
@@ -63,6 +80,12 @@ class COO {
            nnz(nnz), n_rows(n_rows), n_cols(n_cols),
            device(device), owner(false){}
 
+       /**
+        * @param nnz: size of the rows/cols/vals arrays
+        * @param n_rows: number of rows in the dense matrix
+        * @param n_cols: number of cols in the dense matrix
+        * @param device: are the underlying arrays on device?
+        */
        COO(int nnz,
                int n_rows = -1, int n_cols = -1,
                bool device = true, bool init = true):
@@ -72,16 +95,25 @@ class COO {
            this->allocate(nnz, n_rows, n_cols, device, init);
        }
 
+
        ~COO() {
            this->destroy();
        }
 
+       /**
+        * @brief Size should be > 0, with the number of rows
+        * and cols in the dense matrix being > 0.
+        */
        bool validate_size() const {
            if(this->nnz < 0 || n_rows < 0 || n_cols < 0)
                return false;
            return true;
        }
 
+       /**
+        * @brief If the underlying arrays have not been set,
+        * return false. Otherwise true.
+        */
        bool validate_mem() const {
            if(this->rows == nullptr ||
                    this->cols == nullptr ||
@@ -92,6 +124,9 @@ class COO {
            return true;
        }
 
+       /**
+        * @brief Send human-readable state information to output stream
+        */
        friend std::ostream & operator << (std::ostream &out, const COO<T> &c) {
 
            if(c.validate_size() && c.validate_mem() ) {
@@ -115,28 +150,58 @@ class COO {
            return out;
        }
 
+       /**
+        * @brief Set the number of rows and cols
+        * @param n_rows: number of rows in the dense matrix
+        * @param n_cols: number of columns in the dense matrix
+        */
        void setSize(int n_rows, int n_cols) {
            this->n_rows = n_rows;
            this->n_cols = n_cols;
        }
 
+       /**
+        * @brief Set the number of rows and cols for a square dense matrix
+        * @param n: number of rows and cols
+        */
        void setSize(int n) {
            this->n_rows = n;
            this->n_cols = n;
        }
 
+       /**
+        * @brief Allocate the underlying arrays
+        * @param nnz: size of underlying row/col/val arrays
+        * @param device: allocate on device or host?
+        * @param init: should values be initialized to 0?
+        */
        void allocate(int nnz,
                bool device = true,
                bool init = true) {
            this->allocate(nnz, -1, device, init);
        }
 
+       /**
+        * @brief Allocate the underlying arrays
+        * @param nnz: size of the underlying row/col/val arrays
+        * @param size: the number of rows/cols in a square dense matrix
+        * @param device: allocate on device or host?
+        * @param init: should values be initialized to 0?
+        */
        void allocate(int nnz, int size,
                bool device = true,
                bool init = true) {
            this->allocate(nnz, size, size, device, init);
        }
 
+       /**
+        * @brief Allocate the underlying arrays
+        * @param nnz: size of the underlying row/col/val arrays
+        * @param n_rows: number of rows in the dense matrix
+        * @param n_cols: number of columns in the dense matrix
+        * @param device: allocate on device or host?
+        * @param init: should values be initialized to 0?
+        */
        void allocate(int nnz, int n_rows, int n_cols,
                bool device = true,
                bool init = true) {
@@ -156,6 +221,10 @@ class COO {
            }
        }
 
+       /**
+        * @brief Deallocate the underlying arrays if this object
+        * owns the underlying memory
+        */
        void destroy() {
 
            if(this->owner) {
@@ -192,6 +261,7 @@ class COO {
        }
 };
 
+
 template<typename T>
 cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
         int nnz,
@@ -227,7 +297,7 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
 
 
 /**
- * Sorts the arrays that comprise the coo matrix
+ * @brief Sorts the arrays that comprise the coo matrix
  * by row.
  *
  * @param m number of rows in coo matrix
@@ -235,6 +305,7 @@ cusparseStatus_t cusparse_gthr(cusparseHandle_t handle,
  * @param rows rows array from coo matrix
  * @param cols cols array from coo matrix
  * @param vals vals array from coo matrix
+ * @param stream: cuda stream to use
  */
 template<typename T>
 void coo_sort(int m, int n, int nnz,
@@ -303,29 +374,19 @@ void coo_sort(int m, int n, int nnz,
 }
 
 
+/**
+ * @brief Sort the underlying COO arrays by row
+ * @tparam T: the type name of the underlying value array
+ * @param in: COO to sort by row
+ * @param stream: the cuda stream to use
+ */
 template<typename T>
  void coo_sort(COO<T> *in, cudaStream_t stream = 0) {
      coo_sort<T>(in->n_rows, in->n_cols, in->nnz,
              in->rows, in->cols, in->vals, stream);
  }
 
-/**
- * Remove any zero values from a COO sparse matrix. The input arrays
- * are processed in chunks, where each GPU thread is assigned a chunk.
- * A required argument is an exclusive scan array providing the indices
- * to the compressed output array. The exclusive scan array should be
- * created from an array of non-zero value counts per chunk.
- *
- * @param n: number of nonzero values in COO
- * @param rows: input array of rows (size n)
- * @param cols: input array of cols (size n)
- * @param vals: input array of vals (size n)
- * @param crows: compressed array of rows
- * @param ccols: compressed array of cols
- * @param cvals: compressed array of vals
- * @param ex_scan: an exclusive scan of nnz counts for each chunk
- * @param ex_scan_n: number of elements (chunks) in ex_scan
- */
+
 template<int TPB_X, typename T>
 __global__ void coo_remove_zeros_kernel(
         const int *rows, const int *cols, const T *vals, int nnz,
@@ -377,13 +438,13 @@ __global__ void coo_remove_scalar_kernel(
 
 
 /**
- * Count all the rows in the coo row array and place them in the
+ * @brief Count all the rows in the coo row array and place them in the
  * results matrix, indexed by row.
  *
+ * @tparam TPB_X: number of threads to use per block
  * @param rows the rows array of the coo matrix
  * @param nnz the size of the rows array
  * @param results array to place results
- * @param n number of rows in coo matrix
  */
 template<int TPB_X>
 __global__ void coo_row_count_kernel(int *rows, int nnz,
@@ -394,6 +455,14 @@ __global__ void coo_row_count_kernel(int *rows, int nnz,
     }
 }
 
+/**
+ * @brief Count the number of values for each row
+ * @tparam TPB_X: number of threads to use per block
+ * @param rows: rows array of the COO matrix
+ * @param nnz: size of the rows array
+ * @param results: output result array
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X>
 void coo_row_count(int *rows, int nnz, int *results,
         cudaStream_t stream) {
@@ -404,6 +473,14 @@ void coo_row_count(int *rows, int nnz, int *results,
             rows, nnz, results);
 }
 
+/**
+ * @brief Count the number of values for each row
+ * @tparam TPB_X: number of threads to use per block
+ * @tparam T: type name of underlying values array
+ * @param in: input COO object for counting rows
+ * @param results: output array with row counts (size=in->n_rows)
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_row_count(COO<T> *in, int *results, cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
@@ -413,22 +490,11 @@ void coo_row_count(COO<T> *in, int *results, cudaStream_t stream = 0) {
             in->rows, in->nnz, results);
 }
 
-/**
- * Count all the rows with non-zero values in the coo row and val
- * arrays. Place the counts in the results matrix, indexed by row.
- *
- * @param rows the rows array of the coo matrix
- * @param vals the vals array of the coo matrix
- * @param nnz the size of rows / vals
- * @param results array to place resulting counts
- * @param n number of rows in coo matrix
- */
 template<int TPB_X, typename T>
 __global__ void coo_row_count_nz_kernel(int *rows, T *vals, int nnz,
         int *results) {
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
     if(row < nnz && vals[row] != 0.0) {
-//        printf("row=%d, val=%f\n", rows[row], vals[row]);
         atomicAdd(results+rows[row], 1);
     }
 }
@@ -438,12 +504,19 @@ __global__ void coo_row_count_scalar_kernel(int *rows, T *vals, int nnz,
         T scalar, int *results) {
     int row = (blockIdx.x * TPB_X) + threadIdx.x;
     if(row < nnz && vals[row] != scalar) {
-//        printf("row=%d, val=%f\n", rows[row], vals[row]);
         atomicAdd(results+rows[row], 1);
     }
 }
 
-
+/**
+ * @brief Count the number of values for each row matching a particular scalar
+ * @tparam TPB_X: number of threads to use per block
+ * @tparam T: the type name of the underlying value arrays
+ * @param in: Input COO array
+ * @param scalar: scalar to match for counting rows
+ * @param results: output row counts
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
         cudaStream_t stream = 0) {
@@ -454,6 +527,18 @@ void coo_row_count_scalar(COO<T> *in, T scalar, int *results,
             in->rows, in->vals, in->nnz, scalar, results);
 }
 
+/**
+ * @brief Count the number of values for each row matching a particular scalar
+ * @tparam TPB_X: number of threads to use per block
+ * @tparam T: the type name of the underlying value arrays
+ * @param rows: Input COO row array
+ * @param cols: Input COO col array
+ * @param vals: Input COO val arrays
+ * @param nnz: size of input COO arrays
+ * @param scalar: scalar to match for counting rows
+ * @param results: output row counts
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_row_count_scalar(int *rows, T *vals, int nnz, T scalar,
         int *results, cudaStream_t stream = 0) {
@@ -464,7 +549,17 @@ void coo_row_count_scalar(int *rows, T *vals, int nnz, T scalar,
             rows, vals, nnz, scalar, results);
 }
 
-
+/**
+ * @brief Count the number of nonzeros for each row
+ * @tparam TPB_X: number of threads to use per block
+ * @tparam T: the type name of the underlying value arrays
+ * @param rows: Input COO row array
+ * @param cols: Input COO col array
+ * @param vals: Input COO val arrays
+ * @param nnz: size of input COO arrays
+ * @param results: output row counts
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_row_count_nz(int *rows, T *vals, int nnz, int *results,
         cudaStream_t stream = 0) {
@@ -475,6 +570,14 @@ void coo_row_count_nz(int *rows, T *vals, int nnz, int *results,
             rows, vals, nnz, results);
 }
 
+/**
+ * @brief Count the number of nonzero values for each row
+ * @tparam TPB_X: number of threads to use per block
+ * @tparam T: the type name of the underlying value arrays
+ * @param in: Input COO array
+ * @param results: output row counts
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream = 0) {
     dim3 grid_rc(MLCommon::ceildiv(in->nnz, TPB_X), 1, 1);
@@ -487,7 +590,7 @@ void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream = 0) {
 
 
 /**
- * Removes the zeros from a COO formatted sparse matrix.
+ * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
  *
  * @param rows: input array of rows (size n)
  * @param cols: input array of cols (size n)
@@ -497,8 +600,10 @@ void coo_row_count_nz(COO<T> *in, int *results, cudaStream_t stream = 0) {
  * @param ccols: compressed array of cols
  * @param cvals: compressed array of vals
  * @param cnnz: array of non-zero counts per row
- * @param cur_nnz array of counts per row
- * @param cnnz_n: size of cnnz array (eg. num chunks)
+ * @param cur_cnnz array of counts per row
+ * @param scalar: scalar to remove from arrays
+ * @param n: number of rows in dense matrix
+ * @param stream: cuda stream to use
  */
 template<int TPB_X, typename T>
 void coo_remove_scalar(
@@ -542,6 +647,14 @@ void coo_remove_scalar(
     CUDA_CHECK(cudaFree(cur_ex_scan));
 }
 
+/**
+ * @brief Removes the values matching a particular scalar from a COO formatted sparse matrix.
+ *
+ * @param in: input COO matrix
+ * @param out: output COO matrix
+ * @param scalar: scalar to remove from arrays
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_remove_scalar(COO<T> *in,
                     COO<T> *out,
@@ -582,6 +695,13 @@ void coo_remove_scalar(COO<T> *in,
     CUDA_CHECK(cudaFree(row_count_nz));
 }
 
+/**
+ * @brief Removes zeros from a COO formatted sparse matrix.
+ *
+ * @param in: input COO matrix
+ * @param out: output COO matrix
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void coo_remove_zeros(COO<T> *in,
                     COO<T> *out,
@@ -605,8 +725,16 @@ __global__ void from_knn_graph_kernel(long *knn_indices, T *knn_dists, int m, in
 }
 
 /**
- * Converts a knn graph, defined by index and distance matrices,
+ * @brief Converts a knn graph, defined by index and distance matrices,
  * into COO format.
+ *
+ * @param knn_indices: knn index array
+ * @param knn_dists: knn distance array
+ * @param m: number of vertices in graph
+ * @param k: number of nearest neighbors
+ * @param rows: output COO row array
+ * @param cols: output COO col array
+ * @param vals: output COO val array
  */
 template<typename T>
 void from_knn(long *knn_indices, T *knn_dists, int m, int k,
@@ -632,7 +760,15 @@ void from_knn(long *knn_indices, T *knn_dists, int m, int k,
             out->rows, out->cols, out->vals);
 }
 
-
+/**
+ * @brief Generate the row indices array for a sorted COO matrix
+ *
+ * @param rows: COO rows array
+ * @param nnz: size of COO rows array
+ * @param row_ind: output row indices array
+ * @param m: number of rows in dense matrix
+ * @param stream: cuda stream to use
+ */
 template<typename T>
 void sorted_coo_to_csr(
         T *rows, int nnz, T *row_ind, int m,
@@ -654,17 +790,18 @@ void sorted_coo_to_csr(
     CUDA_CHECK(cudaFree(row_counts));
 }
 
+/**
+ * @brief Generate the row indices array for a sorted COO matrix
+ *
+ * @param coo: Input COO matrix
+ * @param row_ind: output row indices array
+ * @param stream: cuda stream to use
+ */
 template<typename T>
 void sorted_coo_to_csr(COO<T> *coo, int *row_ind, cudaStream_t stream = 0) {
     sorted_coo_to_csr(coo->rows, coo->nnz, row_ind, coo->n_rows, stream);
 }
 
-/**
- * This takes a COO and symmetrizes it by adding
- * transposed elements. A custom reduction function
- * allows each value to be aggregated with its
- * transposed value.
- */
 template< int TPB_X, typename T, typename Lambda>
 __global__ void coo_symmetrize_kernel(
         int *row_ind, int *rows, int *cols, T *vals,
@@ -727,6 +864,16 @@ __global__ void coo_symmetrize_kernel(
 }
 
 
+/**
+ * @brief takes a COO matrix which may not be symmetric and symmetrizes
+ * it, running a custom reduction function against the each value
+ * and its transposed value.
+ *
+ * @param in: Input COO matrix
+ * @param out: Output symmetrized COO matrix
+ * @param reduction_op: a custom reduction function
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T, typename Lambda>
 void coo_symmetrize(COO<T> *in,
                     COO<T> *out,
