@@ -14,9 +14,12 @@
 #
 
 import pytest
-from cuml.random_projection import GaussianRandomProjection, SparseRandomProjection
-from cuml.random_projection import johnson_lindenstrauss_min_dim as cuml_johnson_lindenstrauss_min_dim
-from sklearn.random_projection import johnson_lindenstrauss_min_dim as sklearn_johnson_lindenstrauss_min_dim
+from cuml.random_projection import GaussianRandomProjection, \
+                                        SparseRandomProjection
+from cuml.random_projection import johnson_lindenstrauss_min_dim \
+                            as cuml_johnson_lindenstrauss_min_dim
+from sklearn.random_projection import johnson_lindenstrauss_min_dim \
+                            as sklearn_johnson_lindenstrauss_min_dim
 from sklearn.datasets.samples_generator import make_blobs
 from scipy.spatial.distance import pdist
 
@@ -31,7 +34,7 @@ def test_rproj_fit(datatype, input_type, method):
     # dataset generation
     data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
 
-    #conversion to input_type
+    # conversion to input_type
     data = data.astype(datatype)
     target = target.astype(datatype)
 
@@ -45,12 +48,12 @@ def test_rproj_fit(datatype, input_type, method):
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
         for i in range(data.shape[1]):
-            gdf[str(i)] = np.asarray(data[:,i], dtype=datatype)
+            gdf[str(i)] = np.asarray(data[:, i], dtype=datatype)
         model.fit(gdf)
     else:
         model.fit(data)
 
-    assert True # Did not crash
+    assert True  # Did not crash
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -62,7 +65,7 @@ def test_rproj_fit_transform(datatype, input_type, method):
     # dataset generation
     data, target = make_blobs(n_samples=800, centers=400, n_features=3000)
 
-    #conversion to input_type
+    # conversion to input_type
     data = data.astype(datatype)
     target = target.astype(datatype)
 
@@ -76,7 +79,7 @@ def test_rproj_fit_transform(datatype, input_type, method):
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
         for i in range(data.shape[1]):
-            gdf[str(i)] = np.asarray(data[:,i], dtype=datatype)
+            gdf[str(i)] = np.asarray(data[:, i], dtype=datatype)
         model.fit(gdf)
     else:
         model.fit(data)
@@ -91,13 +94,14 @@ def test_rproj_fit_transform(datatype, input_type, method):
     embedded_pdist = pdist(transformed_data)
 
     # check JL lemma
-    assert np.all(((1.0 - eps) * original_pdist) <= embedded_pdist) and np.all(embedded_pdist <= ((1.0 + eps) * original_pdist))
+    assert (np.all(((1.0 - eps) * original_pdist) <= embedded_pdist) and
+            np.all(embedded_pdist <= ((1.0 + eps) * original_pdist)))
 
 
 def test_johnson_lindenstrauss_min_dim():
     n_tests = 10000
     n_samples = np.random.randint(low=50, high=1e10, size=n_tests)
-    eps_values = np.random.rand(n_tests) + 1e-17 # range (0,1)
+    eps_values = np.random.rand(n_tests) + 1e-17  # range (0,1)
     tests = zip(n_samples, eps_values)
 
     for n_samples, eps in tests:
