@@ -19,6 +19,15 @@ export RMM_VERSION=0.7.*
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
+export DOCS_DIR=/data/docs/html
+
+while getopts "d" option; do
+    case ${option} in
+        d)
+            DOCS_DIR=${OPTARG}
+            ;;
+    esac
+done
 
 ################################################################################
 # SETUP - Check environment
@@ -79,5 +88,5 @@ logger "Build docs..."
 cd $WORKSPACE/docs
 make html
 
-rm -rf /data/docs/html/*
-mv build/html/* /data/docs/html
+rm -rf ${DOCS_DIR}/*
+mv build/html/* $DOCS_DIR
