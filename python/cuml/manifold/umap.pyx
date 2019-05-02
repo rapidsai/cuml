@@ -163,6 +163,31 @@ cdef class UMAP:
         ``spread``.
     verbose: bool (optional, default False)
         Controls verbosity of logging.
+
+    Notes
+    -----
+    This module is heavily based on Leland McInnes' reference UMAP package.
+    However, there are a number of differences and features that are not yet
+    implemented in cuml.umap:
+      * Specifying the random seed
+      * Using a non-euclidean distance metric (support for a fixed set
+        of non-euclidean metrics is planned for an upcoming release).
+      * Using a pre-computed pairwise distance matrix (under consideration
+        for future releases)
+      * Manual initialization of initial embedding positions
+
+    In addition to these missing features, you should expect to see
+    the final embeddings differing between cuml.umap and the reference
+    UMAP. In particular, the reference UMAP uses an approximate kNN
+    algorithm for large data sizes while cuml.umap always uses exact
+    kNN.
+
+    References
+    ----------
+    * Leland McInnes, John Healy, James Melville
+      UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction
+      https://arxiv.org/abs/1802.03426
+
     """
 
     cpdef UMAPParams *umap_params
