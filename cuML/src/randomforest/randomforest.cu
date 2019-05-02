@@ -236,7 +236,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
 			std::random_shuffle(h_selected_rows.begin(), h_selected_rows.end());
 			h_selected_rows.resize(n_sampled_rows);
-			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows);
+			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows, stream);
 		}
 
 		/* Build individual tree in the forest.
