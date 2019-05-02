@@ -16,6 +16,7 @@
 import pytest
 from cuml.neighbors import NearestNeighbors as cuKNN
 from sklearn.neighbors import NearestNeighbors as skKNN
+from sklearn.datasets.samples_generator import make_blobs
 import cudf
 import pandas as pd
 import numpy as np
@@ -23,23 +24,33 @@ import numpy as np
 
 @pytest.mark.parametrize('should_downcast', [True, False])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_nn_search(input_type, should_downcast):
+def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
 
     dtype = np.float32 if not should_downcast else np.float64
+    n_samples = 10000
+    n_feats = 50
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*5,
+                          n_features=n_feats, random_state=0)
 
-    # For now, FAISS based knn only supports single precision
-    X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
+    elif run_correctness_test:
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
+
+    else:
+        X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
 
     knn_sk = skKNN(metric="l2")
     knn_sk.fit(X)
-
     D_sk, I_sk = knn_sk.kneighbors(X, len(X))
 
     knn_cu = cuKNN(should_downcast=should_downcast)
+
     if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
-        knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.kneighbors(X, len(X))
+        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X_pd)
+        knn_cu.fit(X_cudf)
+        D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, len(X_cudf))
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame
@@ -49,10 +60,10 @@ def test_nn_search(input_type, should_downcast):
         D_cuml_arr = np.asarray(D_cuml.as_gpu_matrix(order="C"))
         I_cuml_arr = np.asarray(I_cuml.as_gpu_matrix(order="C"))
 
-    else:
+    elif input_type == 'ndarray':
+
         knn_cu.fit(X)
         D_cuml, I_cuml = knn_cu.kneighbors(X, len(X))
-
         assert type(D_cuml) == np.ndarray
         assert type(I_cuml) == np.ndarray
 
@@ -64,14 +75,25 @@ def test_nn_search(input_type, should_downcast):
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_nn_downcast_fails(input_type):
+def test_nn_downcast_fails(input_type, run_stress, run_quality):
+    n_samples = 10000
+    n_feats = 50
+    if run_stress:
+        X, y = make_blobs(n_samples=n_samples*50,
+                          n_features=n_feats, random_state=0)
 
-    X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
+    elif run_quality:
+        X, y = make_blobs(n_samples=n_samples,
+                          n_features=n_feats, random_state=0)
 
-    # Test fit() fails with double precision when should_downcast set to False
+    else:
+        X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
+
     knn_cu = cuKNN()
     if input_type == 'dataframe':
-        X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
+        X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
+        X_cudf = cudf.DataFrame.from_pandas(X_pd)
+        knn_cu.fit(X_cudf)
 
     with pytest.raises(Exception):
         knn_cu.fit(X, should_downcast=False)
