@@ -73,12 +73,12 @@ cuML can be installed using the `rapidsai` conda channel:
 
 CUDA 9.2
 ```bash
-conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml cudatoolkit=9.2
+conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=9.2
 ```
 
 CUDA 10.0
 ```bash
-conda install -c nvidia -c rapidsai -c conda-forge -c pytorch -c defaults cuml cudatoolkit=10.0
+conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=10.0
 ```
 
 
