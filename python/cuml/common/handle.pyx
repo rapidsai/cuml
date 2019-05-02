@@ -25,9 +25,9 @@ from libcpp.memory cimport shared_ptr
 from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
-#cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
-#    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
-#        pass
+cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
+    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
+        pass
 
 
 cdef class Handle:
