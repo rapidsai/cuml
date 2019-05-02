@@ -36,12 +36,6 @@ If using a conda environment (recommended), then cmake can be configured appropr
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
 ```
 
-Additionally while using conda and a conda installed cmake, the `openblas` conda package can be explicitly specified for `blas` and `lapack`:
-
-```bash
-cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a
-```
-
 Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
 ```
 Cannot generate a safe runtime search path for target ml_test because files
@@ -49,6 +43,12 @@ in some directories may conflict with libraries in implicit directories:
 ```
 
 The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
+
+If using conda and a conda installed cmake, the `openblas` conda package is recommended and can be explicitly specified for `blas` and `lapack`:
+
+```bash
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
+```
 
 Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for Volta GPUs:
 
