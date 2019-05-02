@@ -15,6 +15,7 @@
 - PR #375: cuml cpp shared library renamed to libcuml++.so
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
+- PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Added column-wise matrix sort primitive
 
