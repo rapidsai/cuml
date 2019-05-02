@@ -33,6 +33,7 @@
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
 - PR #512: generic copy method for copying buffers between device/host
+- PR #527: Added notes on UMAP differences from reference implementation
 
 ## Bug Fixes
 
