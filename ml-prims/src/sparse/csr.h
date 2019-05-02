@@ -45,8 +45,21 @@ public:
     int n_rows;
     int n_cols;
 
+    /**
+     * @brief default constructor
+     */
     CSR(): row_ind(nullptr), row_ind_ptr(nullptr), vals(nullptr), nnz(-1), n_rows(-1), n_cols(-1){}
 
+    /*
+     * @brief construct a CSR object with arrays
+     *
+     * @param row_ind: the array of row_indices
+     * @param row_ind_ptr: array of row_index_ptr
+     * @param vals: array of data
+     * @param nnz: size of data and row_ind_ptr arrays
+     * @param n_rows: number of rows in the dense matrix
+     * @param n_cols: number of cols in the dense matrix
+     */
     CSR(int *row_ind, int *row_ind_ptr, T *vals, int nnz, int n_rows = -1, int n_cols = -1) {
         this->row_ind = row_ind;
         this->row_ind_ptr = row_ind_ptr;
@@ -55,6 +68,14 @@ public:
         this->n_rows = n_rows;
         this->n_cols = n_cols;
     }
+    /*
+     * @brief construct an empty allocated CSR given its size
+     *
+     * @param nnz: size of data and row_ind_ptr arrays
+     * @param n_rows: number of rows in the dense matrix
+     * @param n_cols: number of cols in the dense matrix
+     * @param init: initialize arrays to zeros?
+     */
 
     CSR(int nnz, int n_rows = -1, int n_cols = -1, bool init = true):
         row_ind(nullptr), row_ind_ptr(nullptr), vals(nullptr), nnz(nnz),
@@ -66,12 +87,19 @@ public:
         this->free();
     }
 
+    /**
+     * @brief validate size of CSR object is >0 and that
+     * number of rows/cols of dense matrix are also >0.
+     */
     bool validate_size() {
         if(this->nnz < 0 || n_rows < 0 || n_cols < 0)
             return false;
         return true;
     }
 
+    /**
+     * @brief Return true if underlying arrays have been allocated, false otherwise.
+     */
     bool validate_mem() {
         if(this->row_ind == nullptr ||
                 this->row_ind_ptr == nullptr ||
@@ -82,6 +110,9 @@ public:
         return true;
     }
 
+    /**
+     * @brief Send human-readable object state to the given output stream
+     */
    friend std::ostream & operator << (std::ostream &out, const CSR &c) {
        out << arr2Str(c->row_ind, c->nnz, "row_ind") << std::endl;
        out << arr2Str(c->row_ind_ptr, c->nnz, "cols") << std::endl;
@@ -89,24 +120,51 @@ public:
        out << c->nnz << std::endl;
    }
 
+   /**
+    * @brief Sets the size of a non-square dense matrix
+    * @param n_rows: number of rows in dense matrix
+    * @param n_cols: number of cols in dense matrix
+    */
     void setSize(int n_rows, int n_cols) {
         this->n_rows = n_rows;
         this->n_cols = n_cols;
     }
 
+    /**
+     * @brief Sets the size of a square dense matrix
+     * @param n: number of rows & cols in dense matrix
+     */
     void setSize(int n) {
         this->n_rows = n;
         this->n_cols = n;
     }
 
+    /**
+     * @brief Allocate underlying arrays
+     * @param nnz: sets the size of the underlying arrays
+     * @param init: should arrays be initialized to zeros?
+     */
     void allocate(int nnz, bool init = true) {
         this->allocate(nnz, -1, init);
     }
 
+    /**
+     * @brief Allocate underlying arrays and the size of the square dense matrix
+     * @param nnz: sets the size of the underlying arrays
+     * @param size: number of rows and cols in the square dense matrix
+     * @param init: should arrays be initialized to zeros?
+     */
     void allocate(int nnz, int size, bool init = true) {
         this->allocate(nnz, size, size, init);
     }
 
+    /**
+     * @brief Allocate underlying arrays and the size of the non-square dense matrix
+     * @param nnz: sets the size of the underlying arrays
+     * @param n_rows: number of rows in the dense matrix
+     * @param n_cols: number of cols in the dense matrix
+     * @param init: should arrays be initialized to zeros?
+     */
     void allocate(int nnz, int n_rows, int n_cols, bool init = true) {
         this->n_rows = n_rows;
         this->n_cols = n_cols;
@@ -116,6 +174,9 @@ public:
         MLCommon::allocate(this->vals, this->nnz, init);
     }
 
+    /**
+     * @brief Frees the memory from the underlying arrays
+     */
     void free() {
 
         try {
