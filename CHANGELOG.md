@@ -35,6 +35,7 @@
 - PR #395: Edited the CONTRIBUTING.md file
 - PR #512: generic copy method for copying buffers between device/host
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
+- PR #527: Added notes on UMAP differences from reference implementation
 
 ## Bug Fixes
 
