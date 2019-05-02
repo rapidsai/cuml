@@ -126,8 +126,8 @@ protected:
     }
 
     // porting inputs to gpu
-    updateDevice(P_d, P, dim * dim);
-    updateDevice(x_d, x, dim);
+    updateDevice(P_d, P, dim * dim, stream);
+    updateDevice(x_d, x, dim, stream);
 
     // initilizing the mvg
     mvg = new MultiVarGaussian<T>(dim, method);
@@ -165,7 +165,7 @@ protected:
                                     Rand_cov, dim, stream));
 
     // restoring cov provided into P_d
-    updateDevice(P_d, P, dim * dim);
+    updateDevice(P_d, P, dim * dim, stream);
   }
 
   void TearDown() override {
