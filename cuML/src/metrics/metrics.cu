@@ -18,7 +18,7 @@
 #include "metrics.hpp"
 #include "cuda_utils.h"
 
-#include "score/metrics.h"
+#include "score/scores.h"
 
 namespace ML {
 
