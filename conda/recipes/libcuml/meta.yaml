@@ -29,6 +29,7 @@ requirements:
     - cmake>=3.12.4
     - cudf 0.7*
     - cudatoolkit {{ cuda_version }}.*
+    - lapack
   run:
     - cudf 0.7*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
