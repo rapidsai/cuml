@@ -28,8 +28,10 @@ requirements:
   build:
     - cmake>=3.12.4
     - cudf 0.7*
+    - cudatoolkit {{ cuda_version }}.*
   run:
     - cudf 0.7*
+    - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
   home: http://rapids.ai/
