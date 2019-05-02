@@ -63,6 +63,7 @@
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 - PR #519: README.md Updates and adding BUILD.md back
+- PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
 
 # cuML 0.6.0 (22 Mar 2019)
