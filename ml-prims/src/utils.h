@@ -111,46 +111,37 @@ private:
 /// (Ref: https://github.com/rapidsai/cuml/issues/229)
 
 /**
+ * @brief Generic copy method for all kinds of transfers
+ * @tparam Type data type
+ * @param dst destination pointer
+ * @param src source pointer
+ * @param len lenth of the src/dst buffers in terms of number of elements
+ * @param stream cuda stream
+ */
+template <typename Type>
+void copy(Type *dst, const Type *src, size_t len, cudaStream_t stream) {
+    CUDA_CHECK(cudaMemcpyAsync(dst, src, len * sizeof(Type),
+                               cudaMemcpyDefault, stream));
+}
+
+/**
  * @defgroup Copy Copy methods
+ * These are here along with the generic 'copy' method in order to improve
+ * code readability using explicitly specified function names
  * @{
  */
 /** performs a host to device copy */
 template <typename Type>
 void updateDevice(Type *dPtr, const Type *hPtr, size_t len,
-                  cudaStream_t stream = 0) {
-  CUDA_CHECK(cudaMemcpy(dPtr, hPtr, len * sizeof(Type),
-                        cudaMemcpyHostToDevice));
-}
-
-/** performs an sync host to device copy */
-template <typename Type>
-void updateDeviceAsync(Type *dPtr, const Type *hPtr, size_t len,
-                       cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(dPtr, hPtr, len * sizeof(Type),
-                             cudaMemcpyHostToDevice, stream));
+                  cudaStream_t stream) {
+  copy(dPtr, hPtr, len, stream);
 }
 
 /** performs a device to host copy */
 template <typename Type>
 void updateHost(Type *hPtr, const Type *dPtr, size_t len,
-                cudaStream_t stream = 0) {
-  CUDA_CHECK(cudaMemcpy(hPtr, dPtr, len * sizeof(Type),
-                        cudaMemcpyDeviceToHost));
-}
-
-/** performs an async device to host copy */
-template <typename Type>
-void updateHostAsync(Type *hPtr, const Type *dPtr, size_t len,
-                     cudaStream_t stream) {
-  CUDA_CHECK(cudaMemcpyAsync(hPtr, dPtr, len * sizeof(Type),
-                             cudaMemcpyDeviceToHost, stream));
-}
-
-/** performs a device to device copy */
-template <typename Type>
-void copy(Type* dPtr1, const Type* dPtr2, size_t len) {
-  CUDA_CHECK(cudaMemcpy(dPtr1, dPtr2, len*sizeof(Type),
-                        cudaMemcpyDeviceToDevice));
+                cudaStream_t stream) {
+  copy(hPtr, dPtr, len, stream);
 }
 /** @} */
 
