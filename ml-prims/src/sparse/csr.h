@@ -31,7 +31,9 @@ namespace Sparse {
 
 static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
-
+/**
+ * @brief a container object for sparse CSR formatted matrices
+ */
 template <typename T>
 class CSR {
 
@@ -137,11 +139,6 @@ public:
 
 };
 
-/**
- * Row-normalizes a CSR matrix using the sum of
- * each row as the normalizer.
- *
- */
 template<int TPB_X, typename T>
 __global__ void csr_row_normalize_l1_kernel(
         int *ia,    // csr row ex_scan (sorted by row)
@@ -178,6 +175,16 @@ __global__ void csr_row_normalize_l1_kernel(
     }
 }
 
+/**
+ * @brief Perform L1 normalization on the rows of a given CSR-formatted sparse matrix
+ *
+ * @param ia: row_ind array
+ * @param vals: data array
+ * @param nnz: size of data array
+ * @param m: size of row_ind array
+ * @param result: l1 normalized data array
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X, typename T>
 void csr_row_normalize_l1(
         int *ia,    // csr row ex_scan (sorted by row)
@@ -193,10 +200,6 @@ void csr_row_normalize_l1(
                      m, result);
 }
 
-/**
- * Row-normalizes a CSR matrix using the max of each
- * row as the normalizer.
- */
 template<int TPB_X, typename T>
 __global__ void csr_row_normalize_max_kernel(
         int *ia,    // csr row ind array (sorted by row)
@@ -233,6 +236,18 @@ __global__ void csr_row_normalize_max_kernel(
         }
     }
 }
+
+
+/**
+ * @brief Perform L_inf normalization on a given CSR-formatted sparse matrix
+ *
+ * @param ia: row_ind array
+ * @param vals: data array
+ * @param nnz: size of data array
+ * @param m: size of row_ind array
+ * @param result: l1 normalized data array
+ * @param stream: cuda stream to use
+ */
 
 template<int TPB_X, typename T>
 void csr_row_normalize_max(
@@ -274,6 +289,14 @@ __global__ void csr_to_coo_kernel(int *row_ind, int m, int *coo_rows, int nnz) {
     }
 }
 
+/**
+ * @brief Convert a CSR row_ind array to a COO rows array
+ * @param row_ind: Input CSR row_ind array
+ * @param m: size of row_ind array
+ * @param coo_rows: Output COO row array
+ * @param nnz: size of output COO row array
+ * @param stream: cuda stream to use
+ */
 template<int TPB_X>
 void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz,
         cudaStream_t stream) {
@@ -284,9 +307,6 @@ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz,
 }
 
 
-/**
- * Calculate how many unique columns per row
- */
 template<typename T, int TPB_X>
 __global__ void csr_add_calc_row_counts_kernel(
         int *a_ind, int *a_indptr, T *a_val, int nnz1,
@@ -395,6 +415,21 @@ __global__ void csr_add_kernel(
     }
 }
 
+/**
+ * @brief Calculate the CSR row_ind array that would result
+ * from summing together two CSR matrices
+ * @param a_ind: left hand row_ind array
+ * @param a_indptr: left hand index_ptr array
+ * @param a_val: left hand data array
+ * @param nnz1: size of left hand index_ptr and val arrays
+ * @param b_ind: right hand row_ind array
+ * @param b_indptr: right hand index_ptr array
+ * @param b_val: right hand data array
+ * @param nnz2: size of right hand index_ptr and val arrays
+ * @param m: size of output array (number of rows in final matrix)
+ * @param out_ind: output row_ind array
+ * @param stream: cuda stream to use
+ */
 template<typename T, int TPB_X>
 size_t csr_add_calc_inds(
     int *a_ind, int *a_indptr, T *a_val, int nnz1,
@@ -428,6 +463,23 @@ size_t csr_add_calc_inds(
 
 }
 
+/**
+ * @brief Calculate the CSR row_ind array that would result
+ * from summing together two CSR matrices
+ * @param a_ind: left hand row_ind array
+ * @param a_indptr: left hand index_ptr array
+ * @param a_val: left hand data array
+ * @param nnz1: size of left hand index_ptr and val arrays
+ * @param b_ind: right hand row_ind array
+ * @param b_indptr: right hand index_ptr array
+ * @param b_val: right hand data array
+ * @param nnz2: size of right hand index_ptr and val arrays
+ * @param m: size of output array (number of rows in final matrix)
+ * @param c_ind: output row_ind arra
+ * @param c_indptr: output ind_ptr array
+ * @param c_val: output data array
+ * @param stream: cuda stream to use
+ */
 template<typename T, int TPB_X>
 void csr_add_finalize(
     int *a_ind, int *a_indptr, T *a_val, int nnz1,
