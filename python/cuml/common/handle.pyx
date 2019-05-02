@@ -81,9 +81,9 @@ cdef class Handle:
         Second, the allocator based on RMM. So, this function, basically makes
         the cumlHandle use a more efficient allocator, instead of the default.
         """
-       cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
-       cdef cumlHandle* h_ = <cumlHandle*>self.h
-       h_.setDeviceAllocator(rmmAlloc)
+        cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        h_.setDeviceAllocator(rmmAlloc)
 
     def sync(self):
         """
