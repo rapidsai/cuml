@@ -21,6 +21,7 @@
 
 ## Improvements
 
+- PR #481: Refactoring Quasi-Newton to use cumlHandle
 - PR #467: Added validity check on cumlHandle_t
 - PR #461: Rewrote permute and added column major version
 - PR #440: README updates
