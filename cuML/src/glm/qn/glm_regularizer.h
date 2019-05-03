@@ -20,6 +20,7 @@
 #include "linalg/binary_op.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
+#include "utils.h"
 #include <glm/qn/simple_mat.h>
 
 namespace ML {
@@ -33,7 +34,7 @@ template <typename T> struct Tikhonov {
   HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
 
   inline void reg_grad(T *reg_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                        const bool has_bias, cudaStream_t stream) const {
+                       const bool has_bias, cudaStream_t stream) const {
 
     // NOTE: scikit generally does not penalize biases
     SimpleMat<T> Gweights;
@@ -56,14 +57,22 @@ template <typename T, class Loss, class Reg> struct RegularizedGLM : GLMDims {
 
   inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
                         const SimpleMat<T> &Xb, const SimpleVec<T> &yb,
-                        SimpleMat<T> &Zb, cudaStream_t stream, bool initGradZero = true) {
+                        SimpleMat<T> &Zb, cudaStream_t stream,
+                        bool initGradZero = true) {
+    T reg_host, loss_host;
     SimpleVec<T> lossVal(loss_val, 1);
-    G.fill(0);
+
+    G.fill(0, stream);
+
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
-    T reg = lossVal[0];
+    MLCommon::updateHost(&reg_host, lossVal.data, 1, stream);
+
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    T loss = lossVal[0];
-    lossVal.fill(loss + reg);
+    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    lossVal.fill(loss_host + reg_host, stream);
   }
 };
 }; // namespace GLM

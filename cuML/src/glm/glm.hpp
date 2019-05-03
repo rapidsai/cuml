@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace GLM {
@@ -84,35 +87,74 @@ void ridgePredict(const double *input, int n_rows, int n_cols,
 
 /**
  * @defgroup functions to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to cumlHandle object
+ * @param X                     device pointer to feature matrix of dimension
+ * NxD (row- or column major: see X_col_major param)
+ * @param y                     device pointer to label vector of length N (for
+ * binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @param N                     number of examples
+ * @param D                     number of features
+ * @param C                     number of outputs (C > 1, for multinomial,
+ * indicating number of classes. For logistic and normal, C must be 1.)
+ * @param fit_intercept         true if model should include a bias. If true,
+ * the initial point/result w0 should point to a memory location of size (D+1) *
+ * C
+ * @param l1                    l1 regularization strength (if non-zero, will
+ * run OWL-QN, else L-BFGS). Note, that as in scikit, the bias will not be
+ * regularized.
+ * @param l2                    l2 regularization strength. Note, that as in
+ * scikit, the bias will not be regularized.
+ * @param max_iter              limit on iteration number
+ * @param grad_tol              tolerance for gradient norm convergence check
+ * @param linesearch_max_iter   max number of linesearch iterations per outer
+ * iteration
+ * @param lbfgs_memory          rank of the lbfgs inverse-Hessian approximation.
+ * Method will request memory of size O(lbfgs_memory * D).
+ * @param verbosity             verbosity level
+ * @param w0                    device pointer of size (D + (fit_intercept ? 1 :
+ * 0)) * C with initial point, overwritten by final result.
+ * @param f                     host pointer holding the final objective value
+ * @param num_iters             host pointer holding the actual number of
+ * iterations taken
+ * @param X_col_major           true if X is stored column-major, i.e. feature
+ * columns are contiguous
+ * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
+ * multinomial/softmax, 2: normal/squared)
+ * @{
+ */
+void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
+           int C, bool fit_intercept, float l1, float l2, int max_iter,
+           float grad_tol, int linesearch_max_iter, int lbfgs_memory,
+           int verbosity, float *w0, float *f, int *num_iters, bool X_col_major,
+           int loss_type);
+
+void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
+           int C, bool fit_intercept, double l1, double l2, int max_iter,
+           double grad_tol, int linesearch_max_iter, int lbfgs_memory,
+           int verbosity, double *w0, double *f, int *num_iters,
+           bool X_col_major, int loss_type);
+/** @} */
+
+/**
+ * @defgroup functions to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to cumlHandle object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
- * @param y                     device pointer to label vector of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @param N                     number of examples
  * @param D                     number of features
  * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic and normal, C must be 1.)
- * @param fit_intercept         true if model should include a bias. If true, the initial point/result w0 should point to a memory location of size (D+1) * C
- * @param l1                    l1 regularization strength (if non-zero, will run OWL-QN, else L-BFGS). Note, that as in scikit, the bias will not be regularized.
- * @param l2                    l2 regularization strength. Note, that as in scikit, the bias will not be regularized.
- * @param max_iter              limit on iteration number
- * @param grad_tol              tolerance for gradient norm convergence check
- * @param linesearch_max_iter   max number of linesearch iterations per outer iteration
- * @param lbfgs_memory          rank of the lbfgs inverse-Hessian approximation. Method will request memory of size O(lbfgs_memory * D).
- * @param verbosity             verbosity level
- * @param w0                    device pointer of size (D + (fit_intercept ? 1 : 0)) * C with initial point, overwritten by final result.
- * @param f                     host pointer holding the final objective value
- * @param num_iters             host pointer holding the actual number of iterations taken
+ * @param fit_intercept         true if model includes a bias.
+ * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
  * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
- * @{
+ * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  */
-void qnFit(float *X, float *y, int N, int D, int C, bool fit_intercept,
-           float l1, float l2, int max_iter, float grad_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
-           float *f, int *num_iters, bool X_col_major, int loss_type);
+void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
+               bool fit_intercept, float *params, bool X_col_major,
+               int loss_type, float *preds);
 
-void qnFit(double *X, double *y, int N, int D, int C, bool fit_intercept,
-           double l1, double l2, int max_iter, double grad_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
-           double *f, int *num_iters, bool X_col_major, int loss_type);
+void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
+               bool fit_intercept, double *params, bool X_col_major,
+               int loss_type, double *preds);
 /** @} */
 
 } // namespace GLM
