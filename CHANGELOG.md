@@ -63,6 +63,7 @@
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
 - PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #543: Exposing dbscan batch size through cython API to support devices with <32gb memory
 
 # cuML 0.6.0 (22 Mar 2019)
 
