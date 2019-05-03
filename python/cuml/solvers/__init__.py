@@ -15,3 +15,4 @@
 #
 
 from cuml.solvers.sgd import SGD
+from cuml.solvers.cd import CD

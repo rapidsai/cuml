@@ -39,6 +39,7 @@ namespace UMAPAlgo {
             using namespace ML;
 
             static const float MAX_FLOAT = std::numeric_limits<float>::max();
+            static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
             static const float SMOOTH_K_TOLERANCE = 1e-5;
             static const float MIN_K_DIST_SCALE = 1e-3;
@@ -220,98 +221,23 @@ namespace UMAPAlgo {
                         if (cur_knn_ind == -1)
                             continue;
 
-                        T val = 0.0;
+                        double val = 0.0;
                         if (cur_knn_ind == row)
                             val = 0.0;
                         else if (cur_knn_dist - cur_rho <= 0.0)
                             val = 1.0;
-                        else
+                        else {
                             val = exp(
-                                    -((cur_knn_dist - cur_rho) / (cur_sigma)));
+                                    -((double(cur_knn_dist) - double(cur_rho)) / (double(cur_sigma))));
+
+                            if(val < MIN_FLOAT)
+                                val = MIN_FLOAT;
+                        }
 
                         rows[idx] = row;
                         cols[idx] = cur_knn_ind;
-                        vals[idx] = val;
+                        vals[idx] = float(val);
                     }
-                }
-            }
-
-            /**
-             * Combines all the fuzzy simplicial sets into a global
-             * one via a fuzzy union.
-             *
-             * @param rows   rows of the fuzzy simplicial set coo
-             * @param cols   cols of the fuzzy simplicial set coo
-             * @param vals   vals of the fuzzy simplicial set coo
-             * @param orows  output rows of the global fuzzy union coo
-             * @param ocols  output cols of the global fuzzy union coo
-             * @param ovals  output vals of the global fuzzy union coo
-             * @param rnnz   output counts
-             * @param n      number of rows in coo matrix
-             * @param n_neighbors the number of cols in coo matrix
-             * @param set_op_mix_ratio  trade off between fuzzy union
-             *                          and fuzzy intersection.
-             */
-            template<int TPB_X, typename T>
-            __global__ void compute_result(
-                    int *rows, int *cols, T *vals,
-                    int *orows, int *ocols, T *ovals, int *rnnz, int n,
-                    int n_neighbors, float set_op_mix_ratio = 1.0) {
-
-                int row = (blockIdx.x * TPB_X) + threadIdx.x;
-                int i = row * n_neighbors; // each thread processes one row
-
-                if (row < n) {
-
-                    int nnz = 0;
-                    for (int j = 0; j < n_neighbors; j++) {
-
-                        int idx = i + j;
-                        int out_idx = i * 2;
-
-                        int row_lookup = cols[idx];
-                        int t_start = row_lookup * n_neighbors; // Start at
-
-                        T transpose = 0.0;
-                        bool found_match = false;
-                        for (int t_idx = 0; t_idx < n_neighbors; t_idx++) {
-
-                            int f_idx = t_idx + t_start;
-                            // If we find a match, let's get out of the loop
-                            if (cols[f_idx] == rows[idx]
-                                    && rows[f_idx] == cols[idx]
-                                    && vals[f_idx] != 0.0) {
-                                transpose = vals[f_idx];
-                                found_match = true;
-                                break;
-                            }
-                        }
-
-                        // if we didn't find an exact match, we need to add
-                        // the transposed value into our current matrix.
-                          if (!found_match && vals[idx] != 0.0) {
-                            orows[out_idx + nnz] = cols[idx];
-                            ocols[out_idx + nnz] = rows[idx];
-                            ovals[out_idx + nnz] = vals[idx];
-                            ++nnz;
-                        }
-
-                        T result = vals[idx];
-                        T prod_matrix = result * transpose;
-
-                        T res = set_op_mix_ratio
-                                * (result + transpose - prod_matrix)
-                                + (1.0 - set_op_mix_ratio) * prod_matrix;
-
-                        if (res != 0.0) {
-                            orows[out_idx + nnz] = rows[idx];
-                            ocols[out_idx + nnz] = cols[idx];
-                            ovals[out_idx + nnz] = T(res);
-                            ++nnz;
-                        }
-                    }
-                    rnnz[row] = nnz;
-                    atomicAdd(rnnz + n, nnz);
                 }
             }
 
@@ -320,7 +246,7 @@ namespace UMAPAlgo {
              */
             template< int TPB_X, typename T>
             void smooth_knn_dist(int n, const long *knn_indices, const float *knn_dists,
-                    T *rhos, T *sigmas, UMAPParams *params, float local_connectivity,
+                    T *rhos, T *sigmas, UMAPParams *params, int n_neighbors, float local_connectivity,
                     cudaStream_t stream) {
 
                 int blks = MLCommon::ceildiv(n, TPB_X);
@@ -329,21 +255,20 @@ namespace UMAPAlgo {
                 dim3 blk(TPB_X, 1, 1);
 
                 T *dist_means_dev;
-                MLCommon::allocate(dist_means_dev, params->n_neighbors);
+                MLCommon::allocate(dist_means_dev, n_neighbors);
 
                 MLCommon::Stats::mean(dist_means_dev, knn_dists,
-                        params->n_neighbors, n, false, false, stream);
+                        n_neighbors, n, false, false, stream);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                T *dist_means_host = (T*) malloc(params->n_neighbors * sizeof(T));
-                MLCommon::updateHost(dist_means_host, dist_means_dev,params->n_neighbors, stream);
-                CUDA_CHECK(cudaStreamSynchronize(stream));
+                T *dist_means_host = (T*) malloc(n_neighbors * sizeof(T));
+                MLCommon::updateHost(dist_means_host, dist_means_dev,n_neighbors, stream);
 
                 float sum = 0.0;
-                for (int i = 0; i < params->n_neighbors; i++)
+                for (int i = 0; i < n_neighbors; i++)
                     sum += dist_means_host[i];
 
-                T mean_dist = sum / params->n_neighbors;
+                T mean_dist = sum / float(n_neighbors);
 
                 /**
                  * Clean up memory for subsequent algorithms
@@ -354,8 +279,8 @@ namespace UMAPAlgo {
                 /**
                  * Smooth kNN distances to be continuous
                  */
-                smooth_knn_dist_kernel<TPB_X><<<grid, blk>>>(knn_dists, n, mean_dist, sigmas,
-                        rhos, params->n_neighbors, local_connectivity);
+                smooth_knn_dist_kernel<TPB_X><<<grid, blk, 0, stream>>>(knn_dists, n, mean_dist, sigmas,
+                        rhos, n_neighbors, local_connectivity);
                 CUDA_CHECK(cudaPeekAtLastError());
             }
 
@@ -367,13 +292,23 @@ namespace UMAPAlgo {
              * approximating geodesic (manifold surface) distance at each point, creating
              * a fuzzy simplicial set for each such point, and then combining all the local
              * fuzzy simplicial sets into a global one via a fuzzy union.
+             *
+             * @param n the number of rows/elements in X
+             * @param knn_indices indexes of knn search
+             * @param knn_dists distances of knn search
+             * @param n_neighbors number of neighbors in knn search arrays
+             * @param rrows output COO rows array
+             * @param rcols output COO cols array
+             * @param rvals output COO vals array
+             * @param params UMAPParams config object
+             * @param stream cuda stream to use for device operations
              */
             template<int TPB_X, typename T>
-            void launcher(int n, const long *knn_indices, const float *knn_dists,
-                   int *rrows, int *rcols, T *rvals,
-                   int *nnz, UMAPParams *params, cudaStream_t stream) {
-
-                int k = params->n_neighbors;
+            void launcher(int n, const
+                    long *knn_indices, const float *knn_dists,
+                    int n_neighbors,
+                   MLCommon::Sparse::COO<T> *out,
+                   UMAPParams *params, cudaStream_t stream) {
 
                 /**
                  * All of the kernels in this algorithm are row-based and
@@ -392,86 +327,53 @@ namespace UMAPAlgo {
                 MLCommon::allocate(rhos, n, true);
 
                 smooth_knn_dist<TPB_X, T>(n, knn_indices, knn_dists,
-                        rhos, sigmas, params, params->local_connectivity, stream
+                        rhos, sigmas, params, n_neighbors, params->local_connectivity, stream
                 );
 
-                int *rows, *cols;
-                T *vals;
-                MLCommon::allocate(rows, n*params->n_neighbors);
-                MLCommon::allocate(cols, n*params->n_neighbors);
-                MLCommon::allocate(vals, n*params->n_neighbors);
+                MLCommon::Sparse::COO<T> in(n*n_neighbors, n, n);
 
+                if(params->verbose) {
+                    std::cout << "Smooth kNN Distances" << std::endl;
+                    std::cout << MLCommon::arr2Str(sigmas, n, "sigmas", stream) << std::endl;
+                    std::cout << MLCommon::arr2Str(rhos, n, "rhos", stream) << std::endl;
+                }
+
+                CUDA_CHECK(cudaPeekAtLastError());
 
                 /**
                  * Compute graph of membership strengths
                  */
-                compute_membership_strength_kernel<TPB_X><<<grid, blk>>>(knn_indices,
-                        knn_dists, sigmas, rhos, vals, rows, cols, n,
-                        params->n_neighbors);
-
-
+                compute_membership_strength_kernel<TPB_X><<<grid, blk, 0, stream>>>(knn_indices,
+                        knn_dists, sigmas, rhos, in.vals, in.rows, in.cols, in.n_rows,
+                        n_neighbors);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                int *orows, *ocols, *rnnz;
-                T *ovals;
-                MLCommon::allocate(orows, n * k * 2, true);
-                MLCommon::allocate(ocols, n * k * 2, true);
-                MLCommon::allocate(ovals, n * k * 2, true);
-                MLCommon::allocate(rnnz, n + 1, true);
+                if(params->verbose) {
+                    std::cout << "Compute Membership Strength" << std::endl;
+                    std::cout << in << std::endl;
+                }
+
 
                 /**
-                 * Weight directed graph of membership strengths (and include
-                 * both sides).
+                 * Combines all the fuzzy simplicial sets into a global
+                 * one via a fuzzy union. (Symmetrize knn graph and weight
+                 * based on directionality).
                  */
-                compute_result<TPB_X><<<grid, blk>>>(rows, cols, vals, orows, ocols,
-                        ovals, rnnz, n, params->n_neighbors,
-                        params->set_op_mix_ratio);
-                CUDA_CHECK(cudaPeekAtLastError());
+                float set_op_mix_ratio = params->set_op_mix_ratio;
+                MLCommon::Sparse::coo_symmetrize<TPB_X, T>(&in, out,
+                    [set_op_mix_ratio] __device__(int row, int col, T result, T transpose) {
+                        T prod_matrix = result * transpose;
+                        T res = set_op_mix_ratio
+                                * (result + transpose - prod_matrix)
+                                + (1.0 - set_op_mix_ratio) * prod_matrix;
+                        return T(res);
+                    },
+                    stream);
 
-                int n_compressed_nonzeros = 0;
-                MLCommon::updateHost(&n_compressed_nonzeros, rnnz + n, 1, stream);
-                CUDA_CHECK(cudaStreamSynchronize(stream));
-
-                /**
-                 * Remove resulting zeros from COO
-                 */
-                int *crows, *ccols;
-                T *cvals;
-                MLCommon::allocate(crows, n_compressed_nonzeros, true);
-                MLCommon::allocate(ccols, n_compressed_nonzeros, true);
-                MLCommon::allocate(cvals, n_compressed_nonzeros, true);
-
-                MLCommon::Sparse::coo_remove_zeros<TPB_X, T>(n*k*2,
-                        orows, ocols, ovals,
-                        crows, ccols, cvals,
-                        rnnz, n);
-
-                MLCommon::Sparse::coo_sort(n, k, n_compressed_nonzeros, crows, ccols, cvals);
-
-                nnz[0] = n_compressed_nonzeros;
-
-                if(params->verbose)
-                    std::cout << "cur_coo_len=" << n_compressed_nonzeros << std::endl;
-
-                MLCommon::copy(rrows, crows, n_compressed_nonzeros, stream);
-                MLCommon::copy(rcols, ccols, n_compressed_nonzeros, stream);
-                MLCommon::copy(rvals, cvals, n_compressed_nonzeros, stream);
+                MLCommon::Sparse::coo_sort<T>(out, stream);
 
                 CUDA_CHECK(cudaFree(rhos));
                 CUDA_CHECK(cudaFree(sigmas));
-
-                CUDA_CHECK(cudaFree(orows));
-                CUDA_CHECK(cudaFree(ocols));
-                CUDA_CHECK(cudaFree(ovals));
-                CUDA_CHECK(cudaFree(rnnz));
-
-                CUDA_CHECK(cudaFree(rows));
-                CUDA_CHECK(cudaFree(cols));
-                CUDA_CHECK(cudaFree(vals));
-
-                CUDA_CHECK(cudaFree(crows));
-                CUDA_CHECK(cudaFree(ccols));
-                CUDA_CHECK(cudaFree(cvals));
             }
         }
     }
