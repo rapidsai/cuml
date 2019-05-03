@@ -78,7 +78,7 @@ void printUsage()
               << "-num_samples <number of samples> -num_features <number of features> "
               << "[-min_pts <minimum number of samples in a cluster>] "
               << "[-eps <maximum distance between any two samples of a cluster>] "
-              << "[-min_elems_per_batch <maximum numbers to use in batch size calculation>] "
+              << "[-max_elems_per_batch <maximum numbers to use in batch size calculation>] "
               << std::endl;
     return;
 }
