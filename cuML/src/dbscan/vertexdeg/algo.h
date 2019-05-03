@@ -56,6 +56,9 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
 		int global_c_idx) {						// index of output in global memory
         int acc = val <= eps2;
         int vd_offset = global_c_idx / n;   // bucket offset for the vertex degrees
+
+        printf("vd_offset: %d, n=%d\n", vd_offset, n);
+
         atomicAdd(vd+vd_offset, acc);
         atomicAdd(vd+n, acc);
         return bool(acc);
