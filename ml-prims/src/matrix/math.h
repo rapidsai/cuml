@@ -314,18 +314,20 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
   typedef cub::BlockReduce<cub::KeyValuePair<int, T>, TPB> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  // compute maxIndex=argMax (with abs()) index for column
+  // compute maxIndex=argMax  index for column
   using KVP = cub::KeyValuePair<int, T>;
   int rowStart = blockIdx.x * D;
-  KVP thread_data(0, 0);
+  KVP thread_data(-1, -myInf<T>());
+
   for (int i = threadIdx.x; i < D; i += TPB) {
     int idx = rowStart + i;
-    thread_data = cub::ArgMax()(thread_data, KVP(idx, d_in[idx]));
+    thread_data = cub::ArgMax()(thread_data, KVP(i, d_in[idx]));
   }
+
   auto maxKV = BlockReduce(temp_storage).Reduce(thread_data, cub::ArgMax());
 
   if (threadIdx.x == 0) {
-    argmax[blockIdx.x] = d_in[maxKV.key];
+    argmax[blockIdx.x] = maxKV.key;
   }
 }
 /**
@@ -337,18 +339,17 @@ __global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
  */
 template <typename math_t>
 void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
-              cudaStream_t stream) {
+            cudaStream_t stream) {
   int D = n_rows;
   int N = n_cols;
-  auto data = in;
   if (D <= 32) {
-    argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(data, D, N, out);
+    argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
   } else if (D <= 64) {
-    argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(data, D, N, out);
+    argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
   } else if (D <= 128) {
-    argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(data, D, N, out);
+    argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
   } else {
-    argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(data, D, N, out);
+    argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

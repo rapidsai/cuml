@@ -344,5 +344,65 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
+TEST_F(QuasiNewtonTest, predict) {
+  CompareApprox<double> compApprox(1e-8);
+  std::vector<double> w_host(D);
+  w_host[0] = 1;
+  std::vector<double> preds_host(N);
+  SimpleVecOwning<double> w(allocator, D, stream);
+  SimpleVecOwning<double> preds(allocator, N, stream);
+
+  updateDevice(w.data, &w_host[0], w.len, stream);
+
+  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 0, preds.data,
+            stream);
+  updateHost(&preds_host[0], preds.data, preds.len, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  for (int it = 0; it < N; it++) {
+    ASSERT_TRUE(X[it][0] > 0 ? compApprox(preds_host[it], 1)
+                             : compApprox(preds_host[it], 0));
+  }
+
+  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 1, preds.data,
+            stream);
+  updateHost(&preds_host[0], preds.data, preds.len, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  for (int it = 0; it < N; it++) {
+    ASSERT_TRUE(compApprox(X[it][0], preds_host[it]));
+  }
+
+}
+
+TEST_F(QuasiNewtonTest, predict_softmax) {
+  CompareApprox<double> compApprox(1e-8);
+  int C = 4;
+  std::vector<double> w_host(C * D);
+  w_host[0] = 1;
+  w_host[D * C - 1] = 1;
+
+  std::vector<double> preds_host(N);
+  SimpleVecOwning<double> w(allocator, w_host.size(), stream);
+  SimpleVecOwning<double> preds(allocator, N, stream);
+
+  updateDevice(w.data, &w_host[0], w.len, stream);
+
+  qnPredict(handle, Xdev->data, N, D, C, false, w.data, false, 2, preds.data,
+            stream);
+  updateHost(&preds_host[0], preds.data, preds.len, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  for (int it = 0; it < N; it++) {
+    if (X[it][0] < 0 && X[it][1] < 0) {
+      ASSERT_TRUE(compApprox(1, preds_host[it]));
+    } else if (X[it][0] > X[it][1]) {
+      ASSERT_TRUE(compApprox(0, preds_host[it]));
+    } else {
+      ASSERT_TRUE(compApprox(C - 1, preds_host[it]));
+    }
+  }
+}
+
 } // namespace GLM
 } // end namespace ML
