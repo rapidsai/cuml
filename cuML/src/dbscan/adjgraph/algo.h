@@ -65,6 +65,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     auto execution_policy = thrust::cuda::par(alloc).on(stream);
     exclusive_scan(execution_policy, dev_vd, dev_vd + batchSize, dev_ex_scan);
     adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // End Algo

@@ -23,6 +23,8 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
+#include <iostream>
+
 namespace Dbscan {
 
 using namespace MLCommon;
@@ -89,12 +91,14 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
 		int startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
+
         if(nPoints <= 0)
             continue;
 		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
 				startVertexId, nPoints, stream);
+
 		MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
-                CUDA_CHECK(cudaStreamSynchronize(stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 
 		// Running AdjGraph
 		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
@@ -102,12 +106,17 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 			adjlen = curradjlen;
             adj_graph.resize(adjlen, stream);
 		}
+
+
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
+
+
 		// Running Labelling
 		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,
 				nPoints, stream);
+
 	}
 	if (algoCcl == 2) {
 		Type *adj_graph = NULL;
