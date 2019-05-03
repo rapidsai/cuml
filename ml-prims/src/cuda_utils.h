@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "math_constants.h"
 #include <iomanip>
 #include "utils.h"
 
@@ -304,6 +305,15 @@ template <>
 HDI double myExp(double x) {
   return exp(x);
 }
+/** @} */
+
+/**
+ * @defgroup Cuda infinity values
+ * @{
+ */
+template <typename T> inline __device__ T myInf();
+template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
+template <> inline __device__ double myInf<double>() { return CUDART_INF; }
 /** @} */
 
 /**
