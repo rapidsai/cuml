@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,49 +25,82 @@ import numpy as np
 from numba import cuda
 
 from libc.stdint cimport uintptr_t
+from cuml.common.handle cimport cumlHandle
 
-cdef extern from "metrics/trustworthiness.h" namespace "ML":
-    cdef double cuml_trustworthiness[T](T* X, T* X_embedded, int n, int m, int d, int n_neighbors)
+cdef extern from "metrics/trustworthiness.h" namespace "ML::Metrics":
+    cdef double trustworthiness_score[T](const cumlHandle& h, T* X,
+              T* X_embedded, int n, int m, int d, int n_neighbors)
 
+def trustworthiness(X, X_embedded, handle=None, n_neighbors=5):
+    """
+    Expresses to what extent the local structure is retained in embedding.
+    The score is defined in the range [0, 1].
 
-"""
-Expresses to what extent the local structure is retained in embedding.
-The score is defined in the range [0, 1].
+    Parameters
+    ----------
+        X : cuDF DataFrame or Numpy array (n_samples, n_features)
+            Data in original dimension
 
-Parameters
-----------
-    X : cuDF DataFrame or Numpy array (n_samples, n_features)
-        Data in original dimension
+        X_embedded : cuDF DataFrame or Numpy array (n_samples, n_components)
+            Data in target dimension (embedding)
 
-    X : cuDF DataFrame or Numpy array (n_samples, n_components)
-        Data in target dimension (embedding)
+        n_neighbors : int, optional (default: 5)
+            Number of neighbors considered
 
-    n_neighbors : int, optional (default: 5)
-        Number of neighbors considered
+    Returns
+    -------
+        trustworthiness score : double
+            Trustworthiness of the low-dimensional embedding
+    """
 
-Returns
--------
-    trustworthiness score : double
-        Trustworthiness of the low-dimensional embedding
-"""
-def trustworthiness(X, X_embedded, n_neighbors=5):
-    n, m = X.shape
-    d = X_embedded.shape[1]
+    if isinstance(X, cudf.DataFrame) and isinstance(X_embedded, cudf.DataFrame):
+        datatype1 = np.dtype(X[X.columns[0]]._column.dtype)
+        datatype2 = np.dtype(X_embedded[X_embedded.columns[0]]._column.dtype)
+        n_samples = len(X)
+        n_features = len(X._cols)
+        n_components = len(X_embedded._cols)
+    elif isinstance(X, np.ndarray) and isinstance(X_embedded, np.ndarray):
+        datatype1 = X.dtype
+        datatype2 = X_embedded.dtype
+        n_samples, n_features = X.shape
+        n_components = X_embedded.shape[1]
+    else:
+        raise TypeError("X and X_embedded parameters must both be cuDF Dataframes or Numpy ndarray")
 
-    if X.dtype != X_embedded.dtype:
+    if datatype1 != datatype2:
         raise TypeError("X and X_embedded parameters must be of same type")
 
-    if X.dtype != np.float32 or X_embedded.dtype != np.float32: # currently only float32 is available
+    if datatype1 != np.float32 or datatype2 != np.float32: # currently only float32 is available
         return TypeError("X and X_embedded parameters must be of type float32")
 
-    cdef uintptr_t d_X = get_ctype_ptr(cuda.to_device(X))
-    cdef uintptr_t d_X_embedded = get_ctype_ptr(cuda.to_device(X_embedded))
+    if isinstance(X, cudf.DataFrame):
+        d_X = X.as_gpu_matrix(order='C')
+        d_X_embedded = X_embedded.as_gpu_matrix(order='C')
+    elif isinstance(X, np.ndarray):
+        d_X = cuda.to_device(X)
+        d_X_embedded = cuda.to_device(X_embedded)
+    
+    cdef uintptr_t d_X_ptr = get_ctype_ptr(d_X)
+    cdef uintptr_t d_X_embedded_ptr = get_ctype_ptr(d_X_embedded)
 
-    if X.dtype == np.float32:
-        return cuml_trustworthiness[float](<float*>d_X, <float*>d_X_embedded, n, m, d, n_neighbors)
+    cdef cumlHandle* handle_ = <cumlHandle*>0
+    if handle is None:
+        handle_ = <cumlHandle*><size_t>(new cumlHandle())
+    else:
+        handle_ = <cumlHandle*><size_t>handle.getHandle()
+
+    if datatype1 == np.float32:
+        res = trustworthiness_score[float](handle_[0], <float*>d_X_ptr,
+                    <float*>d_X_embedded_ptr, n_samples, n_features,
+                    n_components, n_neighbors)
     #else:
-    #    return cuml_trustworthiness(<double*>d_X, <double*>d_X_embedded, n, m, d, n_neighbors)
+    # res = trustworthiness_score[double](handle_[0], <double*>d_X_ptr,
+    #                <double*>d_X_embedded_ptr, n_samples, n_features,
+    #                n_components, n_neighbors)
 
+    if handle is None:
+        del handle_
+    return res
 
 
 def get_ctype_ptr(obj):
