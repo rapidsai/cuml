@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <iomanip>
 #include "utils.h"
 
 namespace MLCommon {
@@ -84,7 +85,7 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream) {
+std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream, int width = 4) {
 
     std::stringstream ss;
 
@@ -94,7 +95,7 @@ std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t strea
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+        ss << std::setw(width) << arr_h[i];
 
         if(i < size-1)
             ss << ", ";
@@ -242,14 +243,6 @@ HDI double myMax<double>(double x, double y) {
 /** @} */
 
 /**
- * Sign function
- */
-template <typename T>
-HDI int sgn(const T val) {
-  return (T(0) < val) - (val < T(0));
-}
-
-/**
  * @defgroup Min minimum of two numbers
  * @{
  */
@@ -264,6 +257,38 @@ HDI double myMin<double>(double x, double y) {
   return fmin(x, y);
 }
 /** @} */
+
+/**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val) {
+    myAtomicReduce(address, val, myMin<T>);
+    return *address;
+}
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val) {
+    myAtomicReduce(address, val, myMax<T>);
+    return *address;
+}
+
+/**
+ * Sign function
+ */
+template <typename T>
+HDI int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
 
 /**
  * @defgroup Exp Exponential function

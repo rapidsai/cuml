@@ -372,6 +372,9 @@ class TruncatedSVD(Base):
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
 
+        if not _transform:
+            del(self.trans_input_)
+
         del(X_m)
         return self
 

@@ -459,6 +459,9 @@ class PCA(cuml.Base):
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
 
+        if not _transform:
+            del(self.trans_input_)
+
         return self
 
     def fit_transform(self, X, y=None):

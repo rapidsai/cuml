@@ -91,6 +91,19 @@ void eltwiseDivide(math_t *out, const math_t *in1, const math_t *in2, IdxType le
   binaryOp(out, in1, in2, len,
            [] __device__(math_t a, math_t b) { return a / b; }, stream);
 }
+
+template <typename math_t, typename IdxType = int>
+void eltwiseDivideCheckZero(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
+                   cudaStream_t stream) {
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) {
+	               if (b == math_t(0.0))
+	            	   return math_t(0.0);
+	               else
+	                   return a / b;
+              },
+	       stream);
+}
 /** @} */
 
 }; // end namespace LinAlg
