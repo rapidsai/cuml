@@ -101,12 +101,12 @@ def test_gradient():
 
 def test_against_statsmodels():
 
-    num_samples = 100
+    num_samples = 1000
     xs = np.linspace(0, 1, num_samples)
     np.random.seed(12)
     noise = np.random.normal(scale=0.1, size=num_samples)
     ys = noise + 0.5*xs
-    num_batches = 1000
+    num_batches = 10
     ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
     order = (0, 1, 1)
     mu = 0.0
