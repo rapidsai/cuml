@@ -19,7 +19,8 @@ cdef extern from "ts/batched_kalman.h":
                              const vector[double*]& ptr_Tb,
                              int r,
                              int num_batches,
-                             vector[double]& ptr_loglike_b)
+                             vector[double]& vec_loglike_b,
+                             vector[vector[double]]& vec_vs_b)
 
   void batched_kalman_filter_cpu(const vector[double*]& ptr_ys_b,
                                  int nobs,
@@ -27,8 +28,8 @@ cdef extern from "ts/batched_kalman.h":
                                  const vector[double*]& ptr_Rb,
                                  const vector[double*]& ptr_Tb,
                                  int r,
-                                 vector[double]& ptr_loglike_b,
-                                 vector[double]& ptr_sigma2_b)
+                                 vector[double]& vec_loglike_b,
+                                 vector[vector[double]]& vec_vs_b)
 
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
@@ -40,13 +41,8 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     cdef vector[double] vec_loglike_b
     
-    cdef vector[double] vec_sigma2_b
-
     cdef int nobs = y.shape[0]
     cdef int num_batches = y.shape[1]
-
-    vec_loglike_b.resize(num_batches)
-    vec_sigma2_b.resize(num_batches)
 
     # cuDF wasn't working well, comment out for now
     # # Extract device pointer from DataFrame. Careful: `y_mat` temporary is to
@@ -65,6 +61,8 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
 
     cdef vector[double*] vec_ys_b
 
+    cdef vector[vector[double]] vec_vs_b
+
     for i in range(num_batches):
         Z_bi = Z_b[i]
         R_bi = R_b[i]
@@ -81,7 +79,8 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                               vec_Zb, vec_Rb, vec_Tb,
                               r,
                               num_batches,
-                              vec_loglike_b)
+                              vec_loglike_b,
+                              vec_vs_b)
     else:
         
         # initialize cpu input
@@ -95,11 +94,14 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                                   vec_Zb, vec_Rb, vec_Tb,
                                   r,
                                   vec_loglike_b,
-                                  vec_sigma2_b)
+                                  vec_vs_b)
 
     # convert C++-results to numpy arrays
     ll_b = np.zeros(num_batches)
+    vs = np.zeros((nobs, num_batches))
     for i in range(num_batches):
         ll_b[i] = vec_loglike_b[i]
+        for j in range(nobs):
+            vs[j,i] = vec_vs_b[i][j]
 
-    return ll_b
+    return ll_b, vs

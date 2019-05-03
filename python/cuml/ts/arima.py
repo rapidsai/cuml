@@ -110,7 +110,7 @@ def eval_kf(model: ARIMAModel):
 
     B0 = model.mu/(1-np.sum(model.ar_params))
     y_centered = y_diff - B0
-    vs, Fs, ll, s2 = kfilter(y_centered, Z, R, T, r)
+    vs, ll = kfilter(y_centered, Z, R, T, r)
 
     return vs, model.endog[0:-1]+(y_diff - vs)
 
@@ -121,7 +121,7 @@ def loglike(model: ARIMAModel):
     # B0 = np.mean(y_diff)
     B0 = model.mu/(1-np.sum(model.ar_params))
     y_centered = y_diff - B0
-    vs, Fs, ll, s2 = kfilter(y_centered, Z, R, T, r)
+    vs, ll= kfilter(y_centered, Z, R, T, r)
     return ll
 
 

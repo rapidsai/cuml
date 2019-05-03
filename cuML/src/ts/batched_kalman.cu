@@ -183,7 +183,8 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                                const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
                                int r,
                                vector<double>& h_loglike_b,
-                               vector<double>& h_sigma2_b) {
+                               vector<vector<double>>& h_vs_b
+                               ) {
 
   nvtxNameOsThread(0, "MAIN");
   nvtxRangePush(__FUNCTION__);
@@ -191,25 +192,20 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
 
   const size_t num_batches = h_Zb.size();
   
-  vector<double*> h_vs_b(num_batches);
-  vector<double*> h_Fs_b(num_batches);
+  h_loglike_b.resize(num_batches);
+  h_vs_b.resize(num_batches);
   for(int i=0; i<num_batches; i++) {
-    h_vs_b[i] = new double[nobs];
-    h_Fs_b[i] = new double[nobs];
+    h_vs_b[i].resize(nobs);
   }
   for(int bi=0; bi<num_batches; bi++) {
     kalman_filter(h_ys_b[bi], nobs,
                   h_Zb[bi], h_Rb[bi], h_Tb[bi],
                   r,
-                  h_vs_b[bi], h_Fs_b[bi],
-                  &h_loglike_b[bi], &h_sigma2_b[bi]
+                  h_vs_b[bi].data(),
+                  &h_loglike_b[bi]
                   );
   }
-
-  for(int i=0; i<num_batches; i++) {
-    delete[] h_vs_b[i];
-    delete[] h_Fs_b[i];
-  }
+  
   nvtxRangePop();
 }
 
@@ -499,7 +495,9 @@ void batched_kalman_filter(double* h_ys,
 
                            int r,
                            int num_batches,
-                           std::vector<double>& h_loglike_b) {
+                           std::vector<double>& h_loglike_b,
+                           std::vector<vector<double>>& h_vs_b
+                           ) {
 
   nvtxRangePush(__FUNCTION__);
 
@@ -517,10 +515,8 @@ void batched_kalman_filter(double* h_ys,
   BatchedMatrix Tb(r, r, num_batches, memory_pool);
   BatchedMatrix Rb(r, 1, num_batches, memory_pool);
 
-  // updateDevice(Zb[0], h_Zb, r*num_batches);
-  // updateDevice(Rb[0], h_Rb, r*num_batches);
-  // updateDevice(Tb[0], h_Tb, r*r*num_batches);
-
+  ////////////////////////////////////////////////////////////
+  // Copy matrices to device
   {
     //Tb
     std::vector<double> matrix_copy(r*r*num_batches);
@@ -551,8 +547,8 @@ void batched_kalman_filter(double* h_ys,
 
   ////////////////////////////////////////////////////////////
   // Computation
-  double* d_vs;
-  double* d_Fs;
+  double* d_vs; // time-major order
+  double* d_Fs; // time-major order
   allocate(d_vs, ys_len*num_batches);
   allocate(d_Fs, ys_len*num_batches);
   
@@ -565,16 +561,26 @@ void batched_kalman_filter(double* h_ys,
 
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
-
+  h_loglike_b.resize(num_batches);
   updateHost(h_loglike_b.data(), d_loglike, num_batches);
-  CUDA_CHECK(cudaPeekAtLastError());
+
+  vector<double> h_vs(ys_len*num_batches);
+  updateHost(h_vs.data(), d_vs, ys_len*num_batches);
+
+  h_vs_b.resize(num_batches);
+  for(int i=0;i<num_batches;i++) {
+    h_vs_b[i].resize(ys_len);
+    for(int j=0;j<ys_len;j++) {
+      h_vs_b[i][j] = h_vs[j + i*ys_len]; // vs is in time-major order
+    }
+  }
 
   ////////////////////////////////////////////////////////////
   // free memory
   CUDA_CHECK(cudaFree(d_vs));
   CUDA_CHECK(cudaFree(d_Fs));
   CUDA_CHECK(cudaFree(d_sigma2));
-  CUDA_CHECK(cudaFree(d_loglike));  
+  CUDA_CHECK(cudaFree(d_loglike));
   nvtxRangePop();
   
 }

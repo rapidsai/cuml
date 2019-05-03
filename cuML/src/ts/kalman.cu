@@ -13,7 +13,7 @@ using MapMatrixT = Map<MatrixT>;
 using MapVectorT = Map<VectorXd>;
 
 void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, double* ptr_T, int r,
-                   double* ptr_vs, double* ptr_Fs, double* ptr_loglike, double* ptr_sigma2) {
+                   double* ptr_vs, double* ptr_loglike) {
   
   int nobs = ys_len;
 
@@ -24,7 +24,7 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
 
   // return results
   MapVectorT vs(ptr_vs, nobs);
-  MapVectorT Fs(ptr_Fs, nobs);
+  VectorT Fs(nobs);
 
   // use a single kalman iteration as covariance (P) initialization
   MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
@@ -60,5 +60,4 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
 
   // return results
   *ptr_loglike = loglike;
-  *ptr_sigma2 = sigma2;
 }
