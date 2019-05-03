@@ -144,15 +144,19 @@ def predict_in_sample(model: ARIMAModel, method="mle"):
 
 
 def forecast(model, nsteps, prev_values=None, method="mle"):
+    return forecast_values(model.order, model.pred, model.ar_params, model.mu,
+                           nsteps, prev_values, method)
 
-    p, d, q = model.order
+def forecast_values(order, pred, ar_params, mu, nsteps, prev_values, method="mle"):
+
+    p, d, _ = order
 
     if prev_values is not None:
         nop = len(prev_values)
     else:
-        nop = len(model.pred)
+        nop = len(pred)
 
-    if nop < 1 or nop < len(model.ar_params):
+    if nop < 1 or nop < len(ar_params):
         raise AssertionError("Forecast ERROR: Not enough previous values to compute forecast")
 
     yp = np.zeros(nop + nsteps)
@@ -162,19 +166,19 @@ def forecast(model, nsteps, prev_values=None, method="mle"):
     if prev_values is not None:
         yp[0:nop] = prev_values
     else:
-        yp[0:nop] = model.pred
+        yp[0:nop] = pred
 
     # evaluate model
     for t in range(nop, nop + nsteps):
         if d == 0:
-            yp[t] = model.mu + np.dot(yp[t-len(model.ar_params):t],
-                                      model.ar_params)
+            yp[t] = mu + np.dot(yp[t-len(ar_params):t],
+                                      ar_params)
         elif d == 1:
             # set_trace()
-            yp[t] = yp[t-1] + model.mu
-            if model.ar_params.size:
+            yp[t] = yp[t-1] + mu
+            if ar_params.size:
                 ypdiff = yp[t-p:t] - yp[t-p-1:t-1]
-                ar = np.dot(ypdiff, model.ar_params)
+                ar = np.dot(ypdiff, ar_params)
                 yp[t] += ar
         else:
             raise NotImplementedError("ARIMA only works for d=0,1")
