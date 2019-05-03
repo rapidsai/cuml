@@ -16,7 +16,6 @@
 
 namespace ML {  
 
-// @todo: See cuml issue #100 to use GLOG
 #define LOG(verbose, fmt, ...)					\
     do{								\
 	if(verbose){						\
@@ -98,10 +97,9 @@ countLabels(const cumlHandle_impl& handle,
 						    lower_level,
 						    upper_level,
 						    n_samples,
-						    stream)
-    );
+						    stream) );
 
-    workspace.resize(temp_storage_bytes, stream);
+    workspace.reserve(temp_storage_bytes, stream);
 
     CUDA_CHECK( cub::DeviceHistogram::HistogramEven(workspace.data(),
 						    temp_storage_bytes,
@@ -188,6 +186,7 @@ sampleCentroids(const cumlHandle_impl &handle,
 		   },
 		   stream);
 
+    CUDA_CHECK( cudaStreamSynchronize(stream) );
     return inRankCp;
 }
     
@@ -1068,6 +1067,11 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 				    _workspace,
 				    stream);
 
+      
+	// wait for stream to finish before sending data to other ranks...
+	CUDA_CHECK( cudaStreamSynchronize(stream) );
+
+
 	// Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where 
 	//   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
 	//   sampleCountInCluster[n_clusters] - 1D array, sampleCountInCluster[i] contains # of samples in cluster-i. 
@@ -1140,6 +1144,7 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 		       sqrdNorm.data(),
 		       sqrdNorm.numElements(),
 		       stream);
+	CUDA_CHECK( cudaStreamSynchronize(stream) );
 
 	MLCommon::copy(_centroidsRawData.data(),
 		       newCentroids.data(),
@@ -1286,6 +1291,7 @@ KMeans<DataT, IndexT>::predict(Tensor<DataT, 2, IndexT> &X){
     inertia = clusteringCost.value;
   
     _labelsRawData.reserve(n_samples, stream);
+    CUDA_CHECK( cudaStreamSynchronize(stream) );
 
     auto labels = std::move(Tensor<IndexT, 1>(_labelsRawData.data(), {n_samples}));
     thrust::transform(thrust::cuda::par.on(stream),
