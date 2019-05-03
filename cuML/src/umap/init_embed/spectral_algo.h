@@ -18,8 +18,9 @@
 
 #include "umap/umapparams.h"
 
+#include "sparse/coo.h"
+
 #include "spectral/spectral.h"
-#include <nvgraph.h>
 #include <iostream>
 
 namespace UMAPAlgo {
@@ -37,12 +38,11 @@ namespace UMAPAlgo {
             template<typename T>
             void launcher(const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
-                          int *rows, int *cols, float *vals,
-                          int nnz,
+                          MLCommon::Sparse::COO<float> *coo,
                           UMAPParams *params,
                           T *embedding) {
 
-                Spectral::fit_embedding(rows, cols, vals, nnz, n, params->n_components, embedding);
+                Spectral::fit_embedding(coo->rows, coo->cols, coo->vals, coo->nnz, n, params->n_components, embedding);
             }
         }
     }

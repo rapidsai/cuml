@@ -33,6 +33,12 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 
+cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
+
+    enum MetricType:
+        EUCLIDEAN = 0,
+        CATEGORICAL = 1
+
 cdef extern from "umap/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
@@ -50,7 +56,10 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         float transform_queue_size,
         bool verbose,
         float a,
-        float b
+        float b,
+        int target_n_neighbors,
+        float target_weights,
+        MetricType target_metric
 
 
 cdef extern from "umap/umap.h" namespace "ML":
@@ -63,13 +72,18 @@ cdef extern from "umap/umap.h" namespace "ML":
                  int d,
                  float *embeddings)
 
+        void fit(float *X,
+                 float *y,
+                 int n,
+                 int d,
+                 float *embeddings)
+
         void transform(float *X,
                        int n,
                        int d,
                        float *embedding,
                        int embedding_n,
                        float *out)
-
 
 
 cdef class UMAP:
@@ -203,11 +217,15 @@ cdef class UMAP:
                   verbose = False,
                   a = None,
                   b = None,
+                  target_n_neighbors = -1,
+                  target_weights = 0.5,
+                  target_metric = "euclidean",
                   should_downcast = True):
 
         self.umap_params = new UMAPParams()
 
         self.n_neighbors = n_neighbors
+        self.umap_params.n_neighbors = n_neighbors
 
         self.umap_params.n_components = <int>n_components
         self.umap_params.n_epochs = <int>n_epochs
@@ -234,6 +252,16 @@ cdef class UMAP:
         self.umap_params.repulsion_strength = <float>repulsion_strength
         self.umap_params.negative_sample_rate = <int>negative_sample_rate
         self.umap_params.transform_queue_size = <int>transform_queue_size
+
+        self.umap_params.target_n_neighbors = target_n_neighbors
+        self.umap_params.target_weights = target_weights
+
+        if target_metric == "euclidean":
+            self.umap_params.target_metric = MetricType.EUCLIDEAN
+        elif target_metric == "categorical":
+            self.umap_params.target_metric = MetricType.CATEGORICAL
+        else:
+            raise Exception("Invalid target metric: {}" % target_metric)
 
         self._should_downcast = should_downcast
 
@@ -285,12 +313,14 @@ cdef class UMAP:
         return X
 
 
-    def fit(self, X):
+    def fit(self, X, y = None):
         """Fit X into an embedded space.
         Parameters
         ----------
-        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
+        X : array, shape (n_samples, n_features)
             X contains a sample per row.
+        y : array, shape (n_samples)
+            y contains a label per row.
         """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
@@ -305,20 +335,35 @@ cdef class UMAP:
 
         self.raw_data = X_m.device_ctypes_pointer.value
 
-        self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0], self.umap_params.n_components),
+        self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0],
+                                                  self.umap_params.n_components),
                                             order = "C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-        self.umap.fit(
-            <float*> self.raw_data,
-            <int> X_m.shape[0],
-            <int> X_m.shape[1],
-            <float*>self.embeddings
-        )
+        cdef uintptr_t y_raw
+        if y is not None:
+            y_m = self._downcast(y)
+            y_raw = y_m.device_ctypes_pointer.value
+            self.umap.fit(
+                <float*> self.raw_data,
+                <float*> y_raw,
+                <int> X_m.shape[0],
+                <int> X_m.shape[1],
+                <float*>self.embeddings
+            )
+
+        else:
+
+            self.umap.fit(
+                <float*> self.raw_data,
+                <int> X_m.shape[0],
+                <int> X_m.shape[1],
+                <float*>self.embeddings
+            )
 
         del X_m
 
-    def fit_transform(self, X):
+    def fit_transform(self, X, y = None):
         """Fit X into an embedded space and return that transformed
         output.
         Parameters
@@ -330,7 +375,7 @@ cdef class UMAP:
         X_new : array, shape (n_samples, n_components)
             Embedding of the training data in low-dimensional space.
         """
-        self.fit(X)
+        self.fit(X, y)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
