@@ -342,7 +342,7 @@ void sum_rows_by_key_large_nkeys_rowmajor( const DataIteratorT d_A,
   grid.z = std::min(grid.z, MAX_BLOCKS);
   //std::cout << "block = " << block.x << ", " << block.y << std::endl;
   //std::cout << "grid = " << grid.x << ", " << grid.y << ", " << grid.z << std::endl;
-  cudaMemset(d_sums, 0, sizeof(DataType)*nkeys*ncols);
+  cudaMemsetAsync(d_sums, 0, sizeof(DataType)*nkeys*ncols, st);
   sum_rows_by_key_large_nkeys_kernel_rowmajor<<<grid,block,0,st>>>(d_A, lda, d_keys, nrows, ncols, key_offset, nkeys, d_sums);   
 }
 
