@@ -132,7 +132,6 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
   } break;
   case 2: {
     ASSERT(C > 1, "qn.h: softmax invalid C");
-    Z.print();
     MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
