@@ -16,6 +16,7 @@
 - PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Added column-wise matrix sort primitive
+- PR #525: Add docs build script to cuML
 - PR #528: Remove current KMeans and replace it with a new single GPU implementation built using ML primitives
 
 ## Improvements
