@@ -68,21 +68,6 @@ template <typename T> struct CSMat {
 
 //Providing GEMM handle for B of type CSMat
 template <typename T> struct Gemm<T, SimpleMat<T>, CSMat<T>, SimpleMat<T>> {
-  // we implement only two cases, essential to running QN GLM:
-  // Case 1: C_cm = alpha * A_cm * B_csr' + beta * C_cm
-  // - we implement it by reinterpreting B_csr' as B_csc and using
-  // cusparseGemmi
-  //
-  // Case 2: C_cm = alpha * A_cm * B_csr
-  // - we implement it as C_cm = ( alpha * B_csr' * A_cm' )' using
-  // cusparseCsrmm
-  //
-  // TODO constraints: beta = 0, number of outputs C_cm.m == 1
-  // Therefore, we dont need to transpose C before and after the multiplication
-  // If we wanted to support these cases, we would need dynamic allocs here.
-  // Once we have cuml poolig allocators, this might be viable.
-  // Passing in workspace instead for this case would make the API semantics
-  // awkward
   static inline void gemm_(const cumlHandle_impl &handle, SimpleMat<T> &C,
                            const T alpha, const SimpleMat<T> &A,
                            const bool transA, const CSMat<T> &B,
@@ -110,29 +95,7 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CSMat<T>, SimpleMat<T>> {
            "simple_mat.h: Storage orders of dense matrices.");
 
     ASSERT(C.m == 1, "simple_mat.h: multiple outputs not yet supported.");
-    // Check that we are either in case 1 or 2
-    // if (!transA && transB) { // case 1
-    //    printf("m=%d,n=%d,k=%d, nnz=%d, lda=%d, ldc=%d\n",
-    //            C.m,C.n,A.n, B.nnz, A.m, C.m
-    //            );
-    //  CUSPARSE_CHECK(cusparseGemmi(cuml.getcusparseHandle(),
-    //                               C.m, // m = C = W.m
-    //                               C.n, // n = N = X.m
-    //                               A.n, // k = X.n = D
-    //                               B.nnz, &alpha, A.data,
-    //                               A.m, // lda = C
-    //                               B.csrVal.data, B.csrRowPtr.data,
-    //                               B.csrColInd.data, &beta, C.data,
-    //                               C.m // ldc = C
-    //                               ));
-
-    //} else
-    if (B.format == CSR) { // case 2
-
-      // if beta != 0, we would also have to transpose C first
-      // ASSERT(beta == 0, "simple_mat.h: requested configuration not
-      // implemented.");
-
+    if (B.format == CSR) { 
       // TODO If C > 1, we would need to transpose the output of the cusparse
       // call  However, here we do not have the necessary scratch space  We
       // could allocate it using the cuml handle and rely on RMM's mempool  or
