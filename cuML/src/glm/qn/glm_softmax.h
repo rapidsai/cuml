@@ -28,16 +28,18 @@ using MLCommon::myExp;
 using MLCommon::myLog;
 using MLCommon::myMax;
 
-//Input: matrix Z (dims: CxN)
-//Computes softmax cross entropy loss across columns, i.e. normalization column-wise.
+// Input: matrix Z (dims: CxN)
+// Computes softmax cross entropy loss across columns, i.e. normalization
+// column-wise.
 //
-//This kernel performs best for small number of classes C.
-//It's much faster than implementation based on ml-prims (up to ~2x - ~10x for small C <= BX).
-//More importantly, it does not require another CxN scratch space.
-//In that case the block covers the whole column and warp reduce is fast
-//TODO for very large C, there should be maybe rather something along the lines of
+// This kernel performs best for small number of classes C.
+// It's much faster than implementation based on ml-prims (up to ~2x - ~10x for
+// small C <= BX).  More importantly, it does not require another CxN scratch
+// space.  In that case the block covers the whole column and warp reduce is fast
+// TODO for very large C, there should be maybe rather something along the lines
+// of
 //     coalesced reduce, i.e. blocks should take care of columns
-//TODO split into two kernels for small and large case?
+// TODO split into two kernels for small and large case?
 template <typename T, int BX = 32, int BY = 8>
 __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
                                  int C, int N, bool getDerivative = true) {
@@ -158,7 +160,8 @@ template <typename T>
 void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
                       int N, cudaStream_t stream) {
 
-  CUDA_CHECK(cudaMemset(loss_val, 0, sizeof(T)));
+  CUDA_CHECK(cudaMemsetAsync(loss_val, 0, sizeof(T), stream));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   if (C <= 4) {
     dim3 bs(4, 64);
     dim3 gs(ceildiv(N, 64));
@@ -186,11 +189,11 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
 template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
-  Softmax(int D, int C, bool has_bias, const cublasHandle_t & cublas)
-      : Super(D, C, has_bias, cublas) {}
+  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
+      : Super(handle, D, C, has_bias) {}
 
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z,
-                           const SimpleVec<T> &y, cudaStream_t stream) {
+  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
+                           cudaStream_t stream) {
 
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }

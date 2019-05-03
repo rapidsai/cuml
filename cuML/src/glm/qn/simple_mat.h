@@ -18,13 +18,15 @@
 #include <iostream>
 #include <vector>
 
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
 #include <cuda_utils.h>
 #include <linalg/binary_op.h>
 #include <linalg/cublas_wrappers.h>
 #include <linalg/map_then_reduce.h>
+#include <linalg/norm.h>
 #include <linalg/ternary_op.h>
 #include <linalg/unary_op.h>
-#include <linalg/norm.h>
 
 namespace ML {
 
@@ -52,10 +54,10 @@ template <typename T> struct SimpleMat {
 
   void print() const { std::cout << (*this) << std::endl; }
 
-  inline void assign_gemm(const T alpha, const SimpleMat<T> &A,
-                          const bool transA, const SimpleMat<T> &B,
-                          const bool transB, const T beta,
-                          const cublasHandle_t &cublas, cudaStream_t stream) {
+  inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
+                          const SimpleMat<T> &A, const bool transA,
+                          const SimpleMat<T> &B, const bool transB,
+                          const T beta, cudaStream_t stream) {
 
     int kA = A.n;
     int kB = B.m;
@@ -76,8 +78,8 @@ template <typename T> struct SimpleMat {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {              // base case
-      MLCommon::LinAlg::cublasgemm(cublas, // handle
+        B.ord == COL_MAJOR) {                                // base case
+      MLCommon::LinAlg::cublasgemm(handle.getCublasHandle(), // handle
                                    transA ? CUBLAS_OP_T : CUBLAS_OP_N, // transA
                                    transB ? CUBLAS_OP_T : CUBLAS_OP_N, // transB
                                    this->m, this->n, kA, // dimensions m,n,k
@@ -86,23 +88,22 @@ template <typename T> struct SimpleMat {
                                    B.data, B.m, // ldb
                                    &beta, this->data,
                                    this->m, // ldc,
-                                   stream
-      );
+                                   stream);
       return;
     }
     if (A.ord == ROW_MAJOR) {
       SimpleMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      assign_gemm(alpha, Acm, !transA, B, transB, beta, cublas, stream);
+      assign_gemm(handle, alpha, Acm, !transA, B, transB, beta, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       SimpleMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      assign_gemm(alpha, A, transA, Bcm, !transB, beta, cublas, stream);
+      assign_gemm(handle, alpha, A, transA, Bcm, !transB, beta, stream);
       return;
     }
     if (ord == ROW_MAJOR) {
       SimpleMat<T> Ccm(this->data, n, m, COL_MAJOR);
-      Ccm.assign_gemm(alpha, B, !transB, A, !transA, beta, cublas, stream);
+      Ccm.assign_gemm(handle, alpha, B, !transB, A, !transA, beta, stream);
       return;
     }
   }
@@ -162,19 +163,21 @@ template <typename T> struct SimpleMat {
                                 len, f, stream);
   }
 
-  inline void fill(const T val, cudaStream_t stream=0) {
+  inline void fill(const T val, cudaStream_t stream) {
     // TODO this reads data unnecessary, though it's mostly used for testing
     auto f = [val] __device__(const T x) { return val; };
     MLCommon::LinAlg::unaryOp(data, data, len, f, stream);
   }
 
-  inline void operator=(const SimpleMat<T> &other) {
+  inline void copy_async(const SimpleMat<T> &other, cudaStream_t stream) {
+    ASSERT((ord == other.ord) && (m == other.m) && (n == other.n),
+           "SimpleMat::copy: matrices not compatible");
 
-    ASSERT(ord == other.ord, "SimpleMat::operator=: Storage orders must match");
-
-    CUDA_CHECK(cudaMemcpy(data, other.data, len * sizeof(T),
-                          cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(data, other.data, len * sizeof(T),
+                               cudaMemcpyDeviceToDevice, stream));
   }
+
+  void operator=(const SimpleMat<T> &other) = delete;
 };
 
 template <typename T> struct SimpleVec : SimpleMat<T> {
@@ -182,22 +185,15 @@ template <typename T> struct SimpleVec : SimpleMat<T> {
 
   SimpleVec(T *data, const int n) : Super(data, n, 1, COL_MAJOR) {}
   // this = alpha * A * x + beta * this
-  void assign_gemv(const T alpha, const SimpleMat<T> &A, bool transA,
-                   const SimpleVec<T> &x, const T beta,
-                   cublasHandle_t &cublas) {
-    Super::assign_gemm(alpha, A, transA, x, false, beta, cublas);
+  void assign_gemv(const cumlHandle_impl &handle, const T alpha,
+                   const SimpleMat<T> &A, bool transA, const SimpleVec<T> &x,
+                   const T beta, cudaStream_t stream) {
+    Super::assign_gemm(handle, alpha, A, transA, x, false, beta, stream);
   }
 
   SimpleVec() : Super(COL_MAJOR) {}
 
   inline void reset(T *new_data, int n) { Super::reset(new_data, n, 1); }
-
-  inline T operator[](int pos) const {
-    T tmp;
-    MLCommon::updateHost(&tmp, &this->data[pos], 1, 0);
-    CUDA_CHECK(cudaStreamSynchronize(0));
-    return tmp;
-  }
 };
 
 template <typename T>
@@ -226,33 +222,32 @@ inline void col_slice(const SimpleMat<T> &mat, SimpleMat<T> &mask_mat,
 
 template <typename T>
 inline T dot(const SimpleVec<T> &u, const SimpleVec<T> &v, T *tmp_dev,
-             cudaStream_t stream = 0) {
+             cudaStream_t stream) {
   auto f = [] __device__(const T x, const T y) { return x * y; };
   MLCommon::LinAlg::mapThenSumReduce(tmp_dev, u.len, f, stream, u.data, v.data);
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1, 0);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
+  cudaStreamSynchronize(stream);
   return tmp_host;
 }
 
 template <typename T>
-inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev,
-                     cudaStream_t stream = 0) {
+inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   return dot(u, u, tmp_dev, stream);
 }
 
 template <typename T>
-inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0) {
+inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   return MLCommon::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
 }
 
 template <typename T>
-inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream = 0){
-  MLCommon::LinAlg::rowNorm(tmp_dev, u.data,  u.len, 1, MLCommon::LinAlg::L1Norm,
+inline T nrm1(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
+  MLCommon::LinAlg::rowNorm(tmp_dev, u.data, u.len, 1, MLCommon::LinAlg::L1Norm,
                             true, stream, MLCommon::Nop<T>());
   T tmp_host;
-  MLCommon::updateHost(&tmp_host, tmp_dev, 1, 0);
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  MLCommon::updateHost(&tmp_host, tmp_dev, 1, stream);
+  cudaStreamSynchronize(stream);
   return tmp_host;
 }
 
@@ -299,55 +294,40 @@ std::ostream &operator<<(std::ostream &os, const SimpleMat<T> &mat) {
   return os;
 }
 
-// TODO The following classes own their storage and are just for testing
-// The internals should be replaced by device_buffer+device_allocator, when ready
 template <typename T> struct SimpleVecOwning : SimpleVec<T> {
   typedef SimpleVec<T> Super;
-  bool allocated;
+  typedef MLCommon::device_buffer<T> Buffer;
+  Buffer buf;
 
-  SimpleVecOwning() : Super(), allocated(false) {}
+  SimpleVecOwning() = delete;
 
-  SimpleVecOwning(int n) : Super(), allocated(false) { reset(n); }
+  SimpleVecOwning(std::shared_ptr<deviceAllocator> allocator, int n,
+                  cudaStream_t stream)
+      : Super(), buf(allocator, stream, n) {
 
-  ~SimpleVecOwning() noexcept(false) { CUDA_CHECK(cudaFree(Super::data)); }
-
-  void reset(int n) {
-    if (allocated) {
-      CUDA_CHECK(cudaFree(this->data));
-    }
-    MLCommon::allocate(this->data, n);
-    Super::reset(this->data, n);
-    allocated = true;
+    Super::reset(buf.data(), n);
   }
 
-  void operator=(const SimpleVec<T> &other) { Super::operator=(other); }
+  void operator=(const SimpleVec<T> &other) = delete;
 };
 
 template <typename T> struct SimpleMatOwning : SimpleMat<T> {
   typedef SimpleMat<T> Super;
-  bool allocated;
+  typedef MLCommon::device_buffer<T> Buffer;
+  Buffer buf;
   using Super::m;
   using Super::n;
   using Super::ord;
 
-  SimpleMatOwning(STORAGE_ORDER order = COL_MAJOR)
-      : Super(order), allocated(false) {}
+  SimpleMatOwning() = delete;
 
-  SimpleMatOwning(int m, int n, STORAGE_ORDER order = COL_MAJOR)
-      : Super(order), allocated(false) {
-    reset(m, n);
+  SimpleMatOwning(std::shared_ptr<deviceAllocator> allocator, int m, int n,
+                  cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
+      : Super(order), buf(allocator, stream, m * n) {
+    Super::reset(buf.data(), m, n);
   }
 
-  ~SimpleMatOwning() noexcept(false) { CUDA_CHECK(cudaFree(Super::data)); }
-  void reset(int m, int n) {
-
-    if (allocated) {
-      CUDA_CHECK(cudaFree(this->data));
-    }
-    MLCommon::allocate(Super::data, m * n);
-    Super::reset(Super::data, m, n);
-    allocated = true;
-  }
+  void operator=(const SimpleVec<T> &other) = delete;
 };
 
 }; // namespace ML
