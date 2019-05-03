@@ -37,7 +37,7 @@ void fit_predict(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
   
-    ML::KMeans<float> kmeans_obj(h, n_clusters, metric, init, max_iter, tol, seed, verbose);
+    ML::KMeans<float> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric), init, max_iter, tol, seed, verbose);
         
     if(kmeans::InitMethod::Array == init){
 	ASSERT(centroids != nullptr,
@@ -71,7 +71,7 @@ void fit_predict(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
     
-    ML::KMeans<double> kmeans_obj(h, n_clusters, metric, init, max_iter, tol, seed, verbose);
+    ML::KMeans<double> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric), init, max_iter, tol, seed, verbose);
         
     if(kmeans::InitMethod::Array == init){
 	ASSERT(centroids != nullptr,
@@ -132,7 +132,7 @@ void predict(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
     
-    ML::KMeans<float> kmeans_obj(h, n_clusters, metric);
+    ML::KMeans<float> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));
     
     kmeans_obj.setCentroids(centroids, n_clusters, n_features);
 
@@ -153,7 +153,7 @@ void predict(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
     
-    ML::KMeans<double> kmeans_obj(h, n_clusters, metric);    
+    ML::KMeans<double> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));    
     kmeans_obj.setCentroids(centroids, n_clusters, n_features);
     
     kmeans_obj.predict(X, n_samples, n_features, labels);
@@ -173,7 +173,7 @@ void transform(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
     
-    ML::KMeans<float> kmeans_obj(h, n_clusters, metric);    
+    ML::KMeans<float> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));    
     kmeans_obj.setCentroids(centroids, n_clusters, n_features);
     kmeans_obj.transform(X, n_samples, n_features, X_new);  
 }
@@ -191,7 +191,7 @@ void transform(const ML::cumlHandle& handle,
     ML::detail::streamSyncer _(h);
     cudaStream_t stream  = h.getStream();
     
-    ML::KMeans<double> kmeans_obj(h, n_clusters, metric);    
+    ML::KMeans<double> kmeans_obj(h, n_clusters, static_cast<MLCommon::Distance::DistanceType>(metric));    
     kmeans_obj.setCentroids(centroids, n_clusters, n_features);
     kmeans_obj.transform(X, n_samples, n_features, X_new);  
 }

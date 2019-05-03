@@ -16,6 +16,7 @@
 
 namespace ML {  
 
+//@todo: Use GLOG once https://github.com/rapidsai/cuml/issues/100 is addressed.
 #define LOG(verbose, fmt, ...)					\
     do{								\
 	if(verbose){						\
@@ -66,7 +67,7 @@ struct KeyValueIndexOp{
 };
 
 
-// TODO - decide this based on avail memory and perf analysis..
+// @todo: Decide this based on avail memory and perf analysis..
 template<typename CountT>
 CountT
 getDataBatchSize(CountT n_samples, CountT n_features){
@@ -99,7 +100,7 @@ countLabels(const cumlHandle_impl& handle,
 						    n_samples,
 						    stream) );
 
-    workspace.reserve(temp_storage_bytes, stream);
+    workspace.resize(temp_storage_bytes, stream);
 
     CUDA_CHECK( cub::DeviceHistogram::HistogramEven(workspace.data(),
 						    temp_storage_bytes,
@@ -124,7 +125,6 @@ sampleCentroids(const cumlHandle_impl &handle,
 		typename kmeans::detail::SamplingOp<DataT> &select_op,
 		MLCommon::device_buffer<char> &workspace,
 		cudaStream_t stream){
-    ML::detail::streamSyncer _(handle);
     int n_local_samples = X.getSize(0);
     int n_features      = X.getSize(1);
             
@@ -164,7 +164,9 @@ sampleCentroids(const cumlHandle_impl &handle,
     CUDA_CHECK( cudaStreamSynchronize(stream) );
 	
     int* rawPtr_isSampleCentroid = isSampleCentroid.data();
-    thrust::for_each_n(thrust::cuda::par.on(stream),
+    ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::for_each_n(execution_policy,
 		       sampledMinClusterDistance.begin(),
 		       nPtsSampledInRank,
 		       [=] __device__ (cub::KeyValuePair<ptrdiff_t, DataT> val) { 
@@ -186,7 +188,6 @@ sampleCentroids(const cumlHandle_impl &handle,
 		   },
 		   stream);
 
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
     return inRankCp;
 }
     
@@ -322,7 +323,6 @@ minClusterAndDistance(const cumlHandle_impl &handle,
 		      MLCommon::device_buffer<char> &workspace,
 		      MLCommon::Distance::DistanceType metric,
 		      cudaStream_t stream){
-    ML::detail::streamSyncer _(handle);
     auto n_samples       = X.getSize(0);
     auto n_features      = X.getSize(1);
     auto n_clusters      = centroids.getSize(0);      
@@ -394,7 +394,6 @@ minClusterDistance(const cumlHandle_impl &handle,
 		   MLCommon::device_buffer<char> &workspace,
 		   MLCommon::Distance::DistanceType metric,
 		   cudaStream_t stream){
-    ML::detail::streamSyncer _(handle);
     auto n_samples  = X.getSize(0);
     auto n_features = X.getSize(1);
     auto nc         = centroids.getSize(0);
@@ -505,7 +504,6 @@ countSamplesInCluster(const cumlHandle_impl& handle,
 		      MLCommon::Distance::DistanceType metric,
 		      Tensor<int, 1, IndexT> &sampleCountInCluster,
 		      cudaStream_t stream){
-    ML::detail::streamSyncer _(handle);
     auto n_samples  = X.getSize(0);
     auto n_features = X.getSize(1);
     auto n_clusters = centroids.getSize(0);
@@ -536,7 +534,6 @@ countSamplesInCluster(const cumlHandle_impl& handle,
 					  metric,
 					  stream);
       
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
     // Using TransformInputIteratorT to dereference an array of cub::KeyValuePair and converting them to just return the Key to be used in reduce_rows_by_key prims
     kmeans::detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
     cub::TransformInputIterator<IndexT, kmeans::detail::KeyValueIndexOp<IndexT, DataT>,
@@ -567,9 +564,6 @@ kmeansPlusPlus(const cumlHandle_impl& handle,
 	       MLCommon::device_buffer<char> &workspace,
 	       MLCommon::device_buffer<DataT> &centroidsRawData,
 	       cudaStream_t stream){
-    ML::detail::streamSyncer _(handle);
-
-  
     auto n_pot_centroids  = C.getSize(0); // # of potential centroids
     auto n_features = C.getSize(1);
   
@@ -578,7 +572,9 @@ kmeansPlusPlus(const cumlHandle_impl& handle,
 				  handle.getDeviceAllocator(),
 				  stream);
 
-    thrust::transform(thrust::cuda::par.on(stream),
+    ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::transform(execution_policy,
 		      weights.begin(),
 		      weights.end(),
 		      prob.begin(),
@@ -602,8 +598,8 @@ kmeansPlusPlus(const cumlHandle_impl& handle,
     int dataBatchSize = kmeans::detail::getDataBatchSize(n_pot_centroids, n_features);
 
     device_buffer<DataT> pairwiseDistanceRaw(handle.getDeviceAllocator(), stream);
-    pairwiseDistanceRaw.reserve(dataBatchSize * n_clusters,
-				stream);
+    pairwiseDistanceRaw.resize(dataBatchSize * n_clusters,
+			       stream);
 
     int n_pts_sampled = 0;
     for (int iter = 0; iter < n_clusters; iter++) {    
@@ -661,7 +657,9 @@ kmeansPlusPlus(const cumlHandle_impl& handle,
     
 	cub::ArgIndexInputIterator<int*> itr_w(weights.data());
     
-	thrust::transform(thrust::cuda::par.on(stream),
+	ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
+	auto execution_policy = thrust::cuda::par(alloc).on(stream);
+	thrust::transform(execution_policy,
 			  minClusterDistance.begin(),
 			  minClusterDistance.end(),
 			  itr_w,
@@ -675,9 +673,6 @@ kmeansPlusPlus(const cumlHandle_impl& handle,
 				  return weight.value * minDist/clusteringCost;
 			      }
 			  });
-
-
-	CUDA_CHECK(cudaStreamSynchronize(stream));
     }  
 }
 
@@ -698,7 +693,7 @@ template <typename DataT,
 	  typename IndexT>
 KMeans<DataT, IndexT>::KMeans(const ML::cumlHandle_impl &handle,
 			      int k,
-			      int metric,
+			      MLCommon::Distance::DistanceType metric,
 			      kmeans::InitMethod init,
 			      int max_iterations,
 			      double tolerance,
@@ -709,14 +704,11 @@ KMeans<DataT, IndexT>::KMeans(const ML::cumlHandle_impl &handle,
       tol(tolerance),
       max_iter(max_iterations),
       _init (init),
-      _metric (static_cast<MLCommon::Distance::DistanceType>(metric)),
+      _metric (metric),
       _verbose(verbose),
       _workspace(handle.getDeviceAllocator(), handle.getStream()),
       _centroidsRawData(handle.getDeviceAllocator(), handle.getStream()),
       _labelsRawData(handle.getDeviceAllocator(), handle.getStream()){
-    ML::detail::streamSyncer _(_handle);
-    cudaStream_t stream = _handle.getStream();
-    
     options.oversampling_factor = 2.0 * n_clusters; 
     if (seed < 0) {
 	std::random_device rd;
@@ -743,15 +735,12 @@ KMeans<DataT, IndexT>::setCentroids(const DataT *X,
     options.oversampling_factor = 2.0 * n_clusters; 
     _n_features = n_features;
 
-    _centroidsRawData.resize(0, stream);
-    _centroidsRawData.reserve(n_clusters * n_features, stream);
+    _centroidsRawData.resize(n_clusters * n_features, stream);
 
     MLCommon::copy(_centroidsRawData.begin(), X,
 		   n_samples * n_features, stream);
 
-    auto centroids = std::move(Tensor<DataT, 2, IndexT>(_centroidsRawData.data(), {n_clusters, n_features}));
-
-    
+    auto centroids = std::move(Tensor<DataT, 2, IndexT>(_centroidsRawData.data(), {n_clusters, n_features}));    
 }
 
   
@@ -768,15 +757,11 @@ template <typename DataT,
 	  typename IndexT>
 void
 KMeans<DataT, IndexT>::initRandom(Tensor<DataT, 2, IndexT> &X){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream     = _handle.getStream();
     auto         n_features = X.getSize(1);
 
     // allocate centroids buffer
-    _centroidsRawData.resize(0, stream);
-    _centroidsRawData.reserve(n_clusters * n_features, stream);
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
-    
+    _centroidsRawData.resize(n_clusters * n_features, stream);    
     auto centroids = std::move(Tensor<DataT, 2, IndexT>(_centroidsRawData.data(), {n_clusters, n_features}));
 
     kmeans::detail::shuffleAndGather(_handle,
@@ -784,8 +769,7 @@ KMeans<DataT, IndexT>::initRandom(Tensor<DataT, 2, IndexT> &X){
 				     centroids,
 				     n_clusters,
 				     options.seed,
-				     stream);
-      
+				     stream);      
 }
 
 
@@ -806,7 +790,6 @@ template <typename DataT,
 	  typename IndexT>
 void
 KMeans<DataT, IndexT>::initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &X){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream = _handle.getStream();
     auto n_samples  = X.getSize(0);
     auto n_features = X.getSize(1);
@@ -843,8 +826,6 @@ KMeans<DataT, IndexT>::initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &X){
     centroidsRawData.resize(initialCentroid.numElements(), stream);
     MLCommon::copy(centroidsRawData.begin(), initialCentroid.data(),
 		   initialCentroid.numElements(), stream);
-
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
     
     auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
     // <<< End of Step-1 >>>
@@ -853,8 +834,8 @@ KMeans<DataT, IndexT>::initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &X){
     int dataBatchSize = kmeans::detail::getDataBatchSize(n_samples, n_features);
 
     device_buffer<DataT> pairwiseDistanceRaw(_handle.getDeviceAllocator(), stream);
-    pairwiseDistanceRaw.reserve(dataBatchSize * n_clusters,
-				stream);
+    pairwiseDistanceRaw.resize(dataBatchSize * n_clusters,
+			       stream);
 
     
     Tensor<DataT, 1, IndexT> minClusterDistance({n_samples},
@@ -936,21 +917,17 @@ KMeans<DataT, IndexT>::initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &X){
 						  select_op,
 						  _workspace,
 						  stream);
-	CUDA_CHECK(cudaStreamSynchronize(stream) );      
 	/// <<<< End of Step-4 >>>>
 
 
 	/// <<<< Step-5 >>> : C = C U C'
 	// append the data in Cp to the buffer holding the potentialCentroids
-	centroidsRawData.reserve(centroidsRawData.size() + Cp.numElements(), stream);
-	MLCommon::copy(centroidsRawData.end(),
+	centroidsRawData.resize(centroidsRawData.size() + Cp.numElements(), stream);
+	MLCommon::copy(centroidsRawData.end() - Cp.numElements(),
 		       Cp.data(),
 		       Cp.numElements(),
 		       stream);
-	centroidsRawData.resize(centroidsRawData.size() + Cp.numElements(), stream);
-      
-	CUDA_CHECK( cudaStreamSynchronize(stream) );
-      
+	      
 	int tot_centroids = potentialCentroids.getSize(0) + Cp.getSize(0);
 	potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {tot_centroids, n_features}));
 	/// <<<< End of Step-5 >>>
@@ -969,13 +946,13 @@ KMeans<DataT, IndexT>::initKMeansPlusPlus(Tensor<DataT, 2, IndexT> &X){
 	// <<< end of Step-7 >>>
 
 	//Step-8: Recluster the weighted points in C into k clusters
-	_centroidsRawData.reserve(n_clusters * n_features, stream);
+	_centroidsRawData.resize(n_clusters * n_features, stream);
 	kmeans::detail::kmeansPlusPlus(_handle, _verbose, n_clusters, options.seed, potentialCentroids, weights, _metric, _workspace, _centroidsRawData, stream);
     }else{
 	ASSERT(potentialCentroids.getSize(0) < n_clusters,
 	       "failed to converge, restart with different seed");
     
-	_centroidsRawData.reserve(n_clusters * n_features, stream);
+	_centroidsRawData.resize(n_clusters * n_features, stream);
 	MLCommon::copy(_centroidsRawData.data(),
 		       potentialCentroids.data(),
 		       potentialCentroids.numElements(),
@@ -989,7 +966,6 @@ template <typename DataT,
 __host__
 void
 KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream  = _handle.getStream();
     auto n_samples = X.getSize(0);
     auto n_features = X.getSize(1);
@@ -1021,7 +997,6 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
     
     DataT priorClusteringCost = 0;    
     for(n_iter = 0; n_iter < max_iter; ++n_iter){
-	CUDA_CHECK(cudaStreamSynchronize(stream) );
 
 	auto centroids = std::move(Tensor<DataT, 2, IndexT>(_centroidsRawData.data(), {n_clusters, n_features}));
 
@@ -1037,15 +1012,14 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 					      _metric,
 					      stream);
       
-	CUDA_CHECK( cudaStreamSynchronize(stream) );
-      
+	
 	// Using TransformInputIteratorT to dereference an array of cub::KeyValuePair and converting them to just return the Key to be used in reduce_rows_by_key prims
 	kmeans::detail::KeyValueIndexOp<IndexT, DataT> conversion_op;
 	cub::TransformInputIterator<IndexT, kmeans::detail::KeyValueIndexOp<IndexT, DataT>,
 				    cub::KeyValuePair<IndexT, DataT>*> itr(minClusterAndDistance.data(),
 									   conversion_op);
       
-	_workspace.reserve(n_samples, stream);
+	_workspace.resize(n_samples, stream);
 
 	// Calculates sum of all the samples assigned to cluster-i and store the result in newCentroids[i]
 	LinAlg::reduce_rows_by_key(X.data(),
@@ -1068,9 +1042,6 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 				    stream);
 
       
-	// wait for stream to finish before sending data to other ranks...
-	CUDA_CHECK( cudaStreamSynchronize(stream) );
-
 
 	// Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where 
 	//   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has sum of all the samples assigned to cluster-i
@@ -1078,10 +1049,12 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 	// Note - when sampleCountInCluster[i] is 0, newCentroid[i] is reset to 0
       
 	// transforms int values in sampleCountInCluster to its inverse and more importantly to DataT because matrixVectorOp supports only when matrix and vector are of same type
-	_workspace.reserve(sampleCountInCluster.numElements() * sizeof(DataT), stream);
+	_workspace.resize(sampleCountInCluster.numElements() * sizeof(DataT), stream);
 	auto sampleCountInClusterInverse = std::move(Tensor<DataT, 1, IndexT>((DataT *)_workspace.data(), {n_clusters}));
 
-	thrust::transform(thrust::cuda::par.on(stream),
+	ML::thrustAllocatorAdapter alloc( _handle.getDeviceAllocator(), stream );
+	auto execution_policy = thrust::cuda::par(alloc).on(stream);
+	thrust::transform(execution_policy,
 			  sampleCountInCluster.begin(),
 			  sampleCountInCluster.end(),
 			  sampleCountInClusterInverse.begin(),
@@ -1144,7 +1117,6 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 		       sqrdNorm.data(),
 		       sqrdNorm.numElements(),
 		       stream);
-	CUDA_CHECK( cudaStreamSynchronize(stream) );
 
 	MLCommon::copy(_centroidsRawData.data(),
 		       newCentroids.data(),
@@ -1180,6 +1152,7 @@ KMeans<DataT, IndexT>::fit(Tensor<DataT, 2, IndexT>& X){
 	    priorClusteringCost = curClusteringCost;
 	}
 
+	CUDA_CHECK( cudaStreamSynchronize(stream) );
 	if (sqrdNormError < tol) done = true;
 
 	if(done){
@@ -1290,11 +1263,12 @@ KMeans<DataT, IndexT>::predict(Tensor<DataT, 2, IndexT> &X){
     // Cluster cost phi_x(C) from all ranks
     inertia = clusteringCost.value;
   
-    _labelsRawData.reserve(n_samples, stream);
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
+    _labelsRawData.resize(n_samples, stream);
 
     auto labels = std::move(Tensor<IndexT, 1>(_labelsRawData.data(), {n_samples}));
-    thrust::transform(thrust::cuda::par.on(stream),
+    ML::thrustAllocatorAdapter alloc( _handle.getDeviceAllocator(), stream );
+    auto execution_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::transform(execution_policy,
 		      minClusterAndDistance.begin(),
 		      minClusterAndDistance.end(),
 		      labels.begin(),

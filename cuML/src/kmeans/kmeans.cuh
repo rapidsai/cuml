@@ -33,6 +33,7 @@
 #include <thrust/execution_policy.h>
 
 #include <ml_cuda_utils.h>
+#include <common/allocatorAdapter.hpp>
 #include <common/tensor.hpp>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
@@ -82,7 +83,7 @@ public:
      */
     KMeans(const ML::cumlHandle_impl &cumlHandle,
 	   int n_clusters = 8,
-	   int metric = static_cast<MLCommon::Distance::DistanceType>(0),
+	   MLCommon::Distance::DistanceType metric = MLCommon::Distance::DistanceType::EucExpandedL2Sqrt,
 	   kmeans::InitMethod init = kmeans::InitMethod::KMeansPlusPlus,
 	   int max_iter = 300,
 	   double tol = 1e-4,
