@@ -3,9 +3,6 @@
 ## New Features
 
 - PR #405: Quasi-Newton GLM Solvers
-
-## New Features
-
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
@@ -16,6 +13,7 @@
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
 - PR #505: Adding R-Squared Score to python interface
+- PR #507: Added coordinate descent for lasso and elastic-net
 - PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Added column-wise matrix sort primitive
@@ -39,6 +37,7 @@
 - PR #533: Add cudatoolkit conda dependency
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
 - PR #527: Added notes on UMAP differences from reference implementation
+- PR #540: Use latest release version in update-version CI script
 
 ## Bug Fixes
 
@@ -67,6 +66,7 @@
 - PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
+- PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
 
