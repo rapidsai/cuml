@@ -70,5 +70,42 @@ void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const flo
 void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss);
 
+
+void cdFit(float *input,
+		   int n_rows,
+		   int n_cols,
+		   float *labels,
+		   float *coef,
+		   float *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   float alpha,
+		   float l1_ratio,
+		   bool shuffle,
+		   float tol);
+
+void cdFit(double *input,
+		   int n_rows,
+		   int n_cols,
+		   double *labels,
+		   double *coef,
+		   double *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   double alpha,
+		   double l1_ratio,
+		   bool shuffle,
+		   double tol);
+
+void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds, int loss);
+
+void cdPredict(const double *input, int n_rows, int n_cols,
+		const double *coef, double intercept, double *preds, int loss);
+
 }
 }
