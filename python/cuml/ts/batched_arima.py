@@ -1,7 +1,7 @@
 import numpy as np
 
 from typing import List, Tuple
-from .arima import ARIMAModel, loglike, predict_in_sample
+from .arima import ARIMAModel, loglike, predict_in_sample, forecast_values
 from .kalman import init_kalman_matrices
 from .batched_kalman import batched_kfilter
 import scipy.optimize as opt
@@ -210,21 +210,44 @@ class BatchedARIMAModel:
     def predict_in_sample(model, gpu=True):
         """Return in-sample prediction on batched series given batched model"""
         _, vs = BatchedARIMAModel.run_kalman(model, gpu)
-        if model.d == 0:
-            return model.y - vs
-        elif model.d == 1:
-            # TODO: Extend prediction by 1
+        _, d, _ = model.order[0]
+
+        if d == 0:
+            y_p = model.y - vs
+        elif d == 1:
             y_diff = np.diff(model.y, axis=0)
-            return model.y[0:-1, :] + (y_diff - vs)
+            y_p = model.y[0:-1, :] + (y_diff - vs)
         else:
             # d>1
             raise NotImplementedError("Only support d==0,1")
 
+        # Extend prediction by 1 when d==1
+        if d == 1:
+            y_f = BatchedARIMAModel.forecast(model, 1, y_p)
+            y_p1 = np.zeros((y_p.shape[0]+1, y_p.shape[1]))
+            y_p1[:-1, :] = y_p
+            y_p1[-1, :] = y_f
+            y_p = y_p1
+            
+
+        model.yp = y_p
+        return y_p
 
     @staticmethod
-    def forecast(model, nsteps: int, prev_values=None):
-        """Forcast the given model `nsteps` into the future."""
-        raise NotImplementedError("WIP")
+    def forecast(model, nsteps: int, prev_values=None) -> np.ndarray:
+        """Forecast the given model `nsteps` into the future."""
+        y_fc_b = np.zeros((nsteps, model.num_batches))
+        for i in range(model.num_batches):
+            if prev_values is not None:
+                y_fc_b[:, i] = forecast_values(model.order[i], None,
+                                               model.ar_params[i], model.mu[i],
+                                               nsteps, prev_values[:, i])
+            else:
+                y_fc_b[:, i] = forecast_values(model.order[i], model.yp[:, i],
+                                               model.ar_params[i], model.mu[i],
+                                               nsteps, None)
+
+        return y_fc_b
 
 
 def init_batched_kalman_matrices(b_ar_params, b_ma_params):

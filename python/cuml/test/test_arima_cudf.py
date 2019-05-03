@@ -99,14 +99,14 @@ def test_gradient():
         np.testing.assert_array_equal(g, grad_fd)
 
 
-def test_against_statsmodels():
+def test_against_statsmodels(plot=True):
 
-    num_samples = 1000
+    num_samples = 200
     xs = np.linspace(0, 1, num_samples)
     np.random.seed(12)
     noise = np.random.normal(scale=0.1, size=num_samples)
     ys = noise + 0.5*xs
-    num_batches = 10
+    num_batches = 2
     ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
     order = (0, 1, 1)
     mu = 0.0
@@ -119,9 +119,19 @@ def test_against_statsmodels():
     
     start = timer()
     sm_model = sm.ARIMA(ys, order=order)
-    sm_model_fit = sm_model.fit()
+    sm_model_fit = sm_model.fit()    
     end = timer()
     print("sm_model_fit time: {}s".format(end-start))
+
+    start = timer()
+    y_sm_p = sm_model_fit.predict(start=1, end=len(xs))
+    fc_steps = 50
+
+    y_sm_fc, _, _ = sm_model_fit.forecast(steps=fc_steps+1)
+    # note: statsmodel forecast includes last in-sample prediction as first step.
+    y_sm_fc = y_sm_fc[1:]
+    x_fc = np.linspace(xs[-1]+(xs[1]-xs[0]), xs[-1]+(xs[1]-xs[0])*(fc_steps+1), fc_steps)
+    end = timer()
 
     start = timer()
     b_model = batched_arima.BatchedARIMAModel.fit(ys_df,
@@ -131,8 +141,24 @@ def test_against_statsmodels():
                                                   maparams)
     end = timer()
     print("Rapids ARIMA fit time: {}s".format(end-start))
-    
-    return sm_model_fit, b_model
+
+    y_b = batched_arima.BatchedARIMAModel.predict_in_sample(b_model)
+    y_fc = batched_arima.BatchedARIMAModel.forecast(b_model, nsteps=fc_steps)
+
+    if plot:
+        plt.clf()
+        plt.plot(xs, ys)
+        plt.plot(xs, ys + y_sm_p,"r-")
+        plt.plot(x_fc, y_sm_fc,"g--")
+        plt.plot(x_fc, y_fc[:, 1],"o--")
+        plt.plot(xs, y_b[:, 1],"b-")
+        plt.show()
+
+    # print("||y_sm_p - y_b||=", [np.linalg.norm((ys+y_sm_p) - y_b[:, i]) for i in range(num_batches)])
+
+    for i in range(num_batches):
+        np.testing.assert_array_almost_equal(ys+y_sm_p, y_b[:, i], 4)
+        np.testing.assert_array_almost_equal(y_sm_fc, y_fc[:, i], 4)
 
 if __name__ == "__main__":
     test_against_statsmodels()
