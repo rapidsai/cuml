@@ -42,39 +42,6 @@ template<typename T>
 	return os;
 }
 
-class DbScanTestBase: public ::testing::Test {};
-
-typedef DbScanTestBase DbScanTestBatchSize;
-TEST(COOSort, Result) {
-
-    cudaStream_t stream;
-    CUDA_CHECK( cudaStreamCreate(&stream) );
-
-
-    size_t max_elems = 2e4;
-
-    double *data;
-
-    long long seed = 10;
-
-    Random::Rng r(1234ULL);
-    int rows = 5000, cols = 500;
-
-    allocate(data, rows*cols);
-
-    r.uniform<double, double>(data, rows*cols, -1.0, 1.0, stream);
-
-    int *labels;
-    allocate(labels, rows);
-
-    cumlHandle handle;
-    handle.setStream(stream);
-
-    // Should not fail
-    dbscanFit(handle, data, rows, cols, 0.01, 1, labels, max_elems);
-
-
-};
 
 template<typename T>
 class DbscanTest: public ::testing::TestWithParam<DbscanInputs<T> > {
@@ -103,7 +70,10 @@ protected:
 		int min_pts = 2;
 		cumlHandle handle;
 		handle.setStream(stream);
-		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)2e6);
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)20);
+
+        std::cout << MLCommon::arr2Str(labels, 6, "labels", stream) << std::endl;
+
 		CUDA_CHECK( cudaStreamSynchronize(stream) );
 		CUDA_CHECK( cudaStreamDestroy(stream) );
 
@@ -131,6 +101,7 @@ const std::vector<DbscanInputs<float> > inputsf2 = {
 
 const std::vector<DbscanInputs<double> > inputsd2 = {
 		{ 0.05, 6 * 2, 6, 2, 1234ULL }};
+
 
 
 typedef DbscanTest<float> DbscanTestF;

@@ -196,7 +196,7 @@ class DBSCAN(Base):
                                <float> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t>max_elems_per_batch)
+                               <size_t>self.max_elems_per_batch)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
@@ -205,7 +205,7 @@ class DBSCAN(Base):
                                <double> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t> max_elems_per_batch)
+                               <size_t> self.max_elems_per_batch)
         # make sure that the `dbscanFit` is complete before the following delete
         # call happens
         self.handle.sync()
