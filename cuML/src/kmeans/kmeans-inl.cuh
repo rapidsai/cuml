@@ -1209,8 +1209,7 @@ KMeans<DataT, IndexT>::fit(const DataT *X,
 	   (int) options.oversampling_factor); 
 
 
-    ASSERT(memory_type(X) == cudaMemoryTypeDevice ||
-	   memory_type(X) == cudaMemoryTypeManaged,
+    ASSERT(memory_type(X) == cudaMemoryTypeDevice,
 	   "input data must be device accessible");
     
     Tensor<DataT, 2, IndexT> data((DataT *)X,
@@ -1351,12 +1350,10 @@ KMeans<DataT, IndexT>::transform(const DataT *X,
     ASSERT(n_clusters > 0,
 	   "no clusters exist");
 
-    ASSERT(memory_type(X) == cudaMemoryTypeDevice ||
-	   memory_type(X) == cudaMemoryTypeManaged,
+    ASSERT(memory_type(X) == cudaMemoryTypeDevice,
 	   "input data must be device accessible");
 
-    ASSERT(memory_type(X) == cudaMemoryTypeDevice ||
-	   memory_type(X) == cudaMemoryTypeManaged,
+    ASSERT(memory_type(X) == cudaMemoryTypeDevice,
 	   "output data storage must be device accessible");
   
   
