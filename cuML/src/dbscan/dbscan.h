@@ -38,10 +38,7 @@ int computeBatchCount(int n_rows, size_t max_elems) { //2e9
         if(batchSize * n_rows < max_elems)
             break;
         ++n_batches;
-        std::cout << n_batches << std::endl;
     }
-
-    std::cout << n_batches << std::endl;
     return n_batches;
 }
 
