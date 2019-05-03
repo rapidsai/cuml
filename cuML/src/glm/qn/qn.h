@@ -105,12 +105,11 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
 
   STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
 
-  GLMDims dims(C,D,fit_intercept);
+  GLMDims dims(C, D, fit_intercept);
 
   SimpleMat<T> X(Xptr, N, D, ordX);
   SimpleMat<T> P(preds, 1, N);
 
-  // 1. compute forward pass
   MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
   SimpleMat<T> Z(tmp.data(), C, N);
 
@@ -121,7 +120,7 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
     auto thresh = [] __device__(const T z) {
-      if (z > 0.5)
+      if (z > 0.0)
         return T(1);
       return T(0);
     };
@@ -133,13 +132,11 @@ void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
   } break;
   case 2: {
     ASSERT(C > 1, "qn.h: softmax invalid C");
+    Z.print();
     MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
   }
-
-  // 2. compute link
-  // 3. post process
 }
 
 }; // namespace GLM
