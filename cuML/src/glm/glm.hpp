@@ -135,5 +135,27 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
            bool X_col_major, int loss_type);
 /** @} */
 
+/**
+ * @defgroup functions to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to cumlHandle object
+ * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
+ * @param N                     number of examples
+ * @param D                     number of features
+ * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic and normal, C must be 1.)
+ * @param fit_intercept         true if model includes a bias.
+ * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
+ * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
+ * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
+ * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ */
+void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
+               bool fit_intercept, float *params, bool X_col_major,
+               int loss_type, float *preds);
+
+void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
+               bool fit_intercept, double *params, bool X_col_major,
+               int loss_type, double *preds);
+/** @} */
+
 } // namespace GLM
 } // namespace ML

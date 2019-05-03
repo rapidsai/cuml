@@ -198,6 +198,20 @@ void qnFit(const cumlHandle &cuml_handle, double *X, double *y, int N, int D,
         num_iters, X_col_major, loss_type, cuml_handle.getStream());
 }
 
+void qnPredict(const cumlHandle &cuml_handle, float *X, int N, int D, int C,
+               bool fit_intercept, float *params, bool X_col_major,
+               int loss_type, float *preds) {
+  qnPredict(cuml_handle.getImpl(), X, N, D, C, fit_intercept, params,
+            X_col_major, loss_type, preds, cuml_handle.getStream());
+}
+
+void qnPredict(const cumlHandle &cuml_handle, double *X, int N, int D, int C,
+               bool fit_intercept, double *params, bool X_col_major,
+               int loss_type, double *preds) {
+  qnPredict(cuml_handle.getImpl(), X, N, D, C, fit_intercept, params,
+            X_col_major, loss_type, preds, cuml_handle.getStream());
+}
+
 } // namespace GLM
 } // namespace ML
 

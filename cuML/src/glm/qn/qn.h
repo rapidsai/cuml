@@ -16,6 +16,7 @@
 
 #pragma once
 #include <common/device_buffer.hpp>
+#include <matrix/math.h>
 #include <glm/qn/glm_base.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
@@ -95,6 +96,50 @@ void qnFit(const cumlHandle_impl &handle, T *X, T *y, int N, int D, int C,
   } break;
   default: { ASSERT(false, "qn.h: unknown loss function."); }
   }
+}
+
+template <typename T>
+void qnPredict(const cumlHandle_impl &handle, T *Xptr, int N, int D, int C,
+               bool fit_intercept, T *params, bool X_col_major, int loss_type,
+               T *preds, cudaStream_t stream) {
+
+  STORAGE_ORDER ordX = X_col_major ? COL_MAJOR : ROW_MAJOR;
+
+  GLMDims dims(C,D,fit_intercept);
+
+  SimpleMat<T> X(Xptr, N, D, ordX);
+  SimpleMat<T> P(preds, 1, N);
+
+  // 1. compute forward pass
+  MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream, C * N);
+  SimpleMat<T> Z(tmp.data(), C, N);
+
+  SimpleMat<T> W(params, C, dims.dims);
+  linearFwd(handle, Z, X, W, stream);
+
+  switch (loss_type) {
+  case 0: {
+    ASSERT(C == 1, "qn.h: logistic loss invalid C");
+    auto thresh = [] __device__(const T z) {
+      if (z > 0.5)
+        return T(1);
+      return T(0);
+    };
+    P.assign_unary(Z, thresh, stream);
+  } break;
+  case 1: {
+    ASSERT(C == 1, "qn.h: squared loss invalid C");
+    P.copy_async(Z, stream);
+  } break;
+  case 2: {
+    ASSERT(C > 1, "qn.h: softmax invalid C");
+    MLCommon::Matrix::argmax(Z.data, C, N, preds, stream);
+  } break;
+  default: { ASSERT(false, "qn.h: unknown loss function."); }
+  }
+
+  // 2. compute link
+  // 3. post process
 }
 
 }; // namespace GLM
