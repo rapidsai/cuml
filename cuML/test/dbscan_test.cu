@@ -71,12 +71,11 @@ protected:
 		cumlHandle handle;
 		handle.setStream(stream);
 		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)20);
-
-        std::cout << MLCommon::arr2Str(labels, 6, "labels", stream) << std::endl;
-
 		CUDA_CHECK( cudaStreamSynchronize(stream) );
-		CUDA_CHECK( cudaStreamDestroy(stream) );
 
+		std::cout << MLCommon::arr2Str(labels, 6, "labels", stream) << std::endl;
+
+		CUDA_CHECK( cudaStreamDestroy(stream) );
 	}
 
 	void SetUp() override {
