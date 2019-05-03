@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,15 @@
 
 #pragma once
 
+#include <common/cumlHandle.hpp>
+
 #define MAX_BATCH_SIZE 512
 
 namespace ML {
+    namespace Metrics {
 
-    template<typename math_t>
-    double cuml_trustworthiness(math_t* X, math_t* X_embedded, int n, int m, int d, int n_neighbors);
+        template<typename math_t>
+        double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded, int n, int m, int d, int n_neighbors);
 
+    }
 }
