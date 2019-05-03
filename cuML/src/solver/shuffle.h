@@ -28,7 +28,8 @@ namespace Solver {
 
 using namespace MLCommon;
 
-void initShuffle(std::vector<int> &rand_indices, std::mt19937 &g, int random_state = 0) {
+template<typename math_t>
+void initShuffle(std::vector<math_t> &rand_indices, std::mt19937 &g, math_t random_state = 0) {
 
 	g.seed((int) random_state);
 	for (int i = 0; i < rand_indices.size(); ++i)
@@ -36,7 +37,8 @@ void initShuffle(std::vector<int> &rand_indices, std::mt19937 &g, int random_sta
 
 }
 
-void shuffle(std::vector<int> &rand_indices, std::mt19937 &g) {
+template<typename math_t>
+void shuffle(std::vector<math_t> &rand_indices, std::mt19937 &g) {
 	std::shuffle(rand_indices.begin(), rand_indices.end(), g);
 
 
