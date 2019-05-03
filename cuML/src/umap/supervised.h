@@ -68,75 +68,6 @@ namespace UMAPAlgo {
             }
         }
 
-        /**
-         * In order to reset membership strengths, we need to perform a
-         * P+P.T, which can be done with the COO matrices by creating
-         * the transposed elements only if they are not already in P,
-         * and adding them.
-         */
-        template< typename T, int TPB_X>
-        __global__ void reset_membership_strengths_kernel(
-                int *row_ind,
-                int *rows, int *cols, T *vals,
-                int *orows, int *ocols, T *ovals,
-                int n, int cnnz) {
-
-            int row = (blockIdx.x * TPB_X) + threadIdx.x;
-
-            if (row < n) {
-
-                int start_idx = row_ind[row]; // each thread processes one row
-                int stop_idx = MLCommon::Sparse::get_stop_idx(row, n, cnnz, row_ind);
-
-                int nnz = 0;
-                for (int idx = 0; idx < stop_idx-start_idx; idx++) {
-
-                    int out_idx = start_idx*2+nnz;
-                    int row_lookup = cols[idx+start_idx];
-                    int t_start = row_ind[row_lookup]; // Start at
-                    int t_stop = MLCommon::Sparse::get_stop_idx(row_lookup, n, cnnz, row_ind);
-
-                    T transpose = 0.0;
-                    bool found_match = false;
-                    for (int t_idx = t_start; t_idx < t_stop; t_idx++) {
-
-                        // If we find a match, let's get out of the loop
-                        if (cols[t_idx] == rows[idx+start_idx]
-                                && rows[t_idx] == cols[idx+start_idx]
-                                && vals[t_idx] != 0.0) {
-                            transpose = vals[t_idx];
-                            found_match = true;
-                            break;
-                        }
-                    }
-
-                    // if we didn't find an exact match, we need to add
-                    // the transposed value into our current matrix.
-                    if (!found_match && vals[idx] != 0.0) {
-                        orows[out_idx + nnz] = cols[idx+start_idx];
-                        ocols[out_idx + nnz] = rows[idx+start_idx];
-                        ovals[out_idx + nnz] = vals[idx+start_idx];
-                        ++nnz;
-                    }
-
-                    T result = vals[idx+start_idx];
-                    T prod_matrix = result * transpose;
-
-                    // @todo: This line is the only difference between
-                    // this function and compute_result from the fuzzy
-                    // simplicial set. Should combine these to do
-                    // transposed eltwise ops.
-                    T res = result + transpose - prod_matrix;
-
-                    if (res != 0.0) {
-                        orows[out_idx + nnz] = rows[idx+start_idx];
-                        ocols[out_idx + nnz] = cols[idx+start_idx];
-                        ovals[out_idx + nnz] = T(res);
-                        ++nnz;
-                    }
-                }
-            }
-        }
 
         template<typename T, int TPB_X>
         void reset_local_connectivity(
@@ -171,15 +102,6 @@ namespace UMAPAlgo {
                     },
                     stream);
 
-
-//            out_coo->allocate(in_coo->nnz*2, in_coo->n_rows, in_coo->n_cols);
-//
-//            reset_membership_strengths_kernel<T, TPB_X><<<grid_n, blk_n, 0, stream>>>(
-//                row_ind,
-//                in_coo->rows, in_coo->cols, in_coo->vals,
-//                out_coo->rows, out_coo->cols, out_coo->vals,
-//                in_coo->n_rows, in_coo->nnz
-//            );
             CUDA_CHECK(cudaFree(row_ind));
             CUDA_CHECK(cudaPeekAtLastError());
         }

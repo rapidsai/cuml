@@ -72,7 +72,7 @@ namespace ML {
          * @param k            number of neighbors to query
          */
 		void search(const float *search_items, int search_items_size,
-		        long *res_I, float *res_D, int k, cudaStream_t stream = 0);
+		        long *res_I, float *res_D, int k);
 
         /**
          * Fit a kNN model by creating separate indices for multiple given

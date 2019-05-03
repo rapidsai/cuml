@@ -26,8 +26,6 @@
 #include "matrix/math.h"
 #include "stats/mean.h"
 
-#include <thrust/system/cuda/execution_policy.h>
-
 #include <cuda_runtime.h>
 
 #pragma once

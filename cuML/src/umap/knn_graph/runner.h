@@ -38,7 +38,8 @@ namespace kNNGraph {
 		 * Initial algo uses FAISS indices
 		 */
 		case 0:
-			Algo::launcher(X, n, d, knn_indices, knn_dists, knn, n_neighbors, params, stream);
+			Algo::launcher(X, n, d, knn_indices, knn_dists, knn, n_neighbors,
+			        params, stream);
 			break;
 		}
 	}

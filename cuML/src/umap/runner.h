@@ -109,7 +109,7 @@ namespace UMAPAlgo {
         int k = params->n_neighbors;
 
         if(params->verbose)
-            std::cout << params->n_neighbors << std::endl;
+            std::cout << "n_neighbors=" << params->n_neighbors << std::endl;
 	    find_ab(params, stream);
 
 		/**
@@ -259,8 +259,6 @@ namespace UMAPAlgo {
                 params, embeddings, stream,
                 params->init);
 
-        // @todo: We need to add some noise to this, similar to Leland's impl
-
         /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
@@ -340,7 +338,6 @@ namespace UMAPAlgo {
         COO<T> graph_coo(nnz, n, n);
 
 
-        // @todo: Write a wrapper function for this.
         FuzzySimplSetImpl::compute_membership_strength_kernel<TPB_X><<<grid_n, blk, 0, stream>>>(
                 knn_indices, knn_dists,
                 sigmas, rhos,
@@ -358,11 +355,9 @@ namespace UMAPAlgo {
         T *vals_normed;
         MLCommon::allocate(vals_normed, graph_coo.nnz, true);
 
-        // @todo: Write a wrapper function for this
-         MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(row_ind, graph_coo.vals, graph_coo.nnz,
+        MLCommon::Sparse::csr_row_normalize_l1<TPB_X, T>(row_ind, graph_coo.vals, graph_coo.nnz,
                  graph_coo.n_rows, vals_normed, stream);
 
-        // @todo: Write a wrapper function for this.
         init_transform<TPB_X, T><<<grid_n,blk, 0, stream>>>(graph_coo.cols, vals_normed, graph_coo.n_rows,
                 embedding, embedding_n, params->n_components,
                 transformed, params->n_neighbors);
@@ -370,7 +365,6 @@ namespace UMAPAlgo {
 
         CUDA_CHECK(cudaFree(vals_normed));
 
-        //@todo: Write a wrapper function for this
         reset_vals<TPB_X><<<grid_n,blk, 0, stream>>>(ia, n);
         CUDA_CHECK(cudaPeekAtLastError());
 
