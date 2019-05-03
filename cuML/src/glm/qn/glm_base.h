@@ -17,6 +17,7 @@
 #pragma once
 
 #include "cuda_utils.h"
+#include "utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
@@ -30,8 +31,8 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
-                      const SimpleMat<T> &W, const cublasHandle_t &cublas,
+inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
+                      const SimpleMat<T> &X, const SimpleMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
@@ -48,16 +49,16 @@ inline void linearFwd(SimpleMat<T> &Z, const SimpleMat<T> &X,
     MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
                                      false, set_bias, stream);
 
-    Z.assign_gemm(1, weights, false, X, true, 1, cublas, stream);
+    Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
   } else {
-    Z.assign_gemm(1, W, false, X, true, 0, cublas, stream);
+    Z.assign_gemm(handle, 1, W, false, X, true, 0, stream);
   }
 }
 
 template <typename T>
-inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
-                      const SimpleMat<T> &dZ, bool setZero,
-                      const cublasHandle_t &cublas, cudaStream_t stream) {
+inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
+                      const SimpleMat<T> &X, const SimpleMat<T> &dZ,
+                      bool setZero, cudaStream_t stream) {
   // Backward pass:
   // - compute G <- dZ * X.T
   // - for bias: Gb = mean(dZ, 1)
@@ -72,10 +73,10 @@ inline void linearBwd(SimpleMat<T> &G, const SimpleMat<T> &X,
     col_slice(G, Gweights, 0, D);
 
     // TODO can this be fused somehow?
-    Gweights.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cublas, stream);
+    Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
     MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
-    G.assign_gemm(1.0 / X.m, dZ, false, X, false, beta, cublas, stream);
+    G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
 }
 
@@ -95,15 +96,10 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  // TODO This might change once cumlHandle is available
-  // Option 1: cublas handle still here
-  // Option 2: full cuml handle here
-  // Option 3: no handle here. Replace all streams in function calls with cuml
-  // handle
-  const cublasHandle_t &cublas;
+  const cumlHandle_impl &handle;
 
-  GLMBase(int D, int C, bool fit_intercept, const cublasHandle_t &cublas)
-      : GLMDims(C, D, fit_intercept), cublas(cublas) {}
+  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
+      : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*
    * Computes the following:
@@ -140,9 +136,9 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
                         cudaStream_t stream, bool initGradZero = true) {
     Loss *loss = static_cast<Loss *>(this); // static polymorphism
 
-    linearFwd(Zb, Xb, W, cublas, stream);         // linear part: forward pass
+    linearFwd(handle, Zb, Xb, W, stream);         // linear part: forward pass
     loss->getLossAndDZ(loss_val, Zb, yb, stream); // loss specific part
-    linearBwd(G, Xb, Zb, initGradZero, cublas,
+    linearBwd(handle, G, Xb, Zb, initGradZero,
               stream); // linear part: backward pass
   }
 };
@@ -169,41 +165,12 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
     Mat G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
     lossVal.reset(dev_scalar, 1);
-    return lossVal[0];
+    T loss_host;
+    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    return loss_host;
   }
 };
-
-template <typename T>
-__global__ void modKernel(T *w, const int tidx, const T h) {
-  int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx == tidx) {
-    w[idx] += h;
-  }
-}
-
-template <typename T, class Loss>
-void numeric_grad(Loss &loss, const T *X, const T *y, const T *w,
-                  T *grad_w_host, T *loss_val, cudaStream_t stream, const T h = 1e-4) {
-  int len = loss.n_param;
-  SimpleVecOwning<T> w_mod(len), grad(len), lossVal(1);
-
-  T lph = 0, lmh = 0;
-
-  for (int d = 0; d < len; d++) {
-    CUDA_CHECK(
-        cudaMemcpy(w_mod.data, w, len * sizeof(T), cudaMemcpyDeviceToDevice));
-
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d, h);
-    cudaThreadSynchronize();
-
-    lph = loss(w_mod, grad, lossVal.data);
-
-    modKernel<<<MLCommon::ceildiv(len, 256), 256, 0, stream>>>(w_mod.data, d, -2 * h);
-    cudaThreadSynchronize();
-    lmh = loss(w_mod, grad, lossVal.data);
-    grad_w_host[d] = (lph - lmh) / (2 * h);
-  }
-}
 
 }; // namespace GLM
 }; // namespace ML
