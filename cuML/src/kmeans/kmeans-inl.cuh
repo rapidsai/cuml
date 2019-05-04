@@ -728,7 +728,6 @@ void
 KMeans<DataT, IndexT>::setCentroids(const DataT *X,
 				    int n_samples,
 				    int n_features){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream     = _handle.getStream();
 
     n_clusters = n_samples;
@@ -1215,7 +1214,6 @@ template <typename DataT,
 __host__
 void
 KMeans<DataT, IndexT>::predict(Tensor<DataT, 2, IndexT> &X){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream  = _handle.getStream();
     auto n_samples       = X.getSize(0);
     auto n_features      = X.getSize(1);
@@ -1286,7 +1284,6 @@ KMeans<DataT, IndexT>::predict(const DataT *X,
 			       int n_samples,
 			       int n_features,
 			       IndexT *labelsRawPtr){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream  = _handle.getStream();
 
     ASSERT(_n_features == n_features,
@@ -1315,7 +1312,6 @@ KMeans<DataT, IndexT>::transform(const DataT *X,
 				 int n_samples,
 				 int n_features,
 				 DataT *X_new){
-    ML::detail::streamSyncer _(_handle);
     cudaStream_t stream  = _handle.getStream();
 
     ASSERT(_n_features == n_features,
