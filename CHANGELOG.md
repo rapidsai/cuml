@@ -40,6 +40,7 @@
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
 - PR #527: Added notes on UMAP differences from reference implementation
 - PR #540: Use latest release version in update-version CI script
+- PR #552: Re-enable assert in kmeans tests with xfail as needed
 
 ## Bug Fixes
 
