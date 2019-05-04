@@ -24,8 +24,9 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
-dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles']
-
+dataset_names = ['blobs', 'noisy_circles'] + \
+                [pytest.param(ds, marks=pytest.mark.xfail)
+                 for ds in ['noisy_moons', 'varied', 'aniso']]
 
 @pytest.mark.parametrize('name', dataset_names)
 def test_kmeans_sklearn_comparison(name):
@@ -67,4 +68,4 @@ def test_kmeans_sklearn_comparison(name):
         assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 1e-10
 
     else:
-        clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+        assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
