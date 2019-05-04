@@ -70,10 +70,12 @@ protected:
 		int min_pts = 2;
 		cumlHandle handle;
 		handle.setStream(stream);
-		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)20);
-		CUDA_CHECK( cudaStreamSynchronize(stream) );
 
-		std::cout << MLCommon::arr2Str(labels, 6, "labels", stream) << std::endl;
+		// forces a batch size of 2
+		size_t max_elems = 10;
+
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)max_elems);
+		CUDA_CHECK( cudaStreamSynchronize(stream) );
 
 		CUDA_CHECK( cudaStreamDestroy(stream) );
 	}

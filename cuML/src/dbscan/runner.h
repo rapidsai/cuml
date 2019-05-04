@@ -51,8 +51,6 @@ template<typename Type, typename Type_f>
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
 
-    std::cout << "N=" << N << std::endl;
-
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
@@ -60,7 +58,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     size_t visitedSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
-    size_t vdSize = alignTo<size_t>(sizeof(Type) * (N + 1), align);
+    size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * N, align);
     size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
 
@@ -95,8 +93,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		int startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
 
-        std::cout << MLCommon::arr2Str(x+startVertexId, batchSize, "x", stream) << std::endl;
-
         if(nPoints <= 0)
             continue;
 		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
@@ -105,10 +101,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
-        std::cout << MLCommon::arr2Str(vd, vdSize, "vd", stream) << std::endl;
-
 		// Running AdjGraph
-		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph.data() == NULL) {
 			adjlen = curradjlen;
             adj_graph.resize(adjlen, stream);
@@ -117,12 +110,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
 
-
 		// Running Labelling
 		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,
 				nPoints, stream);
-
 	}
 	if (algoCcl == 2) {
 		Type *adj_graph = NULL;

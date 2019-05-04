@@ -42,7 +42,7 @@ __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
         Type scan_id = data.ex_scan[row];
         for(int i=0; i<N; i++) {
             // @todo: uncoalesced mem accesses!
-            if(data.adj[N*row + i]) {
+            if(data.adj[batchSize * i + row]) {
                 data.adj_graph[scan_id + k] = i;
                 k = k + 1;
             }
