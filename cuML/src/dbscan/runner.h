@@ -23,8 +23,6 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
-#include <iostream>
-
 namespace Dbscan {
 
 using namespace MLCommon;
@@ -98,7 +96,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
 				startVertexId, nPoints, stream);
 
-		MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
+        MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
 		// Running AdjGraph

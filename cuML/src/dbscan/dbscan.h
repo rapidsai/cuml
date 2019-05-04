@@ -19,8 +19,6 @@
 #include "runner.h"
 #include <common/device_buffer.hpp>
 
-#include <iostream>
-
 namespace ML {
 
 using namespace Dbscan;
