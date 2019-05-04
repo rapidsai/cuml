@@ -59,7 +59,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
-    size_t exScanSize = alignTo<size_t>(sizeof(Type) * N, align);
+    size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
     size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
 
     if(workspace == NULL) {
