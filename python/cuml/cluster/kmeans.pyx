@@ -348,7 +348,7 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters                
-	        <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+	        <int> 0,                       # distance metric as L2: @todo - support other metrics
 	        <InitMethod> init_value,       # init method  
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -363,7 +363,7 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters                
-	        <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+	        <int> 0,                       # distance metric as L2: @todo - support other metrics
 	        <InitMethod> init_value,       # init method  
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -377,6 +377,7 @@ class KMeans(Base):
         else:
             raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
 
+        self.handle.sync()
         cluster_centers_gdf = cudf.DataFrame()
         for i in range(0, self.n_cols):
             cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
@@ -443,7 +444,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-	        <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+	        <int> 0,                       # distance metric as L2: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -454,12 +455,13 @@ class KMeans(Base):
                 <double*> input_ptr,           # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-	        <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+	        <int> 0,                       # distance metric as L2: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
             raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
         
+        self.handle.sync()
         del(X_m)
         del(clust_mat)
         return self.labels_
@@ -528,6 +530,7 @@ class KMeans(Base):
         else:
             raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
 
+        self.handle.sync()
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
             preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]
