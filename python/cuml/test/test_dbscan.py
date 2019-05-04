@@ -40,7 +40,8 @@ def test_dbscan_predict(datatype, input_type, use_handle, max_elems_per_batch):
     sk_labels = skdbscan.fit_predict(X)
 
     handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2, max_elems_per_batch=max_elems_per_batch)
+    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
+                        max_elems_per_batch=max_elems_per_batch)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
