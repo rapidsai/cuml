@@ -54,8 +54,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-    size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
-    size_t visitedSize = alignTo<size_t>(sizeof(bool) * N, align);
+    size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
+    size_t visitedSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
