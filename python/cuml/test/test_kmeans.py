@@ -28,6 +28,7 @@ dataset_names = ['blobs', 'noisy_circles'] + \
                 [pytest.param(ds, marks=pytest.mark.xfail)
                  for ds in ['noisy_moons', 'varied', 'aniso']]
 
+
 @pytest.mark.parametrize('name', dataset_names)
 def test_kmeans_sklearn_comparison(name):
 
