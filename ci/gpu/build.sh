@@ -82,15 +82,15 @@ logger "Build cuML..."
 cd $WORKSPACE/python
 python setup.py build_ext --inplace
 
-logger "Build ml-prims tests..."
-mkdir -p $WORKSPACE/ml-prims/build
-cd $WORKSPACE/ml-prims/build
-cmake $GPU_ARCH ..
+# logger "Build ml-prims tests..."
+# mkdir -p $WORKSPACE/ml-prims/build
+# cd $WORKSPACE/ml-prims/build
+# cmake $GPU_ARCH ..
 
-logger "Clean up make..."
-make clean
-logger "Make ml-prims test..."
-make -j${PARALLEL_LEVEL}
+# logger "Clean up make..."
+# make clean
+# logger "Make ml-prims test..."
+# make -j${PARALLEL_LEVEL}
 
 
 ################################################################################
@@ -110,6 +110,6 @@ cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
 
-logger "Run ml-prims test..."
-cd $WORKSPACE/ml-prims/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/mlcommon_test
+# logger "Run ml-prims test..."
+# cd $WORKSPACE/ml-prims/build
+# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/mlcommon_test
