@@ -107,7 +107,7 @@ GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./ml_test
 
 logger "Python py.test for cuML..."
 cd $WORKSPACE/python
-py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v cuml/test/test_nearest_neighbors.py
 
 
 # logger "Run ml-prims test..."
