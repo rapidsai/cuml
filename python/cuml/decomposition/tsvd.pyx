@@ -325,38 +325,24 @@ class TruncatedSVD(Base):
             raise ValueError(' n_components must be < n_features')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if not _transform:
-            if self.gdf_datatype.type == np.float32:
-                tsvdFit(handle_[0],
-                        <float*> input_ptr,
-                        <float*> components_ptr,
-                        <float*> singular_vals_ptr,
-                        params)
-            else:
-                tsvdFit(handle_[0],
-                        <double*> input_ptr,
-                        <double*> components_ptr,
-                        <double*> singular_vals_ptr,
-                        params)
+        if self.gdf_datatype.type == np.float32:
+            tsvdFitTransform(handle_[0],
+                             <float*> input_ptr,
+                             <float*> trans_input_ptr,
+                             <float*> components_ptr,
+                             <float*> explained_var_ptr,
+                             <float*> explained_var_ratio_ptr,
+                             <float*> singular_vals_ptr,
+                             params)
         else:
-            if self.gdf_datatype.type == np.float32:
-                tsvdFitTransform(handle_[0],
-                                 <float*> input_ptr,
-                                 <float*> trans_input_ptr,
-                                 <float*> components_ptr,
-                                 <float*> explained_var_ptr,
-                                 <float*> explained_var_ratio_ptr,
-                                 <float*> singular_vals_ptr,
-                                 params)
-            else:
-                tsvdFitTransform(handle_[0],
-                                 <double*> input_ptr,
-                                 <double*> trans_input_ptr,
-                                 <double*> components_ptr,
-                                 <double*> explained_var_ptr,
-                                 <double*> explained_var_ratio_ptr,
-                                 <double*> singular_vals_ptr,
-                                 params)
+            tsvdFitTransform(handle_[0],
+                             <double*> input_ptr,
+                             <double*> trans_input_ptr,
+                             <double*> components_ptr,
+                             <double*> explained_var_ptr,
+                             <double*> explained_var_ratio_ptr,
+                             <double*> singular_vals_ptr,
+                             params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -371,6 +357,9 @@ class TruncatedSVD(Base):
         self.explained_variance_ptr = explained_var_ptr
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
+
+        if not _transform:
+            del(self.trans_input_)
 
         del(X_m)
         return self

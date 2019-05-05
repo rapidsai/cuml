@@ -40,7 +40,6 @@ namespace ML {
 
 	    try {
 	        if(this->owner) {
-
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
 	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
@@ -125,6 +124,22 @@ namespace ML {
 		float *all_D = new float[indices*k*size_t(n)];
 		long *all_I = new long[indices*k*size_t(n)];
 
+        cudaPointerAttributes s_att;
+        cudaError_t s_err = cudaPointerGetAttributes(&s_att, search_items);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid device pointer encountered in knn search: " << search_items << std::endl;
+
+        s_err = cudaPointerGetAttributes(&s_att, res_I);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid index results pointer encountered in knn search: " << search_items << std::endl;
+
+        s_err = cudaPointerGetAttributes(&s_att, res_D);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid distance results pointer encountered in knn search: " << search_items << std::endl;
+
 
 		/**
 		 * Initial verification of memory
@@ -161,6 +176,7 @@ namespace ML {
                         faiss::gpu::StandardGpuResources gpu_res;
                         gpu_res.noTempMemory();
                         gpu_res.setCudaMallocWarning(false);
+                        gpu_res.setDefaultNullStreamAllDevices();
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
