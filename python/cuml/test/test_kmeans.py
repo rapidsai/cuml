@@ -69,4 +69,4 @@ def test_kmeans_sklearn_comparison(name):
         assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 1e-10
 
     else:
-        assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+        clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
