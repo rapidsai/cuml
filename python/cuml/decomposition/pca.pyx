@@ -393,52 +393,29 @@ class PCA(cuml.Base):
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if not _transform:
-            if self.gdf_datatype.type == np.float32:
-                pcaFit(h_[0],
-                       <float*> input_ptr,
-                       <float*> components_ptr,
-                       <float*> explained_var_ptr,
-                       <float*> explained_var_ratio_ptr,
-                       <float*> singular_vals_ptr,
-                       <float*> mean_ptr,
-                       <float*> noise_vars_ptr,
-                       params)
-            else:
-                pcaFit(h_[0],
-                       <double*> input_ptr,
-                       <double*> components_ptr,
-                       <double*> explained_var_ptr,
-                       <double*> explained_var_ratio_ptr,
-                       <double*> singular_vals_ptr,
-                       <double*> mean_ptr,
-                       <double*> noise_vars_ptr,
-                       params)
+        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()       
+        if self.gdf_datatype.type == np.float32:
+            pcaFitTransform(h_[0],
+                            <float*> input_ptr,
+                            <float*> trans_input_ptr,
+                            <float*> components_ptr,
+                            <float*> explained_var_ptr,
+                            <float*> explained_var_ratio_ptr,
+                            <float*> singular_vals_ptr,
+                            <float*> mean_ptr,
+                            <float*> noise_vars_ptr,
+                            params)
         else:
-
-            if self.gdf_datatype.type == np.float32:
-                pcaFitTransform(h_[0],
-                                <float*> input_ptr,
-                                <float*> trans_input_ptr,
-                                <float*> components_ptr,
-                                <float*> explained_var_ptr,
-                                <float*> explained_var_ratio_ptr,
-                                <float*> singular_vals_ptr,
-                                <float*> mean_ptr,
-                                <float*> noise_vars_ptr,
-                                params)
-            else:
-                pcaFitTransform(h_[0],
-                                <double*> input_ptr,
-                                <double*> trans_input_ptr,
-                                <double*> components_ptr,
-                                <double*> explained_var_ptr,
-                                <double*> explained_var_ratio_ptr,
-                                <double*> singular_vals_ptr,
-                                <double*> mean_ptr,
-                                <double*> noise_vars_ptr,
-                                params)
+            pcaFitTransform(h_[0],
+                            <double*> input_ptr,
+                            <double*> trans_input_ptr,
+                            <double*> components_ptr,
+                            <double*> explained_var_ptr,
+                            <double*> explained_var_ratio_ptr,
+                            <double*> singular_vals_ptr,
+                            <double*> mean_ptr,
+                            <double*> noise_vars_ptr,
+                            params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -458,6 +435,9 @@ class PCA(cuml.Base):
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
+
+        if not _transform:
+            del(self.trans_input_)
 
         return self
 
@@ -611,9 +591,9 @@ class PCA(cuml.Base):
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaTransform(h_[0],
+            pcaTransform(handle_[0],
                          <float*> input_ptr,
                          <float*> components_ptr,
                          <float*> trans_input_ptr,
@@ -621,7 +601,7 @@ class PCA(cuml.Base):
                          <float*> mean_ptr,
                          params)
         else:
-            pcaTransform(h_[0],
+            pcaTransform(handle_[0],
                          <double*> input_ptr,
                          <double*> components_ptr,
                          <double*> trans_input_ptr,
