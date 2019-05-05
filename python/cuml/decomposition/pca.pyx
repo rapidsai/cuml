@@ -393,9 +393,9 @@ class PCA(cuml.Base):
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()       
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()       
         if self.gdf_datatype.type == np.float32:
-            pcaFitTransform(h_[0],
+            pcaFitTransform(handle_[0],
                             <float*> input_ptr,
                             <float*> trans_input_ptr,
                             <float*> components_ptr,
@@ -406,7 +406,7 @@ class PCA(cuml.Base):
                             <float*> noise_vars_ptr,
                             params)
         else:
-            pcaFitTransform(h_[0],
+            pcaFitTransform(handle_[0],
                             <double*> input_ptr,
                             <double*> trans_input_ptr,
                             <double*> components_ptr,
