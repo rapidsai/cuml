@@ -99,6 +99,19 @@ def test_gradient():
         np.testing.assert_array_equal(g, grad_fd)
 
 
+def test_grid_search():
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys = noise + 0.5*xs
+    num_batches = 2
+    ys_b = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
+    bic, aic = batched_arima.grid_search(ys_b, d=1)
+    print("bic={}, aic={}".format(bic, aic))
+    return bic, aic
+
+
 def test_against_statsmodels(plot=True):
 
     num_samples = 200
