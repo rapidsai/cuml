@@ -28,10 +28,15 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
 
+@pytest.mark.parametrize('max_bytes_per_batch', [10, 200, 2e6])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_dbscan_predict(datatype, input_type, run_stress,
-                        run_quality):
+
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch
+                        run_stress, run_quality):
+
+    # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
     n_samples = 10000
     n_feats = 50
     if run_stress:
@@ -40,13 +45,18 @@ def test_dbscan_predict(datatype, input_type, run_stress,
     elif run_quality:
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
-
+        
     else:
         X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                      dtype=datatype)
     skdbscan = skDBSCAN(eps=3, min_samples=10)
     sk_labels = skdbscan.fit_predict(X)
-    cudbscan = cuDBSCAN(eps=3, min_samples=10)
+
+
+    handle, stream = get_handle(use_handle)
+    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
+                        max_bytes_per_batch=max_bytes_per_batch)
+
     if input_type == 'dataframe':
         X = pd.DataFrame(
             {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})

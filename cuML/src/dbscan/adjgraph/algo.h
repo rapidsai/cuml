@@ -42,7 +42,7 @@ __global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
         Type scan_id = data.ex_scan[row];
         for(int i=0; i<N; i++) {
             // @todo: uncoalesced mem accesses!
-            if(data.adj[N*row + i]) {
+            if(data.adj[batchSize * i + row]) {
                 data.adj_graph[scan_id + k] = i;
                 k = k + 1;
             }
@@ -65,6 +65,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     auto execution_policy = thrust::cuda::par(alloc).on(stream);
     exclusive_scan(execution_policy, dev_vd, dev_vd + batchSize, dev_ex_scan);
     adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 }  // End Algo
