@@ -32,7 +32,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-def test_dbscan_predict(datatype, input_type, use_handle, max_elems_per_batch):
+def test_dbscan_predict(datatype, input_type, use_handle, max_mem_bytes):
 
     X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                  dtype=datatype)

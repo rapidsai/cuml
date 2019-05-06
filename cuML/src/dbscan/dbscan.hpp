@@ -20,10 +20,10 @@
 namespace ML{
 
 void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels, size_t max_elems);
+		       int *labels, size_t max_mem_bytes, bool verbose = false);
 
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels, size_t max_elems);
+		       int *labels, size_t max_mem_bytes, bool verbose = false);
 
 }
 

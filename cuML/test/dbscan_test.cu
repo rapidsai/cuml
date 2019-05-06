@@ -72,9 +72,9 @@ protected:
 		handle.setStream(stream);
 
 		// forces a batch size of 2
-		size_t max_elems = 10;
+		size_t max_bytes_per_batch = 4 * sizeof(T) * 8;
 
-		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, (size_t)max_elems);
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, max_bytes_per_batch, true);
 		CUDA_CHECK( cudaStreamSynchronize(stream) );
 
 		CUDA_CHECK( cudaStreamDestroy(stream) );

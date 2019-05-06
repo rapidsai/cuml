@@ -78,19 +78,18 @@ void printUsage()
               << "-num_samples <number of samples> -num_features <number of features> "
               << "[-min_pts <minimum number of samples in a cluster>] "
               << "[-eps <maximum distance between any two samples of a cluster>] "
-              << "[-max_elems_per_batch <maximum numbers to use in batch size calculation>] "
+              << "[-max_bytes_per_batch <maximum memory to use (in bytes) for batch size calculation>] "
               << std::endl;
     return;
 }
 
 void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
-                        size_t& nCols, int& minPts, float& eps, size_t& max_elems)
+                        size_t& nCols, int& minPts, float& eps, size_t& max_bytes_per_batch)
 {
     constexpr size_t NUM_ROWS = 25;
     constexpr size_t NUM_COLS = 3;
     constexpr int    MIN_PTS  = 2;
     constexpr float  EPS      = 1.0f;
-    constexpr size_t MAX_ELEMS = (size_t)2e7;
 
     constexpr float data[NUM_ROWS*NUM_COLS] =
     {
@@ -124,7 +123,7 @@ void loadDefaultDataset(std::vector<float>& inputData, size_t& nRows,
     nCols = NUM_COLS;
     minPts = MIN_PTS;
     eps = EPS;
-    max_elems = MAX_ELEMS;
+    max_bytes_per_batch = 0; // allow algorithm to set this
 
     inputData.insert(inputData.begin(), data, data+nRows*nCols);
 }
@@ -170,7 +169,7 @@ int main(int argc, char * argv[])
           get_argval<std::string>(argv, argv+argc,"-input", std::string(""));
     int minPts = get_argval<int>(argv, argv+argc, "-min_pts", 3);
     float eps = get_argval<float>(argv, argv+argc, "-eps", 1.0f);
-    size_t max_elems = get_argval<size_t>(argv, argv+argc, "-max_elems_per_batch", (size_t)2e7);
+    size_t max_bytes_per_batch = get_argval<size_t>(argv, argv+argc, "-max_bytes_per_batch", (size_t)2e7);
 
     {
         cudaError_t cudaStatus = cudaSuccess;
@@ -219,7 +218,7 @@ int main(int argc, char * argv[])
         // Samples file not specified, run with defaults
         std::cout << "Samples file not specified. (-input option)" << std::endl;
         std::cout << "Running with default dataset:" << std::endl;
-        loadDefaultDataset(h_inputData, nRows, nCols, minPts, eps, max_elems);
+        loadDefaultDataset(h_inputData, nRows, nCols, minPts, eps, max_bytes_per_batch);
     }
     else if(nRows == 0 || nCols == 0)
     {
@@ -278,10 +277,10 @@ int main(int argc, char * argv[])
              << "Number of samples - " << nRows << std::endl
              << "Number of features - " << nCols << std::endl
              << "min_pts - " << minPts << std::endl
-             << "eps - " << eps
-             << std::endl;
+             << "eps - " << eps << std::endl
+             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-    ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels, max_elems);
+    ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels, max_bytes_per_batch);
     CUDA_RT_CALL( cudaMemcpyAsync(h_labels.data(), d_labels, nRows*sizeof(int),
                   cudaMemcpyDeviceToHost, stream) );
     CUDA_RT_CALL( cudaStreamSynchronize(stream) );

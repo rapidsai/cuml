@@ -105,9 +105,14 @@ class DBSCAN(Base):
         an important core point (including the point itself).
     verbose : bool
         Whether to print debug spews
-    max_elems_per_batch : int64
-        Calculate batch size using no more than this number of elements. This enables
-        the trade-off between runtime and memory usage.
+    max_bytes_per_batch : (optional) int64
+        Calculate batch size using no more than this number of bytes for the pairwise
+        distance computation. This enables the trade-off between runtime and memory usage for
+        making the N^2 pairwise distance computations more tractable for large numbers of samples.
+        If you are experiencing out of memory errors when running DBSCAN, you can set this
+        value based on the memory size of your device. Note: this option does not set
+        the maximum total memory used in the DBSCAN computation and so this value will not
+        be able to be set to the total memory available on the device.
 
     Attributes
     -----------
@@ -131,13 +136,17 @@ class DBSCAN(Base):
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_elems_per_batch = 2e6):
+    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_bytes_per_batch = None):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
         self.labels_array = None
-        self.max_elems_per_batch = max_elems_per_batch
+        self.max_bytes_per_batch = max_bytes_per_batch
+
+        # C++ API expects this to be numeric.
+        if self.max_bytes_per_batch is None:
+            self.max_bytes_per_batch = 0;
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -188,6 +197,8 @@ class DBSCAN(Base):
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
+
+
         if self.gdf_datatype.type == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
@@ -196,7 +207,7 @@ class DBSCAN(Base):
                                <float> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t>self.max_elems_per_batch)
+                               <size_t>self.max_bytes_per_batch)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
@@ -205,7 +216,7 @@ class DBSCAN(Base):
                                <double> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t> self.max_elems_per_batch)
+                               <size_t> self.max_bytes_per_batch)
         # make sure that the `dbscanFit` is complete before the following delete
         # call happens
         self.handle.sync()
