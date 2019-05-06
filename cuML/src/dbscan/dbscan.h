@@ -36,7 +36,7 @@ int computeBatchCount(int n_rows, size_t max_bytes_per_batch) {
     // paving way to cudaMemGetInfo based workspace allocation
     while(true) {
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-        if(batchSize * n_rows * sizeof(T) < max_bytes_per_batch)
+        if(batchSize * n_rows * sizeof(T) < max_bytes_per_batch || batchSize == 1)
             break;
         ++n_batches;
     }

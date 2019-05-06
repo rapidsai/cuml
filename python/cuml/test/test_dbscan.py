@@ -28,11 +28,14 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
                  'no_structure']
 
 
-@pytest.mark.parametrize('max_bytes_per_batch', [10, 20, 200, 2e6])
+@pytest.mark.parametrize('max_bytes_per_batch', [10, 200, 2e6])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch):
+
+    # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
+
 
     X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                  dtype=datatype)
