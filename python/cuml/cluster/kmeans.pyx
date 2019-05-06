@@ -41,6 +41,34 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
     cdef void fit_predict(cumlHandle& handle,
                           int n_clusters,
+                          int metric,
+                          InitMethod init,
+                          int max_iter,
+                          double tol,
+                          int seed,
+                          const float *X,
+                          int n_samples,
+                          int n_features,
+                          float *centroids,
+                          int *labels,
+                          int verbose)
+
+    cdef void fit_predict(cumlHandle& handle,
+                          int n_clusters,
+                          int metric,
+                          InitMethod init,
+                          int max_iter,
+                          double tol,
+                          int seed,
+                          const double *X,
+                          int n_samples,
+                          int n_features,
+                          double *centroids,
+                          int *labels,
+                          int verbose);
+
+    cdef void fit(cumlHandle& handle,
+                  int n_clusters,
                   int metric,
                   InitMethod init,
                   int max_iter,
@@ -50,85 +78,57 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                   int n_samples,
                   int n_features,
                   float *centroids,
-                  int *labels,
-                          int verbose)
+                  int verbose)
 
-    cdef void fit_predict(cumlHandle& handle,
-                          int n_clusters,
+    cdef void fit(cumlHandle& handle,
+                  int n_clusters,
                   int metric,
                   InitMethod init,
                   int max_iter,
                   double tol,
                   int seed,
-                  const double *X,
-                  int n_samples,
-                  int n_features,
+                  const double *X, int n_samples, int n_features,
                   double *centroids,
-                  int *labels,
-                          int verbose);
-
-    cdef void fit(cumlHandle& handle,
-                  int n_clusters,
-              int metric,
-              InitMethod init,
-              int max_iter,
-              double tol,
-              int seed,
-              const float *X,
-              int n_samples,
-              int n_features,
-              float *centroids,
-                  int verbose)
-
-    cdef void fit(cumlHandle& handle,
-                  int n_clusters,
-              int metric,
-              InitMethod init,
-              int max_iter,
-              double tol,
-              int seed,
-              const double *X, int n_samples, int n_features,
-              double *centroids,
                   int verbose)
 
     cdef void predict(cumlHandle& handle,
                       float *centroids,
-                  int n_clusters,
-                  const float *X,
-                  int n_samples,
-                  int n_features,
-                  int metric,
-                  int *labels,
+                      int n_clusters,
+                      const float *X,
+                      int n_samples,
+                      int n_features,
+                      int metric,
+                      int *labels,
                       int verbose)
 
     cdef void predict(cumlHandle& handle,
                       double *centroids,
-                  int n_clusters,
-                  const double *X,
-                  int n_samples,
-                  int n_features,
-                  int metric,
-                  int *labels,
+                      int n_clusters,
+                      const double *X,
+                      int n_samples,
+                      int n_features,
+                      int metric,
+                      int *labels,
                       int verbose)
 
     cdef void transform(cumlHandle& handle,
                         const float *centroids,
-                    int n_clusters,
-                    const float *X,
-                    int n_samples,
-                    int n_features,
-                    int metric,
-                    float *X_new,
+                        int n_clusters,
+                        const float *X,
+                        int n_samples,
+                        int n_features,
+                        int metric,
+                        float *X_new,
                         int verbose)
 
     cdef void transform(cumlHandle& handle,
                         const double *centroids,
-                    int n_clusters,
-                    const double *X,
-                    int n_samples,
-                    int n_features,
-                    int metric,
-                    double *X_new,
+                        int n_clusters,
+                        const double *X,
+                        int n_samples,
+                        int n_features,
+                        int metric,
+                        double *X_new,
                         int verbose)
 
 class KMeans(Base):
@@ -348,8 +348,8 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-            <int> 0,                       # distance metric as L2: @todo - support other metrics
-            <InitMethod> init_value,       # init method
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
                 <int> self.random_state,       # seed
@@ -363,8 +363,8 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-            <int> 0,                       # distance metric as L2: @todo - support other metrics
-            <InitMethod> init_value,       # init method
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
                 <int> self.random_state,       # seed
@@ -444,7 +444,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -455,7 +455,7 @@ class KMeans(Base):
                 <double*> input_ptr,           # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
@@ -513,7 +513,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics
                 <float*> preds_ptr,            # transformed output
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -524,7 +524,7 @@ class KMeans(Base):
                 <double*> input_ptr,            # srcdata
                 <size_t> self.n_rows,           # n_samples (rows)
                 <size_t> self.n_cols,           # n_features (cols)
-                <int> 1,                        # distance metric as euclidean: @todo - support other metrics
+                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics
                 <double*> preds_ptr,            # transformed output
                 <int> self.verbose)
         else:
