@@ -143,6 +143,7 @@ class DBSCAN(Base):
         self.labels_ = None
         self.labels_array = None
         self.max_bytes_per_batch = max_bytes_per_batch
+        self.verbose = verbose
 
         # C++ API expects this to be numeric.
         if self.max_bytes_per_batch is None:
@@ -207,7 +208,8 @@ class DBSCAN(Base):
                                <float> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t>self.max_bytes_per_batch)
+                               <size_t>self.max_bytes_per_batch,
+                               <bool>self.verbose)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
@@ -216,7 +218,8 @@ class DBSCAN(Base):
                                <double> self.eps,
                                <int> self.min_samples,
                                <int*> labels_ptr,
-                               <size_t> self.max_bytes_per_batch)
+                               <size_t> self.max_bytes_per_batch,
+                               <bool>self.verbose)
         # make sure that the `dbscanFit` is complete before the following delete
         # call happens
         self.handle.sync()
