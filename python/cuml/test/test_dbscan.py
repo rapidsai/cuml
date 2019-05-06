@@ -37,7 +37,6 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 
 def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch,
                         run_stress, run_quality):
-
     # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
     n_samples = 10000
     n_feats = 50
