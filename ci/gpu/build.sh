@@ -82,16 +82,6 @@ logger "Build cuML..."
 cd $WORKSPACE/python
 python setup.py build_ext --inplace
 
-logger "Build ml-prims tests..."
-mkdir -p $WORKSPACE/ml-prims/build
-cd $WORKSPACE/ml-prims/build
-cmake $GPU_ARCH ..
-
-logger "Clean up make..."
-make clean
-logger "Make ml-prims test..."
-make -j${PARALLEL_LEVEL}
-
 
 ################################################################################
 # TEST - Run GoogleTest and py.tests for libcuml and cuML
@@ -104,11 +94,24 @@ logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cuML/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./ml_test
 
-
 logger "Python py.test for cuML..."
 cd $WORKSPACE/python
 py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
+
+################################################################################
+# TEST - Build and run ml-prim tests
+################################################################################
+
+logger "Build ml-prims tests..."
+mkdir -p $WORKSPACE/ml-prims/build
+cd $WORKSPACE/ml-prims/build
+cmake $GPU_ARCH ..
+
+logger "Clean up make..."
+make clean
+logger "Make ml-prims test..."
+make -j${PARALLEL_LEVEL}
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/ml-prims/build

@@ -34,6 +34,15 @@ from sklearn.datasets.samples_generator import make_blobs
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
 
+def test_blobs_cluster():
+    data, labels = datasets.make_blobs(
+        n_samples=500, n_features=10, centers=5)
+    embedding = UMAP(verbose=True).fit_transform(data)
+    score = adjusted_rand_score(labels,
+                                KMeans(5).fit_predict(embedding))
+    assert score == 1.0
+
+    
 def test_umap_fit_transform_score(run_stress, run_quality):
 
     if run_stress:
@@ -68,9 +77,9 @@ def test_umap_fit_transform_score(run_stress, run_quality):
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01).fit_transform(
-        data, iris.target
-    )
+    embedding = UMAP(n_neighbors=10, min_dist=0.01,
+                     verbose=True).fit_transform(data, iris.target)
+  
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -80,9 +89,9 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     data = iris.data
     target = iris.target.copy()
     target[25:75] = -1
-    embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01).fit_transform(
-        data, target
-    )
+    embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
+                     verbose=True).fit_transform(data, target)
+
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -91,7 +100,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                          verbose=True).fit_transform(data)
+                     verbose=True).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -147,14 +156,13 @@ def test_umap_data_formats(input_type, should_downcast,
     elif run_quality:
         X, y = datasets.make_blobs(n_samples=int(n_samples/10),
                                    n_features=n_feats, random_state=0)
-
     else:
         # For now, FAISS based nearest_neighbors only supports single precision
         digits = datasets.load_digits(n_class=9)
         X = digits["data"].astype(dtype)
 
     umap = UMAP_cuml(n_neighbors=3, n_components=2,
-                     should_downcast=should_downcast)
+                     should_downcast=should_downcast, verbose=True)
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame(
@@ -185,7 +193,8 @@ def test_umap_downcast_fails(input_type, run_stress, run_quality):
                      dtype=np.float64)
 
     # Test fit() fails with double precision when should_downcast set to False
-    umap = UMAP_cuml(should_downcast=False)
+    umap = UMAP_cuml(should_downcast=False, verbose=True)
+
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
 
