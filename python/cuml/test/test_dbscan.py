@@ -32,8 +32,9 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('max_bytes_per_batch', [10, 200, 2e6])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-
 @pytest.mark.parametrize('use_handle', [True, False])
+
+
 def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch,
                         run_stress, run_quality):
 
@@ -46,14 +47,12 @@ def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch,
     elif run_quality:
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
-        
+
     else:
         X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                      dtype=datatype)
     skdbscan = skDBSCAN(eps=3, min_samples=10)
     sk_labels = skdbscan.fit_predict(X)
-
-
     handle, stream = get_handle(use_handle)
     cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
                         max_bytes_per_batch=max_bytes_per_batch)
