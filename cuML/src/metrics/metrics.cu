@@ -13,22 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
 
-#include <cuML_api.h>
+// #include "metrics.h"
+#include "metrics.hpp"
+#include "cuda_utils.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include "score/scores.h"
 
-//Single precision version of DBSCAN fit
-cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float* input,
-        int n_rows, int n_cols, float eps, int min_pts, int *labels, size_t max_bytes_per_batch);
+namespace ML {
 
-//Double precision version of DBSCAN fit
-cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input,
-        int n_rows, int n_cols, double eps, int min_pts, int *labels, size_t max_bytes_per_batch);
+    namespace Metrics {
 
-#ifdef __cplusplus
+        float r2_score_py(const cumlHandle& handle, float *y, float *y_hat, int n){
+            return MLCommon::Score::r2_score(y, y_hat, n, handle.getStream());
+        }
+
+        double r2_score_py(const cumlHandle& handle, double *y, double *y_hat, int n){
+            return MLCommon::Score::r2_score(y, y_hat, n, handle.getStream());
+        }
+
+    }
 }
-#endif
