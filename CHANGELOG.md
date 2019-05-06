@@ -10,6 +10,7 @@
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #444: Added supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
 - PR #507: Added coordinate descent for lasso and elastic-net
@@ -70,6 +71,7 @@
 - PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 
 # cuML 0.6.0 (22 Mar 2019)
 

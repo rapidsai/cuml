@@ -36,8 +36,7 @@ namespace ML {
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        template <typename T>
-        T r2_score(T *y, T *y_hat, int n) {
+        T r2_scoreFloat(float *y, float *y_hat, int n) {
             return MLCommon::Metrics::r2_score(y, y_hat, n);
         }
     }

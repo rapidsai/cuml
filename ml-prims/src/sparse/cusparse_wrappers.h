@@ -19,7 +19,6 @@
 #include <cusparse_v2.h>
 
 namespace MLCommon {
-
 namespace Sparse {
 #define CUSPARSE_CHECK(call)                                                   \
   do {                                                                         \
