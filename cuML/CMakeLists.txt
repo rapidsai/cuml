@@ -172,7 +172,7 @@ endif(NOT CMAKE_CXX11_ABI)
 include (ExternalProject)
 ExternalProject_Add(faiss
   SOURCE_DIR ${FAISS_DIR}
-  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-lapack=${LAPACK_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
+  CONFIGURE_COMMAND LIBS=-pthread CPPFLAGS=-w LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib ${FAISS_DIR}/configure --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss --with-blas=${BLAS_LIBRARIES} --with-cuda=${CUDA_TOOLKIT_ROOT_DIR} --quiet
   PREFIX ${CMAKE_CURRENT_BINARY_DIR}/faiss/
   BUILD_COMMAND $(MAKE)
   INSTALL_COMMAND $(MAKE) -s install > /dev/null || $(MAKE) && cd gpu && $(MAKE) -s install > /dev/null || $(MAKE)
@@ -236,8 +236,7 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   ${ZLIB_LIBRARIES}
   gpufaisslib
-  faisslib
-  ${BLAS_LIBRARIES})
+  faisslib)
 
 if(OPENMP_FOUND)
   set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
@@ -261,7 +260,6 @@ target_link_libraries(ml_test
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
   faisslib
-  ${BLAS_LIBRARIES}
   ${CUML_CPP_TARGET}
   pthread
   ${ZLIB_LIBRARIES})
@@ -282,7 +280,6 @@ target_link_libraries(ml_mg_test
   ${CUDA_nvgraph_LIBRARY}
   gpufaisslib
   faisslib
-  ${BLAS_LIBRARIES}
   ${CUML_CPP_TARGET}
   pthread
   ${ZLIB_LIBRARIES})

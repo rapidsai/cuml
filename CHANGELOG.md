@@ -73,6 +73,7 @@
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
+- PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
 
 # cuML 0.6.0 (22 Mar 2019)
 
