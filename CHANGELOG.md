@@ -13,6 +13,7 @@
 - PR #444: Added supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
+- PR #505: Adding R-Squared Score to python interface
 - PR #507: Added coordinate descent for lasso and elastic-net
 - PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
