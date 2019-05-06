@@ -96,6 +96,25 @@ public:
         }
     }
 
+    /**
+     * @brief Query the underlying allocator for available memory
+     * 
+     * Such an interface is typically used to query for available memory and based
+     * on the response, budget its workspace accordingly.
+     *
+     * @param[out] free     will contain the amount of free memory (in B)
+     * @param[in] total     will contain the total amount of memory (in B)
+     * @param[in] stream    stream in which the allocations happen for the caller
+     */
+    virtual void getMemInfo( size_t &free, size_t &total, cudaStream_t stream ) {
+        if (!_rmmInitialized) {
+            CUDA_CHECK(cudaMemGetInfo(&free, &total));
+        } else {
+            auto rmmStatus = rmmGetInfo(&free, &total, stream);
+            ASSERT(RMM_SUCCESS == rmmStatus, "rmmGetInfo failed!");
+        }
+    }
+
 private:
     const bool _rmmInitialized;
 };

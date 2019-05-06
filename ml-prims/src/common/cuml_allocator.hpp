@@ -56,6 +56,17 @@ public:
      * @param[in] stream    stream in which the allocation might be still in use
      */
     virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+    /**
+     * @brief Query the underlying allocator for available memory
+     * 
+     * Such an interface is typically used to query for available memory and based
+     * on the response, budget its workspace accordingly.
+     *
+     * @param[out] free     will contain the amount of free memory (in B)
+     * @param[in] total     will contain the total amount of memory (in B)
+     * @param[in] stream    stream in which the allocations happen for the caller
+     */
+    virtual void getMemInfo( size_t &free, size_t &total, cudaStream_t stream ) = 0;
 };
 
 /**
@@ -96,4 +107,4 @@ public:
     virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
 };
 
-} // end namespace ML
+} // end namespace MLCommon

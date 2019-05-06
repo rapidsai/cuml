@@ -189,6 +189,9 @@ public:
             // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
         }
     }
+    virtual void getMemInfo( size_t &free, size_t &total, cudaStream_t stream ) {
+        CUDA_CHECK(cudaMemGetInfo(&free, &total));
+    }
 };
 
 class defaultHostAllocator : public hostAllocator {
