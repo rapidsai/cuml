@@ -44,7 +44,8 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                    float eps,
                    int min_pts,
                    int *labels,
-                   size_t max_elems)
+                   size_t max_bytes_per_batch,
+                   bool verbose)
 
     cdef void dbscanFit(cumlHandle& handle,
                    double *input,
@@ -53,7 +54,8 @@ cdef extern from "dbscan/dbscan.hpp" namespace "ML":
                    double eps,
                    int min_pts,
                    int *labels,
-                   size_t max_elems)
+                   size_t max_bytes_per_batch,
+                   bool verbose)
 
 
 class DBSCAN(Base):
