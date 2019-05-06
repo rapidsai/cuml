@@ -34,7 +34,7 @@ def test_tsvd_fit(datatype, input_type, run_stress, run_quality):
                           n_features=n_feats, random_state=0)
 
     elif run_quality:
-        pytest.skip('fails when using random dataset ' \
+        pytest.skip('fails when using random dataset '
                     'used by sklearn for testing')
         shape = n_samples, n_feats
         rng = check_random_state(42)
@@ -76,7 +76,7 @@ def test_tsvd_fit_transform(datatype, input_type,
                           n_features=n_feats, random_state=0)
 
     elif run_quality:
-        pytest.skip('fails when using random dataset ' \
+        pytest.skip('fails when using random dataset '
                     'used by sklearn for testing')
         shape = n_samples, n_feats
         rng = check_random_state(42)
@@ -116,7 +116,7 @@ def test_tsvd_inverse_transform(datatype, input_type,
                           n_features=n_feats, random_state=0)
 
     elif run_quality:
-        pytest.skip('fails when using random dataset ' \
+        pytest.skip('fails when using random dataset '
                     'used by sklearn for testing')
         shape = n_samples, n_feats
         rng = check_random_state(42)
