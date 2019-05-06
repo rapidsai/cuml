@@ -41,6 +41,24 @@ class BatchedARIMAModel:
         return self.__repr__()
 
     @staticmethod
+    def model_complexity(order):
+        (p, _, q) = order
+        # complexity is number of parameters: mu + ar + ma
+        return 1 + p + q
+
+    @property
+    def bic(self):
+        llb = BatchedARIMAModel.loglike(self)
+        return [-2 * lli + np.log(len(self.y)) * (BatchedARIMAModel.model_complexity(self.order[i]))
+                for (i, lli) in enumerate(llb)]
+
+    @property
+    def aic(self):
+        llb = BatchedARIMAModel.loglike(self)
+        return [-2 * lli + 2 * (BatchedARIMAModel.model_complexity(self.order[i]))
+                for (i, lli) in enumerate(llb)]
+
+    @staticmethod
     def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False):
         """Computes batched loglikelihood given parameters stored in `x`."""
         p, d, q = order
@@ -117,7 +135,7 @@ class BatchedARIMAModel:
             ma_params0: np.ndarray):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
-        with the given initial parameters.
+        with the given initial parameters. `y` is (num_samples, num_batches)
 
         """
         
@@ -265,3 +283,29 @@ def init_batched_kalman_matrices(b_ar_params, b_ma_params):
     return Zb, Rb, Tb, r
 
 
+def grid_search(y_b: np.ndarray, d=1):
+    """Grid search to find optimal (p,_,q) values for each time-series in y_b,
+    which is a dense `ndarray` with columns as time"""
+
+    max_p = 3
+    max_q = 3
+
+    bic = {}#np.zeros((max_p, max_q))
+    aic = {}#np.zeros((max_p, max_q))
+
+    num_batches = y_b.shape[1]
+
+    for p in range(0, max_p):
+        arparams = np.zeros(p)
+        for q in range(0, max_p):
+            maparams = np.zeros(q)
+            # skip 0,0 case
+            if p == 0 and q == 0:
+                continue
+
+            b_model = BatchedARIMAModel.fit(y_b, (p, d, q), 0.0, arparams, maparams)
+
+            aic[(p, q)] = b_model.aic
+            bic[(p, q)] = b_model.bic
+
+    return bic, aic
