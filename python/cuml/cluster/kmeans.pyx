@@ -444,7 +444,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-            <int> 0,                       # distance metric as L2: @todo - support other metrics
+                <int> 1,                       # distance metric as euclidean: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -455,7 +455,7 @@ class KMeans(Base):
                 <double*> input_ptr,           # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-            <int> 0,                       # distance metric as L2: @todo - support other metrics
+                <int> 1,                       # distance metric as euclidean: @todo - support other metrics
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
@@ -513,7 +513,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-            <int> 1,                       # distance metric as euclidean: @todo - support other metrics
+                <int> 1,                       # distance metric as euclidean: @todo - support other metrics
                 <float*> preds_ptr,            # transformed output
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -524,7 +524,7 @@ class KMeans(Base):
                 <double*> input_ptr,            # srcdata
                 <size_t> self.n_rows,           # n_samples (rows)
                 <size_t> self.n_cols,           # n_features (cols)
-            <int> 1,                        # distance metric as euclidean: @todo - support other metrics
+                <int> 1,                        # distance metric as euclidean: @todo - support other metrics
                 <double*> preds_ptr,            # transformed output
                 <int> self.verbose)
         else:
