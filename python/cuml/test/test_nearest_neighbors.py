@@ -1,3 +1,4 @@
+
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,37 +21,40 @@ from sklearn.datasets.samples_generator import make_blobs
 import cudf
 import pandas as pd
 import numpy as np
+from cuml.test.utils import array_equal
 
 
-@pytest.mark.parametrize('should_downcast', [True, False])
+@pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
+def test_knn(input_type, should_downcast, run_stress, run_quality):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = 10000
     n_feats = 50
     if run_stress:
+        k = 100
         X, y = make_blobs(n_samples=n_samples*5,
                           n_features=n_feats, random_state=0)
 
-    elif run_correctness_test:
+    elif run_quality:
+        k = 100
         X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
 
     else:
+        k = 2
         X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
 
     knn_sk = skKNN(metric="l2")
     knn_sk.fit(X)
-    D_sk, I_sk = knn_sk.kneighbors(X, len(X))
-
+    D_sk, I_sk = knn_sk.kneighbors(X, k)
     knn_cu = cuKNN(should_downcast=should_downcast)
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X_pd)
         knn_cu.fit(X_cudf)
-        D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, len(X_cudf))
+        D_cuml, I_cuml = knn_cu.kneighbors(X_cudf, k)
 
         assert type(D_cuml) == cudf.DataFrame
         assert type(I_cuml) == cudf.DataFrame
@@ -63,15 +67,15 @@ def test_knn(input_type, should_downcast, run_stress, run_correctness_test):
     elif input_type == 'ndarray':
 
         knn_cu.fit(X)
-        D_cuml, I_cuml = knn_cu.kneighbors(X, len(X))
+        D_cuml, I_cuml = knn_cu.kneighbors(X, k)
         assert type(D_cuml) == np.ndarray
         assert type(I_cuml) == np.ndarray
 
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    assert np.array_equal(D_cuml_arr, np.square(D_sk))
-    assert np.array_equal(I_cuml_arr, I_sk)
+    assert array_equal(D_cuml_arr, np.square(D_sk), 1e-2, with_sign=True)
+    assert I_cuml_arr.all() == I_sk.all()
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
