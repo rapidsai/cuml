@@ -132,7 +132,7 @@ def test_umap_fit_transform_trust(name, run_stress, run_quality):
     assert array_equal(trust, cuml_trust, 1e-2, with_sign=True)
 
 
-@pytest.mark.parametrize('should_downcast', [True, False])
+@pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_data_formats(input_type, should_downcast,
                            run_stress, run_quality):
