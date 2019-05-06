@@ -29,6 +29,8 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.metrics.base import RegressorMixin
+
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
@@ -71,7 +73,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                            double *preds)
 
 
-class Ridge:
+class Ridge(RegressorMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the coefficients when
@@ -155,15 +157,15 @@ class Ridge:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
+
     Notes
     ------
     Ridge provides L2 regularization. This means that the coefficients can shrink to become
     very very small, but not zero. This can cause issues of interpretabiliy on the coefficients.
     Consider using Lasso, or thresholding small coefficients to zero.
-    
+
     **Applications of Ridge**
-        
+
         Ridge Regression is used in the same way as LinearRegression, but is used more frequently
         as it does not suffer from multicollinearity issues. Ridge is used in insurance premium
         prediction, stock market analysis and much more.
