@@ -26,27 +26,27 @@ using namespace Dbscan;
 
 
 void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
-		       int *labels, size_t max_elems) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_elems, handle.getStream());
+		       int *labels, size_t max_bytes_per_batch = 0, bool verbose) {
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
 }
 
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
-		       int *labels, size_t max_elems) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_elems, handle.getStream());
+		       int *labels, size_t max_bytes_per_batch = 0, bool verbose) {
+	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
 }
 
 }; // end namespace ML
 
 
 extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
-               int *labels, size_t max_elems) {
+               int *labels, size_t max_bytes_per_batch, bool verbose) {
     cumlError_t status;
     ML::cumlHandle *handle_ptr;
     std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
     if (status == CUML_SUCCESS) {
         try
         {
-            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_elems);
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, verbose);
         }
         //TODO: Implement this
         //catch (const MLCommon::Exception& e)
@@ -64,14 +64,14 @@ extern "C" cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_
 }
 
 extern "C" cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
-               int *labels, size_t max_elems) {
+               int *labels, size_t max_bytes_per_batch, bool verbose) {
     cumlError_t status;
     ML::cumlHandle *handle_ptr;
     std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
     if (status == CUML_SUCCESS) {
         try
         {
-            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_elems);
+            dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, verbose);
         }
         //TODO: Implement this
         //catch (const MLCommon::Exception& e)
