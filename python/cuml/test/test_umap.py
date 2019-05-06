@@ -42,7 +42,7 @@ def test_blobs_cluster():
                                 KMeans(5).fit_predict(embedding))
     assert score == 1.0
 
-    
+
 def test_umap_fit_transform_score(run_stress, run_quality):
 
     if run_stress:
@@ -78,8 +78,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                     verbose=True).fit_transform(data, iris.target)
-  
+                          verbose=True).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -90,7 +89,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target = iris.target.copy()
     target[25:75] = -1
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                     verbose=True).fit_transform(data, target)
+                          verbose=True).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -100,7 +99,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                     verbose=True).fit_transform(data)
+                          verbose=True).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -138,7 +137,7 @@ def test_umap_fit_transform_trust(name, run_stress, run_quality):
     trust = trustworthiness(data, embedding, 10)
     cuml_trust = trustworthiness(data, cuml_embedding, 10)
 
-    assert array_equal(trust, cuml_trust, 1e-2, with_sign=True)
+    assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
 
 @pytest.mark.parametrize('should_downcast', [True])
