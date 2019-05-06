@@ -37,7 +37,7 @@ dataset_names = ['iris', 'digits', 'wine', 'blobs']
 def test_blobs_cluster():
     data, labels = datasets.make_blobs(
         n_samples=500, n_features=10, centers=5)
-    embedding = UMAP(verbose=True).fit_transform(data)
+    embedding = UMAP_cuml(verbose=True).fit_transform(data)
     score = adjusted_rand_score(labels,
                                 KMeans(5).fit_predict(embedding))
     assert score == 1.0
@@ -77,7 +77,7 @@ def test_umap_fit_transform_score(run_stress, run_quality):
 def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
-    embedding = UMAP(n_neighbors=10, min_dist=0.01,
+    embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
                      verbose=True).fit_transform(data, iris.target)
   
     trust = trustworthiness(iris.data, embedding, 10)
