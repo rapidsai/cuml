@@ -24,9 +24,7 @@ from sklearn.preprocessing import StandardScaler
 
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
-dataset_names = ['blobs', 'noisy_circles'] + \
-                [pytest.param(ds, marks=pytest.mark.xfail)
-                 for ds in ['noisy_moons', 'varied', 'aniso']]
+dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles']
 
 
 @pytest.mark.parametrize('name', dataset_names)
