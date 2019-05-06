@@ -264,7 +264,7 @@ target_link_libraries(ml_test
   ${BLAS_LIBRARIES}
   ${CUML_CPP_TARGET}
   pthread
-  z)
+  ${ZLIB_LIBRARIES})
 
 ###################################################################################################
 # - build test executable -------------------------------------------------------------------------

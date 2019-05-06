@@ -32,7 +32,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.metrics.base import RegressorMixin
 
 
-cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
     cdef void ridgeFit(float *input,
                        int n_rows,

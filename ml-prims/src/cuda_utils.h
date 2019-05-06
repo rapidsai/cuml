@@ -17,6 +17,8 @@
 #pragma once
 
 #include <stdint.h>
+#include "math_constants.h"
+#include <iomanip>
 #include "utils.h"
 
 namespace MLCommon {
@@ -84,7 +86,7 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream) {
+std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream, int width = 4) {
 
     std::stringstream ss;
 
@@ -94,7 +96,7 @@ std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t strea
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+        ss << std::setw(width) << arr_h[i];
 
         if(i < size-1)
             ss << ", ";
@@ -303,6 +305,15 @@ template <>
 HDI double myExp(double x) {
   return exp(x);
 }
+/** @} */
+
+/**
+ * @defgroup Cuda infinity values
+ * @{
+ */
+template <typename T> inline __device__ T myInf();
+template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
+template <> inline __device__ double myInf<double>() { return CUDART_INF; }
 /** @} */
 
 /**
