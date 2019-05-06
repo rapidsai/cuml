@@ -29,6 +29,17 @@ namespace VertexDeg {
 namespace Algo {
 
 
+/**
+ * Calculates both the vertex degree array and the epsilon neighborhood in a single kernel.
+ *
+ * Proposed API for this should be an epsilon neighborhood primitive that accepts a lambda and
+ * executes the lambda with [n, acc, vertex].
+ *
+ * template<typename T, typename Lambda>
+ * void epsilon_neighborhood(T *a, T *b, bool *adj, m, n, k, T eps,
+ *      workspaceData, workspaceSize, fused_op, stream)
+ *
+ */
 template <typename value_t>
 void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
     data.resetArray(stream, batchSize+1);
@@ -39,48 +50,41 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
     int n = min(data.N - startVertexId, batchSize);
     int k = data.D;
 
-    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
-    size_t workspaceSize = 0;
+    int* vd = data.vd;
+    bool* adj = data.adj;
 
     value_t eps2 = data.eps * data.eps;
 
-    int* vd = data.vd;
-    bool* adj = data.adj;
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+    size_t workspaceSize = 0;
+
 
     /**
      * Epilogue operator to fuse the construction of boolean eps neighborhood adjacency matrix, vertex degree array,
      * and the final distance matrix into a single kernel.
      */
-    auto dbscan_op = [n, eps2, vd, adj] __device__
-        (value_t val, 							// current value in gemm matrix
-		int global_c_idx) {						// index of output in global memory
-        int acc = val <= eps2;
-        int vd_offset = global_c_idx - (n * (global_c_idx / n));   // bucket offset for the vertex degrees
+    auto vertex_degree_op = [vd, n] __device__ (int global_c_idx, bool in_neigh) {
+        int batch_vertex = global_c_idx - (n * (global_c_idx / n));
 
-        atomicAdd(vd+vd_offset, acc);
-        atomicAdd(vd+n, acc);
-        return bool(acc);
+        atomicAdd(vd+batch_vertex, in_neigh);
+        atomicAdd(vd+n, in_neigh);
     };
 
     constexpr auto distance_type = MLCommon::Distance::DistanceType::EucUnexpandedL2;
 
     workspaceSize =  MLCommon::Distance::getWorkspaceSize<distance_type, value_t, value_t, bool>
-    		(data.x, data.x+startVertexId*k, 					// x & y inputs
-    		 m, n, k 											// Cutlass block params
-    );
+            (data.x, data.x+startVertexId*k, m, n, k);
 
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    if (workspaceSize != 0) {
+    if (workspaceSize != 0)
         workspace.resize(workspaceSize, stream);
-    }
 
-    MLCommon::Distance::distance<distance_type, value_t, value_t, bool, OutputTile_t>
+    MLCommon::Distance::epsilon_neighborhood<distance_type, value_t, OutputTile_t>
     		(data.x, data.x+startVertexId*k, 					// x & y inputs
              adj,
-    		 m, n, k, 											// Cutlass block params
-			 (void*)workspace.data(), workspaceSize, 					// workspace params
-    		 dbscan_op, 										// epilogue operator
+    		 m, n, k,
+    		 eps2,
+			 (void*)workspace.data(), workspaceSize, 			// workspace params
+			 vertex_degree_op, 								    // epilogue operator
     		 stream												// cuda stream
 	 );
 

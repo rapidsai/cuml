@@ -210,5 +210,43 @@ void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
     x, y, dist, m, n, k, workspace, worksize, default_fin_op, stream);
 }
 
+
+/**
+ * @brief Constructs an epsilon neighborhood adjacency matrix by
+ * filtering the final distance by some epsilon.
+ * @tparam distanceType: distance metric to compute between a and b matrices
+ * @tparam T: the type of input matrices a and b
+ * @param a: row-major input matrix a
+ * @param b: row-major input matrix b
+ * @param adj: a boolean output adjacency matrix
+ * @param m: number of points in a
+ * @param n: number of points in b
+ * @param k: dimensionality
+ * @param eps: the epsilon value to use as a filter for neighborhood construction.
+ *             it is important to note that if the distance type returns a squared
+ *             variant for efficiency, the epsilon will need to be squared as well.
+ * @param workspace: temporary workspace needed for computations
+ * @param worksize: number of bytes of the workspace
+ * @param fused_op: a 2-argument lambda function taking the output index into c
+ *                  and a boolean denoting whether or not the inputs are part of
+ *                  the epsilon neighborhood.
+ *
+ * @param stream cuda stream
+ */
+template<DistanceType distanceType, typename T, typename OutputTile_, typename Lambda>
+size_t epsilon_neighborhood(T *a, T *b, bool *adj, int m, int n, int k, T eps,
+            void *workspace, size_t worksize, Lambda fused_op, cudaStream_t stream) {
+    auto epsilon_op = [n, eps, fused_op] __device__ (T val, int global_c_idx) {
+        int acc = val <= eps;
+        fused_op(global_c_idx, acc);
+        return bool(acc);
+    };
+
+    distance<distanceType, T, T, bool, OutputTile_>
+            (a, b, adj, m, n, k, (void*)workspace, worksize, epsilon_op, stream);
+
+    return worksize;
+}
+
 }; // end namespace Distance
 }; // end namespace MLCommon
