@@ -14,6 +14,7 @@
 #
 
 import pytest
+from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets.samples_generator import make_blobs
