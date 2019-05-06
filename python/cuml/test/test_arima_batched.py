@@ -7,6 +7,8 @@ import statsmodels.tsa.arima_model as sm
 # import cudf
 import pandas as pd
 
+import pmdarima as pm
+
 def test_arima():
 
     num_samples = 1000
@@ -107,9 +109,12 @@ def test_grid_search():
     ys = noise + 0.5*xs
     num_batches = 2
     ys_b = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
-    bic, aic = batched_arima.grid_search(ys_b, d=1)
-    print("bic={}, aic={}".format(bic, aic))
-    return bic, aic
+    best_model, ic = batched_arima.grid_search(ys_b, d=1)
+    print("ic={}".format(ic))
+
+    pm_model_fit = pm.auto_arima(ys, seasonal=False)
+
+    return ic, best_model, pm_model_fit
 
 
 def test_against_statsmodels(plot=True):
