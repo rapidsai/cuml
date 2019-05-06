@@ -283,29 +283,44 @@ def init_batched_kalman_matrices(b_ar_params, b_ma_params):
     return Zb, Rb, Tb, r
 
 
-def grid_search(y_b: np.ndarray, d=1):
-    """Grid search to find optimal (p,_,q) values for each time-series in y_b,
-    which is a dense `ndarray` with columns as time"""
+def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
+    """Grid search to find optimal (lowest `ic`) (p,_,q) values for each
+    time-series in y_b, which is a dense `ndarray` with columns as time.
+    Optimality is based on minimizing AIC or BIC, which both sum negative
+    log-likelihood against model complexity; Higher model complexity might
+    yield a lower negative LL, but at higher `aic` due to complexity term.
 
-    max_p = 3
-    max_q = 3
-
-    bic = {}#np.zeros((max_p, max_q))
-    aic = {}#np.zeros((max_p, max_q))
+    """
 
     num_batches = y_b.shape[1]
+    best_ic = np.zeros(num_batches)
+    best_model = BatchedARIMAModel((0, d, 0), np.zeros(num_batches), [[]]*num_batches, [[]]*num_batches, y_b)
+    # best_model =
 
     for p in range(0, max_p):
         arparams = np.zeros(p)
-        for q in range(0, max_p):
+        for q in range(0, max_q):
             maparams = np.zeros(q)
+
             # skip 0,0 case
             if p == 0 and q == 0:
                 continue
 
             b_model = BatchedARIMAModel.fit(y_b, (p, d, q), 0.0, arparams, maparams)
 
-            aic[(p, q)] = b_model.aic
-            bic[(p, q)] = b_model.bic
+            if method == "aic":
+                ic = b_model.aic
+            elif method == "bic":
+                ic = b_model.bic
+            else:
+                raise NotImplementedError("Method '{}' not supported".format(method))
 
-    return bic, aic
+            for (i, ic_i) in enumerate(ic):
+                if ic_i < best_ic[i]:
+                    best_model.order = (p, d, q)
+                    best_model.mu[i] = b_model.mu[i]
+                    best_model.ar_params[i] = b_model.ar_params[i]
+                    best_model.ma_params[i] = b_model.ma_params[i]
+                    best_ic[i] = ic_i
+
+    return (best_model, best_ic)
