@@ -308,6 +308,51 @@ void ratio(math_t *src, math_t *dest, IdxType len,
   mgr.free(d_sum);
 }
 
+// Computes the argmax(d_in) column-wise in a DxN matrix
+template <typename T, int TPB>
+__global__ void argmaxKernel(const T *d_in, int D, int N, T *argmax) {
+  typedef cub::BlockReduce<cub::KeyValuePair<int, T>, TPB> BlockReduce;
+  __shared__ typename BlockReduce::TempStorage temp_storage;
+
+  // compute maxIndex=argMax  index for column
+  using KVP = cub::KeyValuePair<int, T>;
+  int rowStart = blockIdx.x * D;
+  KVP thread_data(-1, -myInf<T>());
+
+  for (int i = threadIdx.x; i < D; i += TPB) {
+    int idx = rowStart + i;
+    thread_data = cub::ArgMax()(thread_data, KVP(i, d_in[idx]));
+  }
+
+  auto maxKV = BlockReduce(temp_storage).Reduce(thread_data, cub::ArgMax());
+
+  if (threadIdx.x == 0) {
+    argmax[blockIdx.x] = maxKV.key;
+  }
+}
+/**
+ * @brief Argmax: find the row idx with maximum value for each column
+ * @param in: input matrix
+ * @param n_rows: number of rows of input matrix
+ * @param n_cols: number of columns of input matrix
+ * @param out: output vector of size n_cols
+ */
+template <typename math_t>
+void argmax(const math_t *in, int n_rows, int n_cols, math_t *out,
+            cudaStream_t stream) {
+  int D = n_rows;
+  int N = n_cols;
+  if (D <= 32) {
+    argmaxKernel<math_t, 32><<<N, 32, 0, stream>>>(in, D, N, out);
+  } else if (D <= 64) {
+    argmaxKernel<math_t, 64><<<N, 64, 0, stream>>>(in, D, N, out);
+  } else if (D <= 128) {
+    argmaxKernel<math_t, 128><<<N, 128, 0, stream>>>(in, D, N, out);
+  } else {
+    argmaxKernel<math_t, 256><<<N, 256, 0, stream>>>(in, D, N, out);
+  }
+  CUDA_CHECK(cudaPeekAtLastError());
+}
 
 // Utility kernel needed for signFlip.
 // Computes the argmax(abs(d_in)) column-wise in a DxN matrix followed by

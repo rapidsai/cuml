@@ -10,6 +10,7 @@
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #444: Added supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
 - PR #505: Adding R-Squared Score to python interface
@@ -17,9 +18,11 @@
 - PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Added column-wise matrix sort primitive
+- PR #525: Add docs build script to cuML
 
 ## Improvements
 
+- PR #481: Refactoring Quasi-Newton to use cumlHandle
 - PR #467: Added validity check on cumlHandle_t
 - PR #461: Rewrote permute and added column major version
 - PR #440: README updates
@@ -69,6 +72,7 @@
 - PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 
 # cuML 0.6.0 (22 Mar 2019)
 
