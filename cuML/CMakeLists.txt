@@ -235,8 +235,7 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   ${ZLIB_LIBRARIES}
   gpufaisslib
-  faisslib
-  ${BLAS_LIBRARIES})
+  faisslib)
 
 if(OPENMP_FOUND)
   set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)
@@ -260,7 +259,6 @@ target_link_libraries(ml_test
   ${CUDA_cusparse_LIBRARY}
   ${CUDA_nvgraph_LIBRARY}
   faisslib
-  ${BLAS_LIBRARIES}
   ${CUML_CPP_TARGET}
   pthread
   ${ZLIB_LIBRARIES})
@@ -281,7 +279,6 @@ target_link_libraries(ml_mg_test
   ${CUDA_nvgraph_LIBRARY}
   gpufaisslib
   faisslib
-  ${BLAS_LIBRARIES}
   ${CUML_CPP_TARGET}
   pthread
   ${ZLIB_LIBRARIES})
