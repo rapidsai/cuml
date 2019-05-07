@@ -30,12 +30,12 @@ protected:
 
         allocate(data, len);
         T data_h[params.len] = { 2.1, 4.5, 0.34, 10.0 };
-        updateDevice(data, data_h, len);
+        updateDevice(data, data_h, len, stream);
 
         allocate(result, len);
         allocate(result_ref, len);
         T result_ref_h[params.len] = { 0.74193734, 1.5040774, -1.07880966, 2.30258509 };
-        updateDevice(result_ref, result_ref_h, len);
+        updateDevice(result_ref, result_ref_h, len, stream);
 
         f_log(result, data, T(1), len, stream);
         CUDA_CHECK(cudaStreamDestroy(stream));

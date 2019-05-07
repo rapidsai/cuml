@@ -51,11 +51,11 @@ protected:
     allocate(data, len);
     ASSERT(params.len == 9, "This test works only with len=9!");
     T data_h[] = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0};
-    updateDevice(data, data_h, len);
+    updateDevice(data, data_h, len, stream);
 
     allocate(data_trans_ref, len);
     T data_ref_h[] = {1.0, 4.0, 7.0, 2.0, 5.0, 8.0, 3.0, 6.0, 9.0};
-    updateDevice(data_trans_ref, data_ref_h, len);
+    updateDevice(data_trans_ref, data_ref_h, len, stream);
 
     allocate(data_trans, len);
 

@@ -25,16 +25,18 @@ import numpy as np
 
 from numba import cuda
 
-from libc.stdint cimport uintptr_t
-from libc.stdlib cimport calloc, malloc, free
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+import cuml
+from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
-cdef extern from "pca/pca_c.h" namespace "ML":
 
-    cdef void pcaFit(float *input,
+cdef extern from "pca/pca.hpp" namespace "ML":
+
+    cdef void pcaFit(cumlHandle& handle,
+                     float *input,
                      float *components,
                      float *explained_var,
                      float *explained_var_ratio,
@@ -43,7 +45,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                      float *noise_vars,
                      paramsPCA prms)
 
-    cdef void pcaFit(double *input,
+    cdef void pcaFit(cumlHandle& handle,
+                     double *input,
                      double *components,
                      double *explained_var,
                      double *explained_var_ratio,
@@ -52,7 +55,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                      double *noise_vars,
                      paramsPCA prms)
 
-    cdef void pcaFitTransform(float *input,
+    cdef void pcaFitTransform(cumlHandle& handle,
+                              float *input,
                               float *trans_input,
                               float *components,
                               float *explained_var,
@@ -62,7 +66,8 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                               float *noise_vars,
                               paramsPCA prms)
 
-    cdef void pcaFitTransform(double *input,
+    cdef void pcaFitTransform(cumlHandle& handle,
+                              double *input,
                               double *trans_input,
                               double *components,
                               double *explained_var,
@@ -72,49 +77,40 @@ cdef extern from "pca/pca_c.h" namespace "ML":
                               double *noise_vars,
                               paramsPCA prms)
 
-    cdef void pcaInverseTransform(float *trans_input,
+    cdef void pcaInverseTransform(cumlHandle& handle,
+                                  float *trans_input,
                                   float *components,
                                   float *singular_vals,
                                   float *mu,
                                   float *input,
                                   paramsPCA prms)
 
-    cdef void pcaInverseTransform(double *trans_input,
+    cdef void pcaInverseTransform(cumlHandle& handle,
+                                  double *trans_input,
                                   double *components,
                                   double *singular_vals,
                                   double *mu,
                                   double *input,
                                   paramsPCA prms)
 
-    cdef void pcaTransform(float *input,
+    cdef void pcaTransform(cumlHandle& handle,
+                           float *input,
                            float *components,
                            float *trans_input,
                            float *singular_vals,
                            float *mu,
                            paramsPCA prms)
 
-    cdef void pcaTransform(double *input,
+    cdef void pcaTransform(cumlHandle& handle,
+                           double *input,
                            double *components,
                            double *trans_input,
                            double *singular_vals,
                            double *mu,
                            paramsPCA prms)
 
-class PCAparams:
-    def __init__(self, n_components, copy, whiten, tol, iterated_power,
-                 random_state, svd_solver):
-        self.n_components = n_components
-        self.copy = copy
-        self.whiten = whiten
-        self.svd_solver = svd_solver
-        self.tol = tol
-        self.iterated_power = iterated_power
-        self.random_state = random_state
-        self.n_cols = None
-        self.n_rows = None
 
-
-class PCA:
+class PCA(cuml.Base):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
     combine features in X in linear combinations such that each new component captures the most
@@ -208,21 +204,25 @@ class PCA:
     
     Parameters
     ----------
-    n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
-    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
-        Full uses a eigendecomposition of the covariance matrix then discards components.
-        Jacobi is much faster as it iteratively corrects, but is less accurate.
-    iterated_power : int (default = 15)
-        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
-    tol : float (default = 1e-7)
-        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
-        but the more slower the algorithm will get to converge.
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
     copy : boolean (default = True)
         If True, then copies data then removes mean from data. False might cause data to be
         overwritten with its mean centered version.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    iterated_power : int (default = 15)
+        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
+    svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
+        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Jacobi is much faster as it iteratively corrects, but is less accurate.
+    tol : float (default = 1e-7)
+        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
+        but the more slower the algorithm will get to converge.
+    verbose : bool
+        Whether to print debug spews
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by the corresponding
         singular values then multiplying by sqrt(n_samples). Whitening allows each component
@@ -264,16 +264,20 @@ class PCA:
     For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, n_components=1, copy=True, whiten=False, tol=1e-7,
-                 iterated_power=15, random_state=None, svd_solver='auto'):
-        if svd_solver in ['full', 'auto', 'jacobi']:
-            self.svd_solver = svd_solver
-            c_algorithm = self._get_algorithm_c_name(svd_solver)
-        else:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(svd_solver))
-        self.params = PCAparams(n_components, copy, whiten, tol,
-                                iterated_power, random_state, c_algorithm)
+    def __init__(self, copy=True, handle=None, iterated_power=15,
+                 n_components=1, random_state=None, svd_solver='auto', tol=1e-7,
+                 verbose=False, whiten=False):
+        # parameters
+        super(PCA, self).__init__(handle=handle, verbose=verbose)
+        self.copy = copy
+        self.iterated_power = iterated_power
+        self.n_components = n_components
+        self.random_state = random_state
+        self.svd_solver = svd_solver
+        self.tol = tol
+        self.whiten = whiten
+        self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
+        # attributes
         self.components_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
@@ -288,13 +292,17 @@ class PCA:
         self.noise_variance_ptr = None
 
     def _get_algorithm_c_name(self, algorithm):
-        return {
+        algo_map = {
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
             'jacobi': COV_EIG_JACOBI
-        }[algorithm]
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
+        return algo_map[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -344,15 +352,13 @@ class PCA:
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             # PCA expects transpose of the input
             X_m = X.as_gpu_matrix()
-            self.params.n_rows = len(X)
-            self.params.n_cols = len(X._cols)
-
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
             X_m = cuda.to_device(np.array(X, order='F'))
-            self.params.n_rows = X.shape[0]
-            self.params.n_cols = X.shape[1]
-
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
@@ -360,15 +366,15 @@ class PCA:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
-        params.n_rows = self.params.n_rows
-        params.n_cols = self.params.n_cols
-        params.whiten = self.params.whiten
-        params.n_iterations = self.params.iterated_power
-        params.tol = self.params.tol
-        params.algorithm = self.params.svd_solver
+        params.n_components = self.n_components
+        params.n_rows = self.n_rows
+        params.n_cols = self.n_cols
+        params.whiten = self.whiten
+        params.n_iterations = self.iterated_power
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
 
-        if self.params.n_components> self.params.n_cols:
+        if self.n_components > self.n_cols:
             raise ValueError('Number of components should not be greater than the number of columns in the data')
 
         self._initialize_arrays(params.n_components,
@@ -387,47 +393,33 @@ class PCA:
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        if not _transform:
-            if self.gdf_datatype.type == np.float32:
-                pcaFit(<float*> input_ptr,
-                             <float*> components_ptr,
-                             <float*> explained_var_ptr,
-                             <float*> explained_var_ratio_ptr,
-                             <float*> singular_vals_ptr,
-                             <float*> mean_ptr,
-                             <float*> noise_vars_ptr,
-                             params)
-            else:
-                pcaFit(<double*> input_ptr,
-                             <double*> components_ptr,
-                             <double*> explained_var_ptr,
-                             <double*> explained_var_ratio_ptr,
-                             <double*> singular_vals_ptr,
-                             <double*> mean_ptr,
-                             <double*> noise_vars_ptr,
-                             params)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()       
+        if self.gdf_datatype.type == np.float32:
+            pcaFitTransform(handle_[0],
+                            <float*> input_ptr,
+                            <float*> trans_input_ptr,
+                            <float*> components_ptr,
+                            <float*> explained_var_ptr,
+                            <float*> explained_var_ratio_ptr,
+                            <float*> singular_vals_ptr,
+                            <float*> mean_ptr,
+                            <float*> noise_vars_ptr,
+                            params)
         else:
+            pcaFitTransform(handle_[0],
+                            <double*> input_ptr,
+                            <double*> trans_input_ptr,
+                            <double*> components_ptr,
+                            <double*> explained_var_ptr,
+                            <double*> explained_var_ratio_ptr,
+                            <double*> singular_vals_ptr,
+                            <double*> mean_ptr,
+                            <double*> noise_vars_ptr,
+                            params)
 
-            if self.gdf_datatype.type == np.float32:
-                pcaFitTransform(<float*> input_ptr,
-                                      <float*> trans_input_ptr,
-                                      <float*> components_ptr,
-                                      <float*> explained_var_ptr,
-                                      <float*> explained_var_ratio_ptr,
-                                      <float*> singular_vals_ptr,
-                                      <float*> mean_ptr,
-                                      <float*> noise_vars_ptr,
-                                      params)
-            else:
-                pcaFitTransform(<double*> input_ptr,
-                                      <double*> trans_input_ptr,
-                                      <double*> components_ptr,
-                                      <double*> explained_var_ptr,
-                                      <double*> explained_var_ratio_ptr,
-                                      <double*> singular_vals_ptr,
-                                      <double*> mean_ptr,
-                                      <double*> noise_vars_ptr,
-                                      params)
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -443,6 +435,9 @@ class PCA:
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
+
+        if not _transform:
+            del(self.trans_input_)
 
         return self
 
@@ -463,9 +458,9 @@ class PCA:
         """
         self.fit(X, _transform=True)
         X_new = cudf.DataFrame()
-        num_rows = self.params.n_rows
+        num_rows = self.n_rows
 
-        for i in range(0, self.params.n_components):
+        for i in range(0, self.n_components):
             X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
         return X_new
@@ -500,10 +495,10 @@ class PCA:
         trans_input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = len(X)
-        params.n_cols = self.params.n_cols
-        params.whiten = self.params.whiten
+        params.n_cols = self.n_cols
+        params.whiten = self.whiten
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
                                              dtype=gdf_datatype.type))
@@ -514,20 +509,27 @@ class PCA:
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
+        cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaInverseTransform(<float*> trans_input_ptr,
-                                      <float*> components_ptr,
-                                      <float*> singular_vals_ptr,
-                                      <float*> mean_ptr,
-                                      <float*> input_ptr,
-                                      params)
+            pcaInverseTransform(h_[0],
+                                <float*> trans_input_ptr,
+                                <float*> components_ptr,
+                                <float*> singular_vals_ptr,
+                                <float*> mean_ptr,
+                                <float*> input_ptr,
+                                params)
         else:
-            pcaInverseTransform(<double*> trans_input_ptr,
-                                      <double*> components_ptr,
-                                      <double*> singular_vals_ptr,
-                                      <double*> mean_ptr,
-                                      <double*> input_ptr,
-                                      params)
+            pcaInverseTransform(h_[0],
+                                <double*> trans_input_ptr,
+                                <double*> components_ptr,
+                                <double*> singular_vals_ptr,
+                                <double*> mean_ptr,
+                                <double*> input_ptr,
+                                params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -575,10 +577,10 @@ class PCA:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsPCA params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
-        params.whiten = self.params.whiten
+        params.whiten = self.whiten
 
         trans_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
@@ -589,20 +591,27 @@ class PCA:
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if gdf_datatype.type == np.float32:
-            pcaTransform(<float*> input_ptr,
-                               <float*> components_ptr,
-                               <float*> trans_input_ptr,
-                               <float*> singular_vals_ptr,
-                               <float*> mean_ptr,
-                               params)
+            pcaTransform(handle_[0],
+                         <float*> input_ptr,
+                         <float*> components_ptr,
+                         <float*> trans_input_ptr,
+                         <float*> singular_vals_ptr,
+                         <float*> mean_ptr,
+                         params)
         else:
-            pcaTransform(<double*> input_ptr,
-                               <double*> components_ptr,
-                               <double*> trans_input_ptr,
-                               <double*> singular_vals_ptr,
-                               <double*> mean_ptr,
-                               params)
+            pcaTransform(handle_[0],
+                         <double*> input_ptr,
+                         <double*> components_ptr,
+                         <double*> trans_input_ptr,
+                         <double*> singular_vals_ptr,
+                         <double*> mean_ptr,
+                         params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
@@ -612,36 +621,6 @@ class PCA:
         return X_new
 
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key in variables:
-            var_value = getattr(self.params,key,None)
-            params[key] = var_value
-            if 'svd_solver'== key:
-                params[key] = getattr(self, key, None)
-
-        return params
-
-
-    def set_params(self, **parameter):
-        if not parameter:
-            return self
-        variables = ['copy', 'iterated_power', 'n_components', 'random_state','svd_solver','tol','whiten']
-        for key, value in parameter.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter %s for estimator')
-            else:
-                if 'svd_solver' in parameter.keys() and key=='svd_solver':
-                    setattr(self, key, value)
-                else:
-                    setattr(self.params, key, value)
-
-        return self
+    def get_param_names(self):
+        return ["copy", "iterated_power", "n_components", "svd_solver", "tol",
+                "whiten"]

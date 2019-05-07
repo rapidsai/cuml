@@ -51,7 +51,7 @@ protected:
       data_h[i] = T(1);
     }
 
-    updateDevice(data, data_h, len);
+    updateDevice(data, data_h, len, stream);
 
     allocate(sum_act, cols);
     sum(sum_act, data, cols, rows, false, stream);

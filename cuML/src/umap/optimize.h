@@ -93,8 +93,8 @@ namespace UMAPAlgo {
              */
             T *a_deriv;
             MLCommon::allocate(a_deriv, n_rows);
-            MLCommon::copy(a_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(a_deriv, a_deriv, n_rows, coef,
+            MLCommon::copy(a_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(a_deriv, a_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(pow(x, 2.0*b)) /
                                 pow((1.0 + a * pow(x, 2.0 * b)), 2.0);
@@ -109,8 +109,8 @@ namespace UMAPAlgo {
              */
             T *b_deriv;
             MLCommon::allocate(b_deriv, n_rows);
-            MLCommon::copy(b_deriv, input, n_rows);
-            map_kernel<T, TPB_X><<<grid, blk>>>(b_deriv, b_deriv, n_rows, coef,
+            MLCommon::copy(b_deriv, input, n_rows, stream);
+            map_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(b_deriv, b_deriv, n_rows, coef,
                     []__device__ __host__ (T x, T a, T b) {
                         return -(2.0 * a * pow(x, 2.0 * b) * log(x))
                                 / pow(1 + a * pow(x, 2.0 * b), 2.0);
@@ -162,7 +162,8 @@ namespace UMAPAlgo {
                 MLCommon::LinAlg::eltwiseSub(coef, coef, grads, 2, stream);
 
                 T * grads_h = (T*)malloc(2 * sizeof(T));
-                MLCommon::updateHost(grads_h, grads, 2);
+                MLCommon::updateHost(grads_h, grads, 2, stream);
+                CUDA_CHECK(cudaStreamSynchronize(stream));
                 for(int i = 0; i < 2; i++) {
                     if(abs(grads_h[i]) - tolerance <= 0)
                         tol_grads += 1;
@@ -198,23 +199,24 @@ namespace UMAPAlgo {
 
             float *X_d;
             MLCommon::allocate(X_d, 300);
-            MLCommon::updateDevice(X_d, X, 300);
+            MLCommon::updateDevice(X_d, X, 300, stream);
 
             float *y_d;
             MLCommon::allocate(y_d, 300);
-            MLCommon::updateDevice(y_d, y, 300);
+            MLCommon::updateDevice(y_d, y, 300, stream);
             float *coeffs_h = (float*)malloc(2 * sizeof(float));
             coeffs_h[0] = 1.0;
             coeffs_h[1] = 1.0;
 
             float *coeffs;
             MLCommon::allocate(coeffs, 2, true);
-            MLCommon::updateDevice(coeffs, coeffs_h, 2);
+            MLCommon::updateDevice(coeffs, coeffs_h, 2, stream);
 
             optimize_params<float, 256>(X_d, 300, y_d, coeffs, params, stream);
 
-            MLCommon::updateHost(&(params->a), coeffs, 1);
-            MLCommon::updateHost(&(params->b), coeffs+1, 1);
+            MLCommon::updateHost(&(params->a), coeffs, 1, stream);
+            MLCommon::updateHost(&(params->b), coeffs+1, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
 
             if(params->verbose)
                 std::cout << "a=" << params->a << ", " << params->b << std::endl;

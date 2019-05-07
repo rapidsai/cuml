@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "metrics/metrics.h"
+#include <cuML.hpp>
 
 namespace ML {
 
@@ -24,21 +24,40 @@ namespace ML {
 
         /**
          * Calculates the "Coefficient of Determination" (R-Squared) score
-         * normalizing the sum of squared errors by the total sum of squares.
+         * normalizing the sum of squared errors by the total sum of squares
+         * with single precision.
          *
          * This score indicates the proportionate amount of variation in an
          * expected response variable is explained by the independent variables
          * in a linear regression model. The larger the R-squared value, the
          * more variability is explained by the linear regression model.
          *
+         * @param handle: cumlHandle
          * @param y: Array of ground-truth response variables
          * @param y_hat: Array of predicted response variables
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        template <typename T>
-        T r2_score(T *y, T *y_hat, int n) {
-            return MLCommon::Metrics::r2_score(y, y_hat, n);
-        }
+        float r2_score_py(const cumlHandle& handle, float *y, float *y_hat, int n);
+
+
+        /**
+         * Calculates the "Coefficient of Determination" (R-Squared) score
+         * normalizing the sum of squared errors by the total sum of squares
+         * with double precision.
+         *
+         * This score indicates the proportionate amount of variation in an
+         * expected response variable is explained by the independent variables
+         * in a linear regression model. The larger the R-squared value, the
+         * more variability is explained by the linear regression model.
+         *
+         * @param handle: cumlHandle
+         * @param y: Array of ground-truth response variables
+         * @param y_hat: Array of predicted response variables
+         * @param n: Number of elements in y and y_hat
+         * @return: The R-squared value.
+         */
+        double r2_score_py(const cumlHandle& handle, double *y, double *y_hat, int n);
+
     }
 }

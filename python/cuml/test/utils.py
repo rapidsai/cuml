@@ -22,6 +22,7 @@ from numba import cuda
 from sklearn import datasets
 
 import cudf
+import cuml
 
 
 def array_equal(a, b, tol=1e-4, with_sign=True):
@@ -123,3 +124,12 @@ def normalize_clusters(a0, b0, n_clusters):
 def clusters_equal(a0, b0, n_clusters):
     a, b = normalize_clusters(a0, b0, n_clusters)
     return array_equal(a, b)
+
+
+def get_handle(use_handle):
+    if not use_handle:
+        return None, None
+    h = cuml.Handle()
+    s = cuml.cuda.Stream()
+    h.setStream(s)
+    return h, s

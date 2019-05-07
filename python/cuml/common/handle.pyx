@@ -20,8 +20,9 @@
 # cython: language_level = 3
 
 
+import cuml
 from libcpp.memory cimport shared_ptr
-from cuml.common.cuda cimport _Stream
+from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
 
 
 cdef extern from "common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
@@ -48,8 +49,10 @@ cdef class Handle:
 
         # call ML algos here
 
-        # final synchronization of all work launched/dependent on this stream
-        stream.sync()
+        # final sync of all work launched in the stream of this handle
+        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
+        # the default stream inside the `cumlHandle` is being used
+        handle.sync()
         del handle  # optional!
     """
 
@@ -81,6 +84,19 @@ cdef class Handle:
         cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setDeviceAllocator(rmmAlloc)
+
+    def sync(self):
+        """
+        Issues a sync on the stream set for this handle.
+
+        Once we make `cuml.cuda.Stream` as a mandatory option for creating `cuml.Handle`,
+        this should go away!
+        """
+        cdef cumlHandle* h_ = <cumlHandle*>self.h
+        cdef _Stream stream = h_.getStream()
+        cdef _Error e = cudaStreamSynchronize(stream)
+        if e != 0:
+            raise cuml.cuda.CudaRuntimeError("Stream sync")
 
     def getHandle(self):
         return self.h

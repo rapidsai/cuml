@@ -29,7 +29,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
     cdef void olsFit(float *input,
                      int n_rows,

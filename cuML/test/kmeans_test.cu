@@ -27,103 +27,120 @@ using namespace MLCommon;
 template<typename T>
 struct KmeansInputs {
     int n_clusters;
-	T tol;
-	int n_row;
-	int n_col;
+    T tol;
+    int n_row;
+    int n_col;
 };
 
 template<typename T>
 class KmeansTest: public ::testing::TestWithParam<KmeansInputs<T> > {
 protected:
-	void basicTest() {
-		params = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
+    void basicTest() {
+	params = ::testing::TestWithParam<KmeansInputs<T>>::GetParam();
         int m = params.n_row;
         int n = params.n_col;
         int k = params.n_clusters;
 
-        // make space for outputs : pred_centroids, pred_labels
-        // and reference output : labels_ref
-        allocate(d_srcdata, n * m);
-   		allocate(labels_fit, m);
-   		allocate(labels_ref_fit, m);
-        allocate(pred_centroids, k * n);
-        allocate(centroids_ref, k * n);
+        // make space for outputs : d_centroids, d_labels
+        // and reference output : d_labels_ref
+	allocate(d_srcdata, n * m);
+	allocate(d_labels, m);
+	allocate(d_labels_ref, m);
+	allocate(d_centroids, k * n);
+	allocate(d_centroids_ref, k * n);
 
         // make testdata on host
-        std::vector<T> h_srcdata = {1.0,1.0,3.0,4.0, 1.0,2.0,2.0,3.0};
+        std::vector<T> h_srcdata = {1.0,1.0,
+				    3.0,4.0,
+				    1.0,2.0,
+				    2.0,3.0};
         h_srcdata.resize(n * m);
-        updateDevice(d_srcdata, h_srcdata.data(), m*n);
+        updateDevice(d_srcdata, h_srcdata.data(), m*n, stream);
 
         // make and assign reference output
-        std::vector<int> h_labels_ref_fit = {1, 1, 0, 0};
-        h_labels_ref_fit.resize(m);
-        updateDevice(labels_ref_fit, h_labels_ref_fit.data(), m);
+        std::vector<int> h_labels_ref = {0, 1, 0, 1};
+        h_labels_ref.resize(m);
+        updateDevice(d_labels_ref, h_labels_ref.data(), m, stream);
 
-        std::vector<T> h_centroids_ref = {3.5,2.5, 1.0,1.5};
+        std::vector<T> h_centroids_ref = {1.0,1.5,
+					  2.5,3.5};
         h_centroids_ref.resize(k * n);
-        updateDevice(centroids_ref, h_centroids_ref.data(), k * n);
+        updateDevice(d_centroids_ref, h_centroids_ref.data(), k * n, stream);
+
+	cumlHandle handle;
+	handle.setStream(stream);
 
         // The actual kmeans api calls
-        // fit
-        make_ptr_kmeans(0, verbose, seed, gpu_id, n_gpu, m, n,
-            ord, k, k, max_iterations,
-            init_from_data, params.tol, d_srcdata, nullptr, pred_centroids, labels_fit);
+        // fit       
+	kmeans::fit_predict(handle,
+			    k,
+			    metric, 
+			    init,
+			    max_iterations,
+			    params.tol,
+			    seed,
+			    d_srcdata,
+			    m,
+			    n,
+			    d_centroids,
+			    d_labels);
+	CUDA_CHECK( cudaStreamSynchronize(stream) );
     }
 
- 	void SetUp() override {
-		basicTest();
-	}
+    void SetUp() override {
+	CUDA_CHECK(cudaStreamCreate(&stream));
+	basicTest();
+    }
 
-	void TearDown() override {
+    void TearDown() override {
         CUDA_CHECK(cudaFree(d_srcdata));
-		CUDA_CHECK(cudaFree(labels_fit));
-		CUDA_CHECK(cudaFree(pred_centroids));
-		CUDA_CHECK(cudaFree(labels_ref_fit));
-		CUDA_CHECK(cudaFree(centroids_ref));
-
-	}
+	CUDA_CHECK(cudaFree(d_labels));
+	CUDA_CHECK(cudaFree(d_centroids));
+	CUDA_CHECK(cudaFree(d_labels_ref));
+	CUDA_CHECK(cudaFree(d_centroids_ref));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+    }
 
 protected:
-	KmeansInputs<T> params;
-	T *d_srcdata;
-	int *labels_fit, *labels_ref_fit;
-    T *pred_centroids, *centroids_ref;
+    KmeansInputs<T> params;
+    T *d_srcdata;
+    int *d_labels, *d_labels_ref;
+    T *d_centroids, *d_centroids_ref;
     int verbose = 0;
-    int seed = 1;
-    int gpu_id = 0;
-    int n_gpu = -1;
-    char ord = 'c'; // here c means col order, NOT C (vs F) order
+    int seed = 0;
     int max_iterations = 300;
-    int init_from_data = 0;
+    kmeans::InitMethod init = kmeans::InitMethod::Random;
+    int metric = 1;
+    cudaStream_t stream;
 };
 
 const std::vector<KmeansInputs<float> > inputsf2 = {
-		{ 2, 0.05f, 4, 2 }};
+    { 2, 0.05f, 4, 2 }};
 
 const std::vector<KmeansInputs<double> > inputsd2 = {
-		{ 2, 0.05, 4, 2 }};
+    { 2, 0.05, 4, 2 }};
 
 
 // FIXME: These tests are disabled due to being too sensitive to RNG:
 // https://github.com/rapidsai/cuml/issues/71
 typedef KmeansTest<float> KmeansTestF;
-TEST_P(KmeansTestF, DISABLED_Fit) {
-	ASSERT_TRUE(
-			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
-					CompareApproxAbs<float>(params.tol)));
-	ASSERT_TRUE(
-			devArrMatch(centroids_ref, pred_centroids, params.n_clusters * params.n_col,
-					CompareApproxAbs<float>(params.tol)));
+TEST_P(KmeansTestF, Result) {
+    ASSERT_TRUE(
+		devArrMatch(d_labels_ref, d_labels, params.n_row,
+			    CompareApproxAbs<float>(params.tol)));
+    ASSERT_TRUE(
+		devArrMatch(d_centroids_ref, d_centroids, params.n_clusters * params.n_col,
+			    CompareApproxAbs<float>(params.tol)));
 }
 
 typedef KmeansTest<double> KmeansTestD;
-TEST_P(KmeansTestD, DISABLED_Fit) {
-	ASSERT_TRUE(
-			devArrMatch(labels_ref_fit, labels_fit, params.n_row,
-					CompareApproxAbs<double>(params.tol)));
-	ASSERT_TRUE(
-			devArrMatch(centroids_ref, pred_centroids, params.n_clusters * params.n_col,
-					CompareApproxAbs<double>(params.tol)));
+TEST_P(KmeansTestD, Result) {
+    ASSERT_TRUE(
+		devArrMatch(d_labels_ref, d_labels, params.n_row,
+			    CompareApproxAbs<double>(params.tol)));
+    ASSERT_TRUE(
+		devArrMatch(d_centroids_ref, d_centroids, params.n_clusters * params.n_col,
+			    CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(KmeansTests, KmeansTestF, ::testing::ValuesIn(inputsf2));

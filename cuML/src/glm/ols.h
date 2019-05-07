@@ -45,7 +45,8 @@
 
 #include <matrix/matrix.h>
 #include "preprocess.h"
-#include <device_allocator.h>
+#include "common/cumlHandle.hpp"
+#include "common/device_buffer.hpp"
 
 namespace ML {
 namespace GLM {
@@ -53,40 +54,42 @@ namespace GLM {
 using namespace MLCommon;
 
 template<typename math_t>
-void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
-		math_t *intercept, bool fit_intercept, bool normalize,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle,
-		cudaStream_t stream, int algo = 0) {
+void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
+            math_t *intercept, bool fit_intercept, bool normalize,
+            cudaStream_t stream, int algo = 0) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
+    auto allocator = handle.getDeviceAllocator();
 
 	ASSERT(n_cols > 0,
 			"olsFit: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"olsFit: number of rows cannot be less than two");
 
-	math_t *mu_input, *norm2_input, *mu_labels;
+        device_buffer<math_t> mu_input(allocator, stream);
+        device_buffer<math_t> norm2_input(allocator, stream);
+        device_buffer<math_t> mu_labels(allocator, stream);
 
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
+                mu_input.resize(n_cols, stream);
+                mu_labels.resize(1, stream);
 		if (normalize) {
-			allocate(norm2_input, n_cols);
+                        norm2_input.resize(n_cols, stream);
 		}
-		preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle, stream);
+		preProcessData(handle, input, n_rows, n_cols, labels, intercept,
+                               mu_input.data(), mu_labels.data(), norm2_input.data(),
+                               fit_intercept, normalize, stream);
 	}
 
-        ///@todo: for perf reasons we should be using custom allocators!
-        DeviceAllocator mgr = makeDefaultAllocator();
 	if (algo == 0 || n_cols == 1) {
 		LinAlg::lstsqSVD(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr, stream);
+                                 cublas_handle, allocator, stream);
 	} else if (algo == 1) {
 		LinAlg::lstsqEig(input, n_rows, n_cols, labels, coef, cusolver_handle,
-                                 cublas_handle, mgr, stream);
+                                 cublas_handle, allocator, stream);
 	} else if (algo == 2) {
 		LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle,
-				cublas_handle, stream);
+				cublas_handle, allocator, stream);
 	} else if (algo == 3) {
 		ASSERT(false, "olsFit: no algorithm with this id has been implemented");
 	} else {
@@ -94,19 +97,9 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 	}
 
 	if (fit_intercept) {
-		postProcessData(input, n_rows, n_cols, labels, coef, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle, stream);
-
-		if (normalize) {
-			if (norm2_input != NULL)
-				cudaFree(norm2_input);
-		}
-
-		if (mu_input != NULL)
-			cudaFree(mu_input);
-		if (mu_labels != NULL)
-			cudaFree(mu_labels);
+                postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept,
+                                mu_input.data(), mu_labels.data(), norm2_input.data(),
+                                fit_intercept, normalize, stream);
 	} else {
 		*intercept = math_t(0);
 	}
@@ -114,8 +107,9 @@ void olsFit(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 }
 
 template<typename math_t>
-void olsPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void olsPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols, const math_t *coef,
+		math_t intercept, math_t *preds, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(n_cols > 0,
 			"olsPredict: number of columns cannot be less than one");

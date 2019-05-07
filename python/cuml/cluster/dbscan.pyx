@@ -30,26 +30,35 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
+
 from collections import defaultdict
 
 cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
-    cdef void dbscanFit(float *input,
+    cdef void dbscanFit(cumlHandle& handle,
+                   float *input,
                    int n_rows,
                    int n_cols,
                    float eps,
                    int min_pts,
-                   int *labels)
+                   int *labels,
+                   size_t max_bytes_per_batch,
+                   bool verbose)
 
-    cdef void dbscanFit(double *input,
+    cdef void dbscanFit(cumlHandle& handle,
+                   double *input,
                    int n_rows,
                    int n_cols,
                    double eps,
                    int min_pts,
-                   int *labels)
+                   int *labels,
+                   size_t max_bytes_per_batch,
+                   bool verbose)
 
 
-class DBSCAN:
+class DBSCAN(Base):
     """
     DBSCAN is a very powerful yet fast clustering technique that finds clusters where
     data is concentrated. This allows DBSCAN to generalize to many problems if the
@@ -91,9 +100,21 @@ class DBSCAN:
     -----------
     eps : float (default = 0.5)
         The maximum distance between 2 points such they reside in the same neighborhood.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
     min_samples : int (default = 5)
         The number of samples in a neighborhood such that this group can be considered as
         an important core point (including the point itself).
+    verbose : bool
+        Whether to print debug spews
+    max_bytes_per_batch : (optional) int64
+        Calculate batch size using no more than this number of bytes for the pairwise
+        distance computation. This enables the trade-off between runtime and memory usage for
+        making the N^2 pairwise distance computations more tractable for large numbers of samples.
+        If you are experiencing out of memory errors when running DBSCAN, you can set this
+        value based on the memory size of your device. Note: this option does not set
+        the maximum total memory used in the DBSCAN computation and so this value will not
+        be able to be set to the total memory available on the device.
 
     Attributes
     -----------
@@ -117,11 +138,18 @@ class DBSCAN:
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, min_samples=5):
+    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_bytes_per_batch = None):
+        super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
         self.labels_array = None
+        self.max_bytes_per_batch = max_bytes_per_batch
+        self.verbose = verbose
+
+        # C++ API expects this to be numeric.
+        if self.max_bytes_per_batch is None:
+            self.max_bytes_per_batch = 0;
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -168,23 +196,35 @@ class DBSCAN:
 
         input_ptr = self._get_ctype_ptr(X_m)
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         self.labels_array = self.labels_._column._data.to_gpu_array()
         cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
+
+
         if self.gdf_datatype.type == np.float32:
-            dbscanFit(<float*>input_ptr,
+            dbscanFit(handle_[0],
+                      <float*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <float> self.eps,
                                <int> self.min_samples,
-                       <int*> labels_ptr)
+                               <int*> labels_ptr,
+                               <size_t>self.max_bytes_per_batch,
+                               <bool>self.verbose)
         else:
-            dbscanFit(<double*>input_ptr,
+            dbscanFit(handle_[0],
+                      <double*>input_ptr,
                                <int> self.n_rows,
                                <int> self.n_cols,
                                <double> self.eps,
                                <int> self.min_samples,
-                       <int*> labels_ptr)
+                               <int*> labels_ptr,
+                               <size_t> self.max_bytes_per_batch,
+                               <bool>self.verbose)
+        # make sure that the `dbscanFit` is complete before the following delete
+        # call happens
+        self.handle.sync()
         del(X_m)
         return self
 
@@ -205,40 +245,5 @@ class DBSCAN:
         self.fit(X)
         return self.labels_
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
-
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = [ 'eps','min_samples']
-        for key in variables:
-            var_value = getattr(self,key,None)
-            params[key] = var_value
-        return params
-
-
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        current_params = {"eps": self.eps,"min_samples":self.min_samples}
-        for key, value in params.items():
-            if key not in current_params:
-                raise ValueError('Invalid parameter for estimator')
-            else:
-                setattr(self, key, value)
-                current_params[key] = value
-        return self
- 
- 
+    def get_param_names(self):
+        return ["eps", "min_samples"]

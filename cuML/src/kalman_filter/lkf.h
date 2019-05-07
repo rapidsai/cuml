@@ -141,7 +141,8 @@ void update_x(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handl
                                            (const int *)var.piv, var.z, var.dim_z, var.info,
                                            stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: implicit kalman gain"
                    " {Y = [inv(B)*(z - H*x)]}, info returned val=%d",
@@ -214,7 +215,8 @@ void update_P(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handl
                                            (const int *)var.piv, var.placeHolder1,
                                            var.dim_z, var.info, stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: implicit kalman gain with short form, finding "
                    "[inv(B)*H] info returned val=%d", info_h);
@@ -251,7 +253,8 @@ void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle
         CUSOLVER_CHECK(cusolverDngetrf(handle_sol, var.dim_z, var.dim_z, var.R_cpy, var.dim_z,
                                        var.workspace_lu, var.piv, var.info, stream));
         int info_h;
-        updateHost(&info_h, var.info, 1);
+        updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
         ASSERT(info_h == 0, "kf::linear: LU decomp, info returned val=%d",
                info_h);
         if (var.solver < ShortFormImplicit) {
@@ -264,7 +267,8 @@ void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle
                                            (const int *)var.piv, var.placeHolder0,
                                            var.dim_z, var.info, stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: Explicit var.kalman gain, inverse "
                    "returned val=%d", info_h);

@@ -3,9 +3,6 @@
 ## New Features
 
 - PR #405: Quasi-Newton GLM Solvers
-
-## New Features
-
 - PR #277: Added row- and column-wise weighted mean primitive
 - PR #424: Added a grid-sync struct for inter-block synchronization
 - PR #430: Adding R-Squared Score to ml primitives
@@ -13,17 +10,40 @@
 - PR #435: Exposing cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
+- PR #444: Added supervised training to UMAP
+- PR #460: Random Forest & Decision Trees (Single-GPU, Classification
+- PR #491: added doxygen build target for ml-prims
+- PR #505: Adding R-Squared Score to python interface
+- PR #507: Added coordinate descent for lasso and elastic-net
+- PR #511: a minmax ml-prim
+- PR #520: Add local build script to mimic gpuCI
+- PR #503: Added column-wise matrix sort primitive
+- PR #525: Add docs build script to cuML
+- PR #528: Remove current KMeans and replace it with a new single GPU implementation built using ML primitives
 
 ## Improvements
 
+- PR #481: Refactoring Quasi-Newton to use cumlHandle
 - PR #467: Added validity check on cumlHandle_t
+- PR #461: Rewrote permute and added column major version
 - PR #440: README updates
 - PR #295: Improve build-time and the interface e.g., enable bool-OutType, for distance()
 - PR #390: Update docs version
 - PR #272: Add stream parameters to cublas and cusolver wrapper functions
+- PR #447: Added building and running mlprims tests to CI
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #482: Introduce cumlHandle for pca and tsvd
+- PR #500: Added CI check for black listed CUDA Runtime API calls
+- PR #475: exposing cumlHandle for dbscan from python-side
+- PR #395: Edited the CONTRIBUTING.md file
+- PR #512: generic copy method for copying buffers between device/host
+- PR #533: Add cudatoolkit conda dependency
+- PR #524: Use cmake find blas and find lapack to pass configure options to faiss
+- PR #527: Added notes on UMAP differences from reference implementation
+- PR #540: Use latest release version in update-version CI script
+- PR #552: Re-enable assert in kmeans tests with xfail as needed
 
 ## Bug Fixes
 
@@ -48,6 +68,16 @@
 - PR #473: Fix gather ml-prim test for change in rng uniform API
 - PR #477: Fixes default stream initialization in cumlHandle
 - PR #480: Replaced qn_fit() declaration with #include of file containing definition to fix linker error
+- PR #495: Update cuDF and RMM versions in GPU ci test scripts
+- PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
+- PR #506: Re enable ml-prim tests in CI
+- PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
+- PR #519: README.md Updates and adding BUILD.md back
+- PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
+- PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #543: Exposing dbscan batch size through cython API and fixing broken batching
+- PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
+- PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
 
 # cuML 0.6.0 (22 Mar 2019)
 

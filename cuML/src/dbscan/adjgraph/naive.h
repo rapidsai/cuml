@@ -34,8 +34,8 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     MLCommon::host_buffer<bool> host_core_pts(handle.getHostAllocator(), stream, batchSize);
     MLCommon::host_buffer<bool> host_adj(handle.getHostAllocator(), stream, batchSize*N);
     MLCommon::host_buffer<Type> host_ex_scan(handle.getHostAllocator(), stream, batchSize);
-    MLCommon::updateHostAsync(host_adj.data(), data.adj, batchSize*N, stream);
-    MLCommon::updateHostAsync(host_vd.data(), data.vd, batchSize+1, stream);
+    MLCommon::updateHost(host_adj.data(), data.adj, batchSize*N, stream);
+    MLCommon::updateHost(host_vd.data(), data.vd, batchSize+1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
@@ -52,9 +52,9 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     host_ex_scan[0] = Type(0);
     for(int i=1; i<batchSize; i++) 
         host_ex_scan[i] = host_ex_scan[i-1] + host_vd[i-1];
-    MLCommon::updateDeviceAsync(data.adj_graph, host_adj_graph.data(), adjgraph_size, stream);
-    MLCommon::updateDeviceAsync(data.core_pts, host_core_pts.data(), batchSize, stream);
-    MLCommon::updateDeviceAsync(data.ex_scan, host_ex_scan.data(), batchSize, stream);
+    MLCommon::updateDevice(data.adj_graph, host_adj_graph.data(), adjgraph_size, stream);
+    MLCommon::updateDevice(data.core_pts, host_core_pts.data(), batchSize, stream);
+    MLCommon::updateDevice(data.ex_scan, host_ex_scan.data(), batchSize, stream);
 }
 } // End Naive
 } // End AdjGraph

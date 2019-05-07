@@ -114,7 +114,7 @@ protected:
 
     // launch gather on the host and copy the results to device
     naiveGather(h_in, ncols, nrows, h_map, map_length, h_out);
-    updateDevice(d_out_exp, h_out, map_length * ncols);
+    updateDevice(d_out_exp, h_out, map_length * ncols, stream);
 
     // launch device version of the kernel
     gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);

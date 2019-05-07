@@ -22,17 +22,18 @@ into three categories:
 
 ### Your first issue
 
-1. Follow the guide at the bottom of this page for [Setting Up Your Build Environment](#setting-up-your-build-environment).
+1. Read the project's [README.md](https://github.com/rapidsai/cuml/blob/master/README.md)
+    to learn how to setup the development environment.
 2. Find an issue to work on. The best way is to look for the [good first issue](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
-3. Comment on the issue saying you are going to work on it
+3. Comment on the issue saying you are going to work on it.
 4. Get familar with the developer guide relevant for you:
- * For C++ developers it is avaiable here [DEVELOPER_GUIDE.md](cuML/DEVELOPER_GUIDE.md)
+    * For C++ developers it is avaiable here [DEVELOPER_GUIDE.md](cuML/DEVELOPER_GUIDE.md)
 5. Code! Make sure to update unit tests!
-6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare)
-7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/). Fix if needed
-8. Wait for other developers to review your code and update code as needed
-9. Once reviewed and approved, a RAPIDS developer will merge your pull request
+6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
+7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.
+8. Wait for other developers to review your code and update code as needed.
+9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
 Remember, if you are unsure about anything, don't hesitate to comment on issues
 and ask for clarifications!
@@ -50,119 +51,38 @@ contributing to. Start with _Step 3_ from above, commenting on the issue to let
 others know you are working on it. If you have any questions related to the
 implementation of the issue, ask them in the issue instead of the PR.
 
-## Setting Up Your Build Environment
+### Branches and Versions
 
-To install cuML from source, ensure the dependencies are met:
+The cuML repository has two main branches: 
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.1)
-2. zlib Provided by zlib1g-dev in Ubuntu 16.04
-3. cmake (>= 3.12.4)
-4. CUDA (>= 9.2)
-5. Cython (>= 0.29)
-6. gcc (>=5.4.0)
-7. BLAS - Any BLAS compatible with Cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html)
+1. `master` branch: it contains the last released version. Only hotfixes are targeted and merged into it.  
+2. `branch-x.y`: it is the development branch which contains the upcoming release. All the new features should be based on this branch and Merge/Pull request should target this branch (with the exception of hotfixes).
+    
+### Additional details
 
-### Installing from Source:
+For every new version `x.y` of cuML there is a corresponding branch called `branch-x.y`, from where new feature development starts and PRs will be targeted and merged before its release. The exceptions to this are the 'hotfixes' that target the `master` branch, which target critical issues raised by Github users and are directly merged to `master` branch, and create a new subversion of the project. While trying to patch an issue which requires a 'hotfix', please state the intent in the PR. 
 
-Once dependencies are present, follow the steps below:
+For all development, your changes should be pushed into a branch (created using the naming instructions below) in your own fork of cuML and then create a pull request when the code is ready. 
 
-1. Clone the repository.
-```bash
-$ git clone --recurse-submodules https://github.com/rapidsai/cuml.git
-```
+A few days before releasing version `x.y` the code of the current development branch (`branch-x.y`) will be frozen and a new branch, 'branch-x+1.y' will be created to continue development.
 
-2. Build and install `libcuml` (the C++/CUDA library containing the cuML algorithms), starting from the repository root folder:
-```bash
-$ cd cuML
-$ mkdir build
-$ cd build
-$ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not in the PATH. Default CUDA_HOME=/path/to/cuda/)
-$ cmake ..
-```
+### Steps for feature development
 
-If using a conda environment (recommended currently), then cmake can be configured appropriately via:
+1. Create a new branch based on `branch-x.y` named following the format `<type>-<name>`, where:
+    - Type: 
+        - fea - For if the branch is for a new feature(s)
+        - enh - For if the branch is an enhancement of an existing feature(s)
+        - bug - For if the branch is for fixing a bug(s) or regression(s)
+    - Name: 
+        - A name to convey what is being worked on
+        - Please use dashes or underscores between words as opposed to spaces.
 
-```bash
-$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
-```
+2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
 
-Note: The following warning message is dependent upon the version of cmake and the `CMAKE_INSTALL_PREFIX` used. If this warning is displayed, the build should still run succesfully. We are currently working to resolve this open issue. You can silence this warning by adding `-DCMAKE_IGNORE_PATH=$CONDA_PREFIX/lib` to your `cmake` command.
-```
-Cannot generate a safe runtime search path for target ml_test because files
-in some directories may conflict with libraries in implicit directories:
-```
+### Building and Testing on a gpuCI image locally
 
-The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
-
-
-3. Build `libcuml`:
-
-```bash
-$ make -j
-$ make install
-```
-
-To run tests (optional):
-
-```bash
-$ ./ml_test
-```
-
-If you want a list of the available tests:
-```bash
-$ ./ml_test --gtest_list_tests
-```
-
-4. Build the `cuml` python package:
-
-```bash
-$ cd ../../python
-$ python setup.py build_ext --inplace
-```
-
-To run Python tests (optional):
-
-```bash
-$ py.test -v
-```
-
-If you want a list of the available tests:
-```bash
-$ py.test cuML/test --collect-only
-```
-
-5. Finally, install the Python package to your Python path:
-
-```bash
-$ python setup.py install
-```
-
-cuML's core folder structure:
-
-1. ***cuML***:
-  C++/CUDA machine learning algorithms. See [list of algorithms](README.md#supported-algorithms)
-
-2. ***python***:
-  Python bindings for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf). These bindings connect the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
-
-3. ***ml-prims***:
-  Low level machine learning primitives header only library, used in cuML algorithms. Includes:
-  - Linear Algebra
-  - Statistics
-  - Basic Matrix Operations
-  - Distance Functions
-  - Random Number Generation
-
-## External
-
-The external folders contains submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main `CMakeLists.txt` file for these.
-
-Current external submodules are:
-
-- [CUTLASS](https://github.com/NVIDIA/cutlass)
-- [Google Test](https://github.com/google/googletest)
-- [CUB](https://github.com/NVlabs/cub)
+Before submitting a pull request, you can do a local build and test on your machine that mimics our gpuCI environment using the `ci/local/build.sh` script.
+For detailed information on usage of this script, see [here](ci/local/README.md).
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
