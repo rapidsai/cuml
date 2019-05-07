@@ -32,6 +32,7 @@
 #include <functions/penalty.h>
 #include <functions/softThres.h>
 #include <functions/linearReg.h>
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace Solver {
@@ -123,9 +124,13 @@ void cdFit(math_t *input,
 			allocate(norm2_input, n_cols);
 		}
 
-		GLM::preProcessData(input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, normalize, cublas_handle,
-				cusolver_handle, stream);
+                ///@todo: remove this cumlHandle and use the cumlHandle_impl
+                /// passed to this method instead!!
+                cumlHandle handle;
+                handle.setStream(stream);
+		GLM::preProcessData(handle.getImpl(), input, n_rows, n_cols, labels, intercept,
+                                    mu_input, mu_labels, norm2_input, fit_intercept, normalize,
+                                    stream);
 	}
 
 	std::vector<int> ri(n_cols);
@@ -200,9 +205,13 @@ void cdFit(math_t *input,
 	}
 
 	if (fit_intercept) {
-		GLM::postProcessData(input, n_rows, n_cols, labels, coef, intercept,
-				mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-				cublas_handle, cusolver_handle, stream);
+                ///@todo: remove this cumlHandle and use the cumlHandle_impl
+                /// passed to this method instead!!
+                cumlHandle handle;
+                handle.setStream(stream);
+		GLM::postProcessData(handle.getImpl(), input, n_rows, n_cols, labels, coef,
+                                     intercept, mu_input, mu_labels, norm2_input,
+                                     fit_intercept, normalize, stream);
 
 		if (mu_input != nullptr)
 			CUDA_CHECK(cudaFree(mu_input));
