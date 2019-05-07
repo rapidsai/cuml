@@ -180,7 +180,8 @@ cdef class NearestNeighbors(Base):
 
     cpdef kNNParams *input
 
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
+    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None,
+                  verbose = False, should_downcast = True, handle = None):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
         """
@@ -274,7 +275,7 @@ cdef class NearestNeighbors(Base):
             del self.k
 
         n_dims = X.shape[1]
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle *handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
 
         cdef uintptr_t X_ctype = -1
