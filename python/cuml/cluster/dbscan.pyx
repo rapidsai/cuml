@@ -138,18 +138,22 @@ class DBSCAN(Base):
     For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_bytes_per_batch = None):
+    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
+                 max_bytes_per_batch = None):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
-        self.labels_array = None
         self.max_bytes_per_batch = max_bytes_per_batch
         self.verbose = verbose
 
         # C++ API expects this to be numeric.
         if self.max_bytes_per_batch is None:
             self.max_bytes_per_batch = 0;
+
+    def __getattr__(self, attr):
+        if attr == 'labels_array':
+            return self.labels_._column._data.mem
 
     # def _get_ctype_ptr(self, obj):
     #     # The manner to access the pointers in the gdf's might change, so
@@ -173,9 +177,6 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        if self.labels_array is not None:
-            del self.labels_array
-
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -189,7 +190,6 @@ class DBSCAN(Base):
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
-
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
@@ -198,9 +198,7 @@ class DBSCAN(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        self.labels_array = self.labels_._column._data.to_gpu_array()
-        cdef uintptr_t labels_ptr = self._get_dev_array_ptr(self.labels_array)
-
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
             dbscanFit(handle_[0],
