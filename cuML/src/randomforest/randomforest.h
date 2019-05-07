@@ -25,15 +25,24 @@
 
 namespace ML {
 
-struct RF_metrics {
-	float accuracy;
-
-	RF_metrics(float cfg_accuracy);
-	void print();
-};
-
 enum RF_type {
 	CLASSIFICATION, REGRESSION,
+};
+
+struct RF_metrics {
+	RF_type rf_type;
+
+	// Classification metrics
+	float accuracy = -1.0f;
+
+	// Regression metrics - TODO FIXME change the type?
+	double mean_abs_error = -1.0;
+	double mean_squared_error = -1.0;
+	double median_abs_error = -1.0;
+
+	RF_metrics(float cfg_accuracy);
+	RF_metrics(double cfg_mean_abs_error, double cfg_mean_squared_error, double cfg_median_abs_error);
+	void print();
 };
 
 struct RF_params {
@@ -99,6 +108,18 @@ class rfClassifier : public rf<T> {
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
 	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
+
+};
+
+template <class T>
+class rfRegressor : public rf<T> {
+	public:
+
+	rfRegressor(RF_params cfg_rf_params);
+
+	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, T * labels);
+	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, T * predictions, bool verbose=false) const;
+	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const T * ref_labels, int n_rows, int n_cols, T * predictions, bool verbose=false) const;
 
 };
 
