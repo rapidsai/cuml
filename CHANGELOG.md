@@ -13,11 +13,13 @@
 - PR #444: Added supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification
 - PR #491: added doxygen build target for ml-prims
+- PR #505: Adding R-Squared Score to python interface
 - PR #507: Added coordinate descent for lasso and elastic-net
 - PR #511: a minmax ml-prim
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Added column-wise matrix sort primitive
 - PR #525: Add docs build script to cuML
+- PR #528: Remove current KMeans and replace it with a new single GPU implementation built using ML primitives
 
 ## Improvements
 
@@ -41,6 +43,7 @@
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
 - PR #527: Added notes on UMAP differences from reference implementation
 - PR #540: Use latest release version in update-version CI script
+- PR #552: Re-enable assert in kmeans tests with xfail as needed
 
 ## Bug Fixes
 
@@ -72,7 +75,9 @@
 - PR #519: README.md Updates and adding BUILD.md back
 - PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
+- PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
 
 # cuML 0.6.0 (22 Mar 2019)
 

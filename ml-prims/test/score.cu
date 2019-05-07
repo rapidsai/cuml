@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include "metrics/metrics.h"
+#include "score/scores.h"
 #include <gtest/gtest.h>
 #include "random/rng.h"
 #include "test_utils.h"
 #include <iostream>
 
 namespace MLCommon {
-namespace Metrics {
+namespace Score {
 
-class MetricsTest : public ::testing::Test {
+class ScoreTest : public ::testing::Test {
 protected:
   void SetUp() override {}
 
@@ -31,8 +31,8 @@ protected:
 
 };
 
-typedef MetricsTest MetricsTestHighScore;
-TEST(MetricsTestHighScore, Result) {
+typedef ScoreTest ScoreTestHighScore;
+TEST(ScoreTestHighScore, Result) {
 
     float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
     float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
@@ -48,13 +48,13 @@ TEST(MetricsTestHighScore, Result) {
     MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
     MLCommon::updateDevice(d_y, y, 5, stream);
 
-    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
+    float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
     ASSERT_TRUE(result == 0.98f);
     CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
-typedef MetricsTest MetricsTestLowScore;
-TEST(MetricsTestLowScore, Result) {
+typedef ScoreTest ScoreTestLowScore;
+TEST(ScoreTestLowScore, Result) {
 
     float y[5] = {0.1, 0.2, 0.3, 0.4, 0.5};
     float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
@@ -70,7 +70,7 @@ TEST(MetricsTestLowScore, Result) {
     MLCommon::updateDevice(d_y_hat, y_hat, 5, stream);
     MLCommon::updateDevice(d_y, y, 5, stream);
 
-    float result = MLCommon::Metrics::r2_score(d_y, d_y_hat, 5, stream);
+    float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
 
     std::cout << "Result: " << result - -3.4012f << std::endl;
     ASSERT_TRUE(result - -3.4012f < 0.00001);
