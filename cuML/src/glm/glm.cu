@@ -17,6 +17,7 @@
 #include "ridge.h"
 #include "glm.hpp"
 #include "glm/qn/qn.h"
+#include "cuML.hpp"
 #include "glm/glm_api.h"
 
 namespace ML {
@@ -25,155 +26,75 @@ namespace GLM {
 using namespace MLCommon;
 
 void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef,
-		float *intercept, bool fit_intercept, bool normalize, int algo) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-			normalize, cublas_handle, cusolver_handle, stream, algo);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+            float *intercept, bool fit_intercept, bool normalize, int algo) {
+    cumlHandle handle;
+    olsFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+           normalize, handle.getStream(), algo);
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
 		double *intercept, bool fit_intercept, bool normalize, int algo) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	olsFit(input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
-			normalize, cublas_handle, cusolver_handle, stream, algo);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+    cumlHandle handle;
+    olsFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+           normalize, handle.getStream(), algo);
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	// cumlHandle_impl will set stream instead of creating
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    olsPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+               handle.getStream());
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
 		double intercept, double *preds) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	// cumlHandle_impl will set stream instead of creating
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	olsPredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    olsPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+               handle.getStream());
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgeFit(float *input, int n_rows, int n_cols, float *labels, float *alpha,
 		int n_alpha, float *coef, float *intercept, bool fit_intercept,
 		bool normalize, int algo) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
-			fit_intercept, normalize, cublas_handle, cusolver_handle, stream, algo);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    ridgeFit(handle.getImpl(), input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
+             fit_intercept, normalize, handle.getStream(), algo);
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
 		double *alpha, int n_alpha, double *coef, double *intercept,
 		bool fit_intercept, bool normalize, int algo) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	ridgeFit(input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
-			fit_intercept, normalize, cublas_handle, cusolver_handle, stream, algo);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    ridgeFit(handle.getImpl(), input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
+             fit_intercept, normalize, handle.getStream(), algo);
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	// cumlHandle_impl will set stream instead of creating
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    ridgePredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, handle.getStream());
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgePredict(const double *input, int n_rows, int n_cols, const double *coef,
 		double intercept, double *preds) {
-
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	// cumlHandle_impl will set stream instead of creating
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	ridgePredict(input, n_rows, n_cols, coef, intercept, preds, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+    cumlHandle handle;
+    ridgePredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, handle.getStream());
+    ///@todo this should go away after cumlHandle exposure in the interface
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
