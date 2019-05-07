@@ -63,7 +63,7 @@ cdef extern from "knn/knn.h" namespace "ML":
         ) except +
 
 
-cdef class NearestNeighbors(Base):
+class NearestNeighbors(Base):
     """
     NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
     datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
@@ -180,7 +180,7 @@ cdef class NearestNeighbors(Base):
 
     cpdef kNNParams *input
 
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None,
+    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None,
                   verbose = False, should_downcast = True, handle = None):
 
         super(NearestNeighbors, self).__init__(handle, verbose)
@@ -347,7 +347,8 @@ cdef class NearestNeighbors(Base):
         if self.k != NULL:
             del self.k
 
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        cdef cumlHandle *handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
 
         del self.input
         self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
