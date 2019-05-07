@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "cuML.hpp"
+
 #include <nvgraph.h>
 
 #include "sparse/nvgraph_wrappers.h"
@@ -166,7 +168,8 @@ namespace ML {
         void fit_clusters(T *X, int m, int n, int n_neighbors,
                 int n_clusters, float eigen_tol, int *out) {
 
-            kNN *knn = new kNN(n);
+            cumlHandle handle;
+            kNN *knn = new kNN(handle, n);
 
             long *knn_indices;
             float *knn_dists;
@@ -323,7 +326,8 @@ namespace ML {
                 int n_neighbors, int n_components,
                 T *out) {
 
-            kNN *knn = new kNN(n);
+            cumlHandle handle;
+            kNN *knn = new kNN(handle, n);
 
             long *knn_indices;
             float *knn_dists;

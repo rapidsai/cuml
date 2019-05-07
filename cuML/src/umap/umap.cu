@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <cuML.hpp>
+
 #include "umap.h"
 #include "runner.h"
 #include "umapparams.h"
@@ -44,7 +46,10 @@ namespace ML {
      *        an array to return the output embeddings of size (n_samples, n_components)
      */
     void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
-        this->knn = new kNN(d);
+
+        cumlHandle handle;
+        this->knn = new kNN(handle, d);
+
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
         UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings, stream);
@@ -53,11 +58,14 @@ namespace ML {
 
 
     void UMAP_API::fit(float *X, float *y, int n, int d, float *embeddings) {
-        this->knn = new kNN(d);
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-        UMAPAlgo::_fit<float, TPB_X>(X, y, n, d, knn, get_params(), embeddings, stream);
-	CUDA_CHECK(cudaStreamDestroy(stream));
+
+        cumlHandle handle;
+        this->knn = new kNN(handle, d);
+
+        cudaStream_t stream;
+        CUDA_CHECK(cudaStreamCreate(&stream));
+            UMAPAlgo::_fit<float, TPB_X>(X, y, n, d, knn, get_params(), embeddings, stream);
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
 

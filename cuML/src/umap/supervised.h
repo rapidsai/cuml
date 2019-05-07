@@ -17,6 +17,7 @@
 
 #pragma once
 
+
 #include "umapparams.h"
 #include "optimize.h"
 
@@ -41,6 +42,9 @@
 
 #include <iostream>
 #include <cuda_runtime.h>
+
+#include "cuML.hpp"
+
 
 namespace UMAPAlgo {
 
@@ -288,7 +292,8 @@ namespace UMAPAlgo {
             /**
              * Calculate kNN for Y
              */
-            kNN y_knn(1);
+            cumlHandle handle;
+            kNN y_knn(handle, 1);
             long *y_knn_indices;
             T *y_knn_dists;
 

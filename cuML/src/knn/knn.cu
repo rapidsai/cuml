@@ -35,7 +35,14 @@ namespace ML {
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
-	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose), owner(false){}
+	kNN::kNN(const cumlHandle &handle, int D, bool verbose):
+	        handle(handle.getImpl()),
+	        D(D),
+	        total_n(0),
+	        indices(0),
+	        verbose(verbose),
+	        owner(false){}
+
 	kNN::~kNN() {
 
 	    try {
@@ -84,7 +91,6 @@ namespace ML {
 	 * @param N 	 number of items in input array.
 	 */
 	void kNN::fit(kNNParams *input, int N) {
-
 
         if(this->owner) {
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
@@ -201,8 +207,10 @@ namespace ML {
             }
 		}
 
-        float *all_D = new float[indices*k*size_t(n)];
-        long *all_I = new long[indices*k*size_t(n)];
+		cudaStream_t stream = handle.getStream();
+
+		MLCommon::host_buffer<float> all_D(handle.getHostAllocator(), stream, indices*k*size_t(n));
+        MLCommon::host_buffer<long> all_I(handle.getHostAllocator(), stream, indices*k*size_t(n));
 
 		/**
 		 * Perform search in multiple threads / streams
@@ -227,8 +235,8 @@ namespace ML {
                                 n,
                                 this->D,
                                 k,
-                                all_D+(long(i)*k*long(n)),
-                                all_I+(long(i)*k*long(n)));
+                                all_D.begin()+(long(i)*k*long(n)),
+                                all_I.begin()+(long(i)*k*long(n)));
 
                     CUDA_CHECK(cudaPeekAtLastError());
                     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
@@ -242,24 +250,23 @@ namespace ML {
 		for(int i = 0; i < indices; i++)
 	        cudaStreamDestroy(streams[i]);
 
-        float *result_D = new float[k*size_t(n)];
-        long*result_I = new long[k*size_t(n)];
+        MLCommon::host_buffer<float> result_D(handle.getHostAllocator(), stream, k*size_t(n));
+        MLCommon::host_buffer<long> result_I(handle.getHostAllocator(), stream, k*size_t(n));
 
 		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
-				result_D, result_I, all_D, all_I, id_ranges.data());
+				result_D.begin(), result_I.begin(), all_D.begin(), all_I.begin(), id_ranges.data());
 
-		MLCommon::updateDevice(res_D, result_D, k*size_t(n), 0);
-		MLCommon::updateDevice(res_I, result_I, k*size_t(n), 0);
-
+		MLCommon::updateDevice(res_D, result_D.begin(), result_D.size(), 0);
+		MLCommon::updateDevice(res_I, result_I.begin(), result_D.size(), 0);
 
         cleanup(dev_res, indices);
         delete streams;
 
-		delete all_D;
-		delete all_I;
+		all_D.release(stream);
+		all_I.release(stream);
 
-		delete result_D;
-		delete result_I;
+		result_D.release(stream);
+		result_I.release(stream);
 	}
 
     /**

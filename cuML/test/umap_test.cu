@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "cuML.hpp"
+
 #include <gtest/gtest.h>
 
 #include "umap/umapparams.h"
@@ -43,7 +45,9 @@ protected:
 		umap_params->verbose = true;
 		umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
 
-		kNN *knn = new kNN(d);
+		cumlHandle handle;
+		kNN *knn = new kNN(handle, d);
+
 		cudaStream_t stream;
 		CUDA_CHECK(cudaStreamCreate(&stream));
 		UMAPAlgo::find_ab(umap_params, stream);

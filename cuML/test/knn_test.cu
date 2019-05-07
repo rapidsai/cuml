@@ -21,6 +21,8 @@
 #include <test_utils.h>
 #include <iostream>
 
+#include "cuML.hpp"
+
 namespace ML {
 
 using namespace MLCommon;
@@ -58,7 +60,6 @@ protected:
 
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
-
     }
 
  	void SetUp() override {
@@ -92,7 +93,8 @@ protected:
     long *d_ref_I;
     T* d_ref_D;
 
-    kNN *knn = new kNN(d);
+    cumlHandle handle;
+    kNN *knn = new kNN(handle, d);
 
     kNNParams params[1];
 };
