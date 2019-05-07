@@ -84,7 +84,7 @@ struct DecisionTreeParams {
 	 * Wheather to bootstarp columns with or without replacement
 	 */
 	bool bootstrap_features =  false;
-	
+
 	DecisionTreeParams();
 	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node, bool cfg_bootstrap_features);
 	void validity_check() const;
@@ -92,28 +92,46 @@ struct DecisionTreeParams {
 };
 
 template<class T>
-class DecisionTreeClassifier {
+class dt {
+	protected:
+		int split_algo;
+		TreeNode<T> *root = nullptr;
+		int nbins;
+		DataInfo dinfo;
+		int treedepth;
+		int depth_counter = 0;
+		int maxleaves;
+		int leaf_counter = 0;
+		std::vector<std::shared_ptr<TemporaryMemory<T>>> tempmem;
+		size_t total_temp_mem;
+		const int MAXSTREAMS = 1;
+		size_t max_shared_mem;
+		size_t shmem_used = 0;
+		int n_unique_labels = -1; // number of unique labels in dataset
+		double construct_time;
+		int min_rows_per_node;
+		bool bootstrap_features;
+		std::vector<int> feature_selector;
 
-private:
-	int split_algo;
-	TreeNode<T> *root = nullptr;
-	int nbins;
-	DataInfo dinfo;
-	int treedepth;
-	int depth_counter = 0;
-	int maxleaves;
-	int leaf_counter = 0;
-	std::vector<std::shared_ptr<TemporaryMemory<T>>> tempmem;
-	size_t total_temp_mem;
-	const int MAXSTREAMS = 1;
-	size_t max_shared_mem;
-	size_t shmem_used = 0;
-	int n_unique_labels = -1; // number of unique labels in dataset
-	double construct_time;
-	int min_rows_per_node;
-	bool bootstrap_features;
-	std::vector<int> feature_selector;
-	
+	    void print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const;
+	public:
+		// Printing utility for high level tree info.
+		void print_tree_summary() const;
+
+		// Printing utility for debug and looking at nodes and leaves.
+		void print() const;
+
+		virtual void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
+			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params) = 0;
+		virtual void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
+			const int n_sampled_rows, DecisionTreeParams tree_params) = 0;
+
+		virtual void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const = 0;
+		virtual void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const = 0;
+}; // End dt Class
+
+template<class T>
+class DecisionTreeClassifier : public dt<T> {
 public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
@@ -121,14 +139,10 @@ public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
 			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
-	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
+	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
+			const int n_sampled_rows, DecisionTreeParams tree_params);
 	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
-
-	// Printing utility for high level tree info.
-	void print_tree_summary() const;
-
-	// Printing utility for debug and looking at nodes and leaves.
-	void print() const;
+	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const;
 
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
@@ -143,13 +157,34 @@ private:
 	void split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
 	void classify_all(const T * rows, const int n_rows, const int n_cols, int* preds, bool verbose=false) const;
 	int classify(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
-	void print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const;
-}; // End DecisionTree Class
+}; // End DecisionTreeClassifier Class
+
+template<class T>
+class DecisionTreeRegressor : public dt<T> {
+public:
+	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
+			const int n_sampled_rows, DecisionTreeParams tree_params);
+
+	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
+			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
+
+	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
+	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const;
+	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
+
+// TODO FIXME: add private methods from DecisionTreeClassifier as needed
+private:
+	void predict_all(const T * rows, const int n_rows, const int n_cols, T * preds, bool verbose=false) const;
+	T predict(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
+}; // End DecisionTreeRegressor Class
 
 } //End namespace DecisionTree
 
 
 // Stateless API functions
+
+// ----------------------------- Classification ----------------------------------- //
+
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels,
 		unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTree::DecisionTreeParams tree_params);
 
@@ -160,5 +195,18 @@ void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClass
 			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
 void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeClassifier<double> * dt_classifier, const double * rows,
 			const int n_rows, const int n_cols, int* predictions, bool verbose=false);
+
+// ----------------------------- Regression ----------------------------------- //
+
+void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeRegressor<float> * dt_regressor, float *data, const int ncols, const int nrows, float *labels,
+		unsigned int *rowids, const int n_sampled_rows, DecisionTree::DecisionTreeParams tree_params);
+
+void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeRegressor<double> * dt_regressor, double *data, const int ncols, const int nrows, double *labels,
+		unsigned int *rowids, const int n_sampled_rows, DecisionTree::DecisionTreeParams tree_params);
+
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeRegressor<float> * dt_regressor, const float * rows,
+			const int n_rows, const int n_cols, float * predictions, bool verbose=false);
+void predict(const ML::cumlHandle& handle, const DecisionTree::DecisionTreeRegressor<double> * dt_regressor, const double * rows,
+			const int n_rows, const int n_cols, double * predictions, bool verbose=false);
 
 } //End namespace ML

@@ -88,7 +88,7 @@ class rf {
 	protected:
 		RF_params rf_params;
 		int rf_type;
-		DecisionTree::DecisionTreeClassifier<T> * trees;
+		DecisionTree::dt<T> * trees;
 
 	public:
 		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
