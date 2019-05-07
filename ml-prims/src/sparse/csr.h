@@ -614,6 +614,33 @@ void csr_adj_graph(T *row_ind, T n_rows,
         bool *adj, T *row_ind_ptr, cudaStream_t stream) {
     csr_adj_graph_batched<T, TPB_X>(row_ind, n_rows, n_rows, adj, row_ind_ptr, stream);
 }
-
+//
+//template<typename T>
+//class WeaklyCCState {
+//    protected:
+//        bool *xa;
+//        bool *fa;
+//        bool *m;
+//        T *map_id;
+//
+//    public:
+//        WeaklyCCState(T n) {
+//            // allocate
+//        }
+//
+//        ~WeaklyCCState() {
+//            // free
+//        }
+//};
+//
+//
+//template<typename Type, typename Lambda>
+//void weakly_cc_batched(
+//        Type *labels, Type *row_ind, Type *row_ind_ptr, Type N,
+//        Type startVertexId, Type batchSize, Lambda filter_op,
+//        WeaklyCCState *state, cudaStream_t stream) {
+//
+//
+//}
 };
 };
