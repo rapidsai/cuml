@@ -24,6 +24,7 @@
 #include <linalg/gemm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace GLM {
@@ -31,10 +32,11 @@ namespace GLM {
 using namespace MLCommon;
 
 template<typename math_t>
-void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
+void preProcessData(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels,
 		math_t *intercept, math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
-		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-                cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
+		bool fit_intercept, bool normalize, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -59,10 +61,11 @@ void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 }
 
 template<typename math_t>
-void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
+void postProcessData(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		math_t *intercept, math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
-		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
+		bool fit_intercept, bool normalize, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto cusolver_handle = handle.getcusolverDnHandle();
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -82,7 +85,8 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1, stream);
-	updateHost(intercept, d_intercept, 1);
+	updateHost(intercept, d_intercept, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	if (d_intercept != NULL)
 		cudaFree(d_intercept);
 

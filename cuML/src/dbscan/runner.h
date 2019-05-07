@@ -48,11 +48,12 @@ template<typename Type, typename Type_f>
  */
 size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
 		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
+
     const size_t align = 256;
     int batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
-    size_t corePtsSize = alignTo<size_t>(sizeof(bool) * N, align);
-    size_t visitedSize = alignTo<size_t>(sizeof(bool) * N, align);
+    size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
+    size_t visitedSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
@@ -89,21 +90,24 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
 		int startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
+
         if(nPoints <= 0)
             continue;
 		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
 				startVertexId, nPoints, stream);
-		MLCommon::updateHostAsync(&curradjlen, vd + nPoints, 1, stream);
+
+        MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
 		// Running AdjGraph
-		// TODO -: To come up with a mechanism as to reduce and reuse adjgraph mallocs
 		if (curradjlen > adjlen || adj_graph.data() == NULL) {
 			adjlen = curradjlen;
             adj_graph.resize(adjlen, stream);
 		}
+
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
+
 		// Running Labelling
 		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,

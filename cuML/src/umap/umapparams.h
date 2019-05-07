@@ -16,9 +16,19 @@
 
 #pragma once
 
+#include <string>
+
 namespace ML {
     class UMAPParams {
+
+
     public:
+
+        enum MetricType {
+            EUCLIDEAN,
+            CATEGORICAL
+        };
+
 
         /**
          *  The number of neighbors to use to approximate geodesic distance.
@@ -134,7 +144,16 @@ namespace ML {
          */
         int init = 1;
 
+        /**
+         * The number of nearest neighbors to use to construct the target simplicial
+         * set. If set to -1, use the n_neighbors value.
+         */
+        int target_n_neighbors = -1;
 
+
+        MetricType target_metric = EUCLIDEAN;
+
+        float target_weights = 0.5;
     };
 
 }

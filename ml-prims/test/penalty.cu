@@ -38,25 +38,25 @@ protected:
         allocate(out_elasticnet_grad_ref, len);
 
         T h_in[len] = {0.1, 0.35, -0.9, -1.4};
-        updateDevice(in, h_in, len);
+        updateDevice(in, h_in, len, stream);
 
         T h_out_lasso_ref[1] = {1.65};
-        updateDevice(out_lasso_ref, h_out_lasso_ref, 1);
+        updateDevice(out_lasso_ref, h_out_lasso_ref, 1, stream);
 
         T h_out_ridge_ref[1] = {1.741499};
-        updateDevice(out_ridge_ref, h_out_ridge_ref, 1);
+        updateDevice(out_ridge_ref, h_out_ridge_ref, 1, stream);
 
         T h_out_elasticnet_ref[1] = {1.695749};
-        updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1);
+        updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
 
         T h_out_lasso_grad_ref[len] = {0.6, 0.6, -0.6, -0.6};
-        updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, len);
+        updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, len, stream);
 
         T h_out_ridge_grad_ref[len] = {0.12, 0.42, -1.08, -1.68};
-        updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, len);
+        updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, len, stream);
 
         T h_out_elasticnet_grad_ref[len] = {0.36, 0.51, -0.84, -1.14};
-        updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, len);
+        updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, len, stream);
 
         T alpha = 0.6;
         T l1_ratio = 0.5;

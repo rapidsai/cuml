@@ -185,7 +185,8 @@ public: // functions
                                              dim, eig, workspace_decomp, Lwork,
                                              info, cudaStream));
     }
-    updateHost(&info_h, info, 1);
+    updateHost(&info_h, info, 1, cudaStream);
+    CUDA_CHECK(cudaStreamSynchronize(cudaStream));
     ASSERT(info_h == 0, "mvg: error in syevj/syevd/potrf, info=%d | expected=0",
            info_h);
     T mean = 0.0, stddv = 1.0;
@@ -214,7 +215,8 @@ public: // functions
       CUDA_CHECK(cudaPeekAtLastError());
 
       // checking if any eigen vals were negative
-      updateHost(&info_h, info, 1);
+      updateHost(&info_h, info, 1, cudaStream);
+      CUDA_CHECK(cudaStreamSynchronize(cudaStream));
       ASSERT(info_h == 0, "mvg: Cov matrix has %dth Eigenval negative", info_h);
 
       // Got Q = eigvect*eigvals.sqrt in P, Q*X in X below

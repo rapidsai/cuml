@@ -102,3 +102,8 @@ if(TESTS)
   #   TARGETS mlcommon_test
   #   SRCS src test)
 endif()
+
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE ${MLPRIMS_DIR}/Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})
