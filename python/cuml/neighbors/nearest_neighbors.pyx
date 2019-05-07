@@ -36,6 +36,9 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml import numba_utils
 
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
+
 cdef extern from "knn/knn.h" namespace "ML":
 
     cdef cppclass kNNParams:
@@ -43,24 +46,24 @@ cdef extern from "knn/knn.h" namespace "ML":
         int N
 
     cdef cppclass kNN:
-        kNN(int D, bool verbose) except +
+        kNN(cumlHandle &handle, int D, bool verbose) except +
         void search(const float *search_items,
                     int search_items_size,
                     long *res_I,
                     float *res_D,
-                    int k)
+                    int k) except +
         void fit(kNNParams *input,
-                 int N)
+                 int N) except +
 
         void fit_from_host(
             float *ptr,
             int n,
             int *devices,
             int n_chunks,
-        )
+        ) except +
 
 
-cdef class NearestNeighbors:
+cdef class NearestNeighbors(Base):
     """
     NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
     datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
@@ -177,7 +180,9 @@ cdef class NearestNeighbors:
 
     cpdef kNNParams *input
 
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
+    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
+
+        super(NearestNeighbors, self).__init__(handle, verbose)
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -188,13 +193,13 @@ cdef class NearestNeighbors:
             true will allow single-precision input arrays to be automatically downcasted to single
             precision. Default = False.
         """
-        self._verbose = verbose
         self.n_gpus = n_gpus
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
         self.k = NULL
+        self._verbose = verbose
 
     def __dealloc__(self):
         del self.k
@@ -269,7 +274,8 @@ cdef class NearestNeighbors:
             del self.k
 
         n_dims = X.shape[1]
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
