@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include "cublas_wrappers.h"
 #include <thrust/device_vector.h>
+#include "cublas_wrappers.h"
 
 namespace MLCommon {
 namespace LinAlg {

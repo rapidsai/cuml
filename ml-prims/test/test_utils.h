@@ -15,20 +15,28 @@
  */
 
 #pragma once
-#include "cuda_utils.h"
 #include <gtest/gtest.h>
-#include <iostream>
 #include <memory>
+#include "cuda_utils.h"
+#include <iostream>
 
 namespace MLCommon {
 
-template <typename T> T abs(const T &a) { return a > T(0) ? a : -a; }
 
-template <typename T> struct Compare {
+template <typename T>
+T abs(const T &a) {
+  return a > T(0) ? a : -a;
+}
+
+
+template <typename T>
+struct Compare {
   bool operator()(const T &a, const T &b) const { return a == b; }
 };
 
-template <typename T> struct CompareApprox {
+
+template <typename T>
+struct CompareApprox {
   CompareApprox(T eps_) : eps(eps_) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(a - b);
@@ -42,7 +50,8 @@ private:
   T eps;
 };
 
-template <typename T> struct CompareApproxAbs {
+template <typename T>
+struct CompareApproxAbs {
   CompareApproxAbs(T eps_) : eps(eps_) {}
   bool operator()(const T &a, const T &b) const {
     T diff = abs(abs(a) - abs(b));
@@ -129,8 +138,7 @@ template <typename T, typename L>
 
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
-                                       size_t cols, L eq_compare,
-                                       cudaStream_t stream = 0) {
+                                       size_t cols, L eq_compare, cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
   updateHost<T>(act_h.get(), actual, size, stream);
@@ -162,8 +170,8 @@ template <typename T, typename L>
  */
 template <typename T, typename L>
 ::testing::AssertionResult diagonalMatch(T expected, const T *actual,
-                                         size_t rows, size_t cols, L eq_compare,
-                                         cudaStream_t stream = 0) {
+                                         size_t rows, size_t cols,
+                                         L eq_compare, cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
   updateHost<T>(act_h.get(), actual, size, stream);
@@ -187,11 +195,12 @@ template <typename T, typename L>
 template <typename T, typename L>
 ::testing::AssertionResult match(const T expected, T actual, L eq_compare) {
   if (!eq_compare(expected, actual)) {
-    return ::testing::AssertionFailure()
-           << "actual=" << actual << " != expected=" << expected;
+    return ::testing::AssertionFailure() << "actual=" << actual
+                                         << " != expected=" << expected;
   }
   return ::testing::AssertionSuccess();
 }
+
 
 /** time the function call 'func' using cuda events */
 #define TIMEIT_LOOP(ms, count, func)                                           \
@@ -209,5 +218,6 @@ template <typename T, typename L>
     CUDA_CHECK(cudaEventElapsedTime(&ms, start, stop));                        \
     ms /= args.runs;                                                           \
   } while (0)
+
 
 }; // end namespace MLCommon

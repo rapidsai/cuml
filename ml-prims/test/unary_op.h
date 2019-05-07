@@ -19,8 +19,10 @@
 #include "cuda_utils.h"
 #include "linalg/unary_op.h"
 
+
 namespace MLCommon {
 namespace LinAlg {
+
 
 template <typename Type, typename IdxType>
 __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
@@ -32,15 +34,15 @@ __global__ void naiveScaleKernel(Type *out, const Type *in, Type scalar,
 }
 
 template <typename Type, typename IdxType = int>
-void naiveScale(Type *out, const Type *in, Type scalar, int len,
-                cudaStream_t stream) {
+void naiveScale(Type *out, const Type *in, Type scalar, int len, cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
   naiveScaleKernel<Type><<<nblks, TPB, 0, stream>>>(out, in, scalar, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T, typename IdxType = int> struct UnaryOpInputs {
+template <typename T, typename IdxType = int>
+struct UnaryOpInputs {
   T tolerance;
   IdxType len;
   T scalar;
@@ -49,7 +51,7 @@ template <typename T, typename IdxType = int> struct UnaryOpInputs {
 
 template <typename T, typename IdxType = int>
 ::std::ostream &operator<<(::std::ostream &os,
-                           const UnaryOpInputs<T, IdxType> &dims) {
+                           const UnaryOpInputs<T,IdxType> &dims) {
   return os;
 }
 

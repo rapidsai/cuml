@@ -19,8 +19,10 @@
 #include "cuda_utils.h"
 #include "linalg/add.h"
 
+
 namespace MLCommon {
 namespace LinAlg {
+
 
 template <typename Type>
 __global__ void naiveAddElemKernel(Type *out, const Type *in1, const Type *in2,
@@ -39,7 +41,9 @@ void naiveAddElem(Type *out, const Type *in1, const Type *in2, int len) {
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T> struct AddInputs {
+
+template <typename T>
+struct AddInputs {
   T tolerance;
   int len;
   unsigned long long int seed;
@@ -49,6 +53,7 @@ template <typename T>
 ::std::ostream &operator<<(::std::ostream &os, const AddInputs<T> &dims) {
   return os;
 }
+
 
 }; // end namespace LinAlg
 }; // end namespace MLCommon

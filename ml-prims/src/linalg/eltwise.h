@@ -19,6 +19,7 @@
 #include "binary_op.h"
 #include "unary_op.h"
 
+
 namespace MLCommon {
 namespace LinAlg {
 
@@ -36,19 +37,21 @@ namespace LinAlg {
 template <typename math_t, typename IdxType = int>
 void scalarAdd(math_t *out, const math_t *in, math_t scalar, IdxType len,
                cudaStream_t stream) {
-  unaryOp(
-      out, in, len, [scalar] __device__(math_t in) { return in + scalar; },
-      stream);
+  unaryOp(out, in, len,
+          [scalar] __device__(math_t in) { return in + scalar; },
+          stream);
 }
+
 
 template <typename math_t, typename IdxType = int>
 void scalarMultiply(math_t *out, const math_t *in, math_t scalar, IdxType len,
                     cudaStream_t stream) {
-  unaryOp(
-      out, in, len, [scalar] __device__(math_t in) { return in * scalar; },
-      stream);
+  unaryOp(out, in, len,
+          [scalar] __device__(math_t in) { return in * scalar; },
+          stream);
 }
 /** @} */
+
 
 /**
  * @defgroup BinaryOps Element-wise binary operations on the input buffers
@@ -64,33 +67,29 @@ void scalarMultiply(math_t *out, const math_t *in, math_t scalar, IdxType len,
 template <typename math_t, typename IdxType = int>
 void eltwiseAdd(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
                 cudaStream_t stream) {
-  binaryOp(
-      out, in1, in2, len, [] __device__(math_t a, math_t b) { return a + b; },
-      stream);
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) { return a + b; }, stream);
 }
 
 template <typename math_t, typename IdxType = int>
 void eltwiseSub(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
                 cudaStream_t stream) {
-  binaryOp(
-      out, in1, in2, len, [] __device__(math_t a, math_t b) { return a - b; },
-      stream);
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) { return a - b; }, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void eltwiseMultiply(math_t *out, const math_t *in1, const math_t *in2,
-                     IdxType len, cudaStream_t stream) {
-  binaryOp(
-      out, in1, in2, len, [] __device__(math_t a, math_t b) { return a * b; },
-      stream);
+void eltwiseMultiply(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
+                     cudaStream_t stream) {
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) { return a * b; }, stream);
 }
 
 template <typename math_t, typename IdxType = int>
-void eltwiseDivide(math_t *out, const math_t *in1, const math_t *in2,
-                   IdxType len, cudaStream_t stream) {
-  binaryOp(
-      out, in1, in2, len, [] __device__(math_t a, math_t b) { return a / b; },
-      stream);
+void eltwiseDivide(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
+                   cudaStream_t stream) {
+  binaryOp(out, in1, in2, len,
+           [] __device__(math_t a, math_t b) { return a / b; }, stream);
 }
 /** @} */
 

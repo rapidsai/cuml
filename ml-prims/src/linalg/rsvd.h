@@ -32,6 +32,7 @@
 namespace MLCommon {
 namespace LinAlg {
 
+
 /**
  * @defgroup randomized singular value decomposition (RSVD) on the column major
  * float type input matrix (Jacobi-based), by specifying no. of PCs and
@@ -57,14 +58,13 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
                    math_t *&U, math_t *&V, int k, int p, bool use_bbt,
                    bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
                    math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
-                   cublasHandle_t cublasH, cudaStream_t stream,
-                   DeviceAllocator &mgr) {
+                   cublasHandle_t cublasH, cudaStream_t stream, DeviceAllocator &mgr) {
   // All the notations are following Algorithm 4 & 5 in S. Voronin's paper:
   // https://arxiv.org/abs/1502.05366
 
   int m = n_rows, n = n_cols;
   int l =
-      k + p; // Total number of singular values to be computed before truncation
+    k + p;   // Total number of singular values to be computed before truncation
   int q = 2; // Number of power sampling counts
   int s = 1; // Frequency controller for QR decomposition during power sampling
              // scheme. s = 1: 2 QR per iteration; s = 2: 1 QR per iteration; s
@@ -83,8 +83,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
 
   // multiply to get matrix of random samples Y
   math_t *Y = (math_t *)mgr.alloc(sizeof(math_t) * m * l);
-  gemm(M, m, n, RN, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH,
-       stream);
+  gemm(M, m, n, RN, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
   // now build up (M M^T)^q R
   math_t *Z = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
@@ -101,8 +100,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       gemm(M, m, n, Yorth, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
-      gemm(M, m, n, Y, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH,
-           stream);
+      gemm(M, m, n, Y, Z, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
 
     if ((2 * j - 1) % s == 0) {
@@ -110,8 +108,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       gemm(M, m, n, Zorth, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
            cublasH, stream);
     } else {
-      gemm(M, m, n, Z, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH,
-           stream);
+      gemm(M, m, n, Z, Y, m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublasH, stream);
     }
   }
 
@@ -125,8 +122,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // form Bt = Mt*Q : nxm * mxl = nxl
     math_t *Bt = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
     CUDA_CHECK(cudaMemsetAsync(Bt, 0, sizeof(math_t) * n * l, stream));
-    gemm(M, m, n, Q, Bt, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH,
-         stream);
+    gemm(M, m, n, Q, Bt, n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
     // compute QR factorization of Bt
     // M is mxn ; Q is mxn ; R is min(m,n) x min(m,n) */
@@ -145,10 +141,10 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       svdJacobi(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, tol, max_sweeps,
                 cusolverH, stream, mgr);
     else
-      svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH,
-            cublasH, stream, mgr);
-    Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, 0, 1, k,
-                        stream); // First k elements of S_vec
+      svdQR(Rhat, l, l, S_vec_tmp, Uhat, Vhat, true, true, true, cusolverH, cublasH,
+            stream, mgr);
+    Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, 0, 1,
+                        k, stream); // First k elements of S_vec
 
     // Merge step 14 & 15 by calculating U = Q*Vhat[:,1:k] mxl * lxk = mxk
     if (gen_left_vec) {
@@ -173,12 +169,10 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     // build the matrix B B^T = Q^T M M^T Q column by column
     // Bt = M^T Q ; nxm * mxk = nxk
     math_t *B = (math_t *)mgr.alloc(sizeof(math_t) * n * l);
-    gemm(Q, m, l, M, B, l, n, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH,
-         stream);
+    gemm(Q, m, l, M, B, l, n, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, cublasH, stream);
 
     math_t *BBt = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
-    gemm(B, l, n, B, BBt, l, l, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, cublasH,
-         stream);
+    gemm(B, l, n, B, BBt, l, l, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta, cublasH, stream);
 
     // compute eigendecomposition of BBt
     math_t *Uhat = (math_t *)mgr.alloc(sizeof(math_t) * l * l);
@@ -192,8 +186,8 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
     else
       eigDC(Uhat_dup, l, l, Uhat, S_vec_tmp, cusolverH, stream, mgr);
     Matrix::seqRoot(S_vec_tmp, l, stream);
-    Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1, l,
-                        stream); // Last k elements of S_vec
+    Matrix::sliceMatrix(S_vec_tmp, 1, l, S_vec, 0, p, 1,
+                        l, stream); // Last k elements of S_vec
     Matrix::colReverse(S_vec, 1, k, stream);
 
     // Merge step 14 & 15 by calculating U = Q*Uhat[:,(p+1):l] mxl * lxk = mxk
@@ -216,7 +210,7 @@ void rsvdFixedRank(math_t *M, int n_rows, int n_cols, math_t *&S_vec,
       gemm(Uhat + p * l, l, k, Sinv, UhatSinv, l, k, CUBLAS_OP_N, CUBLAS_OP_N,
            alpha, beta, cublasH, stream);
       gemm(B, l, n, UhatSinv, V, n, k, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-           cublasH, stream);
+            cublasH, stream);
       Matrix::colReverse(V, n, k, stream);
 
       mgr.free(Sinv, stream);
@@ -261,8 +255,7 @@ void rsvdPerc(math_t *M, int n_rows, int n_cols, math_t *&S_vec, math_t *&U,
               math_t *&V, math_t PC_perc, math_t UpS_perc, bool use_bbt,
               bool gen_left_vec, bool gen_right_vec, bool use_jacobi,
               math_t tol, int max_sweeps, cusolverDnHandle_t cusolverH,
-              cublasHandle_t cublasH, cudaStream_t stream,
-              DeviceAllocator &mgr) {
+              cublasHandle_t cublasH, cudaStream_t stream, DeviceAllocator &mgr) {
   int k = max((int)(min(n_rows, n_cols) * PC_perc),
               1); // Number of singular values to be computed
   int p = max((int)(min(n_rows, n_cols) * UpS_perc), 1); // Upsamples
