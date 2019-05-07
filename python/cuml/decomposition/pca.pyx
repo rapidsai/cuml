@@ -28,7 +28,7 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
-import cuml
+from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
@@ -110,7 +110,7 @@ cdef extern from "pca/pca.hpp" namespace "ML":
                            paramsPCA prms)
 
 
-class PCA(cuml.Base):
+class PCA(Base):
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
     combine features in X in linear combinations such that each new component captures the most
@@ -118,10 +118,10 @@ class PCA(cuml.Base):
     used for data visualization, data compression and exploratory analysis.
 
     cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
-    Full (default) uses a full eigendecomposition then selects the top K eigenvectors. 
+    Full (default) uses a full eigendecomposition then selects the top K eigenvectors.
     The Jacobi algorithm is much faster as it iteratively tries to correct the top K eigenvectors,
     but might be less accurate.
-    
+
     Examples
     ---------
 
@@ -201,7 +201,7 @@ class PCA(cuml.Base):
                     0 1.0000001 3.9999993       4.0
                     1       2.0 2.0000002 1.9999999
                     2 4.9999995 1.0000006       1.0
-    
+
     Parameters
     ----------
     copy : boolean (default = True)
@@ -235,7 +235,7 @@ class PCA(cuml.Base):
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
     explained_variance_ : array
-        How much each component explains the variance in the data given by S**2      
+        How much each component explains the variance in the data given by S**2
     explained_variance_ratio_ : array
         How much in % the variance is explained given by S**2/sum(S**2)
     singular_values_ : array
@@ -251,16 +251,16 @@ class PCA(cuml.Base):
     PCA considers linear combinations of features, specifically those that maximise global
     variance structure. This means PCA is fantastic for global structure analyses, but weak
     for local relationships. Consider UMAP or T-SNE for a locally important embedding.
-    
+
     **Applications of PCA**
-        
+
         PCA is used extensively in practice for data visualization and data compression. It has been used
         to visualize extremely large word embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
-        datasets of everyday objects and images, and used to distinguish between cancerous cells from 
+        datasets of everyday objects and images, and used to distinguish between cancerous cells from
         healthy cells.
-    
-    
-    For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_. 
+
+
+    For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
@@ -322,15 +322,6 @@ class PCA(cuml.Base):
         self.noise_variance_ = cudf.Series(np.zeros(1,
                                                     dtype=self.gdf_datatype))
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
     def fit(self, X, _transform=False):
         """
         Fit the model with X.
@@ -363,7 +354,7 @@ class PCA(cuml.Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -380,20 +371,20 @@ class PCA(cuml.Base):
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
+        cdef uintptr_t components_ptr = self._get_dev_array_ptr(self.components_)
 
-        cdef uintptr_t explained_var_ptr = self._get_column_ptr(
+        cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
                                                 self.explained_variance_)
-        cdef uintptr_t explained_var_ratio_ptr = self._get_column_ptr(
+        cdef uintptr_t explained_var_ratio_ptr = self._get_cudf_column_ptr(
                                                 self.explained_variance_ratio_)
-        cdef uintptr_t singular_vals_ptr = self._get_column_ptr(
+        cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
                                                 self.singular_values_)
-        cdef uintptr_t mean_ptr = self._get_column_ptr(self.mean_)
-        cdef uintptr_t noise_vars_ptr = self._get_column_ptr(
+        cdef uintptr_t mean_ptr = self._get_cudf_column_ptr(self.mean_)
+        cdef uintptr_t noise_vars_ptr = self._get_cudf_column_ptr(
                                             self.noise_variance_)
-        cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()       
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.gdf_datatype.type == np.float32:
             pcaFitTransform(handle_[0],
                             <float*> input_ptr,
@@ -492,7 +483,7 @@ class PCA(cuml.Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        trans_input_ptr = self._get_ctype_ptr(X_m)
+        trans_input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -574,7 +565,7 @@ class PCA(cuml.Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -586,7 +577,7 @@ class PCA(cuml.Base):
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(trans_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
