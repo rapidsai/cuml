@@ -274,14 +274,14 @@ class KMeans(Base):
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
+    # def _get_ctype_ptr(self, obj):
+    #     # The manner to access the pointers in the gdf's might change, so
+    #     # encapsulating access in the following 3 methods. They might also be
+    #     # part of future gdf versions.
+    #     return obj.device_ctypes_pointer.value
 
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+    # def _get_column_ptr(self, obj):
+    #     return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def fit(self, X):
         """
@@ -311,11 +311,12 @@ class KMeans(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
@@ -341,7 +342,7 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(self.cluster_centers_)
 
 
         if self.gdf_datatype.type == np.float32:
@@ -427,14 +428,14 @@ class KMeans(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
             predict(
@@ -494,16 +495,16 @@ class KMeans(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
                                     dtype=self.gdf_datatype.type))
 
-        cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
+        cdef uintptr_t preds_ptr = self._get_dev_array_ptr(preds_data)
 
         if self.gdf_datatype.type == np.float32:
             transform(
