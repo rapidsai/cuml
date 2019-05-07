@@ -48,7 +48,7 @@ def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch,
     else:
         X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                      dtype=datatype)
-    skdbscan = skDBSCAN(eps=3, min_samples=10)
+    skdbscan = skDBSCAN(eps=3, min_samples=2)
     sk_labels = skdbscan.fit_predict(X)
     handle, stream = get_handle(use_handle)
     cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
