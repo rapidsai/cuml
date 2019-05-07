@@ -46,6 +46,7 @@ namespace ML {
 	        }
 
 	    } catch(const std::exception &e) {
+	        // cannot throw exception in destructor
 	        std::cout << "An exception occurred releasing kNN memory: " << e.what() << std::endl;
 	    }
 	}
@@ -102,7 +103,7 @@ namespace ML {
             cudaError_t s_err = cudaPointerGetAttributes(&s_att, params.ptr);
 
             if(s_err != 0 || s_att.device == -1)
-                throw "Invalid device pointer encountered in knn fit()";
+                throw std::runtime_error("Invalid device pointer encountered in knn fit()");
 
 
             this->indices++;
@@ -115,6 +116,12 @@ namespace ML {
         }
 	}
 
+	void cleanup(std::vector<faiss::gpu::StandardGpuResources *> dev_res, int indices) {
+        for(int i = 0; i < indices; i++)
+            delete dev_res[i];
+	}
+
+
 	/**
 	 * Search the kNN for the k-nearest neighbors of a set of query vectors
 	 * @param search_items set of vectors to query for neighbors
@@ -126,47 +133,80 @@ namespace ML {
 	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
 
-		float *result_D = new float[k*size_t(n)];
-		long*result_I = new long[k*size_t(n)];
-
-		float *all_D = new float[indices*k*size_t(n)];
-		long *all_I = new long[indices*k*size_t(n)];
-
         cudaPointerAttributes s_att;
         cudaError_t s_err = cudaPointerGetAttributes(&s_att, search_items);
 
         if(s_err != 0 || s_att.device == -1)
-            throw "Invalid device pointer encountered in knn search";
+            throw std::runtime_error("Invalid device pointer encountered in knn search()");
 
         s_err = cudaPointerGetAttributes(&s_att, res_I);
 
         if(s_err != 0 || s_att.device == -1)
-            throw "Invalid index results pointer encountered in knn search";
+            throw std::runtime_error("Invalid index results pointer encountered in knn search()");
 
         s_err = cudaPointerGetAttributes(&s_att, res_D);
 
         if(s_err != 0 || s_att.device == -1)
-            throw "Invalid distance results pointer encountered in knn search";
+            throw std::runtime_error("Invalid distance results pointer encountered in knn search()");
+
+        cudaStream_t *streams = new cudaStream_t[indices];
+        int *devices = new int[indices];
+        std::vector<faiss::gpu::StandardGpuResources*> dev_res;
 
 
-		/**
-		 * Initial verification of memory
-		 */
+        /**
+         * Verify all memory is on device,
+         */
+
 		for(int i = 0; i < indices; i++) {
+
             kNNParams params = knn_params[i];
 
             cudaPointerAttributes att;
             cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
 
             if(err == 0 && att.device > -1) {
+
+                devices[i] = att.device;
+
                 CUDA_CHECK(cudaSetDevice(att.device));
 
-                if(!verify_size(size_t(params.N)*size_t(this->D)*4l, att.device))
+                if(!verify_size(size_t(params.N)*size_t(this->D)*4l, att.device)) {
+                    delete streams;
+                    delete devices;
+                    cleanup(dev_res, indices);
                     return;
+                }
+
+                cudaStream_t stream;
+                cudaStreamCreate(&stream);
+
+                streams[i] = stream;
+
+                dev_res.emplace_back(new faiss::gpu::StandardGpuResources());
+                dev_res[i]->noTempMemory();
+                dev_res[i]->setCudaMallocWarning(false);
+                dev_res[i]->setDefaultStream(att.device, stream);
+
+            } else {
+
+                delete streams;
+                delete devices;
+                cleanup(dev_res, indices);
+
+                std::stringstream ss;
+                ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer << ", N=" << params.N;
+                throw std::runtime_error(ss.str());
+
             }
 		}
 
+        float *all_D = new float[indices*k*size_t(n)];
+        long *all_I = new long[indices*k*size_t(n)];
 
+		/**
+		 * Perform search in multiple threads / streams
+		 */
         #pragma omp parallel
 		{
             #pragma omp for
@@ -174,49 +214,46 @@ namespace ML {
 
                 kNNParams params = knn_params[i];
 
-                cudaPointerAttributes att;
-                cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
+                faiss::gpu::StandardGpuResources *gpu_res = dev_res[i];
+                CUDA_CHECK(cudaSetDevice(devices[i]));
 
-                if(err == 0 && att.device > -1) {
-                    CUDA_CHECK(cudaSetDevice(att.device));
+                try {
 
-                    try {
-                        faiss::gpu::StandardGpuResources gpu_res;
-//                        gpu_res.noTempMemory();
-//                        gpu_res.setCudaMallocWarning(false);
-//                        gpu_res.setDefaultNullStreamAllDevices();
+                    bruteForceKnn(gpu_res,
+                                faiss::METRIC_L2,
+                                params.ptr,
+                                params.N,
+                                search_items,
+                                n,
+                                this->D,
+                                k,
+                                all_D+(long(i)*k*long(n)),
+                                all_I+(long(i)*k*long(n)));
 
-                        bruteForceKnn(&gpu_res,
-                                    faiss::METRIC_L2,
-                                    params.ptr,
-                                    params.N,
-                                    search_items,
-                                    n,
-                                    this->D,
-                                    k,
-                                    all_D+(long(i)*k*long(n)),
-                                    all_I+(long(i)*k*long(n)));
+                    CUDA_CHECK(cudaPeekAtLastError());
+                    CUDA_CHECK(cudaStreamSynchronize(streams[i]));
 
-                        CUDA_CHECK(cudaPeekAtLastError());
-
-                    } catch(const std::exception &e) {
-                       std::cout << "Exception occurred: " << e.what() << std::endl;
-                    }
-
-
-                } else {
-                    std::stringstream ss;
-                    ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer << ", N=" << params.N;
-                    throw ss.str();
+                } catch(const std::exception &e) {
+                   std::cout << "Exception occurred in multi-threaded kNN search: " << e.what() << std::endl;
                 }
             }
 		}
+
+		for(int i = 0; i < indices; i++)
+	        cudaStreamDestroy(streams[i]);
+
+        float *result_D = new float[k*size_t(n)];
+        long*result_I = new long[k*size_t(n)];
 
 		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
 
 		MLCommon::updateDevice(res_D, result_D, k*size_t(n), 0);
 		MLCommon::updateDevice(res_I, result_I, k*size_t(n), 0);
+
+
+        cleanup(dev_res, indices);
+        delete streams;
 
 		delete all_D;
 		delete all_I;
