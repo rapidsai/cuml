@@ -97,6 +97,14 @@ namespace ML {
         for(int i = 0; i < N; i++) {
 
             kNNParams params = input[i];
+
+            cudaPointerAttributes s_att;
+            cudaError_t s_err = cudaPointerGetAttributes(&s_att, params.ptr);
+
+            if(s_err != 0 || s_att.device == -1)
+                throw "Invalid device pointer encountered in knn fit()";
+
+
             this->indices++;
             this->knn_params.emplace_back(params);
             if(i < params.N) {
@@ -128,17 +136,17 @@ namespace ML {
         cudaError_t s_err = cudaPointerGetAttributes(&s_att, search_items);
 
         if(s_err != 0 || s_att.device == -1)
-            std::cout << "Invalid device pointer encountered in knn search: " << search_items << std::endl;
+            throw "Invalid device pointer encountered in knn search";
 
         s_err = cudaPointerGetAttributes(&s_att, res_I);
 
         if(s_err != 0 || s_att.device == -1)
-            std::cout << "Invalid index results pointer encountered in knn search: " << search_items << std::endl;
+            throw "Invalid index results pointer encountered in knn search";
 
         s_err = cudaPointerGetAttributes(&s_att, res_D);
 
         if(s_err != 0 || s_att.device == -1)
-            std::cout << "Invalid distance results pointer encountered in knn search: " << search_items << std::endl;
+            throw "Invalid distance results pointer encountered in knn search";
 
 
 		/**
@@ -174,9 +182,9 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
-                        gpu_res.noTempMemory();
-                        gpu_res.setCudaMallocWarning(false);
-                        gpu_res.setDefaultNullStreamAllDevices();
+//                        gpu_res.noTempMemory();
+//                        gpu_res.setCudaMallocWarning(false);
+//                        gpu_res.setDefaultNullStreamAllDevices();
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -199,7 +207,7 @@ namespace ML {
                 } else {
                     std::stringstream ss;
                     ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer << ", N=" << params.N;
-                    std::cout << "Exception: " << ss.str() << std::endl;
+                    throw ss.str();
                 }
             }
 		}
