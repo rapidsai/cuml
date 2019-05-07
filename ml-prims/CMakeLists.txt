@@ -30,6 +30,8 @@ find_package(ZLIB REQUIRED)
 if(ZLIB_FOUND)
   message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
 else()
+  message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
 
 # Submodules
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
