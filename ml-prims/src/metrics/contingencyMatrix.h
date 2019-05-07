@@ -22,9 +22,6 @@
 #include <cub/cub.cuh>
 #include <math.h>
 
-#define ALIGN_BYTE 256
-#define ALIGN_MEMORY(x) (x + ALIGN_BYTE - 1) & ~(ALIGN_BYTE - 1)
-
 namespace MLCommon {
 namespace Metrics {
 
@@ -117,7 +114,7 @@ void contingencyMatrixWSort(T *groundTruth, T *predictedLabel, int nSamples,
                         size_t workspaceSize, cudaStream_t stream) {
 
   T *outKeys = reinterpret_cast<T*>(workspace);
-  size_t alignedBufferSz = ALIGN_MEMORY((size_t)nSamples * sizeof(T));
+  size_t alignedBufferSz = alignTo((size_t)nSamples * sizeof(T), (size_t)256);
   T *outValue = reinterpret_cast<T*>((size_t)workspace + alignedBufferSz);
 
   void *pWorkspaceCub = reinterpret_cast<void *>((size_t)workspace + 2*alignedBufferSz);
@@ -206,7 +203,7 @@ size_t getCMatrixWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream
   ContingencyMatrixImplType implVersion = getImplVersion(outDimN);
 
   if (implVersion == SORT_AND_GATOMICS) {
-    void *pWorkspaceCub = NULL;
+    void *pWorkspaceCub = nullptr;
     size_t tmpStorageBytes = 0;
     // bunch of no-op pointers to get workspace size
     T *pTmpKey, *pTmpValue, *pTmpKeyOut, *pTmpValueOut;
@@ -214,7 +211,7 @@ size_t getCMatrixWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(pWorkspaceCub, tmpStorageBytes, pTmpKey, pTmpValue,
                                                 pTmpKeyOut, pTmpValueOut, nSamples));
 
-    size_t tmpStagingMemorySize = ALIGN_MEMORY(nSamples * sizeof(T));
+    size_t tmpStagingMemorySize = alignTo(nSamples * sizeof(T), (size_t)256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
   }
@@ -237,7 +234,7 @@ size_t getCMatrixWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream
  */
 template <typename T>
 void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples, int *outMat,
-                        cudaStream_t stream, void *workspace=NULL, size_t workspaceSize=0,
+                        cudaStream_t stream, void *workspace=nullptr, size_t workspaceSize=0,
                         T minLabel=std::numeric_limits<T>::max(),
                         T maxLabel=std::numeric_limits<T>::max()) {
   // assumptions:
