@@ -66,12 +66,12 @@ class DBSCAN(Base):
 
     cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph to compute
     the distances between close neighbours.
-    
+
     Examples
     ---------
 
     .. code-block:: python
-            
+
             # Both import methods supported
             from cuml import DBSCAN
             from cuml.cluster import DBSCAN
@@ -125,7 +125,7 @@ class DBSCAN(Base):
     ------
     DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
     is that datapoints need to be concentrated in groups for clusters to be constructed.
-    
+
     **Applications of DBSCAN**
 
         DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
@@ -151,14 +151,14 @@ class DBSCAN(Base):
         if self.max_bytes_per_batch is None:
             self.max_bytes_per_batch = 0;
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
+    # def _get_ctype_ptr(self, obj):
+    #     # The manner to access the pointers in the gdf's might change, so
+    #     # encapsulating access in the following 3 methods. They might also be
+    #     # part of future gdf versions.
+    #     return obj.device_ctypes_pointer.value
 
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+    # def _get_column_ptr(self, obj):
+    #     return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def fit(self, X):
         """
@@ -194,12 +194,12 @@ class DBSCAN(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         self.labels_array = self.labels_._column._data.to_gpu_array()
-        cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
+        cdef uintptr_t labels_ptr = self._get_dev_array_ptr(self.labels_array)
 
 
         if self.gdf_datatype.type == np.float32:
