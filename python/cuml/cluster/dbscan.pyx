@@ -155,15 +155,6 @@ class DBSCAN(Base):
         if attr == 'labels_array':
             return self.labels_._column._data.mem
 
-    # def _get_ctype_ptr(self, obj):
-    #     # The manner to access the pointers in the gdf's might change, so
-    #     # encapsulating access in the following 3 methods. They might also be
-    #     # part of future gdf versions.
-    #     return obj.device_ctypes_pointer.value
-
-    # def _get_column_ptr(self, obj):
-    #     return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
     def fit(self, X):
         """
             Perform DBSCAN clustering from features.
