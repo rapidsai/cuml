@@ -26,6 +26,7 @@ add_executable(mlcommon_test
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
+  contingencyMatrix.cu
   coo.cu
   cov.cu
   csr.cu
@@ -75,7 +76,6 @@ add_executable(mlcommon_test
   penalty.cu
   sigmoid.cu
   weighted_mean.cu
-  contingencyMatrix.cu
   )
 
 target_link_libraries(mlcommon_test

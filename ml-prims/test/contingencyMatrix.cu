@@ -109,12 +109,12 @@ protected:
 
   contingencyMatrixParam params;
   int numUniqueClasses = -1;
-  T* dY=NULL;
-  T* dYHat=NULL;
-  int *dComputedOutput = NULL;
-  int *dGoldenOutput = NULL;
-  int *hGoldenOutput = NULL;
-  char *pWorkspace = NULL;
+  T* dY=nullptr;
+  T* dYHat=nullptr;
+  int *dComputedOutput = nullptr;
+  int *dGoldenOutput = nullptr;
+  int *hGoldenOutput = nullptr;
+  char *pWorkspace = nullptr;
   cudaStream_t stream;
 };
 
