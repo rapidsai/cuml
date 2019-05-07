@@ -48,16 +48,16 @@ cdef extern from "knn/knn.h" namespace "ML":
                     int search_items_size,
                     long *res_I,
                     float *res_D,
-                    int k)
+                    int k) except +
         void fit(kNNParams *input,
-                 int N)
+                 int N) except +
 
         void fit_from_host(
             float *ptr,
             int n,
             int *devices,
             int n_chunks,
-        )
+        ) except +
 
 
 cdef class NearestNeighbors:
@@ -303,12 +303,15 @@ cdef class NearestNeighbors:
             X_ctype = X.ctypes.data
             dev_ptr = final_devices.ctypes.data
 
-            self.k.fit_from_host(
-                <float*>X_ctype,
-                <int>X.shape[0],
-                <int*>dev_ptr,
-                <int>len(final_devices)
-            )
+            try:
+                self.k.fit_from_host(
+                    <float*>X_ctype,
+                    <int>X.shape[0],
+                    <int*>dev_ptr,
+                    <int>len(final_devices)
+                )
+            except Exception as e:
+                print("Exception occurred: %s" % str(e))
 
         else:
             X_m = self._downcast(X)
@@ -321,8 +324,11 @@ cdef class NearestNeighbors:
 
             self.input[0] = deref(params)
 
-            self.k.fit(<kNNParams*> self.input,
-                       <int> 1)
+            try:
+                self.k.fit(<kNNParams*> self.input,
+                           <int> 1)
+            except Exception as e:
+                print("Exception occurred: %s" % str(e))
 
     def _fit_mg(self, n_dims, alloc_info):
         """
@@ -355,8 +361,11 @@ cdef class NearestNeighbors:
 
             self.input[i] = deref(params)
 
-        self.k.fit( < kNNParams * > self.input,
-                    < int > len(alloc_info))
+        try:
+            self.k.fit( < kNNParams * > self.input,
+                        < int > len(alloc_info))
+        except Exception as e:
+            print("Exception occurred: %s" % str(e))
 
 
     def kneighbors(self, X, k = None):
@@ -456,8 +465,11 @@ cdef class NearestNeighbors:
         cdef uintptr_t dists = D_ptr
         cdef uintptr_t x = X_ctype
 
-        self.k.search(<float*>x,
-                      <int> N,
-                      <long*>inds,
-                      <float*>dists,
-                      <int> k)
+        try:
+            self.k.search(<float*>x,
+                          <int> N,
+                          <long*>inds,
+                          <float*>dists,
+                          <int> k)
+        except Excepttion as e:
+            print("Exception occurred: %s" % str(e))
