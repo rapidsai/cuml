@@ -24,9 +24,13 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-cdef extern from "solver/solver_c.h" namespace "ML::Solver":
+import cuml
+from cuml.common.handle cimport cumlHandle
 
-    cdef void sgdFit(float *input,
+cdef extern from "solver/solver.hpp" namespace "ML::Solver":
+
+    cdef void sgdFit(cumlHandle& handle,
+                     float *input,
                      int n_rows,
                      int n_cols,
                      float *labels,
@@ -47,7 +51,8 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                      int n_iter_no_change)
 
     
-    cdef void sgdFit(double *input,
+    cdef void sgdFit(cumlHandle& handle,
+                     double *input,
                      int n_rows,
                      int n_cols,
                      double *labels,
@@ -67,7 +72,8 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                      double tol,
                      int n_iter_no_change)
                      
-    cdef void sgdPredict(const float *input, 
+    cdef void sgdPredict(cumlHandle& handle,
+                         const float *input, 
                          int n_rows, 
                          int n_cols, 
                          const float *coef,
@@ -75,7 +81,8 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                          float *preds,
                          int loss)
 
-    cdef void sgdPredict(const double *input, 
+    cdef void sgdPredict(cumlHandle& handle,
+                         const double *input, 
                          int n_rows, 
                          int n_cols,
                          const double *coef, 
@@ -83,7 +90,8 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                          double *preds,
                          int loss)
                          
-    cdef void sgdPredictBinaryClass(const float *input, 
+    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+                         const float *input, 
                          int n_rows, 
                          int n_cols, 
                          const float *coef,
@@ -91,7 +99,8 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                          float *preds,
                          int loss)
 
-    cdef void sgdPredictBinaryClass(const double *input, 
+    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+                         const double *input, 
                          int n_rows, 
                          int n_cols,
                          const double *coef, 
@@ -99,7 +108,7 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                          double *preds,
                          int loss)
 
-class SGD:
+class SGD(cuml.Base):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm where one optimizes
     some cost function via gradient steps. This makes SGD very attractive for large problems
@@ -187,7 +196,8 @@ class SGD:
     """
     
     def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
-        fit_intercept=True, epochs=1000, tol=1e-3, shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5, batch_size=32, n_iter_no_change=5):
+        fit_intercept=True, epochs=1000, tol=1e-3, shuffle=True, learning_rate='constant', eta0=0.0, 
+        power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
         
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
@@ -201,6 +211,7 @@ class SGD:
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
+        super(SGD, self).__init__(handle=handle, verbose=False)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept
@@ -324,51 +335,56 @@ class SGD:
 
         cdef float c_intercept1 
         cdef double c_intercept2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         
         if self.gdf_datatype.type == np.float32:
-            sgdFit(<float*>X_ptr, 
-                       <int>self.n_rows, 
-                       <int>self.n_cols, 
-                       <float*>y_ptr, 
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1, 
-                       <bool>self.fit_intercept, 
-                       <int>self.batch_size, 
-                       <int>self.epochs,
-                       <int>self.lr_type, 
-                       <float>self.eta0,
-                       <float>self.power_t,
-                       <int>self.loss, 
-                       <int>self.penalty,   
-                       <float>self.alpha,
-                       <float>self.l1_ratio,
-                       <bool>self.shuffle,
-                       <float>self.tol,
+            sgdFit(handle_[0],
+                   <float*>X_ptr, 
+                   <int>self.n_rows, 
+                   <int>self.n_cols, 
+                   <float*>y_ptr, 
+                   <float*>coef_ptr,
+                   <float*>&c_intercept1, 
+                   <bool>self.fit_intercept, 
+                   <int>self.batch_size, 
+                   <int>self.epochs,
+                   <int>self.lr_type, 
+                   <float>self.eta0,
+                   <float>self.power_t,
+                   <int>self.loss, 
+                   <int>self.penalty,   
+                   <float>self.alpha,
+                   <float>self.l1_ratio,
+                   <bool>self.shuffle,
+                   <float>self.tol,
                    <int>self.n_iter_no_change)
 
             self.intercept_ = c_intercept1
         else:
-            sgdFit(<double*>X_ptr, 
-                       <int>self.n_rows, 
-                       <int>self.n_cols, 
-                       <double*>y_ptr, 
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2, 
-                       <bool>self.fit_intercept, 
-                       <int>self.batch_size, 
-                       <int>self.epochs,
-                       <int>self.lr_type, 
-                       <double>self.eta0,
-                       <double>self.power_t,
-                       <int>self.loss, 
-                       <int>self.penalty,   
-                       <double>self.alpha,
-                       <double>self.l1_ratio,
-                       <bool>self.shuffle,
-                       <double>self.tol,
+            sgdFit(handle_[0],
+                   <double*>X_ptr, 
+                   <int>self.n_rows, 
+                   <int>self.n_cols, 
+                   <double*>y_ptr, 
+                   <double*>coef_ptr,
+                   <double*>&c_intercept2, 
+                   <bool>self.fit_intercept, 
+                   <int>self.batch_size, 
+                   <int>self.epochs,
+                   <int>self.lr_type, 
+                   <double>self.eta0,
+                   <double>self.power_t,
+                   <int>self.loss, 
+                   <int>self.penalty,   
+                   <double>self.alpha,
+                   <double>self.l1_ratio,
+                   <bool>self.shuffle,
+                   <double>self.tol,
                    <int>self.n_iter_no_change)
             
             self.intercept_ = c_intercept2
+
+        self.handle.sync()
 
         return self
 
@@ -411,22 +427,28 @@ class SGD:
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if pred_datatype.type == np.float32:
-            sgdPredict(<float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr,
-                           <int>self.loss)
+            sgdPredict(handle_[0],
+                       <float*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <float*>coef_ptr,
+                       <float>self.intercept_,
+                       <float*>preds_ptr,
+                       <int>self.loss)
         else:
-            sgdPredict(<double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr,
-                           <int>self.loss)
+            sgdPredict(handle_[0],
+                       <double*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <double*>coef_ptr,
+                       <double>self.intercept_,
+                       <double*>preds_ptr,
+                       <int>self.loss)
+
+        self.handle.sync()
 
         del(X_m)
 
@@ -470,9 +492,11 @@ class SGD:
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
-
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+       
         if pred_datatype.type == np.float32:
-            sgdPredictBinaryClass(<float*>X_ptr,
+            sgdPredictBinaryClass(handle_[0],
+                           <float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
@@ -480,13 +504,16 @@ class SGD:
                            <float*>preds_ptr,
                            <int>self.loss)
         else:
-            sgdPredictBinaryClass(<double*>X_ptr,
+            sgdPredictBinaryClass(handle_[0],
+                           <double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,
                            <double>self.intercept_,
                            <double*>preds_ptr,
                            <int>self.loss)
+
+        self.handle.sync()
 
         del(X_m)
 

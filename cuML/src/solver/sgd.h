@@ -35,7 +35,7 @@
 #include <functions/logisticReg.h>
 #include <functions/hinge.h>
 #include "learning_rate.h"
-#include "cuML.hpp"
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace Solver {
@@ -43,7 +43,8 @@ namespace Solver {
 using namespace MLCommon;
 
 template<typename math_t>
-void sgdFit(math_t *input,
+void sgdFit(const cumlHandle_impl& handle,
+		    math_t *input,
 		    int n_rows,
 		    int n_cols,
 		    math_t *labels,
@@ -62,8 +63,6 @@ void sgdFit(math_t *input,
 		    bool shuffle,
 		    math_t tol,
 		    int n_iter_no_change,
-		    cublasHandle_t cublas_handle,
-		    cusolverDnHandle_t cusolver_handle,
 			cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
@@ -75,14 +74,13 @@ void sgdFit(math_t *input,
 	math_t *mu_labels = NULL;
 	math_t *norm2_input = NULL;
 
-        ///@todo: the below line should go away once we expose
-        /// cumlHandle in the interface of sgd
-        cumlHandle handle;
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
+
 	if (fit_intercept) {
 		allocate(mu_input, n_cols);
 		allocate(mu_labels, 1);
 
-		GLM::preProcessData(handle.getImpl(), input, n_rows, n_cols, labels, intercept, mu_input,
+		GLM::preProcessData(handle, input, n_rows, n_cols, labels, intercept, mu_input,
 				mu_labels, norm2_input, fit_intercept, false, stream);
 	}
 
@@ -208,9 +206,9 @@ void sgdFit(math_t *input,
 	    CUDA_CHECK(cudaFree(loss_value));
 
 	if (fit_intercept) {
-                GLM::postProcessData(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-                                     mu_input, mu_labels, norm2_input, fit_intercept, false,
-                                     stream);
+		GLM::postProcessData(handle, input, n_rows, n_cols, labels, coef, intercept,
+                             mu_input, mu_labels, norm2_input, fit_intercept, false,
+                             stream);
 
 		if (mu_input != NULL)
 			CUDA_CHECK(cudaFree(mu_input));
@@ -223,14 +221,16 @@ void sgdFit(math_t *input,
 }
 
 template<typename math_t>
-void sgdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle,
+void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
+		int n_cols, const math_t *coef, math_t intercept, math_t *preds, ML::loss_funct loss,
 		cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
+
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
 
 	if (loss == ML::loss_funct::SQRD_LOSS) {
 		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
@@ -242,10 +242,10 @@ void sgdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 }
 
 template<typename math_t>
-void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void sgdPredictBinaryClass(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols, const math_t *coef,
+		math_t intercept, math_t *preds, ML::loss_funct loss, cudaStream_t stream) {
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss, cublas_handle, stream);
+	sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss, stream);
 
 	math_t scalar = math_t(1);
 	if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
