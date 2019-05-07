@@ -382,7 +382,6 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-#if 0 // commented out as DecisionTreeRegressor not implemented
 	rfRegressor::trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
@@ -416,8 +415,6 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		//Cleanup
 		selected_rows.release(stream);
 	}
-#endif
-
 }
 
 /**
@@ -438,7 +435,6 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
 
-#if 0 // commented out as DecisionTreeRegressor not implemented
 	int row_size = n_cols;
 
 	for (int row_id = 0; row_id < n_rows; row_id++) {
@@ -465,7 +461,6 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 		// Random forest's prediction is the arithmetic mean of all its decision tree predictions.
 		predictions[row_id] = sum_predictions / this->rf_params.n_trees;
 	}
-#endif
 }
 
 /**
@@ -484,7 +479,6 @@ RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle, const T
 
 	predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
-#if 0 // commented out as DecisionTreeRegressor not implemented
 	double abs_difference_sum = 0;
 	double mse_sum = 0;
 	std::vector<double> abs_diffs;
@@ -512,12 +506,8 @@ RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle, const T
 	if (verbose) stats.print();
 
 	return stats;
-#endif
-   RF_metrics placeholder(0); // temp. code so code compiles. TODO remove once code above is uncommented.
-   return placeholder;
 }
 
-//=================== regression end
 
 template class rf<float>;
 template class rf<double>;
