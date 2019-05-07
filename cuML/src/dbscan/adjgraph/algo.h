@@ -58,6 +58,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize
     MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(data.ex_scan, data.N, batchSize,
             data.adj, data.adj_graph,
             [core_pts, minPts, vd] __device__ (Type row, Type start_idx) {
+        // fuse the operation of core points construction
         core_pts[row] = (vd[row] >= minPts);
     }, stream);
 
