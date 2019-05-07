@@ -136,4 +136,4 @@ class Base:
         Get ctype pointer of a cudf column
         """
         # return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-        return cudf.cudf_cpp.get_column_data_ptr(col._column)
+        return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
