@@ -633,16 +633,49 @@ class WeaklyCCState {
         }
 };
 
-
 template <typename Type, int TPB_X>
-__global__ void weak_cc_init_label_kernel(Pack<Type> data, int startVertexId, int batchSize, Type MAX_LABEL) {
+__global__ void weak_cc_label_device(Type *labels,
+        Type *row_ind, Type *row_ind_ptr, Type *vd,
+        bool *fa, bool *xa, bool *m,
+        int startVertexId, int batchSize) {
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<batchSize) {
+        if(fa[tid + startVertexId]) {
+            fa[tid + startVertexId] = false;
+            int start = int(row_ind[tid]);
+            Type ci, cj;
+            bool ci_mod = false;
+            ci = labels[tid + startVertexId];
+            for(int j=0; j< int(vd[tid]); j++) { // TODO: Can't this be calculated from the ex_scan?
+                cj = labels[row_ind_ptr[start + j]];
+                if(ci<cj) {
+                    atomicMin(labels + row_ind_ptr[start +j], ci);
+                    xa[row_ind_ptr[start+j]] = true;
+                    m[0] = true;
+                }
+                else if(ci>cj) {
+                    ci = cj;
+                    ci_mod = true;
+                }
+            }
+            if(ci_mod) {
+                atomicMin(labels + startVertexId + tid, ci);
+                xa[startVertexId + tid] = true;
+                m[0] = true;
+            }
+        }
+    }
+}
+
+
+template <typename Type, int TPB_X, typename Lambda>
+__global__ void weak_cc_init_label_kernel(Type *labels, int startVertexId, int batchSize, Type MAX_LABEL, Lambda filter_op) {
     /** F1 and F2 in the paper correspond to fa and xa */
     /** Cd in paper corresponds to db_cluster */
     int tid = threadIdx.x + blockIdx.x*TPB_X;
     if(tid<batchSize) {
-        if(data.core_pts[tid] && data.db_cluster[tid + startVertexId]==MAX_LABEL) {
-            data.db_cluster[startVertexId + tid] = Type(startVertexId + tid + 1);
-        }
+        if(filter_op(tid) && labels[tid + startVertexId]==MAX_LABEL)
+            labels[startVertexId + tid] = Type(startVertexId + tid + 1);
     }
 }
 
@@ -656,8 +689,11 @@ __global__ void weak_cc_init_all_kernel(Type *labels, bool *fa, bool *xa, Type M
     }
 }
 
-template <typename Type>
-void weak_cc_label_batched(const ML::cumlHandle_impl& handle, WeaklyCCState *state, int startVertexId, int batchSize, cudaStream_t stream) {
+template <typename Type, int TPB_X, typename Lambda>
+void weak_cc_label_batched(const ML::cumlHandle_impl& handle, Type *labels,
+        Type *row_ind, Type *row_ind_ptr, Type *vd,
+        WeaklyCCState *state,
+        int startVertexId, int batchSize, cudaStream_t stream, Lambda filter_op) {
     size_t N = data.N;
     bool host_m;
     MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, N);
@@ -667,17 +703,21 @@ void weak_cc_label_batched(const ML::cumlHandle_impl& handle, WeaklyCCState *sta
     dim3 threads(TPB_X);
     Type MAX_LABEL = std::numeric_limits<Type>::max();
 
-    weak_cc_init_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize, MAX_LABEL);
+    weak_cc_init_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(labels,
+            startVertexId, batchSize, MAX_LABEL, filter_op);
     do {
-        CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) );
-        label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
+        CUDA_CHECK( cudaMemsetAsync(state->m, false, sizeof(bool), stream) );
+        weak_cc_label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(labels,
+                row_ind, row_ind_ptr, vs,
+                state->fa, state->xa, state->m,
+                startVertexId, batchSize);
         //** swapping F1 and F2
-        MLCommon::updateHost(host_fa.data(), data.fa, N, stream);
-        MLCommon::updateHost(host_xa.data(), data.xa, N, stream);
+        MLCommon::updateHost(host_fa.data(), state->fa, N, stream);
+        MLCommon::updateHost(host_xa.data(), state->xa, N, stream);
         MLCommon::updateDevice(data.fa, host_xa.data(), N, stream);
         MLCommon::updateDevice(data.xa, host_fa.data(), N, stream);
         //** Updating m *
-        MLCommon::updateHost(&host_m, data.m, 1, stream);
+        MLCommon::updateHost(&host_m, state->m, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
     } while(host_m);
 }
@@ -695,7 +735,31 @@ void weak_cc_batched(
     if(startVertexId == 0)
         weak_cc_init_all_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>
             (labels, state->fa, state->xa, MAX_LABEL);
-    label(handle, data, startVertexId, batchSize, stream);
+    weak_cc_label_batched(handle, data, startVertexId, batchSize, filter_op, stream);
 }
+
+template <typename Type>
+void weak_cc_finalize_labels(const ML::cumlHandle_impl& handle, Type *labels,
+        WeaklyCCState *state, size_t N, cudaStream_t stream) {
+    dim3 blocks(ceildiv(data.N, TPB_X));
+    dim3 threads(TPB_X);
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+    MLCommon::host_buffer<Type> host_db_cluster(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<Type> host_map_id(handle.getHostAllocator(), stream, N);
+
+    memset(host_map_id.data(), 0, N*sizeof(Type));
+    MLCommon::updateHost(host_db_cluster.data(), labels, N, stream);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    sort(host, host_db_cluster.data(), host_db_cluster.data() + N);
+    Type *uid = unique(host, host_db_cluster.data(), host_db_cluster.data() + N, equal_to<Type>());
+    Type num_clusters = uid - host_db_cluster.data();
+    for(int i=0; i<num_clusters; i++)
+        host_map_id[i] = host_db_cluster[i];
+
+    MLCommon::updateDevice(state->map_id, host_map_id.data(), N, stream);
+    map_label<Type,TPB_X><<<blocks, threads, 0, stream>>>(data, MAX_LABEL);
+}
+
 };
 };
