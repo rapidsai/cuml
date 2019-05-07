@@ -614,33 +614,88 @@ void csr_adj_graph(T *row_ind, T n_rows,
         bool *adj, T *row_ind_ptr, cudaStream_t stream) {
     csr_adj_graph_batched<T, TPB_X>(row_ind, n_rows, n_rows, adj, row_ind_ptr, stream);
 }
-//
-//template<typename T>
-//class WeaklyCCState {
-//    protected:
-//        bool *xa;
-//        bool *fa;
-//        bool *m;
-//        T *map_id;
-//
-//    public:
-//        WeaklyCCState(T n) {
-//            // allocate
-//        }
-//
-//        ~WeaklyCCState() {
-//            // free
-//        }
-//};
-//
-//
-//template<typename Type, typename Lambda>
-//void weakly_cc_batched(
-//        Type *labels, Type *row_ind, Type *row_ind_ptr, Type N,
-//        Type startVertexId, Type batchSize, Lambda filter_op,
-//        WeaklyCCState *state, cudaStream_t stream) {
-//
-//
-//}
+
+template<typename T>
+class WeaklyCCState {
+    protected:
+        bool *xa;
+        bool *fa;
+        bool *m;
+        T *map_id;
+
+    public:
+        WeaklyCCState(T n) {
+            // allocate
+        }
+
+        ~WeaklyCCState() {
+            // free
+        }
+};
+
+
+template <typename Type, int TPB_X>
+__global__ void weak_cc_init_label_kernel(Pack<Type> data, int startVertexId, int batchSize, Type MAX_LABEL) {
+    /** F1 and F2 in the paper correspond to fa and xa */
+    /** Cd in paper corresponds to db_cluster */
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<batchSize) {
+        if(data.core_pts[tid] && data.db_cluster[tid + startVertexId]==MAX_LABEL) {
+            data.db_cluster[startVertexId + tid] = Type(startVertexId + tid + 1);
+        }
+    }
+}
+
+template <typename Type, int TPB_X>
+__global__ void weak_cc_init_all_kernel(Type *labels, bool *fa, bool *xa, Type MAX_LABEL) {
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<N) {
+        labels[tid] = MAX_LABEL;
+        fa[tid] = true;
+        xa[tid] = false;
+    }
+}
+
+template <typename Type>
+void weak_cc_label_batched(const ML::cumlHandle_impl& handle, WeaklyCCState *state, int startVertexId, int batchSize, cudaStream_t stream) {
+    size_t N = data.N;
+    bool host_m;
+    MLCommon::host_buffer<bool> host_fa(handle.getHostAllocator(), stream, N);
+    MLCommon::host_buffer<bool> host_xa(handle.getHostAllocator(), stream, N);
+
+    dim3 blocks(ceildiv(batchSize, TPB_X));
+    dim3 threads(TPB_X);
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+
+    weak_cc_init_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize, MAX_LABEL);
+    do {
+        CUDA_CHECK( cudaMemsetAsync(data.m, false, sizeof(bool), stream) );
+        label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, startVertexId, batchSize);
+        //** swapping F1 and F2
+        MLCommon::updateHost(host_fa.data(), data.fa, N, stream);
+        MLCommon::updateHost(host_xa.data(), data.xa, N, stream);
+        MLCommon::updateDevice(data.fa, host_xa.data(), N, stream);
+        MLCommon::updateDevice(data.xa, host_fa.data(), N, stream);
+        //** Updating m *
+        MLCommon::updateHost(&host_m, data.m, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+    } while(host_m);
+}
+
+template<typename Type, int TPB_X, typename Lambda>
+void weak_cc_batched(
+        Type *labels, Type *row_ind, Type *row_ind_ptr, Type N,
+        Type startVertexId, Type batchSize, Lambda filter_op,
+        WeaklyCCState *state, cudaStream_t stream) {
+
+    dim3 blocks(ceildiv(N, TPB_X));
+    dim3 threads(TPB_X);
+
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+    if(startVertexId == 0)
+        weak_cc_init_all_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>
+            (labels, state->fa, state->xa, MAX_LABEL);
+    label(handle, data, startVertexId, batchSize, stream);
+}
 };
 };
