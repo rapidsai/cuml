@@ -28,21 +28,27 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 
-cdef extern from "tsvd/tsvd_c.h" namespace "ML":
 
-    cdef void tsvdFit(float *input,
+cdef extern from "tsvd/tsvd.hpp" namespace "ML":
+
+    cdef void tsvdFit(cumlHandle& handle,
+                      float *input,
                       float *components,
                       float *singular_vals,
                       paramsTSVD prms)
 
-    cdef void tsvdFit(double *input,
+    cdef void tsvdFit(cumlHandle& handle,
+                      double *input,
                       double *components,
                       double *singular_vals,
                       paramsTSVD prms)
 
-    cdef void tsvdFitTransform(float *input,
+    cdef void tsvdFitTransform(cumlHandle& handle,
+                               float *input,
                                float *trans_input,
                                float *components,
                                float *explained_var,
@@ -50,7 +56,8 @@ cdef extern from "tsvd/tsvd_c.h" namespace "ML":
                                float *singular_vals,
                                paramsTSVD prms)
 
-    cdef void tsvdFitTransform(double *input,
+    cdef void tsvdFitTransform(cumlHandle& handle,
+                               double *input,
                                double *trans_input,
                                double *components,
                                double *explained_var,
@@ -58,37 +65,32 @@ cdef extern from "tsvd/tsvd_c.h" namespace "ML":
                                double *singular_vals,
                                paramsTSVD prms)
 
-    cdef void tsvdInverseTransform(float *trans_input,
+    cdef void tsvdInverseTransform(cumlHandle& handle,
+                                   float *trans_input,
                                    float *components,
                                    float *input,
                                    paramsTSVD prms)
 
-    cdef void tsvdInverseTransform(double *trans_input,
+    cdef void tsvdInverseTransform(cumlHandle& handle,
+                                   double *trans_input,
                                    double *components,
                                    double *input,
                                    paramsTSVD prms)
 
-    cdef void tsvdTransform(float *input,
+    cdef void tsvdTransform(cumlHandle& handle,
+                            float *input,
                             float *components,
                             float *trans_input,
                             paramsTSVD prms)
 
-    cdef void tsvdTransform(double *input,
+    cdef void tsvdTransform(cumlHandle& handle,
+                            double *input,
                             double *components,
                             double *trans_input,
                             paramsTSVD prms)
 
-class TSVDparams:
-    def __init__(self,n_components,tol,iterated_power,random_state,svd_solver):
-        self.n_components = n_components
-        self.svd_solver = svd_solver
-        self.tol = tol
-        self.iterated_power = iterated_power
-        self.random_state = random_state
-        self.n_cols = None
-        self.n_rows = None
 
-class TruncatedSVD:
+class TruncatedSVD(Base):
     """
     TruncatedSVD is used to compute the top K singular values and vectors of a large matrix X. 
     It is much faster when n_components is small, such as in the use of PCA when 3 components is 
@@ -160,18 +162,22 @@ class TruncatedSVD:
 
     Parameters
     -----------
-    n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
     algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
         Full uses a eigendecomposition of the covariance matrix then discards components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    n_components : int (default = 1)
+        The number of top K singular vectors / values you want. Must be <= number(columns).
     n_iter : int (default = 15)
         Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+    random_state : int / None (default = None)
+        If you want results to be the same when you restart Python, select a state.
     tol : float (default = 1e-7)
         Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
         but the more slower the algorithm will get to converge.
-    random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
+    verbose : bool
+        Whether to print debug spews
 
     Attributes
     -----------
@@ -202,22 +208,17 @@ class TruncatedSVD:
     For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
-    def __init__(self, n_components=1, tol=1e-7, n_iter=15, random_state=None,
-                 algorithm='full'):
-
+    def __init__(self, algorithm='full', handle=None, n_components=1, n_iter=15,
+                 random_state=None, tol=1e-7, verbose=False):
+        # params
+        super(TruncatedSVD, self).__init__(handle, verbose)
+        self.algorithm = algorithm
         self.n_components = n_components
-        self.tol = tol
         self.n_iter = n_iter
         self.random_state = random_state
-        self.algorithm = algorithm
-        if algorithm in ['full', 'auto', 'jacobi']:
-            self.algorithm = algorithm
-            c_algorithm = self._get_algorithm_c_name(algorithm)
-        else:
-            msg = "algorithm {!r} is not supported"
-            raise TypeError(msg.format(algorithm))
-        self.params = TSVDparams(n_components, tol, n_iter, random_state,
-                                 c_algorithm)
+        self.tol = tol
+        self.c_algorithm = self._get_algorithm_c_name(self.algorithm)
+        # atrributes
         self.components_ = None
         self.explained_variance_ = None
         self.explained_variance_ratio_ = None
@@ -228,11 +229,15 @@ class TruncatedSVD:
         self.singular_values_ptr = None
 
     def _get_algorithm_c_name(self, algorithm):
-        return {
+        algo_map = {
             'full': COV_EIG_DQ,
             'auto': COV_EIG_DQ,
             'jacobi': COV_EIG_JACOBI
-        }[algorithm]
+        }
+        if algorithm not in algo_map:
+            msg = "algorithm {!r} is not supported"
+            raise TypeError(msg.format(algorithm))
+        return algo_map[algorithm]
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
@@ -282,14 +287,14 @@ class TruncatedSVD:
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             # PCA expects transpose of the input
             X_m = X.as_gpu_matrix()
-            self.params.n_rows = len(X)
-            self.params.n_cols = len(X._cols)
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
 
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
             X_m = cuda.to_device(np.array(X, order='F'))
-            self.params.n_rows = X.shape[0]
-            self.params.n_cols = X.shape[1]
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
 
         else:
             msg = "X matrix format  not supported"
@@ -298,14 +303,13 @@ class TruncatedSVD:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsTSVD params
-        params.n_components = self.params.n_components
-        params.n_rows = self.params.n_rows
-        params.n_cols = self.params.n_cols
-        params.n_iterations = self.params.iterated_power
-        params.tol = self.params.tol
-        params.algorithm = self.params.svd_solver
-        self._initialize_arrays(self.params.n_components,
-                                self.params.n_rows, self.params.n_cols)
+        params.n_components = self.n_components
+        params.n_rows = self.n_rows
+        params.n_cols = self.n_cols
+        params.n_iterations = self.n_iter
+        params.tol = self.tol
+        params.algorithm = self.c_algorithm
+        self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
         cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
 
@@ -317,12 +321,13 @@ class TruncatedSVD:
                                                 self.singular_values_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        if self.params.n_components> self.params.n_cols:
+        if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
-        
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.gdf_datatype.type == np.float32:
-            tsvdFitTransform(<float*> input_ptr,
+            tsvdFitTransform(handle_[0],
+                             <float*> input_ptr,
                              <float*> trans_input_ptr,
                              <float*> components_ptr,
                              <float*> explained_var_ptr,
@@ -330,13 +335,18 @@ class TruncatedSVD:
                              <float*> singular_vals_ptr,
                              params)
         else:
-            tsvdFitTransform(<double*> input_ptr,
+            tsvdFitTransform(handle_[0],
+                             <double*> input_ptr,
                              <double*> trans_input_ptr,
                              <double*> components_ptr,
                              <double*> explained_var_ptr,
                              <double*> explained_var_ratio_ptr,
                              <double*> singular_vals_ptr,
                              params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -371,9 +381,9 @@ class TruncatedSVD:
         """
         self.fit(X, _transform=True)
         X_new = cudf.DataFrame()
-        num_rows = self.params.n_rows
+        num_rows = self.n_rows
 
-        for i in range(0, self.params.n_components):
+        for i in range(0, self.n_components):
             X_new[str(i)] = self.trans_input_[i*num_rows:(i+1)*num_rows]
 
         return X_new
@@ -410,9 +420,9 @@ class TruncatedSVD:
         trans_input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsTSVD params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = len(X)
-        params.n_cols = self.params.n_cols
+        params.n_cols = self.n_cols
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
                                              dtype=gdf_datatype.type))
@@ -420,16 +430,24 @@ class TruncatedSVD:
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if gdf_datatype.type == np.float32:
-            tsvdInverseTransform(<float*> trans_input_ptr,
+            tsvdInverseTransform(handle_[0],
+                                        <float*> trans_input_ptr,
                                         <float*> components_ptr,
                                         <float*> input_ptr,
                                         params)
         else:
-            tsvdInverseTransform(<double*> trans_input_ptr,
+            tsvdInverseTransform(handle_[0],
+                                        <double*> trans_input_ptr,
                                         <double*> components_ptr,
                                         <double*> input_ptr,
                                         params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -473,9 +491,9 @@ class TruncatedSVD:
         input_ptr = self._get_ctype_ptr(X_m)
 
         cpdef paramsTSVD params
-        params.n_components = self.params.n_components
+        params.n_components = self.n_components
         params.n_rows = len(X)
-        params.n_cols = self.params.n_cols
+        params.n_cols = self.n_cols
 
         trans_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
@@ -484,16 +502,24 @@ class TruncatedSVD:
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if gdf_datatype.type == np.float32:
-            tsvdTransform(<float*> input_ptr,
+            tsvdTransform(handle_[0],
+                                 <float*> input_ptr,
                                  <float*> components_ptr,
                                  <float*> trans_input_ptr,
                                  params)
         else:
-            tsvdTransform(<double*> input_ptr,
+            tsvdTransform(handle_[0],
+                                 <double*> input_ptr,
                                  <double*> components_ptr,
                                  <double*> trans_input_ptr,
                                  params)
+
+        # make sure the previously scheduled gpu tasks are complete before the
+        # following transfers start
+        self.handle.sync()
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
@@ -502,41 +528,6 @@ class TruncatedSVD:
         del(X_m)
         return X_new
 
-    def get_params(self, deep=True):
-        """
-        Sklearn style return parameter state
 
-        Parameters
-        -----------
-        deep : boolean (default = True)
-        """
-        params = dict()
-        variables = ['n_components', 'algorithm', 'svd_solver', 'tol', 'n_iter', 'random_state','iterated_power','random_state', 'n_cols','n_rows']
-        for key in variables:
-            var_value = getattr(self.params,key,None)
-            params[key] = var_value   
-            if 'algorithm'==key:
-                params[key] = getattr(self, key, None) 
-        return params
-
-    def set_params(self, **params):
-        """
-        Sklearn style set parameter state to dictionary of params.
-
-        Parameters
-        -----------
-        params : dict of new params
-        """
-        if not params:
-            return self
-        variables = ['n_components', 'algorithm', 'tol', 'svd_solver', 'n_iter', 'random_state', 'c_algorithm','iterated_power','random_state']
-        for key, value in params.items():
-            if key not in variables:
-                raise ValueError('Invalid parameter %s for estimator')
-            else:
-                if 'algorithm' in params.keys() and key=='algorithm':
-                    setattr(self, key, value)
-                    setattr(self.params, 'svd_solver', self._get_algorithm_c_name(value) )
-                else:
-                    setattr(self.params, key, value)
-        return self.params
+    def get_param_names(self):
+        return ["algorithm", "n_components", "n_iter", "random_state", "tol"]

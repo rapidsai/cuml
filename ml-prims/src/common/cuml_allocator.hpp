@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include "utils.h"
 
 namespace MLCommon {
 
@@ -96,4 +97,42 @@ public:
     virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
 };
 
-} // end namespace ML
+
+/** Default cudaMalloc/cudaFree based device allocator */
+class defaultDeviceAllocator : public deviceAllocator {
+public:
+    virtual void* allocate( std::size_t n, cudaStream_t ) {
+        void* ptr = 0;
+        CUDA_CHECK( cudaMalloc( &ptr, n ) );
+        return ptr;
+    }
+    virtual void deallocate( void* p, std::size_t, cudaStream_t ) {
+        cudaError_t status = cudaFree( p);
+        if ( cudaSuccess != status )
+        {
+            //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+            // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
+        }
+    }
+};
+
+
+/** Default cudaMallocHost/cudaFreeHost based host allocator */
+class defaultHostAllocator : public hostAllocator {
+public:
+    virtual void* allocate( std::size_t n, cudaStream_t ) {
+        void* ptr = 0;
+        CUDA_CHECK( cudaMallocHost( &ptr, n ) );
+        return ptr;
+    }
+    virtual void deallocate( void* p, std::size_t, cudaStream_t ) {
+        cudaError_t status = cudaFreeHost( p);
+        if ( cudaSuccess != status )
+        {
+            //TODO: Add loging of this error. Needs: https://github.com/rapidsai/cuml/issues/100
+            // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
+        }
+    }
+};
+
+}; // end namespace MLCommon
