@@ -52,22 +52,14 @@ void logisticRegH(const math_t *input, int n_rows, int n_cols,
 template<typename math_t>
 void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *grads, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-	math_t *input_t = NULL;
-	allocate(input_t, n_rows * n_cols);
-
-	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
-
-	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows, stream);
-
-	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
-	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true, stream);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
+	logisticRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0), cublas_handle, stream);
+	LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
+	Matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows, n_cols, false, false, stream);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
@@ -89,12 +81,6 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 	    if (pen_grads != NULL)
 	        CUDA_CHECK(cudaFree(pen_grads));
 	}
-
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
-
-	if (input_t != NULL)
-		CUDA_CHECK(cudaFree(input_t));
 }
 
 template <typename T>
@@ -118,15 +104,15 @@ inline void logLoss(double *out, double *label, double *label_pred, int len, cud
 template<typename math_t>
 void logisticRegLoss(math_t *input, int n_rows, int n_cols,
 		math_t *labels, const math_t *coef, math_t *loss, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
-	logLoss(labels_pred, labels, labels_pred, n_rows, stream);
+	logisticRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0), cublas_handle, stream);
+	logLoss(labels_pred.data(), labels, labels_pred.data(), n_rows, stream);
 
-	Stats::mean(loss, labels_pred, 1, n_rows, false, false, stream);
+	Stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 
 	math_t *pen_val = NULL;
 
@@ -146,9 +132,6 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols,
 	    if (pen_val != NULL)
 	        CUDA_CHECK(cudaFree(pen_val));
 	}
-
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
 
 }
 

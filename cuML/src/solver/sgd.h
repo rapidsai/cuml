@@ -35,68 +35,94 @@
 #include <functions/logisticReg.h>
 #include <functions/hinge.h>
 #include "learning_rate.h"
-#include "cuML.hpp"
+#include "common/cumlHandle.hpp"
 
 namespace ML {
 namespace Solver {
 
 using namespace MLCommon;
 
+/**
+ * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param labels
+ *        pointer to an array for labels (size of n_rows)
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). This will be filled with coefficients
+ *        once the function is executed.
+ * @param intercept
+ *        pointer to a scalar for intercept. This will be filled
+ *        once the function is executed
+ * @param fit_intercept
+ *        boolean parameter to control if the intercept will be fitted or not
+ * @param batch_size
+ *        number of rows in the minibatch
+ * @param epochs
+ *        number of iterations that the solver will run
+ * @param lr_type
+ *        type of the learning rate function (i.e. OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE)
+ * @param eta0
+ *        learning rate for contant lr_type. It's used to calculate learning rate function for other types of lr_type
+ * @param power_t
+ *        power value in the INVSCALING lr_type
+ * @param loss
+ *        enum to use different loss functions.
+ * @param penalty
+ *        None, L1, L2, or Elastic-net penalty
+ * @param alpha
+ *        alpha value in L1
+ * @param l1_ratio
+ *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2.
+ * @param shuffle
+ *        boolean parameter to control whether coordinates will be picked randomly or not.
+ * @param tol
+ *        tolerance to stop the solver
+ * @param n_iter_no_change
+ *        solver stops if there is no update greater than tol after n_iter_no_change iterations
+ * @param stream
+ *        cuda stream
+ */
 template<typename math_t>
-void sgdFit(math_t *input,
-		    int n_rows,
-		    int n_cols,
-		    math_t *labels,
-		    math_t *coef,
-		    math_t *intercept,
-		    bool fit_intercept,
-		    int batch_size,
-		    int epochs,
-		    ML::lr_type lr_type,
-		    math_t eta0,
-		    math_t power_t,
-		    ML::loss_funct loss,
-		    Functions::penalty penalty,
-		    math_t alpha,
-		    math_t l1_ratio,
-		    bool shuffle,
-		    math_t tol,
-		    int n_iter_no_change,
-		    cublasHandle_t cublas_handle,
-		    cusolverDnHandle_t cusolver_handle,
-			cudaStream_t stream) {
+void sgdFit(const cumlHandle_impl& handle, math_t *input, int n_rows,
+		int n_cols, math_t *labels, math_t *coef, math_t *intercept,
+		bool fit_intercept, int batch_size, int epochs, ML::lr_type lr_type,
+		math_t eta0, math_t power_t, ML::loss_funct loss,
+		Functions::penalty penalty, math_t alpha, math_t l1_ratio, bool shuffle,
+		math_t tol, int n_iter_no_change, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
-	math_t *mu_input = NULL;
-	math_t *mu_labels = NULL;
-	math_t *norm2_input = NULL;
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
 
-        ///@todo: the below line should go away once we expose
-        /// cumlHandle in the interface of sgd
-        cumlHandle handle;
+	auto allocator = handle.getDeviceAllocator();
+	device_buffer<math_t> mu_input(allocator, stream, 0);
+	device_buffer<math_t> mu_labels(allocator, stream, 0);
+	device_buffer<math_t> norm2_input(allocator, stream, 0);
+
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
+		mu_input.reserve(n_cols, stream);
+		mu_labels.reserve(1, stream);
 
-		GLM::preProcessData(handle.getImpl(), input, n_rows, n_cols, labels, intercept, mu_input,
-				mu_labels, norm2_input, fit_intercept, false, stream);
+		GLM::preProcessData(handle, input, n_rows, n_cols, labels, intercept,
+				mu_input.data(), mu_labels.data(), norm2_input.data(),
+				fit_intercept, false, stream);
 	}
 
-	math_t *grads = NULL;
-	math_t *input_batch = NULL;
-	math_t *labels_batch = NULL;
-	math_t *loss_value = NULL;
-	int *indices = NULL;
-
-	allocate(grads, n_cols, true);
-	allocate(indices, batch_size);
-	allocate(input_batch, batch_size * n_cols);
-	allocate(labels_batch, batch_size);
-	allocate(loss_value, 1);
+	device_buffer<math_t> grads(allocator, stream, n_cols);
+	device_buffer<int> indices(allocator, stream, batch_size);
+	device_buffer<math_t> input_batch(allocator, stream, batch_size * n_cols);
+	device_buffer<math_t> labels_batch(allocator, stream, batch_size);
+	device_buffer<math_t> loss_value(allocator, stream, 1);
 
 	math_t prev_loss_value = math_t(0);
 	math_t curr_loss_value = math_t(0);
@@ -133,29 +159,36 @@ void sgdFit(math_t *input,
 			if (cbs == 0)
 				break;
 
-			updateDevice(indices, &rand_indices[j], cbs, stream);
-			Matrix::copyRows(input, n_rows, n_cols, input_batch, indices, cbs, stream);
-			Matrix::copyRows(labels, n_rows, 1, labels_batch, indices, cbs, stream);
+			updateDevice(indices.data(), &rand_indices[j], cbs, stream);
+			Matrix::copyRows(input, n_rows, n_cols, input_batch.data(),
+					indices.data(), cbs, stream);
+			Matrix::copyRows(labels, n_rows, 1, labels_batch.data(),
+					indices.data(), cbs, stream);
 
 			if (loss == ML::loss_funct::SQRD_LOSS) {
-				Functions::linearRegLossGrads(input_batch, cbs, n_cols, labels_batch,
-						coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::linearRegLossGrads(input_batch.data(), cbs, n_cols,
+						labels_batch.data(), coef, grads.data(), penalty, alpha,
+						l1_ratio, cublas_handle, allocator, stream);
 			} else if (loss == ML::loss_funct::LOG) {
-				Functions::logisticRegLossGrads(input_batch, cbs, n_cols, labels_batch,
-										coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::logisticRegLossGrads(input_batch.data(), cbs, n_cols,
+						labels_batch.data(), coef, grads.data(), penalty, alpha,
+						l1_ratio, cublas_handle, allocator, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
-				Functions::hingeLossGrads(input_batch, cbs, n_cols, labels_batch,
-														coef, grads, penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::hingeLossGrads(input_batch.data(), cbs, n_cols,
+						labels_batch.data(), coef, grads.data(), penalty, alpha,
+						l1_ratio, cublas_handle, allocator, stream);
 			} else {
 				ASSERT(false,
 						"sgd.h: Other loss functions have not been implemented yet!");
 			}
 
 			if (lr_type != ML::lr_type::ADAPTIVE)
-			    learning_rate = calLearningRate(lr_type, eta0, power_t, alpha, t);
+				learning_rate = calLearningRate(lr_type, eta0, power_t, alpha,
+						t);
 
-			LinAlg::scalarMultiply(grads, grads, learning_rate, n_cols, stream);
-			LinAlg::subtract(coef, coef, grads, n_cols, stream);
+			LinAlg::scalarMultiply(grads.data(), grads.data(), learning_rate,
+					n_cols, stream);
+			LinAlg::subtract(coef, coef, grads.data(), n_cols, stream);
 
 			j = j + cbs;
 			t = t + 1;
@@ -163,108 +196,145 @@ void sgdFit(math_t *input,
 
 		if (tol > math_t(0)) {
 			if (loss == ML::loss_funct::SQRD_LOSS) {
-			    Functions::linearRegLoss(input, n_rows, n_cols, labels, coef, loss_value,
-					    penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::linearRegLoss(input, n_rows, n_cols, labels, coef,
+						loss_value.data(), penalty, alpha, l1_ratio,
+						cublas_handle, allocator, stream);
 			} else if (loss == ML::loss_funct::LOG) {
-				Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef, loss_value,
-						penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::logisticRegLoss(input, n_rows, n_cols, labels, coef,
+						loss_value.data(), penalty, alpha, l1_ratio,
+						cublas_handle, allocator, stream);
 			} else if (loss == ML::loss_funct::HINGE) {
-				Functions::hingeLoss(input, n_rows, n_cols, labels, coef, loss_value,
-						penalty, alpha, l1_ratio, cublas_handle, stream);
+				Functions::hingeLoss(input, n_rows, n_cols, labels, coef,
+						loss_value.data(), penalty, alpha, l1_ratio,
+						cublas_handle, allocator, stream);
 			}
 
-			updateHost(&curr_loss_value, loss_value, 1, stream);
-                        CUDA_CHECK(cudaStreamSynchronize(stream));
+			updateHost(&curr_loss_value, loss_value.data(), 1, stream);
+			CUDA_CHECK(cudaStreamSynchronize(stream));
 
 			if (i > 0) {
-                if (curr_loss_value > (prev_loss_value - tol)) {
-                	n_iter_no_change_curr = n_iter_no_change_curr + 1;
-                	if (n_iter_no_change_curr > n_iter_no_change) {
-                		if (lr_type == ML::lr_type::ADAPTIVE && learning_rate > math_t(1e-6)) {
-                			learning_rate = learning_rate / math_t(5);
-                			n_iter_no_change_curr = 0;
-                		} else {
-                		    break;
-                		}
-                	}
-                } else {
-                	n_iter_no_change_curr = 0;
-                }
+				if (curr_loss_value > (prev_loss_value - tol)) {
+					n_iter_no_change_curr = n_iter_no_change_curr + 1;
+					if (n_iter_no_change_curr > n_iter_no_change) {
+						if (lr_type == ML::lr_type::ADAPTIVE
+								&& learning_rate > math_t(1e-6)) {
+							learning_rate = learning_rate / math_t(5);
+							n_iter_no_change_curr = 0;
+						} else {
+							break;
+						}
+					}
+				} else {
+					n_iter_no_change_curr = 0;
+				}
 			}
 
 			prev_loss_value = curr_loss_value;
 		}
 	}
 
-	if (grads != NULL)
-	    CUDA_CHECK(cudaFree(grads));
-	if (indices != NULL)
-	    CUDA_CHECK(cudaFree(indices));
-	if (input_batch != NULL)
-	    CUDA_CHECK(cudaFree(input_batch));
-	if (labels_batch != NULL)
-	    CUDA_CHECK(cudaFree(labels_batch));
-	if (loss_value != NULL)
-	    CUDA_CHECK(cudaFree(loss_value));
-
 	if (fit_intercept) {
-                GLM::postProcessData(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-                                     mu_input, mu_labels, norm2_input, fit_intercept, false,
-                                     stream);
-
-		if (mu_input != NULL)
-			CUDA_CHECK(cudaFree(mu_input));
-		if (mu_labels != NULL)
-			CUDA_CHECK(cudaFree(mu_labels));
+		GLM::postProcessData(handle, input, n_rows, n_cols, labels, coef,
+				intercept, mu_input.data(), mu_labels.data(),
+				norm2_input.data(), fit_intercept, false, stream);
 	} else {
 		*intercept = math_t(0);
 	}
 
 }
 
+/**
+ * Make predictions
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
+ * @param intercept
+ *        intercept value calculated in cdFit function
+ * @param preds
+ *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param stream
+ *        cuda stream
+ */
 template<typename math_t>
-void sgdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle,
-		cudaStream_t stream) {
+void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
+		int n_cols, const math_t *coef, math_t intercept, math_t *preds,
+		ML::loss_funct loss, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
+
 	if (loss == ML::loss_funct::SQRD_LOSS) {
-		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
+		Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
+				cublas_handle, stream);
 	} else if (loss == ML::loss_funct::LOG) {
-		Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
+		Functions::logisticRegH(input, n_rows, n_cols, coef, preds, intercept,
+				cublas_handle, stream);
 	} else if (loss == ML::loss_funct::HINGE) {
-		Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
+		Functions::hingeH(input, n_rows, n_cols, coef, preds, intercept,
+				cublas_handle, stream);
 	}
 }
 
+/**
+ * Make binary classifications
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
+ * @param intercept
+ *        intercept value calculated in cdFit function
+ * @param preds
+ *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param stream
+ *        cuda stream
+ */
 template<typename math_t>
-void sgdPredictBinaryClass(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void sgdPredictBinaryClass(const cumlHandle_impl& handle, const math_t *input,
+		int n_rows, int n_cols, const math_t *coef, math_t intercept,
+		math_t *preds, ML::loss_funct loss, cudaStream_t stream) {
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss, cublas_handle, stream);
+	sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss,
+			stream);
 
 	math_t scalar = math_t(1);
 	if (loss == ML::loss_funct::SQRD_LOSS || loss == ML::loss_funct::LOG) {
-		LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
-		                                                  	  if (in >= math_t(0.5))
-		                                                  		  return math_t(1);
-		                                                  	  else
-		                                                  		  return math_t(0);
-                                                        },
-                                                        stream);
-	} else if (loss == ML::loss_funct::HINGE) {
-		LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
-				                                              if (in >= math_t(0.0))
-				                                                  return math_t(1);
-				                                              else
-				                                                  return math_t(0);
-			                                                  },
-                                                        stream);
-	}
+	    LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
+				if (in >= math_t(0.5))
+				return math_t(1);
+				else
+				return math_t(0);
+			},
+			stream);
+    } else if (loss == ML::loss_funct::HINGE) {
+        LinAlg::unaryOp(preds, preds, n_rows, [scalar] __device__ (math_t in) {
+			if (in >= math_t(0.0))
+			return math_t(1);
+			else
+			return math_t(0);
+		},
+		stream);
+}
 
 }
 
