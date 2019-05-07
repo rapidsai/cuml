@@ -9,6 +9,8 @@ import pandas as pd
 
 import pmdarima as pm
 
+from cuml.ts.stationarity import stationarity
+
 def test_arima():
 
     num_samples = 1000
@@ -115,6 +117,24 @@ def test_grid_search():
     pm_model_fit = pm.auto_arima(ys, seasonal=False)
 
     return ic, best_model, pm_model_fit
+
+
+def test_stationarity():
+
+    num_samples = 200
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys1 = noise + 0.5*xs
+    ys2 = noise
+
+    num_batches = 2
+    ys_df = np.zeros((num_samples, num_batches), order="F")
+    ys_df[:, 0] = ys1
+    ys_df[:, 1] = ys2
+
+    d_b = stationarity(ys_df)
+    np.testing.assert_array_equal(d_b, [1, 0])
 
 
 def test_against_statsmodels(plot=True):
