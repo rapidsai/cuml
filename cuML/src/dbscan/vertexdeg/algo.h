@@ -52,18 +52,12 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
     int k = data.D;
 
     int* vd = data.vd;
-//    bool* adj = data.adj;
 
     value_t eps2 = data.eps * data.eps;
 
     MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
     size_t workspaceSize = 0;
 
-
-    /**
-     * Epilogue operator to fuse the construction of boolean eps neighborhood adjacency matrix, vertex degree array,
-     * and the final distance matrix into a single kernel.
-     */
     constexpr auto distance_type = MLCommon::Distance::DistanceType::EucUnexpandedL2;
 
     workspaceSize =  MLCommon::Distance::getWorkspaceSize<distance_type, value_t, value_t, bool>
@@ -73,22 +67,19 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
         workspace.resize(workspaceSize, stream);
 
     MLCommon::Distance::epsilon_neighborhood<distance_type, value_t, OutputTile_t>
-        (data.x, data.x+startVertexId*k, 					// x & y inputs
-         data.adj,
-         m, n, k,
-         eps2,
-         (void*)workspace.data(), workspaceSize, 			// workspace params
+        (data.x, data.x+startVertexId*k, data.adj, m, n, k, eps2,
+         (void*)workspace.data(), workspaceSize,
+
          [vd, n] __device__ (int global_c_idx, bool in_neigh) {
+             // fused construction of vertex degree
              int batch_vertex = global_c_idx - (n * (global_c_idx / n));
              atomicAdd(vd+batch_vertex, in_neigh);
              atomicAdd(vd+n, in_neigh);
          },
-         stream												// cuda stream
+         stream
 	);
 
     CUDA_CHECK(cudaPeekAtLastError());
-
-    std::cout << MLCommon::arr2Str(vd, batchSize, "vd", stream) << std::endl;
 }
 }  // end namespace Algo6
 }  // end namespace VertexDeg
