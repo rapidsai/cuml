@@ -108,6 +108,9 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
 
+        std::cout << MLCommon::arr2Str(adj, batchSize*N, "adj", stream) << std::endl;
+	    std::cout << MLCommon::arr2Str(adj_graph.data(), adjlen, "adj_graph", stream) << std::endl;
+
 		// Running Labelling
 		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
 				labels, xa, fa, m, map_id, algoCcl, startVertexId,
