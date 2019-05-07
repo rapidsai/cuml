@@ -26,7 +26,7 @@ namespace AdjGraph {
 
 template <typename Type>
 void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
-         Type minpts, bool* core_pts, int algo, int batchSize, cudaStream_t stream) {
+         Type minpts, bool* core_pts, int algo, Type batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts};
     switch(algo) {
     case 0:

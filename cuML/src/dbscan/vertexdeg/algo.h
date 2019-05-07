@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include "cuda_runtime.h"
 #include "distance/distance.h"
 #include <math.h>
@@ -51,7 +52,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
     int k = data.D;
 
     int* vd = data.vd;
-    bool* adj = data.adj;
+//    bool* adj = data.adj;
 
     value_t eps2 = data.eps * data.eps;
 
@@ -63,13 +64,6 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
      * Epilogue operator to fuse the construction of boolean eps neighborhood adjacency matrix, vertex degree array,
      * and the final distance matrix into a single kernel.
      */
-    auto vertex_degree_op = [vd, n] __device__ (int global_c_idx, bool in_neigh) {
-        int batch_vertex = global_c_idx - (n * (global_c_idx / n));
-
-        atomicAdd(vd+batch_vertex, in_neigh);
-        atomicAdd(vd+n, in_neigh);
-    };
-
     constexpr auto distance_type = MLCommon::Distance::DistanceType::EucUnexpandedL2;
 
     workspaceSize =  MLCommon::Distance::getWorkspaceSize<distance_type, value_t, value_t, bool>
@@ -79,21 +73,23 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
         workspace.resize(workspaceSize, stream);
 
     MLCommon::Distance::epsilon_neighborhood<distance_type, value_t, OutputTile_t>
-    		(data.x, data.x+startVertexId*k, 					// x & y inputs
-             adj,
-    		 m, n, k,
-    		 eps2,
-			 (void*)workspace.data(), workspaceSize, 			// workspace params
-			 vertex_degree_op, 								    // epilogue operator
-    		 stream												// cuda stream
-	 );
+        (data.x, data.x+startVertexId*k, 					// x & y inputs
+         data.adj,
+         m, n, k,
+         eps2,
+         (void*)workspace.data(), workspaceSize, 			// workspace params
+         [vd, n] __device__ (int global_c_idx, bool in_neigh) {
+             int batch_vertex = global_c_idx - (n * (global_c_idx / n));
+             atomicAdd(vd+batch_vertex, in_neigh);
+             atomicAdd(vd+n, in_neigh);
+         },
+         stream												// cuda stream
+	);
 
     CUDA_CHECK(cudaPeekAtLastError());
+
+    std::cout << MLCommon::arr2Str(vd, batchSize, "vd", stream) << std::endl;
 }
-
-
-
-
 }  // end namespace Algo6
 }  // end namespace VertexDeg
 }; // end namespace Dbscan

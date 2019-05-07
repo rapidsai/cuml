@@ -558,5 +558,62 @@ void csr_add_finalize(
     );
    CUDA_CHECK(cudaPeekAtLastError());
 }
+
+template <typename T, int TPB_X, typename Lambda>
+__global__ void csr_row_op_batched_kernel(T *row_ind, T total_rows,
+        T batchSize, Lambda op) {
+    T row = blockIdx.x*TPB_X + threadIdx.x;
+    if(row < batchSize) {
+        T start_idx = row_ind[row];
+        op(row, start_idx);
+    }
+}
+
+/**
+ * Performs a batched row operation on the rows of a CSR matrix.
+ */
+template<typename T, int TPB_X, typename Lambda>
+void csr_row_op_batched(T *row_ind, T total_rows, T batchSize,
+        Lambda op, cudaStream_t stream) {
+
+    dim3 grid(MLCommon::ceildiv(batchSize, TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+
+    csr_row_op_batched_kernel<T, TPB_X><<<grid, blk, 0, stream>>>
+            (row_ind, total_rows, batchSize, op);
+}
+
+template<typename T, int TPB_X, typename Lambda>
+void csr_row_op(T *row_ind, T n_rows, Lambda op, cudaStream_t stream) {
+    csr_row_op_batched(row_ind, n_rows, n_rows, op, stream);
+}
+
+template<typename T, int TPB_X, typename Lambda>
+void csr_adj_graph_batched(T *row_ind, T total_rows, T batchSize,
+        bool *adj, T *row_ind_ptr, Lambda fused_op, cudaStream_t stream) {
+
+    csr_row_op_batched<T, TPB_X>(row_ind, total_rows, batchSize,
+            [fused_op, adj, total_rows, row_ind_ptr, batchSize] __device__
+            (T row, T start_idx) {
+
+        fused_op(row, start_idx);
+        int k = 0;
+        for(T i=0; i<total_rows; i++) {
+            // @todo: uncoalesced mem accesses!
+            if(adj[batchSize * i + row]) {
+                row_ind_ptr[start_idx + k] = i;
+                k += 1;
+                printf("row=%d, adj=%d, total_rows=%d, k=%d\n", row, adj[total_rows * i + row], total_rows, k);
+            }
+        }
+    }, stream);
+}
+
+template<typename T, int TPB_X>
+void csr_adj_graph(T *row_ind, T n_rows,
+        bool *adj, T *row_ind_ptr, cudaStream_t stream) {
+    csr_adj_graph_batched<T, TPB_X>(row_ind, n_rows, n_rows, adj, row_ind_ptr, stream);
+}
+
 };
 };

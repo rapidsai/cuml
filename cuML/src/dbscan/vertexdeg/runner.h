@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include "naive.h"
 #include "pack.h"
 #include "algo.h"
