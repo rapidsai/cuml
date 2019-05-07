@@ -55,7 +55,7 @@ __global__ void label_device(Pack<Type> data, int startVertexId, int batchSize) 
             Type ci, cj;
             bool ci_mod = false;
             ci = data.db_cluster[tid + startVertexId];
-            for(int j=0; j< int(data.vd[tid]); j++) {
+            for(int j=0; j< int(data.vd[tid]); j++) { // TODO: Can't this be calculated from the ex_scan?
                 cj = data.db_cluster[data.adj_graph[start + j]];
                 if(ci<cj) {
                     atomicMin(data.db_cluster + data.adj_graph[start +j], ci);
