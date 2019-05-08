@@ -53,12 +53,7 @@ template <typename Type>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type N,
         int startVertexId, int batchSize, cudaStream_t stream) {
 
-    bool *core_pts = data.core_pts;
 
-    MLCommon::Sparse::weak_cc_batched<Type, TPB_X>(
-            data.db_cluster, data.ex_scan, data.adj_graph, N,
-            startVertexId, batchSize, [core_pts](int tid) {return core_pts[tid];},
-            data.state, stream);
 }
 
 } // End Algo2

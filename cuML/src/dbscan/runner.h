@@ -47,7 +47,7 @@ void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
 
     Type MAX_LABEL = std::numeric_limits<Type>::max();
 
-    MLCommon::Array::map_to_monotonic(db_cluster, db_cluster, N, stream,
+    MLCommon::Array::make_monotonic(db_cluster, db_cluster, N, stream,
             [MAX_LABEL] __device__ (int val) {return val == MAX_LABEL;});
 }
 
