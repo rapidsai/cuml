@@ -34,6 +34,7 @@
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
+- PR #482: Introduce cumlHandle for pca and tsvd
 - PR #500: Added CI check for black listed CUDA Runtime API calls
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
@@ -77,6 +78,7 @@
 - PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 - PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
+- PR #577: Use find libz in prims cmake
 
 # cuML 0.6.0 (22 Mar 2019)
 

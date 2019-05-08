@@ -14,6 +14,7 @@
 
 import pytest
 from cuml import TruncatedSVD as cuTSVD
+from cuml.test.utils import get_handle
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from cuml.test.utils import array_equal
 import cudf
@@ -22,13 +23,15 @@ import numpy as np
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_fit(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_tsvd_fit(datatype, input_type, use_handle):
     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                  dtype=datatype)
     sktsvd = skTSVD(n_components=1)
     sktsvd.fit(X)
 
-    cutsvd = cuTSVD(n_components=1)
+    handle, stream = get_handle(use_handle)
+    cutsvd = cuTSVD(n_components=1, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
@@ -39,6 +42,8 @@ def test_tsvd_fit(datatype, input_type):
     else:
         cutsvd.fit(X)
 
+    cutsvd.handle.sync()
+
     for attr in ['singular_values_', 'components_',
                  'explained_variance_ratio_']:
         with_sign = False if attr in ['components_'] else True
@@ -48,13 +53,15 @@ def test_tsvd_fit(datatype, input_type):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_fit_transform(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_tsvd_fit_transform(datatype, input_type, use_handle):
     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                  dtype=datatype)
     skpca = skTSVD(n_components=1)
     Xsktsvd = skpca.fit_transform(X)
 
-    cutsvd = cuTSVD(n_components=1)
+    handle, stream = get_handle(use_handle)
+    cutsvd = cuTSVD(n_components=1, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
@@ -65,15 +72,19 @@ def test_tsvd_fit_transform(datatype, input_type):
     else:
         Xcutsvd = cutsvd.fit_transform(X)
 
+    cutsvd.handle.sync()
+
     assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_tsvd_inverse_transform(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_tsvd_inverse_transform(datatype, input_type, use_handle):
     gdf = cudf.DataFrame()
     gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
     gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
+    handle, stream = get_handle(use_handle)
     cutsvd = cuTSVD(n_components=1)
 
     if input_type == 'dataframe':
@@ -85,4 +96,7 @@ def test_tsvd_inverse_transform(datatype, input_type):
         Xcutsvd = cutsvd.fit_transform(X)
 
     input_gdf = cutsvd.inverse_transform(Xcutsvd)
+
+    cutsvd.handle.sync()
+
     assert array_equal(input_gdf, gdf, 0.4, with_sign=True)
