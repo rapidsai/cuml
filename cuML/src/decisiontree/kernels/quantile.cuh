@@ -39,8 +39,8 @@ __global__ void get_all_quantiles(const T* __restrict__ data, T* quantile, const
 	return;
 }
 
-template<typename T>
-void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, std::shared_ptr<TemporaryMemory<T>> tempmem) {
+template<typename T, typename L>
+void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
 
 	int threads = 128;
 	int  num_items = n_sampled_rows * ncols; // number of items to sort across all segments (i.e., cols)

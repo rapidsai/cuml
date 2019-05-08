@@ -102,7 +102,7 @@ class dt {
 		int depth_counter = 0;
 		int maxleaves;
 		int leaf_counter = 0;
-		std::vector<std::shared_ptr<TemporaryMemory<T>>> tempmem;
+		std::vector<std::shared_ptr<TemporaryMemory<T, L>>> tempmem;
 		size_t total_temp_mem;
 		const int MAXSTREAMS = 1;
 		size_t max_shared_mem;
@@ -114,6 +114,8 @@ class dt {
 		std::vector<int> feature_selector;
 
 	    void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
+		void split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
+
 	public:
 		// Printing utility for high level tree info.
 		void print_tree_summary() const;
@@ -147,7 +149,6 @@ private:
 	/* depth is used to distinguish between root and other tree nodes for computations */
 	void find_best_fruit_all(T *data, int *labels, const float colper, MetricQuestion<T> & ques, float& gain, unsigned int* rowids,
 							const int n_sampled_rows, MetricInfo split_info[3], int depth);
-	void split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
 }; // End DecisionTreeClassifier Class
 
 template<class T>
@@ -156,8 +157,16 @@ public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
 			const int n_sampled_rows, DecisionTreeParams tree_params);
 
-// TODO FIXME: add private methods from DecisionTreeClassifier as needed
-//private:
+private:
+	// Same as above fit, but planting is better for a tree then fitting.
+	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels = 1,
+		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false);
+
+	TreeNode<T, T> * grow_tree(T *data, const float colper, T *labels, int depth, unsigned int* rowids, const int n_sampled_rows, MetricInfo prev_split_info);
+
+	/* depth is used to distinguish between root and other tree nodes for computations */
+	void find_best_fruit_all(T *data, T *labels, const float colper, MetricQuestion<T> & ques, float& gain, unsigned int* rowids,
+							const int n_sampled_rows, MetricInfo split_info[3], int depth);
 }; // End DecisionTreeRegressor Class
 
 } //End namespace DecisionTree
