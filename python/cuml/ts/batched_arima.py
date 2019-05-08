@@ -307,7 +307,7 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
     """
 
     num_batches = y_b.shape[1]
-    best_ic = np.zeros(num_batches)
+    best_ic = np.full(num_batches, np.finfo(np.float64).max/2)
     best_model = BatchedARIMAModel([[]]*num_batches, np.zeros(num_batches), [[]]*num_batches, [[]]*num_batches, y_b)
     # best_model =
 
