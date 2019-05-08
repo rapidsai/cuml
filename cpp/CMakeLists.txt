@@ -238,8 +238,8 @@ add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
-file(GLOB_RECURSE cuml_test_cuda_sources "test/*.cu")
-file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
+file(GLOB_RECURSE cuml_test_cuda_sources "test/sg/*.cu")
+file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
 
 ###################################################################################################
 # - build libcuml++ shared library ------------------------------------------------------------------
