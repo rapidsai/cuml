@@ -224,12 +224,15 @@ add_dependencies(gpufaisslib faiss)
 set_property(TARGET faisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/libfaiss.a)
 set_property(TARGET gpufaisslib PROPERTY IMPORTED_LOCATION ${FAISS_DIR}/gpu/libgpufaiss.a)
 
-include_directories(src
+include_directories(
+  src
+  src_prims
+  test/prims
   ${CMAKE_CURRENT_BINARY_DIR}/faiss/include
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${GTEST_DIR}/include
-  ${MLPRIMS_DIR}/src
-  ${MLPRIMS_DIR}/test
+  # ${MLPRIMS_DIR}/src
+  # ${MLPRIMS_DIR}/test
   ${CUTLASS_DIR}
   ${CUB_DIR}
   ${ZLIB_INCLUDE_DIRS$})
@@ -237,7 +240,7 @@ include_directories(src
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
 # Append source file in recursive manner, append header files to target for work with them in IDE
-file(GLOB_RECURSE ml_prims_header "${MLPRIMS_DIR}/src/*.h" "${MLPRIMS_DIR}/src/*.hpp")
+file(GLOB_RECURSE ml_prims_header "src_prims/*.h" "src_prims/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/sg/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
 
