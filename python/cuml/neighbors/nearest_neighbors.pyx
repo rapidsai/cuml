@@ -197,12 +197,10 @@ cdef class NearestNeighbors:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
         self.k = NULL
-        self.X_m = NULL
 
     def __dealloc__(self):
         del self.k
         del self.input
-        del self.X_m
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -271,9 +269,6 @@ cdef class NearestNeighbors:
 
         if self.k != NULL:
             del self.k
-
-        if self.X_m != NULL:
-            del self.X_m
 
         n_dims = X.shape[1]
         self.k = new kNN(n_dims, verbose = self._verbose)
