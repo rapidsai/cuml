@@ -572,7 +572,15 @@ __global__ void csr_row_op_batched_kernel(T *row_ind, T total_rows,
 }
 
 /**
- * Performs a batched row operation on the rows of a CSR matrix.
+ * @brief Perform a custom row operation on a CSR matrix in batches.
+ * @tparam T numerical type of row_ind array
+ * @tparam TPB_X number of threads per block to use for underlying kernel
+ * @tparam Lambda type of custom operation function
+ * @param row_ind the CSR row_ind array to perform parallel operations over
+ * @param total_rows total number vertices in graph
+ * @param batchSize size of row_ind
+ * @param op custom row operation functor
+ * @param stream cuda stream to use
  */
 template<typename T, int TPB_X, typename Lambda>
 void csr_row_op_batched(T *row_ind, T total_rows, T batchSize,
@@ -585,10 +593,34 @@ void csr_row_op_batched(T *row_ind, T total_rows, T batchSize,
             (row_ind, total_rows, batchSize, op);
 }
 
+/**
+ * @brief Perform a custom row operation on a CSR matrix.
+ * @tparam T numerical type of row_ind array
+ * @tparam TPB_X number of threads per block to use for underlying kernel
+ * @tparam Lambda type of custom operation function
+ * @param row_ind the CSR row_ind array to perform parallel operations over
+ * @param n_rows total number vertices in graph (size of row_ind)
+ * @param op custom row operation functor
+ * @param stream cuda stream to use
+ */
 template<typename T, int TPB_X, typename Lambda>
 void csr_row_op(T *row_ind, T n_rows, Lambda op, cudaStream_t stream) {
     csr_row_op_batched(row_ind, n_rows, n_rows, op, stream);
 }
+
+/**
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from
+ * a row_ind array and adjacency array.
+ * @tparam T the numeric type of the index arrays
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @tparam Lambda function for fused operation in the adj_graph construction
+ * @param row_ind the input CSR row_ind array
+ * @param total_rows number of vertices in graph
+ * @param batchSize number of vertices in current batch
+ * @param adj an adjacency array
+ * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
+ * @param stream cuda stream to use
+ */
 
 template<typename T, int TPB_X, typename Lambda>
 void csr_adj_graph_batched(T *row_ind, T total_rows, T batchSize,
@@ -605,16 +637,27 @@ void csr_adj_graph_batched(T *row_ind, T total_rows, T batchSize,
             if(adj[batchSize * i + row]) {
                 row_ind_ptr[start_idx + k] = i;
                 k += 1;
-                printf("row=%d, adj=%d, total_rows=%d, k=%d\n", row, adj[total_rows * i + row], total_rows, k);
             }
         }
     }, stream);
 }
 
+/**
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from a
+ * a row_ind array and adjacency array.
+ * @tparam T the numeric type of the index arrays
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @param row_ind the input CSR row_ind array
+ * @param n_rows number of total vertices in graph
+ * @param adj an adjacency array
+ * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
+ * @param stream cuda stream to use
+ */
 template<typename T, int TPB_X>
 void csr_adj_graph(T *row_ind, T n_rows,
         bool *adj, T *row_ind_ptr, cudaStream_t stream) {
-    csr_adj_graph_batched<T, TPB_X>(row_ind, n_rows, n_rows, adj, row_ind_ptr, stream);
+    csr_adj_graph_batched<T, TPB_X>(row_ind, n_rows, n_rows, adj,
+            row_ind_ptr, stream);
 }
 
 template<typename T>
@@ -746,7 +789,11 @@ void weak_cc_label_batched(Type *labels,
 }
 
 /**
- * @brief Compute weakly connected components
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
  * @tparam Type the numeric type of non-floating point elements
  * @tparam TPB_X the threads to use per block when configuring the kernel
  * @tparam Lambda the type of an optional filter function (int)->bool
@@ -755,6 +802,9 @@ void weak_cc_label_batched(Type *labels,
  * @param row_ind_ptr the row index pointer of the CSR array
  * @param vd the vertex degree array (todo: modify this algorithm to only use row_ind)
  * @param N number of vertices
+ * @param startVertexId the starting vertex index for the current batch
+ * @param batchSize number of vertices for current batch
+ * @param state instance of inter-batch state management
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling.
@@ -807,9 +857,6 @@ void weak_cc(Type *labels, Type *row_ind, Type *row_ind_ptr,
             labels, row_ind, row_ind_ptr,
             vd, N, 0, N, stream,
             filter_op);
-
-    // Map the labels to a monotonic set
-    Array::map_to_monotonic(labels, labels, stream);
 }
 
 

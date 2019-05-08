@@ -55,7 +55,7 @@ __global__ void map_label_kernel(Type *map_ids, Type *in, Type *out,
  * should have monotonically increasing labels applied to them.
  */
 template <typename Type, typename Lambda>
-void map_to_monotonic(Type *out, Type *in, Type N, cudaStream_t stream,
+void make_monotonic(Type *out, Type *in, Type N, cudaStream_t stream,
         Lambda filter_op = [] __device__ (int val) {return false;}) {
 
     static const int TPB_X = 256;
