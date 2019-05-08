@@ -43,6 +43,7 @@
 - PR #527: Added notes on UMAP differences from reference implementation
 - PR #540: Use latest release version in update-version CI script
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
+- PR #581: Add shared memory fast col major to row major function back with bound checks
 
 ## Bug Fixes
 
