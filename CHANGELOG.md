@@ -78,6 +78,7 @@
 - PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 - PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
+- PR #577: Use find libz in prims cmake
 
 # cuML 0.6.0 (22 Mar 2019)
 
