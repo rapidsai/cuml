@@ -813,7 +813,7 @@ void weak_cc_label_batched(Type *labels,
  * should get considered for labeling.
  */
 template<typename Type, int TPB_X, typename Lambda>
-void weak_cc_batched(Type *labels, Type *row_ind, Type *row_ind_ptr,
+void weak_cc_batched(Type *labels, Type* const row_ind,  Type* const row_ind_ptr,
         Type nnz, Type N, Type startVertexId, Type batchSize,
         WeakCCState<Type> *state, cudaStream_t stream,
         Lambda filter_op = [] __device__ (int tid) {return true;}) {
@@ -848,7 +848,7 @@ void weak_cc_batched(Type *labels, Type *row_ind, Type *row_ind_ptr,
  * should get considered for labeling.
  */
 template<typename Type, int TPB_X, typename Lambda>
-void weak_cc(Type *labels, const Type *row_ind, const Type *row_ind_ptr,
+void weak_cc(Type *labels, Type* const row_ind, Type* const row_ind_ptr,
         Type nnz, Type N, cudaStream_t stream,
         Lambda filter_op = [] __device__ (int tid) {return true;}) {
 
