@@ -43,6 +43,8 @@ __global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
 template <typename Type>
 void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
 
+    std::cout << "DBSCAN PERFORMING FINAL RELABEL!" << std::endl;
+
     Type MAX_LABEL = std::numeric_limits<Type>::max();
 
     MLCommon::Array::map_to_monotonic(db_cluster, db_cluster, N, stream,
@@ -50,6 +52,8 @@ void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
 }
 
 template<typename Type, typename Type_f>
+
+
 /* @param N number of points
  * @param D dimensionality of the points
  * @param eps epsilon neighborhood criterion

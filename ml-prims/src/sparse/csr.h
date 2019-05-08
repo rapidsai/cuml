@@ -17,6 +17,8 @@
 
 #include "cuda_utils.h"
 
+#include "array/array.h"
+
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
@@ -743,6 +745,20 @@ void weak_cc_label_batched(Type *labels,
     } while(host_m);
 }
 
+/**
+ * @brief Compute weakly connected components
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param vd the vertex degree array (todo: modify this algorithm to only use row_ind)
+ * @param N number of vertices
+ * @param stream the cuda stream to use
+ * @param filter_op an optional filtering function to determine which points
+ * should get considered for labeling.
+ */
 template<typename Type, int TPB_X, typename Lambda>
 void weak_cc_batched(
         Type *labels, Type *row_ind, Type *row_ind_ptr, Type *vd,
@@ -762,6 +778,24 @@ void weak_cc_batched(
             startVertexId, batchSize, stream, filter_op);
 }
 
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param vd the vertex degree array (todo: modify this algorithm to only use row_ind)
+ * @param N number of vertices
+ * @param stream the cuda stream to use
+ * @param filter_op an optional filtering function to determine which points
+ * should get considered for labeling.
+ */
 template<typename Type, int TPB_X, typename Lambda>
 void weak_cc(Type *labels, Type *row_ind, Type *row_ind_ptr,
         Type *vd, Type N,
@@ -773,6 +807,9 @@ void weak_cc(Type *labels, Type *row_ind, Type *row_ind_ptr,
             labels, row_ind, row_ind_ptr,
             vd, N, 0, N, stream,
             filter_op);
+
+    // Map the labels to a monotonic set
+    Array::map_to_monotonic(labels, labels, stream);
 }
 
 

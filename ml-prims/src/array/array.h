@@ -7,6 +7,9 @@
 
 #pragma once
 
+#include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
+#include <thrust/unique.h>
 #include <thrust/sort.h>
 #include <limits>
 
@@ -72,9 +75,9 @@ void map_to_monotonic(Type *out, Type *in, Type N, cudaStream_t stream,
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    thrust::sort(host, host_in, host_in + N);
+    thrust::sort(thrust::host, host_in, host_in + N);
 
-    Type *uid = thrust::unique(host, host_in, host_in + N, equal_to<Type>());
+    Type *uid = thrust::unique(thrust::host, host_in, host_in + N, thrust::equal_to<Type>());
     Type num_clusters = uid - host_in;
     for(int i=0; i<num_clusters; i++)
         host_map_ids[i] = host_in[i];
