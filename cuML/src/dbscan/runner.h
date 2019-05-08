@@ -125,9 +125,10 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 
 	    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
             labels, ex_scan, adj_graph.data(), vd, N,
-            startVertexId, batchSize, [core_pts] __device__ (Type tid) {
+            startVertexId, batchSize, &state, stream,
+            [core_pts] __device__ (Type tid) {
                 return core_pts[tid];
-        },&state, stream);
+        });
 	}
 	if (algoCcl == 2)
 		final_relabel(labels, N, stream);
