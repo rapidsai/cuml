@@ -50,6 +50,8 @@ option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_PRIM_TESTS "Build ml-prim tests" OFF)
 
+option(BUILD_EXAMPLES "Build C++ API usage examples" OFF)
+
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
 
@@ -282,7 +284,7 @@ endif(OPENMP_FOUND)
 target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
 
 ###################################################################################################
-# - build test executable -------------------------------------------------------------------------
+# - build ml_test executable ----------------------------------------------------------------------
 
 add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
 
@@ -302,7 +304,7 @@ target_link_libraries(ml_test
   ${ZLIB_LIBRARIES})
 
 ###################################################################################################
-# - build test executable -------------------------------------------------------------------------
+# - build ml_mg_test executable -------------------------------------------------------------------
 
 add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
 
@@ -324,9 +326,9 @@ target_link_libraries(ml_mg_test
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+if (DISABLE_EXAMPLES OR ${BUILD_EXAMPLES})
   add_subdirectory(examples)
-endif(NOT DISABLE_EXAMPLES OR NOT ${DISABLE_EXAMPLES})
+endif(DISABLE_EXAMPLES OR ${BUILD_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
