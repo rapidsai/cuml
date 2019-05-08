@@ -18,7 +18,7 @@
 
 #include <rmm/rmm.h>
 
-#include "../../src_prims/utils.h"
+#include "../../../ml-prims/src/utils.h"
 
 #include "../cuML.hpp"
 
@@ -95,6 +95,8 @@ public:
             }
         }
     }
+
+    virtual ~rmmAllocatorAdapter() {}
 
 private:
     const bool _rmmInitialized;
