@@ -470,7 +470,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -481,7 +481,7 @@ class KMeans(Base):
                 <double*> input_ptr,           # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
@@ -542,7 +542,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa
+                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <float*> preds_ptr,            # transformed output
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -553,7 +553,7 @@ class KMeans(Base):
                 <double*> input_ptr,            # srcdata
                 <size_t> self.n_rows,           # n_samples (rows)
                 <size_t> self.n_cols,           # n_features (cols)
-                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa
+                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <double*> preds_ptr,            # transformed output
                 <int> self.verbose)
         else:
@@ -564,7 +564,7 @@ class KMeans(Base):
         self.handle.sync()
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters] # noqa
+            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
         del(clust_mat)
