@@ -24,6 +24,7 @@
 #include "pack.h"
 #include "algo2.h"
 #include <common/cumlHandle.hpp>
+#include "sparse/csr.h"
 
 namespace Dbscan {
 namespace Label {
@@ -32,10 +33,10 @@ namespace Label {
 template <typename Type>
 void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster, 
-         bool *xa, bool *fa, bool *m, Type *map_id, 
+         MLCommon::Sparse::WeakCCState<Type> *state,
          int algo, int startVertexId, int batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
-                       visited, db_cluster, xa, fa, m, map_id};
+                       visited, db_cluster, state};
     switch(algo) {
     case 0:
         Naive::launcher<Type>(handle, data, startVertexId, batchSize, stream);
@@ -45,20 +46,11 @@ void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph,
         Algo1::launcher<Type>(handle, data, startVertexId, batchSize, stream);
         break;
     case 2:
-        Algo2::launcher<Type>(handle, data, N, startVertexId, batchSize, stream);
+        Algo2::launcher<Type>(handle, data, N, startVertexId, batchSize, state, stream);
         break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
     }
-}
-
-template <typename Type>
-void final_relabel(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
-         Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
-         bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
-    Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
-                       visited, db_cluster, xa, fa, m, map_id};
-    Algo2::relabel<Type>(handle, data, stream);
 }
 
 } // namespace Label

@@ -23,14 +23,30 @@
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
+#include "array/array.h"
+#include "sparse/csr.h"
+
 namespace Dbscan {
 
 using namespace MLCommon;
 
+static const int TPB = 256;
+
+
 template <typename Type>
-__global__ void relabelForSkl(Type* labels, Type N) {
+__global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
-    if(tid < N) --labels[tid];
+    if(labels[tid] == MAX_LABEL) labels[tid] = -1;
+    else if(tid < N) --labels[tid];
+}
+
+template <typename Type>
+void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
+
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+
+    MLCommon::Array::map_to_monotonic(db_cluster, db_cluster, N, stream,
+            [MAX_LABEL] __device__ (int val) {return val == MAX_LABEL;});
 }
 
 template<typename Type, typename Type_f>
@@ -50,25 +66,21 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
 
     const size_t align = 256;
-    int batchSize = ceildiv(N, nBatches);
+    Type batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
     size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
-    size_t visitedSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
     size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
-    size_t mapIdSize = alignTo<size_t>(sizeof(Type) * N, align);
 
     if(workspace == NULL) {
         auto size = adjSize
             + corePtsSize
-            + visitedSize
             + 2 * xaSize
             + mSize
             + vdSize
-            + exScanSize
-            + mapIdSize;
+            + exScanSize;
         return size;
     }
     // partition the temporary workspace needed for different stages of dbscan
@@ -77,18 +89,18 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     char* temp = (char*)workspace;
     bool* adj = (bool*)temp;       temp += adjSize;
     bool* core_pts = (bool*)temp;  temp += corePtsSize;
-    bool* visited = (bool*)temp;   temp += visitedSize;
     bool* xa = (bool*)temp;        temp += xaSize;
     bool* fa = (bool*)temp;        temp += xaSize;
     bool* m = (bool*)temp;         temp += mSize;
     int* vd = (int*)temp;        temp += vdSize;
     Type* ex_scan = (Type*)temp;   temp += exScanSize;
-    Type* map_id = (Type*)temp;    temp += mapIdSize;
 
 	// Running VertexDeg
+    MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
+
 	for (int i = 0; i < nBatches; i++) {
 		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
-		int startVertexId = i * batchSize;
+		Type startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
 
         if(nPoints <= 0)
@@ -111,22 +123,21 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
         std::cout << MLCommon::arr2Str(adj, batchSize*N, "adj", stream) << std::endl;
 	    std::cout << MLCommon::arr2Str(adj_graph.data(), adjlen, "adj_graph", stream) << std::endl;
 
-		// Running Labelling
-		Label::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts, visited,
-				labels, xa, fa, m, map_id, algoCcl, startVertexId,
-				nPoints, stream);
+	    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
+            labels, ex_scan, adj_graph.data(), vd, N,
+            startVertexId, batchSize, [core_pts] __device__ (Type tid) {
+                return core_pts[tid];
+        },&state, stream);
 	}
-	if (algoCcl == 2) {
-		Type *adj_graph = NULL;
-		Label::final_relabel(handle, adj, vd, adj_graph, ex_scan, N, minPts, core_pts,
-				visited, labels, xa, fa, m, map_id, stream);
-	}
+	if (algoCcl == 2)
+		final_relabel(labels, N, stream);
 
-        static const int TPB = 256;
-        int nblks = ceildiv(N, TPB);
-        relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N);
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
 
-        CUDA_CHECK(cudaPeekAtLastError());
+    int nblks = ceildiv(N, TPB);
+    relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
+
+    CUDA_CHECK(cudaPeekAtLastError());
 
 
 	return (size_t) 0;

@@ -15,7 +15,7 @@
  */
 
 #pragma once
-
+#include "sparse/csr.h"
 #include "utils.h"
 
 namespace Dbscan {
@@ -45,21 +45,12 @@ struct Pack {
     bool *visited;
     /** array to store the final cluster */
     Type *db_cluster;
-    /** array to store visited points for GPU */ 
-    bool *xa;
-    /** array to store border points for GPU */
-    bool *fa;
-    /** bool variable for algo 2 */ 
-    bool *m;
-    /** array to store map index after sorting */
-    Type *map_id;
+
+    MLCommon::Sparse::WeakCCState<Type> *state;
 
     void resetArray(cudaStream_t stream) {
         CUDA_CHECK(cudaMemsetAsync(visited, false, sizeof(bool)*N, stream));
         CUDA_CHECK(cudaMemsetAsync(db_cluster, 0, sizeof(Type)*N, stream));
-        CUDA_CHECK(cudaMemsetAsync(xa, false, sizeof(bool)*N, stream));
-        CUDA_CHECK(cudaMemsetAsync(fa, false, sizeof(bool)*N, stream));
-        CUDA_CHECK(cudaMemsetAsync(map_id, 0, sizeof(Type)*N, stream));
     }	
 };
 
