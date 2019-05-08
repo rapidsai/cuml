@@ -53,7 +53,7 @@ __global__ void map_label_kernel(Type *map_ids, Type *in, Type *out,
  */
 template <typename Type, typename Lambda>
 void map_to_monotonic(Type *out, Type *in, Type N, cudaStream_t stream,
-        Lambda filter_op) {
+        Lambda filter_op = [] __device__ (int val) {return false;}) {
 
     static const int TPB_X = 256;
 
@@ -83,14 +83,6 @@ void map_to_monotonic(Type *out, Type *in, Type N, cudaStream_t stream,
 
     map_label_kernel<Type,TPB_X><<<blocks, threads, 0, stream>>>(map_ids, in, out, N, filter_op);
 }
-
-template <typename Type, typename Lambda>
-void map_to_monotonic(Type *out, Type *in, Type N, cudaStream_t stream) {
-
-    map_to_monotonic<Type, Lambda>(out, in, N, stream,
-            [] __device__ (int val) {return false;});
-}
-
 
 
 

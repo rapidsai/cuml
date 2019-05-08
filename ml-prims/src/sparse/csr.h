@@ -747,8 +747,9 @@ template<typename Type, int TPB_X, typename Lambda>
 void weak_cc_batched(
         Type *labels, Type *row_ind, Type *row_ind_ptr, Type *vd,
         Type N,
-        Type startVertexId, Type batchSize, Lambda filter_op,
-        WeakCCState<Type> *state, cudaStream_t stream) {
+        Type startVertexId, Type batchSize,
+        WeakCCState<Type> *state, cudaStream_t stream,
+        Lambda filter_op = [] __device__ (int tid) {return true;}) {
 
     dim3 blocks(ceildiv(N, TPB_X));
     dim3 threads(TPB_X);
@@ -760,6 +761,20 @@ void weak_cc_batched(
     weak_cc_label_batched<Type, TPB_X>(labels, row_ind, row_ind_ptr, vd, N, state,
             startVertexId, batchSize, stream, filter_op);
 }
+
+template<typename Type, int TPB_X, typename Lambda>
+void weak_cc(Type *labels, Type *row_ind, Type *row_ind_ptr,
+        Type *vd, Type N,
+        cudaStream_t stream,
+        Lambda filter_op = [] __device__ (int tid) {return true;}) {
+
+    WeakCCState<Type> state;
+    weak_cc_batched<Type, TPB_X>(
+            labels, row_ind, row_ind_ptr,
+            vd, N, 0, N, stream,
+            filter_op);
+}
+
 
 };
 };
