@@ -79,6 +79,7 @@
 - PR #543: Exposing dbscan batch size through cython API and fixing broken batching
 - PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
 - PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
+- PR #578: Updated Readme.md to add lasso and elastic-net
 - PR #580: Fixing cython garbage collection bug in KNN
 - PR #577: Use find libz in prims cmake
 
