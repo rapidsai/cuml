@@ -696,7 +696,7 @@ class WeakCCState {
 template <typename Type, int TPB_X>
 __global__ void weak_cc_label_device(
         Type *labels,
-        Type *row_ind, Type *row_ind_ptr, Type *vd,
+        Type *row_ind, Type *row_ind_ptr, Type nnz,
         bool *fa, bool *xa, bool *m,
         int startVertexId, int batchSize) {
     int tid = threadIdx.x + blockIdx.x*TPB_X;
@@ -707,7 +707,10 @@ __global__ void weak_cc_label_device(
             Type ci, cj;
             bool ci_mod = false;
             ci = labels[tid + startVertexId];
-            for(int j=0; j< int(vd[tid]); j++) { // TODO: Can't this be calculated from the ex_scan?
+
+            Type degree = get_stop_idx(tid, batchSize,nnz, row_ind) - row_ind[tid];
+
+            for(int j=0; j< int(degree); j++) { // TODO: Can't this be calculated from the ex_scan?
                 cj = labels[row_ind_ptr[start + j]];
                 if(ci<cj) {
                     atomicMin(labels + row_ind_ptr[start +j], ci);
@@ -754,7 +757,7 @@ __global__ void weak_cc_init_all_kernel(Type *labels, bool *fa, bool *xa,
 
 template <typename Type, int TPB_X, typename Lambda>
 void weak_cc_label_batched(Type *labels,
-        Type *row_ind, Type *row_ind_ptr, Type *vd, Type N,
+        Type *row_ind, Type *row_ind_ptr, Type nnz, Type N,
         WeakCCState<Type> *state,
         Type startVertexId, Type batchSize,
         cudaStream_t stream, Lambda filter_op) {
@@ -772,7 +775,7 @@ void weak_cc_label_batched(Type *labels,
         CUDA_CHECK( cudaMemsetAsync(state->m, false, sizeof(bool), stream) );
         weak_cc_label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(
                 labels,
-                row_ind, row_ind_ptr, vd,
+                row_ind, row_ind_ptr, nnz,
                 state->fa, state->xa, state->m,
                 startVertexId, batchSize);
 
@@ -800,7 +803,7 @@ void weak_cc_label_batched(Type *labels,
  * @param labels an array for the output labels
  * @param row_ind the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
- * @param vd the vertex degree array (todo: modify this algorithm to only use row_ind)
+ * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
  * @param startVertexId the starting vertex index for the current batch
  * @param batchSize number of vertices for current batch
@@ -810,10 +813,8 @@ void weak_cc_label_batched(Type *labels,
  * should get considered for labeling.
  */
 template<typename Type, int TPB_X, typename Lambda>
-void weak_cc_batched(
-        Type *labels, Type *row_ind, Type *row_ind_ptr, Type *vd,
-        Type N,
-        Type startVertexId, Type batchSize,
+void weak_cc_batched(Type *labels, Type *row_ind, Type *row_ind_ptr,
+        Type nnz, Type N, Type startVertexId, Type batchSize,
         WeakCCState<Type> *state, cudaStream_t stream,
         Lambda filter_op = [] __device__ (int tid) {return true;}) {
 
@@ -824,7 +825,7 @@ void weak_cc_batched(
     if(startVertexId == 0)
         weak_cc_init_all_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>
             (labels, state->fa, state->xa, N, MAX_LABEL);
-    weak_cc_label_batched<Type, TPB_X>(labels, row_ind, row_ind_ptr, vd, N, state,
+    weak_cc_label_batched<Type, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, state,
             startVertexId, batchSize, stream, filter_op);
 }
 
@@ -840,22 +841,21 @@ void weak_cc_batched(
  * @param labels an array for the output labels
  * @param row_ind the compressed row index of the CSR array
  * @param row_ind_ptr the row index pointer of the CSR array
- * @param vd the vertex degree array (todo: modify this algorithm to only use row_ind)
+ * @param nnz the size of row_ind_ptr array
  * @param N number of vertices
  * @param stream the cuda stream to use
  * @param filter_op an optional filtering function to determine which points
  * should get considered for labeling.
  */
 template<typename Type, int TPB_X, typename Lambda>
-void weak_cc(Type *labels, Type *row_ind, Type *row_ind_ptr,
-        Type *vd, Type N,
-        cudaStream_t stream,
+void weak_cc(Type *labels, const Type *row_ind, const Type *row_ind_ptr,
+        Type nnz, Type N, cudaStream_t stream,
         Lambda filter_op = [] __device__ (int tid) {return true;}) {
 
     WeakCCState<Type> state;
     weak_cc_batched<Type, TPB_X>(
             labels, row_ind, row_ind_ptr,
-            vd, N, 0, N, stream,
+            nnz, N, 0, N, stream,
             filter_op);
 }
 
