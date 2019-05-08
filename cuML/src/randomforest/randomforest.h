@@ -88,11 +88,10 @@ class rf {
 	protected:
 		RF_params rf_params;
 		int rf_type;
-		DecisionTree::dt<T> * trees;
+		virtual const DecisionTree::dt<T> * get_trees_ptr() const = 0;
 
 	public:
 		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
-		~rf();
 
 		int get_ntrees();
 		void print_rf_summary();
@@ -101,29 +100,38 @@ class rf {
 
 template <class T>
 class rfClassifier : public rf<T> {
+    private:
+		DecisionTree::DecisionTreeClassifier<T> * trees = nullptr;
+		const DecisionTree::DecisionTreeClassifier<T> * get_trees_ptr() const;
 	public:
 
 	rfClassifier(RF_params cfg_rf_params);
+	~rfClassifier();
 
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
 	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
-
 };
 
 template <class T>
 class rfRegressor : public rf<T> {
+    private:
+		DecisionTree::DecisionTreeRegressor<T> * trees = nullptr;
+		const DecisionTree::DecisionTreeRegressor<T> * get_trees_ptr() const;
 	public:
 
 	rfRegressor(RF_params cfg_rf_params);
+	~rfRegressor();
 
 	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, T * labels);
 	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, T * predictions, bool verbose=false) const;
 	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const T * ref_labels, int n_rows, int n_cols, T * predictions, bool verbose=false) const;
-
 };
 
 // Stateless API functions: fit, predict and cross_validate.
+
+// ----------------------------- Classification ----------------------------------- //
+
 void fit(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 void fit(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 
@@ -133,6 +141,19 @@ void predict(const cumlHandle& user_handle, const rfClassifier<double> * rf_clas
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels,
 							int n_rows, int n_cols, int * predictions, bool verbose=false);
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels,
+							int n_rows, int n_cols, int * predictions, bool verbose=false);
+
+// ----------------------------- Regression ----------------------------------- //
+
+void fit(const cumlHandle& user_handle, rfRegressor<float> * rf_regressor, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+void fit(const cumlHandle& user_handle, rfRegressor<double> * rf_regressor, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+
+void predict(const cumlHandle& user_handle, const rfRegressor<float> * rf_regressor, const float * input, int n_rows, int n_cols, int * predictions, bool verbose=false);
+void predict(const cumlHandle& user_handle, const rfRegressor<double> * rf_regressor, const double * input, int n_rows, int n_cols, int * predictions, bool verbose=false);
+
+RF_metrics cross_validate(const cumlHandle& user_handle, const rfRegressor<float> * rf_regressor, const float * input, const int * ref_labels,
+							int n_rows, int n_cols, int * predictions, bool verbose=false);
+RF_metrics cross_validate(const cumlHandle& user_handle, const rfRegressor<double> * rf_regressor, const double * input, const int * ref_labels,
 							int n_rows, int n_cols, int * predictions, bool verbose=false);
 
 };

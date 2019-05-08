@@ -157,13 +157,6 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
 
-template<typename T>
-void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels,
-									unsigned int *rowids, const int n_sampled_rows, DecisionTreeParams tree_params) {
-	ASSERT(false, "Unsupported fit method for DecisionTreeClassifier");
-}
-
-
 /**
  * @brief Predict target feature for input data; n-ary classification for single feature supported. Inference of trees is CPU only for now.
  * @tparam T: data type for input data (float or double).
@@ -182,10 +175,6 @@ void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * 
 	classify_all(rows, n_rows, n_cols, predictions, verbose);
 }
 
-template<typename T>
-void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose) const {
-	ASSERT(false, "Unsupported predict method for DecisionTreeClassifier");
-}
 
 template<typename T>
 void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
@@ -382,13 +371,6 @@ void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const 
     //		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
 
-template<typename T>
-void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
-									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
-
-	ASSERT(false, "Unsupported fit method for DecisionTreeRegressor");
-}
-
 /**
  * @brief Predict target feature for input data; regression for single feature supported. Inference of trees is CPU only for now.
  * @tparam T: data type for input data (float or double).
@@ -405,11 +387,6 @@ void DecisionTreeRegressor<T>::predict(const ML::cumlHandle& handle, const T * r
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	predict_all(rows, n_rows, n_cols, predictions, verbose);
-}
-
-template<typename T>
-void DecisionTreeRegressor<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) const {
-	ASSERT(false, "Unsupported predict method for DecisionTreeRegressor");
 }
 
 template<typename T>

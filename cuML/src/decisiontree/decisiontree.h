@@ -121,13 +121,6 @@ class dt {
 		// Printing utility for debug and looking at nodes and leaves.
 		void print() const;
 
-		virtual void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
-			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params) = 0;
-		virtual void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
-			const int n_sampled_rows, DecisionTreeParams tree_params) = 0;
-
-		virtual void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const = 0;
-		virtual void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const = 0;
 }; // End dt Class
 
 template<class T>
@@ -139,10 +132,8 @@ public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
 			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
-	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
-			const int n_sampled_rows, DecisionTreeParams tree_params);
+	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
 	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
-	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const;
 
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
@@ -165,17 +156,13 @@ public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
 			const int n_sampled_rows, DecisionTreeParams tree_params);
 
-	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
-			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
-
 	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
 	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const;
-	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
 
 // TODO FIXME: add private methods from DecisionTreeClassifier as needed
 private:
 	void predict_all(const T * rows, const int n_rows, const int n_cols, T * preds, bool verbose=false) const;
-	T predict(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
+	T predict(const T * row, const TreeNode<T> * const node, bool verbose=false) const; // TODO FIXME rename so it's not overloaded? Or pull to base class?
 }; // End DecisionTreeRegressor Class
 
 } //End namespace DecisionTree

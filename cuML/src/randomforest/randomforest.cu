@@ -145,17 +145,8 @@ void RF_params::print() const {
  * @param[in] cfg_rf_type: Random forest type. Only CLASSIFICATION is currently supported.
  */
 template<typename T>
-rf<T>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type), trees(nullptr) {
+rf<T>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type) {
 	rf_params.validity_check();
-}
-
-/**
- * @brief Destructor for random forest object.
- * @tparam T: data type for input data (float or double).
- */
-template<typename T>
-rf<T>::~rf() {
-	delete [] trees;
 }
 
 /**
@@ -167,14 +158,13 @@ int rf<T>::get_ntrees() {
 	return rf_params.n_trees;
 }
 
-
 /**
  * @brief Print summary for all trees in the random forest.
  * @tparam T: data type for input data (float or double).
  */
 template<typename T>
 void rf<T>::print_rf_summary() {
-
+	const DecisionTree::dt<T> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -182,10 +172,11 @@ void rf<T>::print_rf_summary() {
 		std::cout << ", and max_leaves " << rf_params.tree_params.max_leaves << std::endl;
 		for (int i = 0; i < rf_params.n_trees; i++) {
 			std::cout << "Tree #" << i << std::endl;
-		trees[i].print_tree_summary();
+			trees[i].print_tree_summary();
 		}
 	}
 }
+
 
 /**
  * @brief Print detailed view of all trees in the random forest.
@@ -194,6 +185,7 @@ void rf<T>::print_rf_summary() {
 template<typename T>
 void rf<T>::print_rf_detailed() {
 
+	const DecisionTree::dt<T> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -216,6 +208,25 @@ template <typename T>
 rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, RF_type::CLASSIFICATION) {};
 
 /**
+ * @brief Destructor for random forest classifier object.
+ * @tparam T: data type for input data (float or double).
+ */
+template<typename T>
+rfClassifier<T>::~rfClassifier() {
+	delete [] trees;
+}
+
+
+/**
+ * @brief Return a const pointer to decision trees.
+ * @tparam T: data type for input data (float or double).
+ */
+template<typename T>
+const DecisionTree::DecisionTreeClassifier<T> * rfClassifier<T>::get_trees_ptr() const {
+	return trees;
+}
+
+/**
  * @brief Build (i.e., fit, train) random forest classifier for input data.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle
@@ -230,11 +241,11 @@ rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params,
 template <typename T>
 void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
-	ASSERT(!this->trees, "Cannot fit an existing forest.");
+	ASSERT(!trees, "Cannot fit an existing forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
+	trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
 	const cumlHandle_impl& handle = user_handle.getImpl();
@@ -262,7 +273,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
+		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
 
 		//Cleanup
 		selected_rows.release(stream);
@@ -283,7 +294,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 template<typename T>
 void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose) const {
 
-	ASSERT(this->trees, "Cannot predict! No trees in the forest.");
+	ASSERT(trees, "Cannot predict! No trees in the forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
@@ -308,10 +319,10 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 			//Return prediction for one sample.
 			if (verbose) {
 				std::cout << "Printing tree " << i << std::endl;
-				this->trees[i].print();
+				trees[i].print();
 			}
 			int prediction;
-			this->trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
+			trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
 			ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
 			if (!(ret.second)) {
 				ret.first->second += 1;
@@ -367,6 +378,24 @@ template <typename T>
 rfRegressor<T>::rfRegressor(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, RF_type::REGRESSION) {};
 
 /**
+ * @brief Destructor for random forest regressor object.
+ * @tparam T: data type for input data (float or double).
+ */
+template<typename T>
+rfRegressor<T>::~rfRegressor() {
+	delete [] trees;
+}
+
+/**
+ * @brief Return a const pointer to decision trees.
+ * @tparam T: data type for input data (float or double).
+ */
+template<typename T>
+const DecisionTree::DecisionTreeRegressor<T> * rfRegressor<T>::get_trees_ptr() const {
+	return trees;
+}
+
+/**
  * @brief Build (i.e., fit, train) random forest regressor for input data.
  * @tparam T: data type for input data (float or double).
  * @param[in] user_handle: cumlHandle
@@ -378,11 +407,11 @@ rfRegressor<T>::rfRegressor(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, R
 template <typename T>
 void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, T * labels) {
 
-	ASSERT(!this->trees, "Cannot fit an existing forest.");
+	ASSERT(!trees, "Cannot fit an existing forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-	rfRegressor::trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
+	trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
 	const cumlHandle_impl& handle = user_handle.getImpl();
@@ -410,7 +439,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, /*n_unique_labels,*/ this->rf_params.tree_params);
+		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, /*n_unique_labels,*/ this->rf_params.tree_params);
 
 		//Cleanup
 		selected_rows.release(stream);
@@ -430,7 +459,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 template<typename T>
 void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, T * predictions, bool verbose) const {
 
-	ASSERT(this->trees, "Cannot predict! No trees in the forest.");
+	ASSERT(trees, "Cannot predict! No trees in the forest.");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
@@ -452,10 +481,10 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 			//Return prediction for one sample.
 			if (verbose) {
 				std::cout << "Printing tree " << i << std::endl;
-				this->trees[i].print();
+				trees[i].print();
 			}
 			T prediction;
-			this->trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
+			trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
 			sum_predictions += prediction;
 		}
 		// Random forest's prediction is the arithmetic mean of all its decision tree predictions.
@@ -507,7 +536,6 @@ RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle, const T
 
 	return stats;
 }
-
 
 template class rf<float>;
 template class rf<double>;
