@@ -194,7 +194,9 @@ class BatchedARIMAModel:
         b_ma_params = model.ma_params
         Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
 
+        assert_same_d(model.order) # We currently assume the same d for all series
         _, d, _ = model.order[0]
+
         if d == 0:
             ll_b, vs = batched_kfilter(np.asfortranarray(model.y), # numpy
                                        # y_diff_centered.values, # pandas
@@ -228,6 +230,8 @@ class BatchedARIMAModel:
     def predict_in_sample(model, gpu=True):
         """Return in-sample prediction on batched series given batched model"""
         _, vs = BatchedARIMAModel.run_kalman(model, gpu)
+
+        assert_same_d(model.order) # We currently assume the same d for all series
         _, d, _ = model.order[0]
 
         if d == 0:
@@ -268,19 +272,29 @@ class BatchedARIMAModel:
         return y_fc_b
 
 
+def assert_same_d(b_order):
+    """Checks that all values of d in batched order are same"""
+    b_d = [d for _, d, _ in b_order]
+    assert (np.array(b_d) == b_d[0]).all()
+
+
 def init_batched_kalman_matrices(b_ar_params, b_ma_params):
     """Builds batched-versions of the kalman matrices given batched AR and MA parameters"""
 
     Zb = []
     Rb = []
     Tb = []
+
+    # find maximum 'r' across batches; see (3.18) in TSA by D&K for definition of 'r'
+    r_max = np.max([max(len(ar), len(ma)+1) for (ar, ma) in zip(b_ar_params, b_ma_params)])
+
     for (ari, mai) in zip(b_ar_params, b_ma_params):
-        Z, R, T, r = init_kalman_matrices(ari, mai)
+        Z, R, T, r = init_kalman_matrices(ari, mai, r_max)
         Zb.append(Z)
         Rb.append(R)
         Tb.append(T)
 
-    return Zb, Rb, Tb, r
+    return Zb, Rb, Tb, r_max
 
 
 def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
@@ -294,7 +308,7 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
 
     num_batches = y_b.shape[1]
     best_ic = np.zeros(num_batches)
-    best_model = BatchedARIMAModel((0, d, 0), np.zeros(num_batches), [[]]*num_batches, [[]]*num_batches, y_b)
+    best_model = BatchedARIMAModel([[]]*num_batches, np.zeros(num_batches), [[]]*num_batches, [[]]*num_batches, y_b)
     # best_model =
 
     for p in range(0, max_p):
@@ -317,7 +331,7 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
 
             for (i, ic_i) in enumerate(ic):
                 if ic_i < best_ic[i]:
-                    best_model.order = (p, d, q)
+                    best_model.order[i] = (p, d, q)
                     best_model.mu[i] = b_model.mu[i]
                     best_model.ar_params[i] = b_model.ar_params[i]
                     best_model.ma_params[i] = b_model.ma_params[i]
