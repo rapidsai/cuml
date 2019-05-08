@@ -25,10 +25,13 @@ def kfilter(np.ndarray[double, ndim=1, mode="fortran"] ys,
     return vs, loglike
 
 
-def init_kalman_matrices(ar_params, ma_params):
+def init_kalman_matrices(ar_params, ma_params, r=None):
     p = len(ar_params)
     q = len(ma_params)
-    r = max(p, q+1)  # see (3.18) in TSA by D&K
+
+    # for batched case, we input the maximum `r` to zero-pad some matrices.
+    if r is None:
+        r = max(p, q+1)  # see (3.18) in TSA by D&K
 
     Z = np.zeros((1, r), order="F")
     Z[0, 0] = 1.0
