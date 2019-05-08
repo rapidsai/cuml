@@ -31,12 +31,14 @@ struct TemporaryMemory
 	// Used for gini histograms (root tree node)
 	MLCommon::device_buffer<int> *d_hist;
 	MLCommon::host_buffer<int> *h_hist;
-
+	
 	//Host/Device histograms and device minmaxs
 	MLCommon::device_buffer<T> *d_globalminmax;
 	MLCommon::device_buffer<int> *d_histout, *d_colids;
 	MLCommon::host_buffer<int> *h_histout;
-
+	MLCommon::device_buffer<T> *d_mseout;
+	MLCommon::host_buffer<T> *h_mseout;
+	
 	//Below pointers are shared for split functions
 	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
 	MLCommon::host_buffer<int> *nrowsleftright;
@@ -98,9 +100,12 @@ struct TemporaryMemory
 		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
 
 		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
-
+		h_mseout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, Ncols);
+		
 		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
 		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
+		d_mseout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
+		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
 		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T))* Ncols;
 

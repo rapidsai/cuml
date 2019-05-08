@@ -90,7 +90,7 @@ int get_class_hist(std::vector<int> & node_hist) {
 }
 
 template<typename T>
-void make_split(T *column, GiniQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const std::shared_ptr<TemporaryMemory<T>> tempmem)
+void make_split(T *column, MetricQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const std::shared_ptr<TemporaryMemory<T>> tempmem)
 {
 
 	int *temprowids = tempmem->temprowids->data();

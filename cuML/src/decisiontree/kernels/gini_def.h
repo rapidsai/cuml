@@ -21,7 +21,7 @@
 #include <vector>
 
 template<class T>
-struct GiniQuestion {
+struct MetricQuestion {
 	int bootstrapped_column;
 	int original_column;
 	T value;
@@ -45,7 +45,7 @@ struct GiniQuestion {
 	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value);
 };
 
-struct GiniInfo {
-	float best_gini = -1.0f;
+struct MetricInfo {
+	float best_metric = -1.0f;
 	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
 };
