@@ -48,7 +48,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                      float l1_ratio,
                      bool shuffle,
                      float tol,
-                     int n_iter_no_change)
+                     int n_iter_no_change) except +
 
     
     cdef void sgdFit(cumlHandle& handle,
@@ -70,7 +70,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                      double l1_ratio,
                      bool shuffle,
                      double tol,
-                     int n_iter_no_change)
+                     int n_iter_no_change) except +
                      
     cdef void sgdPredict(cumlHandle& handle,
                          const float *input, 
@@ -79,7 +79,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const float *coef,
                          float intercept, 
                          float *preds,
-                         int loss)
+                         int loss) except +
 
     cdef void sgdPredict(cumlHandle& handle,
                          const double *input, 
@@ -88,7 +88,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const double *coef, 
                          double intercept, 
                          double *preds,
-                         int loss)
+                         int loss) except +
                          
     cdef void sgdPredictBinaryClass(cumlHandle& handle,
                          const float *input, 
@@ -97,7 +97,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const float *coef,
                          float intercept, 
                          float *preds,
-                         int loss)
+                         int loss) except +
 
     cdef void sgdPredictBinaryClass(cumlHandle& handle,
                          const double *input, 
@@ -106,7 +106,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const double *coef, 
                          double intercept, 
                          double *preds,
-                         int loss)
+                         int loss) except +
 
 class SGD(cuml.Base):
     """

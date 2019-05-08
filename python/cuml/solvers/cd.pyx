@@ -43,7 +43,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
 		   float alpha,
 		   float l1_ratio,
 		   bool shuffle,
-		   float tol)
+		   float tol) except +
 
     
     cdef void cdFit(cumlHandle& handle,
@@ -60,7 +60,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
 		   double alpha,
 		   double l1_ratio,
 		   bool shuffle,
-		   double tol)
+		   double tol) except +
  
     cdef void cdPredict(cumlHandle& handle,
                          const float *input, 
@@ -69,7 +69,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const float *coef,
                          float intercept, 
                          float *preds,
-                         int loss)
+                         int loss) except +
 
     cdef void cdPredict(cumlHandle& handle,
                          const double *input, 
@@ -78,7 +78,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          const double *coef, 
                          double intercept, 
                          double *preds,
-                         int loss)                    
+                         int loss) except +            
 
 class CD(cuml.Base):
     """
