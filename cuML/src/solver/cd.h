@@ -41,6 +41,8 @@ using namespace MLCommon;
 
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -71,10 +73,6 @@ using namespace MLCommon;
  *        tolerance to stop the solver
  * @param stream
  *        cuda stream
- * @param cublas_handle
- *        cublas handle
- * @param cusolver_handle
- *        cusolver handle
  */
 template<typename math_t>
 void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
@@ -92,33 +90,25 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 	cublasHandle_t cublas_handle = handle.getCublasHandle();
 	cusolverDnHandle_t cusolver_handle = handle.getcusolverDnHandle();
 
-	math_t *mu_input = nullptr;
-	math_t *mu_labels = nullptr;
-	math_t *norm2_input = nullptr;
-	math_t *pred = nullptr;
-	math_t *residual = nullptr;
-	math_t *squared = nullptr;
-	math_t *loss_value = nullptr;
-
-	//auto allocator = handle.getDeviceAllocator();
-	//device_buffer<math_t> components_all(allocator, stream, len);
-
-	allocate(loss_value, 1);
-	allocate(pred, n_rows, true);
-	allocate(residual, n_rows, true);
-	allocate(squared, n_cols, true);
+	auto allocator = handle.getDeviceAllocator();
+	device_buffer<math_t> pred(allocator, stream, n_rows);
+	device_buffer<math_t> residual(allocator, stream, n_rows);
+	device_buffer<math_t> squared(allocator, stream, n_cols);
+	device_buffer<math_t> mu_input(allocator, stream, 0);
+	device_buffer<math_t> mu_labels(allocator, stream, 0);
+	device_buffer<math_t> norm2_input(allocator, stream, 0);
 
 	std::vector<math_t> h_coef(n_cols, math_t(0));
 
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
+		mu_input.reserve(n_cols, stream);
+		mu_labels.reserve(1, stream);
 		if (normalize) {
-			allocate(norm2_input, n_cols);
+			norm2_input.reserve(n_cols, stream);
 		}
 
 		GLM::preProcessData(handle, input, n_rows, n_cols, labels,
-				intercept, mu_input, mu_labels, norm2_input, fit_intercept,
+				intercept, mu_input.data(), mu_labels.data(), norm2_input.data(), fit_intercept,
 				normalize, stream);
 	}
 
@@ -131,14 +121,14 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 
 	if (normalize) {
 		math_t scalar = math_t(1.0) + l2_alpha;
-		Matrix::setValue(squared, squared, scalar, n_cols, stream);
+		Matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
 	} else {
-		LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false,
+		LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm, false,
 				stream);
-		LinAlg::addScalar(squared, squared, l2_alpha, n_cols, stream);
+		LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
 	}
 
-	copy(residual, labels, n_rows, stream);
+	copy(residual.data(), labels, n_rows, stream);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -152,13 +142,13 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 		for (int j = 0; j < n_cols; j++) {
 			int ci = ri[j];
 			math_t *coef_loc = coef + ci;
-			math_t *squared_loc = squared + ci;
+			math_t *squared_loc = squared.data() + ci;
 			math_t *input_col_loc = input + (ci * n_rows);
 
-			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows,
+			LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
 					stream);
-			LinAlg::add(residual, residual, pred, n_rows, stream);
-			LinAlg::gemm(input_col_loc, n_rows, 1, residual, coef_loc, 1, 1,
+			LinAlg::add(residual.data(), residual.data(), pred.data(), n_rows, stream);
+			LinAlg::gemm(input_col_loc, n_rows, 1, residual.data(), coef_loc, 1, 1,
 					CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
 
 			if (l1_ratio > math_t(0.0))
@@ -177,9 +167,9 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 			if (abs(h_coef[ci]) > coef_max)
 				coef_max = abs(h_coef[ci]);
 
-			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows,
+			LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
 					stream);
-			LinAlg::subtract(residual, residual, pred, n_rows, stream);
+			LinAlg::subtract(residual.data(), residual.data(), pred.data(), n_rows, stream);
 		}
 
 		bool flag_continue = true;
@@ -198,32 +188,12 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 
 	if (fit_intercept) {
 		GLM::postProcessData(handle, input, n_rows, n_cols, labels,
-				coef, intercept, mu_input, mu_labels, norm2_input,
+				coef, intercept, mu_input.data(), mu_labels.data(), norm2_input.data(),
 				fit_intercept, normalize, stream);
 
-		if (mu_input != nullptr)
-			CUDA_CHECK(cudaFree(mu_input));
-		if (mu_labels != nullptr)
-			CUDA_CHECK(cudaFree(mu_labels));
-		if (normalize) {
-			if (norm2_input != nullptr)
-				cudaFree(norm2_input);
-		}
 	} else {
 		*intercept = math_t(0);
 	}
-
-	if (pred != nullptr)
-		CUDA_CHECK(cudaFree(pred));
-
-	if (residual != nullptr)
-		CUDA_CHECK(cudaFree(residual));
-
-	if (squared != nullptr)
-		CUDA_CHECK(cudaFree(squared));
-
-	if (loss_value != nullptr)
-		CUDA_CHECK(cudaFree(loss_value));
 
 }
 
