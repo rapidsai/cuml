@@ -26,7 +26,7 @@ namespace ML {
 namespace DecisionTree {
 
 template<class T>
-void Question<T>::update(const GiniQuestion<T> & ques) {
+void Question<T>::update(const MetricQuestion<T> & ques) {
 	column = ques.original_column;
 	value = ques.value;
 }
@@ -259,7 +259,7 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	}
 	this->total_temp_mem = this->tempmem[0]->totalmem;
 	this->total_temp_mem *= this->MAXSTREAMS;
-	GiniInfo split_info;
+	MetricInfo split_info;
 	MLCommon::TimerCPU timer;
 	this->root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 	this->construct_time = timer.getElapsedSeconds();
@@ -273,16 +273,16 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 
 template<typename T>
 TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids,
-												const int n_sampled_rows, GiniInfo prev_split_info) {
+												const int n_sampled_rows, MetricInfo prev_split_info) {
 
 	TreeNode<T, int> *node = new TreeNode<T, int>();
-	GiniQuestion<T> ques;
+	MetricQuestion<T> ques;
 	Question<T> node_ques;
 	float gain = 0.0;
-	GiniInfo split_info[3]; // basis, left, right. Populate this
+	MetricInfo split_info[3]; // basis, left, right. Populate this
 	split_info[0] = prev_split_info;
 
-	bool condition = ((depth != 0) && (prev_split_info.best_gini == 0.0f));  // This node is a leaf, no need to search for best split
+	bool condition = ((depth != 0) && (prev_split_info.best_metric == 0.0f));  // This node is a leaf, no need to search for best split
 	condition = condition || (n_sampled_rows < this->min_rows_per_node); // Do not split a node with less than min_rows_per_node samples
 
 	if (!condition)  {
@@ -298,7 +298,7 @@ TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colp
 
 	if (condition) {
 		node->prediction = get_class_hist(split_info[0].hist);
-		node->split_metric_val = split_info[0].best_gini;
+		node->split_metric_val = split_info[0].best_metric;
 
 		this->leaf_counter++;
 		if (depth > this->depth_counter)
@@ -310,15 +310,15 @@ TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colp
 		node->question = node_ques;
 		node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 		node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
-		node->split_metric_val = split_info[0].best_gini;
+		node->split_metric_val = split_info[0].best_metric;
 	}
 	return node;
 }
 
 
 template<typename T>
-void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain,
-												unsigned int* rowids, const int n_sampled_rows, GiniInfo split_info[3], int depth) {
+void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, MetricQuestion<T> & ques, float& gain,
+												unsigned int* rowids, const int n_sampled_rows, MetricInfo split_info[3], int depth) {
 	std::vector<int>& colselector = this->feature_selector;
 
 	// Optimize ginibefore; no need to compute except for root.
@@ -341,7 +341,7 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 }
 
 template<typename T>
-void DecisionTreeClassifier<T>::split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft,
+void DecisionTreeClassifier<T>::split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft,
 											int& nrowsright, unsigned int* rowids) {
 
 	T *temp_data = this->tempmem[0]->temp_data->data();

@@ -23,7 +23,7 @@
 #include "cuda_utils.h"
 
 template<class T>
-void GiniQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
+void MetricQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
 	bootstrapped_column = cfg_bootcolumn;
 	original_column = cfg_column;
 	batch_id = cfg_batch_id;
@@ -57,7 +57,7 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 }
 
 template<typename T>
-void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T>> tempmem, GiniInfo & split_info, int & unique_labels)
+void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T>> tempmem, MetricInfo & split_info, int & unique_labels)
 {
 	int *dhist = tempmem->d_hist->data();
 	int *hhist = tempmem->h_hist->data();
@@ -76,7 +76,7 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 		gval -= prob*prob;
 	}
 
-	split_info.best_gini = gval; //Update gini val
+	split_info.best_metric = gval; //Update gini val
 
 	return;
 }
