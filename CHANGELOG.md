@@ -5,7 +5,7 @@
 ## Improvements
 
 ## Bug Fixes
-- PR #583: Added missing virtual destructor to deviceAllocator and hostAllocator
+- PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 
 # cuML 0.7.0 (Date TBD)
 
