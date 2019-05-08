@@ -2,10 +2,15 @@
 
 ## New Features
 
+
 ## Improvements
+
+- PR #482: Introduce cumlHandle for pca and tsvd
+- PR #573: Remove use of unnecessary cuDF column and series copies
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
+
 
 # cuML 0.7.0 (Date TBD)
 
@@ -43,7 +48,6 @@
 - PR #445: Lower dbscan memory usage by computing adjacency matrix directly
 - PR #431: Add support for fancy iterator input types to LinAlg::reduce_rows_by_key
 - PR #394: Introducing cumlHandle API to dbscan and add example
-- PR #482: Introduce cumlHandle for pca and tsvd
 - PR #500: Added CI check for black listed CUDA Runtime API calls
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file

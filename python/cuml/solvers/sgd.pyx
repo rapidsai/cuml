@@ -13,6 +13,10 @@
 # limitations under the License.
 #
 
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -23,6 +27,8 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+
+from cuml.common.base import Base
 
 cdef extern from "solver/solver_c.h" namespace "ML::Solver":
 
@@ -46,7 +52,7 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                      float tol,
                      int n_iter_no_change)
 
-    
+
     cdef void sgdFit(double *input,
                      int n_rows,
                      int n_cols,
@@ -66,40 +72,40 @@ cdef extern from "solver/solver_c.h" namespace "ML::Solver":
                      bool shuffle,
                      double tol,
                      int n_iter_no_change)
-                     
-    cdef void sgdPredict(const float *input, 
-                         int n_rows, 
-                         int n_cols, 
+
+    cdef void sgdPredict(const float *input,
+                         int n_rows,
+                         int n_cols,
                          const float *coef,
-                         float intercept, 
+                         float intercept,
                          float *preds,
                          int loss)
 
-    cdef void sgdPredict(const double *input, 
-                         int n_rows, 
+    cdef void sgdPredict(const double *input,
+                         int n_rows,
                          int n_cols,
-                         const double *coef, 
-                         double intercept, 
+                         const double *coef,
+                         double intercept,
                          double *preds,
                          int loss)
-                         
-    cdef void sgdPredictBinaryClass(const float *input, 
-                         int n_rows, 
-                         int n_cols, 
+
+    cdef void sgdPredictBinaryClass(const float *input,
+                         int n_rows,
+                         int n_cols,
                          const float *coef,
-                         float intercept, 
+                         float intercept,
                          float *preds,
                          int loss)
 
-    cdef void sgdPredictBinaryClass(const double *input, 
-                         int n_rows, 
+    cdef void sgdPredictBinaryClass(const double *input,
+                         int n_rows,
                          int n_cols,
-                         const double *coef, 
-                         double intercept, 
+                         const double *coef,
+                         double intercept,
                          double *preds,
                          int loss)
 
-class SGD:
+class SGD(Base):
     """
     Stochastic Gradient Descent is a very common machine learning algorithm where one optimizes
     some cost function via gradient steps. This makes SGD very attractive for large problems
@@ -138,18 +144,18 @@ class SGD:
     Output:
 
     .. code-block:: python
-            
+
         cuML intercept :  0.004561662673950195
         cuML coef :  0      0.9834546
                     1    0.010128272
                    dtype: float32
         cuML predictions :  [3.0055666 2.0221121]
-            
-           
+
+
     Parameters
     -----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM   
+       'hinge' uses linear SVM
        'log' uses logistic regression
        'squared_loss' uses linear regression
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
@@ -161,11 +167,11 @@ class SGD:
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.        
+       If False, the model expects that you have centered the data.
     epochs : int (default = 1000)
         The number of times the model should iterate through the entire dataset during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol 
+       The training process will stop if current_loss > previous_loss - tol
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
@@ -185,10 +191,10 @@ class SGD:
     ------
     For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
-    
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
+
+    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15,
         fit_intercept=True, epochs=1000, tol=1e-3, shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5, batch_size=32, n_iter_no_change=5):
-        
+
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
         else:
@@ -209,7 +215,7 @@ class SGD:
         self.shuffle = shuffle
         self.eta0 = eta0
         self.power_t = power_t
-  
+
         if learning_rate in ['optimal', 'constant', 'invscaling', 'adaptive']:
             self.learning_rate = learning_rate
 
@@ -226,7 +232,7 @@ class SGD:
                     raise ValueError("alpha must be > 0 since "
                                      "learning_rate is 'optimal'. alpha is used "
                                      "to compute the optimal learning rate.")
-  
+
             elif learning_rate == 'constant':
                 self.lr_type = 1
                 self.lr = eta0
@@ -265,15 +271,6 @@ class SGD:
             'elasticnet': 3
         }[penalty]
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -305,14 +302,14 @@ class SGD:
             msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_column_ptr(y)
+            y_ptr = self._get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -320,26 +317,26 @@ class SGD:
         self.n_alpha = 1
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
-        cdef float c_intercept1 
+        cdef float c_intercept1
         cdef double c_intercept2
-        
+
         if self.gdf_datatype.type == np.float32:
-            sgdFit(<float*>X_ptr, 
-                       <int>self.n_rows, 
-                       <int>self.n_cols, 
-                       <float*>y_ptr, 
+            sgdFit(<float*>X_ptr,
+                       <int>self.n_rows,
+                       <int>self.n_cols,
+                       <float*>y_ptr,
                        <float*>coef_ptr,
-                       <float*>&c_intercept1, 
-                       <bool>self.fit_intercept, 
-                       <int>self.batch_size, 
+                       <float*>&c_intercept1,
+                       <bool>self.fit_intercept,
+                       <int>self.batch_size,
                        <int>self.epochs,
-                       <int>self.lr_type, 
+                       <int>self.lr_type,
                        <float>self.eta0,
                        <float>self.power_t,
-                       <int>self.loss, 
-                       <int>self.penalty,   
+                       <int>self.loss,
+                       <int>self.penalty,
                        <float>self.alpha,
                        <float>self.l1_ratio,
                        <bool>self.shuffle,
@@ -348,26 +345,26 @@ class SGD:
 
             self.intercept_ = c_intercept1
         else:
-            sgdFit(<double*>X_ptr, 
-                       <int>self.n_rows, 
-                       <int>self.n_cols, 
-                       <double*>y_ptr, 
+            sgdFit(<double*>X_ptr,
+                       <int>self.n_rows,
+                       <int>self.n_cols,
+                       <double*>y_ptr,
                        <double*>coef_ptr,
-                       <double*>&c_intercept2, 
-                       <bool>self.fit_intercept, 
-                       <int>self.batch_size, 
+                       <double*>&c_intercept2,
+                       <bool>self.fit_intercept,
+                       <int>self.batch_size,
                        <int>self.epochs,
-                       <int>self.lr_type, 
+                       <int>self.lr_type,
                        <double>self.eta0,
                        <double>self.power_t,
-                       <int>self.loss, 
-                       <int>self.penalty,   
+                       <int>self.loss,
+                       <int>self.penalty,
                        <double>self.alpha,
                        <double>self.l1_ratio,
                        <bool>self.shuffle,
                        <double>self.tol,
                    <int>self.n_iter_no_change)
-            
+
             self.intercept_ = c_intercept2
 
         return self
@@ -405,11 +402,11 @@ class SGD:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
             sgdPredict(<float*>X_ptr,
@@ -467,9 +464,9 @@ class SGD:
 
         X_ptr = self._get_ctype_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
 
         if pred_datatype.type == np.float32:
             sgdPredictBinaryClass(<float*>X_ptr,
