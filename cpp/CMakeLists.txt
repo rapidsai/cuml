@@ -1,4 +1,4 @@
-#
+#=============================================================================
 # Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,32 +12,65 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+#=============================================================================
 
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(cuML VERSION 0.7.0 LANGUAGES CXX CUDA)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+project(CUML VERSION 0.8.0 LANGUAGES CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+###################################################################################################
+# - build type ------------------------------------------------------------------------------------
+
+# Set a default build type if none was specified
+set(DEFAULT_BUILD_TYPE "Release")
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${DEFAULT_BUILD_TYPE}' since none specified.")
+  set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE
+      STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+    "Debug" "Release")
+endif()
+
+###################################################################################################
+# - User Options  ---------------------------------------------------------------------------------
+
+set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
+  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
+
+option(LINEINFO "Enable lineinfo in nvcc" OFF)
+
+option(KERNELINFO "Enable kernel resource usage info" OFF)
+
+option(DEBUG "Get a debug build" OFF)
+
+option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
+
+option(BUILD_PRIM_TESTS "Build ml-prim tests" OFF)
+
+set(BLAS_LIBRARIES "" CACHE STRING
+    "Location of BLAS library")
+
+set(GPU_ARCHS "" CACHE STRING
+  "List of GPU architectures (semicolon-separated) to be compiled for")
+
+if(NOT "${GPU_ARCHS}")
+  set(GPU_ARCHS "60")
+  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
+    set(GPU_ARCHS "${GPU_ARCHS};70")
+  endif()
+  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
+    set(GPU_ARCHS "${GPU_ARCHS};75")
+  endif()
+endif()
 
 ###################################################################################################
 # - Requirements ----------------------------------------------------------------------------------
 
-if(NOT DEFINED BLAS_LIBRARIES)
-  find_package( BLAS REQUIRED )
-else()
-  message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
-endif()
-
-if(NOT DEFINED LAPACK_LIBRARIES)
-  find_package( LAPACK REQUIRED )
-else()
-  message(STATUS "Manually setting LAPACK to ${LAPACK_LIBRARIES}")
-endif()
-
 find_package(CUDA 9.0 REQUIRED)
+
 if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
   find_package(OpenMP)
 endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
@@ -49,16 +82,33 @@ else()
   message(FATAL_ERROR "ZLib not found, please check your settings.")
 endif(ZLIB_FOUND)
 
+# set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
+# find_package (Threads REQUIRED)
+# if(NOT CMAKE_USE_PTHREADS_INIT)
+#   message(FATAL_ERROR "pthreads not found, please check your settings")
+
+if(NOT DEFINED BLAS_LIBRARIES)
+  find_package( BLAS REQUIRED )
+else()
+  message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
+endif()
+
+# if(NOT DEFINED LAPACK_LIBRARIES)
+#   find_package( LAPACK REQUIRED )
+# else()
+#   message(STATUS "Manually setting LAPACK to ${LAPACK_LIBRARIES}")
+# endif()
 
 ###################################################################################################
 # - Submodules ------------------------------------------------------------------------------------
+
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
   "Name of the googletest library")
 set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
   "Path to FAISS source directory")
-set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims CACHE STRING
+set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/src_prims/ CACHE STRING
   "Path to the ml-prims repo")
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
   "Path to cub repo")
@@ -67,61 +117,62 @@ set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE S
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
   "Path to nvGraph lib")
 
-###################################################################################################
-# - User Options  ---------------------------------------------------------------------------------
-
-set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
-  "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
-set(GPU_ARCHS "" CACHE STRING
-  "List of GPU architectures (semicolon-separated) to be compiled for")
-option(LINEINFO "Enable lineinfo in nvcc" OFF)
-option(KERNELINFO "Enable kernel resource usage info" OFF)
-option(DEBUG "Get a debug build" OFF)
 
 ###################################################################################################
 # - Compiler Options  -----------------------------------------------------------------------------
 
-## nvcc options
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 if(OPENMP_FOUND)
+  message(STATUS "Building with OpenMP support")
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler ${OpenMP_CXX_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif(OPENMP_FOUND)
-if(CMAKE_CXX_STANDARD STREQUAL "11")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
-endif()
+
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-extended-lambda")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --std=c++11")
+
 if(LINEINFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -lineinfo")
 endif()
+
 if(KERNELINFO)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xptxas=-v")
 endif()
+
 if(DEBUG)
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -G -g")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
-# Generate optimized binary for every known arch
-if(NOT "${GPU_ARCHS}")
-  set(GPU_ARCHS "60;61")
-  # NOTE: NOTE: Add more 'if's for every new arch release!
-  if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
-    set(GPU_ARCHS "${GPU_ARCHS};70")
-  endif()
-  if((CUDA_VERSION_MAJOR EQUAL 10) OR (CUDA_VERSION_MAJOR GREATER 10))
-    set(GPU_ARCHS "${GPU_ARCHS};75")
-  endif()
-endif()
+
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
-# Generate PTX (to be JIT'd at runtime) for the latest architecture
-# It is assumed that the last arch in the 'archs' is the latest!
+
 list(GET GPU_ARCHS -1 ptx)
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${ptx},code=compute_${ptx}")
 
+if(CMAKE_COMPILER_IS_GNUCXX)
+  if(NOT CMAKE_CXX11_ABI)
+    message(STATUS "Disabling the GLIBCXX11 ABI")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+    set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
+  elseif(CMAKE_CXX11_ABI)
+    message(STATUS "Enabling the GLIBCXX11 ABI")
+  endif(NOT CMAKE_CXX11_ABI)
+endif(CMAKE_COMPILER_IS_GNUCXX)
+
+
+## end of other compiler options
+
+###################################################################################################
+# - FAISS Build  ----------------------------------------------------------------------------------
+
 # Configuration of faiss for the correct architectures
 
+# TODO: Update faiss submodule and use new flags
 file(READ ${FAISS_DIR}/makefile.inc.in CONFIG_FILE)
     string(REPLACE "-Xcudafe --diag_suppress=unrecognized_attribute"
            "--disable-warnings"
@@ -147,27 +198,6 @@ endif()
 
 file(WRITE ${FAISS_DIR}/makefile.inc.in "${CONFIG_FILE}")
 
-## end nvcc options
-
-## other compiler options
-
-option(CMAKE_CXX11_ABI "Enable the GLIBCXX11 ABI" ON)
-
-if(NOT CMAKE_CXX11_ABI)
-  message(STATUS "Disabling the GLIBCXX11 ABI")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -D_GLIBCXX_USE_CXX11_ABI=0")
-elseif(CMAKE_CXX11_ABI)
-  message(STATUS "Enabling the GLIBCXX11 ABI")
-endif(NOT CMAKE_CXX11_ABI)
-
-
-## end of other compiler options
-
-###################################################################################################
-# - include paths ---------------------------------------------------------------------------------
-
 
 include (ExternalProject)
 ExternalProject_Add(faiss
@@ -181,6 +211,9 @@ ExternalProject_Add(faiss
 )
 
 ExternalProject_Get_Property(faiss install_dir)
+
+###################################################################################################
+# - include paths ---------------------------------------------------------------------------------
 
 add_library(faisslib STATIC IMPORTED)
 add_library(gpufaisslib STATIC IMPORTED)
@@ -210,6 +243,7 @@ file(GLOB_RECURSE cuml_mg_test_cuda_sources "test_mg/*.cu")
 
 ###################################################################################################
 # - build libcuml++ shared library ------------------------------------------------------------------
+
 set(CUML_CPP_TARGET "cuml++")
 add_library(${CUML_CPP_TARGET} SHARED
   src/pca/pca.cu
