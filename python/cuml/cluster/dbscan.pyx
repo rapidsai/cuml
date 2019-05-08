@@ -38,40 +38,40 @@ from collections import defaultdict
 cdef extern from "dbscan/dbscan.hpp" namespace "ML":
 
     cdef void dbscanFit(cumlHandle& handle,
-                   float *input,
-                   int n_rows,
-                   int n_cols,
-                   float eps,
-                   int min_pts,
-                   int *labels,
-                   size_t max_bytes_per_batch,
-                   bool verbose)
+                        float *input,
+                        int n_rows,
+                        int n_cols,
+                        float eps,
+                        int min_pts,
+                        int *labels,
+                        size_t max_bytes_per_batch,
+                        bool verbose)
 
     cdef void dbscanFit(cumlHandle& handle,
-                   double *input,
-                   int n_rows,
-                   int n_cols,
-                   double eps,
-                   int min_pts,
-                   int *labels,
-                   size_t max_bytes_per_batch,
-                   bool verbose)
+                        double *input,
+                        int n_rows,
+                        int n_cols,
+                        double eps,
+                        int min_pts,
+                        int *labels,
+                        size_t max_bytes_per_batch,
+                        bool verbose)
 
 
 class DBSCAN(Base):
     """
-    DBSCAN is a very powerful yet fast clustering technique that finds clusters where
-    data is concentrated. This allows DBSCAN to generalize to many problems if the
-    datapoints tend to congregate in larger groups.
+    DBSCAN is a very powerful yet fast clustering technique that finds clusters
+    where data is concentrated. This allows DBSCAN to generalize to many
+    problems if the datapoints tend to congregate in larger groups.
 
-    cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph to compute
-    the distances between close neighbours.
-    
+    cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph
+    to compute the distances between close neighbours.
+
     Examples
     ---------
 
     .. code-block:: python
-            
+
             # Both import methods supported
             from cuml import DBSCAN
             from cuml.cluster import DBSCAN
@@ -99,66 +99,70 @@ class DBSCAN(Base):
     Parameters
     -----------
     eps : float (default = 0.5)
-        The maximum distance between 2 points such they reside in the same neighborhood.
+        The maximum distance between 2 points such they reside in the same
+        neighborhood.
     handle : cuml.Handle
         If it is None, a new one is created just for this class
     min_samples : int (default = 5)
-        The number of samples in a neighborhood such that this group can be considered as
-        an important core point (including the point itself).
+        The number of samples in a neighborhood such that this group can be
+        considered as an important core point (including the point itself).
     verbose : bool
         Whether to print debug spews
     max_bytes_per_batch : (optional) int64
-        Calculate batch size using no more than this number of bytes for the pairwise
-        distance computation. This enables the trade-off between runtime and memory usage for
-        making the N^2 pairwise distance computations more tractable for large numbers of samples.
-        If you are experiencing out of memory errors when running DBSCAN, you can set this
-        value based on the memory size of your device. Note: this option does not set
-        the maximum total memory used in the DBSCAN computation and so this value will not
+        Calculate batch size using no more than this number of bytes for the
+        pairwise distance computation. This enables the trade-off between
+        runtime and memory usage for making the N^2 pairwise distance
+        computations more tractable for large numbers of samples.
+        If you are experiencing out of memory errors when running DBSCAN, you
+        can set this value based on the memory size of your device.
+        Note: this option does not set the maximum total memory used in the
+        DBSCAN computation and so this value will not
         be able to be set to the total memory available on the device.
 
     Attributes
     -----------
     labels_ : array
-        Which cluster each datapoint belongs to. Noisy samples are labeled as -1.
+        Which cluster each datapoint belongs to. Noisy samples are labeled as
+        -1.
 
     Notes
     ------
-    DBSCAN is very sensitive to the distance metric it is used with, and a large assumption
-    is that datapoints need to be concentrated in groups for clusters to be constructed.
-    
+    DBSCAN is very sensitive to the distance metric it is used with, and a
+    large assumption is that datapoints need to be concentrated in groups for
+    clusters to be constructed.
+
     **Applications of DBSCAN**
 
-        DBSCAN's main benefit is that the number of clusters is not a hyperparameter, and that
-        it can find non-linearly shaped clusters. This also allows DBSCAN to be robust to noise.
-        DBSCAN has been applied to analyzing particle collisons in the Large Hadron Collider,
-        customer segmentation in marketing analyses, and much more.
+        DBSCAN's main benefit is that the number of clusters is not a
+        hyperparameter, and that it can find non-linearly shaped clusters.
+        This also allows DBSCAN to be robust to noise.
+        DBSCAN has been applied to analyzing particle collisons in the
+        Large Hadron Collider, customer segmentation in marketing analyses,
+        and much more.
 
 
-    For an additional example, see `the DBSCAN notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
-    For additional docs, see `scikitlearn's DBSCAN <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
+    For an additional example, see `the DBSCAN notebook
+    <https://github.com/rapidsai/notebooks/blob/master/cuml/dbscan_demo.ipynb>`_.
+    For additional docs, see `scikitlearn's DBSCAN
+    <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.DBSCAN.html>`_.
     """
 
-    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False, max_bytes_per_batch = None):
+    def __init__(self, eps=0.5, handle=None, min_samples=5, verbose=False,
+                 max_bytes_per_batch=None):
         super(DBSCAN, self).__init__(handle, verbose)
         self.eps = eps
         self.min_samples = min_samples
         self.labels_ = None
-        self.labels_array = None
         self.max_bytes_per_batch = max_bytes_per_batch
         self.verbose = verbose
 
         # C++ API expects this to be numeric.
         if self.max_bytes_per_batch is None:
-            self.max_bytes_per_batch = 0;
+            self.max_bytes_per_batch = 0
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+    def __getattr__(self, attr):
+        if attr == 'labels_array':
+            return self.labels_._column._data.mem
 
     def fit(self, X):
         """
@@ -167,14 +171,12 @@ class DBSCAN(Base):
             Parameters
             ----------
             X : cuDF DataFrame
-               Dense matrix (floats or doubles) of shape (n_samples, n_features)
+               Dense matrix (floats or doubles) of shape (n_samples,
+               n_features)
         """
 
         if self.labels_ is not None:
             del self.labels_
-
-        if self.labels_array is not None:
-            del self.labels_array
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
@@ -189,41 +191,38 @@ class DBSCAN(Base):
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
-
         else:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        self.labels_array = self.labels_._column._data.to_gpu_array()
-        cdef uintptr_t labels_ptr = self._get_ctype_ptr(self.labels_array)
-
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
-                               <int> self.n_rows,
-                               <int> self.n_cols,
-                               <float> self.eps,
-                               <int> self.min_samples,
-                               <int*> labels_ptr,
-                               <size_t>self.max_bytes_per_batch,
-                               <bool>self.verbose)
+                      <int> self.n_rows,
+                      <int> self.n_cols,
+                      <float> self.eps,
+                      <int> self.min_samples,
+                      <int*> labels_ptr,
+                      <size_t>self.max_bytes_per_batch,
+                      <bool>self.verbose)
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                               <int> self.n_rows,
-                               <int> self.n_cols,
-                               <double> self.eps,
-                               <int> self.min_samples,
-                               <int*> labels_ptr,
-                               <size_t> self.max_bytes_per_batch,
-                               <bool>self.verbose)
-        # make sure that the `dbscanFit` is complete before the following delete
-        # call happens
+                      <int> self.n_rows,
+                      <int> self.n_cols,
+                      <double> self.eps,
+                      <int> self.min_samples,
+                      <int*> labels_ptr,
+                      <size_t> self.max_bytes_per_batch,
+                      <bool>self.verbose)
+        # make sure that the `dbscanFit` is complete before the following
+        # delete call happens
         self.handle.sync()
         del(X_m)
         return self
@@ -235,7 +234,7 @@ class DBSCAN(Base):
             Parameters
             ----------
             X : cuDF DataFrame
-              Dense matrix (floats or doubles) of shape (n_samples, n_features),
+              Dense matrix (floats or doubles) of shape (n_samples, n_features)
 
             Returns
             -------
