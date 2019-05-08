@@ -36,13 +36,13 @@ struct Question {
 	void update(const GiniQuestion<T> & ques);
 };
 
-template<class T>
+template<class T, class L>
 struct TreeNode {
 	TreeNode *left = nullptr;
 	TreeNode *right = nullptr;
-	int class_predict;
+	L prediction;
 	Question<T> question;
-	T gini_val;
+	T split_metric_val;
 
 	void print(std::ostream& os) const;
 };
@@ -91,11 +91,11 @@ struct DecisionTreeParams {
 	void print() const;
 };
 
-template<class T>
+template<class T, class L>
 class dt {
 	protected:
 		int split_algo;
-		TreeNode<T> *root = nullptr;
+		TreeNode<T, L> *root = nullptr;
 		int nbins;
 		DataInfo dinfo;
 		int treedepth;
@@ -113,7 +113,7 @@ class dt {
 		bool bootstrap_features;
 		std::vector<int> feature_selector;
 
-	    void print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const;
+	    void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
 	public:
 		// Printing utility for high level tree info.
 		void print_tree_summary() const;
@@ -121,10 +121,15 @@ class dt {
 		// Printing utility for debug and looking at nodes and leaves.
 		void print() const;
 
+		// Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format.
+		void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, L * predictions, bool verbose=false) const;
+		void predict_all(const T * rows, const int n_rows, const int n_cols, L * preds, bool verbose=false) const;
+		L predict_one(const T * row, const TreeNode<T, L> * const node, bool verbose=false) const;
+
 }; // End dt Class
 
 template<class T>
-class DecisionTreeClassifier : public dt<T> {
+class DecisionTreeClassifier : public dt<T, int> {
 public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
@@ -132,37 +137,27 @@ public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids,
 			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
-	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
-	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose=false) const;
-
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
 		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false);
 
-	TreeNode<T> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info);
+	TreeNode<T, int> * grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids, const int n_sampled_rows, GiniInfo prev_split_info);
 
 	/* depth is used to distinguish between root and other tree nodes for computations */
 	void find_best_fruit_all(T *data, int *labels, const float colper, GiniQuestion<T> & ques, float& gain, unsigned int* rowids,
 							const int n_sampled_rows, GiniInfo split_info[3], int depth);
 	void split_branch(T *data, GiniQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
-	void classify_all(const T * rows, const int n_rows, const int n_cols, int* preds, bool verbose=false) const;
-	int classify(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
 }; // End DecisionTreeClassifier Class
 
 template<class T>
-class DecisionTreeRegressor : public dt<T> {
+class DecisionTreeRegressor : public dt<T, T> {
 public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
 			const int n_sampled_rows, DecisionTreeParams tree_params);
 
-	/* Predict labels for n_rows rows, with n_cols features each, for a given tree. rows in row-major format. */
-	void predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose=false) const;
-
 // TODO FIXME: add private methods from DecisionTreeClassifier as needed
-private:
-	void predict_all(const T * rows, const int n_rows, const int n_cols, T * preds, bool verbose=false) const;
-	T predict(const T * row, const TreeNode<T> * const node, bool verbose=false) const; // TODO FIXME rename so it's not overloaded? Or pull to base class?
+//private:
 }; // End DecisionTreeRegressor Class
 
 } //End namespace DecisionTree
