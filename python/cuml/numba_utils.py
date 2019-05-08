@@ -45,19 +45,19 @@ def row_matrix(df):
 
     tile_shape = (tile_height, tile_width + 1)
 
-    # one block per tile, plus one for remainders
+    # blocks and threads for the shared memory/tiled algorithm
+    # see http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/ # noqa
     blocks = int((row_major.shape[1]) / tile_height + 1), int((row_major.shape[0]) / tile_width + 1) # noqa
-    # one thread per tile element
     threads = tile_height, tile_width
 
     # blocks per gpu for the general kernel
     bpg = (nrows + tpb - 1) // tpb
 
     if dtype == 'float32':
-        dt = numba.float32
+        dev_dtype = numba.float32
 
     else:
-        dt = numba.float64
+        dev_dtype = numba.float64
 
     @cuda.jit
     def general_kernel(_col_major, _row_major):
@@ -73,7 +73,7 @@ def row_matrix(df):
     @cuda.jit
     def shared_kernel(input, output):
 
-        tile = cuda.shared.array(shape=tile_shape, dtype=dt)
+        tile = cuda.shared.array(shape=tile_shape, dtype=dev_dtype)
 
         tx = cuda.threadIdx.x
         ty = cuda.threadIdx.y
@@ -89,11 +89,11 @@ def row_matrix(df):
             output[y, x] = tile[tx, ty]
 
     # check if we cannot call the shared memory kernel
+    # block limits: 2**31-1 for x, 65535 for y dim of blocks
     if blocks[0] > 2147483647 or blocks[1] > 65535:
         general_kernel[bpg, tpb](col_major, row_major)
 
     else:
         shared_kernel[blocks, threads](col_major, row_major)
-
 
     return row_major
