@@ -174,9 +174,13 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
+
+                        cudaStream_t stream;
+                        CUDA_CHECK(cudaStreamCreate(&stream));
+
                         gpu_res.noTempMemory();
                         gpu_res.setCudaMallocWarning(false);
-                        gpu_res.setDefaultNullStreamAllDevices();
+                        gpu_res.setDefaultStream(att.device, stream);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -190,6 +194,10 @@ namespace ML {
                                     all_I+(long(i)*k*long(n)));
 
                         CUDA_CHECK(cudaPeekAtLastError());
+                        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+                        CUDA_CHECK(cudaStreamDestroy(stream));
+
 
                     } catch(const std::exception &e) {
                        std::cout << "Exception occurred: " << e.what() << std::endl;
