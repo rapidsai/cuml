@@ -43,8 +43,6 @@ __global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
 template <typename Type>
 void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
 
-    std::cout << "DBSCAN PERFORMING FINAL RELABEL!" << std::endl;
-
     Type MAX_LABEL = std::numeric_limits<Type>::max();
 
     MLCommon::Array::make_monotonic(db_cluster, db_cluster, N, stream,
@@ -124,11 +122,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
 
-        std::cout << MLCommon::arr2Str(adj, batchSize*N, "adj", stream) << std::endl;
-	    std::cout << MLCommon::arr2Str(adj_graph.data(), adjlen, "adj_graph", stream) << std::endl;
-
 	    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
-            labels, ex_scan, adj_graph.data(), vd, N,
+            labels, ex_scan, adj_graph.data(), adjlen, N,
             startVertexId, batchSize, &state, stream,
             [core_pts] __device__ (Type tid) {
                 return core_pts[tid];
