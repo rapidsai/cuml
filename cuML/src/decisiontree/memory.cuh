@@ -22,11 +22,11 @@
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
 
-template<class T>
+template<class T, class L>
 struct TemporaryMemory
 {
 	// Labels after boostrapping
-	MLCommon::device_buffer<int> *sampledlabels;
+	MLCommon::device_buffer<L> *sampledlabels;
 
 	// Used for gini histograms (root tree node)
 	MLCommon::device_buffer<int> *d_hist;
@@ -84,8 +84,8 @@ struct TemporaryMemory
 			totalmem += (n_bins + N) * extra_elements * sizeof(T);
 		}
 
-		sampledlabels = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
-		totalmem += N*sizeof(int);
+		sampledlabels = new MLCommon::device_buffer<L>(handle.getDeviceAllocator(), stream, N);
+		totalmem += N*sizeof(L);
 
 		//Allocate Temporary for split functions
 		d_num_selected_out = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, 1);
@@ -100,14 +100,14 @@ struct TemporaryMemory
 		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
 
 		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
-		h_mseout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, Ncols);
+		h_mseout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, Ncols);
 		
 		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
 		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
-		d_mseout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
+		d_mseout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
 		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T))* Ncols;
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 3*sizeof(T))* Ncols;
 
 	}
 
@@ -146,6 +146,7 @@ struct TemporaryMemory
 		temprowids->release(stream);
 		question_value->release(stream);
 		h_histout->release(stream);
+		h_mseout->release(stream);
 
 		delete sampledlabels;
 		delete d_split_temp_storage;
@@ -155,13 +156,16 @@ struct TemporaryMemory
 		delete temprowids;
 		delete question_value;
 		delete h_histout;
+		delete h_mseout;
 
 		d_globalminmax->release(stream);
 		d_histout->release(stream);
+		d_mseout->release(stream);
 		d_colids->release(stream);
 
 		delete d_globalminmax;
 		delete d_histout;
+		delete d_mseout;
 		delete d_colids;
 
 	}

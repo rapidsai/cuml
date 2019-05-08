@@ -57,7 +57,7 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 }
 
 template<typename T>
-void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T>> tempmem, MetricInfo & split_info, int & unique_labels)
+void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, int>> tempmem, MetricInfo & split_info, int & unique_labels)
 {
 	int *dhist = tempmem->d_hist->data();
 	int *hhist = tempmem->h_hist->data();
