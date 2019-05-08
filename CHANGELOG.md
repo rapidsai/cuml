@@ -1,3 +1,13 @@
+# cuML 0.8.0 (Date TBD)
+
+## New Features
+
+- PR #587: Sparse Feature Matrix Support for GLM (QN)
+
+## Improvements
+
+## Bug Fixes
+
 # cuML 0.7.0 (Date TBD)
 
 ## New Features
