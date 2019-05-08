@@ -31,19 +31,19 @@ void Question<T>::update(const GiniQuestion<T> & ques) {
 	value = ques.value;
 }
 
-template<class T>
-void TreeNode<T>::print(std::ostream& os) const {
+template<class T, class L>
+void TreeNode<T, L>::print(std::ostream& os) const {
 
-	if (left == nullptr && right == nullptr)
-		os << "(leaf, " << class_predict << ", " << gini_val << ")" ;
-	else
-		os << "(" << question.column << ", " << question.value << ", " << gini_val << ")" ;
-
+	if (left == nullptr && right == nullptr) {
+		os << "(leaf, " << prediction << ", " << split_metric_val << ")" ;
+	} else {
+		os << "(" << question.column << ", " << question.value << ", " << split_metric_val << ")" ;
+	}
 	return;
 }
 
-template<typename T>
-std::ostream& operator<<(std::ostream& os, const TreeNode<T> * const node) {
+template<typename T, typename L>
+std::ostream& operator<<(std::ostream& os, const TreeNode<T, L> * const node) {
 	node->print(os);
 	return os;
 }
@@ -90,9 +90,10 @@ void DecisionTreeParams::print() const {
 /**
  * @brief Print high-level tree information.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  */
-template<typename T>
-void dt<T>::print_tree_summary() const {
+template<typename T, typename L>
+void dt<T, L>::print_tree_summary() const {
 	std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
 	std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
 	std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
@@ -102,15 +103,17 @@ void dt<T>::print_tree_summary() const {
 /**
  * @brief Print detailed tree information.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  */
-template<typename T>
-void dt<T>::print() const {
+template<typename T, typename L>
+void dt<T, L>::print() const {
 	print_tree_summary();
 	print_node("", this->root, false);
 }
 
-template<typename T>
-void dt<T>::print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const {
+
+template<typename T, typename L>
+void dt<T, L>::print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const {
 
 	if (node != nullptr) {
 		std::cout << prefix;
@@ -123,6 +126,55 @@ void dt<T>::print_node(const std::string& prefix, const TreeNode<T>* const node,
 		// enter the next tree level - left and right branch
 		print_node( prefix + (isLeft ? "│   " : "    "), node->left, true);
 		print_node( prefix + (isLeft ? "│   " : "    "), node->right, false);
+	}
+}
+
+
+/**
+ * @brief Predict target feature for input data; n-ary classification or regression for single feature supported. Inference of trees is CPU only for now.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+template<typename T, typename L>
+void dt<T, L>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, L* predictions, bool verbose) const {
+	ASSERT(root, "Cannot predict w/ empty tree!");
+	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+	predict_all(rows, n_rows, n_cols, predictions, verbose);
+}
+
+template<typename T, typename L>
+void dt<T, L>::predict_all(const T * rows, const int n_rows, const int n_cols, L * preds, bool verbose) const {
+	for (int row_id = 0; row_id < n_rows; row_id++) {
+		preds[row_id] = predict_one(&rows[row_id * n_cols], this->root, verbose);
+	}
+}
+
+template<typename T, typename L>
+L dt<T, L>::predict_one(const T * row, const TreeNode<T, L>* const node, bool verbose) const {
+
+	Question<T> q = node->question;
+	if (node->left && (row[q.column] <= q.value)) {
+		if (verbose) {
+			std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
+		}
+		return predict_one(row, node->left, verbose);
+	} else if (node->right && (row[q.column] > q.value)) {
+		if (verbose) {
+			std::cout << "Classifying Right @ node w/ column " << q.column << " and value " << q.value << std::endl;
+		}
+		return predict_one(row, node->right, verbose);
+	} else {
+		if (verbose) {
+			std::cout << "Leaf node. Predicting " << node->prediction << std::endl;
+		}
+		return node->prediction;
 	}
 }
 
@@ -156,25 +208,6 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
 		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
-
-/**
- * @brief Predict target feature for input data; n-ary classification for single feature supported. Inference of trees is CPU only for now.
- * @tparam T: data type for input data (float or double).
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
- * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
- */
-template<typename T>
-void DecisionTreeClassifier<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, int* predictions, bool verbose) const {
-	ASSERT(this->root, "Cannot predict w/ empty tree!");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	classify_all(rows, n_rows, n_cols, predictions, verbose);
-}
-
 
 template<typename T>
 void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows,
@@ -239,10 +272,10 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 }
 
 template<typename T>
-TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids,
+TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids,
 												const int n_sampled_rows, GiniInfo prev_split_info) {
 
-	TreeNode<T> *node = new TreeNode<T>();
+	TreeNode<T, int> *node = new TreeNode<T, int>();
 	GiniQuestion<T> ques;
 	Question<T> node_ques;
 	float gain = 0.0;
@@ -264,8 +297,8 @@ TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, i
 		condition = (condition || (this->leaf_counter >= this->maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
 
 	if (condition) {
-		node->class_predict = get_class_hist(split_info[0].hist);
-		node->gini_val = split_info[0].best_gini;
+		node->prediction = get_class_hist(split_info[0].hist);
+		node->split_metric_val = split_info[0].best_gini;
 
 		this->leaf_counter++;
 		if (depth > this->depth_counter)
@@ -277,7 +310,7 @@ TreeNode<T>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, i
 		node->question = node_ques;
 		node->left = grow_tree(data, colper, labels, depth+1, &rowids[0], nrowsleft, split_info[1]);
 		node->right = grow_tree(data, colper, labels, depth+1, &rowids[nrowsleft], nrowsright, split_info[2]);
-		node->gini_val = split_info[0].best_gini;
+		node->split_metric_val = split_info[0].best_gini;
 	}
 	return node;
 }
@@ -316,34 +349,6 @@ void DecisionTreeClassifier<T>::split_branch(T *data, GiniQuestion<T> & ques, co
 	make_split(sampledcolumn, ques, n_sampled_rows, nrowsleft, nrowsright, rowids, this->split_algo, this->tempmem[0]);
 }
 
-template<typename T>
-void DecisionTreeClassifier<T>::classify_all(const T * rows, const int n_rows, const int n_cols, int* preds, bool verbose) const {
-	for (int row_id = 0; row_id < n_rows; row_id++) {
-		preds[row_id] = classify(&rows[row_id * n_cols], this->root, verbose);
-	}
-	return;
-}
-
-template<typename T>
-int DecisionTreeClassifier<T>::classify(const T * row, const TreeNode<T>* const node, bool verbose) const {
-
-	Question<T> q = node->question;
-	if (node->left && (row[q.column] <= q.value)) {
-		if (verbose)
-			std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
-		return classify(row, node->left, verbose);
-	} else if (node->right && (row[q.column] > q.value)) {
-		if (verbose)
-			std::cout << "Classifying Right @ node w/ column " << q.column << " and value " << q.value << std::endl;
-		return classify(row, node->right, verbose);
-	} else {
-		if (verbose)
-			std::cout << "Leaf node. Predicting " << node->class_predict << std::endl;
-		return node->class_predict;
-	}
-}
-
-
 /**
  * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
  * @tparam T: data type for input data (float or double).
@@ -371,56 +376,14 @@ void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const 
     //		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
 
-/**
- * @brief Predict target feature for input data; regression for single feature supported. Inference of trees is CPU only for now.
- * @tparam T: data type for input data (float or double).
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
- * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
- * @param[in] verbose: flag for debugging purposes.
- */
-template<typename T>
-void DecisionTreeRegressor<T>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, T* predictions, bool verbose) const {
-	ASSERT(this->root, "Cannot predict w/ empty tree!");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	predict_all(rows, n_rows, n_cols, predictions, verbose);
-}
-
-template<typename T>
-void DecisionTreeRegressor<T>::predict_all(const T * rows, const int n_rows, const int n_cols, T* preds, bool verbose) const {
-	for (int row_id = 0; row_id < n_rows; row_id++) {
-		preds[row_id] = predict(&rows[row_id * n_cols], this->root, verbose);
-	}
-}
-
-template<typename T>
-T DecisionTreeRegressor<T>::predict(const T * row, const TreeNode<T>* const node, bool verbose) const {
-
-	Question<T> q = node->question;
-	if (node->left && (row[q.column] <= q.value)) {
-		if (verbose)
-			std::cout << "Classifying Left @ node w/ column " << q.column << " and value " << q.value << std::endl;
-		return predict(row, node->left, verbose);
-	} else if (node->right && (row[q.column] > q.value)) {
-		if (verbose)
-			std::cout << "Classifying Right @ node w/ column " << q.column << " and value " << q.value << std::endl;
-		return predict(row, node->right, verbose);
-	} else { // TODO FIXME class_predict should be of type T
-		if (verbose)
-			std::cout << "Leaf node. Predicting " << node->class_predict << std::endl;
-		return node->class_predict;
-	}
-}
-
 // ---------------- Regression end
 
 
 //Class specializations
-template class dt<float>;
-template class dt<double>;
+template class dt<float, int>;
+template class dt<float, float>;
+template class dt<double, int>;
+template class dt<double, double>;
 
 template class DecisionTreeClassifier<float>;
 template class DecisionTreeClassifier<double>;

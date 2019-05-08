@@ -83,12 +83,12 @@ void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int>
 /* Revert preprocessing effect, if needed. */
 void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose=false);
 
-template<class T>
+template<class T, class L>
 class rf {
 	protected:
 		RF_params rf_params;
 		int rf_type;
-		virtual const DecisionTree::dt<T> * get_trees_ptr() const = 0;
+		virtual const DecisionTree::dt<T, L> * get_trees_ptr() const = 0;
 
 	public:
 		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
@@ -99,7 +99,7 @@ class rf {
 };
 
 template <class T>
-class rfClassifier : public rf<T> {
+class rfClassifier : public rf<T, int> {
     private:
 		DecisionTree::DecisionTreeClassifier<T> * trees = nullptr;
 		const DecisionTree::DecisionTreeClassifier<T> * get_trees_ptr() const;
@@ -114,7 +114,7 @@ class rfClassifier : public rf<T> {
 };
 
 template <class T>
-class rfRegressor : public rf<T> {
+class rfRegressor : public rf<T, T> {
     private:
 		DecisionTree::DecisionTreeRegressor<T> * trees = nullptr;
 		const DecisionTree::DecisionTreeRegressor<T> * get_trees_ptr() const;

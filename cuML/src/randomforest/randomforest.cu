@@ -141,30 +141,33 @@ void RF_params::print() const {
 /**
  * @brief Construct rf (random forest) object.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
  * @param[in] cfg_rf_type: Random forest type. Only CLASSIFICATION is currently supported.
  */
-template<typename T>
-rf<T>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type) {
+template<typename T, typename L>
+rf<T, L>::rf(RF_params cfg_rf_params, int cfg_rf_type):rf_params(cfg_rf_params), rf_type(cfg_rf_type) {
 	rf_params.validity_check();
 }
 
 /**
  * @brief Return number of trees in the forest.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  */
-template<typename T>
-int rf<T>::get_ntrees() {
+template<typename T, typename L>
+int rf<T, L>::get_ntrees() {
 	return rf_params.n_trees;
 }
 
 /**
  * @brief Print summary for all trees in the random forest.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  */
-template<typename T>
-void rf<T>::print_rf_summary() {
-	const DecisionTree::dt<T> * trees = get_trees_ptr();
+template<typename T, typename L>
+void rf<T, L>::print_rf_summary() {
+	const DecisionTree::dt<T, L> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -181,11 +184,12 @@ void rf<T>::print_rf_summary() {
 /**
  * @brief Print detailed view of all trees in the random forest.
  * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
  */
-template<typename T>
-void rf<T>::print_rf_detailed() {
+template<typename T, typename L>
+void rf<T, L>::print_rf_detailed() {
 
-	const DecisionTree::dt<T> * trees = get_trees_ptr();
+	const DecisionTree::dt<T, L> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -205,7 +209,7 @@ void rf<T>::print_rf_detailed() {
  * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
  */
 template <typename T>
-rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, RF_type::CLASSIFICATION) {};
+rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T, int>::rf(cfg_rf_params, RF_type::CLASSIFICATION) {};
 
 /**
  * @brief Destructor for random forest classifier object.
@@ -375,7 +379,7 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
  * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
  */
 template <typename T>
-rfRegressor<T>::rfRegressor(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params, RF_type::REGRESSION) {};
+rfRegressor<T>::rfRegressor(RF_params cfg_rf_params): rf<T, T>::rf(cfg_rf_params, RF_type::REGRESSION) {};
 
 /**
  * @brief Destructor for random forest regressor object.
@@ -537,8 +541,10 @@ RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle, const T
 	return stats;
 }
 
-template class rf<float>;
-template class rf<double>;
+template class rf<float, int>;
+template class rf<float, float>;
+template class rf<double, int>;
+template class rf<double, double>;
 
 template class rfClassifier<float>;
 template class rfClassifier<double>;
