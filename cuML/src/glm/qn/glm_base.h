@@ -17,12 +17,12 @@
 #pragma once
 
 #include "cuda_utils.h"
-#include "utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
+#include "utils.h"
 #include <glm/qn/cs_mat.h>
 #include <glm/qn/simple_mat.h>
 #include <linalg/matrix_vector_op.h>
@@ -33,51 +33,60 @@ namespace GLM {
 
 template <typename T, typename MatX>
 inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
-                      const MatX &X, const SimpleMat<T> &W,
-                      cudaStream_t stream) {
-  // Forward pass:  compute Z <- W * X.T + bias
+                      const MatX &X, const SimpleMat<T> &W, cudaStream_t stream,
+                      bool transpose = false) {
+  // Forward pass:  compute Z <- W * X.T + bias (or Z' if transpose=true)
+  SimpleMat<T> weights;
   const bool has_bias = X.n != W.n;
   const int D = X.n;
+  const T beta = has_bias ? T(1) : T(0);
+
+  col_slice(W, weights, 0, D);
+
   if (has_bias) {
     SimpleVec<T> bias;
-    SimpleMat<T> weights;
     col_ref(W, bias, D);
-    col_slice(W, weights, 0, D);
     // We implement Z <- W * X^T + b by
-    // - Z <- b (broadcast): TODO reads Z unnecessarily atm
-    // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
+    // - Z <- b (broadcast): TODO reads Z unnecessarily 
+    // - Z <- W * X^T + Z    : TODO how to fuse?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
+    bool along_rows = transpose ? true : false;
     MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
-                                     false, set_bias, stream);
+                                     along_rows, set_bias, stream);
+  }
 
-    Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
+  if (transpose) {
+    Z.assign_gemm(handle, 1, X, false, weights, true, beta, stream);
   } else {
-    Z.assign_gemm(handle, 1, W, false, X, true, 0, stream);
+    Z.assign_gemm(handle, 1, weights, false, X, true, beta, stream);
   }
 }
 
 template <typename T, typename MatX>
 inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
-                      const MatX &X, const SimpleMat<T> &dZ,
-                      bool setZero, cudaStream_t stream) {
+                      const MatX &X, const SimpleMat<T> &dZ, bool setZero,
+                      cudaStream_t stream, bool transpose = false) {
   // Backward pass:
-  // - compute G <- dZ * X.T
+  // - compute G <- dZ * X.T (or G' if transpose=true)
   // - for bias: Gb = mean(dZ, 1)
-
-  const bool has_bias = X.n != G.n;
   const int D = X.n;
+  const int C = dZ.m;
+  const bool has_bias = G.len > C * D;
   const T beta = setZero ? T(0) : T(1);
-  if (has_bias) {
-    SimpleVec<T> Gbias;
-    SimpleMat<T> Gweights;
-    col_ref(G, Gbias, D);
-    col_slice(G, Gweights, 0, D);
 
+  SimpleMat<T> Gweights(G.data, transpose ? D : C, transpose ? C : D);
+
+  if (has_bias) {
     // TODO can this be fused somehow?
-    Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
-    MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+    bool row_major = transpose ? false : true;
+    MLCommon::Stats::mean(G.data + D * C, dZ.data, dZ.m, dZ.n, false, row_major,
+                          stream);
+  }
+
+  if (transpose) {
+    Gweights.assign_gemm(handle, 1.0 / X.m, X, true, dZ, true, beta, stream);
   } else {
-    G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
+    Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
 }
 struct GLMDims {

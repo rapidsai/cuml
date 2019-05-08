@@ -19,6 +19,7 @@
 #include <glm/qn/simple_mat.h>
 
 namespace ML {
+using MLCommon::Sparse::cusparseCsrmm2;
 
 enum COMPRESSED_STORAGE_FORMAT { CSR = 0, CSC = 1 };
 
@@ -66,7 +67,7 @@ template <typename T> struct CSMat {
   }
 };
 
-//Providing GEMM handle for B of type CSMat
+// Providing GEMM handle for B of type CSMat
 template <typename T> struct Gemm<T, SimpleMat<T>, CSMat<T>, SimpleMat<T>> {
   static inline void gemm_(const cumlHandle_impl &handle, SimpleMat<T> &C,
                            const T alpha, const SimpleMat<T> &A,
@@ -92,10 +93,10 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CSMat<T>, SimpleMat<T>> {
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
     ASSERT(C.ord == COL_MAJOR && A.ord == COL_MAJOR,
-           "simple_mat.h: Storage orders of dense matrices.");
+           "cs_mat.h: Storage orders of dense matrices.");
 
-    ASSERT(C.m == 1, "simple_mat.h: multiple outputs not yet supported.");
-    if (B.format == CSR) { 
+    ASSERT(C.m == 1, "cs_mat.h: multiple outputs not yet supported.");
+    if (B.format == CSR) {
       // TODO If C > 1, we would need to transpose the output of the cusparse
       // call  However, here we do not have the necessary scratch space  We
       // could allocate it using the cuml handle and rely on RMM's mempool  or
@@ -136,6 +137,76 @@ template <typename T> struct Gemm<T, SimpleMat<T>, CSMat<T>, SimpleMat<T>> {
       gemm_(handle, C, alpha, A, transA, Btmp, !transB, beta, stream);
     }
   }
-}; // namespace ML
+};
+
+// Providing GEMM handle for B of type CSMat
+template <typename T> struct Gemm<T, CSMat<T>, SimpleMat<T>, SimpleMat<T>> {
+  static inline void gemm_(const cumlHandle_impl &handle, SimpleMat<T> &C,
+                           const T alpha, const CSMat<T> &A, const bool transA,
+                           const SimpleMat<T> &B, const bool transB,
+                           const T beta, cudaStream_t stream) {
+    int kA = A.n;
+    int kB = B.m;
+
+    if (transA) {
+      ASSERT(A.n == C.m, "GEMM invalid dims: m");
+      kA = A.m;
+    } else {
+      ASSERT(A.m == C.m, "GEMM invalid dims: m");
+    }
+
+    if (transB) {
+      ASSERT(B.m == C.n, "GEMM invalid dims: n");
+      kB = B.n;
+    } else {
+      ASSERT(B.n == C.n, "GEMM invalid dims: n");
+    }
+    ASSERT(kA == kB, "GEMM invalid dims: k");
+
+    ASSERT(C.ord == COL_MAJOR, "cs_mat.h: Output storage order");
+
+    if (A.format == CSR && B.ord == COL_MAJOR) {
+      cusparseOperation_t opA = transA ? CUSPARSE_OPERATION_TRANSPOSE
+                                       : CUSPARSE_OPERATION_NON_TRANSPOSE;
+
+      cusparseOperation_t opB = transB ? CUSPARSE_OPERATION_TRANSPOSE
+                                       : CUSPARSE_OPERATION_NON_TRANSPOSE;
+
+      //printf("m=%d,n=%d,k=%d, nnz=%d, ldb=%d, ldc=%d transA=%d transB=%d "
+      //       "invalid: %d\n",
+      //       A.m, C.n, A.n, A.nnz, B.m, C.m, transA, transB,
+      //       CUSPARSE_STATUS_INVALID_VALUE);
+
+      CUSPARSE_CHECK(cusparseCsrmm2(handle.getcusparseHandle(),
+                                    opA,            // transA
+                                    opB,            // transB
+                                    A.m,            // m: rows A
+                                    C.n,            // n: cols op(B)/C
+                                    A.n,            // k: cols A
+                                    A.nnz,          //
+                                    &alpha,         //
+                                    A.descr,        // sparse mat descr
+                                    A.data.data,    // csrValA
+                                    A.idxPtr.data,  // csrRowPtrA
+                                    A.indices.data, // csrColIndA
+                                    B.data,         //
+                                    B.m,            // ldb
+                                    &beta,          //
+                                    C.data,         //
+                                    C.m             //
+                                    ));
+    } else if (A.format == CSC) {
+      CSMat<T> Atmp(A);
+      std::swap(Atmp.m, Atmp.n);
+      Atmp.format = CSR;
+      gemm_(handle, C, alpha, Atmp, !transA, B, transB, beta, stream);
+    } else if (B.ord == ROW_MAJOR) {
+      SimpleMat<T> Btmp(B.data, B.n, B.m, COL_MAJOR);
+      gemm_(handle, C, alpha, A, transA, Btmp, !transB, beta, stream);
+    } else {
+      ASSERT(false, "cs_mat.h: Invalid config");
+    }
+  }
+};
 
 } // namespace ML

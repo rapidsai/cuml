@@ -140,13 +140,13 @@ template <typename T> struct SimpleMat {
 
   void print() const { std::cout << (*this) << std::endl; }
 
-  template <typename MatB>
+  template <typename MatA,typename MatB>
   inline void assign_gemm(const cumlHandle_impl &handle, const T alpha,
-                          const SimpleMat<T> &A, const bool transA,
+                          const MatA &A, const bool transA,
                           const MatB &B, const bool transB, const T beta,
                           cudaStream_t stream) {
 
-    Gemm<T, SimpleMat<T>, MatB, SimpleMat<T>>::gemm_(
+    Gemm<T, MatA, MatB, SimpleMat<T>>::gemm_(
         handle, *this, alpha, A, transA, B, transB, beta, stream);
   }
 

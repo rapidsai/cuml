@@ -224,8 +224,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   SimpleMatOwning<double> z(allocator, C, N, stream);
   SimpleVecOwning<double> w0(allocator, C * (D + 1), stream);
 
-  Softmax<double> loss_b(handle, D, C, true);
-  Softmax<double> loss_no_b(handle, D, C, false);
+  Softmax<double, SimpleMat<double>> loss_b(handle, D, C, true);
+  Softmax<double, SimpleMat<double>> loss_no_b(handle, D, C, false);
 
   l1 = alpha;
   l2 = 0.0;
@@ -354,48 +354,42 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   // Test case generated in python and solved with sklearn
   double yhost[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
 
-  std::vector<double> Xsparsified(N * D, 0);
-  int nnz = 0;
-  const double *Xptr = &X[0][0];
-  for (int it = 0; it < N * D; it++) {
-    if (std::abs(Xptr[it]) < 0.5) {
-      Xsparsified[it] = Xptr[it];
-      nnz++;
-    }
-  }
-  SimpleMatOwning<double> X(allocator, N, D, stream, COL_MAJOR);
+  int C=2;
   SimpleVecOwning<double> y(allocator, N, stream);
 
-  updateDevice(X.data, &Xsparsified[0], X.len, stream);
   updateDevice(y.data, &yhost[0], y.len, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  SimpleMatOwning<double> tmp(allocator, C, N, stream);
 
+  int nnz = N * D;
+  SimpleMatOwning<double> Xcm(allocator, N,D,stream);
   SimpleVecOwning<double> csrVal(allocator, nnz, stream);
   SimpleVecOwning<int> csrRowPtr(allocator, N + 1, stream);
   SimpleVecOwning<int> csrColInd(allocator, nnz, stream);
 
   SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
-  SimpleMatOwning<double> tmp(allocator, 1, N, stream);
-  int nnzTotal;
+  nnzPerRow.fill(D, stream);
+  MLCommon::LinAlg::transpose(Xdev->data, Xcm.data, D, N,
+                              handle.getCublasHandle(), stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   cusparseMatDescr_t descr;
   CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
-  cusparseDnnz(handle.getcusparseHandle(), CUSPARSE_DIRECTION_ROW, N, D, descr,
-               X.data, N, nnzPerRow.data, &nnzTotal);
 
-  cusparseDdense2csr(handle.getcusparseHandle(), N, D, descr, X.data, N,
+  cusparseDdense2csr(handle.getcusparseHandle(), N, D, descr, Xcm.data, N,
                      nnzPerRow.data, csrVal.data, csrRowPtr.data,
                      csrColInd.data);
 
-  LogisticLoss<double> logLoss(handle, D, false);
-  GLMWithData<double, SimpleMat<double>, decltype(logLoss)> lossDense(
-      &logLoss, X, y, tmp);
+  //LogisticLoss<double> dense(handle, D, false);
+  Softmax<double, SimpleMat<double>> dense(handle, C, D, true);
+  Softmax<double, CSMat<double>> sparse(handle, C, D, true);
+  GLMWithData<double, SimpleMat<double>, decltype(dense)> lossDense(
+      &dense, *Xdev, y, tmp);
   LBFGSParam<double> opt_param;
   opt_param.epsilon = 1e-5;
   opt_param.max_iterations = 100;
   opt_param.m = 2;
   opt_param.max_linesearch = 50;
-  SimpleVecOwning<double> w(allocator, logLoss.n_param, stream);
+  SimpleVecOwning<double> w(allocator, dense.n_param, stream);
   int verbosity = 1;
 
   double fxd, fxs;
@@ -411,7 +405,7 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
               verbosity);
 
   CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
-  GLMWithData<double, CSMat<double>, decltype(logLoss)> lossSparse(&logLoss,
+  GLMWithData<double, CSMat<double>, decltype(sparse)> lossSparse(&sparse,
                                                                    csr, y, tmp);
 
   w.fill(0, stream);

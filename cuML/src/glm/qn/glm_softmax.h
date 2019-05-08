@@ -20,6 +20,7 @@
 #include "glm/qn/glm_base.h"
 #include "linalg/binary_op.h"
 #include <glm/qn/simple_mat.h>
+#include <linalg/transpose.h>
 
 namespace ML {
 namespace GLM {
@@ -35,7 +36,8 @@ using MLCommon::myMax;
 // This kernel performs best for small number of classes C.
 // It's much faster than implementation based on ml-prims (up to ~2x - ~10x for
 // small C <= BX).  More importantly, it does not require another CxN scratch
-// space.  In that case the block covers the whole column and warp reduce is fast
+// space.  In that case the block covers the whole column and warp reduce is
+// fast
 // TODO for very large C, there should be maybe rather something along the lines
 // of
 //     coalesced reduce, i.e. blocks should take care of columns
@@ -186,8 +188,9 @@ void launchLogsoftmax(T *loss_val, T *dldZ, const T *Z, const T *labels, int C,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
-  typedef GLMBase<T, Softmax<T>> Super;
+template <typename T, typename MatX>
+struct Softmax : GLMBase<T, Softmax<T, MatX>> {
+  typedef GLMBase<T, Softmax<T, MatX>> Super;
 
   Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
       : Super(handle, D, C, has_bias) {}
@@ -196,6 +199,69 @@ template <typename T> struct Softmax : GLMBase<T, Softmax<T>> {
                            cudaStream_t stream) {
 
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
+  }
+};
+
+template <typename T>
+struct Softmax<T, CSMat<T>> : GLMBase<T, Softmax<T, CSMat<T>>> {
+
+  typedef GLMBase<T, Softmax<T, CSMat<T>>> Super;
+
+  using Super::handle;
+  using typename Super::Mat;
+  using typename Super::Vec;
+
+  MLCommon::device_buffer<T> Zt_buf;
+  MLCommon::device_buffer<T> Gt_buf;
+
+  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
+      : Super(handle, D, C, has_bias),
+        Zt_buf(handle.getDeviceAllocator(),
+               handle.getStream(), // TODO FIXME add streams all the way
+               0),
+        Gt_buf(handle.getDeviceAllocator(), handle.getStream(), 0) {}
+
+  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
+                           cudaStream_t stream) {
+
+    launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
+  }
+
+  inline void loss_grad(T *loss_val, Mat &G, const Mat &W, const CSMat<T> &Xb,
+                        const Vec &yb, Mat &Zb, cudaStream_t stream,
+                        bool initGradZero = true) {
+
+    // TODO this is an MVP implementation that requires 3 transposes and
+    // O(C*(D+N)) extra storage
+    int C = Zb.m;
+    int D = Xb.n;
+    int N = Xb.m;
+    if (Zt_buf.size() < Zb.len) {
+      Zt_buf.resize(Zb.len, stream);
+    }
+
+    if (Gt_buf.size() < G.len) {
+      Gt_buf.resize(G.len, stream);
+    }
+    SimpleMat<T> Zt(Zt_buf.data(), Zb.n, Zb.m);
+    SimpleMat<T> Gt(Gt_buf.data(), G.n, G.m);
+
+    linearFwd(handle, Zt, Xb, W, stream, true);
+    MLCommon::LinAlg::transpose(Zt.data, Zb.data, Zt.m, Zt.n,
+                                handle.getCublasHandle(), stream);
+    getLossAndDZ(loss_val, Zb, yb, stream);
+
+    MLCommon::LinAlg::transpose(Zb.data, Zt.data, Zb.m, Zb.n,
+                                handle.getCublasHandle(), stream);
+    SimpleMat<T> dldZrm(Zt.data, C, N, ROW_MAJOR);
+    linearBwd(handle, Gt, Xb, dldZrm, initGradZero, stream, true);
+    MLCommon::LinAlg::transpose(Gt.data, G.data, D, C, handle.getCublasHandle(),
+                                stream);
+    if (C * D < G.len) {
+      SimpleVec<T> bsrc(Gt.data + C * D, C);
+      SimpleVec<T> btgt(G.data + C * D, C);
+      btgt.copy_async(bsrc, stream);
+    }
   }
 };
 

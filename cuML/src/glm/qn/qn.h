@@ -114,7 +114,7 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
-    Softmax<T> loss(handle, D, C, fit_intercept);
+    Softmax<T, MatX> loss(handle, D, C, fit_intercept);
 
     Buffer ws_buf(handle.getDeviceAllocator(), stream,
                   qn_workspace_size(l1, lbfgs_memory, loss));
