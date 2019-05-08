@@ -25,22 +25,60 @@ struct QuasiNewtonTest : ::testing::Test {
   cumlHandle cuml_handle;
   const cumlHandle_impl &handle;
   cudaStream_t stream;
-  std::shared_ptr<SimpleMatOwning<double>> Xdev;
+  SimpleMat<double> Xdev_rm;
+  SimpleMat<double> Xdev_cm;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
-
+  std::shared_ptr<device_buffer<double>> Xrm_buf;
+  std::shared_ptr<device_buffer<double>> Xcm_buf;
   std::shared_ptr<deviceAllocator> allocator;
+
+  std::shared_ptr<CSMat<double>> Xcsr;
+  std::shared_ptr<SimpleVecOwning<double>> csrVal;
+  std::shared_ptr<SimpleVecOwning<int>> csrRowPtr;
+  std::shared_ptr<SimpleVecOwning<int>> csrColInd;
+
   QuasiNewtonTest() : handle(cuml_handle.getImpl()) {}
   void SetUp() {
     stream = cuml_handle.getStream();
-    Xdev.reset(new SimpleMatOwning<double>(handle.getDeviceAllocator(), N, D,
-                                           stream, ROW_MAJOR));
-    updateDevice(Xdev->data, &X[0][0], Xdev->len, stream);
+
+    allocator = handle.getDeviceAllocator();
+
+    Xrm_buf.reset(new device_buffer<double>(allocator, stream, N * D));
+    Xcm_buf.reset(new device_buffer<double>(allocator, stream, N * D));
+
+    Xdev_rm.reset(Xrm_buf->data(), N, D);
+    Xdev_rm.ord = ROW_MAJOR;
+
+    Xdev_cm.reset(Xcm_buf->data(), N, D);
+    Xdev_cm.ord = COL_MAJOR;
+
+    updateDevice(Xdev_rm.data, &X[0][0], Xdev_rm.len, stream);
+    LinAlg::transpose(Xdev_rm.data, Xdev_cm.data, D, N,
+                      handle.getCublasHandle(), stream);
 
     ydev.reset(
         new SimpleVecOwning<double>(handle.getDeviceAllocator(), N, stream));
+
+    int nnz = N * D;
+    csrVal.reset(new SimpleVecOwning<double>(allocator, nnz, stream));
+    csrRowPtr.reset(new SimpleVecOwning<int>(allocator, N + 1, stream));
+    csrColInd.reset(new SimpleVecOwning<int>(allocator, nnz, stream));
+
+    SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
+    nnzPerRow.fill(D, stream);
+
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    allocator = handle.getDeviceAllocator();
+    cusparseMatDescr_t descr;
+    CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
+
+    cusparseDdense2csr(handle.getcusparseHandle(), N, D, descr, Xdev_cm.data, N,
+                       nnzPerRow.data, csrVal->data, csrRowPtr->data,
+                       csrColInd->data);
+
+    Xcsr.reset(new CSMat<double>(*csrVal, *csrRowPtr, *csrColInd, N, D));
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   void TearDown() {}
 };
@@ -83,8 +121,8 @@ checkParamsEqual(const cumlHandle_impl &handle, const T *host_weights,
   return devArrMatch(w_ref.data, w, w_ref.len, comp);
 }
 
-template <typename T, class LossFunction>
-T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
+template <typename T, class LossFunction, typename MatX>
+T run(const cumlHandle_impl &handle, LossFunction &loss, const MatX &X,
       const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
       cudaStream_t stream) {
 
@@ -153,13 +191,16 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
+  fx = run(handle, loss_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
   double w_l2_b[2] = {-1.5339880402781370, 1.6788639581350926};
@@ -168,14 +209,17 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = 0;
   l2 = alpha;
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
 
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 0, 1, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
+  fx = run(handle, loss_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   double w_l1_no_b[2] = {-1.6215035298864591, 2.3650868394981086};
@@ -183,13 +227,16 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = alpha;
   l2 = 0.0;
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
+  fx = run(handle, loss_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
   double w_l2_no_b[2] = {-1.3931049893764620, 2.0140103094119621};
@@ -197,13 +244,16 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   l1 = 0;
   l2 = alpha;
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 0, 1, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
+
+  fx = run(handle, loss_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
@@ -227,37 +277,49 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   Softmax<double, SimpleMat<double>> loss_b(handle, D, C, true);
   Softmax<double, SimpleMat<double>> loss_no_b(handle, D, C, false);
 
+  Softmax<double, CSMat<double>> loss_sp_b(handle, D, C, true);
+  Softmax<double, CSMat<double>> loss_sp_no_b(handle, D, C, false);
+
   l1 = alpha;
   l2 = 0.0;
   double obj_l1_b = 0.5407911382311313;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
-  fx = run_api(cuml_handle, 2, C, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 2, C, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
+  fx = run(handle, loss_sp_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
   l1 = 0.0;
   l2 = alpha;
   double obj_l2_b = 0.5721784062720949;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
-  fx = run_api(cuml_handle, 2, C, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 2, C, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
+  fx = run(handle, loss_sp_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   l1 = alpha;
   l2 = 0.0;
   double obj_l1_no_b = 0.6606929813245878;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
-  fx = run_api(cuml_handle, 2, C, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 2, C, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
+  fx = run(handle, loss_sp_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
   l1 = 0.0;
@@ -265,11 +327,14 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
 
   double obj_l2_no_b = 0.6597171282106854;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 
-  fx = run_api(cuml_handle, 2, C, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 2, C, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
+
+  fx = run(handle, loss_sp_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
@@ -295,13 +360,17 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double w_l1_b[2] = {-0.4952397281519840, 0.3813315300180231};
   double b_l1_b = -0.08140861819001188;
   double obj_l1_b = 0.011136986298775138;
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_b[0], &b_l1_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 1, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 1, 1, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_b, fx));
+
+  fx = run(handle, loss_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_b, fx));
 
   l1 = 0.0;
@@ -310,13 +379,16 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double b_l2_b = -0.08062397391797513;
   double obj_l2_b = 0.004268621967866347;
 
-  fx = run(handle, loss_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_b[0], &b_l2_b, w0.data, loss_b,
                                compApprox, stream));
 
-  fx = run_api(cuml_handle, 1, 1, loss_b.fit_intercept, *Xdev, *ydev, l1, l2,
+  fx = run_api(cuml_handle, 1, 1, loss_b.fit_intercept, Xdev_rm, *ydev, l1, l2,
                w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_b, fx));
+
+  fx = run(handle, loss_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_b, fx));
 
   l1 = alpha;
@@ -324,13 +396,16 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double w_l1_no_b[2] = {-0.5175178128147135, 0.3720844589831813};
   double obj_l1_no_b = 0.013981355746112447;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l1_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 1, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 1, 1, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
+
+  fx = run(handle, loss_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l1_no_b, fx));
 
   l1 = 0.0;
@@ -338,13 +413,16 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double w_l2_no_b[2] = {-0.5241651041233270, 0.3846317886627560};
   double obj_l2_no_b = 0.007061261366969662;
 
-  fx = run(handle, loss_no_b, *Xdev, *ydev, l1, l2, w0.data, z, 0, stream);
+  fx = run(handle, loss_no_b, Xdev_rm, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
   ASSERT_TRUE(checkParamsEqual(handle, &w_l2_no_b[0], nobptr, w0.data,
                                loss_no_b, compApprox, stream));
 
-  fx = run_api(cuml_handle, 1, 1, loss_no_b.fit_intercept, *Xdev, *ydev, l1, l2,
-               w0.data, z, 0, stream);
+  fx = run_api(cuml_handle, 1, 1, loss_no_b.fit_intercept, Xdev_rm, *ydev, l1,
+               l2, w0.data, z, 0, stream);
+  ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
+
+  fx = run(handle, loss_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
 }
 
@@ -354,21 +432,21 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
   // Test case generated in python and solved with sklearn
   double yhost[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
 
-  int C=2;
+  int C = 2;
   SimpleVecOwning<double> y(allocator, N, stream);
 
   updateDevice(y.data, &yhost[0], y.len, stream);
   SimpleMatOwning<double> tmp(allocator, C, N, stream);
 
   int nnz = N * D;
-  SimpleMatOwning<double> Xcm(allocator, N,D,stream);
+  SimpleMatOwning<double> Xcm(allocator, N, D, stream);
   SimpleVecOwning<double> csrVal(allocator, nnz, stream);
   SimpleVecOwning<int> csrRowPtr(allocator, N + 1, stream);
   SimpleVecOwning<int> csrColInd(allocator, nnz, stream);
 
   SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
   nnzPerRow.fill(D, stream);
-  MLCommon::LinAlg::transpose(Xdev->data, Xcm.data, D, N,
+  MLCommon::LinAlg::transpose(Xdev_rm.data, Xcm.data, D, N,
                               handle.getCublasHandle(), stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -379,11 +457,11 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
                      nnzPerRow.data, csrVal.data, csrRowPtr.data,
                      csrColInd.data);
 
-  //LogisticLoss<double> dense(handle, D, false);
+  // LogisticLoss<double> dense(handle, D, false);
   Softmax<double, SimpleMat<double>> dense(handle, C, D, true);
   Softmax<double, CSMat<double>> sparse(handle, C, D, true);
   GLMWithData<double, SimpleMat<double>, decltype(dense)> lossDense(
-      &dense, *Xdev, y, tmp);
+      &dense, Xdev_rm, y, tmp);
   LBFGSParam<double> opt_param;
   opt_param.epsilon = 1e-5;
   opt_param.max_iterations = 100;
@@ -405,8 +483,8 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse) {
               verbosity);
 
   CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
-  GLMWithData<double, CSMat<double>, decltype(sparse)> lossSparse(&sparse,
-                                                                   csr, y, tmp);
+  GLMWithData<double, CSMat<double>, decltype(sparse)> lossSparse(&sparse, csr,
+                                                                  y, tmp);
 
   w.fill(0, stream);
   qn_minimize(w, &fxs, &num_iters, lossSparse, l1, opt_param, stream, workspace,
@@ -425,7 +503,7 @@ TEST_F(QuasiNewtonTest, predict) {
 
   updateDevice(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 0, preds.data,
+  qnPredict(handle, Xdev_rm.data, N, D, 1, false, w.data, false, 0, preds.data,
             stream);
   updateHost(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -435,7 +513,7 @@ TEST_F(QuasiNewtonTest, predict) {
                              : compApprox(preds_host[it], 0));
   }
 
-  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 1, preds.data,
+  qnPredict(handle, Xdev_rm.data, N, D, 1, false, w.data, false, 1, preds.data,
             stream);
   updateHost(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -443,7 +521,6 @@ TEST_F(QuasiNewtonTest, predict) {
   for (int it = 0; it < N; it++) {
     ASSERT_TRUE(compApprox(X[it][0], preds_host[it]));
   }
-
 }
 
 TEST_F(QuasiNewtonTest, predict_softmax) {
@@ -459,7 +536,7 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
 
   updateDevice(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, C, false, w.data, false, 2, preds.data,
+  qnPredict(handle, Xdev_rm.data, N, D, C, false, w.data, false, 2, preds.data,
             stream);
   updateHost(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -473,7 +550,6 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
       ASSERT_TRUE(compApprox(C - 1, preds_host[it]));
     }
   }
-
 }
 
 } // namespace GLM
