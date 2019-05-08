@@ -168,6 +168,8 @@ cdef class NearestNeighbors:
     cdef uintptr_t I_ptr
     cdef uintptr_t D_ptr
 
+    cdef object X_m
+
     cdef bool _should_downcast
     cdef object n_gpus
     cdef object devices
@@ -195,10 +197,12 @@ cdef class NearestNeighbors:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
         self.k = NULL
+        self.X_m = NULL
 
     def __dealloc__(self):
         del self.k
         del self.input
+        del self.X_m
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -233,7 +237,7 @@ cdef class NearestNeighbors:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = numba_utils.row_matrix(X)
+            X_m = numba_utils.row_matrix(X)
 
         elif isinstance(X, np.ndarray):
             dtype = X.dtype
@@ -247,11 +251,11 @@ cdef class NearestNeighbors:
                     raise Exception("Input is double precision. Use 'should_downcast=True' "
                                     "if you'd like it to be automatically casted to single precision.")
 
-            X = cuda.to_device(X)
+            X_m = cuda.to_device(X)
         else:
             raise Exception("Received unsupported input type " % type(X))
 
-        return X
+        return X_m
 
 
     def fit(self, X):
@@ -267,6 +271,9 @@ cdef class NearestNeighbors:
 
         if self.k != NULL:
             del self.k
+
+        if self.X_m != NULL:
+            del self.X_m
 
         n_dims = X.shape[1]
         self.k = new kNN(n_dims, verbose = self._verbose)
@@ -311,9 +318,9 @@ cdef class NearestNeighbors:
             )
 
         else:
-            X_m = self._downcast(X)
+            self.X_m = self._downcast(X)
 
-            X_ctype = X_m.device_ctypes_pointer.value
+            X_ctype = self.X_m.device_ctypes_pointer.value
 
             params = new kNNParams()
             params.N = <int>len(X)
