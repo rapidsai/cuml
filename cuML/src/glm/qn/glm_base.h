@@ -107,7 +107,8 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
 
   const cumlHandle_impl &handle;
 
-  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
+  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept,
+          cudaStream_t stream)
       : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*

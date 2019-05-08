@@ -177,8 +177,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 
   double alpha = 0.01;
 
-  LogisticLoss<double> loss_b(handle, D, true);
-  LogisticLoss<double> loss_no_b(handle, D, false);
+  LogisticLoss<double> loss_b(handle, D, true, stream);
+  LogisticLoss<double> loss_no_b(handle, D, false, stream);
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
   SimpleMatOwning<double> z(allocator, 1, N, stream);
@@ -274,11 +274,11 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
   SimpleMatOwning<double> z(allocator, C, N, stream);
   SimpleVecOwning<double> w0(allocator, C * (D + 1), stream);
 
-  Softmax<double, SimpleMat<double>> loss_b(handle, D, C, true);
-  Softmax<double, SimpleMat<double>> loss_no_b(handle, D, C, false);
+  Softmax<double, SimpleMat<double>> loss_b(handle, D, C, true, stream);
+  Softmax<double, SimpleMat<double>> loss_no_b(handle, D, C, false, stream);
 
-  Softmax<double, CSMat<double>> loss_sp_b(handle, D, C, true);
-  Softmax<double, CSMat<double>> loss_sp_no_b(handle, D, C, false);
+  Softmax<double, CSMat<double>> loss_sp_b(handle, D, C, true, stream);
+  Softmax<double, CSMat<double>> loss_sp_no_b(handle, D, C, false, stream);
 
   l1 = alpha;
   l2 = 0.0;
@@ -352,8 +352,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
   SimpleMatOwning<double> z(allocator, 1, N, stream);
-  SquaredLoss<double> loss_b(handle, D, true);
-  SquaredLoss<double> loss_no_b(handle, D, false);
+  SquaredLoss<double> loss_b(handle, D, true, stream);
+  SquaredLoss<double> loss_no_b(handle, D, false, stream);
 
   l1 = alpha;
   l2 = 0.0;
@@ -424,73 +424,6 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
 
   fx = run(handle, loss_no_b, *Xcsr, *ydev, l1, l2, w0.data, z, 0, stream);
   ASSERT_TRUE(compApprox(obj_l2_no_b, fx));
-}
-
-TEST_F(QuasiNewtonTest, dense_vs_sparse) {
-
-  CompareApprox<double> compApprox(tol);
-  // Test case generated in python and solved with sklearn
-  double yhost[10] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
-
-  int C = 2;
-  SimpleVecOwning<double> y(allocator, N, stream);
-
-  updateDevice(y.data, &yhost[0], y.len, stream);
-  SimpleMatOwning<double> tmp(allocator, C, N, stream);
-
-  int nnz = N * D;
-  SimpleMatOwning<double> Xcm(allocator, N, D, stream);
-  SimpleVecOwning<double> csrVal(allocator, nnz, stream);
-  SimpleVecOwning<int> csrRowPtr(allocator, N + 1, stream);
-  SimpleVecOwning<int> csrColInd(allocator, nnz, stream);
-
-  SimpleVecOwning<int> nnzPerRow(allocator, N, stream);
-  nnzPerRow.fill(D, stream);
-  MLCommon::LinAlg::transpose(Xdev_rm.data, Xcm.data, D, N,
-                              handle.getCublasHandle(), stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  cusparseMatDescr_t descr;
-  CUSPARSE_CHECK(cusparseCreateMatDescr(&descr));
-
-  cusparseDdense2csr(handle.getcusparseHandle(), N, D, descr, Xcm.data, N,
-                     nnzPerRow.data, csrVal.data, csrRowPtr.data,
-                     csrColInd.data);
-
-  // LogisticLoss<double> dense(handle, D, false);
-  Softmax<double, SimpleMat<double>> dense(handle, C, D, true);
-  Softmax<double, CSMat<double>> sparse(handle, C, D, true);
-  GLMWithData<double, SimpleMat<double>, decltype(dense)> lossDense(
-      &dense, Xdev_rm, y, tmp);
-  LBFGSParam<double> opt_param;
-  opt_param.epsilon = 1e-5;
-  opt_param.max_iterations = 100;
-  opt_param.m = 2;
-  opt_param.max_linesearch = 50;
-  SimpleVecOwning<double> w(allocator, dense.n_param, stream);
-  int verbosity = 1;
-
-  double fxd, fxs;
-  int num_iters;
-  double l1 = 0.001;
-
-  MLCommon::device_buffer<double> buf(
-      handle.getDeviceAllocator(), stream,
-      owlqn_workspace_size(opt_param, lossDense.n_param));
-  SimpleVec<double> workspace(buf.data(), buf.size());
-
-  qn_minimize(w, &fxd, &num_iters, lossDense, l1, opt_param, stream, workspace,
-              verbosity);
-
-  CSMat<double> csr(csrVal, csrRowPtr, csrColInd, N, D);
-  GLMWithData<double, CSMat<double>, decltype(sparse)> lossSparse(&sparse, csr,
-                                                                  y, tmp);
-
-  w.fill(0, stream);
-  qn_minimize(w, &fxs, &num_iters, lossSparse, l1, opt_param, stream, workspace,
-              verbosity);
-
-  ASSERT_TRUE(compApprox(fxd, fxs));
 }
 
 TEST_F(QuasiNewtonTest, predict) {

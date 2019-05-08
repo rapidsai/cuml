@@ -16,13 +16,13 @@
 
 #pragma once
 #include <common/device_buffer.hpp>
-#include <matrix/math.h>
 #include <glm/qn/glm_base.h>
 #include <glm/qn/glm_linear.h>
 #include <glm/qn/glm_logistic.h>
 #include <glm/qn/glm_regularizer.h>
 #include <glm/qn/glm_softmax.h>
 #include <glm/qn/qn_solvers.h>
+#include <matrix/math.h>
 
 namespace ML {
 namespace GLM {
@@ -88,7 +88,7 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
   switch (loss_type) {
   case 0: {
     ASSERT(C == 1, "qn.h: logistic loss invalid C");
-    LogisticLoss<T> loss(handle, D, fit_intercept);
+    LogisticLoss<T> loss(handle, D, fit_intercept, stream);
 
     Buffer ws_buf(handle.getDeviceAllocator(), stream,
                   qn_workspace_size(l1, lbfgs_memory, loss));
@@ -101,7 +101,7 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
   case 1: {
 
     ASSERT(C == 1, "qn.h: squared loss invalid C");
-    SquaredLoss<T> loss(handle, D, fit_intercept);
+    SquaredLoss<T> loss(handle, D, fit_intercept, stream);
 
     Buffer ws_buf(handle.getDeviceAllocator(), stream,
                   qn_workspace_size(l1, lbfgs_memory, loss));
@@ -114,7 +114,7 @@ void qnFit(const cumlHandle_impl &handle, const MatX &X, const SimpleVec<T> &y,
   case 2: {
 
     ASSERT(C > 1, "qn.h: softmax invalid C");
-    Softmax<T, MatX> loss(handle, D, C, fit_intercept);
+    Softmax<T, MatX> loss(handle, D, C, fit_intercept, stream);
 
     Buffer ws_buf(handle.getDeviceAllocator(), stream,
                   qn_workspace_size(l1, lbfgs_memory, loss));

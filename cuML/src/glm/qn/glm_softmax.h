@@ -192,8 +192,9 @@ template <typename T, typename MatX>
 struct Softmax : GLMBase<T, Softmax<T, MatX>> {
   typedef GLMBase<T, Softmax<T, MatX>> Super;
 
-  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
-      : Super(handle, D, C, has_bias) {}
+  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias,
+          cudaStream_t stream)
+      : Super(handle, D, C, has_bias, stream) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
                            cudaStream_t stream) {
@@ -214,12 +215,11 @@ struct Softmax<T, CSMat<T>> : GLMBase<T, Softmax<T, CSMat<T>>> {
   MLCommon::device_buffer<T> Zt_buf;
   MLCommon::device_buffer<T> Gt_buf;
 
-  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
-      : Super(handle, D, C, has_bias),
-        Zt_buf(handle.getDeviceAllocator(),
-               handle.getStream(), // TODO FIXME add streams all the way
-               0),
-        Gt_buf(handle.getDeviceAllocator(), handle.getStream(), 0) {}
+  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias,
+          cudaStream_t stream)
+      : Super(handle, D, C, has_bias, stream),
+        Zt_buf(handle.getDeviceAllocator(), stream, 0),
+        Gt_buf(handle.getDeviceAllocator(), stream, 0) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
                            cudaStream_t stream) {
