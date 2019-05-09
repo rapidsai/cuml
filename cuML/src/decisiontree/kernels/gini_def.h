@@ -45,7 +45,9 @@ struct MetricQuestion {
 	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value);
 };
 
+template<class T>
 struct MetricInfo {
 	float best_metric = -1.0f;
-	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
+	T predict = 0;
+	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node. for classification
 };

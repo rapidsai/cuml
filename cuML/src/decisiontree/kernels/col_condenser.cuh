@@ -28,9 +28,10 @@ __global__ void get_sampled_column_kernel(const T* __restrict__ column, T *outco
 	return;
 }
 
-void get_sampled_labels(const int *labels, int *outlabels, unsigned int* rowids, const int n_sampled_rows, const cudaStream_t stream) {
+template<typename T>
+void get_sampled_labels(const T *labels, T *outlabels, unsigned int* rowids, const int n_sampled_rows, const cudaStream_t stream) {
 	int threads = 128;
-	get_sampled_column_kernel<int><<<MLCommon::ceildiv(n_sampled_rows, threads), threads, 0, stream>>>(labels, outlabels, rowids, n_sampled_rows);
+	get_sampled_column_kernel<T><<<MLCommon::ceildiv(n_sampled_rows, threads), threads, 0, stream>>>(labels, outlabels, rowids, n_sampled_rows);
 	CUDA_CHECK(cudaGetLastError());
 	return;
 }

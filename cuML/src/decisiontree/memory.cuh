@@ -37,7 +37,7 @@ struct TemporaryMemory
 	MLCommon::device_buffer<int> *d_histout, *d_colids;
 	MLCommon::host_buffer<int> *h_histout;
 	MLCommon::device_buffer<T> *d_mseout, *d_predout;
-	MLCommon::host_buffer<T> *h_mseout;
+	MLCommon::host_buffer<T> *h_mseout, *h_predout;
 	
 	//Below pointers are shared for split functions
 	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
@@ -101,6 +101,7 @@ struct TemporaryMemory
 
 		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
 		h_mseout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, Ncols);
+		h_predout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, Ncols);
 		
 		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
 		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
@@ -108,7 +109,7 @@ struct TemporaryMemory
 		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
 		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 3*sizeof(T))* Ncols;
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 4*sizeof(T))* Ncols;
 
 	}
 
@@ -148,7 +149,8 @@ struct TemporaryMemory
 		question_value->release(stream);
 		h_histout->release(stream);
 		h_mseout->release(stream);
-
+		h_predout->release(stream);
+		
 		delete sampledlabels;
 		delete d_split_temp_storage;
 		delete d_num_selected_out;
@@ -158,15 +160,18 @@ struct TemporaryMemory
 		delete question_value;
 		delete h_histout;
 		delete h_mseout;
-
+		delete h_predout;
+		
 		d_globalminmax->release(stream);
 		d_histout->release(stream);
 		d_mseout->release(stream);
+		d_predout->release(stream);
 		d_colids->release(stream);
 
 		delete d_globalminmax;
 		delete d_histout;
 		delete d_mseout;
+		delete d_predout;
 		delete d_colids;
 
 	}

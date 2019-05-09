@@ -57,7 +57,56 @@ __global__ void gini_kernel(const int* __restrict__ labels, const int nrows, con
 }
 
 template<typename T>
-void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, int>> tempmem, MetricInfo & split_info, int & unique_labels)
+__global__ void pred_kernel(const T* __restrict__ labels, const int nrows, T* predout)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	__shared__ T shmempred;
+
+	if (threadIdx.x == 0)
+		shmempred = 0;
+
+	__syncthreads();
+
+	if (tid < nrows) {
+		T label = labels[tid];
+		atomicAdd(&shmempred, label);
+	}
+
+	__syncthreads();
+
+	if (threadIdx.x == 0)
+		atomicAdd(predout, shmempred);
+
+	return;
+}
+
+template<typename T>
+__global__ void mse_kernel(const T* __restrict__ labels, const int nrows, const T* predout, T* mseout)
+{
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	__shared__ T shmemmse;
+	
+	if (threadIdx.x == 0) {
+		shmemmse = 0;
+	}
+
+	__syncthreads();
+
+	if (tid < nrows) {
+		T label = labels[tid] - (predout[0]/nrows);
+		atomicAdd(&shmemmse, label*label);
+	}
+
+	__syncthreads();
+
+	if (threadIdx.x == 0)
+		atomicAdd(mseout, shmemmse);
+
+	return;
+}
+
+template<typename T>
+void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, int>> tempmem, MetricInfo<T> & split_info, int & unique_labels)
 {
 	int *dhist = tempmem->d_hist->data();
 	int *hhist = tempmem->h_hist->data();
@@ -78,6 +127,30 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 
 	split_info.best_metric = gval; //Update gini val
 
+	return;
+}
+
+template<typename T>
+void mse(T *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, T>> tempmem, MetricInfo<T> & split_info)
+{
+	T *dpred = tempmem->d_predout->data();
+	T *dmse = tempmem->d_mseout->data();
+	T *hmse = tempmem->h_mseout->data();
+	T *hpred = tempmem->h_predout->data();
+
+	CUDA_CHECK(cudaMemsetAsync(dpred, 0, sizeof(T), tempmem->stream));
+	CUDA_CHECK(cudaMemsetAsync(dmse, 0, sizeof(T), tempmem->stream));
+	
+	pred_kernel<<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred);
+	CUDA_CHECK(cudaGetLastError());
+	mse_kernel<<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred, dmse);
+	
+	CUDA_CHECK(cudaMemcpyAsync(hmse, dmse, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+	CUDA_CHECK(cudaMemcpyAsync(hpred, dpred, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	
+	split_info.best_metric = (float)hmse[0] / (float)nrows; //Update gini val
+	split_info.predict = hpred[0] / (T)nrows;
 	return;
 }
 

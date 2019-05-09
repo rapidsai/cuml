@@ -28,7 +28,7 @@
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_kernel(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
+__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -73,7 +73,7 @@ __global__ void all_cols_histograms_kernel(const T* __restrict__ data, const int
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -110,7 +110,7 @@ __global__ void all_cols_histograms_global_quantile_kernel(const T* __restrict__
 }
 
 template<typename T, typename L>
-void find_best_split(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, MetricInfo split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
+void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -193,7 +193,7 @@ void find_best_split(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const
 
 
 template<typename T, typename L>
-void best_split_all_cols(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
+void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
 {
 	int* d_colids = tempmem->d_colids->data();
 	T* d_globalminmax = tempmem->d_globalminmax->data();
@@ -228,16 +228,16 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const L *lab
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
-		all_cols_histograms_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
+		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels, d_globalminmax, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile->data());
+		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, n_unique_labels,  d_histout, tempmem->d_quantile->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
 
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
-	find_best_split(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
+	find_best_split_classifier(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
 	return;
 }
 
