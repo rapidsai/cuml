@@ -1,4 +1,4 @@
-[submodule "thirdparty/cuml/faiss"]
+[submodule "thirdparty/faiss"]
 	path = thirdparty/faiss
 	url = https://github.com/facebookresearch/faiss
     ignore = dirty
