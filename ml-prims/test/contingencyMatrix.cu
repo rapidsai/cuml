@@ -77,9 +77,9 @@ protected:
     if (workspaceSz != 0)
       MLCommon::allocate(pWorkspace, workspaceSz);
 
-    MLCommon::updateDeviceAsync(dYHat, &y_hat[0], numElements, stream);
-    MLCommon::updateDeviceAsync(dY, &y[0], numElements, stream);
-    MLCommon::updateDeviceAsync(dGoldenOutput, hGoldenOutput, 
+    MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
+    MLCommon::updateDevice(dY, &y[0], numElements, stream);
+    MLCommon::updateDevice(dGoldenOutput, hGoldenOutput, 
                                   numUniqueClasses*numUniqueClasses, stream);
 
     if (params.calcCardinality) {
