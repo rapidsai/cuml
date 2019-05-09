@@ -19,7 +19,8 @@
 #include "kernels/gini.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
-#include "kernels/evaluate.cuh"
+#include "kernels/evaluate_classifier.cuh"
+#include "kernels/evaluate_regressor.cuh"
 #include "kernels/quantile.cuh"
 
 namespace ML {
@@ -268,7 +269,7 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	}
 	this->total_temp_mem = this->tempmem[0]->totalmem;
 	this->total_temp_mem *= this->MAXSTREAMS;
-	MetricInfo split_info;
+	MetricInfo<T> split_info;
 	MLCommon::TimerCPU timer;
 	this->root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 	this->construct_time = timer.getElapsedSeconds();
@@ -282,13 +283,13 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 
 template<typename T>
 TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colper, int *labels, int depth, unsigned int* rowids,
-												const int n_sampled_rows, MetricInfo prev_split_info) {
+												const int n_sampled_rows, MetricInfo<T> prev_split_info) {
 
 	TreeNode<T, int> *node = new TreeNode<T, int>();
 	MetricQuestion<T> ques;
 	Question<T> node_ques;
 	float gain = 0.0;
-	MetricInfo split_info[3]; // basis, left, right. Populate this
+	MetricInfo<T> split_info[3]; // basis, left, right. Populate this
 	split_info[0] = prev_split_info;
 
 	bool condition = ((depth != 0) && (prev_split_info.best_metric == 0.0f));  // This node is a leaf, no need to search for best split
@@ -327,7 +328,7 @@ TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colp
 
 template<typename T>
 void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, MetricQuestion<T> & ques, float& gain,
-												unsigned int* rowids, const int n_sampled_rows, MetricInfo split_info[3], int depth) {
+												unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) {
 	std::vector<int>& colselector = this->feature_selector;
 
 	// Optimize ginibefore; no need to compute except for root.
@@ -338,14 +339,14 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
 
 		int *labelptr = this->tempmem[0]->sampledlabels->data();
-		get_sampled_labels(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
+		get_sampled_labels<int>(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
 		gini(labelptr, n_sampled_rows, this->tempmem[0], split_info[0], this->n_unique_labels);
 		//Unregister
 		CUDA_CHECK(cudaHostUnregister(colselector.data()));
 	}
 
 	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
-	best_split_all_cols(data, rowids, labels, current_nbins, n_sampled_rows, this->n_unique_labels, this->dinfo.NLocalrows, colselector,
+	best_split_all_cols_classifier(data, rowids, labels, current_nbins, n_sampled_rows, this->n_unique_labels, this->dinfo.NLocalrows, colselector,
 						this->tempmem[0], &split_info[0], ques, gain, this->split_algo);
 }
 
@@ -413,9 +414,11 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 
 	if (this->split_algo == SPLIT_ALGO::HIST) {
 		this->shmem_used += 2 * sizeof(T) * ncols;
-		this->shmem_used += this->nbins * this->n_unique_labels * sizeof(int) * ncols;
+		this->shmem_used += this->nbins * sizeof(T) * ncols * 2;
+		this->shmem_used += this->nbins * sizeof(int) * ncols;
 	} else {
-		this->shmem_used += this->nbins * this->n_unique_labels * sizeof(int) * ncols;
+		this->shmem_used += this->nbins * sizeof(T) * ncols * 2;
+		this->shmem_used += this->nbins * sizeof(int) * ncols;
 	}
 	ASSERT(this->shmem_used <= this->max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", this->max_shared_mem, this->shmem_used);
 
@@ -427,7 +430,7 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 	}
 	this->total_temp_mem = this->tempmem[0]->totalmem;
 	this->total_temp_mem *= this->MAXSTREAMS;
-	MetricInfo split_info;
+	MetricInfo<T> split_info;
 	MLCommon::TimerCPU timer;
 	this->root = grow_tree(data, colper, labels, 0, rowids, n_sampled_rows, split_info);
 	this->construct_time = timer.getElapsedSeconds();
@@ -441,14 +444,14 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 
 template<typename T>
 TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper, T *labels, int depth, unsigned int* rowids,
-												const int n_sampled_rows, MetricInfo prev_split_info) {
+												const int n_sampled_rows, MetricInfo<T> prev_split_info) {
 
 	//TODO FIXME - method body mostly copied from Classifier. FIXME
 	TreeNode<T, T> *node = new TreeNode<T, T>();
 	MetricQuestion<T> ques;
 	Question<T> node_ques;
 	float gain = 0.0;
-	MetricInfo split_info[3]; // basis, left, right. Populate this
+	MetricInfo<T> split_info[3]; // basis, left, right. Populate this
 	split_info[0] = prev_split_info;
 
 	bool condition = ((depth != 0) && (prev_split_info.best_metric == 0.0f));  // This node is a leaf, no need to search for best split
@@ -466,7 +469,7 @@ TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper,
 		condition = (condition || (this->leaf_counter >= this->maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
 
 	if (condition) {
-		node->prediction = get_class_hist(split_info[0].hist);
+		node->prediction = split_info[0].predict;
 		node->split_metric_val = split_info[0].best_metric;
 
 		this->leaf_counter++;
@@ -486,9 +489,28 @@ TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper,
 
 template<typename T>
 void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const float colper, MetricQuestion<T> & ques, float& gain,
-												unsigned int* rowids, const int n_sampled_rows, MetricInfo split_info[3], int depth) {
+												unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) {
 
-	//TODO FIXME - placeholder
+	std::vector<int>& colselector = this->feature_selector;
+	
+	// Optimize ginibefore; no need to compute except for root.
+	if (depth == 0) {
+		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
+		// Copy sampled column IDs to device memory
+		CUDA_CHECK(cudaMemcpyAsync(this->tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, this->tempmem[0]->stream));
+		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
+
+		T *labelptr = this->tempmem[0]->sampledlabels->data();
+		get_sampled_labels<T>(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
+		mse(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
+		//Unregister
+		CUDA_CHECK(cudaHostUnregister(colselector.data()));
+	}
+
+	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
+	best_split_all_cols_regressor(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
+				      this->tempmem[0], &split_info[0], ques, gain, this->split_algo);
+	
 }
 
 // ---------------- Regression end
