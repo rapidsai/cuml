@@ -32,10 +32,11 @@ __global__ void naivePowerElemKernel(Type *out, const Type *in1,
 }
 
 template <typename Type>
-void naivePowerElem(Type *out, const Type *in1, const Type *in2, int len) {
+void naivePowerElem(Type *out, const Type *in1, const Type *in2, int len,
+                      cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naivePowerElemKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+  naivePowerElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -49,10 +50,11 @@ __global__ void naivePowerScalarKernel(Type *out, const Type *in1,
 }
 
 template <typename Type>
-void naivePowerScalar(Type *out, const Type *in1, const Type in2, int len) {
+void naivePowerScalar(Type *out, const Type *in1, const Type in2, int len,
+                        cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naivePowerScalarKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+  naivePowerScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -75,20 +77,23 @@ protected:
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(1.0), T(2.0));
-    r.uniform(in2, len, T(1.0), T(2.0));
+    r.uniform(in1, len, T(1.0), T(2.0), stream);
+    r.uniform(in2, len, T(1.0), T(2.0), stream);
 
-    naivePowerElem(out_ref, in1, in2, len);
-    naivePowerScalar(out_ref, out_ref, T(2), len);
+    naivePowerElem(out_ref, in1, in2, len, stream);
+    naivePowerScalar(out_ref, out_ref, T(2), len, stream);
 
-    power(out, in1, in2, len);
-    powerScalar(out, out, T(2), len);
-    power(in1, in1, in2, len);
-    powerScalar(in1, in1, T(2), len);
+    power(out, in1, in2, len, stream);
+    powerScalar(out, out, T(2), len, stream);
+    power(in1, in1, in2, len, stream);
+    powerScalar(in1, in1, T(2), len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

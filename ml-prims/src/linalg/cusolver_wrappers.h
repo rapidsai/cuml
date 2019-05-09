@@ -80,19 +80,23 @@ namespace LinAlg {
 template <typename T>
 cusolverStatus_t cusolverDngetrf(cusolverDnHandle_t handle, int m, int n, T *A,
                                  int lda, T *Workspace, int *devIpiv,
-                                 int *devInfo);
+                                 int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDngetrf(cusolverDnHandle_t handle, int m, int n,
                                         float *A, int lda, float *Workspace,
-                                        int *devIpiv, int *devInfo) {
+                                        int *devIpiv, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSgetrf(handle, m, n, A, lda, Workspace, devIpiv, devInfo);
 }
 
 template <>
 inline cusolverStatus_t cusolverDngetrf(cusolverDnHandle_t handle, int m, int n,
                                         double *A, int lda, double *Workspace,
-                                        int *devIpiv, int *devInfo) {
+                                        int *devIpiv, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDgetrf(handle, m, n, A, lda, Workspace, devIpiv, devInfo);
 }
 
@@ -122,13 +126,14 @@ template <typename T>
 cusolverStatus_t cusolverDngetrs(cusolverDnHandle_t handle,
                                  cublasOperation_t trans, int n, int nrhs,
                                  const T *A, int lda, const int *devIpiv, T *B,
-                                 int ldb, int *devInfo);
+                                 int ldb, int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
   cusolverDngetrs(cusolverDnHandle_t handle, cublasOperation_t trans, int n,
                   int nrhs, const float *A, int lda, const int *devIpiv,
-                  float *B, int ldb, int *devInfo) {
+                  float *B, int ldb, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSgetrs(handle, trans, n, nrhs, A, lda, devIpiv, B, ldb,
                           devInfo);
 }
@@ -137,7 +142,8 @@ template <>
 inline cusolverStatus_t
   cusolverDngetrs(cusolverDnHandle_t handle, cublasOperation_t trans, int n,
                   int nrhs, const double *A, int lda, const int *devIpiv,
-                  double *B, int ldb, int *devInfo) {
+                  double *B, int ldb, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDgetrs(handle, trans, n, nrhs, A, lda, devIpiv, B, ldb,
                           devInfo);
 }
@@ -178,13 +184,16 @@ template <typename T>
 cusolverStatus_t cusolverDnsyevj(cusolverDnHandle_t handle,
                                  cusolverEigMode_t jobz, cublasFillMode_t uplo,
                                  int n, T *A, int lda, T *W, T *work, int lwork,
-                                 int *info, syevjInfo_t params);
+                                 int *info, syevjInfo_t params,
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
   cusolverDnsyevj(cusolverDnHandle_t handle, cusolverEigMode_t jobz,
                   cublasFillMode_t uplo, int n, float *A, int lda, float *W,
-                  float *work, int lwork, int *info, syevjInfo_t params) {
+                  float *work, int lwork, int *info, syevjInfo_t params,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSsyevj(handle, jobz, uplo, n, A, lda, W, work, lwork, info,
                           params);
 }
@@ -193,7 +202,9 @@ template <>
 inline cusolverStatus_t
   cusolverDnsyevj(cusolverDnHandle_t handle, cusolverEigMode_t jobz,
                   cublasFillMode_t uplo, int n, double *A, int lda, double *W,
-                  double *work, int lwork, int *info, syevjInfo_t params) {
+                  double *work, int lwork, int *info, syevjInfo_t params,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDsyevj(handle, jobz, uplo, n, A, lda, W, work, lwork, info,
                           params);
 }
@@ -233,13 +244,14 @@ template <typename T>
 cusolverStatus_t cusolverDnsyevd(cusolverDnHandle_t handle,
                                  cusolverEigMode_t jobz, cublasFillMode_t uplo,
                                  int n, T *A, int lda, T *W, T *work, int lwork,
-                                 int *devInfo);
+                                 int *devInfo, cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
   cusolverDnsyevd(cusolverDnHandle_t handle, cusolverEigMode_t jobz,
                   cublasFillMode_t uplo, int n, float *A, int lda, float *W,
-                  float *work, int lwork, int *devInfo) {
+                  float *work, int lwork, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSsyevd(handle, jobz, uplo, n, A, lda, W, work, lwork,
                           devInfo);
 }
@@ -248,7 +260,8 @@ template <>
 inline cusolverStatus_t
   cusolverDnsyevd(cusolverDnHandle_t handle, cusolverEigMode_t jobz,
                   cublasFillMode_t uplo, int n, double *A, int lda, double *W,
-                  double *work, int lwork, int *devInfo) {
+                  double *work, int lwork, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDsyevd(handle, jobz, uplo, n, A, lda, W, work, lwork,
                           devInfo);
 }
@@ -273,14 +286,17 @@ template <typename T>
 cusolverStatus_t cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                                  signed char jobvt, int m, int n, T *A, int lda,
                                  T *S, T *U, int ldu, T *VT, int ldvt, T *work,
-                                 int lwork, T *rwork, int *devInfo);
+                                 int lwork, T *rwork, int *devInfo,
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t
   cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                   signed char jobvt, int m, int n, float *A, int lda, float *S,
                   float *U, int ldu, float *VT, int ldvt, float *work,
-                  int lwork, float *rwork, int *devInfo) {
+                  int lwork, float *rwork, int *devInfo,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSgesvd(handle, jobu, jobvt, m, n, A, lda, S, U, ldu, VT,
                           ldvt, work, lwork, rwork, devInfo);
 }
@@ -290,7 +306,9 @@ inline cusolverStatus_t
   cusolverDngesvd(cusolverDnHandle_t handle, signed char jobu,
                   signed char jobvt, int m, int n, double *A, int lda,
                   double *S, double *U, int ldu, double *VT, int ldvt,
-                  double *work, int lwork, double *rwork, int *devInfo) {
+                  double *work, int lwork, double *rwork, int *devInfo,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDgesvd(handle, jobu, jobvt, m, n, A, lda, S, U, ldu, VT,
                           ldvt, work, lwork, rwork, devInfo);
 }
@@ -330,13 +348,15 @@ template <typename T>
 inline cusolverStatus_t CUSOLVERAPI
   cusolverDngesvdj(cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ,
                    int m, int n, T *A, int lda, T *S, T *U, int ldu, T *V,
-                   int ldv, T *work, int lwork, int *info, gesvdjInfo_t params);
+                   int ldv, T *work, int lwork, int *info, gesvdjInfo_t params,
+                   cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   float *A, int lda, float *S, float *U, int ldu, float *V, int ldv,
-  float *work, int lwork, int *info, gesvdjInfo_t params) {
+  float *work, int lwork, int *info, gesvdjInfo_t params, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
@@ -345,7 +365,8 @@ template <>
 inline cusolverStatus_t CUSOLVERAPI cusolverDngesvdj(
   cusolverDnHandle_t handle, cusolverEigMode_t jobz, int econ, int m, int n,
   double *A, int lda, double *S, double *U, int ldu, double *V, int ldv,
-  double *work, int lwork, int *info, gesvdjInfo_t params) {
+  double *work, int lwork, int *info, gesvdjInfo_t params, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDgesvdj(handle, jobz, econ, m, n, A, lda, S, U, ldu, V, ldv,
                            work, lwork, info, params);
 }
@@ -378,13 +399,15 @@ inline cusolverStatus_t
 template <typename T>
 inline cusolverStatus_t
   cusolverDnpotrf(cusolverDnHandle_t handle, cublasFillMode_t uplo, int n, T *A,
-                  int lda, T *Workspace, int Lwork, int *devInfo);
+                  int lda, T *Workspace, int Lwork, int *devInfo,
+                  cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnpotrf(cusolverDnHandle_t handle,
                                         cublasFillMode_t uplo, int n, float *A,
                                         int lda, float *Workspace, int Lwork,
-                                        int *devInfo) {
+                                        int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSpotrf(handle, uplo, n, A, lda, Workspace, Lwork, devInfo);
 }
 
@@ -392,7 +415,8 @@ template <>
 inline cusolverStatus_t cusolverDnpotrf(cusolverDnHandle_t handle,
                                         cublasFillMode_t uplo, int n, double *A,
                                         int lda, double *Workspace, int Lwork,
-                                        int *devInfo) {
+                                        int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDpotrf(handle, uplo, n, A, lda, Workspace, Lwork, devInfo);
 }
 /** @} */
@@ -404,13 +428,15 @@ inline cusolverStatus_t cusolverDnpotrf(cusolverDnHandle_t handle,
 template <typename T>
 cusolverStatus_t
   cusolverDnpotrs(cusolverDnHandle_t handle, cublasFillMode_t uplo, int n,
-                  int nrhs, const T *A, int lda, T *B, int ldb, int *devInfo);
+                  int nrhs, const T *A, int lda, T *B, int ldb, int *devInfo,
+                  cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnpotrs(cusolverDnHandle_t handle,
                                         cublasFillMode_t uplo, int n, int nrhs,
                                         const float *A, int lda, float *B,
-                                        int ldb, int *devInfo) {
+                                        int ldb, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSpotrs(handle, uplo, n, nrhs, A, lda, B, ldb, devInfo);
 }
 
@@ -418,7 +444,8 @@ template <>
 inline cusolverStatus_t cusolverDnpotrs(cusolverDnHandle_t handle,
                                         cublasFillMode_t uplo, int n, int nrhs,
                                         const double *A, int lda, double *B,
-                                        int ldb, int *devInfo) {
+                                        int ldb, int *devInfo, cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDpotrs(handle, uplo, n, nrhs, A, lda, B, ldb, devInfo);
 }
 /** @} */
@@ -430,17 +457,21 @@ inline cusolverStatus_t cusolverDnpotrs(cusolverDnHandle_t handle,
 template <typename T>
 cusolverStatus_t cusolverDngeqrf(cusolverDnHandle_t handle, int m, int n, T *A,
                                  int lda, T *TAU, T *Workspace, int Lwork,
-                                 int *devInfo);
+                                 int *devInfo, cudaStream_t stream);
 template <>
 inline cusolverStatus_t
   cusolverDngeqrf(cusolverDnHandle_t handle, int m, int n, float *A, int lda,
-                  float *TAU, float *Workspace, int Lwork, int *devInfo) {
+                  float *TAU, float *Workspace, int Lwork, int *devInfo,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
 }
 template <>
 inline cusolverStatus_t
   cusolverDngeqrf(cusolverDnHandle_t handle, int m, int n, double *A, int lda,
-                  double *TAU, double *Workspace, int Lwork, int *devInfo) {
+                  double *TAU, double *Workspace, int Lwork, int *devInfo,
+                  cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDgeqrf(handle, m, n, A, lda, TAU, Workspace, Lwork, devInfo);
 }
 
@@ -468,19 +499,23 @@ inline cusolverStatus_t cusolverDngeqrf_bufferSize(cusolverDnHandle_t handle,
 template <typename T>
 cusolverStatus_t cusolverDnorgqr(cusolverDnHandle_t handle, int m, int n, int k,
                                  T *A, int lda, const T *tau, T *work,
-                                 int lwork, int *devInfo);
+                                 int lwork, int *devInfo, cudaStream_t stream);
 template <>
 inline cusolverStatus_t cusolverDnorgqr(cusolverDnHandle_t handle, int m, int n,
                                         int k, float *A, int lda,
                                         const float *tau, float *work,
-                                        int lwork, int *devInfo) {
+                                        int lwork, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnSorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
 }
 template <>
 inline cusolverStatus_t cusolverDnorgqr(cusolverDnHandle_t handle, int m, int n,
                                         int k, double *A, int lda,
                                         const double *tau, double *work,
-                                        int lwork, int *devInfo) {
+                                        int lwork, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
   return cusolverDnDorgqr(handle, m, n, k, A, lda, tau, work, lwork, devInfo);
 }
 
@@ -505,43 +540,48 @@ inline cusolverStatus_t
 /** @} */
 
 
-template <typename T> cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
-		                                                cublasSideMode_t side,
-                                                        cublasOperation_t trans,
-                                                        int m, int n, int k, const T *A,
-                                                        int lda, const T *tau, T *C, int ldc,
-                                                        T *work, int lwork, int *devInfo);
+template <typename T> 
+cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
+                                 cublasSideMode_t side,
+                                 cublasOperation_t trans,
+                                 int m, int n, int k, const T *A,
+                                 int lda, const T *tau, T *C, int ldc,
+                                 T *work, int lwork, int *devInfo,
+                                 cudaStream_t stream);
 
 template <>
 inline cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
-		                                                cublasSideMode_t side,
-                                                        cublasOperation_t trans,
-                                                        int m, int n, int k, const float *A,
-                                                        int lda, const float *tau, float *C, int ldc,
-                                                        float *work, int lwork, int *devInfo) {
-
+                                        cublasSideMode_t side,
+                                        cublasOperation_t trans,
+                                        int m, int n, int k, const float *A,
+                                        int lda, const float *tau, float *C, int ldc,
+                                        float *work, int lwork, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
 	return cusolverDnSormqr(handle, side, trans, m, n, k, A, lda, tau, C, ldc,
                             work, lwork, devInfo);
 }
 
 template <>
 inline cusolverStatus_t cusolverDnormqr(cusolverDnHandle_t handle,
-		                                                cublasSideMode_t side,
-                                                        cublasOperation_t trans,
-                                                        int m, int n, int k, const double *A,
-                                                        int lda, const double *tau, double *C, int ldc,
-                                                        double *work, int lwork, int *devInfo) {
-
+                                        cublasSideMode_t side,
+                                        cublasOperation_t trans,
+                                        int m, int n, int k, const double *A,
+                                        int lda, const double *tau, double *C, int ldc,
+                                        double *work, int lwork, int *devInfo,
+                                        cudaStream_t stream) {
+  CUSOLVER_CHECK(cusolverDnSetStream(handle, stream));
 	return cusolverDnDormqr(handle, side, trans, m, n, k, A, lda, tau, C, ldc,
                             work, lwork, devInfo);
 }
 
-template <typename T> cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,
-                                                                  cublasSideMode_t side,
-                                                                  cublasOperation_t trans,
-                                                                  int m, int n, int k, const T *A,
-                                                                  int lda, const T *tau, const T *C,
-                                                                  int ldc, int *lwork);
+template <typename T> 
+cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,
+                                            cublasSideMode_t side,
+                                            cublasOperation_t trans,
+                                            int m, int n, int k, const T *A,
+                                            int lda, const T *tau, const T *C,
+                                            int ldc, int *lwork);
 
 template <>
 inline cusolverStatus_t cusolverDnormqr_bufferSize(cusolverDnHandle_t handle,

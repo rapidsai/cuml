@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include "knn/knn.cu"
 #include <vector>
 #include <gtest/gtest.h>
@@ -40,19 +56,21 @@ protected:
         std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
         h_train_inputs.resize(n);
 
-        updateDevice(d_train_inputs_dev1, h_train_inputs.data(), n*d);
-        updateDevice(d_train_inputs_dev2, h_train_inputs.data(), n*d);
+        updateDevice(d_train_inputs_dev1, h_train_inputs.data(), n*d, 0);
+        updateDevice(d_train_inputs_dev2, h_train_inputs.data(), n*d, 0);
 
         std::vector<T> h_res_D = { 0.0, 0.0, 2401.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0 };
         h_res_D.resize(n*n);
-        updateDevice(d_ref_D, h_res_D.data(), n*n);
+        updateDevice(d_ref_D, h_res_D.data(), n*n, 0);
 
         std::vector<long> h_res_I = { 0, 3, 1, 1, 4, 2, 2, 5, 1 };
         h_res_I.resize(n*n);
-        updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
+        updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
 
         params[0] = { d_train_inputs_dev1, n };
         params[1] = { d_train_inputs_dev2, n };
+
+        cudaSetDevice(0);
 
         knn->fit(params, 2);
         knn->search(d_train_inputs_dev1, n, d_pred_I, d_pred_D, n);

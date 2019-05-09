@@ -348,7 +348,7 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
  */
 template <typename TypeV, typename TypeK, bool Greater, bool Sort>
 void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
-              TypeK cols, cudaStream_t stream = 0) {
+              TypeK cols, cudaStream_t stream) {
   static_assert(std::is_same<TypeV, float>::value &&
                   (std::is_same<TypeK, int>::value),
                 "type not support");

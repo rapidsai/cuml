@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,28 +23,29 @@
 #include "algo1.h"
 #include "pack.h"
 #include "algo2.h"
+#include <common/cumlHandle.hpp>
 
 namespace Dbscan {
 namespace Label {
 
 
 template <typename Type>
-void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster, 
-         bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream, 
-         int algo, int startVertexId, int batchSize) {
+         bool *xa, bool *fa, bool *m, Type *map_id, 
+         int algo, int startVertexId, int batchSize, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
                        visited, db_cluster, xa, fa, m, map_id};
     switch(algo) {
     case 0:
-        Naive::launcher<Type>(data, startVertexId, batchSize, stream);
+        Naive::launcher<Type>(handle, data, startVertexId, batchSize, stream);
         break;
     case 1:
         ASSERT(N == batchSize, "Label::Algo1 doesn't support batching!");
-        Algo1::launcher<Type>(data, startVertexId,  batchSize, stream);
+        Algo1::launcher<Type>(handle, data, startVertexId, batchSize, stream);
         break;
     case 2:
-        Algo2::launcher<Type>(data, N, startVertexId, batchSize, stream);
+        Algo2::launcher<Type>(handle, data, N, startVertexId, batchSize, stream);
         break;
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
@@ -52,12 +53,12 @@ void run(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
 }
 
 template <typename Type>
-void final_relabel(bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
+void final_relabel(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* adj_graph, Type* ex_scan, Type N,
          Type minpts, bool* core_pts, bool* visited, Type *db_cluster,
          bool *xa, bool *fa, bool *m, Type *map_id, cudaStream_t stream) {
     Pack<Type> data = {vd, adj, adj_graph, ex_scan, core_pts, N, minpts,
                        visited, db_cluster, xa, fa, m, map_id};
-    Algo2::relabel<Type>(data, stream);
+    Algo2::relabel<Type>(handle, data, stream);
 }
 
 } // namespace Label

@@ -108,7 +108,7 @@ template <typename OutType, typename MathType = OutType, typename LenType = int,
           typename Lambda>
 void randImpl(uint64_t &offset, OutType *ptr, LenType len, Lambda randOp,
               int nThreads, int nBlocks, GeneratorType type,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
   if (len <= 0)
     return;
   uint64_t seed = _nextSeed();
@@ -138,7 +138,7 @@ template <typename OutType, typename MathType = OutType, typename LenType = int,
           typename Lambda2>
 void rand2Impl(uint64_t &offset, OutType *ptr, LenType len, Lambda2 rand2Op,
                int nThreads, int nBlocks, GeneratorType type,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
   if (len <= 0)
     return;
   uint64_t seed = _nextSeed();
@@ -203,7 +203,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void uniform(Type *ptr, LenType len, Type start, Type end,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
     static_assert(std::is_floating_point<Type>::value,
                   "Type for 'uniform' can only be floating point type!");
     randImpl(offset, ptr, len,
@@ -214,7 +214,7 @@ public:
   }
   template <typename IntType, typename LenType = int>
   void uniformInt(IntType *ptr, LenType len, IntType start, IntType end,
-                  cudaStream_t stream = 0) {
+                  cudaStream_t stream) {
     static_assert(std::is_integral<IntType>::value,
                   "Type for 'uniformInt' can only be integer type!");
     randImpl(offset, ptr, len,
@@ -237,7 +237,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void normal(Type *ptr, LenType len, Type mu, Type sigma,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
     rand2Impl(offset, ptr, len,
               [=] __device__(Type & val1, Type & val2, LenType idx) {
                 constexpr Type twoPi = Type(2.0) * Type(3.141592654);
@@ -262,7 +262,7 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void fill(Type *ptr, LenType len, Type val, cudaStream_t stream = 0) {
+  void fill(Type *ptr, LenType len, Type val, cudaStream_t stream) {
     constFillKernel<Type><<<nBlocks, NumThreads, 0, stream>>>(ptr, len, val);
     CUDA_CHECK(cudaPeekAtLastError());
   }
@@ -277,7 +277,7 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream = 0) {
+  void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) { return val > prob; },
              NumThreads, nBlocks, type, stream);
@@ -296,7 +296,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void gumbel(Type *ptr, LenType len, Type mu, Type beta,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) {
                return mu - beta * myLog(-myLog(val));
@@ -316,7 +316,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void lognormal(Type *ptr, LenType len, Type mu, Type sigma,
-                 cudaStream_t stream = 0) {
+                 cudaStream_t stream) {
     rand2Impl(offset, ptr, len,
               [=] __device__(Type & val1, Type & val2, LenType idx) {
                 constexpr Type twoPi = Type(2.0) * Type(3.141592654);
@@ -345,7 +345,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void logistic(Type *ptr, LenType len, Type mu, Type scale,
-                cudaStream_t stream = 0) {
+                cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) {
                constexpr Type one = (Type)1.0;
@@ -364,7 +364,7 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream = 0) {
+  void exponential(Type *ptr, LenType len, Type lambda, cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) {
                constexpr Type one = (Type)1.0;
@@ -383,7 +383,7 @@ public:
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>
-  void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream = 0) {
+  void rayleigh(Type *ptr, LenType len, Type sigma, cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) {
                constexpr Type one = (Type)1.0;
@@ -405,7 +405,7 @@ public:
    */
   template <typename Type, typename LenType = int>
   void laplace(Type *ptr, LenType len, Type mu, Type scale,
-               cudaStream_t stream = 0) {
+               cudaStream_t stream) {
     randImpl(offset, ptr, len,
              [=] __device__(Type val, LenType idx) {
                constexpr Type one = (Type)1.0;

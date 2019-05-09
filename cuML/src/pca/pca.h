@@ -37,7 +37,7 @@ template<typename math_t>
 void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
                       math_t *explained_var_ratio, paramsTSVD prms,
                       cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
-                      DeviceAllocator &mgr) {
+                      cudaStream_t stream, DeviceAllocator &mgr) {
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -49,18 +49,18 @@ void truncCompExpVars(math_t *in, math_t *components, math_t *explained_var,
 	allocate(explained_var_ratio_all, prms.n_cols);
 
 	calEig(in, components_all, explained_var_all, prms, cusolver_handle,
-               cublas_handle, mgr);
+               cublas_handle, stream, mgr);
 
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
-			prms.n_components, prms.n_cols);
+			prms.n_components, prms.n_cols, stream);
 
-  Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols, mgr);
+  Matrix::ratio(explained_var_all, explained_var_ratio_all, prms.n_cols, mgr, stream);
 
 	Matrix::truncZeroOrigin(explained_var_all, prms.n_cols, explained_var,
-			prms.n_components, 1);
+			prms.n_components, 1, stream);
 
 	Matrix::truncZeroOrigin(explained_var_ratio_all, prms.n_cols,
-			explained_var_ratio, prms.n_components, 1);
+			explained_var_ratio, prms.n_components, 1, stream);
 
 	CUDA_CHECK(cudaFree(components_all));
 	CUDA_CHECK(cudaFree(explained_var_all));
@@ -84,7 +84,7 @@ template<typename math_t>
 void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 		math_t *explained_var_ratio, math_t *singular_vals, math_t *mu,
 		math_t *noise_vars, paramsPCA prms, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+		cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
     ///@todo: make this to be passed via the interface
     DeviceAllocator mgr = makeDefaultAllocator();
 
@@ -98,23 +98,23 @@ void pcaFit(math_t *input, math_t *components, math_t *explained_var,
 	if (prms.n_components > prms.n_cols)
 		prms.n_components = prms.n_cols;
 
-	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
+	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
 	math_t *cov;
 	int len = prms.n_cols * prms.n_cols;
 	allocate(cov, len);
 
 	Stats::cov(cov, input, mu, prms.n_cols, prms.n_rows, true, false, true,
-			cublas_handle);
+			cublas_handle, stream);
 	truncCompExpVars(cov, components, explained_var, explained_var_ratio, prms,
-                         cusolver_handle, cublas_handle, mgr);
+                         cusolver_handle, cublas_handle, stream, mgr);
 
 	math_t scalar = (prms.n_rows - 1);
-	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, true);
+	Matrix::seqRoot(explained_var, singular_vals, scalar, prms.n_components, stream, true);
 
 	CUDA_CHECK(cudaFree(cov));
 
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 }
 
 /**
@@ -135,13 +135,13 @@ template<typename math_t>
 void pcaFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, math_t *mu, math_t *noise_vars, paramsPCA prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
+		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
 
 	pcaFit(input, components, explained_var, explained_var_ratio, singular_vals,
-			mu, noise_vars, prms, cublas_handle, cusolver_handle);
+			mu, noise_vars, prms, cublas_handle, cusolver_handle, stream);
 
 	pcaTransform(input, components, trans_input, singular_vals, mu, prms,
-			cublas_handle);
+			cublas_handle, stream);
 
 	signFlip(trans_input, prms.n_rows, prms.n_components, components,
 			prms.n_cols);
@@ -173,7 +173,7 @@ void pcaGetPrecision() {
 template<typename math_t>
 void pcaInverseTransform(math_t *trans_input, math_t *components,
 		math_t *singular_vals, math_t *mu, math_t *input, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+		cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -185,20 +185,20 @@ void pcaInverseTransform(math_t *trans_input, math_t *components,
 	if (prms.whiten) {
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                                       prms.n_rows, prms.n_components, true, true);
+                                                       prms.n_rows, prms.n_components, true, true, stream);
 	}
 
-	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle);
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
+	tsvdInverseTransform(trans_input, components, input, prms, cublas_handle, stream);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true);
+                                                      prms.n_rows, prms.n_components, true, true, stream);
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 	}
 }
 
@@ -226,7 +226,7 @@ void pcaScoreSamples() {
 template<typename math_t>
 void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 		math_t *singular_vals, math_t *mu, paramsPCA prms,
-		cublasHandle_t cublas_handle) {
+		cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -238,21 +238,21 @@ void pcaTransform(math_t *input, math_t *components, math_t *trans_input,
 	if (prms.whiten) {
 		math_t scalar = math_t(sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 		Matrix::matrixVectorBinaryDivSkipZero(components, singular_vals,
-                                                      prms.n_rows, prms.n_components, true, true);
+                                                      prms.n_rows, prms.n_components, true, true, stream);
 	}
 
-	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle);
-	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true);
+	Stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
+	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
+	Stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
 
 	if (prms.whiten) {
 		Matrix::matrixVectorBinaryMultSkipZero(components, singular_vals,
-                                                       prms.n_rows, prms.n_components, true, true);
+                                                       prms.n_rows, prms.n_components, true, true, stream);
 		math_t scalar = math_t(1 / sqrt(prms.n_rows - 1));
 		LinAlg::scalarMultiply(components, components, scalar,
-				prms.n_rows * prms.n_components);
+				prms.n_rows * prms.n_components, stream);
 	}
 
 }

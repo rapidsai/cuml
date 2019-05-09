@@ -91,6 +91,7 @@ protected:
 
     CUBLAS_CHECK(cublasCreate(&cublasH));
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
     // preparing to store stuff
     P = (T *)malloc(sizeof(T) * dim * dim);
@@ -125,12 +126,12 @@ protected:
     }
 
     // porting inputs to gpu
-    updateDevice(P_d, P, dim * dim);
-    updateDevice(x_d, x, dim);
+    updateDevice(P_d, P, dim * dim, stream);
+    updateDevice(x_d, x, dim, stream);
 
     // initilizing the mvg
     mvg = new MultiVarGaussian<T>(dim, method);
-    size_t o = mvg->init(cublasH, cusolverH);
+    size_t o = mvg->init(cublasH, cusolverH, stream);
 
     // give the workspace area to mvg
     CUDA_CHECK(cudaMalloc((void **)&workspace_d, o));
@@ -161,10 +162,10 @@ protected:
     CUBLAS_CHECK(cublasCreate(&handle));
     CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim, dim,
                                     nPoints, &alfa, X_d, dim, X_d, dim, &beta,
-                                    Rand_cov, dim));
+                                    Rand_cov, dim, stream));
 
     // restoring cov provided into P_d
-    updateDevice(P_d, P, dim * dim);
+    updateDevice(P_d, P, dim * dim, stream);
   }
 
   void TearDown() override {
@@ -182,6 +183,7 @@ protected:
 
     CUBLAS_CHECK(cublasDestroy(cublasH));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
@@ -194,6 +196,7 @@ protected:
   T *Rand_cov, *Rand_mean, tolerance;
   cublasHandle_t cublasH;
   cusolverDnHandle_t cusolverH;
+  cudaStream_t stream;
 }; // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)

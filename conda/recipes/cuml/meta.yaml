@@ -28,13 +28,15 @@ requirements:
     - setuptools
     - cython>=0.29,<0.30
     - cmake>=3.12.4
-    - cudf 0.5*
+    - cudf 0.7*
     - libcuml={{ version }}
+    - cudatoolkit {{ cuda_version }}.*
   run:
     - python x.x
     - setuptools
-    - cudf 0.5*
+    - cudf 0.7*
     - libcuml={{ version }}
+    - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
   home: http://rapids.ai/

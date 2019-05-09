@@ -86,8 +86,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
 void coalescedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
+                        cudaStream_t stream,
                         bool inplace = false,
-                        cudaStream_t stream = 0,
                         MainLambda main_op = Nop<InType, IdxType>(),
                         ReduceLambda reduce_op = Sum<OutType>(),
                         FinalLambda final_op = Nop<OutType>()) {

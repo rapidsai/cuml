@@ -47,18 +47,20 @@ protected:
 
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    allocate(data, len);
-    allocate(mean_act, cols);
-    r.normal(data, len, params.mean, (T)1.0);
-
-    meanSGtest(data);
-  }
-
-  void meanSGtest(T *data) {
-    int rows = params.rows, cols = params.cols;
 
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
+
+    allocate(data, len);
+    allocate(mean_act, cols);
+    r.normal(data, len, params.mean, (T)1.0, stream);
+
+    meanSGtest(data, stream);
+  }
+
+  void meanSGtest(T *data, cudaStream_t stream) {
+    int rows = params.rows, cols = params.cols;
+
     mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
   }
 

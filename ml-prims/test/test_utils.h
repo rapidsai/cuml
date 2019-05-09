@@ -31,7 +31,9 @@ T abs(const T &a) {
 
 template <typename T>
 struct Compare {
-  bool operator()(const T &a, const T &b) const { return a == b; }
+  bool operator()(const T &a, const T &b) const {
+      return a == b;
+  }
 };
 
 
@@ -42,6 +44,7 @@ struct CompareApprox {
     T diff = abs(a - b);
     T m = std::max(abs(a), abs(b));
     T ratio = m >= eps ? diff / m : diff;
+
     return (ratio <= eps);
   }
 
@@ -70,16 +73,19 @@ private:
  * @param expected expected value(s)
  * @param actual actual values
  * @param eq_compare the comparator
+ * @param stream cuda stream
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  * @{
  */
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(const T *expected, const T *actual,
-                                       size_t size, L eq_compare) {
+                                       size_t size, L eq_compare,
+                                       cudaStream_t stream = 0) {
   std::shared_ptr<T> exp_h(new T[size]);
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(exp_h.get(), expected, size);
-  updateHost<T>(act_h.get(), actual, size);
+  updateHost<T>(exp_h.get(), expected, size, stream);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto exp = exp_h.get()[i];
     auto act = act_h.get()[i];
@@ -93,9 +99,10 @@ template <typename T, typename L>
 
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
-                                       L eq_compare) {
+                                       L eq_compare, cudaStream_t stream = 0) {
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h.get()[i];
     if (!eq_compare(expected, act)) {
@@ -108,12 +115,14 @@ template <typename T, typename L>
 
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(const T *expected, const T *actual,
-                                       size_t rows, size_t cols, L eq_compare) {
+                                       size_t rows, size_t cols, L eq_compare,
+                                       cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> exp_h(new T[size]);
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(exp_h.get(), expected, size);
-  updateHost<T>(act_h.get(), actual, size);
+  updateHost<T>(exp_h.get(), expected, size, stream);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j; // row major assumption!
@@ -131,10 +140,11 @@ template <typename T, typename L>
 
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
-                                       size_t cols, L eq_compare) {
+                                       size_t cols, L eq_compare, cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       auto idx = i * cols + j; // row major assumption!
@@ -157,15 +167,17 @@ template <typename T, typename L>
  * @param expected expected value along diagonal
  * @param actual actual matrix
  * @param eq_compare the comparator
+ * @param stream cuda stream
  * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
  */
 template <typename T, typename L>
 ::testing::AssertionResult diagonalMatch(T expected, const T *actual,
                                          size_t rows, size_t cols,
-                                         L eq_compare) {
+                                         L eq_compare, cudaStream_t stream = 0) {
   size_t size = rows * cols;
   std::shared_ptr<T> act_h(new T[size]);
-  updateHost<T>(act_h.get(), actual, size);
+  updateHost<T>(act_h.get(), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
     for (size_t j(0); j < cols; ++j) {
       if (i != j)
