@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #########################################
 # cuML GPU build and test script for CI #
 #########################################
@@ -64,21 +64,21 @@ fi
 ################################################################################
 
 logger "Build libcuml..."
-mkdir -p $WORKSPACE/cuML/build
-cd $WORKSPACE/cuML/build
+mkdir -p $WORKSPACE/cpp/build
+cd $WORKSPACE/cpp/build
 logger "Run cmake libcuml..."
 cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH ..
 
 logger "Clean up make..."
 make clean
 
-logger "Make libcuml..."
-make -j${PARALLEL_LEVEL}
+logger "Make libcuml++ and algorithm tests..."
+make -j${PARALLEL_LEVEL} cuml++ ml_test ml_mg_test
 
-logger "Install libcuml..."
+logger "Install libcuml++..."
 make -j${PARALLEL_LEVEL} install
 
-logger "Build cuML..."
+logger "Build cuml python package..."
 cd $WORKSPACE/python
 python setup.py build_ext --inplace
 
@@ -91,12 +91,12 @@ logger "Check GPU usage..."
 nvidia-smi
 
 logger "GoogleTest for libcuml..."
-cd $WORKSPACE/cuML/build
+cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./ml_test
 
-logger "Python py.test for cuML..."
+logger "Python pytest for cuml..."
 cd $WORKSPACE/python
-py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
+pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 
 
 ################################################################################
@@ -104,15 +104,13 @@ py.test --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 ################################################################################
 
 logger "Build ml-prims tests..."
-mkdir -p $WORKSPACE/ml-prims/build
-cd $WORKSPACE/ml-prims/build
-cmake $GPU_ARCH ..
+cd $WORKSPACE/cpp/build
 
 logger "Clean up make..."
 make clean
 logger "Make ml-prims test..."
-make -j${PARALLEL_LEVEL}
+make -j${PARALLEL_LEVEL} prims_test
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/ml-prims/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/mlcommon_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/prims_test
