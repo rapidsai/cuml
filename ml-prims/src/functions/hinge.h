@@ -78,21 +78,20 @@ void hingeH(const math_t *input, idx_type n_rows, idx_type n_cols,
 template<typename math_t>
 void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *grads, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
-	math_t *input_t = NULL;
-	allocate(input_t, n_rows * n_cols);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
+	device_buffer<math_t> input_t(allocator, stream, n_rows * n_cols);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
+	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle, stream);
 
-	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
+	LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
 
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
-	hingeLossGradMult(input_t, labels, labels_pred, n_cols, n_rows, stream);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
+	LinAlg::transpose(input, input_t.data(), n_rows, n_cols, cublas_handle, stream);
+	hingeLossGradMult(input_t.data(), labels, labels_pred.data(), n_cols, n_rows, stream);
+	LinAlg::transpose(input_t.data(), input, n_cols, n_rows, cublas_handle, stream);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
@@ -115,30 +114,25 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 	        CUDA_CHECK(cudaFree(pen_grads));
 	}
 
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
-
-	if (input_t != NULL)
-		CUDA_CHECK(cudaFree(input_t));
 }
 
 
 template<typename math_t>
 void hingeLoss(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *loss, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
+	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle, stream);
 
-	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
+	LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
 
-	hingeLossSubtract(labels_pred, labels_pred, math_t(1), n_rows, stream);
+	hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows, stream);
 
-	Stats::sum(loss, labels_pred, 1, n_rows, false, stream);
+	Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
 	math_t *pen_val = NULL;
 
@@ -158,9 +152,6 @@ void hingeLoss(math_t *input, int n_rows, int n_cols,
 	    if (pen_val != NULL)
 	        CUDA_CHECK(cudaFree(pen_val));
 	}
-
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
 
 }
 
