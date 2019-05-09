@@ -27,7 +27,7 @@
 #include <thrust/device_ptr.h>
 
 namespace MLCommon {
-    namespace Metrics {
+    namespace Score {
         template<typename math_t>
 
         /**
@@ -56,14 +56,14 @@ namespace MLCommon {
             MLCommon::allocate(sse_arr, n);
 
             MLCommon::LinAlg::eltwiseSub(sse_arr, y, y_hat, n, stream);
-            MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, 2.0f, n, stream);
+            MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, math_t(2.0), n, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             math_t *ssto_arr;
             MLCommon::allocate(ssto_arr, n);
 
             MLCommon::LinAlg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
-            MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, 2.0f, n, stream);
+            MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, math_t(2.0), n, stream);
             CUDA_CHECK(cudaPeekAtLastError());
 
             thrust::device_ptr<math_t> d_sse = thrust::device_pointer_cast(sse_arr);

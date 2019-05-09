@@ -42,6 +42,7 @@ template<typename T>
 	return os;
 }
 
+
 template<typename T>
 class DbscanTest: public ::testing::TestWithParam<DbscanInputs<T> > {
 protected:
@@ -69,10 +70,14 @@ protected:
 		int min_pts = 2;
 		cumlHandle handle;
 		handle.setStream(stream);
-		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels);
-		CUDA_CHECK( cudaStreamSynchronize(stream) );
-		CUDA_CHECK( cudaStreamDestroy(stream) );
 
+		// forces a batch size of 2
+		size_t max_bytes_per_batch = 4 * sizeof(T) * 8;
+
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, max_bytes_per_batch, true);
+		CUDA_CHECK( cudaStreamSynchronize(stream) );
+
+		CUDA_CHECK( cudaStreamDestroy(stream) );
 	}
 
 	void SetUp() override {
@@ -97,6 +102,7 @@ const std::vector<DbscanInputs<float> > inputsf2 = {
 
 const std::vector<DbscanInputs<double> > inputsd2 = {
 		{ 0.05, 6 * 2, 6, 2, 1234ULL }};
+
 
 
 typedef DbscanTest<float> DbscanTestF;

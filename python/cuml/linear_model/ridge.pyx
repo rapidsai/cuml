@@ -29,8 +29,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
 
-cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
     cdef void ridgeFit(float *input,
                        int n_rows,
@@ -71,7 +73,7 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
                            double *preds)
 
 
-class Ridge:
+class Ridge(Base, RegressorMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the coefficients when
@@ -155,15 +157,15 @@ class Ridge:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
+
     Notes
     ------
     Ridge provides L2 regularization. This means that the coefficients can shrink to become
     very very small, but not zero. This can cause issues of interpretabiliy on the coefficients.
     Consider using Lasso, or thresholding small coefficients to zero.
-    
+
     **Applications of Ridge**
-        
+
         Ridge Regression is used in the same way as LinearRegression, but is used more frequently
         as it does not suffer from multicollinearity issues. Ridge is used in insurance premium
         prediction, stock market analysis and much more.
@@ -267,14 +269,14 @@ class Ridge:
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
             y_ptr = self._get_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -354,7 +356,7 @@ class Ridge:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))

@@ -79,6 +79,10 @@ A few days before releasing version `x.y` the code of the current development br
 
 2. Add a line to the `CHANGELOG.md` file (located in the repository root folder) with a one line description of the functionality implemented in the Pull Request. Please put the line in the adequate section: New Feature, Improvement or Bug Fix. The cuML repository CI requires this change before a pull request can be merged.
 
+### Building and Testing on a gpuCI image locally
+
+Before submitting a pull request, you can do a local build and test on your machine that mimics our gpuCI environment using the `ci/local/build.sh` script.
+For detailed information on usage of this script, see [here](ci/local/README.md).
 
 ## Attribution
 Portions adopted from https://github.com/pytorch/pytorch/blob/master/CONTRIBUTING.md
