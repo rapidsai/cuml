@@ -92,20 +92,20 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
 class TruncatedSVD(Base):
     """
-    TruncatedSVD is used to compute the top K singular values and vectors of a large matrix X. 
-    It is much faster when n_components is small, such as in the use of PCA when 3 components is 
+    TruncatedSVD is used to compute the top K singular values and vectors of a large matrix X.
+    It is much faster when n_components is small, such as in the use of PCA when 3 components is
     used for 3D visualization.
 
     cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
-    Full (default) uses a full eigendecomposition then selects the top K singular vectors. 
+    Full (default) uses a full eigendecomposition then selects the top K singular vectors.
     The Jacobi algorithm is much faster as it iteratively tries to correct the top K singular
     vectors, but might be less accurate.
-    
+
     Examples
     ---------
 
     .. code-block:: python
-            
+
         # Both import methods supported
         from cuml import TruncatedSVD
         from cuml.decomposition import TruncatedSVD
@@ -184,7 +184,7 @@ class TruncatedSVD(Base):
     components_ : array
         The top K components (VT.T[:,:n_components]) in U, S, VT = svd(X)
     explained_variance_ : array
-        How much each component explains the variance in the data given by S**2      
+        How much each component explains the variance in the data given by S**2
     explained_variance_ratio_ : array
         How much in % the variance is explained given by S**2/sum(S**2)
     singular_values_ : array
@@ -196,15 +196,15 @@ class TruncatedSVD(Base):
     you want is much smaller than the number of features. The approximation to the largest
     singular values and vectors is very robust, however, this method loses a lot of accuracy
     when you want many many components.
-    
+
     **Applications of TruncatedSVD**
-        
+
         TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
-        word count matrix. If X previously was centered with mean removal, TruncatedSVD is the 
+        word count matrix. If X previously was centered with mean removal, TruncatedSVD is the
         same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
         systems and data compression.
 
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_. 
+    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
     For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
@@ -257,18 +257,6 @@ class TruncatedSVD(Base):
         self.noise_variance_ = cudf.Series(np.zeros(1,
                                                     dtype=self.gdf_datatype))
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
     def fit(self, X, _transform=True):
         """
             Fit LSI model on training cudf DataFrame X.
@@ -300,7 +288,7 @@ class TruncatedSVD(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -311,15 +299,15 @@ class TruncatedSVD(Base):
         params.algorithm = self.c_algorithm
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t components_ptr = self._get_ctype_ptr(self.components_)
+        cdef uintptr_t components_ptr = self._get_dev_array_ptr(self.components_)
 
-        cdef uintptr_t explained_var_ptr = self._get_column_ptr(
+        cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
                                                     self.explained_variance_)
-        cdef uintptr_t explained_var_ratio_ptr = self._get_column_ptr(
+        cdef uintptr_t explained_var_ratio_ptr = self._get_cudf_column_ptr(
                                                 self.explained_variance_ratio_)
-        cdef uintptr_t singular_vals_ptr = self._get_column_ptr(
+        cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
                                                 self.singular_values_)
-        cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
@@ -417,7 +405,7 @@ class TruncatedSVD(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        trans_input_ptr = self._get_ctype_ptr(X_m)
+        trans_input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -488,7 +476,7 @@ class TruncatedSVD(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -499,7 +487,7 @@ class TruncatedSVD(Base):
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(trans_input_data)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(trans_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()

@@ -57,6 +57,8 @@ public:
      * @param[in] stream    stream in which the allocation might be still in use
      */
     virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+
+    virtual ~deviceAllocator() {}
 };
 
 /**
@@ -95,6 +97,8 @@ public:
      * @param[in] stream    stream in which the allocation might be still in use
      */
     virtual void deallocate( void* p, std::size_t n, cudaStream_t stream ) = 0;
+
+    virtual ~hostAllocator() {}
 };
 
 
@@ -114,6 +118,8 @@ public:
             // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
         }
     }
+
+    virtual ~defaultDeviceAllocator() {}
 };
 
 
@@ -133,6 +139,8 @@ public:
             // deallocate should not throw execeptions which is why CUDA_CHECK is not used.
         }
     }
+
+    virtual ~defaultHostAllocator() {}
 };
 
 }; // end namespace MLCommon
