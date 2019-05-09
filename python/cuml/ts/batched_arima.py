@@ -188,8 +188,10 @@ class BatchedARIMAModel:
 
     @staticmethod
     def run_kalman(model,
-                   gpu=True) -> Tuple[np.ndarray, np.ndarray]:
-        """Run the (batched) kalman filter for the given model (and contained batched series)"""
+                   gpu=True, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
+        """Run the (batched) kalman filter for the given model (and contained batched
+        series). `initP_kalman_iterations, if true uses kalman iterations, and if false
+        uses an analytical approximation.`"""
         b_ar_params = model.ar_params
         b_ma_params = model.ma_params
         Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
@@ -203,7 +205,7 @@ class BatchedARIMAModel:
                                        Zb, Rb, Tb,
                                        # Z_dense, R_dense, T_dense,
                                        r,
-                                       gpu)
+                                       gpu,initP_kalman_iterations)
         elif d == 1:
             
             y_diff_centered = BatchedARIMAModel.diffAndCenter(model.y, model.num_batches,
@@ -214,7 +216,7 @@ class BatchedARIMAModel:
                                        Zb, Rb, Tb,
                                        # Z_dense, R_dense, T_dense,
                                        r,
-                                       gpu)
+                                       gpu,initP_kalman_iterations)
         else:
             raise NotImplementedError("ARIMA only support d==0,1")
 

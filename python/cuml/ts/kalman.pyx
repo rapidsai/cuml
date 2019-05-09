@@ -15,13 +15,14 @@ def kfilter(np.ndarray[double, ndim=1, mode="fortran"] ys,
             np.ndarray[double, ndim=2, mode="fortran"] Z,
             np.ndarray[double, ndim=2, mode="fortran"] R,
             np.ndarray[double, ndim=2, mode="fortran"] T,
-            int r):
+            int r,
+            bool initP_by_kalman_iteration=True):
 
     cdef int nobs = len(ys)
     cdef np.ndarray[double, ndim=1, mode="fortran"] vs = np.zeros(nobs)
     cdef double loglike = 0.0
 
-    kalman_filter(&ys[0], len(ys), &Z[0,0], &R[0,0], &T[0,0], r, &vs[0], &loglike, False)
+    kalman_filter(&ys[0], len(ys), &Z[0,0], &R[0,0], &T[0,0], r, &vs[0], &loglike, initP_by_kalman_iteration)
 
     return vs, loglike
 

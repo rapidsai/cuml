@@ -113,7 +113,7 @@ def eval_kf(model: ARIMAModel):
     # statsmodels uses this
     B0 = model.mu
     y_centered = y_diff - B0
-    vs, ll = kfilter(y_centered, Z, R, T, r)
+    vs, ll = kfilter(y_centered, Z, R, T, r, False)
 
     return vs, model.endog[0:-1]+(y_diff - vs)
 
@@ -127,7 +127,7 @@ def loglike(model: ARIMAModel):
     # statsmodels uses this
     B0 = model.mu
     y_centered = y_diff - B0
-    vs, ll= kfilter(y_centered, Z, R, T, r)
+    vs, ll= kfilter(y_centered, Z, R, T, r, False)
     return ll
 
 
