@@ -14,14 +14,10 @@
 #
 
 import pytest
-
 import numpy as np
-
 import cuml
-
 from sklearn import cluster
 from sklearn.preprocessing import StandardScaler
-
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
 dataset_names = ['blobs', 'noisy_circles'] + \
@@ -29,6 +25,50 @@ dataset_names = ['blobs', 'noisy_circles'] + \
                  for ds in ['noisy_moons', 'varied', 'aniso']]
 
 
+@pytest.mark.parametrize('name', dataset_names)
+def test_kmeans_sklearn_comparison(name):
+
+    default_base = {'quantile': .3,
+                    'eps': .3,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 3}
+
+    pat = get_pattern(name, 30)
+
+    params = default_base.copy()
+    params.update(pat[1])
+
+    kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    clustering_algorithms = (
+        ('sk_Kmeans', kmeans),
+        ('cuml_Kmeans', cuml_kmeans),
+    )
+
+    sk_y_pred, _ = fit_predict(clustering_algorithms[0][1],
+                               clustering_algorithms[0][0], X)
+
+    cu_y_pred, _ = fit_predict(clustering_algorithms[1][1],
+                               clustering_algorithms[1][0], X)
+
+    # Noisy circles clusters are rotated in the results,
+    # since we are comparing 2 we just need to compare that both clusters
+    # have approximately the same number of points.
+    if name == 'noisy_circles':
+        assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 2e-3
+
+    else:
+        assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+
+
+@pytest.mark.quality
 @pytest.mark.parametrize('name', dataset_names)
 def test_kmeans_sklearn_comparison(name):
 
@@ -70,3 +110,48 @@ def test_kmeans_sklearn_comparison(name):
 
     else:
         assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+
+
+@pytest.mark.stress
+@pytest.mark.parametrize('name', dataset_names)
+def test_kmeans_sklearn_comparison(name):
+
+    default_base = {'quantile': .3,
+                    'eps': .3,
+                    'damping': .9,
+                    'preference': -200,
+                    'n_neighbors': 10,
+                    'n_clusters': 3}
+
+    pat = get_pattern(name, 500000)
+
+    params = default_base.copy()
+    params.update(pat[1])
+
+    kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
+    cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
+
+    X, y = pat[0]
+
+    X = StandardScaler().fit_transform(X)
+
+    clustering_algorithms = (
+        ('sk_Kmeans', kmeans),
+        ('cuml_Kmeans', cuml_kmeans),
+    )
+
+    sk_y_pred, _ = fit_predict(clustering_algorithms[0][1],
+                               clustering_algorithms[0][0], X)
+
+    cu_y_pred, _ = fit_predict(clustering_algorithms[1][1],
+                               clustering_algorithms[1][0], X)
+
+    # Noisy circles clusters are rotated in the results,
+    # since we are comparing 2 we just need to compare that both clusters
+    # have approximately the same number of points.
+    if name == 'noisy_circles':
+        assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 2e-3
+
+    else:
+        assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+
