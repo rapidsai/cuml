@@ -95,6 +95,7 @@
 - PR #578: Updated Readme.md to add lasso and elastic-net
 - PR #580: Fixing cython garbage collection bug in KNN
 - PR #577: Use find libz in prims cmake
+- PR #594: fixed cuda-memcheck mean_center test failures
 
 # cuML 0.6.0 (22 Mar 2019)
 
