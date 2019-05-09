@@ -243,6 +243,27 @@ void sgdFit(const cumlHandle_impl& handle, math_t *input, int n_rows,
 
 }
 
+/**
+ * Make predictions
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
+ * @param intercept
+ *        intercept value calculated in cdFit function
+ * @param preds
+ *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param stream
+ *        cuda stream
+ */
 template<typename math_t>
 void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
 		int n_cols, const math_t *coef, math_t intercept, math_t *preds,
@@ -267,6 +288,27 @@ void sgdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
 	}
 }
 
+/**
+ * Make binary classifications
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
+ * @param input
+ *        pointer to an array in column-major format (size of n_rows, n_cols)
+ * @param n_rows
+ *        n_samples or rows in input
+ * @param n_cols
+ *        n_features or columns in X
+ * @param coef
+ *        pointer to an array for coefficients (size of n_cols). Calculated in cdFit function.
+ * @param intercept
+ *        intercept value calculated in cdFit function
+ * @param preds
+ *        pointer to an array for predictions (size of n_rows). This will be fitted once functions is executed.
+ * @param loss
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ * @param stream
+ *        cuda stream
+ */
 template<typename math_t>
 void sgdPredictBinaryClass(const cumlHandle_impl& handle, const math_t *input,
 		int n_rows, int n_cols, const math_t *coef, math_t intercept,

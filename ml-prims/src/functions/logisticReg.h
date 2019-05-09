@@ -56,16 +56,10 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
-	device_buffer<math_t> input_t(allocator, stream, n_rows * n_cols);
 
 	logisticRegH(input, n_rows, n_cols, coef, labels_pred.data(), math_t(0), cublas_handle, stream);
-
 	LinAlg::subtract(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
-
-	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
-	LinAlg::transpose(input, input_t.data(), n_rows, n_cols, cublas_handle, stream);
-	Matrix::matrixVectorBinaryMult(input_t.data(), labels_pred.data(), n_cols, n_rows, false, true, stream);
-	LinAlg::transpose(input_t.data(), input, n_cols, n_rows, cublas_handle, stream);
+	Matrix::matrixVectorBinaryMult(input, labels_pred.data(), n_rows, n_cols, false, false, stream);
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
