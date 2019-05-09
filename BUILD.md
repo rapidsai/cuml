@@ -110,9 +110,6 @@ $ python setup.py install
 
 cuML's cmake has the following configurable flags available:
 
-
-<sub>
-
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. |
@@ -127,6 +124,5 @@ cuML's cmake has the following configurable flags available:
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 
-</sub>
 
 
