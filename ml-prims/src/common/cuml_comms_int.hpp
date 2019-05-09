@@ -38,6 +38,7 @@ class cumlCommunicator_iface;
  */
 class cumlCommunicator {
 public:
+    typedef unsigned int request_t;
     cumlCommunicator() =delete;
     cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
 
@@ -45,6 +46,23 @@ public:
     int getRank() const;
 
     void barrier() const;
+
+    void isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const;
+    void irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const;
+
+    template<typename T>
+    void isend(const T *buf, int n, int dest, int tag, request_t *request) const
+    {
+        isend(static_cast<const void*>(buf), n*sizeof(T), dest, tag, request);
+    }
+
+    template<typename T>
+    void irecv(T *buf, int n, int source, int tag, request_t *request) const
+    {
+        irecv(static_cast<void*>(buf), n*sizeof(T), source, tag, request);
+    }
+
+    void waitall(int count, request_t array_of_requests[]) const;
 
 private:
     std::unique_ptr<cumlCommunicator_iface> _impl;

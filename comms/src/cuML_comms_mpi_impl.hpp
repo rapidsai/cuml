@@ -16,6 +16,10 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+
 #include <mpi.h>
 
 #include <common/cuml_comms_iface.hpp>
@@ -30,15 +34,27 @@ public:
 
     virtual ~cumlMPICommunicator_impl();
 
-    int getSize() const;
-    int getRank() const;
+    virtual int getSize() const;
+    virtual int getRank() const;
 
-    void barrier() const;
+    virtual void barrier() const;
+
+    virtual void isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const;
+
+    virtual void irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const;
+
+    virtual void waitall(int count, request_t array_of_requests[]) const;
 
 private:
-    MPI_Comm    _mpi_comm;
-    int         _size;
-    int         _rank;
+    MPI_Comm                                            _mpi_comm;
+#ifdef HAVE_NCCL
+    ncclComm_t                                          _nccl_comm;
+#endif
+    int                                                 _size;
+    int                                                 _rank;
+    mutable request_t                                   _next_request_id;
+    mutable std::unordered_map<request_t,MPI_Request>   _requests_in_flight;
+    mutable std::unordered_set<request_t>               _free_requests;
 };
 
 } // end namespace ML
