@@ -233,13 +233,14 @@ void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
  *
  * @param stream cuda stream
  */
-template<DistanceType distanceType, typename T, typename OutputTile_, typename Lambda>
+template<DistanceType distanceType, typename T, typename OutputTile_, typename Lambda = auto (int, bool)->void>
 size_t epsilon_neighborhood(T *a, T *b, bool *adj, int m, int n, int k, T eps,
-            void *workspace, size_t worksize, Lambda fused_op, cudaStream_t stream) {
+            void *workspace, size_t worksize, cudaStream_t stream,
+            Lambda fused_op = [] __device__(int o, bool t){}) {
     auto epsilon_op = [n, eps, fused_op] __device__ (T val, int global_c_idx) {
-        int acc = val <= eps;
+        bool acc = val <= eps;
         fused_op(global_c_idx, acc);
-        return bool(acc);
+        return acc;
     };
 
     distance<distanceType, T, T, bool, OutputTile_>
