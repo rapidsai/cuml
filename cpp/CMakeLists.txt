@@ -110,7 +110,7 @@ endif()
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
 
-set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/googletest/googletest CACHE STRING
+set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest/googletest CACHE STRING
   "Path to the googletest repo")
 
 set(GTEST_LIBNAME "gtest_main" CACHE STRING
@@ -122,10 +122,10 @@ set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
 set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/src_prims/ CACHE STRING
   "Path to the ml-prims repo")
 
-set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cub CACHE STRING
+set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/cub CACHE STRING
   "Path to cub repo")
 
-set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/ml-prims/external/cutlass CACHE STRING
+set(CUTLASS_DIR ${PROJECT_SOURCE_DIR}/external/cutlass CACHE STRING
   "Path to the cutlass repo")
 
 set(CUDA_nvgraph_LIBRARY ${CUDA_TOOLKIT_ROOT_DIR}/lib64/libnvgraph.so CACHE STRING
