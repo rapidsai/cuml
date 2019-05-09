@@ -2,8 +2,17 @@
 
 This folder contains the C++ and CUDA code of the algorithms and ML primitives of cuML. The build system uses CMake for build configuration, and an out-of-source build is recommended.
 
-# Setup
-## Dependencies
+## Important Folders
+
+The source code of cuML is divided in two main files: `src` and `src_prims`.
+
+- `src` contains the source code of the Machine Learning algorithms, and the main cuML C++ API. The main consumable is the shared library `libcuml++`, that can be used stand alone by C++ consumers or is consumed by our Python package `cuml` to provide a Python API.
+- `src_prims` contains most of the common components and computational primitives that form part of the machine learning algorithms in cuML, and can be used individually as well in the form of a header only library.
+
+The test folder has subfolders that reflect this distinction between the components of cuML.
+
+## Setup
+### Dependencies
 
 1. zlib
 2. cmake (>= 3.12.4)
@@ -11,7 +20,7 @@ This folder contains the C++ and CUDA code of the algorithms and ML primitives o
 4. gcc (>=5.4.0)
 5. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 
-## Building cuML:
+### Building cuML:
 
 The main artifact produced by the build system is the shared library libcuml++. Additionally, executables to run tests for the algorithms can be built. To see detailed steps see the [BUILD](../BUILD.md) document of the repository.
 
@@ -41,7 +50,7 @@ $ make -j ml_mg_test # Build ml_mg_test multi GPU algorithms tests binary
 $ make -j prims_test # Build prims_test ML primitive unit tests binary
 ```
 
-## Third Party Modules
+### Third Party Modules
 
 The external folder contains submodules that cuML depends on.
 
@@ -49,5 +58,5 @@ Current external submodules are:
 
 1. [CUTLASS](https://github.com/NVIDIA/cutlass)
 2. [CUB](https://github.com/NVlabs/cub)
-3. [Faiss] (https://github.com/facebookresearch/faiss)
+3. [Faiss](https://github.com/facebookresearch/faiss)
 4. [Google Test](https://github.com/google/googletest)
