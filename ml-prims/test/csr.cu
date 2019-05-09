@@ -21,6 +21,7 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
+#include <limits>
 #include <iostream>
 
 namespace MLCommon {
@@ -61,12 +62,7 @@ TEST_P(CSRToCOO, Result) {
 
     csr_to_coo<32>(ex_scan, 4, result, 10, stream);
 
-    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
-
     ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
-
-
-    std::cout << "Verified!" << std::endl;
 
     delete ex_scan_h;
     delete verify_h;
@@ -104,8 +100,6 @@ TEST_P(CSRRowNormalizeMax, Result) {
     updateDevice(verify, *&verify_h, 10, stream);
 
     csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
-
-    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
@@ -249,8 +243,6 @@ TEST_P(CSRRowOpTest, Result) {
                     result[i] = row;
             }, stream);
 
-    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
-
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
     cudaStreamDestroy(stream);
@@ -285,8 +277,6 @@ TEST_P(AdjGraphTest, Result) {
 
     csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
-
     ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
 
     cudaStreamDestroy(stream);
@@ -304,39 +294,48 @@ TEST_P(WeakCCTest, Result) {
     cudaStreamCreate(&stream);
 
     int *row_ind, *row_ind_ptr, *result, *verify;
-    bool *adj;
 
-    int row_ind_h[3] = {0, 3, 6 };
-    int row_ind_ptr_h[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
-    int verify_h[6] =  { 0,    1,    2,    0,    1,    2 };
+    int row_ind_h1[3] = {0, 3, 6 };
+    int row_ind_ptr_h1[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
+    int verify_h1[6] =  {    1,    1,    1, 2147483647, 2147483647, 2147483647  };
+
+    int row_ind_h2[3] = {0, 2, 4 };
+    int row_ind_ptr_h2[5] =  { 3, 4, 3, 4, 5  };
+    int verify_h2[6] =  { 1, 1, 1, 5, 5, 5 };
 
     allocate(row_ind, 3);
     allocate(row_ind_ptr, 9);
     allocate(result, 9, true);
     allocate(verify, 9);
 
-    updateDevice(row_ind, *&row_ind_h, 3, stream);
-    updateDevice(row_ind_ptr, *&row_ind_ptr_h, 9, stream);
-    updateDevice(verify, *&verify_h, 6, stream);
-
     WeakCCState<int> state(6);
-//
 
-    std::cout << "Running..." << std::endl;
+    /**
+     * Run batch #1
+     */
+    updateDevice(row_ind, *&row_ind_h1, 3, stream);
+    updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
+    updateDevice(verify, *&verify_h1, 6, stream);
+
     weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state, stream);
 
-    std::cout << "Result so far" << std::endl;
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
-    std::cout << MLCommon::arr2Str(result, 6, "labels", stream) << std::endl;
+    /**
+     * Run batch #2
+     */
+    updateDevice(row_ind, *&row_ind_h2, 3, stream);
+    updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
+    updateDevice(verify, *&verify_h2, 6, stream);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
+    weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state, stream);
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
     cudaStreamDestroy(stream);
 
     CUDA_CHECK(cudaFree(row_ind));
-    CUDA_CHECK(cudaFree(adj));
+    CUDA_CHECK(cudaFree(row_ind_ptr));
     CUDA_CHECK(cudaFree(verify));
     CUDA_CHECK(cudaFree(result));
 }
