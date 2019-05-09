@@ -94,7 +94,7 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
 }
 
 /**
- * @brief perform element-wise binary operation on the input arrays
+ * @brief Reversal of the input matrix along the specified dimension
  * @tparam math_t data-type upon which the math operation will be performed
  * @tparam Lambda the device-lambda performing the actual operation
  * @tparam TPB threads-per-block in the final kernel launched
@@ -105,7 +105,8 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
  * @param rowMajor input matrix is row major or not
  * @param alongRows whether to reverse along rows or not
  * @param stream cuda stream where to launch work
- * @param op the device-lambda to perform any unary operations on each element
+ * @param op the device-lambda to perform an optional final unary operation on
+ *  each element after the reverse
  */
 template <typename math_t, typename Lambda = Nop<math_t>, int TPB = 256>
 void reverse(math_t *out, const math_t *in, int nrows, int ncols,
