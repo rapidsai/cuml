@@ -183,7 +183,8 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                                const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
                                int r,
                                vector<double>& h_loglike_b,
-                               vector<vector<double>>& h_vs_b
+                               vector<vector<double>>& h_vs_b,
+                               bool initP_with_kalman_iterations
                                ) {
 
   nvtxNameOsThread(0, "MAIN");
@@ -202,7 +203,8 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                   h_Zb[bi], h_Rb[bi], h_Tb[bi],
                   r,
                   h_vs_b[bi].data(),
-                  &h_loglike_b[bi]
+                  &h_loglike_b[bi],
+                  initP_with_kalman_iterations
                   );
   }
   
@@ -425,18 +427,24 @@ void _batched_kalman_filter(double* d_ys,
                             const BatchedMatrix& Zb,
                             const BatchedMatrix& Tb,
                             const BatchedMatrix& Rb,
+                            const BatchedMatrix& P0,
                             int r,
                             double* d_vs,
                             double* d_Fs,
                             double* d_loglike,
-                            double* d_sigma2) {
+                            double* d_sigma2,
+                            bool initP_with_kalman_iterations=true) {
 
   const size_t num_batches = Zb.batches();
 
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
 
   // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
-  BatchedMatrix P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
+  BatchedMatrix P(r, r, num_batches, Zb.pool(), false);
+  if(initP_with_kalman_iterations)
+    P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
+  else
+    P = P0;
 
   // init alpha to zero
   BatchedMatrix alpha(r, 1, num_batches, Zb.pool(), true);
@@ -489,14 +497,12 @@ void batched_kalman_filter(double* h_ys,
                            const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
                            const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
                            const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
-                           // double* h_Zb,
-                           // double* h_Rb,
-                           // double* h_Tb,
-
+                           const vector<double*>& h_P0b, // { vector size batches, each item size Tb }
                            int r,
                            int num_batches,
                            std::vector<double>& h_loglike_b,
-                           std::vector<vector<double>>& h_vs_b
+                           std::vector<vector<double>>& h_vs_b,
+                           bool initP_with_kalman_iterations
                            ) {
 
   nvtxRangePush(__FUNCTION__);
@@ -514,6 +520,7 @@ void batched_kalman_filter(double* h_ys,
   BatchedMatrix Zb(1, r, num_batches, memory_pool);
   BatchedMatrix Tb(r, r, num_batches, memory_pool);
   BatchedMatrix Rb(r, 1, num_batches, memory_pool);
+  BatchedMatrix P0(r, r, num_batches, memory_pool);
 
   ////////////////////////////////////////////////////////////
   // Copy matrices to device
@@ -526,6 +533,15 @@ void batched_kalman_filter(double* h_ys,
       }
     }
     updateDevice(Tb[0],matrix_copy.data(),r*r*num_batches);
+
+    if(!initP_with_kalman_iterations) {
+      for(int bi=0;bi<num_batches;bi++) {
+        for(int i=0;i<r*r;i++) {
+          matrix_copy[i + bi*r*r] = h_P0b[bi][i];
+        }
+      }
+      updateDevice(P0[0],matrix_copy.data(),r*r*num_batches);
+    }
 
     //Zb
     for(int bi=0;bi<num_batches;bi++) {
@@ -557,7 +573,8 @@ void batched_kalman_filter(double* h_ys,
   allocate(d_sigma2, num_batches);
   allocate(d_loglike, num_batches);
 
-  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike, d_sigma2);
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, P0, r, d_vs, d_Fs, d_loglike, d_sigma2,
+                         initP_with_kalman_iterations);
 
   ////////////////////////////////////////////////////////////
   // xfer results from GPU

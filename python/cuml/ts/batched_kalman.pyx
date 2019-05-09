@@ -6,6 +6,7 @@ import ctypes
 cimport numpy as np
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
+from libcpp cimport bool
 
 cdef extern from "ts/batched_kalman.h":
 
@@ -17,10 +18,12 @@ cdef extern from "ts/batched_kalman.h":
                              const vector[double*]& ptr_Zb,
                              const vector[double*]& ptr_Rb,
                              const vector[double*]& ptr_Tb,
+                             const vector[double*]& ptr_P0,
                              int r,
                              int num_batches,
                              vector[double]& vec_loglike_b,
-                             vector[vector[double]]& vec_vs_b)
+                             vector[vector[double]]& vec_vs_b,
+                             bool initP_with_kalman_iterations)
 
   void batched_kalman_filter_cpu(const vector[double*]& ptr_ys_b,
                                  int nobs,
@@ -29,7 +32,8 @@ cdef extern from "ts/batched_kalman.h":
                                  const vector[double*]& ptr_Tb,
                                  int r,
                                  vector[double]& vec_loglike_b,
-                                 vector[vector[double]]& vec_vs_b)
+                                 vector[vector[double]]& vec_vs_b,
+                                 bool initP_with_kalman_iterations)
 
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
@@ -37,7 +41,8 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                     R_b,
                     T_b,
                     int r,
-                    gpu=True):
+                    gpu=True,
+                    initP_with_kalman_iterations=True):
 
     cdef vector[double] vec_loglike_b
     
@@ -55,9 +60,11 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
     cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
+    cdef np.ndarray[double, ndim=2, mode="fortran"] P0
     cdef vector[double*] vec_Zb
     cdef vector[double*] vec_Rb
     cdef vector[double*] vec_Tb
+    cdef vector[double*] vec_P0
 
     cdef vector[double*] vec_ys_b
 
@@ -67,20 +74,26 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
         Z_bi = Z_b[i]
         R_bi = R_b[i]
         T_bi = T_b[i]
+        
         vec_Zb.push_back(&Z_bi[0,0])
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
-
+        if not initP_with_kalman_iterations:
+            invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+            P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+            vec_P0.push_back(&P0[0,0])
 
     if gpu:
         batched_kalman_filter(&y[0,0],
                               nobs,
                               # &Z_dense[0], &R_dense[0], &T_dense[0],
                               vec_Zb, vec_Rb, vec_Tb,
+                              vec_P0,
                               r,
                               num_batches,
                               vec_loglike_b,
-                              vec_vs_b)
+                              vec_vs_b,
+                              initP_with_kalman_iterations)
     else:
         
         # initialize cpu input
@@ -94,7 +107,8 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                                   vec_Zb, vec_Rb, vec_Tb,
                                   r,
                                   vec_loglike_b,
-                                  vec_vs_b)
+                                  vec_vs_b,
+                                  initP_with_kalman_iterations)
 
     # convert C++-results to numpy arrays
     ll_b = np.zeros(num_batches)

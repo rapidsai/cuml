@@ -216,7 +216,7 @@ add_library(cuml SHARED
             src/common/cuml_api.cpp
             src/umap/umap.cu
 	          src/solver/solver.cu
-            src/ts/kalman.cu
+            src/ts/kalman.cpp
             src/ts/batched_kalman.cu
             )
 

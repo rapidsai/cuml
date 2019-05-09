@@ -14,7 +14,7 @@ using MapMatrixT = Map<MatrixT>;
 using MapVectorT = Map<VectorXd>;
 
 void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, double* ptr_T, int r,
-                   double* ptr_vs, double* ptr_loglike, bool P_init_by_single_iteration) {
+                   double* ptr_vs, double* ptr_loglike, bool P_init_by_iteration) {
   
   int nobs = ys_len;
 
@@ -27,9 +27,14 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
   MapVectorT vs(ptr_vs, nobs);
   VectorT Fs(nobs);
   MatrixT P(r,r);
-  if(P_init_by_single_iteration) {
-    // use a single kalman iteration as covariance (P) initialization
+  if(P_init_by_iteration) {
+    // use multiple kalman iteration as covariance (P) initialization
     P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
+    for (int i = 0; i < 5; i++) {
+      MatrixT K = 1.0 / P(0, 0) * T * P * Z.transpose();
+      MatrixT L = T - K * Z;
+      P = T * P * L.transpose() + R * R.transpose();
+    }
   }
   else {
     // Uses a "fancy" initialization found in D&K's TSA 5.6.2. Statsmodels uses this.
