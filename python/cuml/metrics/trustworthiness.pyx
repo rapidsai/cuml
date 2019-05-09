@@ -28,10 +28,18 @@ from libc.stdint cimport uintptr_t
 from cuml.common.handle cimport cumlHandle
 
 cdef extern from "metrics/trustworthiness.h" namespace "ML::Metrics":
-    cdef double trustworthiness_score[T](const cumlHandle& h, T* X,
-              T* X_embedded, int n, int m, int d, int n_neighbors)
 
-def trustworthiness(X, X_embedded, handle=None, n_neighbors=5):
+    cdef double trustworthiness_score[T](const cumlHandle& h, T* X,
+                        T* X_embedded, int n, int m, int d,
+                        int n_neighbors, int metric)
+
+
+metric_codes = {
+    'euclidean': 5
+}
+
+
+def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean', should_downcast=True):
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -53,6 +61,11 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5):
             Trustworthiness of the low-dimensional embedding
     """
 
+    if metric in metric_codes:
+        metric_code = metric_codes[metric]
+    else:
+        raise Exception("Unknown metric")
+
     if isinstance(X, cudf.DataFrame) and isinstance(X_embedded, cudf.DataFrame):
         datatype1 = np.dtype(X[X.columns[0]]._column.dtype)
         datatype2 = np.dtype(X_embedded[X_embedded.columns[0]]._column.dtype)
@@ -67,11 +80,13 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5):
     else:
         raise TypeError("X and X_embedded parameters must both be cuDF Dataframes or Numpy ndarray")
 
-    if datatype1 != datatype2:
-        raise TypeError("X and X_embedded parameters must be of same type")
-
-    if datatype1 != np.float32 or datatype2 != np.float32: # currently only float32 is available
-        return TypeError("X and X_embedded parameters must be of type float32")
+    if datatype1 != np.float32 or datatype2 != np.float32:
+        if should_downcast:
+            X = to_single_precision(X)
+            X_embedded = to_single_precision(X_embedded)
+        else:
+            raise Exception("Input is double precision. Use 'should_downcast=True' "
+                "if you'd like it to be automatically casted to single precision.")
 
     if isinstance(X, cudf.DataFrame):
         d_X = X.as_gpu_matrix(order='C')
@@ -89,14 +104,9 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5):
     else:
         handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    if datatype1 == np.float32:
-        res = trustworthiness_score[float](handle_[0], <float*>d_X_ptr,
-                    <float*>d_X_embedded_ptr, n_samples, n_features,
-                    n_components, n_neighbors)
-    #else:
-    # res = trustworthiness_score[double](handle_[0], <double*>d_X_ptr,
-    #                <double*>d_X_embedded_ptr, n_samples, n_features,
-    #                n_components, n_neighbors)
+    res = trustworthiness_score[float](handle_[0], <float*>d_X_ptr,
+                            <float*>d_X_embedded_ptr, n_samples, n_features,
+                            n_components, n_neighbors, metric_code)
 
     if handle is None:
         del handle_
@@ -108,3 +118,22 @@ def get_ctype_ptr(obj):
         # encapsulating access in the following 3 methods. They might also be
         # part of future gdf versions.
         return obj.device_ctypes_pointer.value
+
+
+def to_single_precision(X):
+    if isinstance(X, cudf.DataFrame):
+        new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
+        overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+
+        if overflowed > 0:
+            raise Exception("Downcast to single-precision resulted in data loss.")
+        
+        X = cudf.DataFrame(new_cols)
+    else:
+        X = X.astype(np.float32)
+        overflowed = len(X[X >= np.inf])
+
+        if overflowed > 0:
+            raise Exception("Downcast to single-precision resulted in data loss.")
+
+    return X

@@ -19,9 +19,10 @@
 #include "distance/distance.h"
 #include <selection/columnWiseSort.h>
 #include <common/cumlHandle.hpp>
-#include "../knn/knn.h"
+#include <knn/knn.h>
 
 using namespace MLCommon;
+using namespace MLCommon::Distance;
 using namespace MLCommon::Selection;
 using namespace ML;
 
@@ -39,24 +40,53 @@ namespace ML {
                                 int d, int n_neighbors)
     {
         cudaStream_t stream = h.getStream();
-        auto alloc = h.getHostAllocator();
+        auto d_alloc = h.getDeviceAllocator();
         
-        long* d_pred_I;
-        math_t* d_pred_D;
-        allocate<long>(d_pred_I, n * n_neighbors);
-        allocate(d_pred_D, n * n_neighbors);
+        long* d_pred_I = (long*)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
+        math_t* d_pred_D = (math_t*)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
         kNNParams params = {input, n};
         kNN knn(d);
         knn.fit(&params, 1);
         knn.search(input, n, d_pred_I, d_pred_D, n_neighbors);
 
-        long* h_pred_I = (long*)alloc->allocate(n * n_neighbors * sizeof(long), stream);
-        updateHost(h_pred_I, d_pred_I, n * n_neighbors, stream);
-
-        CUDA_CHECK(cudaFree(d_pred_I));
         CUDA_CHECK(cudaFree(d_pred_D));
-        return h_pred_I;
+        return d_pred_I;
+    }
+
+
+    /**
+    * @brief Compute a the rank of trustworthiness score
+    * @input param ind_X: indexes given by pairwise distance and sorting
+    * @input param ind_X_embedded: indexes given by KNN
+    * @input param n: Number of samples
+    * @input param n_neighbors: Number of neighbors considered by trustworthiness score
+    * @input param work: Batch to consider (to do it at once use n * n_neighbors)
+    * @output param rank: Resulting rank
+    */
+    template<typename math_t>
+    __global__ void compute_rank(math_t *ind_X, long *ind_X_embedded,
+                    int n, int n_neighbors, int work, double * rank)
+    {
+        int i = blockIdx.x * blockDim.x + threadIdx.x;
+        if (i >= work)
+            return;
+
+        int n_idx = i / n_neighbors;
+        int nn_idx = (i % n_neighbors) + 1;
+
+        int idx = ind_X_embedded[n_idx * (n_neighbors+1) + nn_idx];
+        math_t* sample_i = &ind_X[n_idx * n];
+        for (int r = 1; r < n; r++)
+        {
+            if (sample_i[r] == idx)
+            {
+                int tmp = r - n_neighbors;
+                if (tmp > 0)
+                    atomicAdd(rank, tmp);
+                break;
+            }
+        }
     }
 
     namespace Metrics {
@@ -69,27 +99,32 @@ namespace ML {
         * @input param m: Number of features in high/original dimension
         * @input param d: Number of features in low/embedded dimension
         * @input param n_neighbors: Number of neighbors considered by trustworthiness score
+        * @input param distance_type: Distance type to consider
         * @return Trustworthiness score
         */
-        template<typename math_t>
+        template<typename math_t, DistanceType distance_type>
         double trustworthiness_score(const cumlHandle& h, math_t* X,
-            math_t* X_embedded, int n, int m, int d, int n_neighbors)
+                            math_t* X_embedded, int n, int m, int d,
+                            int n_neighbors)
         {
             const int TMP_SIZE = MAX_BATCH_SIZE * n;
 
             cudaStream_t stream = h.getStream();
-            auto alloc = h.getHostAllocator();
+            auto d_alloc = h.getDeviceAllocator();
 
-            constexpr auto distance_type = MLCommon::Distance::DistanceType::EucUnexpandedL2Sqrt;
-            size_t workspaceSize = 0; // EucUnexpandedL2Sqrt does not need any workspace
+            size_t workspaceSize = 0; // EucUnexpandedL2Sqrt does not reauire workspace (may need change for other distances)
             typedef cutlass::Shape<8, 128, 128> OutputTile_t;
             bool bAllocWorkspace = false;
 
-            math_t* d_pdist_tmp;
-            allocate(d_pdist_tmp, TMP_SIZE);
-            int* d_ind_X_tmp;
-            allocate(d_ind_X_tmp, TMP_SIZE);
-            int* h_ind_X = (int*)alloc->allocate(n * n * sizeof(int), stream);
+            math_t* d_pdist_tmp = (math_t*)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
+            int* d_ind_X_tmp = (int*)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
+
+            long* ind_X_embedded = get_knn_indexes(h, X_embedded,
+                n, d, n_neighbors + 1);
+
+            double t_tmp = 0.0;
+            double t = 0.0;
+            double* d_t = (double*)d_alloc->allocate(sizeof(double), stream);
 
             int toDo = n;
             while (toDo > 0)
@@ -97,8 +132,7 @@ namespace ML {
                 int batchSize = min(toDo, MAX_BATCH_SIZE);
                 // Takes at most MAX_BATCH_SIZE vectors at a time
 
-                MLCommon::Distance::distance<distance_type, math_t, math_t,
-                                                        math_t, OutputTile_t>
+                distance<distance_type, math_t, math_t, math_t, OutputTile_t>
                         (&X[(n - toDo) * m], X,
                         d_pdist_tmp,
                         batchSize, n, m,
@@ -113,50 +147,56 @@ namespace ML {
                                     stream);
                 CUDA_CHECK(cudaPeekAtLastError());
 
-                updateHost(&h_ind_X[(n - toDo) * n], d_ind_X_tmp,
-                                            batchSize * n, stream);
+                t_tmp = 0.0;
+                updateDevice(d_t, &t_tmp, 1, stream);
+
+                int work = batchSize * n_neighbors;
+                int n_blocks = work / N_THREADS + 1;
+                compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(d_ind_X_tmp,
+                        &ind_X_embedded[(n - toDo) * (n_neighbors+1)],
+                        n,
+                        n_neighbors,
+                        batchSize * n_neighbors,
+                        d_t);
+                CUDA_CHECK(cudaPeekAtLastError());
+
+                updateHost(&t_tmp, d_t, 1, stream);
+                t += t_tmp;
 
                 toDo -= batchSize;
             }
 
-            long* ind_X_embedded = get_knn_indexes(h, X_embedded,
-                                    n, d, n_neighbors + 1);
-            
-            double t = 0.0;
-            for (size_t i = 0; i < n; i++)
-            {
-                int* sample_i = &h_ind_X[i * n];
-                for (size_t j = 1; j <= n_neighbors; j++)
-                {
-                    long idx = ind_X_embedded[i * (n_neighbors+1) + j];
-                    for (int r = 1; r < n; r++)
-                    {
-                        if (sample_i[r] == idx)
-                        {
-                            int tmp = r - n_neighbors;
-                            if (tmp > 0)
-                                t += tmp;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            alloc->deallocate(h_ind_X, n * n * sizeof(int), stream);
-            alloc->deallocate(ind_X_embedded, n * (n_neighbors + 1) * sizeof(long), stream);
-
             t = 1.0 - ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
+
+            d_alloc->deallocate(ind_X_embedded, n * (n_neighbors + 1) * sizeof(long), stream);
+            d_alloc->deallocate(d_pdist_tmp, TMP_SIZE * sizeof(math_t), stream);
+            d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);
+            d_alloc->deallocate(d_t, sizeof(double), stream);
 
             return t;
         }
 
+        template<typename math_t>
+        double trustworthiness_score(const cumlHandle& h, math_t* X,
+            math_t* X_embedded, int n, int m, int d,
+            int n_neighbors, int metric)
+        {
+            DistanceType distance_type = DistanceType(metric);
 
+            if (distance_type == EucUnexpandedL2Sqrt)
+            {
+                return trustworthiness_score<math_t, EucUnexpandedL2Sqrt>(h,
+                                X, X_embedded, n, m, d, n_neighbors);
+            }
+
+            std::ostringstream msg;
+            msg << "Unknown metric" << std::endl;
+            throw MLCommon::Exception(msg.str());
+        }
 
         template double trustworthiness_score<float>(const cumlHandle& h,
-            float* X, float* X_embedded, int n, int m, int d, int n_neighbors);
-        // template double trustworthiness_score(const cumlHandle& h,
-        //  double* X, double* X_embedded, int n, int m, int d, int n_neighbors);
-        // Disabled for now as knn only takes floats
+                        float* X, float* X_embedded, int n, int m, int d,
+                        int n_neighbors, int metric);
 
     }
 }

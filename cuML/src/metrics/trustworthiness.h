@@ -19,12 +19,15 @@
 #include <common/cumlHandle.hpp>
 
 #define MAX_BATCH_SIZE 512
+#define N_THREADS 512
 
 namespace ML {
     namespace Metrics {
 
         template<typename math_t>
-        double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded, int n, int m, int d, int n_neighbors);
+        double trustworthiness_score(const cumlHandle& h, math_t* X,
+                        math_t* X_embedded, int n, int m, int d,
+                        int n_neighbors, int metric);
 
     }
 }
