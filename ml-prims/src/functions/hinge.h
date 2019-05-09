@@ -38,7 +38,7 @@ namespace Functions {
 template <typename math_t, typename idx_type = int>
 void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2,
                        idx_type n_row, idx_type n_col, cudaStream_t stream) {
-	LinAlg::matrixVectorOp(data, data, vec1, vec2, n_col, n_row, false, true,
+	LinAlg::matrixVectorOp(data, data, vec1, vec2, n_col, n_row, false, false,
 		        		       [] __device__ (math_t a, math_t b, math_t c) {
 		                              if (c < math_t(1))
 		        		                  return -a * b;
@@ -82,17 +82,12 @@ void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
-	device_buffer<math_t> input_t(allocator, stream, n_rows * n_cols);
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle, stream);
 
 	LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
-
-	LinAlg::transpose(input, input_t.data(), n_rows, n_cols, cublas_handle, stream);
-	hingeLossGradMult(input_t.data(), labels, labels_pred.data(), n_cols, n_rows, stream);
-	LinAlg::transpose(input_t.data(), input, n_cols, n_rows, cublas_handle, stream);
-
+	hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
 	math_t *pen_grads = NULL;
