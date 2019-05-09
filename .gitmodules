@@ -2,9 +2,6 @@
 	path = thirdparty/faiss
 	url = https://github.com/facebookresearch/faiss
     ignore = dirty
-[submodule "thirdparty/cuml/googletest"]
-    path = thirdparty/cuml/googletest
-    url = https://github.com/google/googletest
 [submodule "thirdparty/cutlass"]
 	path = thirdparty/cutlass
     url = https://github.com/NVIDIA/cutlass
