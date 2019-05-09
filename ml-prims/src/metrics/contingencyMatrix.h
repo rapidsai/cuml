@@ -219,8 +219,8 @@ size_t getCMatrixWorkspaceSize(int nSamples, T* groundTruth, cudaStream_t stream
 }
 
 /**
- * @brief contruct contingency matrix given input ground truth and prediction labels
- * users should call function getInputClassCardinality to find and allocate memory for
+ * @brief contruct contingency matrix given input ground truth and prediction labels.
+ * Users should call function getInputClassCardinality to find and allocate memory for
  * output. Similarly workspace requirements should be checked using function getCMatrixWorkspaceSize
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param predictedLabel: device 1-d array for prediction (num of columns)
@@ -243,6 +243,8 @@ void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples, int *out
   // it is also assumed that true labels are monotically increasing with step count 1
   // if for some reason groundTruth completely skips some labels 
   // eg: {0,1,2,5} instead of {0,1,2,3} . Output matrix will still have empty rows for label value {3,4}
+  // Users can use "make_monotonic" ML_prim located at ml-prims/src/array/array.h
+  // to convert their discontinuous input label range to a monotonically increasing one
 
   // this also serves as way to measure co-occurence/joint counts for NLP tasks which
   // can be used to then compute pointwise mutual information and mutual information

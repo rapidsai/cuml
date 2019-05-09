@@ -29,6 +29,7 @@ struct contingencyMatrixParam {
   int minClass;
   int maxClass;
   bool calcCardinality;
+  bool skipLabels;
   float tolerance;
 };
 
@@ -50,6 +51,21 @@ protected:
 
     std::generate(y.begin(), y.end(), [&](){return intGenerator(dre); });
     std::generate(y_hat.begin(), y_hat.end(), [&](){return intGenerator(dre); });
+
+    if (params.skipLabels) {
+      // remove two label value from input arrays
+      int y1 = (upperLabelRange - lowerLabelRange) / 2;
+      int y2 = y1  + (upperLabelRange - lowerLabelRange) / 4;
+
+      // replacement values
+      int y1_R = y1 + 1;
+      int y2_R = y2 + 1;
+
+      std::replace(y.begin(), y.end(), y1, y1_R);
+      std::replace(y.begin(), y.end(), y2, y2_R);
+      std::replace(y_hat.begin(), y_hat.end(), y1, y1_R);
+      std::replace(y_hat.begin(), y_hat.end(), y2, y2_R);
+    }
 
     numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
@@ -119,10 +135,11 @@ protected:
 };
 
 const std::vector<contingencyMatrixParam> inputs = {
-  {10000, 1, 10, true, 0.000001},
-  {100000, 1, 100, false, 0.000001},
-  {1000000, 1, 1200, true, 0.000001},
-  {1000000, 1, 10000, false, 0.000001}
+  {10000, 1, 10, true, false, 0.000001},
+  {100000, 1, 100, false, false, 0.000001},
+  {1000000, 1, 1200, true, false, 0.000001},
+  {1000000, 1, 10000, false, false, 0.000001},
+  {100000, 1, 100, false, true, 0.000001}
 };
 
 typedef ContingencyMatrixTestImpl<int> ContingencyMatrixTestImplS; 
