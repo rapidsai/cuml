@@ -50,7 +50,7 @@ option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_PRIM_TESTS "Build ml-prim tests" OFF)
 
-option(BUILD_EXAMPLES "Build C++ API usage examples" OFF)
+option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" OFF)
 
 set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
@@ -241,10 +241,10 @@ include_directories(
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
-# Append source file in recursive manner, append header files to target for work with them in IDE
 file(GLOB_RECURSE ml_prims_header "src_prims/*.h" "src_prims/*.hpp")
 file(GLOB_RECURSE cuml_test_cuda_sources "test/sg/*.cu")
 file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
+file(GLOB_RECURSE mlprims_test_cuda_sources "test/prims/*.cu")
 
 ###################################################################################################
 # - build libcuml++ shared library ------------------------------------------------------------------
@@ -286,7 +286,9 @@ target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
 ###################################################################################################
 # - build ml_test executable ----------------------------------------------------------------------
 
-add_executable(ml_test ${cuml_test_cuda_sources} ${ml_prims_header})
+add_executable(ml_test
+  ${cuml_test_cuda_sources}
+  ${ml_prims_header})
 
 target_link_libraries(ml_test
   ${GTEST_LIBNAME}
@@ -306,7 +308,9 @@ target_link_libraries(ml_test
 ###################################################################################################
 # - build ml_mg_test executable -------------------------------------------------------------------
 
-add_executable(ml_mg_test ${cuml_mg_test_cuda_sources} ${ml_prims_header})
+add_executable(ml_mg_test
+    ${cuml_mg_test_cuda_sources}
+    ${ml_prims_header})
 
 target_link_libraries(ml_mg_test
   ${GTEST_LIBNAME}
@@ -324,11 +328,30 @@ target_link_libraries(ml_mg_test
   ${ZLIB_LIBRARIES})
 
 ###################################################################################################
+# - build prims_test executable ----------------------------------------------------------------
+
+set(MLPRIMS_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  pthread
+  ${ZLIB_LIBRARIES})
+
+add_executable(prims_test
+  ${mlprims_test_cuda_sources}
+  ${ml_prims_header})
+
+target_link_libraries(prims_test
+  ${GTEST_LIBNAME}
+  ${MLPRIMS_LINK_LIBRARIES})
+
+###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (DISABLE_EXAMPLES OR ${BUILD_EXAMPLES})
+if (DISABLE_EXAMPLES OR ${BUILD_CUML_EXAMPLES})
   add_subdirectory(examples)
-endif(DISABLE_EXAMPLES OR ${BUILD_EXAMPLES})
+endif(DISABLE_EXAMPLES OR ${BUILD_CUML_EXAMPLES})
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
