@@ -59,6 +59,17 @@ void cumlCommunicator::waitall(int count, request_t array_of_requests[]) const
     _impl->waitall(count, array_of_requests);
 }
 
+void cumlCommunicator::allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const
+{
+    _impl->allreduce(sendbuff, recvbuff, count, datatype, op, stream);
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<double>()
+{
+    return cumlCommunicator::DOUBLE;
+}
+
 cumlCommunicator_iface::~cumlCommunicator_iface() {}
 
 } // end namespace ML

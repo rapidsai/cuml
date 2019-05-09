@@ -22,7 +22,10 @@ namespace MLCommon {
 
 class cumlCommunicator_iface {
 public:
-    typedef cumlCommunicator::request_t request_t;
+    typedef cumlCommunicator::request_t     request_t;
+    typedef cumlCommunicator::datatype_t    datatype_t;
+    typedef cumlCommunicator::op_t          op_t;
+
     virtual ~cumlCommunicator_iface();
 
     virtual int getSize() const =0;
@@ -36,8 +39,7 @@ public:
 
     virtual void waitall(int count, request_t array_of_requests[]) const =0;
 
-    //TODO: Introduce MPI_Op abstraction as an example
-    //virtual void allreduce(const void *sendbuf, void *recvbuf, std::size_t size, MPI_Op op) const =0;
+    virtual void allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const =0;
 };
 
 } // end namespace ML

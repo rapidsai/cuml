@@ -22,6 +22,10 @@
 
 #include <mpi.h>
 
+#ifdef HAVE_NCCL
+#include <nccl.h>
+#endif
+
 #include <common/cuml_comms_iface.hpp>
 
 namespace ML {
@@ -44,6 +48,8 @@ public:
     virtual void irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const;
 
     virtual void waitall(int count, request_t array_of_requests[]) const;
+
+    virtual void allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const;
 
 private:
     MPI_Comm                                            _mpi_comm;
