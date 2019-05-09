@@ -34,28 +34,31 @@ template<typename T>
 class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
 protected:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
     allocate(in, len);
     allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0));
+    r.uniform(in, len, T(-1.0), T(1.0), stream);
     // applying reverse twice should yield the same output!
     // this will in turn also verify the inplace mode of reverse method
     reverse(out, in, params.nrows, params.ncols, params.rowMajor,
-            params.alongRows);
+            params.alongRows, stream);
     reverse(out, out, params.nrows, params.ncols, params.rowMajor,
-            params.alongRows);
+            params.alongRows, stream);
   }
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(out));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
   ReverseInputs<T> params;
   T *in, *out;
+  cudaStream_t stream;
 };
 
 const std::vector<ReverseInputs<float>> inputsf = {
