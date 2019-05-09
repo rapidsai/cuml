@@ -108,7 +108,10 @@ def eval_kf(model: ARIMAModel):
     Z, R, T, r = init_kalman_matrices(model.ar_params, model.ma_params)
     y_diff = np.diff(model.endog)
 
-    B0 = model.mu/(1-np.sum(model.ar_params))
+    # P&K TSM suggests this:
+    # B0 = model.mu/(1-np.sum(model.ar_params))
+    # statsmodels uses this
+    B0 = model.mu
     y_centered = y_diff - B0
     vs, ll = kfilter(y_centered, Z, R, T, r)
 
@@ -118,8 +121,11 @@ def eval_kf(model: ARIMAModel):
 def loglike(model: ARIMAModel):
     Z, R, T, r = init_kalman_matrices(model.ar_params, model.ma_params)
     y_diff = np.diff(model.endog)
-    # B0 = np.mean(y_diff)
-    B0 = model.mu/(1-np.sum(model.ar_params))
+
+    # P&K TSM suggests this:
+    # B0 = model.mu/(1-np.sum(model.ar_params))
+    # statsmodels uses this
+    B0 = model.mu
     y_centered = y_diff - B0
     vs, ll= kfilter(y_centered, Z, R, T, r)
     return ll
@@ -201,7 +207,7 @@ def fit(y, order: Tuple[int, int, int], mu0: float, arparams0, maparams0,
         elif method == "mle":
             # maximize log likelihood (and minimize the negative...)
             ll = loglike(model0)
-            return -ll
+            return -ll/len(y)
             # ll, gll = loglike_with_grad(model0)
             # return -ll, -np.array(gll)
         else:
@@ -218,7 +224,8 @@ def fit(y, order: Tuple[int, int, int], mu0: float, arparams0, maparams0,
     #     partials = [f(x+ih).imag / h for ih in increments]
     #     return np.array(partials)
 
-    x, f_final, res = opt.fmin_l_bfgs_b(f, x0, approx_grad=True)
+    x, f_final, res = opt.fmin_l_bfgs_b(f, x0, approx_grad=True, m=12, pgtol=1e-8,
+                                        factr=100, iprint=5)
     mu = x[0]
     arparams = x[1:len(arparams0)+1]
     maparams = x[len(arparams0)+1:]
