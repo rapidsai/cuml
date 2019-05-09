@@ -31,6 +31,9 @@ struct Pack {
     bool *adj;     
     /** the adjacency graph */
     Type *adj_graph;
+
+    Type adjnnz;
+
     /** exculusive scan generated from vd */ 
     Type *ex_scan;
     /** array to store whether a vertex is core poType or not */

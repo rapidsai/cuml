@@ -55,12 +55,23 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize
     int minPts = data.minPts;
     int *vd = data.vd;
 
-    MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(data.ex_scan, data.N, batchSize,
-            data.adj, data.adj_graph,
-            [core_pts, minPts, vd] __device__ (Type row, Type start_idx) {
+    std::cout << MLCommon::arr2Str(data.ex_scan, batchSize, "ex_scan", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(data.adj, batchSize*data.N, "adj", stream) << std::endl;
+
+    MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(
+            data.ex_scan,
+            data.N,
+            data.adjnnz,
+            batchSize,
+            data.adj,
+            data.adj_graph,
+            stream,
+            [core_pts, minPts, vd] __device__ (Type row, Type start_idx, Type stop_idx) {
         // fuse the operation of core points construction
         core_pts[row] = (vd[row] >= minPts);
-    }, stream);
+    });
+
+    std::cout << MLCommon::arr2Str(data.adj_graph, data.adjnnz, "adj_graph", stream) << std::endl;
 
     CUDA_CHECK(cudaPeekAtLastError());
 }

@@ -119,7 +119,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
             adj_graph.resize(adjlen, stream);
 		}
 
-		AdjGraph::run(handle, adj, vd, adj_graph.data(), ex_scan, N, minPts, core_pts,
+		AdjGraph::run(handle, adj, vd, adj_graph.data(), adjlen, ex_scan, N, minPts, core_pts,
 				algoAdj, nPoints, stream);
 
 	    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
