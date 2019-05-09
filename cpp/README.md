@@ -2,7 +2,7 @@
 
 This folder contains the C++ and CUDA code of the algorithms and ML primitives of cuML. The build system uses CMake for build configuration, and an out-of-source build is recommended.
 
-## Important Folders
+## Source Code Folders
 
 The source code of cuML is divided in two main files: `src` and `src_prims`.
 
