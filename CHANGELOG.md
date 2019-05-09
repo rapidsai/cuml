@@ -8,6 +8,7 @@
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
+- PR #596: Introduce cumlHandle for ols and ridge
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
