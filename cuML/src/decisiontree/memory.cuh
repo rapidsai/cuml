@@ -36,7 +36,7 @@ struct TemporaryMemory
 	MLCommon::device_buffer<T> *d_globalminmax;
 	MLCommon::device_buffer<int> *d_histout, *d_colids;
 	MLCommon::host_buffer<int> *h_histout;
-	MLCommon::device_buffer<T> *d_mseout;
+	MLCommon::device_buffer<T> *d_mseout, *d_predout;
 	MLCommon::host_buffer<T> *h_mseout;
 	
 	//Below pointers are shared for split functions
@@ -105,6 +105,7 @@ struct TemporaryMemory
 		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
 		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
 		d_mseout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
+		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
 		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
 		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 3*sizeof(T))* Ncols;
