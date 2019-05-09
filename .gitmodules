@@ -2,16 +2,16 @@
 	path = thirdparty/faiss
 	url = https://github.com/facebookresearch/faiss
     ignore = dirty
-[submodule "external/googletest"]
+[submodule "thirdparty/cuml/googletest"]
     path = thirdparty/cuml/googletest
     url = https://github.com/google/googletest
-[submodule "ml-prims/external/cutlass"]
+[submodule "thirdparty/cutlass"]
 	path = thirdparty/cutlass
     url = https://github.com/NVIDIA/cutlass
-[submodule "ml-prims/external/cub"]
+[submodule "thirdparty/cub"]
 	path = thirdparty/cub
     url = https://github.com/NVlabs/cub
-[submodule "ml-prims/external/googletest"]
+[submodule "thirdparty/googletest"]
 	path = thirdparty/googletest
     url = https://github.com/google/googletest
 [submodule "thirdparty/h2o4gpu"]
