@@ -16,16 +16,28 @@
 
 #pragma once
 
+#include "cuml_comms_int.hpp"
+
 namespace MLCommon {
 
 class cumlCommunicator_iface {
 public:
+    typedef cumlCommunicator::request_t request_t;
     virtual ~cumlCommunicator_iface();
 
     virtual int getSize() const =0;
     virtual int getRank() const =0;
 
     virtual void barrier() const =0;
+
+    virtual void isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const =0;
+
+    virtual void irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const =0;
+
+    virtual void waitall(int count, request_t array_of_requests[]) const =0;
+
+    //TODO: Introduce MPI_Op abstraction as an example
+    //virtual void allreduce(const void *sendbuf, void *recvbuf, std::size_t size, MPI_Op op) const =0;
 };
 
 } // end namespace ML

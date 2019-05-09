@@ -44,7 +44,7 @@ void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm)
 }
 
 cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm)
-    : _mpi_comm(comm), _size(0), _rank(1)
+    : _mpi_comm(comm), _size(0), _rank(1), _next_request_id(0)
 {
     int mpi_is_initialized = 0;
     MPI_CHECK( MPI_Initialized(&mpi_is_initialized) );
@@ -68,6 +68,59 @@ int cumlMPICommunicator_impl::getRank() const
 void cumlMPICommunicator_impl::barrier() const
 {
     MPI_CHECK( MPI_Barrier( _mpi_comm ) );
+}
+
+void cumlMPICommunicator_impl::isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const
+{
+    MPI_Request mpi_req;
+    request_t req_id;
+    if ( _free_requests.empty() )
+    {
+        req_id = _next_request_id++;
+    }
+    else
+    {
+        auto it = _free_requests.begin();
+        req_id = *it;
+        _free_requests.erase(it);
+    }
+    MPI_CHECK( MPI_Isend(buf, size, MPI_CHAR, dest, tag, _mpi_comm, &mpi_req) );
+    _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
+    *request = req_id;
+}
+
+void cumlMPICommunicator_impl::irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const
+{
+    MPI_Request mpi_req;
+    request_t req_id;
+    if ( _free_requests.empty() )
+    {
+        req_id = _next_request_id++;
+    }
+    else
+    {
+        auto it = _free_requests.begin();
+        req_id = *it;
+        _free_requests.erase(it);
+    }
+    MPI_CHECK( MPI_Irecv(buf, size, MPI_CHAR, source, tag, _mpi_comm, &mpi_req) );
+    _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
+    *request = req_id;
+}
+
+void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[]) const
+{
+    std::vector<MPI_Request> requests;
+    requests.reserve(count);
+    for ( int i = 0; i < count; ++i )
+    {
+         auto req_it = _requests_in_flight.find( array_of_requests[i] );
+         ASSERT( _requests_in_flight.end() != req_it, "ERROR: waitall on invalid request: %d", array_of_requests[i] );
+         requests.push_back( req_it->second );
+         _free_requests.insert( req_it->first );
+        _requests_in_flight.erase( req_it );
+    }
+    MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE) );
 }
 
 } // end namespace ML

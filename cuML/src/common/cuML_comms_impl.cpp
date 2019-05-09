@@ -44,6 +44,21 @@ void cumlCommunicator::barrier() const
     _impl->barrier();
 }
 
+void cumlCommunicator::isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const
+{
+    _impl->isend(buf, size, dest, tag, request);
+}
+
+void cumlCommunicator::irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const
+{
+    _impl->irecv(buf, size, source, tag, request);
+}
+
+void cumlCommunicator::waitall(int count, request_t array_of_requests[]) const
+{
+    _impl->waitall(count, array_of_requests);
+}
+
 cumlCommunicator_iface::~cumlCommunicator_iface() {}
 
 } // end namespace ML
