@@ -21,6 +21,7 @@
 #include <stats/mean_center.h>
 #include <stats/stddev.h>
 #include <linalg/norm.h>
+#include <linalg/gemm.h>
 #include <matrix/math.h>
 #include <matrix/matrix.h>
 
@@ -33,24 +34,25 @@ template<typename math_t>
 void preProcessData(math_t *input, int n_rows, int n_cols, math_t *labels,
 		math_t *intercept, math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+                cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
 	if (fit_intercept) {
-		Stats::mean(mu_input, input, n_cols, n_rows, false, false);
-		Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true);
+		Stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+		Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true, stream);
 
-		Stats::mean(mu_labels, labels, 1, n_rows, false, false);
-		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true);
+		Stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+		Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
 		if (normalize) {
-			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm,
-                    []__device__(math_t v){ return MLCommon::mySqrt(v); });
-			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, true);
+			LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
+                                        stream,
+                                        []__device__(math_t v){ return MLCommon::mySqrt(v); });
+			Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols, false, true, stream, true);
 		}
 	}
 
@@ -60,10 +62,10 @@ template<typename math_t>
 void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
 		math_t *intercept, math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
 		bool fit_intercept, bool normalize, cublasHandle_t cublas_handle,
-		cusolverDnHandle_t cusolver_handle) {
+		cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
 
-	ASSERT(n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
+	ASSERT(n_cols > 0,
+			"Parameter n_cols: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"Parameter n_rows: number of rows cannot be less than two");
 
@@ -71,22 +73,22 @@ void postProcessData(math_t *input, int n_rows, int n_cols, math_t *labels, math
 	allocate(d_intercept, 1);
 
 	if (normalize) {
-            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true);
-            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false, true, true);
+            Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true, stream);
+            Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
+                                                    false, true, stream, true);
 	}
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
 	LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept, 1, 1,
-		    CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, cublas_handle);
+		    CUBLAS_OP_N, CUBLAS_OP_N, cublas_handle, stream);
 
-	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1);
-	updateHost(intercept, d_intercept, 1);
+	LinAlg::subtract(d_intercept, mu_labels, d_intercept, 1, stream);
+	updateHost(intercept, d_intercept, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	if (d_intercept != NULL)
 		cudaFree(d_intercept);
 
-	Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true);
-	Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true);
+	Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
+	Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
 }
 

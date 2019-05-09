@@ -1,1 +1,1 @@
-python/cuML/_version.py export-subst
+python/cuml/_version.py export-subst

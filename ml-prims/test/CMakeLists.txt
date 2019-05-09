@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,30 +26,49 @@ add_executable(mlcommon_test
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
+  columnSort.cu
+  coo.cu
   cov.cu
+  csr.cu
   decoupled_lookback.cu
-  distance.cu
+  dist_adj.cu
+  dist_cos.cu
+  dist_euc_exp.cu
+  dist_euc_unexp.cu
+  dist_l1.cu
   divide.cu
   eig.cu
   eltwise.cu
   eltwise2d.cu
+  gather.cu
   gemm.cu
+  grid_sync.cu
+  hinge.cu
   kselection.cu
+  linearReg.cu
+  log.cu
+  logisticReg.cu
   map_then_reduce.cu
   math.cu
   matrix.cu
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
+  minmax.cu
   mvg.cu
   multiply.cu
   norm.cu
+  penalty.cu
   permute.cu
   power.cu
+  reduce.cu
+  reduce_rows_by_key.cu
   reverse.cu
   rng.cu
   rng_int.cu
   rsvd.cu
+  score.cu
+  sigmoid.cu
   sqrt.cu
   stddev.cu
   strided_reduction.cu
@@ -57,7 +76,9 @@ add_executable(mlcommon_test
   sum.cu
   svd.cu
   transpose.cu
-  unary_op.cu)
+  unary_op.cu
+  weighted_mean.cu
+  )
 
 target_link_libraries(mlcommon_test
   ${GTEST_LIBNAME}

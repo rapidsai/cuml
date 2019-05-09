@@ -11,26 +11,11 @@ if [ "$BUILD_CUML" == "1" ]; then
     CUDA_REL=${CUDA:0:4}
   fi
 
-  if [ "$BUILD_ABI" == "1" ]; then
-    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge -c numba -c rapidsai/label/cuda${CUDA_REL} -c nvidia/label/cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
-  else
-    export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge/label/cf201901 -c numba -c rapidsai/label/cf201901-cuda${CUDA_REL} -c nvidia/label/cf201901-cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
-  fi
+  export UPLOADFILE=`conda build conda/recipes/cuml -c conda-forge -c numba -c rapidsai/label/cuda${CUDA_REL} -c nvidia/label/cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON} --output`
 
   SOURCE_BRANCH=master
 
-  if [ "$LABEL_MAIN" == "1" -a "$BUILD_ABI" == "1" ]; then
-    LABEL_OPTION="--label main --label cuda${CUDA_REL}"
-  elif [ "$LABEL_MAIN" == "0" -a "$BUILD_ABI" == "1" ]; then
-    LABEL_OPTION="--label dev --label cuda${CUDA_REL}"
-  elif [ "$LABEL_MAIN" == "1" -a "$BUILD_ABI" == "0" ]; then
-    LABEL_OPTION="--label cf201901 --label cf201901-cuda${CUDA_REL}"
-  elif [ "$LABEL_MAIN" == "0" -a "$BUILD_ABI" == "0" ]; then
-    LABEL_OPTION="--label cf201901-dev --label cf201901-cuda${CUDA_REL}"
-  else
-    echo "Unknown label configuration LABEL_MAIN='$LABEL_MAIN' BUILD_ABI='$BUILD_ABI'"
-    exit 1
-  fi
+  LABEL_OPTION="--label main --label cuda${CUDA_REL}"
   echo "LABEL_OPTION=${LABEL_OPTION}"
 
   test -e ${UPLOADFILE}
@@ -48,5 +33,5 @@ if [ "$BUILD_CUML" == "1" ]; then
 
   echo "Upload"
   echo ${UPLOADFILE}
-  anaconda -t ${MY_UPLOAD_KEY} upload -u rapidsai ${LABEL_OPTION} --force ${UPLOADFILE}
+  anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --force ${UPLOADFILE}
 fi

@@ -46,7 +46,7 @@ template <typename Type, typename Lambda>
 void eltwise2D(int rows, // m
                int cols, // n
                const Type *dotA, const Type *dotB, const Type *pC, Type *pD,
-               Type alpha, Type beta, Lambda op, cudaStream_t stream = 0) {
+               Type alpha, Type beta, Lambda op, cudaStream_t stream) {
   size_t threads = 256;
   size_t blocks = ((cols * rows) + threads - 1) / threads;
   eltwise2DKernel<Type><<<blocks, threads, 0, stream>>>(

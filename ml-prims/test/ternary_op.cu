@@ -33,6 +33,8 @@ public:
     Random::Rng rng(params.seed);
 
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);
     allocate(in2, len);
     allocate(in3, len);
@@ -41,16 +43,17 @@ public:
     allocate(out_add, len);
     allocate(out_mul, len);
 
-    rng.fill(out_add_ref, len, T(6.0));
-    rng.fill(out_mul_ref, len, T(6.0));
-    rng.fill(in1, len, T(1.0));
-    rng.fill(in2, len, T(2.0));
-    rng.fill(in3, len, T(3.0));
+    rng.fill(out_add_ref, len, T(6.0), stream);
+    rng.fill(out_mul_ref, len, T(6.0), stream);
+    rng.fill(in1, len, T(1.0), stream);
+    rng.fill(in2, len, T(2.0), stream);
+    rng.fill(in3, len, T(3.0), stream);
 
     auto add = [] __device__(T a, T b, T c) {return a + b+ c;};
     auto mul = [] __device__(T a, T b, T c) {return a * b* c;};
-    ternaryOp(out_add, in1, in2, in3, len, add);
-    ternaryOp(out_mul, in1, in2, in3, len, mul);
+    ternaryOp(out_add, in1, in2, in3, len, add, stream);
+    ternaryOp(out_mul, in1, in2, in3, len, mul, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

@@ -36,10 +36,8 @@ namespace LinAlg {
  */
 template <typename math_t>
 void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
-            cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
-
+            cusolverDnHandle_t cusolverH, cudaStream_t stream,
+            DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   CUDA_CHECK(cudaMemcpyAsync(Q, M, sizeof(math_t) * m * n,
@@ -54,13 +52,13 @@ void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
   math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
   CUSOLVER_CHECK(
-    cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo));
+    cusolverDngeqrf(cusolverH, m, n, Q, m, tau, workspace, Lwork, devInfo, stream));
   mgr.free(workspace, stream);
   CUSOLVER_CHECK(
     cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau, &Lwork));
   workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
   CUSOLVER_CHECK(
-    cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo));
+    cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau, workspace, Lwork, devInfo, stream));
   mgr.free(workspace, stream);
   mgr.free(devInfo, stream);
 
@@ -81,10 +79,8 @@ void qrGetQ(math_t *&M, math_t *&Q, int n_rows, int n_cols,
  */
 template <typename math_t>
 void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
-             cusolverDnHandle_t cusolverH, DeviceAllocator &mgr) {
-  cudaStream_t stream;
-  CUSOLVER_CHECK(cusolverDnGetStream(cusolverH, &stream));
-
+             cusolverDnHandle_t cusolverH, cudaStream_t stream,
+             DeviceAllocator &mgr) {
   int m = n_rows, n = n_cols;
   math_t *R_full = (math_t *)mgr.alloc(sizeof(math_t) * m * n);
   math_t *tau = (math_t *)mgr.alloc(sizeof(math_t) * min(m, n));
@@ -100,10 +96,10 @@ void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
     cusolverH, R_full_nrows, R_full_ncols, R_full, R_full_nrows, &Lwork));
   math_t *workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
   CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full,
-                                 R_full_nrows, tau, workspace, Lwork, devInfo));
+                                 R_full_nrows, tau, workspace, Lwork, devInfo, stream));
   mgr.free(workspace, stream);
 
-  Matrix::copyUpperTriangular(R_full, R, m, n);
+  Matrix::copyUpperTriangular(R_full, R, m, n, stream);
 
   CUDA_CHECK(cudaMemcpyAsync(Q, R_full, sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));
@@ -115,7 +111,7 @@ void qrGetQR(math_t *&M, math_t *&Q, math_t *&R, int n_rows, int n_cols,
   workspace = (math_t *)mgr.alloc(sizeof(math_t) * Lwork);
   CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols,
                                  min(Q_ncols, Q_nrows), Q, Q_nrows, tau,
-                                 workspace, Lwork, devInfo));
+                                 workspace, Lwork, devInfo, stream));
   mgr.free(workspace, stream);
   mgr.free(devInfo, stream);
 

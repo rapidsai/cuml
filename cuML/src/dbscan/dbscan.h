@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,47 +17,65 @@
 #pragma once
 
 #include "runner.h"
+#include <common/device_buffer.hpp>
 
 namespace ML {
 
 using namespace Dbscan;
 
-int computeBatchCount(int n_rows) {
+// Default max mem set to a reasonable value for a 16gb card.
+static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
+
+template<typename T>
+int computeBatchCount(int n_rows, size_t max_bytes_per_batch) {
 
     int n_batches = 1;
     // There seems to be a weird overflow bug with cutlass gemm kernels
     // hence, artifically limiting to a smaller batchsize!
     ///TODO: in future, when we bump up the underlying cutlass version, this should go away
     // paving way to cudaMemGetInfo based workspace allocation
-    static const size_t MaxElems = (size_t)1024 * 1024 * 1024 * 2;  // 2e9
     while(true) {
-
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
-        if(batchSize * n_rows < MaxElems)
+        if(batchSize * n_rows * sizeof(T) < max_bytes_per_batch || batchSize == 1)
             break;
         ++n_batches;
     }
-
     return n_batches;
 }
 
 template<typename T>
-void dbscanFitImpl(T *input, int n_rows, int n_cols, T eps, int min_pts, int *labels) {
+void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input,
+        int n_rows, int n_cols,
+        T eps, int min_pts,
+        int *labels,
+        size_t max_bytes_per_batch,
+        cudaStream_t stream,
+        bool verbose) {
     int algoVd = 1;
     int algoAdj = 1;
     int algoCcl = 2;
-    int n_batches = computeBatchCount(n_rows);
-    size_t workspaceSize = Dbscan::run(input, n_rows, n_cols, eps, min_pts,
+
+    if(max_bytes_per_batch <= 0)
+        // @todo: Query device for remaining memory
+        max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
+
+    int n_batches = computeBatchCount<T>(n_rows, max_bytes_per_batch);
+
+    if(verbose) {
+        size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
+        if(n_batches > 1) {
+            std::cout << "Running batched training on " << n_batches << " batches w/ ";
+            std::cout << batchSize * n_rows * sizeof(T) << " bytes." << std::endl;
+        }
+    }
+
+    size_t workspaceSize = Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts,
                                        labels, algoVd, algoAdj, algoCcl, NULL,
-                                       n_batches, 0);
+                                       n_batches, stream);
 
-    char* workspace;
-    CUDA_CHECK(cudaMalloc((void** )&workspace, workspaceSize));
-
-    Dbscan::run(input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
-                algoCcl, workspace, n_batches, 0);
-
-    CUDA_CHECK(cudaFree(workspace));
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream, workspaceSize);
+    Dbscan::run(handle, input, n_rows, n_cols, eps, min_pts, labels, algoVd, algoAdj,
+                algoCcl, workspace.data(), n_batches, stream);
 }
 
 /** @} */

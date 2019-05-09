@@ -11,8 +11,8 @@ if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
   fi
 
   if [ "$BUILD_ABI" == "1" ]; then
-    conda build conda/recipes/libcuml -c conda-forge -c numba -c nvidia/label/cuda${CUDA_REL} -c rapidsai/label/cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON}
+    conda build conda/recipes/libcuml --python=${PYTHON}
   else
-    conda build conda/recipes/libcuml -c conda-forge/label/cf201901 -c numba -c nvidia/label/cf201901-cuda${CUDA_REL} -c rapidsai/label/cf201901-cuda${CUDA_REL} -c pytorch -c defaults --python=${PYTHON}
+    conda build conda/recipes/libcuml --python=${PYTHON}
   fi
 fi

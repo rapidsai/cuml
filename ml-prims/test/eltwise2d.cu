@@ -44,10 +44,11 @@ __global__ void naiveEltwise2DAddKernel(int rows, int cols, const Type *aPtr,
 
 template <typename Type>
 void naiveEltwise2DAdd(int rows, int cols, const Type *aPtr, const Type *bPtr,
-                       const Type *cPtr, Type *dPtr, Type alpha, Type beta) {
+                       const Type *cPtr, Type *dPtr, Type alpha, Type beta,
+                       cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(rows * cols, TPB);
-  naiveEltwise2DAddKernel<Type><<<nblks, TPB>>>(rows, cols, aPtr, bPtr, cPtr,
+  naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(rows, cols, aPtr, bPtr, cPtr,
                                                 dPtr, alpha, beta);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -79,6 +80,8 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     auto w = params.w;
     auto h = params.h;
     auto len = w * h;
@@ -86,11 +89,12 @@ protected:
     allocate(in2, w);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, h, T(-1.0), T(1.0));
-    r.uniform(in2, w, T(-1.0), T(1.0));
+    r.uniform(in1, h, T(-1.0), T(1.0), stream);
+    r.uniform(in2, w, T(-1.0), T(1.0), stream);
 
-    naiveEltwise2DAdd(h, w, in1, in2, out_ref, out_ref, (T)1, (T)1);
+    naiveEltwise2DAdd(h, w, in1, in2, out_ref, out_ref, (T)1, (T)1, stream);
     WrapperEltwise2d<T>(h, w, in1, in2, out, out, (T)1, (T)1);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

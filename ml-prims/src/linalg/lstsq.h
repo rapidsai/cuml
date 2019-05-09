@@ -35,12 +35,17 @@ namespace LinAlg {
 template<typename math_t>
 void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              DeviceAllocator &mgr) {
+              DeviceAllocator &mgr, cudaStream_t stream) {
+
+	ASSERT(n_cols > 0,
+			"lstsq: number of columns cannot be less than one");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
 
 	math_t *S, *V, *U;
 	math_t *UT_b;
 
-	int U_len = n_rows * n_rows;
+	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
 	allocate(U, U_len);
@@ -48,14 +53,13 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(S, n_cols);
 	allocate(UT_b, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, cusolverH, cublasH, mgr);
+	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, stream, mgr);
 
-	gemv(U, n_rows, n_rows, b, UT_b, true, cublasH);
+	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::truncZeroOrigin(UT_b, n_rows, w, n_cols, 1);
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH);
+	gemv(V, n_cols, n_cols, w, w, false, cublasH, stream);
 
 	CUDA_CHECK(cudaFree(U));
 	CUDA_CHECK(cudaFree(V));
@@ -66,7 +70,12 @@ void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 template<typename math_t>
 void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-    DeviceAllocator &mgr) {
+    DeviceAllocator &mgr, cudaStream_t stream) {
+
+	ASSERT(n_cols > 1,
+			"lstsq: number of columns cannot be less than two");
+	ASSERT(n_rows > 1,
+			"lstsq: number of rows cannot be less than two");
 
 	math_t *S, *V, *U;
 
@@ -77,13 +86,13 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	allocate(V, V_len);
 	allocate(S, n_cols);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
+	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, stream, mgr);
 
-	gemv(U, n_rows, n_cols, b, w, true, cublasH);
+	gemv(U, n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH);
+	gemv(V, n_cols, n_cols, w, w, false, cublasH, stream);
 
 	CUDA_CHECK(cudaFree(U));
 	CUDA_CHECK(cudaFree(V));
@@ -94,7 +103,7 @@ void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 template<typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH, cudaStream_t stream) {
 
 	int m = n_rows;
 	int n = n_cols;
@@ -134,7 +143,7 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
 	CUSOLVER_CHECK(
 			cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau, d_work, lwork,
-					d_info));
+					d_info, stream));
 
 	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
 	ASSERT(0 == info, "lstsq.h: QR wasn't successful");
@@ -153,7 +162,8 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	        ldb,
 	        d_work,
 	        lwork,
-	        d_info));
+	        d_info,
+          stream));
 
 	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
     ASSERT(0 == info, "lstsq.h: QR wasn't successful");
@@ -172,9 +182,10 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              A,
              lda,
              b,
-             ldb));
+             ldb,
+             stream));
 
-    CUDA_CHECK(cudaMemcpy(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice));
+    CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
 
     if (NULL != d_tau)   cudaFree(d_tau);
     if (NULL != d_info)  cudaFree(d_info);

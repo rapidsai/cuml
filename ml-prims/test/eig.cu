@@ -45,6 +45,7 @@ class EigTest : public ::testing::TestWithParam<EigInputs<T>> {
 protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
+    CUDA_CHECK(cudaStreamCreate(&stream));
     auto mgr = makeDefaultAllocator();
 
     params = ::testing::TestWithParam<EigInputs<T>>::GetParam();
@@ -55,7 +56,7 @@ protected:
     T cov_matrix_h[] = {1.0,  0.9, 0.81, 0.729, 0.9,   1.0,  0.9, 0.81,
                         0.81, 0.9, 1.0,  0.9,   0.729, 0.81, 0.9, 1.0};
     ASSERT(len == 16, "This test only works with 4x4 matrices!");
-    updateDevice(cov_matrix, cov_matrix_h, len);
+    updateDevice(cov_matrix, cov_matrix_h, len, stream);
 
     allocate(eig_vectors, len);
     allocate(eig_vals, params.n_col);
@@ -71,16 +72,16 @@ protected:
     allocate(eig_vectors_ref, len);
     allocate(eig_vals_ref, params.n_col);
 
-    updateDevice(eig_vectors_ref, eig_vectors_ref_h, len);
-    updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col);
+    updateDevice(eig_vectors_ref, eig_vectors_ref_h, len, stream);
+    updateDevice(eig_vals_ref, eig_vals_ref_h, params.n_col, stream);
 
     eigDC(cov_matrix, params.n_row, params.n_col, eig_vectors, eig_vals,
-          cusolverH, mgr);
+          cusolverH, stream, mgr);
 
     T tol = 1.e-7;
     int sweeps = 15;
     eigJacobi(cov_matrix, params.n_row, params.n_col, eig_vectors_jacobi,
-              eig_vals_jacobi, tol, sweeps, cusolverH, mgr);
+              eig_vals_jacobi, tol, sweeps, cusolverH, stream, mgr);
 
     // test code for comparing two methods
     len = params.n * params.n;
@@ -90,12 +91,12 @@ protected:
     allocate(eig_vals_large, params.n);
     allocate(eig_vals_jacobi_large, params.n);
 
-    r.uniform(cov_matrix_large, len, T(-1.0), T(1.0));
+    r.uniform(cov_matrix_large, len, T(-1.0), T(1.0), stream);
 
     eigDC(cov_matrix_large, params.n, params.n, eig_vectors_large,
-          eig_vals_large, cusolverH, mgr);
+          eig_vals_large, cusolverH, stream, mgr);
     eigJacobi(cov_matrix_large, params.n, params.n, eig_vectors_jacobi_large,
-              eig_vals_jacobi_large, tol, sweeps, cusolverH, mgr);
+              eig_vals_jacobi_large, tol, sweeps, cusolverH, stream, mgr);
   }
 
   void TearDown() override {
@@ -107,6 +108,7 @@ protected:
     CUDA_CHECK(cudaFree(eig_vectors_ref));
     CUDA_CHECK(cudaFree(eig_vals_ref));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
@@ -118,6 +120,7 @@ protected:
     *eig_vals_large, *eig_vals_jacobi_large;
 
   cusolverDnHandle_t cusolverH = NULL;
+  cudaStream_t stream;
 };
 
 const std::vector<EigInputs<float>> inputsf2 = {
