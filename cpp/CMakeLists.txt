@@ -90,22 +90,11 @@ else()
   message(FATAL_ERROR "ZLib not found, please check your settings.")
 endif(ZLIB_FOUND)
 
-# set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
-# find_package (Threads REQUIRED)
-# if(NOT CMAKE_USE_PTHREADS_INIT)
-#   message(FATAL_ERROR "pthreads not found, please check your settings")
-
 if(NOT DEFINED BLAS_LIBRARIES)
   find_package( BLAS REQUIRED )
 else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
-
-# if(NOT DEFINED LAPACK_LIBRARIES)
-#   find_package( LAPACK REQUIRED )
-# else()
-#   message(STATUS "Manually setting LAPACK to ${LAPACK_LIBRARIES}")
-# endif()
 
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
