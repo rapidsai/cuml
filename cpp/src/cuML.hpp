@@ -87,6 +87,10 @@ public:
      * @brief for internal use only.
      */
     const cumlHandle_impl& getImpl() const;
+    /**
+     * @brief for internal use only.
+     */
+    cumlHandle_impl& getImpl();
 private:
     std::unique_ptr<cumlHandle_impl> _impl;
 };
