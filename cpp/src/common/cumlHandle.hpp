@@ -25,6 +25,8 @@
 #include <cusolverDn.h>
 #include <cusparse.h>
 
+#include "../../../ml-prims/src/common/cuml_comms_int.hpp"
+
 #include "../cuML_api.h"
 #include "../cuML.hpp"
 
@@ -55,18 +57,23 @@ public:
     void waitOnUserStream() const;
     void waitOnInternalStreams() const;
 
+    void setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator );
+    const MLCommon::cumlCommunicator& getCommunicator() const;
+
 private:
     //TODO: What is the right number?
-    static constexpr int                _num_streams = 3;
-    const int                           _dev_id;
-    std::vector<cudaStream_t>           _streams;
-    cublasHandle_t                      _cublas_handle;
-    cusolverDnHandle_t                  _cusolverDn_handle;
-    cusparseHandle_t                    _cusparse_handle;
-    std::shared_ptr<deviceAllocator>    _deviceAllocator;
-    std::shared_ptr<hostAllocator>      _hostAllocator;
-    cudaStream_t                        _userStream;
-    cudaEvent_t                         _event;
+    static constexpr int                        _num_streams = 3;
+    const int                                   _dev_id;
+    std::vector<cudaStream_t>                   _streams;
+    cublasHandle_t                              _cublas_handle;
+    cusolverDnHandle_t                          _cusolverDn_handle;
+    cusparseHandle_t                            _cusparse_handle;
+    std::shared_ptr<deviceAllocator>            _deviceAllocator;
+    std::shared_ptr<hostAllocator>              _hostAllocator;
+    cudaStream_t                                _userStream;
+    cudaEvent_t                                 _event;
+
+    std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
 
     void createResources();
     void destroyResources();

@@ -174,13 +174,18 @@ const cumlHandle_impl& cumlHandle::getImpl() const
     return *_impl.get();
 }
 
+cumlHandle_impl& cumlHandle::getImpl()
+{
+    return *_impl.get();
+}
+
 using MLCommon::defaultDeviceAllocator;
 using MLCommon::defaultHostAllocator;
 
 cumlHandle_impl::cumlHandle_impl()
     : _dev_id( []() -> int { int cur_dev = -1; CUDA_CHECK( cudaGetDevice ( &cur_dev ) ); return cur_dev; }() ),
       _deviceAllocator( std::make_shared<defaultDeviceAllocator>() ), _hostAllocator( std::make_shared<defaultHostAllocator>() ),
-      _userStream(NULL)
+      _userStream(NULL), _communicator(nullptr)
 {
     createResources();
 }
@@ -266,6 +271,17 @@ void cumlHandle_impl::waitOnInternalStreams() const
         CUDA_CHECK( cudaEventRecord( _event, s ) );
         CUDA_CHECK( cudaStreamWaitEvent( _userStream, _event, 0 ) );
     }
+}
+
+void cumlHandle_impl::setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator )
+{
+    _communicator = communicator;
+}
+
+const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
+{
+    ASSERT(nullptr != _communicator.get(), "ERROR: Communicator was not initialized\n");
+    return *_communicator;
 }
 
 void cumlHandle_impl::createResources()
