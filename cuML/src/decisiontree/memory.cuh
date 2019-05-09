@@ -100,16 +100,17 @@ struct TemporaryMemory
 		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
 
 		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
-		h_mseout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, Ncols);
-		h_predout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, Ncols);
+		int mse_elements = Ncols * n_bins;
+		h_mseout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, mse_elements);
+		h_predout = new MLCommon::host_buffer<T>(handle.getHostAllocator(), stream, mse_elements);
 		
 		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
 		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
-		d_mseout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
-		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols);
+		d_mseout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, mse_elements);
+		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, mse_elements);
 		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 4*sizeof(T))* Ncols;
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + n_bins * sizeof(T))* Ncols;
 
 	}
 
