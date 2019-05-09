@@ -23,17 +23,67 @@
 #include <float.h>
 #include "../algo_helper.h"
 
+template<typename T>
+__global__ void compute_mse_minmax_kernel(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout) {
+
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	T *minmaxshared = (T*)shmem;
+	T *shmempred = (T*)(shmem + 2*ncols*sizeof(T));
+	T *shmemmse = (T*)(shmem + 2*ncols*sizeof(T) + nbins*ncols*sizeof(T));
+	int *shmemcount = (int*)(shmem  + 2*ncols*sizeof(T) + 2*nbins*ncols*sizeof(T));
+	
+	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
+		minmaxshared[i] = globalminmax[i];
+	}
+
+	for (int i = threadIdx.x; i < nbins*ncols; i += blockDim.x) {
+		shmemcount[i] = countout[i];
+		shmempred[i] = predout[i] / shmemcount[i];
+		shmemmse[i] = 0.0;
+	}
+
+	__syncthreads();
+
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int mycolid = (int)( i / nrows);
+		int coloffset = mycolid*nbins;
+
+		// nbins is # batched bins. Use (batched bins + 1) for delta computation.
+		T delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins);
+		T base_quesval = minmaxshared[mycolid] + delta;
+
+		T localdata = data[i];
+		T label = labels[ rowids[ i % nrows ] ];
+		for (int j=0; j < nbins; j++) {
+			T quesval = base_quesval + j * delta;
+			
+			if (localdata <= quesval) {
+				T temp = label - shmempred[coloffset +j];
+				atomicAdd(&shmemmse[j + coloffset], temp*temp);
+			}
+		}
+
+	}
+	
+	__syncthreads();
+
+	for (int i = threadIdx.x; i < ncols*nbins; i += blockDim.x) {
+		atomicAdd(&mseout[i], shmemmse[i]);
+	}
+}
+
 /*
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* mseout, int* countout) {
+__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* predout, int* countout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
 	T *minmaxshared = (T*)shmem;
-	T *shmemmse = (T*)(shmem + 2*ncols*sizeof(T));
+	T *shmempred = (T*)(shmem + 2*ncols*sizeof(T));
 	int *shmemcount = (int*)(shmem  + 2*ncols*sizeof(T) + nbins*ncols*sizeof(T));
 	
 	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
@@ -41,7 +91,7 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 	}
 
 	for (int i = threadIdx.x; i < nbins*ncols; i += blockDim.x) {
-		shmemmse[i] = 0;
+		shmempred[i] = 0;
 		shmemcount[i] = 0;
 	}
 
@@ -62,7 +112,7 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 
 			if (localdata <= quesval) {
 				atomicAdd(&shmemcount[j + coloffset], 1);
-				atomicAdd(&shmemmse[j + coloffset], label);
+				atomicAdd(&shmempred[j + coloffset], label);
 			}
 		}
 
@@ -70,22 +120,22 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 
 	__syncthreads();
 
-	for (int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x) {
-		atomicAdd(&mseout[i], shmemmse[i]);
+	for (int i = threadIdx.x; i < ncols*nbins; i += blockDim.x) {
+		atomicAdd(&predout[i], shmempred[i]);
 		atomicAdd(&countout[i], shmemcount[i]);
 	}
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, T* mseout, int* countout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
-	T *shmemmse = (T*) (shmem);
+	T *shmempred = (T*) (shmem);
 	int *shmemcount = (int*)(shmem + nbins*ncols*sizeof(T));
 
-	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
-		shmemmse[i] = 0;
+	for (int i = threadIdx.x; i < nbins*ncols; i += blockDim.x) {
+		shmempred[i] = 0;
 		shmemcount[i] = 0;
 	}
 
@@ -103,7 +153,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 			T quesval = quantile[quantile_index];
 			if (localdata <= quesval) {
 				atomicAdd(&shmemcount[j + coloffset], 1);
-				atomicAdd(&shmemmse[j + coloffset], label);
+				atomicAdd(&shmempred[j + coloffset], label);
 			}
 		}
 
@@ -111,14 +161,56 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 
 	__syncthreads();
 
-	for (int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x) {
-		atomicAdd(&mseout[i], shmemmse[i]);
+	for (int i = threadIdx.x; i < ncols*nbins; i += blockDim.x) {
+		atomicAdd(&predout[i], shmempred[i]);
 		atomicAdd(&countout[i], shmemcount[i]);
 	}
 }
 
 template<typename T>
-void find_best_split(const std::shared_ptr<TemporaryMemory<T>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, MetricInfo split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
+__global__ void compute_mse_global_quantile_kernel(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* mseout, int* countout, const T* __restrict__ quantile) {
+
+	int tid = threadIdx.x + blockIdx.x * blockDim.x;
+	extern __shared__ char shmem[];
+	T *shmempred = (T*) (shmem);
+	T *shmemmse = (T*)(shmem + nbins*ncols*sizeof(T));
+	int *shmemcount = (int*)(shmem + 2*nbins*ncols*sizeof(T));
+
+	for (int i = threadIdx.x; i < nbins*ncols; i += blockDim.x) {
+		shmemcount[i] = countout[i];
+		shmempred[i] = predout[i] / shmemcount[i];
+		shmemmse[i] = 0.0;
+	}
+
+	__syncthreads();
+
+	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
+		int mycolid = (int)( i / nrows);
+		int coloffset = mycolid*nbins;
+
+		// nbins is # batched bins.
+		T localdata = data[i];
+		T label = labels[ rowids[ i % nrows ] ];
+		for (int j=0; j < nbins; j++) {
+			int quantile_index = colids[mycolid] * nbins + j;
+			T quesval = quantile[quantile_index];
+			if (localdata <= quesval) {
+				T temp = label - shmempred[coloffset +j];
+				atomicAdd(&shmemmse[j + coloffset], temp*temp);
+			}
+		}
+
+	}
+
+	__syncthreads();
+
+	for (int i = threadIdx.x; i < ncols*nbins; i += blockDim.x) {
+		atomicAdd(&mseout[i], shmemmse[i]);
+	}
+}
+
+template<typename T>
+void find_best_split(const std::shared_ptr<TemporaryMemory<T>> tempmem, const int nbins, const std::vector<int>& col_selector, MetricInfo split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -183,12 +275,14 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const T *lab
 	int *h_histout = tempmem->h_histout->data();
 	T* d_mseout = tempmem->d_mseout->data();
 	T* h_mseout = tempmem->h_mseout->data();
+	T* d_predout = tempmem->d_predout->data();
 	
 	int ncols = colselector.size();
 	int col_minmax_bytes = sizeof(T) * 2 * ncols;
-	int n_mse_bytes = nbins * sizeof(T) * ncols;
+	int n_pred_bytes = nbins * sizeof(T) * ncols;
 	int n_count_bytes = nbins * ncols * sizeof(int);
-
+	int n_mse_bytes = nbins * sizeof(T) * ncols;
+	
 	CUDA_CHECK(cudaMemsetAsync((void*)d_mseout, 0, n_hist_bytes, tempmem->stream));
 
 	int threads = 512;
@@ -208,14 +302,16 @@ void best_split_all_cols(const T *data, const unsigned int* rowids, const T *lab
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
-
-	shmemsize = n_mse_bytes + n_count_bytes;
+	
+	shmemsize = n_pred_bytes + n_count_bytes;
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
-		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_mseout, d_histout);
+		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_predout, d_histout);
+		compute_mse_minmax_kernel<<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_mseout, d_predout, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_mseout, d_histout, tempmem->d_quantile->data());
+		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_predout, d_histout, tempmem->d_quantile->data());
+		compute_mse_global_quantile_kernel<<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_mseout, d_predout, d_histout, tempmem->d_quantile->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
 	
