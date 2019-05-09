@@ -17,6 +17,7 @@
 #include "cuML_comms_mpi_impl.hpp"
 
 #include <memory>
+
 #include <cuML_comms.hpp>
 #include <common/cumlHandle.hpp>
 
@@ -36,6 +37,46 @@
 
 namespace ML {
 
+namespace {
+    MPI_Datatype getMPIDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
+    {
+        switch ( datatype )
+        {
+            case MLCommon::cumlCommunicator::DOUBLE:
+                return MPI_DOUBLE;
+        }
+    }
+
+    MPI_Op getMPIOp( const cumlMPICommunicator_impl::op_t op )
+    {
+        switch ( op )
+        {
+            case MLCommon::cumlCommunicator::SUM:
+                return MPI_SUM;
+        }
+    }
+
+#ifdef HAVE_NCCL
+    MPI_Datatype getNCCLDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
+    {
+        switch ( datatype )
+        {
+            case MLCommon::cumlCommunicator::DOUBLE:
+                return ncclDouble;
+        }
+    }
+
+    MPI_Op getNCCLOp( const cumlMPICommunicator_impl::op_t op )
+    {
+        switch ( op )
+        {
+            case MLCommon::cumlCommunicator::SUM:
+                return ncclSum;
+        }
+    }
+#endif
+}
+
 void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>( 
@@ -51,6 +92,9 @@ cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm)
     ASSERT( mpi_is_initialized, "ERROR: MPI is not initialized!" );
     MPI_CHECK( MPI_Comm_size( _mpi_comm, &_size ) );
     MPI_CHECK( MPI_Comm_rank( _mpi_comm, &_rank ) );
+#ifdef HAVE_NCCL
+    //TODO: Add NCCL comms initilization and test NCCL
+#endif
 }
 
 cumlMPICommunicator_impl::~cumlMPICommunicator_impl() {}
@@ -121,6 +165,16 @@ void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[])
         _requests_in_flight.erase( req_it );
     }
     MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE) );
+}
+
+void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    NCCL_CHECK( ncclAllReduce(sendbuff, recvbuff, count, getNCCLDatatype( datatype ), getNCCLOp( op ), _nccl_comm, stream) );
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    MPI_CHECK( MPI_Allreduce(sendbuff, recvbuff, count, getMPIDatatype( datatype ), getMPIOp( op ), _mpi_comm) );
+#endif
 }
 
 } // end namespace ML

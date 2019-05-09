@@ -18,6 +18,8 @@
 
 #include <memory>
 
+#include <cuda_runtime.h>
+
 namespace MLCommon {
 
 class cumlCommunicator_iface;
@@ -39,6 +41,12 @@ class cumlCommunicator_iface;
 class cumlCommunicator {
 public:
     typedef unsigned int request_t;
+    enum datatype_t { DOUBLE };
+    enum op_t { SUM };
+
+    template<typename T>
+    datatype_t getDataType();
+
     cumlCommunicator() =delete;
     cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
 
@@ -63,6 +71,14 @@ public:
     }
 
     void waitall(int count, request_t array_of_requests[]) const;
+
+    void allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const;
+
+    template<typename T>
+    void allreduce(const T* sendbuff, T* recvbuff, size_t count, op_t op, cudaStream_t stream) const
+    {
+        allreduce(sendbuff, recvbuff, count, getDataType<T>(), op, stream);
+    }
 
 private:
     std::unique_ptr<cumlCommunicator_iface> _impl;
