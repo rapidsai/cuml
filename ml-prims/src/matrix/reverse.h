@@ -104,13 +104,13 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
  * @param ncols number of cols in the input matrix
  * @param rowMajor input matrix is row major or not
  * @param alongRows whether to reverse along rows or not
- * @param op the device-lambda to perform any unary operations on each element
  * @param stream cuda stream where to launch work
+ * @param op the device-lambda to perform any unary operations on each element
  */
 template <typename math_t, typename Lambda = Nop<math_t>, int TPB = 256>
 void reverse(math_t *out, const math_t *in, int nrows, int ncols,
-             bool rowMajor, bool alongRows, Lambda op = Nop<math_t>(),
-             cudaStream_t stream = 0) {
+             bool rowMajor, bool alongRows, cudaStream_t stream,
+             Lambda op = Nop<math_t>()) {
   size_t bytes = (rowMajor? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
     reverseImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(
