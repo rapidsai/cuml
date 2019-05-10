@@ -1,4 +1,4 @@
-# cuML 0.7.0 (Date TBD)
+# cuML 0.7.0 (10 May 2019)
 
 ## New Features
 
