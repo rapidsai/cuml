@@ -792,6 +792,11 @@ void weak_cc_label_batched(Type *labels,
  * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
  * @tparam Type the numeric type of non-floating point elements
  * @tparam TPB_X the threads to use per block when configuring the kernel
  * @tparam Lambda the type of an optional filter function (int)->bool
@@ -840,6 +845,11 @@ void weak_cc_batched(Type *labels, Type* const row_ind,  Type* const row_ind_ptr
  * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
  * @tparam Type the numeric type of non-floating point elements
  * @tparam TPB_X the threads to use per block when configuring the kernel
  * @tparam Lambda the type of an optional filter function (int)->bool
@@ -863,6 +873,28 @@ void weak_cc(Type *labels, Type* const row_ind, Type* const row_ind_ptr,
             filter_op);
 }
 
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param nnz the size of row_ind_ptr array
+ * @param N number of vertices
+ * @param stream the cuda stream to use
+ * should get considered for labeling.
+ */
 template<typename Type = int, int TPB_X = 32>
 void weak_cc(Type *labels, Type* const row_ind, Type* const row_ind_ptr,
         Type nnz, Type N, cudaStream_t stream) {

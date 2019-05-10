@@ -32,6 +32,11 @@ using namespace MLCommon;
 static const int TPB = 256;
 
 
+/**
+ * Adjust labels from weak_cc primitive to match sklearn:
+ * 1. Turn any labels matching MAX_LABEL into -1
+ * 2. Subtract 1 from all other labels.
+ */
 template <typename Type>
 __global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
     int tid = threadIdx.x + blockDim.x * blockIdx.x;
@@ -39,6 +44,10 @@ __global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
     else if(tid < N) --labels[tid];
 }
 
+/**
+ * Turn the non-monotonic labels from weak_cc primitive into
+ * an array of labels drawn from a monotonically increasing set.
+ */
 template <typename Type>
 void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
 
@@ -137,7 +146,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
 
     CUDA_CHECK(cudaPeekAtLastError());
-
 
 	return (size_t) 0;
 }
