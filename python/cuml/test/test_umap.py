@@ -152,7 +152,7 @@ def test_umap_fit_transform_trust(name):
 
 
 @pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
+                                   pytest.param(100000,
                                                 marks=pytest.mark.stress),
                                    pytest.param(5000,
                                                 marks=pytest.mark.quality)])
@@ -193,7 +193,7 @@ def test_umap_data_formats(input_type, should_downcast,
 
 
 @pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
+                                   pytest.param(100000,
                                                 marks=pytest.mark.stress),
                                    pytest.param(5000,
                                                 marks=pytest.mark.quality)])
