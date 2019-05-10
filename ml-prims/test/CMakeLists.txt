@@ -33,6 +33,7 @@ add_executable(mlcommon_test
   decoupled_lookback.cu
   dist_adj.cu
   dist_cos.cu
+  dist_eps.cu
   dist_euc_exp.cu
   dist_euc_unexp.cu
   dist_l1.cu
