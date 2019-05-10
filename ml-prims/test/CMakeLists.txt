@@ -27,6 +27,7 @@ add_executable(mlcommon_test
   coalesced_reduction.cu
   cuda_utils.cu
   columnSort.cu
+  contingencyMatrix.cu
   coo.cu
   cov.cu
   csr.cu

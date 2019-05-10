@@ -130,22 +130,29 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Initial step
   T step = T(1.0) / nrm2(drt, dev_scalar, stream);
+  T fxp = fx;
 
   *k = 1;
   int end = 0;
   for (; *k <= param.max_iterations; (*k)++) {
-    if (isnan(fx) || isinf(fx)) {
-      return OPT_NUMERIC_ERROR;
-    }
     // Save the curent x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
+    fxp = fx;
 
     // Line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
         ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
-    if (lsret != LS_SUCCESS)
-      return OPT_LS_FAILED;
+
+    bool isLsSuccess = lsret == LS_SUCCESS;
+    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+      fx = fxp;
+      x.copy_async(xp, stream);
+      grad.copy_async(gradp, stream);
+      if (!isLsSuccess)
+        return OPT_LS_FAILED;
+      return OPT_NUMERIC_ERROR;
+    }
 
     if (check_convergence(param, *k, fx, x, grad, fx_hist, verbosity,
                           dev_scalar, stream)) {
@@ -268,23 +275,29 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // Initial step
   T step = T(1.0) / std::max(T(1), nrm2(drt, dev_scalar, stream));
+  T fxp = fx;
 
   int end = 0;
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
-    if (isnan(fx) || isinf(fx)) {
-      return OPT_NUMERIC_ERROR;
-    }
     // Save the curent x and gradient
     xp.copy_async(x, stream);
     gradp.copy_async(grad, stream);
+    fxp = fx;
 
     // Projected line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
         ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt,
                                xp, l1_penalty, dev_scalar, stream);
 
-    if (lsret != LS_SUCCESS)
-      return OPT_LS_FAILED;
+    bool isLsSuccess = lsret == LS_SUCCESS;
+    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+      fx = fxp;
+      x.copy_async(xp, stream);
+      grad.copy_async(gradp, stream);
+      if (!isLsSuccess)
+        return OPT_LS_FAILED;
+      return OPT_NUMERIC_ERROR;
+    }
     // recompute pseudo
     //  pseudo.assign_binary(x, grad, pseudo_grad);
     update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);

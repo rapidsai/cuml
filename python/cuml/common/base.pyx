@@ -23,6 +23,8 @@
 import cuml.common.handle
 import cuml.common.cuda
 
+import cudf
+
 
 class Base:
     """
@@ -122,3 +124,15 @@ class Base:
             else:
                 setattr(self, key, value)
         return self
+
+    def _get_dev_array_ptr(self, obj):
+        """
+        Get ctype pointer of a numba style device array
+        """
+        return obj.device_ctypes_pointer.value
+
+    def _get_cudf_column_ptr(self, col):
+        """
+        Get ctype pointer of a cudf column
+        """
+        return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)

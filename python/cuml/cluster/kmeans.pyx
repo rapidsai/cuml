@@ -37,7 +37,7 @@ from cuml.common.handle cimport cumlHandle
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
     enum InitMethod:
-         KMeansPlusPlus, Random, Array
+        KMeansPlusPlus, Random, Array
 
     cdef void fit_predict(cumlHandle& handle,
                           int n_clusters,
@@ -134,13 +134,15 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 class KMeans(Base):
 
     """
-    KMeans is a basic but powerful clustering method which is optimized via Expectation Maximization.
-    It randomnly selects K data points in X, and computes which samples are close to these points.
-    For every cluster of points, a mean is computed (hence the name), and this becomes the new
-    centroid.
+    KMeans is a basic but powerful clustering method which is optimized via
+    Expectation Maximization. It randomnly selects K data points in X, and
+    computes which samples are close to these points.
+    For every cluster of points, a mean is computed (hence the name), and this
+    becomes the new centroid.
 
-    cuML's KMeans expects a cuDF DataFrame, and supports the fast KMeans++ intialization method. This
-    method is more stable than randomnly selecting K points.
+    cuML's KMeans expects a cuDF DataFrame, and supports the scalable KMeans++
+    intialization method. This method is more stable than randomnly selecting
+    K points.
 
     Examples
     --------
@@ -164,7 +166,8 @@ class KMeans(Base):
             return pdf
 
 
-        a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],dtype=np.float32)
+        a = np.asarray([[1.0, 1.0], [1.0, 2.0], [3.0, 2.0], [4.0, 3.0]],
+                       dtype=np.float32)
         b = np2cudf(a)
         print("input:")
         print(b)
@@ -219,46 +222,61 @@ class KMeans(Base):
     verbose : boolean (default = 0)
         If True, prints diagnositc information.
     random_state : int (default = 1)
-        If you want results to be the same when you restart Python, select a state.
+        If you want results to be the same when you restart Python, select a
+        state.
     precompute_distances : boolean (default = 'auto')
         Not supported yet.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} (default = 'scalable-k-means++')
-        'scalable-k-means++' or 'k-means||': Uses fast and stable scalable kmeans++ intialization.
-        'random': Choose 'n_cluster' observations (rows) at random from data for the initial centroids.
-        If an ndarray is passed, it should be of shape (n_clusters, n_features) and gives the initial centers.
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+           (default = 'scalable-k-means++')
+        'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
+        kmeans++ intialization.
+        'random': Choose 'n_cluster' observations (rows) at random from data
+        for the initial centroids. If an ndarray is passed, it should be of
+        shape (n_clusters, n_features) and gives the initial centers.
     n_init : int (default = 1)
-        Number of times intialization is run. More is slower, but can be better.
+        Number of times intialization is run. More is slower,
+        but can be better.
     algorithm : "auto"
         Currently uses full EM, but will support others later.
     n_gpu : int (default = 1)
-        Number of GPUs to use. Currently uses single GPU, but will support multiple GPUs later.
+        Number of GPUs to use. Currently uses single GPU, but will support
+        multiple GPUs later.
 
 
     Attributes
     ----------
     cluster_centers_ : array
-        The coordinates of the final clusters. This represents of "mean" of each data cluster.
+        The coordinates of the final clusters. This represents of "mean" of
+        each data cluster.
     labels_ : array
         Which cluster each datapoint belongs to.
 
     Notes
     ------
-    KMeans requires n_clusters to be specified. This means one needs to approximately guess or know
-    how many clusters a dataset has. If one is not sure, one can start with a small number of clusters, and
-    visualize the resulting clusters with PCA, UMAP or T-SNE, and verify that they look appropriate.
+    KMeans requires n_clusters to be specified. This means one needs to
+    approximately guess or know how many clusters a dataset has. If one is not
+    sure, one can start with a small number of clusters, and visualize the
+    resulting clusters with PCA, UMAP or T-SNE, and verify that they look
+    appropriate.
 
     **Applications of KMeans**
 
-        The biggest advantage of KMeans is its speed and simplicity. That is why KMeans is many practitioner's
-        first choice of a clustering algorithm. KMeans has been extensively used when the number of clusters is
-        approximately known, such as in big data clustering tasks, image segmentation and medical clustering.
+        The biggest advantage of KMeans is its speed and simplicity. That is
+        why KMeans is many practitioner's first choice of a clustering
+        algorithm. KMeans has been extensively used when the number of clusters
+        is approximately known, such as in big data clustering tasks,
+        image segmentation and medical clustering.
 
 
-    For additional docs, see `scikitlearn's Kmeans <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
+    For additional docs, see `scikitlearn's Kmeans
+    <http://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html>`_.
     """
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4, verbose=0, random_state=1, precompute_distances='auto', init='scalable-k-means++', n_init=1, algorithm='auto', n_gpu=1):
-        super(KMeans, self).__init__(handle, verbose);
+    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
+                 verbose=0, random_state=1, precompute_distances='auto',
+                 init='scalable-k-means++', n_init=1, algorithm='auto',
+                 n_gpu=1):
+        super(KMeans, self).__init__(handle, verbose)
         self.n_clusters = n_clusters
         self.verbose = verbose
         self.random_state = random_state
@@ -273,15 +291,6 @@ class KMeans(Base):
         self.labels_ = None
         self.cluster_centers_ = None
         self.n_gpu = n_gpu
-
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def fit(self, X):
         """
@@ -311,11 +320,12 @@ class KMeans(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
@@ -323,32 +333,44 @@ class KMeans(Base):
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
             init_value = Array
-            self.cluster_centers_ = cuda.device_array(self.n_clusters * self.n_cols, dtype=self.gdf_datatype)
-            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(self.init))
+            self.cluster_centers_ = cuda.device_array(
+                                           self.n_clusters * self.n_cols,
+                                           dtype=self.gdf_datatype)
+            self.cluster_centers_.copy_to_device(
+                                    numba_utils.row_matrix(self.init))
+
         elif (isinstance(self.init, np.ndarray)):
             if(self.init.shape[0] != self.n_clusters):
                 raise ValueError('The shape of the initial centers (%s) '
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
-            init_value = Array;
+            init_value = Array
             self.cluster_centers_ = cuda.to_device(self.init.flatten())
+
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             init_value = KMeansPlusPlus
-            self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
+            clust_cent = np.zeros(self.n_clusters * self.n_cols,
+                                  dtype=self.gdf_datatype)
+            self.cluster_centers_ = cuda.to_device(clust_cent)
+
         elif (self.init == 'random'):
             init_value = Random
-            self.cluster_centers_ = cuda.to_device(np.zeros(self.n_clusters* self.n_cols, dtype=self.gdf_datatype))
+            clust_cent = np.zeros(self.n_clusters * self.n_cols,
+                                  dtype=self.gdf_datatype)
+            self.cluster_centers_ = cuda.to_device(clust_cent)
+
         else:
             raise TypeError('initialization method not supported')
 
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(self.cluster_centers_)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(
+                                                        self.cluster_centers_)
 
 
         if self.gdf_datatype.type == np.float32:
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
                 <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -363,7 +385,7 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
                 <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -375,12 +397,14 @@ class KMeans(Base):
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
-            raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
+            raise TypeError('KMeans supports only float32 and float64 input,'
+                            'but input type ' + str(self.gdf_datatype.type) +
+                            ' passed.')
 
         self.handle.sync()
         cluster_centers_gdf = cudf.DataFrame()
         for i in range(0, self.n_cols):
-            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols]
+            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols] # noqa
         self.cluster_centers_ = cluster_centers_gdf
 
         del(X_m)
@@ -394,7 +418,8 @@ class KMeans(Base):
         Parameters
         ----------
         X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape (n_samples, n_features)
+                    Dense matrix (floats or doubles) of shape
+                    (n_samples, n_features)
 
         """
         return self.fit(X).labels_
@@ -406,7 +431,8 @@ class KMeans(Base):
         Parameters
         ----------
         X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape (n_samples, n_features)
+                    Dense matrix (floats or doubles) of shape
+                    (n_samples, n_features)
 
         """
 
@@ -424,17 +450,17 @@ class KMeans(Base):
             self.n_cols = X.shape[1]
 
         else:
-            msg = "X matrix format  not supported"
+            msg = "X matrix format not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if self.gdf_datatype.type == np.float32:
             predict(
@@ -444,7 +470,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -455,11 +481,13 @@ class KMeans(Base):
                 <double*> input_ptr,           # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
         else:
-            raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
+            raise TypeError('KMeans supports only float32 and float64 input,'
+                            'but input type ' + str(self.gdf_datatype.type) +
+                            ' passed.')
 
         self.handle.sync()
         del(X_m)
@@ -473,7 +501,8 @@ class KMeans(Base):
         Parameters
         ----------
         X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape (n_samples, n_features)
+                    Dense matrix (floats or doubles) of shape
+                    (n_samples, n_features)
 
         """
 
@@ -494,16 +523,16 @@ class KMeans(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        input_ptr = self._get_ctype_ptr(X_m)
+        input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_ctype_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
                                     dtype=self.gdf_datatype.type))
 
-        cdef uintptr_t preds_ptr = self._get_ctype_ptr(preds_data)
+        cdef uintptr_t preds_ptr = self._get_dev_array_ptr(preds_data)
 
         if self.gdf_datatype.type == np.float32:
             transform(
@@ -513,7 +542,7 @@ class KMeans(Base):
                 <float*> input_ptr,            # srcdata
                 <size_t> self.n_rows,          # n_samples (rows)
                 <size_t> self.n_cols,          # n_features (cols)
-                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics
+                <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <float*> preds_ptr,            # transformed output
                 <int> self.verbose)
         elif self.gdf_datatype.type == np.float64:
@@ -524,16 +553,18 @@ class KMeans(Base):
                 <double*> input_ptr,            # srcdata
                 <size_t> self.n_rows,           # n_samples (rows)
                 <size_t> self.n_cols,           # n_features (cols)
-                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics
+                <int> 1,                        # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <double*> preds_ptr,            # transformed output
                 <int> self.verbose)
         else:
-            raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
+            raise TypeError('KMeans supports only float32 and float64 input,'
+                            'but input type ' + str(self.gdf_datatype.type) +
+                            ' passed.')
 
         self.handle.sync()
         preds_gdf = cudf.DataFrame()
         for i in range(0, self.n_clusters):
-            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]
+            preds_gdf[str(i)] = preds_data[i:self.n_rows * self.n_clusters:self.n_clusters]  # noqa: E501
 
         del(X_m)
         del(clust_mat)
@@ -546,7 +577,8 @@ class KMeans(Base):
         Parameters
         ----------
         input_gdf : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape (n_samples, n_features)
+                    Dense matrix (floats or doubles) of shape
+                    (n_samples, n_features)
 
         """
         return self.fit(input_gdf).transform(input_gdf)
@@ -560,12 +592,13 @@ class KMeans(Base):
         deep : boolean (default = True)
         """
         params = dict()
-        variables = [ 'algorithm','copy_x','init','max_iter','n_clusters','n_init','n_jobs','precompute_distances','random_state','tol','verbose']
+        variables = ['algorithm', 'copy_x', 'init', 'max_iter', 'n_clusters',
+                     'n_init', 'n_jobs', 'precompute_distances',
+                     'random_state', 'tol', 'verbose']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
@@ -577,9 +610,18 @@ class KMeans(Base):
         """
         if not params:
             return self
-        current_params = {"algorithm":self.algorithm,'copy_x':self.copy_x,'init':self.init,"max_iter":self.max_iter,
-            "n_clusters":self.n_clusters,"n_init":self.n_init,"n_jobs":self.n_jobs, "precompute_distances":self.precompute_distances,
-            "random_state":self.random_state,"tol":self.tol, "verbose":self.verbose}
+        current_params = {"algorithm": self.algorithm,
+                          "copy_x": self.copy_x,
+                          "init": self.init,
+                          "max_iter": self.max_iter,
+                          "n_clusters": self.n_clusters,
+                          "n_init": self.n_init,
+                          "n_jobs": self.n_jobs,
+                          "precompute_distances": self.precompute_distances,
+                          "random_state": self.random_state,
+                          "tol": self.tol,
+                          "verbose": self.verbose
+                          }
         for key, value in params.items():
             if key not in current_params:
                 raise ValueError('Invalid parameter for estimator')
