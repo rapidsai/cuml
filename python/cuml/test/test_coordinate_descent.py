@@ -29,28 +29,27 @@ from sklearn.datasets import make_regression
 @pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('lr', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('ncols', [pytest.param(3, marks=pytest.mark.unit),
+                                   pytest.param(1000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(100,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_info', [pytest.param(2, marks=pytest.mark.unit),
+                                    pytest.param(500,
+                                                 marks=pytest.mark.stress),
+                                    pytest.param(50,
+                                                 marks=pytest.mark.quality)])
 def test_lasso(datatype, X_type, lr, algorithm,
-               run_stress, run_quality):
-    nrows = 5000
-    ncols = 100
-    n_info = 50
-    if run_stress:
-        train_rows = np.int32(nrows*80)
-        X, y = make_regression(n_samples=(nrows*100), n_features=ncols,
-                               n_informative=n_info, random_state=0)
+               nrows, ncols, n_info):
 
-    elif run_quality:
-        train_rows = np.int32(nrows*0.8)
-        X, y = make_regression(n_samples=nrows, n_features=int(ncols/2),
-                               n_informative=int(n_info/2), random_state=0)
-
-    else:
-        nrows = 50
-        ncols = 5
-        n_info = 3
-        train_rows = np.int32(nrows*0.8)
-        X, y = make_regression(n_samples=(nrows), n_features=ncols,
-                               n_informative=n_info, random_state=0)
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
 
     X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
@@ -92,28 +91,27 @@ def test_lasso(datatype, X_type, lr, algorithm,
 @pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('lr', [0.1, 0.001])
 @pytest.mark.parametrize('algorithm', ['cyclic', 'random'])
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('ncols', [pytest.param(3, marks=pytest.mark.unit),
+                                   pytest.param(1000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(100,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_info', [pytest.param(2, marks=pytest.mark.unit),
+                                    pytest.param(500,
+                                                 marks=pytest.mark.stress),
+                                    pytest.param(50,
+                                                 marks=pytest.mark.quality)])
 def test_elastic_net(datatype, X_type, lr, algorithm,
-                     run_stress, run_quality):
-    nrows = 5000
-    ncols = 100
-    n_info = 50
-    if run_stress:
-        train_rows = np.int32(nrows*80)
-        X, y = make_regression(n_samples=(nrows*100), n_features=ncols,
-                               n_informative=n_info, random_state=0)
+                     nrows, ncols, n_info):
 
-    elif run_quality:
-        train_rows = np.int32(nrows*0.8)
-        X, y = make_regression(n_samples=nrows, n_features=ncols,
-                               n_informative=n_info, random_state=0)
-
-    else:
-        nrows = 50
-        ncols = 5
-        n_info = 3
-        train_rows = np.int32(nrows*0.8)
-        X, y = make_regression(n_samples=(nrows), n_features=ncols,
-                               n_informative=n_info, random_state=0)
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
+                           n_informative=n_info, random_state=0)
 
     X_test = np.asarray(X[train_rows:, 0:]).astype(datatype)
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
