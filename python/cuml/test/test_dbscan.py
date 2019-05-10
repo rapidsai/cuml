@@ -36,7 +36,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                                    pytest.param(5000,
                                                 marks=pytest.mark.quality),
                                    pytest.param(500000,
-                                                marks=pytest.mark.stress),])
+                                                marks=pytest.mark.stress)])
 def test_dbscan(datatype, input_type, use_handle, max_bytes_per_batch, nrows):
     # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
     n_samples = nrows
