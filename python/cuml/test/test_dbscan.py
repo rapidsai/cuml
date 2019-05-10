@@ -24,7 +24,6 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
-
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
@@ -33,11 +32,11 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('nrows', [20,
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress),
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
                                    pytest.param(5000,
-                                                marks=pytest.mark.quality)])
+                                                marks=pytest.mark.quality),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),])
 def test_dbscan(datatype, input_type, use_handle, max_bytes_per_batch, nrows):
     # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
     n_samples = nrows
@@ -66,7 +65,7 @@ def test_dbscan(datatype, input_type, use_handle, max_bytes_per_batch, nrows):
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
-@pytest.mark.parametrize('nrows', [20,
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
                                    pytest.param(500000,
                                                 marks=pytest.mark.stress),
                                    pytest.param(5000,
