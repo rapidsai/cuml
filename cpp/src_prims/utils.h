@@ -143,6 +143,13 @@ void updateHost(Type *hPtr, const Type *dPtr, size_t len,
                 cudaStream_t stream) {
   copy(hPtr, dPtr, len, stream);
 }
+
+template <typename Type>
+void copyAsync(Type* dPtr1, const Type* dPtr2, size_t len,
+               cudaStream_t stream) {
+  CUDA_CHECK(cudaMemcpyAsync(dPtr1, dPtr2, len * sizeof(Type),
+                             cudaMemcpyDeviceToDevice, stream));
+}
 /** @} */
 
 /** Helper function to calculate need memory for allocate to store dense matrix.
