@@ -50,7 +50,7 @@ namespace ML {
         knn.fit(&params, 1);
         knn.search(input, n, d_pred_I, d_pred_D, n_neighbors);
 
-        CUDA_CHECK(cudaFree(d_pred_D));
+        d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
         return d_pred_I;
     }
 
@@ -176,27 +176,8 @@ namespace ML {
             return t;
         }
 
-        template<typename math_t>
-        double trustworthiness_score(const cumlHandle& h, math_t* X,
-            math_t* X_embedded, int n, int m, int d,
-            int n_neighbors, int metric)
-        {
-            DistanceType distance_type = DistanceType(metric);
-
-            if (distance_type == EucUnexpandedL2Sqrt)
-            {
-                return trustworthiness_score<math_t, EucUnexpandedL2Sqrt>(h,
-                                X, X_embedded, n, m, d, n_neighbors);
-            }
-
-            std::ostringstream msg;
-            msg << "Unknown metric" << std::endl;
-            throw MLCommon::Exception(msg.str());
-        }
-
-        template double trustworthiness_score<float>(const cumlHandle& h,
-                        float* X, float* X_embedded, int n, int m, int d,
-                        int n_neighbors, int metric);
+        template double trustworthiness_score<float, EucUnexpandedL2Sqrt>(const cumlHandle& h,
+            float* X, float* X_embedded, int n, int m, int d, int n_neighbors);
 
     }
 }

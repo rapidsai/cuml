@@ -27,16 +27,16 @@ from numba import cuda
 from libc.stdint cimport uintptr_t
 from cuml.common.handle cimport cumlHandle
 
-cdef extern from "metrics/trustworthiness.h" namespace "ML::Metrics":
+cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
 
-    cdef double trustworthiness_score[T](const cumlHandle& h, T* X,
+    ctypedef int DistanceType
+    ctypedef DistanceType euclidean "(MLCommon::Distance::DistanceType)5"
+
+cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
+
+    cdef double trustworthiness_score[T, DistanceType](const cumlHandle& h, T* X,
                         T* X_embedded, int n, int m, int d,
-                        int n_neighbors, int metric)
-
-
-metric_codes = {
-    'euclidean': 5
-}
+                        int n_neighbors)
 
 
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean', should_downcast=True):
@@ -60,12 +60,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
         trustworthiness score : double
             Trustworthiness of the low-dimensional embedding
     """
-
-    if metric in metric_codes:
-        metric_code = metric_codes[metric]
-    else:
-        raise Exception("Unknown metric")
-
     if isinstance(X, cudf.DataFrame) and isinstance(X_embedded, cudf.DataFrame):
         datatype1 = np.dtype(X[X.columns[0]]._column.dtype)
         datatype2 = np.dtype(X_embedded[X_embedded.columns[0]]._column.dtype)
@@ -104,9 +98,12 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
     else:
         handle_ = <cumlHandle*><size_t>handle.getHandle()
 
-    res = trustworthiness_score[float](handle_[0], <float*>d_X_ptr,
-                            <float*>d_X_embedded_ptr, n_samples, n_features,
-                            n_components, n_neighbors, metric_code)
+    if metric == 'euclidean':
+        res = trustworthiness_score[float, euclidean](handle_[0], <float*>d_X_ptr,
+                                <float*>d_X_embedded_ptr, n_samples, n_features,
+                                n_components, n_neighbors)
+    else:
+        raise Exception("Unknown metric")
 
     if handle is None:
         del handle_
