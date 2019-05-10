@@ -114,5 +114,5 @@ logger "Make ml-prims test..."
 make -j${PARALLEL_LEVEL} prims_test
 
 logger "Run ml-prims test..."
-cd $WORKSPACE/ml-prims/build
+cd $WORKSPACE/cpp/build_prims
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./prims_test
