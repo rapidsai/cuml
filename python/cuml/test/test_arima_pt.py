@@ -30,7 +30,7 @@ batched_model = batched_arima.BatchedARIMAModel.fit(yb, (1, 1, 1),
                                                     -20.0,
                                                     np.array([-0.005]),
                                                     np.array([-1.0]),
-                                                    opt_disp=5)
+                                                    opt_disp=5, h=1e-10)
 
 sm_model = sm.ARIMA(y, (1, 1, 1))
 sm_model_fit = sm_model.fit(disp=5)

@@ -134,7 +134,7 @@ class BatchedARIMAModel:
             mu0: float,
             ar_params0: np.ndarray,
             ma_params0: np.ndarray,
-            opt_disp=-1):
+            opt_disp=-1, h=1e-8):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
         with the given initial parameters. `y` is (num_samples, num_batches)
@@ -154,12 +154,14 @@ class BatchedARIMAModel:
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h=1e-10)
+            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h)
 
         x0 = np.r_[mu0, ar_params0, ma_params0]
         x0 = np.tile(x0, num_batches)
 
         x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf, approx_grad=False, iprint=opt_disp)
+        if res['warnflag'] > 0:
+            raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)")
 
         mu = np.zeros(num_batches)
         ar = []
