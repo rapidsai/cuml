@@ -29,12 +29,6 @@ namespace MLCommon {
 namespace Distance {
 
 
-/**
- * For now, this is mostly to test the c++ algorithm is able to be built.
- * Comprehensive comparisons of resulting embeddings are being done in the
- * Python test suite. Next to come will be a CUDA implementation of t-SNE's
- * trustworthiness score, which will allow us to gtest embedding algorithms.
- */
 class EpsilonNeighborhoodTest: public ::testing::Test {
 
 protected:
@@ -91,7 +85,6 @@ TEST_F(TestNeighborhoodsNoFunctor, Result) {
         (data, data, adj, m, m, k, eps, (void*)workspace, workspaceSize, stream);
 
     CUDA_CHECK( cudaStreamSynchronize(stream) );
-
 
     ASSERT_TRUE(devArrMatch(adj, expected, m*m, Compare<bool>(), stream));
 
