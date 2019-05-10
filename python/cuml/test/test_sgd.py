@@ -12,28 +12,24 @@ import pandas as pd
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress),
-                                   pytest.param(5000,
-                                                marks=pytest.mark.quality)])
-@pytest.mark.parametrize('n_feats', [pytest.param(5, marks=pytest.mark.unit),
-                                     pytest.param(1000,
-                                                  marks=pytest.mark.stress),
-                                     pytest.param(500,
-                                                  marks=pytest.mark.quality)])
+@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+                                  pytest.param('blobs',
+                                               marks=pytest.mark.stress),
+                                  pytest.param('iris',
+                                               marks=pytest.mark.quality)])
 def test_svd(datatype, lrate, input_type, penalty,
-             loss, nrows, n_feats):
-    n_samples = nrows
-    if n_samples > 5000:
+             loss, name):
+
+    if name == 'blobs':
+        n_samples = 500000
         train_rows = np.int32(n_samples*0.8)
         X, y = make_blobs(n_samples=n_samples,
-                          n_features=n_feats, random_state=0)
+                          n_features=1000, random_state=0)
         X_test = np.array(X[train_rows:, 0:]).astype(datatype)
         X_train = np.array(X[0:train_rows, :]).astype(datatype)
         y_train = np.array(y[0:train_rows, ]).astype(datatype)
 
-    elif n_samples > 100:
+    elif name == 'iris':
         iris = datasets.load_iris()
         X = iris.data
         y = iris.target
