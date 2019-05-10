@@ -18,7 +18,7 @@
 
 #include <rmm/rmm.h>
 
-#include "../../../ml-prims/src/utils.h"
+#include "../../src_prims/utils.h"
 
 #include "../cuML.hpp"
 
