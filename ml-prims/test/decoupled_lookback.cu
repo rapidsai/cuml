@@ -71,9 +71,10 @@ protected:
 
 template <typename T, typename L>
 ::testing::AssertionResult devArrMatchCustom(const T *actual, size_t size,
-                                             L eq_compare) {
+                                             L eq_compare, cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size);
+  updateHost<T>(&(act_h[0]), actual, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h[i];
     auto expected = (T)i;

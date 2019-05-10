@@ -40,7 +40,6 @@ namespace ML {
 
 	    try {
 	        if(this->owner) {
-
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
 	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
@@ -125,6 +124,22 @@ namespace ML {
 		float *all_D = new float[indices*k*size_t(n)];
 		long *all_I = new long[indices*k*size_t(n)];
 
+        cudaPointerAttributes s_att;
+        cudaError_t s_err = cudaPointerGetAttributes(&s_att, search_items);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid device pointer encountered in knn search: " << search_items << std::endl;
+
+        s_err = cudaPointerGetAttributes(&s_att, res_I);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid index results pointer encountered in knn search: " << search_items << std::endl;
+
+        s_err = cudaPointerGetAttributes(&s_att, res_D);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid distance results pointer encountered in knn search: " << search_items << std::endl;
+
 
 		/**
 		 * Initial verification of memory
@@ -159,8 +174,13 @@ namespace ML {
 
                     try {
                         faiss::gpu::StandardGpuResources gpu_res;
+
+                        cudaStream_t stream;
+                        CUDA_CHECK(cudaStreamCreate(&stream));
+
                         gpu_res.noTempMemory();
                         gpu_res.setCudaMallocWarning(false);
+                        gpu_res.setDefaultStream(att.device, stream);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -174,6 +194,10 @@ namespace ML {
                                     all_I+(long(i)*k*long(n)));
 
                         CUDA_CHECK(cudaPeekAtLastError());
+                        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+                        CUDA_CHECK(cudaStreamDestroy(stream));
+
 
                     } catch(const std::exception &e) {
                        std::cout << "Exception occurred: " << e.what() << std::endl;
@@ -250,7 +274,7 @@ namespace ML {
 
             float *ptr_d;
             MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
-            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D));
+            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D), 0);
 
             kNNParams p;
             p.N = length;

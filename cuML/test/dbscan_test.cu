@@ -19,7 +19,7 @@
 #include "test_utils.h"
 #include <cuda_utils.h>
 #include "ml_utils.h"
-#include "dbscan/dbscan.h"
+#include "dbscan/dbscan.hpp"
 #include <linalg/cublas_wrappers.h>
 #include <vector>
 
@@ -42,10 +42,13 @@ template<typename T>
 	return os;
 }
 
+
 template<typename T>
 class DbscanTest: public ::testing::TestWithParam<DbscanInputs<T> > {
 protected:
 	void basicTest() {
+		cudaStream_t stream;
+		CUDA_CHECK( cudaStreamCreate(&stream) );
 
 		params = ::testing::TestWithParam<DbscanInputs<T>>::GetParam();
 		Random::Rng r(params.seed);
@@ -55,19 +58,26 @@ protected:
 
 		std::vector<T> data_h = { 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		allocate(labels, params.n_row);
 		allocate(labels_ref, params.n_row);
 		std::vector<int> labels_ref_h = { 0, 0, 0, 1, 1, -1 };
 		labels_ref_h.resize(len);
-		updateDevice(labels_ref, labels_ref_h.data(), params.n_row);
+		updateDevice(labels_ref, labels_ref_h.data(), params.n_row, stream);
 
 		T eps = 3.0;
 		int min_pts = 2;
+		cumlHandle handle;
+		handle.setStream(stream);
 
-		dbscanFitImpl(data, params.n_row, params.n_col, eps, min_pts, labels);
+		// forces a batch size of 2
+		size_t max_bytes_per_batch = 4 * sizeof(T) * 8;
 
+		dbscanFit(handle, data, params.n_row, params.n_col, eps, min_pts, labels, max_bytes_per_batch, true);
+		CUDA_CHECK( cudaStreamSynchronize(stream) );
+
+		CUDA_CHECK( cudaStreamDestroy(stream) );
 	}
 
 	void SetUp() override {
@@ -92,6 +102,7 @@ const std::vector<DbscanInputs<float> > inputsf2 = {
 
 const std::vector<DbscanInputs<double> > inputsd2 = {
 		{ 0.05, 6 * 2, 6, 2, 1234ULL }};
+
 
 
 typedef DbscanTest<float> DbscanTestF;

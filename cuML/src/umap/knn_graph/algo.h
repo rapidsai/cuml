@@ -39,20 +39,24 @@ namespace kNNGraph {
 		              float *X, int x_n, int d,
 					  long *knn_indices, T *knn_dists,
 					  kNN *knn,
-					  UMAPParams *params) {
+					  int n_neighbors,
+					  UMAPParams *params, cudaStream_t stream) {
 
 		    kNNParams *p = new kNNParams[1];
 			p[0].ptr = X;
 			p[0].N = x_n;
 
 			knn->fit(p, 1);
-			knn->search(X, x_n, knn_indices, knn_dists, params->n_neighbors);
+			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+
+			CUDA_CHECK(cudaDeviceSynchronize());
 
             auto adjust_vals_op = [] __device__(T input) {
                 return sqrt(input);
             };
 
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*params->n_neighbors, adjust_vals_op);
+            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*n_neighbors,
+                                          adjust_vals_op, stream);
 
 			delete p;
 		}

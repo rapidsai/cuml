@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "sgd.h"
+#include "cd.h"
 #include "solver_c.h"
 #include "ml_utils.h"
 #include <linalg/cublas_wrappers.h>
@@ -26,7 +25,6 @@ namespace ML {
 namespace Solver {
 
 using namespace ML;
-
 
 void sgdFit(float *input,
 	        int n_rows,
@@ -96,6 +94,9 @@ void sgdFit(float *input,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	sgdFit(input,
 			       n_rows,
 				   n_cols,
@@ -116,10 +117,12 @@ void sgdFit(float *input,
 				   tol,
 				   n_iter_no_change,
 				   cublas_handle,
-				   cusolver_handle);
+				   cusolver_handle,
+				   stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -189,6 +192,9 @@ void sgdFit(double *input,
 	cusolverDnHandle_t cusolver_handle = NULL;
 	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
 
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
 	sgdFit(input,
 			       n_rows,
 				   n_cols,
@@ -209,10 +215,12 @@ void sgdFit(double *input,
 				   tol,
 				   n_iter_no_change,
 				   cublas_handle,
-				   cusolver_handle);
+				   cusolver_handle,
+				   stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -234,9 +242,13 @@ void sgdPredict(const float *input, int n_rows, int n_cols, const float *coef,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -258,9 +270,13 @@ void sgdPredict(const double *input, int n_rows, int n_cols,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -282,9 +298,13 @@ void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const flo
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 
 }
 
@@ -306,10 +326,169 @@ void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
 	cublasHandle_t cublas_handle;
 	CUBLAS_CHECK(cublasCreate(&cublas_handle));
 
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle);
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
 
 	CUBLAS_CHECK(cublasDestroy(cublas_handle));
 
+	// should probably do a stream sync before destroy
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
+void cdFit(float *input,
+		   int n_rows,
+		   int n_cols,
+		   float *labels,
+		   float *coef,
+		   float *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   float alpha,
+		   float l1_ratio,
+		   bool shuffle,
+		   float tol) {
+
+	ASSERT(loss == 0,
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdFit(input,
+			   n_rows,
+			   n_cols,
+			   labels,
+			   coef,
+			   intercept,
+			   fit_intercept,
+			   normalize,
+			   epochs,
+			   loss_funct,
+			   alpha,
+			   l1_ratio,
+			   shuffle,
+			   tol,
+			   stream,
+			   cublas_handle,
+			   cusolver_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
+void cdFit(double *input,
+		   int n_rows,
+		   int n_cols,
+		   double *labels,
+		   double *coef,
+		   double *intercept,
+		   bool fit_intercept,
+		   bool normalize,
+		   int epochs,
+		   int loss,
+		   double alpha,
+		   double l1_ratio,
+		   bool shuffle,
+		   double tol) {
+
+	ASSERT(loss == 0,
+			"Parameter loss: Only SQRT_LOSS function is supported for now");
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cusolverDnHandle_t cusolver_handle = NULL;
+	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdFit(input,
+			   n_rows,
+			   n_cols,
+			   labels,
+			   coef,
+			   intercept,
+			   fit_intercept,
+			   normalize,
+			   epochs,
+			   loss_funct,
+			   alpha,
+			   l1_ratio,
+			   shuffle,
+			   tol,
+			   stream,
+			   cublas_handle,
+			   cusolver_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
+void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+		float intercept, float *preds, int loss) {
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+	if (loss == 0) {
+		loss_funct = ML::loss_funct::SQRD_LOSS;
+	} else {
+		ASSERT(false,
+			"glm.cu: other functions are not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, stream, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
+
+}
+
+void cdPredict(const double *input, int n_rows, int n_cols,
+		const double *coef, double intercept, double *preds, int loss) {
+
+	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+	if (loss == 0) {
+		loss_funct = ML::loss_funct::SQRD_LOSS;
+	} else {
+		ASSERT(false,
+			"glm.cu: other functions are not supported yet.");
+	}
+
+	cublasHandle_t cublas_handle;
+	CUBLAS_CHECK(cublasCreate(&cublas_handle));
+
+	cudaStream_t stream;
+	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, stream, cublas_handle);
+
+	CUBLAS_CHECK(cublasDestroy(cublas_handle));
+	CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 }

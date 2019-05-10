@@ -32,10 +32,11 @@ __global__ void naiveSubtractElemKernel(Type *out, const Type *in1,
 }
 
 template <typename Type>
-void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len) {
+void naiveSubtractElem(Type *out, const Type *in1, const Type *in2, int len,
+                        cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveSubtractElemKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+  naiveSubtractElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -49,10 +50,11 @@ __global__ void naiveSubtractScalarKernel(Type *out, const Type *in1,
 }
 
 template <typename Type>
-void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len) {
+void naiveSubtractScalar(Type *out, const Type *in1, const Type in2, int len,
+                          cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(len, TPB);
-  naiveSubtractScalarKernel<Type><<<nblks, TPB>>>(out, in1, in2, len);
+  naiveSubtractScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -75,20 +77,23 @@ protected:
     params = ::testing::TestWithParam<SubtractInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(in1, len);
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0));
-    r.uniform(in2, len, T(-1.0), T(1.0));
+    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in2, len, T(-1.0), T(1.0), stream);
 
-    naiveSubtractElem(out_ref, in1, in2, len);
-    naiveSubtractScalar(out_ref, out_ref, T(1), len);
+    naiveSubtractElem(out_ref, in1, in2, len, stream);
+    naiveSubtractScalar(out_ref, out_ref, T(1), len, stream);
 
-    subtract(out, in1, in2, len);
-    subtractScalar(out, out, T(1), len);
-    subtract(in1, in1, in2, len);
-    subtractScalar(in1, in1, T(1), len);
+    subtract(out, in1, in2, len, stream);
+    subtractScalar(out, out, T(1), len, stream);
+    subtract(in1, in1, in2, len, stream);
+    subtractScalar(in1, in1, T(1), len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
