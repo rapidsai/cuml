@@ -56,16 +56,16 @@ protected:
         std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
         h_train_inputs.resize(n);
 
-        updateDevice(d_train_inputs_dev1, h_train_inputs.data(), n*d);
-        updateDevice(d_train_inputs_dev2, h_train_inputs.data(), n*d);
+        updateDevice(d_train_inputs_dev1, h_train_inputs.data(), n*d, 0);
+        updateDevice(d_train_inputs_dev2, h_train_inputs.data(), n*d, 0);
 
         std::vector<T> h_res_D = { 0.0, 0.0, 2401.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0 };
         h_res_D.resize(n*n);
-        updateDevice(d_ref_D, h_res_D.data(), n*n);
+        updateDevice(d_ref_D, h_res_D.data(), n*n, 0);
 
         std::vector<long> h_res_I = { 0, 3, 1, 1, 4, 2, 2, 5, 1 };
         h_res_I.resize(n*n);
-        updateDevice<long>(d_ref_I, h_res_I.data(), n*n);
+        updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
 
         params[0] = { d_train_inputs_dev1, n };
         params[1] = { d_train_inputs_dev2, n };

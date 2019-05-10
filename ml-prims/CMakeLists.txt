@@ -26,6 +26,13 @@ find_package(OpenMP REQUIRED)
 #find_package(ClangFormat REQUIRED)
 #find_package(ClangTidy REQUIRED)
 
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+  message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+else()
+  message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
+
 # Submodules
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
   "Path to the googletest repo")
@@ -63,7 +70,7 @@ if(DEBUG)
 endif()
 # Generate optimized binary for every known arch
 if(NOT GPU_ARCHS)
-  set(GPU_ARCHS "35;50;52;60;61")
+  set(GPU_ARCHS "60;61")
   # NOTE: NOTE: Add more 'if's for every new arch release!
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
@@ -87,7 +94,7 @@ set(MLPRIMS_LIBS
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   pthread
-  z)
+  ${ZLIB_LIBRARIES})
 
 include_directories(src
   ${CUTLASS_DIR}
@@ -102,3 +109,8 @@ if(TESTS)
   #   TARGETS mlcommon_test
   #   SRCS src test)
 endif()
+
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE ${MLPRIMS_DIR}/Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})

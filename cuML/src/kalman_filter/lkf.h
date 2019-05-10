@@ -96,47 +96,53 @@ void set(Variables<T>& var, int _dim_x, int _dim_z, Option _solver, T *_x_est, T
 
 
 template <typename T>
-void predict_x(Variables<T>& var, cublasHandle_t handle) {
+void predict_x(Variables<T>& var, cublasHandle_t handle, cudaStream_t stream) {
         T alfa = (T)1.0, beta = (T)0.0;
         CUBLAS_CHECK(cublasgemv(handle, CUBLAS_OP_N, var.dim_x, var.dim_x, &alfa,
-                                var.Phi, var.dim_x, var.x_up, 1, &beta, var.x_est, 1));
+                                var.Phi, var.dim_x, var.x_up, 1, &beta, var.x_est, 1,
+                                stream));
     }
 
 
 template <typename T>
-void predict_P(Variables<T>& var, cublasHandle_t handle) {
+void predict_P(Variables<T>& var, cublasHandle_t handle, cudaStream_t stream) {
         T alfa = (T)1.0, beta = (T)0.0;
         CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x, var.dim_x,
                                 var.dim_x, &alfa, var.Phi, var.dim_x, var.P_up, var.dim_x, &beta,
-                                var.P_est, var.dim_x));
+                                var.P_est, var.dim_x, stream));
         beta = (T)1.0;
         CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x, var.dim_x,
                                 var.dim_x, &alfa, var.P_est, var.dim_x, var.Phi, var.dim_x, &beta,
-                                var.Q, var.dim_x));
+                                var.Q, var.dim_x, stream));
         // This is for making the matrix symmetric
         alfa = beta = (T)0.5;
         CUBLAS_CHECK(cublasgeam(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x, var.dim_x,
                                 &alfa, var.Q, var.dim_x, &beta, var.Q, var.dim_x, var.P_est,
-                                var.dim_x));
+                                var.dim_x, stream));
     }
 
 
 template <typename T>
-void update_x(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol) {
+void update_x(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol,
+                cudaStream_t stream) {
         T alfa = (T)-1.0, beta = (T)1.0; // z - H * x is stored in z
         CUBLAS_CHECK(cublasgemv(handle, CUBLAS_OP_N, var.dim_z, var.dim_x,
-                                &alfa, var.H, var.dim_z, var.x_est, 1, &beta, var.z, 1));
+                                &alfa, var.H, var.dim_z, var.x_est, 1, &beta, var.z, 1,
+                                stream));
         if (var.solver < ShortFormImplicit) { // explicit KG
             alfa = 1.0; beta = 1.0;
             CUBLAS_CHECK(cublasgemv(handle, CUBLAS_OP_N, var.dim_x, var.dim_z,
-                                    &alfa, var.K, var.dim_x, var.z, 1, &beta, var.x_est, 1));
+                                    &alfa, var.K, var.dim_x, var.z, 1, &beta, var.x_est, 1,
+                                    stream));
         } else { // implicit Kalman Gain
             // finding Y = [inv(B)*(z - H*x)] and placing the result in z
             CUSOLVER_CHECK(cusolverDngetrs(handle_sol, CUBLAS_OP_N, var.dim_z, 1,
                                            (const T *)var.R_cpy, var.dim_z,
-                                           (const int *)var.piv, var.z, var.dim_z, var.info));
+                                           (const int *)var.piv, var.z, var.dim_z, var.info,
+                                           stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: implicit kalman gain"
                    " {Y = [inv(B)*(z - H*x)]}, info returned val=%d",
@@ -144,7 +150,8 @@ void update_x(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handl
             // finding x_est + A * w and placing in x_est
             alfa = beta = (T)1.0;
             CUBLAS_CHECK(cublasgemv(handle, CUBLAS_OP_N, var.dim_x, var.dim_z,
-                                    &alfa, var.K, var.dim_x, var.z, 1, &beta, var.x_est, 1));
+                                    &alfa, var.K, var.dim_x, var.z, 1, &beta, var.x_est, 1,
+                                    stream));
         }
         // DUE TO GPU POINTER THINGGY, NEED TO COPY DATA AT X_update instead of
         // just swapping the pointers.
@@ -154,50 +161,51 @@ void update_x(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handl
 
 
 template <typename T>
-void update_P(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol){
+void update_P(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol,
+                cudaStream_t stream){
         if (var.solver == LongForm){
             T alfa = (T)1.0, beta = (T)0.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_z, &alfa, var.K, var.dim_x, var.H, var.dim_z,
-                                    &beta, var.P_up, var.dim_x));
+                                    &beta, var.P_up, var.dim_x, stream));
             alfa = (T)-1.0;
             beta = (T)1.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_x, &alfa, var.P_up, var.dim_x, var.P_est,
-                                    var.dim_x, &beta, var.P_est, var.dim_x));
+                                    var.dim_x, &beta, var.P_est, var.dim_x, stream));
             alfa = (T)1.0;
             beta = (T)0.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_z,
                                     var.dim_x, var.dim_z, &alfa, var.R, var.dim_z, var.K, var.dim_x,
-                                    &beta, var.placeHolder1, var.dim_z));
+                                    &beta, var.placeHolder1, var.dim_z, stream));
             alfa = (T)-1.0;
             beta = (T)1.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x,
                                     var.dim_x, var.dim_x, &alfa, var.P_est, var.dim_x, var.P_up,
-                                    var.dim_x, &beta, var.P_est, var.dim_x));
+                                    var.dim_x, &beta, var.P_est, var.dim_x, stream));
             alfa = (T)1.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_z, &alfa, var.K, var.dim_x, var.placeHolder1,
-                                    var.dim_z, &beta, var.P_est, var.dim_x));
+                                    var.dim_z, &beta, var.P_est, var.dim_x, stream));
             // making the error cov symmetric
             alfa = beta = (T)0.5;
             CUBLAS_CHECK(cublasgeam(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x,
                                     var.dim_x, &alfa, var.P_est, var.dim_x, &beta, var.P_est,
-                                    var.dim_x, var.P_up, var.dim_x));
+                                    var.dim_x, var.P_up, var.dim_x, stream));
         } else if (var.solver == ShortFormExplicit) {
             T alfa = (T)1.0, beta = (T)0.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_z, &alfa, var.K, var.dim_x, var.H, var.dim_z,
-                                    &beta, var.P_up, var.dim_x));
+                                    &beta, var.P_up, var.dim_x, stream));
             alfa = (T)-1.0;
             beta = (T)1.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_x, &alfa, var.P_up, var.dim_x, var.P_est,
-                                    var.dim_x, &beta, var.P_est, var.dim_x));
+                                    var.dim_x, &beta, var.P_est, var.dim_x, stream));
             alfa = beta = (T)0.5;
             CUBLAS_CHECK(cublasgeam(handle, CUBLAS_OP_T, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, &alfa, var.P_est, var.dim_x, &beta, var.P_est,
-                                    var.dim_x, var.P_up, var.dim_x));
+                                    var.dim_x, var.P_up, var.dim_x, stream));
         } else {
             CUDA_CHECK(cudaMemcpy(var.placeHolder1, var.H, var.dim_z*var.dim_x*sizeof(T),
                                   cudaMemcpyDeviceToDevice));
@@ -205,45 +213,48 @@ void update_P(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handl
             CUSOLVER_CHECK(cusolverDngetrs(handle_sol, CUBLAS_OP_N, var.dim_z, var.dim_x,
                                            (const T *)var.R_cpy, var.dim_z,
                                            (const int *)var.piv, var.placeHolder1,
-                                           var.dim_z, var.info));
+                                           var.dim_z, var.info, stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: implicit kalman gain with short form, finding "
                    "[inv(B)*H] info returned val=%d", info_h);
             T alfa = (T)1.0, beta = (T)0.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_z, &alfa, var.K, var.dim_x, var.placeHolder1,
-                                    var.dim_z, &beta, var.K, var.dim_x));
+                                    var.dim_z, &beta, var.K, var.dim_x, stream));
             alfa = (T)-1.0;
             beta = (T)1.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_x, var.dim_x, &alfa, var.K, var.dim_x, var.P_est, var.dim_x,
-                                    &beta, var.P_est, var.dim_x));
+                                    &beta, var.P_est, var.dim_x, stream));
             alfa = beta = (T)0.5;
             CUBLAS_CHECK(cublasgeam(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x,
                                     var.dim_x, &alfa, var.P_est, var.dim_x, &beta, var.P_est,
-                                    var.dim_x, var.P_up, var.dim_x));
+                                    var.dim_x, var.P_up, var.dim_x, stream));
         }
     }
 
 
 template <typename T>
-void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol) {
+void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle_t handle_sol,
+                        cudaStream_t stream) {
         CUDA_CHECK(cudaMemcpy(var.R_cpy, var.R, var.dim_z*var.dim_z*sizeof(T),
                               cudaMemcpyDeviceToDevice));
         T alfa = (T)1.0, beta = (T)0.0;
         CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, var.dim_x, var.dim_z,
                                 var.dim_x, &alfa, var.P_est, var.dim_x, var.H, var.dim_z, &beta, var.K,
-                                var.dim_x));
+                                var.dim_x, stream));
         alfa = beta = (T)1.0;
         CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_z, var.dim_z,
                                 var.dim_x, &alfa, var.H, var.dim_z, var.K, var.dim_x, &beta, var.R_cpy,
-                                var.dim_z));
+                                var.dim_z, stream));
         CUSOLVER_CHECK(cusolverDngetrf(handle_sol, var.dim_z, var.dim_z, var.R_cpy, var.dim_z,
-                                       var.workspace_lu, var.piv, var.info));
+                                       var.workspace_lu, var.piv, var.info, stream));
         int info_h;
-        updateHost(&info_h, var.info, 1);
+        updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
         ASSERT(info_h == 0, "kf::linear: LU decomp, info returned val=%d",
                info_h);
         if (var.solver < ShortFormImplicit) {
@@ -254,9 +265,10 @@ void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle
             CUSOLVER_CHECK(cusolverDngetrs(handle_sol, CUBLAS_OP_N, var.dim_z, var.dim_z,
                                            (const T *)var.R_cpy, var.dim_z,
                                            (const int *)var.piv, var.placeHolder0,
-                                           var.dim_z, var.info));
+                                           var.dim_z, var.info, stream));
             int info_h;
-            updateHost(&info_h, var.info, 1);
+            updateHost(&info_h, var.info, 1, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
             ASSERT(info_h == 0,
                    "kf::linear: Explicit var.kalman gain, inverse "
                    "returned val=%d", info_h);
@@ -265,7 +277,7 @@ void find_kalman_gain(Variables<T>& var, cublasHandle_t handle, cusolverDnHandle
             beta = (T)0.0;
             CUBLAS_CHECK(cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_N, var.dim_x,
                                     var.dim_z, var.dim_z, &alfa, var.K, var.dim_x, var.placeHolder0,
-                                    var.dim_z, &beta, var.K, var.dim_x));
+                                    var.dim_z, &beta, var.K, var.dim_x, stream));
             T *temp = var.placeHolder0;
             var.placeHolder0 = var.placeHolder2;
             var.placeHolder2 = temp;
@@ -310,10 +322,10 @@ void init(Variables<T>& var, int _dim_x, int _dim_z, Option _solver, T *_x_est,
  * out-of-order will lead to unknown state!
  */
 template <typename T>
-void predict(Variables<T>& var, cublasHandle_t handle) {
+void predict(Variables<T>& var, cublasHandle_t handle, cudaStream_t stream) {
     ASSERT(var.initialized, "kf::linear::predict: 'init' not called!");
-    predict_x(var, handle);
-    predict_P(var, handle);
+    predict_x(var, handle, stream);
+    predict_P(var, handle, stream);
 }
 
 
@@ -327,12 +339,13 @@ void predict(Variables<T>& var, cublasHandle_t handle) {
  * out-of-order will lead to unknown state!
  */
 template <typename T>
-void update(Variables<T>& var, T *_z, cublasHandle_t handle, cusolverDnHandle_t handle_sol) {
+void update(Variables<T>& var, T *_z, cublasHandle_t handle, cusolverDnHandle_t handle_sol,
+              cudaStream_t stream) {
     ASSERT(var.initialized, "kf::linear::update: 'init' not called!");
     var.z = _z;
-    find_kalman_gain(var, handle, handle_sol);
-    update_x(var, handle, handle_sol);
-    update_P(var, handle, handle_sol);
+    find_kalman_gain(var, handle, handle_sol, stream);
+    update_x(var, handle, handle_sol, stream);
+    update_P(var, handle, handle_sol, stream);
 }
 
 

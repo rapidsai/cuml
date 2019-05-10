@@ -42,6 +42,8 @@ protected:
     params = ::testing::TestWithParam<SumInputs<T>>::GetParam();
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
 
     T data_h[len];
@@ -49,10 +51,11 @@ protected:
       data_h[i] = T(1);
     }
 
-    updateDevice(data, data_h, len);
+    updateDevice(data, data_h, len, stream);
 
     allocate(sum_act, cols);
-    sum(sum_act, data, cols, rows, false);
+    sum(sum_act, data, cols, rows, false, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

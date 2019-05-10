@@ -31,14 +31,14 @@ namespace UMAPAlgo {
             template<typename T>
             void launcher(const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
-                          UMAPParams *params, T *embedding) {
+                          UMAPParams *params, T *embedding, cudaStream_t stream) {
 
                 struct timeval tp;
                 gettimeofday(&tp, NULL);
                 long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
                 MLCommon::Random::Rng r(seed);
-                r.uniform<T>(embedding, n*params->n_components, -10, 10);
+                r.uniform<T>(embedding, n*params->n_components, -10, 10, stream);
             }
         }
     }

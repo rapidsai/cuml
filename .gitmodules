@@ -1,6 +1,7 @@
 [submodule "thirdparty/cuml/faiss"]
 	path = thirdparty/cuml/faiss
 	url = https://github.com/facebookresearch/faiss
+    ignore = dirty
 [submodule "external/googletest"]
     path = thirdparty/cuml/googletest
     url = https://github.com/google/googletest

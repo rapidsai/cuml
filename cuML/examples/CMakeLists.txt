@@ -15,3 +15,4 @@
 #
 
 add_subdirectory(kmeans)
+add_subdirectory(dbscan)

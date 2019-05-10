@@ -32,14 +32,19 @@ protected:
     params = ::testing::TestWithParam<AddInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     allocate(in1, len);
     allocate(in2, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(-1.0), T(1.0));
-    r.uniform(in2, len, T(-1.0), T(1.0));
+    r.uniform(in1, len, T(-1.0), T(1.0), stream);
+    r.uniform(in2, len, T(-1.0), T(1.0), stream);
     naiveAddElem(out_ref, in1, in2, len);
-    add(out, in1, in2, len);
+    add(out, in1, in2, len, stream);
+
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

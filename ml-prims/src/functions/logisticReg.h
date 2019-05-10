@@ -38,21 +38,21 @@ namespace Functions {
 template<typename math_t>
 void logisticRegH(const math_t *input, int n_rows, int n_cols,
 		 const math_t *coef, math_t *pred, math_t intercept,
-		 cublasHandle_t cublas_handle) {
+		 cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	LinAlg::gemm(input, n_rows, n_cols, coef, pred, n_rows, 1, CUBLAS_OP_N,
-			CUBLAS_OP_N, cublas_handle);
+			CUBLAS_OP_N, cublas_handle, stream);
 
 	if (intercept != math_t(0))
-		LinAlg::addScalar(pred, pred, intercept, n_rows);
+		LinAlg::addScalar(pred, pred, intercept, n_rows, stream);
 
-	sigmoid(pred, pred, n_rows);
+	sigmoid(pred, pred, n_rows, stream);
 }
 
 template<typename math_t>
 void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *grads, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
@@ -60,16 +60,16 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 	math_t *input_t = NULL;
 	allocate(input_t, n_rows * n_cols);
 
-	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
+	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
 
-	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows);
+	LinAlg::subtract(labels_pred, labels_pred, labels, n_rows, stream);
 
 	// TODO: implement a matrixVectorBinaryMult that runs on rows rather than columns.
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle);
-	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle);
+	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
+	Matrix::matrixVectorBinaryMult(input_t, labels_pred, n_cols, n_rows, false, true, stream);
+	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
 
-	Stats::mean(grads, input, n_cols, n_rows, false, false);
+	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
 	math_t *pen_grads = NULL;
 
@@ -77,15 +77,15 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 		allocate(pen_grads, n_cols);
 
 	if (pen == penalty::L1) {
-		lassoGrad(pen_grads, coef, n_cols, alpha);
+		lassoGrad(pen_grads, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridgeGrad(pen_grads, coef, n_cols, alpha);
+		ridgeGrad(pen_grads, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio);
+		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(grads, grads, pen_grads, n_cols);
+	    LinAlg::add(grads, grads, pen_grads, n_cols, stream);
 	    if (pen_grads != NULL)
 	        CUDA_CHECK(cudaFree(pen_grads));
 	}
@@ -98,35 +98,35 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 }
 
 template <typename T>
-void logLoss(T *out, T *label, T *label_pred, int len);
+void logLoss(T *out, T *label, T *label_pred, int len, cudaStream_t stream);
 
 
 template <>
-inline void logLoss(float *out, float *label, float *label_pred, int len) {
+inline void logLoss(float *out, float *label, float *label_pred, int len, cudaStream_t stream) {
 	LinAlg::binaryOp(out, label, label_pred, len, [] __device__ (float y, float y_pred) {
 	                                           return -y * logf(y_pred) - (1 - y) * logf(1 - y_pred);
-	                                       });
+	                                       }, stream);
 }
 
 template <>
-inline void logLoss(double *out, double *label, double *label_pred, int len) {
+inline void logLoss(double *out, double *label, double *label_pred, int len, cudaStream_t stream) {
 	LinAlg::binaryOp(out, label, label_pred, len, [] __device__ (double y, double y_pred) {
 	                                           return -y * log(y_pred) - (1 - y) * logf(1 - y_pred);
-	                                       });
+	                                       }, stream);
 }
 
 template<typename math_t>
 void logisticRegLoss(math_t *input, int n_rows, int n_cols,
 		math_t *labels, const math_t *coef, math_t *loss, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	math_t *labels_pred = NULL;
 	allocate(labels_pred, n_rows);
 
-	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle);
-	logLoss(labels_pred, labels, labels_pred, n_rows);
+	logisticRegH(input, n_rows, n_cols, coef, labels_pred, math_t(0), cublas_handle, stream);
+	logLoss(labels_pred, labels, labels_pred, n_rows, stream);
 
-	Stats::mean(loss, labels_pred, 1, n_rows, false, false);
+	Stats::mean(loss, labels_pred, 1, n_rows, false, false, stream);
 
 	math_t *pen_val = NULL;
 
@@ -134,15 +134,15 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols,
 	    allocate(pen_val, 1);
 
 	if (pen == penalty::L1) {
-		lasso(pen_val, coef, n_cols, alpha);
+		lasso(pen_val, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridge(pen_val, coef, n_cols, alpha);
+		ridge(pen_val, coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio);
+		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(loss, loss, pen_val, 1);
+	    LinAlg::add(loss, loss, pen_val, 1, stream);
 	    if (pen_val != NULL)
 	        CUDA_CHECK(cudaFree(pen_val));
 	}

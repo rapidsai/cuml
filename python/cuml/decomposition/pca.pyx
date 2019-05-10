@@ -387,47 +387,27 @@ class PCA:
                                             self.noise_variance_)
         cdef uintptr_t trans_input_ptr = self._get_ctype_ptr(self.trans_input_)
 
-        if not _transform:
-            if self.gdf_datatype.type == np.float32:
-                pcaFit(<float*> input_ptr,
-                             <float*> components_ptr,
-                             <float*> explained_var_ptr,
-                             <float*> explained_var_ratio_ptr,
-                             <float*> singular_vals_ptr,
-                             <float*> mean_ptr,
-                             <float*> noise_vars_ptr,
-                             params)
-            else:
-                pcaFit(<double*> input_ptr,
-                             <double*> components_ptr,
-                             <double*> explained_var_ptr,
-                             <double*> explained_var_ratio_ptr,
-                             <double*> singular_vals_ptr,
-                             <double*> mean_ptr,
-                             <double*> noise_vars_ptr,
-                             params)
+       
+        if self.gdf_datatype.type == np.float32:
+            pcaFitTransform(<float*> input_ptr,
+                            <float*> trans_input_ptr,
+                            <float*> components_ptr,
+                            <float*> explained_var_ptr,
+                            <float*> explained_var_ratio_ptr,
+                            <float*> singular_vals_ptr,
+                            <float*> mean_ptr,
+                            <float*> noise_vars_ptr,
+                            params)
         else:
-
-            if self.gdf_datatype.type == np.float32:
-                pcaFitTransform(<float*> input_ptr,
-                                      <float*> trans_input_ptr,
-                                      <float*> components_ptr,
-                                      <float*> explained_var_ptr,
-                                      <float*> explained_var_ratio_ptr,
-                                      <float*> singular_vals_ptr,
-                                      <float*> mean_ptr,
-                                      <float*> noise_vars_ptr,
-                                      params)
-            else:
-                pcaFitTransform(<double*> input_ptr,
-                                      <double*> trans_input_ptr,
-                                      <double*> components_ptr,
-                                      <double*> explained_var_ptr,
-                                      <double*> explained_var_ratio_ptr,
-                                      <double*> singular_vals_ptr,
-                                      <double*> mean_ptr,
-                                      <double*> noise_vars_ptr,
-                                      params)
+            pcaFitTransform(<double*> input_ptr,
+                            <double*> trans_input_ptr,
+                            <double*> components_ptr,
+                            <double*> explained_var_ptr,
+                            <double*> explained_var_ratio_ptr,
+                            <double*> singular_vals_ptr,
+                            <double*> mean_ptr,
+                            <double*> noise_vars_ptr,
+                            params)
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
@@ -443,6 +423,9 @@ class PCA:
 
         if (isinstance(X, cudf.DataFrame)):
             del(X_m)
+
+        if not _transform:
+            del(self.trans_input_)
 
         return self
 

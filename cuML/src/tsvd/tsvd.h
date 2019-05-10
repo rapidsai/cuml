@@ -38,7 +38,8 @@ using namespace MLCommon;
 template<typename math_t>
 void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 		math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms,
-		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle) {
+		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
+    cudaStream_t stream) {
 	int diff = prms.n_cols - prms.n_components;
 	math_t ratio = math_t(diff) / math_t(prms.n_cols);
 	ASSERT(ratio >= math_t(0.2),
@@ -62,7 +63,7 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 			cublas_handle);
 
 	LinAlg::transpose(components_temp, components, prms.n_cols,
-			prms.n_components, cublas_handle);
+			prms.n_components, cublas_handle, stream);
 	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components);
   auto mgr = makeDefaultAllocator();
   Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, mgr);
@@ -75,21 +76,22 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 template<typename math_t>
 void calEig(math_t *in, math_t *components, math_t *explained_var,
 		paramsTSVD prms, cusolverDnHandle_t cusolver_handle,
-            cublasHandle_t cublas_handle, DeviceAllocator &mgr) {
+            cublasHandle_t cublas_handle, cudaStream_t stream,
+            DeviceAllocator &mgr) {
 
 	if (prms.algorithm == solver::COV_EIG_JACOBI) {
 		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
 				explained_var, (math_t) prms.tol, prms.n_iterations,
-                                  cusolver_handle, mgr);
+                                  cusolver_handle, stream, mgr);
 	} else {
 		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-                              cusolver_handle, mgr);
+                              cusolver_handle, stream, mgr);
 	}
 
-	Matrix::colReverse(components, prms.n_cols, prms.n_cols);
-	LinAlg::transpose(components, prms.n_cols);
+	Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
+	LinAlg::transpose(components, prms.n_cols, stream);
 
-	Matrix::rowReverse(explained_var, prms.n_cols, 1);
+	Matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
 
 }
 
@@ -151,7 +153,7 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
  */
 template<typename math_t>
 void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSVD prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle) {
+		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
     ///@todo: make this to be passed via the interface
     auto mgr = makeDefaultAllocator();
 
@@ -173,7 +175,7 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
 			prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-                     cublas_handle);
+                     cublas_handle, stream);
 
 	math_t *components_all;
 	math_t *explained_var_all;
@@ -182,13 +184,13 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
 	allocate(explained_var_all, prms.n_cols);
 
 	calEig(input_cross_mult, components_all, explained_var_all, prms,
-               cusolver_handle, cublas_handle, mgr);
+               cusolver_handle, cublas_handle, stream, mgr);
 
 	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
-			prms.n_components, prms.n_cols);
+			prms.n_components, prms.n_cols, stream);
 
 	math_t scalar = math_t(1);
-	Matrix::seqRoot(explained_var_all, singular_vals, scalar, prms.n_components);
+	Matrix::seqRoot(explained_var_all, singular_vals, scalar, prms.n_components, stream);
 
 	CUDA_CHECK(cudaFree(components_all));
 	CUDA_CHECK(cudaFree(explained_var_all));
@@ -211,12 +213,12 @@ template<typename math_t>
 void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 		math_t *explained_var, math_t *explained_var_ratio,
 		math_t *singular_vals, paramsTSVD prms, cublasHandle_t cublas_handle,
-                      cusolverDnHandle_t cusolver_handle) {
+                      cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
     ///@todo: make this to be passed via the interface!
     DeviceAllocator mgr = makeDefaultAllocator();
 
-        tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle);
+  tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle, stream);
+	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
 
 	signFlip(trans_input, prms.n_rows, prms.n_components, components,
 			prms.n_cols);
@@ -225,28 +227,29 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
 	allocate(mu_trans, prms.n_components);
 
 	Stats::mean(mu_trans, trans_input, prms.n_components, prms.n_rows, true,
-			false);
+			false, stream);
 	Stats::vars(explained_var, trans_input, mu_trans, prms.n_components,
-			prms.n_rows, true, false);
+			prms.n_rows, true, false, stream);
 
 	math_t *mu;
 	allocate(mu, prms.n_cols);
 	math_t *vars;
 	allocate(vars, prms.n_cols);
 
-	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false);
-	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false);
+	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
+	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false, stream);
 
 	math_t *total_vars;
 	allocate(total_vars, 1);
-	Stats::sum(total_vars, vars, 1, prms.n_cols, false);
+	Stats::sum(total_vars, vars, 1, prms.n_cols, false, stream);
 
 	math_t total_vars_h;
-	updateHost(&total_vars_h, total_vars, 1);
+	updateHost(&total_vars_h, total_vars, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	math_t scalar = math_t(1) / total_vars_h;
 
 	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-			prms.n_components);
+			prms.n_components, stream);
 
 	CUDA_CHECK(cudaFree(mu_trans));
 	CUDA_CHECK(cudaFree(mu));
@@ -263,7 +266,7 @@ void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
  */
 template<typename math_t>
 void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
-		paramsTSVD prms, cublasHandle_t cublas_handle) {
+		paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -276,7 +279,7 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
 	math_t beta = math_t(0);
 	LinAlg::gemm(input, prms.n_rows, prms.n_cols, components, trans_input,
 			prms.n_rows, prms.n_components, CUBLAS_OP_N, CUBLAS_OP_T, alpha, beta,
-			cublas_handle);
+			cublas_handle, stream);
 }
 
 /**
@@ -289,7 +292,7 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
  */
 template<typename math_t>
 void tsvdInverseTransform(math_t *trans_input, math_t *components,
-		math_t *input, paramsTSVD prms, cublasHandle_t cublas_handle) {
+		math_t *input, paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -303,7 +306,7 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 
 	LinAlg::gemm(trans_input, prms.n_rows, prms.n_components, components, input,
 			prms.n_rows, prms.n_cols, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
-                     cublas_handle);
+                     cublas_handle, stream);
 
 }
 
