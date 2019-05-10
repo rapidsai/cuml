@@ -328,49 +328,53 @@ endif(BUILD_CUML_TESTS)
 
 if(BUILD_CUML_MG_TESTS)
 
-file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
+  file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
 
-add_executable(ml_mg_test
-    ${cuml_mg_test_cuda_sources}
-    ${ml_prims_header})
+  add_executable(ml_mg_test
+      ${cuml_mg_test_cuda_sources}
+      ${ml_prims_header})
 
-target_link_libraries(ml_mg_test
-  ${GTEST_LIBNAME}
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  ${CUDA_nvgraph_LIBRARY}
-  gpufaisslib
-  faisslib
-  ${CUML_CPP_TARGET}
-  pthread
-  ${ZLIB_LIBRARIES})
+  target_link_libraries(ml_mg_test
+    ${GTEST_LIBNAME}
+    ${CUDA_cublas_LIBRARY}
+    ${CUDA_curand_LIBRARY}
+    ${CUDA_cusolver_LIBRARY}
+    ${CUDA_cusparse_LIBRARY}
+    ${CUDA_CUDART_LIBRARY}
+    ${CUDA_cusparse_LIBRARY}
+    ${CUDA_nvgraph_LIBRARY}
+    gpufaisslib
+    faisslib
+    ${CUML_CPP_TARGET}
+    pthread
+    ${ZLIB_LIBRARIES})
 
 endif(BUILD_CUML_MG_TESTS)
 
 ###################################################################################################
 # - build prims_test executable ----------------------------------------------------------------
 
-file(GLOB_RECURSE mlprims_test_cuda_sources "test/prims/*.cu")
+if(BUILD_PRIM_TESTS)
 
-set(MLPRIMS_LINK_LIBRARIES
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  pthread
-  ${ZLIB_LIBRARIES})
+  file(GLOB_RECURSE mlprims_test_cuda_sources "test/prims/*.cu")
 
-add_executable(prims_test
-  ${mlprims_test_cuda_sources}
-  ${ml_prims_header})
+  set(MLPRIMS_LINK_LIBRARIES
+    ${CUDA_cublas_LIBRARY}
+    ${CUDA_curand_LIBRARY}
+    ${CUDA_cusolver_LIBRARY}
+    ${CUDA_cusparse_LIBRARY}
+    pthread
+    ${ZLIB_LIBRARIES})
 
-target_link_libraries(prims_test
-  ${GTEST_LIBNAME}
-  ${MLPRIMS_LINK_LIBRARIES})
+  add_executable(prims_test
+    ${mlprims_test_cuda_sources}
+    ${ml_prims_header})
+
+  target_link_libraries(prims_test
+    ${GTEST_LIBNAME}
+    ${MLPRIMS_LINK_LIBRARIES})
+
+endif(BUILD_PRIM_TESTS)
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
