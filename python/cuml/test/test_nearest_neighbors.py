@@ -26,24 +26,31 @@ from cuml.test.utils import array_equal
 
 @pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_knn(input_type, should_downcast, run_stress, run_quality):
-
-    dtype = np.float32 if not should_downcast else np.float64
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
-        k = 100
-        X, y = make_blobs(n_samples=n_samples*5,
-                          n_features=n_feats, random_state=0)
-
-    elif run_quality:
-        k = 100
-        X, y = make_blobs(n_samples=n_samples,
-                          n_features=n_feats, random_state=0)
-
-    else:
-        k = 2
-        X = np.array([[1.0], [50.0], [51.0]], dtype=dtype)
+@pytest.mark.parametrize('nrows', [pytest.param(20,
+                                                marks=pytest.mark.unit),
+                                   pytest.param(500,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('num_feats', [pytest.param(10,
+                                                    marks=pytest.mark.unit),
+                                       pytest.param(1000,
+                                                    marks=pytest.mark.stress),
+                                       pytest.param(500,
+                                                    marks=pytest.mark.quality
+                                                    )])
+@pytest.mark.parametrize('k', [pytest.param(3,
+                                            marks=pytest.mark.unit),
+                                       pytest.param(30,
+                                                    marks=pytest.mark.stress),
+                                       pytest.param(50,
+                                                    marks=pytest.mark.quality
+                                                    )])
+def test_knn(input_type, should_downcast, nrows, num_feats, k):
+    n_samples = nrows
+    n_feats = num_feats
+    X, y = make_blobs(n_samples=n_samples,
+                      n_features=n_feats, random_state=0)
 
     knn_sk = skKNN(metric="l2")
     knn_sk.fit(X)
@@ -79,19 +86,23 @@ def test_knn(input_type, should_downcast, run_stress, run_quality):
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_nn_downcast_fails(input_type, run_stress, run_quality):
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
-        X, y = make_blobs(n_samples=n_samples*50,
-                          n_features=n_feats, random_state=0)
-
-    elif run_quality:
-        X, y = make_blobs(n_samples=n_samples,
-                          n_features=n_feats, random_state=0)
-
-    else:
-        X = np.array([[1.0], [50.0], [51.0]], dtype=np.float64)
+@pytest.mark.parametrize('nrows', [pytest.param(20,
+                                                marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('num_feats', [pytest.param(10,
+                                                    marks=pytest.mark.unit),
+                                       pytest.param(1000,
+                                                    marks=pytest.mark.stress),
+                                       pytest.param(500,
+                                                    marks=pytest.mark.quality
+                                                    )])
+def test_nn_downcast_fails(input_type, nrows, num_feats):
+    n_feats = num_feats
+    X, y = make_blobs(n_samples=nrows,
+                      n_features=n_feats, random_state=0)
 
     knn_cu = cuKNN()
     if input_type == 'dataframe':
