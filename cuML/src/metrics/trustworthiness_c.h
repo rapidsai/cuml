@@ -14,13 +14,24 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <distance/distance.h>
-#include <common/cumlHandle.hpp>
-
-#define MAX_BATCH_SIZE 512
-#define N_THREADS 512
+namespace MLCommon {
+    namespace Distance {
+        enum DistanceType {
+            /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
+            EucExpandedL2 = 0,
+            /** same as above, but inside the epilogue, perform square root operation */
+            EucExpandedL2Sqrt,
+            /** cosine distance */
+            EucExpandedCosine,
+            /** L1 distance */
+            EucUnexpandedL1,
+            /** evaluate as dist_ij += (x_ik - y-jk)^2 */
+            EucUnexpandedL2,
+            /** same as above, but inside the epilogue, perform square root operation */
+            EucUnexpandedL2Sqrt,
+        };
+    }
+};
 
 using namespace MLCommon::Distance;
 
@@ -29,7 +40,8 @@ namespace ML {
 
         template<typename math_t, DistanceType distance_type>
         double trustworthiness_score(const cumlHandle& h, math_t* X,
-            math_t* X_embedded, int n, int m, int d, int n_neighbors);
+                        math_t* X_embedded, int n, int m, int d,
+                        int n_neighbors);
 
     }
 }
