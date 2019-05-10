@@ -38,8 +38,7 @@ static const int TPB_X = 256;
 
 /**
  * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
- * CSR row_ind_ptr array (adj_graph) and values array(core_pts). This could be
- * made into a reusable prim by providing a lambda for a fused op, given the
+ * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
  */
 template <typename Type>
 void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize, cudaStream_t stream) {
@@ -55,9 +54,6 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize
     int minPts = data.minPts;
     int *vd = data.vd;
 
-    std::cout << MLCommon::arr2Str(data.ex_scan, batchSize, "ex_scan", stream) << std::endl;
-    std::cout << MLCommon::arr2Str(data.adj, batchSize*data.N, "adj", stream) << std::endl;
-
     MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(
             data.ex_scan,
             data.N,
@@ -70,8 +66,6 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize
         // fuse the operation of core points construction
         core_pts[row] = (vd[row] >= minPts);
     });
-
-    std::cout << MLCommon::arr2Str(data.adj_graph, data.adjnnz, "adj_graph", stream) << std::endl;
 
     CUDA_CHECK(cudaPeekAtLastError());
 }

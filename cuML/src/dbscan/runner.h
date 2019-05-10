@@ -19,7 +19,6 @@
 #include <cuda_utils.h>
 #include "vertexdeg/runner.h"
 #include "adjgraph/runner.h"
-#include "labelling/runner.h"
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
 
