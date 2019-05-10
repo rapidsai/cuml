@@ -17,6 +17,8 @@
 #pragma once
 
 #include <stdint.h>
+#include "math_constants.h"
+#include <iomanip>
 #include "utils.h"
 
 namespace MLCommon {
@@ -84,16 +86,17 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name) {
+std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream, int width = 4) {
 
     std::stringstream ss;
 
     T* arr_h = (T*)malloc(size * sizeof(T));
-    updateHost(arr_h, arr, size);
+    updateHost(arr_h, arr, size, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+        ss << std::setw(width) << arr_h[i];
 
         if(i < size-1)
             ss << ", ";
@@ -185,6 +188,109 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   } while (assumed != old);
 }
 
+
+/**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val);
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val);
+
+DI float myAtomicMin(float *address, float val) {
+    myAtomicReduce(address, val, fminf);
+    return *address;
+}
+
+DI float myAtomicMax(float *address, float val) {
+    myAtomicReduce(address, val, fmaxf);
+    return *address;
+}
+
+DI double myAtomicMin(double *address, double val) {
+    myAtomicReduce<double(double, double)>(address, val, fmin);
+    return *address;
+}
+
+DI double myAtomicMax(double *address, double val) {
+    myAtomicReduce<double(double, double)>(address, val, fmax);
+    return *address;
+}
+
+/**
+ * @defgroup Max maximum of two numbers
+ * @{
+ */
+template <typename T>
+HDI T myMax(T x, T y);
+template <>
+HDI float myMax<float>(float x, float y) {
+  return fmaxf(x, y);
+}
+template <>
+HDI double myMax<double>(double x, double y) {
+  return fmax(x, y);
+}
+/** @} */
+
+/**
+ * @defgroup Min minimum of two numbers
+ * @{
+ */
+template <typename T>
+HDI T myMin(T x, T y);
+template <>
+HDI float myMin<float>(float x, float y) {
+  return fminf(x, y);
+}
+template <>
+HDI double myMin<double>(double x, double y) {
+  return fmin(x, y);
+}
+/** @} */
+
+/**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val) {
+    myAtomicReduce(address, val, myMin<T>);
+    return *address;
+}
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val) {
+    myAtomicReduce(address, val, myMax<T>);
+    return *address;
+}
+
+/**
+ * Sign function
+ */
+template <typename T>
+HDI int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
 /**
  * @defgroup Exp Exponential function
  * @{
@@ -199,6 +305,15 @@ template <>
 HDI double myExp(double x) {
   return exp(x);
 }
+/** @} */
+
+/**
+ * @defgroup Cuda infinity values
+ * @{
+ */
+template <typename T> inline __device__ T myInf();
+template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
+template <> inline __device__ double myInf<double>() { return CUDART_INF; }
 /** @} */
 
 /**
@@ -284,13 +399,23 @@ HDI double myPow(double x, double power) {
 /** @} */
 
 /**
- * @defgroup Pow Power function
+ * @defgroup LambdaOps Lambda operations in reduction kernels
  * @{
  */
 // IdxType mostly to be used for MainLambda in *Reduction kernels
 template <typename Type, typename IdxType = int>
 struct Nop {
   HDI Type operator()(Type in, IdxType i = 0) { return in; }
+};
+
+template <typename Type, typename IdxType = int>
+struct L1Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return myAbs(in); }
+};
+
+template <typename Type, typename IdxType = int>
+struct L2Op {
+  HDI Type operator()(Type in, IdxType i = 0) { return in * in; }
 };
 
 template <typename Type>

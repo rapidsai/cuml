@@ -53,6 +53,8 @@ public:
     using const_iterator    = typename buffer_base<T>::const_iterator;
     using reference         = typename buffer_base<T>::reference;
     using const_reference   = typename buffer_base<T>::const_reference;
+    using buffer_base<T>::get_stream;
+    using buffer_base<T>::set_stream;
 
     host_buffer() = delete;
 
@@ -65,8 +67,8 @@ public:
     {
         if ( _capacity > 0 )
         {
-            _data = static_cast<value_type*>(_allocator->allocate( _capacity*sizeof(value_type), _stream ));
-            CUDA_CHECK( cudaStreamSynchronize( _stream ) );
+            _data = static_cast<value_type*>(_allocator->allocate( _capacity*sizeof(value_type), get_stream() ));
+            CUDA_CHECK( cudaStreamSynchronize( get_stream() ) );
         }
     }
 
@@ -74,7 +76,7 @@ public:
     {
         if ( nullptr != _data ) 
         {
-            _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
+            _allocator->deallocate( _data, _capacity*sizeof(value_type), get_stream() );
         }
     }
 
@@ -90,15 +92,15 @@ public:
 
     void reserve( const size_type new_capacity, cudaStream_t stream )
     {
-        _stream = stream;
+        set_stream( stream );
         if ( new_capacity > _capacity )
         {
-            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_capacity*sizeof(value_type), _stream ));
+            value_type* new_data = static_cast<value_type*>(_allocator->allocate( new_capacity*sizeof(value_type), get_stream() ));
             if ( _size > 0 ) {
-                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyHostToHost, _stream ) );
+                CUDA_CHECK( cudaMemcpyAsync( new_data, _data, _size*sizeof(value_type), cudaMemcpyHostToHost, get_stream() ) );
             }
             if ( nullptr != _data ) {
-                _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
+                _allocator->deallocate( _data, _capacity*sizeof(value_type), get_stream() );
             }
             _data = new_data;
             _capacity = new_capacity;
@@ -113,9 +115,9 @@ public:
 
     void release( cudaStream_t stream )
     {
-        _stream = stream;
+        set_stream( stream );
         if ( nullptr != _data ) {
-            _allocator->deallocate( _data, _capacity*sizeof(value_type), _stream );
+            _allocator->deallocate( _data, _capacity*sizeof(value_type), get_stream() );
         }
         _data = nullptr;
         _capacity = 0;
@@ -132,7 +134,6 @@ private:
     using buffer_base<T>::_size;
     using buffer_base<T>::_capacity;
     using buffer_base<T>::_data;
-    using buffer_base<T>::_stream;
 };
 
 } // end namespace ML

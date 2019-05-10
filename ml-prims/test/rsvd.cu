@@ -49,6 +49,8 @@ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    allocator.reset(new defaultDeviceAllocator);
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
@@ -63,7 +65,7 @@ protected:
       ASSERT(m == 3, "This test only supports mxn=3x2!");
       ASSERT(m * n == 6, "This test only supports mxn=3x2!");
       T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-      updateDevice(A, data_h, m * n);
+      updateDevice(A, data_h, m * n, stream);
 
       T left_eig_vectors_ref_h[] = {-0.308219, -0.906133, -0.289695};
       T right_eig_vectors_ref_h[] = {-0.638636, -0.769509};
@@ -73,19 +75,18 @@ protected:
       allocate(right_eig_vectors_ref, n * 1);
       allocate(sing_vals_ref, 1);
 
-      updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1);
-      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1);
-      updateDevice(sing_vals_ref, sing_vals_ref_h, 1);
+      updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
+      updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1, stream);
+      updateDevice(sing_vals_ref, sing_vals_ref_h, 1, stream);
 
     } else { // Other normal tests
-      r.normal(A, m * n, mu, sigma);
+      r.normal(A, m * n, mu, sigma, stream);
     }
     A_backup_cpu = (T *)malloc(
       sizeof(T) * m *
       n); // Backup A matrix as svdJacobi will destroy the content of A
-    updateHost(A_backup_cpu, A, m * n);
+    updateHost(A_backup_cpu, A, m * n, stream);
 
-    auto mgr = makeDefaultAllocator();
     // RSVD tests
     if (params.k == 0) { // Test with PC and upsampling ratio
       params.k = max((int)(min(m, n) * params.PC_perc), 1);
@@ -95,16 +96,16 @@ protected:
       allocate(V, n * params.k, true);
       rsvdPerc(A, m, n, S, U, V, params.PC_perc, params.UpS_perc,
                params.use_bbt, true, true, false, eig_svd_tol, max_sweeps,
-               cusolverH, cublasH, mgr);
+               cusolverH, cublasH, stream, allocator);
     } else { // Test with directly given fixed rank
       allocate(U, m * params.k, true);
       allocate(S, params.k, true);
       allocate(V, n * params.k, true);
       rsvdFixedRank(A, m, n, S, U, V, params.k, params.p, params.use_bbt, true,
                     true, true, eig_svd_tol, max_sweeps, cusolverH, cublasH,
-                    mgr);
+                    stream, allocator);
     }
-    updateDevice(A, A_backup_cpu, m * n);
+    updateDevice(A, A_backup_cpu, m * n, stream);
 
     free(A_backup_cpu);
   }
@@ -122,6 +123,7 @@ protected:
       CUDA_CHECK(cudaFree(sing_vals_ref));
     CUSOLVER_CHECK(cusolverDnDestroy(cusolverH));
     CUBLAS_CHECK(cublasDestroy(cublasH));
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
 protected:
@@ -131,6 +133,8 @@ protected:
     *right_eig_vectors_ref = nullptr, *sing_vals_ref = nullptr;
   cusolverDnHandle_t cusolverH = nullptr;
   cublasHandle_t cublasH = nullptr;
+  cudaStream_t stream;
+  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<RsvdInputs<float>> inputs_fx = {
@@ -230,20 +234,28 @@ typedef RsvdTest<float> RsvdTestSquareMatrixNormF;
 TEST_P(RsvdTestSquareMatrixNormF, Result) {
   cublasHandle_t cublasH;
   CUBLAS_CHECK(cublasCreate(&cublasH));
-  auto mgr = makeDefaultAllocator();
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream,
+                                  allocator));
   CUBLAS_CHECK(cublasDestroy(cublasH));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 typedef RsvdTest<double> RsvdTestSquareMatrixNormD;
 TEST_P(RsvdTestSquareMatrixNormD, Result) {
   cublasHandle_t cublasH;
   CUBLAS_CHECK(cublasCreate(&cublasH));
-  auto mgr = makeDefaultAllocator();
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
   ASSERT_TRUE(evaluateSVDByL2Norm(A, U, S, V, params.n_row, params.n_col,
-                                  params.k, 4*params.tolerance, cublasH, mgr));
+                                  params.k, 4*params.tolerance, cublasH, stream,
+                                  allocator));
   CUBLAS_CHECK(cublasDestroy(cublasH));
+  CUDA_CHECK(cudaStreamDestroy(stream));
 }
 
 INSTANTIATE_TEST_CASE_P(RsvdTests, RsvdSanityCheckValF,

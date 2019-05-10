@@ -126,13 +126,13 @@ template <typename DataType>
 template <DistanceType distanceType, typename DataType, typename OutputTile_t>
 void distanceLauncher(DataType* x, DataType* y, DataType* dist, DataType* dist2, int m, int n, int k,
                       DistanceInputs<DataType>& params, DataType threshold, char* workspace,
-                      size_t worksize) {
+                      size_t worksize, cudaStream_t stream) {
     auto fin_op = [dist2, threshold] __device__(DataType d_val, int g_d_idx) {
       dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
       return d_val;
     };
     distance<distanceType, DataType, DataType, DataType, OutputTile_t>(
-      x, y, dist, m, n, k, workspace, worksize, fin_op);
+      x, y, dist, m, n, k, workspace, worksize, fin_op, stream);
 }
 
 template <DistanceType distanceType, typename DataType>
@@ -144,13 +144,15 @@ public:
     int m = params.m;
     int n = params.n;
     int k = params.k;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(x, m * k);
     allocate(y, n * k);
     allocate(dist_ref, m * n);
     allocate(dist, m * n);
     allocate(dist2, m * n);
-    r.uniform(x, m * k, DataType(-1.0), DataType(1.0));
-    r.uniform(y, n * k, DataType(-1.0), DataType(1.0));
+    r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
     naiveDistance(dist_ref, x, y, m, n, k, distanceType);
     char *workspace = nullptr;
     size_t worksize = getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n, k);
@@ -162,7 +164,8 @@ public:
     typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     DataType threshold = -10000.f;
     distanceLauncher<distanceType, DataType, OutputTile_t>(x, y, dist, dist2, m, n, k, params,
-                                                           threshold, workspace, worksize);
+                                                           threshold, workspace, worksize, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }
 

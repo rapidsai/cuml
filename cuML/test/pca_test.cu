@@ -39,7 +39,6 @@ struct PcaInputs {
 	int n_col2;
 	unsigned long long int seed;
 	int algo;
-    bool whiten;
 };
 
 template<typename T>
@@ -51,12 +50,6 @@ template<typename T>
 class PcaTest: public ::testing::TestWithParam<PcaInputs<T> > {
 protected:
 	void basicTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -68,11 +61,11 @@ protected:
 
 		std::vector<T> data_h = { 1.0, 2.0, 5.0, 4.0, 2.0, 1.0 };
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		std::vector<T> trans_data_ref_h = { -2.3231, -0.3517, 2.6748, -0.3979, 0.6571, -0.2592 };
 		trans_data_ref_h.resize(len);
-		updateDevice(trans_data_ref, trans_data_ref_h.data(), len);
+		updateDevice(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
@@ -90,8 +83,8 @@ protected:
 		allocate(components_ref, len_comp);
 		allocate(explained_vars_ref, params.n_col);
 
-		updateDevice(components_ref, components_ref_h.data(), len_comp);
-		updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col);
+		updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
+		updateDevice(explained_vars_ref, explained_vars_ref_h.data(), params.n_col, stream);
 
 		paramsPCA prms;
 		prms.n_cols = params.n_col;
@@ -104,46 +97,31 @@ protected:
 		    prms.algorithm = solver::COV_EIG_JACOBI;
 
 
-		pcaFit(data, components, explained_vars, explained_var_ratio,
-				singular_vals, mean, noise_vars, prms, cublas_handle, cusolver_handle);
-
-		pcaTransform(data, components, trans_data, singular_vals, mean,
-				     prms, cublas_handle);
-
-		pcaInverseTransform(trans_data, components, singular_vals, mean, data_back, prms, cublas_handle);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-
+                pcaFit(handle.getImpl(), data, components, explained_vars, explained_var_ratio,
+                       singular_vals, mean, noise_vars, prms, stream);
+		pcaTransform(handle.getImpl(), data, components, trans_data, singular_vals,
+                             mean, prms, stream);
+		pcaInverseTransform(handle.getImpl(), trans_data, components, singular_vals,
+                                    mean, data_back, prms, stream);
 	}
 
 	void advancedTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
 
 		paramsPCA prms;
-	    prms.n_cols = params.n_col2;
+	        prms.n_cols = params.n_col2;
 		prms.n_rows = params.n_row2;
 		prms.n_components = params.n_col2;
-		prms.whiten = params.whiten;
+		prms.whiten = false;
 		if (params.algo == 0)
 			prms.algorithm = solver::COV_EIG_DQ;
 		else if (params.algo == 1)
 			prms.algorithm = solver::COV_EIG_JACOBI;
-		else if (params.algo == 2) {
-			prms.algorithm = solver::RANDOMIZED;
-			prms.n_components = params.n_col2 - 15;
-		}
-
+		
 		allocate(data2, len);
-		r.uniform(data2, len, T(-1.0), T(1.0));
+		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
 
 		int len_comp = params.n_col2 * prms.n_components;
@@ -154,17 +132,16 @@ protected:
 		allocate(mean2, prms.n_cols);
 		allocate(noise_vars2, 1);
 
-		pcaFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, mean2, noise_vars2, prms, cublas_handle, cusolver_handle);
+                pcaFitTransform(handle.getImpl(), data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
+				singular_vals2, mean2, noise_vars2, prms, stream);
 
 		allocate(data2_back, len);
-		pcaInverseTransform(data2_trans, components2, singular_vals2, mean2, data2_back, prms, cublas_handle);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		pcaInverseTransform(handle.getImpl(), data2_trans, components2, singular_vals2, mean2, data2_back, prms, stream);
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
+                handle.setStream(stream);
 		basicTest();
 		advancedTest();
 	}
@@ -191,7 +168,7 @@ protected:
 		CUDA_CHECK(cudaFree(singular_vals2));
 		CUDA_CHECK(cudaFree(mean2));
 		CUDA_CHECK(cudaFree(noise_vars2));
-
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -201,18 +178,18 @@ protected:
 
 	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
 			*singular_vals2, *mean2, *noise_vars2;
+        cumlHandle handle;
+        cudaStream_t stream;
 };
 
 
 const std::vector<PcaInputs<float> > inputsf2 = {
-		{ 0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0, false },
-		{ 0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1, true },
-		{ 0.05f, 3 * 2, 3, 2, 256 * 64, 256, 64, 1234ULL, 2, true }};
+		{ 0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0 },
+		{ 0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1 }};
 
 const std::vector<PcaInputs<double> > inputsd2 = {
-		{ 0.01, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0, false },
-		{ 0.01, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1, true },
-		{ 0.05, 3 * 2, 3, 2, 256 * 64, 256, 64, 1234ULL, 2, true }};
+		{ 0.01, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0 },
+		{ 0.01, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1 }};
 
 
 
@@ -285,7 +262,7 @@ TEST_P(PcaTestDataVecSmallD, Result) {
 // FIXME: These tests are disabled due to driver 418+ making them fail:
 // https://github.com/rapidsai/cuml/issues/379
 typedef PcaTest<float> PcaTestDataVecF;
-TEST_P(PcaTestDataVecF, DISABLED_Fit) {
+TEST_P(PcaTestDataVecF, Result) {
 	ASSERT_TRUE(
 			devArrMatch(data2, data2_back,
 					(params.n_col2 * params.n_col2),
@@ -294,7 +271,7 @@ TEST_P(PcaTestDataVecF, DISABLED_Fit) {
 }
 
 typedef PcaTest<double> PcaTestDataVecD;
-TEST_P(PcaTestDataVecD, DISABLED_Fit) {
+TEST_P(PcaTestDataVecD, Result) {
 	ASSERT_TRUE(
 			devArrMatch(data2, data2_back,
 					(params.n_col2 * params.n_col2),

@@ -57,16 +57,19 @@ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     Random::Rng r(params.seed);
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
     allocate(in1, len);
     allocate(out_ref, len);
     allocate(out, len);
-    r.uniform(in1, len, T(1.0), T(2.0));
+    r.uniform(in1, len, T(1.0), T(2.0), stream);
 
     naiveSqrtElem(out_ref, in1, len);
 
-    sqrt(out, in1, len);
-    sqrt(in1, in1, len);
+    sqrt(out, in1, len, stream);
+    sqrt(in1, in1, len, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {

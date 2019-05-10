@@ -48,12 +48,6 @@ template<typename T>
 class TsvdTest: public ::testing::TestWithParam<TsvdInputs<T> > {
 protected:
 	void basicTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len;
@@ -62,7 +56,7 @@ protected:
 
 		std::vector<T> data_h = { 1.0, 2.0, 4.0, 2.0, 4.0, 5.0, 5.0, 4.0, 2.0, 1.0, 6.0, 4.0 };
 		data_h.resize(len);
-		updateDevice(data, data_h.data(), len);
+		updateDevice(data, data_h.data(), len, stream);
 
 		int len_comp = params.n_col * params.n_col;
 		allocate(components, len_comp);
@@ -73,7 +67,7 @@ protected:
 		components_ref_h.resize(len_comp);
 
 		allocate(components_ref, len_comp);
-		updateDevice(components_ref, components_ref_h.data(), len_comp);
+		updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
 
 		paramsTSVD prms;
 		prms.n_cols = params.n_col;
@@ -84,19 +78,10 @@ protected:
 		else
 			prms.algorithm = solver::COV_EIG_JACOBI;
 
-		tsvdFit(data, components, singular_vals, prms, cublas_handle, cusolver_handle);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		tsvdFit(handle.getImpl(), data, components, singular_vals, prms, stream);
 	}
 
 	void advancedTest() {
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
 		params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
 		Random::Rng r(params.seed, MLCommon::Random::GenTaps);
 		int len = params.len2;
@@ -116,7 +101,7 @@ protected:
 
 
 		allocate(data2, len);
-		r.uniform(data2, len, T(-1.0), T(1.0));
+		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
 
 		int len_comp = params.n_col2 * prms.n_components;
@@ -125,19 +110,20 @@ protected:
 		allocate(explained_var_ratio2, prms.n_components);
 		allocate(singular_vals2, prms.n_components);
 
-		tsvdFitTransform(data2, data2_trans, components2, explained_vars2, explained_var_ratio2,
-				singular_vals2, prms, cublas_handle, cusolver_handle);
+		tsvdFitTransform(handle.getImpl(), data2, data2_trans, components2,
+                                 explained_vars2, explained_var_ratio2,
+                                 singular_vals2, prms, stream);
 
 		allocate(data2_back, len);
-		tsvdInverseTransform(data2_trans, components2, data2_back, prms, cublas_handle);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+		tsvdInverseTransform(handle.getImpl(), data2_trans, components2,
+                                     data2_back, prms, stream);
 	}
 
 	void SetUp() override {
-		basicTest();
-		advancedTest();
+            CUDA_CHECK(cudaStreamCreate(&stream));
+            handle.setStream(stream);
+            basicTest();
+            advancedTest();
 	}
 
 	void TearDown() override {
@@ -152,15 +138,17 @@ protected:
 		CUDA_CHECK(cudaFree(explained_vars2));
 		CUDA_CHECK(cudaFree(explained_var_ratio2));
 		CUDA_CHECK(cudaFree(singular_vals2));
+                CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
-	TsvdInputs<T> params;
-	T *data, *components, *singular_vals,
-			 *components_ref, *explained_vars_ref;
-
-	T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
-			*singular_vals2;
+    TsvdInputs<T> params;
+    T *data, *components, *singular_vals,
+        *components_ref, *explained_vars_ref;
+    T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
+        *singular_vals2;
+    cumlHandle handle;
+    cudaStream_t stream;
 };
 
 const std::vector<TsvdInputs<float> > inputsf2 = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,13 +43,13 @@ __global__ void naiveReduceRowsByKeyKernel(Type *d_A, int lda,
 template <typename Type>
 void naiveReduceRowsByKey( Type* d_A, int lda, 
                           uint32_t *d_keys,char *d_char_keys, int nrows, 
-                          int ncols, int nkeys, Type *d_sums) 
+                          int ncols, int nkeys, Type *d_sums, cudaStream_t stream)
 {
     cudaMemset(d_sums, 0, sizeof(Type) * nkeys*ncols);
 
     naiveReduceRowsByKeyKernel
           <<< dim3((ncols+31)/32, nkeys ),
-              dim3(32, 1) >>>
+              dim3(32, 1), 0, stream>>>
                       (d_A,lda,d_keys,d_char_keys,nrows,ncols,nkeys,d_sums);
 }
 
@@ -75,7 +75,9 @@ protected:
         params = ::testing::TestWithParam<ReduceRowsInputs<T>>::GetParam();
         Random::Rng r(params.seed);
         Random::Rng r_int(params.seed);
-        int nobs = params.nobs;
+  	CUDA_CHECK(cudaStreamCreate(&stream));
+
+	int nobs = params.nobs;
         uint32_t cols = params.cols;
         uint32_t nkeys = params.nkeys;
         allocate(in1, nobs*cols);
@@ -83,12 +85,13 @@ protected:
         allocate(chars2, nobs);
         allocate(out_ref, nkeys*cols);
         allocate(out, nkeys*cols);
-        r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs));
-        r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys);
+        r.uniform(in1, nobs*cols, T(0.0), T(2.0/nobs), stream);
+        r_int.uniformInt(in2, nobs, (uint32_t)0, nkeys, stream);
         naiveReduceRowsByKey(in1, cols, in2, chars2,
-                               nobs, cols, nkeys, out_ref );
+                               nobs, cols, nkeys, out_ref, stream);
         reduce_rows_by_key(in1, cols, in2, chars2, 
-                               nobs, cols, nkeys, out );
+			   nobs, cols, nkeys, out ,stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
     void TearDown() override {
@@ -97,10 +100,11 @@ protected:
         CUDA_CHECK(cudaFree(chars2));
         CUDA_CHECK(cudaFree(out_ref));
         CUDA_CHECK(cudaFree(out));
-
+	CUDA_CHECK(cudaStreamDestroy(stream)); 
     }
 
 protected:
+  cudaStream_t stream;
     ReduceRowsInputs<T> params;
     T *in1, *out_ref, *out, *out_2;
     uint32_t *in2;

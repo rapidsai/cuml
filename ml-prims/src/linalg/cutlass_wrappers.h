@@ -361,7 +361,7 @@ struct CustomGemm : public BaseClass {
   /// Launch the kernel.
   template <typename FinalLambda>
   static void launch(Params const& params, FinalLambda fin_op,
-                     cudaStream_t stream = 0) {
+                     cudaStream_t stream) {
     // Setup the grid.
     dim3 grid;
     grid.x = ceildiv(params.m, Traits::OutputTile::kW);
@@ -380,7 +380,7 @@ struct CustomGemm : public BaseClass {
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
-  static void launch(Params const& params, cudaStream_t stream = 0) {
+  static void launch(Params const& params, cudaStream_t stream) {
     BaseClass::launch(params, stream);
   }
 
@@ -545,7 +545,7 @@ void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, int m,
                   int n, int k, OType alpha, IType const *A, int lda,
                   IType const *B, int ldb, OType beta, OType const *C, int ldc,
                   OType *D, Lambda op, FinalLambda fin_op,
-                  cudaStream_t stream = 0) {
+                  cudaStream_t stream) {
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
                            OutputTile_, AccumulatorsPerThread_,
                            MainLoopFunctor_, Index_, GemmConfig_,
@@ -580,7 +580,7 @@ template <
 void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, int m,
                   int n, int k, OType alpha, IType const *A, int lda,
                   IType const *B, int ldb, OType beta, OType const *C, int ldc,
-                  OType *D, Lambda op, cudaStream_t stream = 0) {
+                  OType *D, Lambda op, cudaStream_t stream) {
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
                            OutputTile_, AccumulatorsPerThread_,
                            MainLoopFunctor_, Index_, GemmConfig_,
@@ -654,7 +654,7 @@ template <
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
-              FinalLambda fin_op, cudaStream_t stream = 0) {
+              FinalLambda fin_op, cudaStream_t stream) {
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,
@@ -707,7 +707,7 @@ template <
 void baseGemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
               int k, OType alpha, IType const *A, int lda, IType const *B,
               int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
-              cudaStream_t stream = 0) {
+              cudaStream_t stream) {
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
                  cutlass::MatrixLayout::kColumnMajor, OutputTile_,

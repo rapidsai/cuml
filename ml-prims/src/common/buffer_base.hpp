@@ -88,6 +88,23 @@ protected:
     size_type                           _size;
     size_type                           _capacity;
     value_type*                         _data;
+    void set_stream( cudaStream_t stream )
+    {
+        if ( _stream != stream )
+        {
+            cudaEvent_t event;
+            CUDA_CHECK( cudaEventCreateWithFlags( &event, cudaEventDisableTiming ) );
+            CUDA_CHECK( cudaEventRecord( event, _stream ) );
+            CUDA_CHECK( cudaStreamWaitEvent ( stream, event, 0 ) );
+            _stream = stream;
+            CUDA_CHECK( cudaEventDestroy( event ) );
+        }
+    }
+    cudaStream_t get_stream() const
+    {
+        return _stream;
+    }
+private:
     cudaStream_t                        _stream;
 };
 

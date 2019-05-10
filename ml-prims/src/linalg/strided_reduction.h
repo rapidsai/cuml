@@ -82,7 +82,7 @@ __global__ void stridedReductionKernel(OutType *dots, const InType *data, int D,
   // Block reduction
   extern __shared__ char tmp[]; // One element per thread in block
   auto *temp = (OutType *)tmp; // Cast to desired type
-  int myidx = threadIdx.x + blockDim.x * threadIdx.y;
+  IdxType myidx = threadIdx.x + ((IdxType)blockDim.x * (IdxType)threadIdx.y);
   temp[myidx] = thread_data;
   __syncthreads();
   for (int j = blockDim.y / 2; j > 0; j /= 2) {
@@ -128,8 +128,8 @@ template <typename InType, typename OutType = InType, typename IdxType = int,
           typename MainLambda = Nop<InType, IdxType>,
           typename ReduceLambda = Sum<OutType>,
           typename FinalLambda = Nop<OutType>>
-void stridedReduction(OutType *dots, const InType *data, int D, int N, OutType init,
-                      bool inplace = false, cudaStream_t stream = 0,
+void stridedReduction(OutType *dots, const InType *data, IdxType D, IdxType N, OutType init,
+                      cudaStream_t stream, bool inplace = false,
                       MainLambda main_op = Nop<InType, IdxType>(),
                       ReduceLambda reduce_op = Sum<OutType>(),
                       FinalLambda final_op = Nop<OutType>()) {
@@ -141,10 +141,10 @@ void stridedReduction(OutType *dots, const InType *data, int D, int N, OutType i
 
   // Arbitrary numbers for now, probably need to tune
   const dim3 thrds(32, 16);
-  int elemsPerThread = ceildiv(N, (int)thrds.y);
+  IdxType elemsPerThread = ceildiv(N, (IdxType)thrds.y);
   elemsPerThread = (elemsPerThread > 8) ? 8 : elemsPerThread;
-  const dim3 nblks(ceildiv(D, (int)thrds.x), ceildiv(N, (int)thrds.y * elemsPerThread));
-  const int shmemSize = sizeof(OutType) * thrds.x * thrds.y;
+  const dim3 nblks(ceildiv(D, (IdxType)thrds.x), ceildiv(N, (IdxType)thrds.y * elemsPerThread));
+  const size_t shmemSize = sizeof(OutType) * thrds.x * thrds.y;
 
   ///@todo: this complication should go away once we have eliminated the need
   /// for atomics in stridedKernel (redesign for this is already underway)
