@@ -26,6 +26,7 @@ namespace Stats {
 /**
  * @brief Center the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output mean-centered matrix
  * @param data input matrix
@@ -38,7 +39,7 @@ namespace Stats {
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
-                bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
+                bool rowMajor, bool bcastAlongRows, cudaStream_t stream) {
   LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
                          [] __device__(Type a, Type b) { return a - b; },
                          stream);
@@ -47,6 +48,7 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType 
 /**
  * @brief Add the input matrix wrt its mean
  * @tparam Type the data type
+ * @tparam IdxType Integer type used to for addressing
  * @tparam TPB threads per block of the cuda kernel launched
  * @param out the output mean-added matrix
  * @param data input matrix
@@ -59,7 +61,7 @@ void meanCenter(Type *out, const Type *data, const Type *mu, IdxType D, IdxType 
  */
 template <typename Type, typename IdxType = int, int TPB = 256>
 void meanAdd(Type *out, const Type *data, const Type *mu, IdxType D, IdxType N,
-             bool rowMajor, bool bcastAlongRows, cudaStream_t stream = 0) {
+             bool rowMajor, bool bcastAlongRows, cudaStream_t stream) {
   LinAlg::matrixVectorOp(out, data, mu, D, N, rowMajor, bcastAlongRows,
                          [] __device__(Type a, Type b) { return a + b; },
                          stream);

@@ -68,9 +68,11 @@ protected: // functionsv
 
         cublasHandle_t cublas_handle;
         cusolverDnHandle_t cusolver_handle = NULL;
+        cudaStream_t stream;
 
         CUBLAS_CHECK(cublasCreate(&cublas_handle));
         CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
+        CUDA_CHECK(cudaStreamCreate(&stream));
 
         // making sane model
         x_up[0] = 0.0; x_up[1] = 1.0;
@@ -96,12 +98,12 @@ protected: // functionsv
         CUDA_CHECK(cudaMalloc((void **)&z_d, dim_z * sizeof(T)));
 
         // copy data to gpu (available in ml-common/cuda_utils.h)
-        updateDevice(Phi_d, Phi, dim_x * dim_x);
-        updateDevice(x_up_d, x_up, dim_x);
-        updateDevice(P_up_d, P_up, dim_x * dim_x);
-        updateDevice(Q_d, Q, dim_x * dim_x);
-        updateDevice(R_d, R, dim_z * dim_z);
-        updateDevice(H_d, H, dim_z * dim_x);
+        updateDevice(Phi_d, Phi, dim_x * dim_x, stream);
+        updateDevice(x_up_d, x_up, dim_x, stream);
+        updateDevice(P_up_d, P_up, dim_x * dim_x, stream);
+        updateDevice(Q_d, Q, dim_x * dim_x, stream);
+        updateDevice(R_d, R, dim_z * dim_z, stream);
+        updateDevice(H_d, H, dim_z * dim_x, stream);
 
         // kf initialization
         Variables<T> vars;
@@ -118,14 +120,15 @@ protected: // functionsv
         rmse_x = 0.0; rmse_v = 0.0;
 
         for (int q = 0; q < iterations; q++){
-            predict(vars, cublas_handle);
+            predict(vars, cublas_handle, stream);
             // generating measurement
             z[0] = q + distribution(generator);
-            updateDevice(z_d, z, dim_z);
+            updateDevice(z_d, z, dim_z, stream);
 
-            update(vars, z_d, cublas_handle, cusolver_handle);
+            update(vars, z_d, cublas_handle, cusolver_handle, stream);
             // getting update
-            updateHost(x_up, x_up_d, dim_x);
+            updateHost(x_up, x_up_d, dim_x, stream);
+            CUDA_CHECK(cudaStreamSynchronize(stream));
 
             // summing squared ratios
             rmse_v += pow(x_up[1]-1, 2); // true velo is alwsy 1
@@ -136,6 +139,7 @@ protected: // functionsv
 
         CUBLAS_CHECK(cublasDestroy(cublas_handle));
         CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
+        CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
     void TearDown() override {

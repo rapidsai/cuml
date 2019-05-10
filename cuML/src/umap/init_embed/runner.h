@@ -16,6 +16,8 @@
 
 #include "umap/umapparams.h"
 
+#include "sparse/coo.h"
+
 #include "random_algo.h"
 #include "spectral_algo.h"
 
@@ -30,9 +32,8 @@ namespace UMAPAlgo {
         template<typename T>
         void run(const T *X, int n, int d,
                  const long *knn_indices, const T *knn_dists,
-                 int *rows, int *cols, float *vals,
-                 int nnz,
-                 UMAPParams *params, T* embedding,
+                 MLCommon::Sparse::COO<float> *coo,
+                 UMAPParams *params, T* embedding, cudaStream_t stream,
                  int algo = 0) {
             switch(algo) {
 
@@ -40,14 +41,14 @@ namespace UMAPAlgo {
              * Initial algo uses FAISS indices
              */
             case 0:
-                RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding);
+                RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding,
+                                      stream);
                 break;
 
             case 1:
                 SpectralInit::launcher(X, n, d,
                         knn_indices, knn_dists,
-                        rows, cols, vals,
-                        nnz,
+                        coo,
                         params, embedding);
                 break;
             }

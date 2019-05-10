@@ -1,14 +1,16 @@
-### Dependencies for Installing/Building from Source:
+# cuML Build From Source Guide
+
+## Setting Up Your Build Environment
 
 To install cuML from source, ensure the dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.5.1)
-2. zlib Provided by zlib1g-dev in Ubuntu 16.04
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.7)
+2. zlib
 3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
-7. BLAS - Any BLAS compatible with Cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html)
+7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
 
 ### Installing from Source:
 
@@ -28,7 +30,7 @@ $ export CUDA_BIN_PATH=$CUDA_HOME # (optional env variable if cuda binary is not
 $ cmake ..
 ```
 
-If using a conda environment (recommended currently), then cmake can be configured appropriately via:
+If using a conda environment (recommended), then cmake can be configured appropriately via:
 
 ```bash
 $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX
@@ -41,6 +43,18 @@ in some directories may conflict with libraries in implicit directories:
 ```
 
 The configuration script will print the BLAS found on the search path. If the version found does not match the version intended, use the flag `-DBLAS_LIBRARIES=/path/to/blas.so` with the `cmake` command to force your own version.
+
+If using conda and a conda installed cmake, the `openblas` conda package is recommended and can be explicitly specified for `blas` and `lapack`:
+
+```bash
+cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.so
+```
+
+Additionally, to reduce compile times, you can specify a GPU compute capability to compile for, for example for Volta GPUs:
+
+```bash
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
+```
 
 
 3. Build `libcuml`:
@@ -85,35 +99,20 @@ $ py.test cuML/test --collect-only
 $ python setup.py install
 ```
 
-cuML's core structure contains:
+6. You can also build and run tests for the machine learning primitive header only library located in the `ml-prims` folder. From the repository root:
 
-1. ***cuML***:
-  C++/CUDA machine learning algorithms. This library currently includes the following six algorithms:
-  - Single GPU Truncated Singular Value Decomposition (tSVD)
-  - Single GPU Principal Component Analysis (PCA)
-  - Single GPU Density-based Spatial Clustering of Applications with Noise (DBSCAN)
-  - Single GPU Kalman Filtering
-  - Multi-GPU K-Means Clustering
-  - Multi-GPU K-Nearest Neighbors (Uses [Faiss](https://github.com/facebookresearch/faiss))
+```bash
+$ cd ml-prims
+$ mkdir build
+$ cd build
+$ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70" # specifying GPU_ARCH is optional, but significantly reduces compile time
+$ make -j
+```
 
-2. ***python***:
-  Python bindings for the above algorithms, including interfaces for [cuDF](https://github.com/rapidsai/cudf). These bindings connect the data to C++/CUDA based cuML and ml-prims libraries without leaving GPU memory.
+To run the ml-prim tests:
 
-3. ***ml-prims***:
-  Low level machine learning primitives header only library, used in cuML algorithms. Includes:
-  - Linear Algebra
-  - Statistics
-  - Basic Matrix Operations
-  - Distance Functions
-  - Random Number Generation
+```bash
+$./test/mlcommon_test
+```
 
-## External
 
-The external folders contains submodules that this project in-turn depends on. Appropriate location flags
-will be automatically populated in the main `CMakeLists.txt` file for these.
-
-Current external submodules are:
-
-- [CUTLASS](https://github.com/NVIDIA/cutlass)
-- [Google Test](https://github.com/google/googletest)
-- [CUB](https://github.com/NVlabs/cub)

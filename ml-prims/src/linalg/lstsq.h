@@ -28,6 +28,7 @@
 #include "matrix/matrix.h"
 #include "matrix/math.h"
 #include "random/rng.h"
+#include "common/device_buffer.hpp"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -35,85 +36,70 @@ namespace LinAlg {
 template<typename math_t>
 void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              DeviceAllocator &mgr) {
+              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"lstsq: number of columns cannot be less than one");
 	ASSERT(n_rows > 1,
 			"lstsq: number of rows cannot be less than two");
 
-	math_t *S, *V, *U;
-	math_t *UT_b;
-
 	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
-	allocate(UT_b, n_rows);
+        device_buffer<math_t> S(allocator, stream, n_cols);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> U(allocator, stream, U_len);
+        device_buffer<math_t> UT_b(allocator, stream, n_rows);
 
-	svdQR(A, n_rows, n_cols, S, U, V, true, true, true, cusolverH, cublasH, mgr);
+	svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
+              cusolverH, cublasH, allocator, stream);
 
-	gemv(U, n_rows, n_cols, b, w, true, cublasH);
+	gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
-	CUDA_CHECK(cudaFree(UT_b));
+	gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
 }
 
 template<typename math_t>
 void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
               cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-    DeviceAllocator &mgr) {
+              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	ASSERT(n_cols > 1,
 			"lstsq: number of columns cannot be less than two");
 	ASSERT(n_rows > 1,
 			"lstsq: number of rows cannot be less than two");
 
-	math_t *S, *V, *U;
-
 	int U_len = n_rows * n_cols;
 	int V_len = n_cols * n_cols;
 
-	allocate(U, U_len);
-	allocate(V, V_len);
-	allocate(S, n_cols);
+        device_buffer<math_t> S(allocator, stream, n_cols);
+        device_buffer<math_t> V(allocator, stream, V_len);
+        device_buffer<math_t> U(allocator, stream, U_len);
 
-	svdEig(A, n_rows, n_cols, S, U, V, true, cublasH, cusolverH, mgr);
+	svdEig(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, cublasH,
+               cusolverH, stream, allocator);
 
-	gemv(U, n_rows, n_cols, b, w, true, cublasH);
+	gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
 
-	Matrix::matrixVectorBinaryDivSkipZero(w, S, 1, n_cols, false, true);
+	Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true, stream);
 
-	gemv(V, n_cols, n_cols, w, w, false, cublasH);
-
-	CUDA_CHECK(cudaFree(U));
-	CUDA_CHECK(cudaFree(V));
-	CUDA_CHECK(cudaFree(S));
+	gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
 }
-
 
 
 template<typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-		cusolverDnHandle_t cusolverH, cublasHandle_t cublasH) {
+             cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
+             std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
 	int m = n_rows;
 	int n = n_cols;
 
-	math_t *d_tau = NULL;
-	int *d_info = NULL;
 	int info = 0;
-	math_t *d_work = NULL;
-	CUDA_CHECK(cudaMalloc((void **)&d_info, sizeof(int)));
-	CUDA_CHECK(cudaMalloc((void **)&d_tau, sizeof(math_t)*n));
+        device_buffer<math_t> d_tau(allocator, stream, n);
+        device_buffer<int> d_info(allocator, stream, 1);
 
 	const cublasSideMode_t side = CUBLAS_SIDE_LEFT;
 	const cublasOperation_t trans = CUBLAS_OP_T;
@@ -133,19 +119,21 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	                                          m,
 	                                          1,
 	                                          n,
-	                                          A, lda, d_tau, b, // C,
-			                                  lda, // ldc,
-			                                  &lwork_ormqr));
+	                                          A, lda, d_tau.data(), b, // C,
+                                                  lda, // ldc,
+                                                  &lwork_ormqr));
 
 	lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
-	CUDA_CHECK(cudaMalloc(&d_work, sizeof(math_t) * lwork));
+        device_buffer<math_t> d_work(allocator, stream, lwork);
 
 	CUSOLVER_CHECK(
-			cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau, d_work, lwork,
-					d_info));
+            cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(), d_work.data(), lwork,
+                            d_info.data(), stream));
 
-	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost,
+                                   stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
 	ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
 	CUSOLVER_CHECK(cusolverDnormqr(
@@ -157,14 +145,17 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 	        n,
 	        A,
 	        lda,
-	        d_tau,
+                d_tau.data(),
 	        b,
 	        ldb,
-	        d_work,
+                d_work.data(),
 	        lwork,
-	        d_info));
+                d_info.data(),
+          stream));
 
-	CUDA_CHECK(cudaMemcpy(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost));
+	CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int), cudaMemcpyDeviceToHost,
+                                   stream));
+        CUDA_CHECK(cudaStreamSynchronize(stream));
     ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
     const math_t one = 1;
@@ -181,13 +172,10 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              A,
              lda,
              b,
-             ldb));
+             ldb,
+             stream));
 
-    CUDA_CHECK(cudaMemcpy(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice));
-
-    if (NULL != d_tau)   cudaFree(d_tau);
-    if (NULL != d_info)  cudaFree(d_info);
-    if (NULL != d_work)  cudaFree(d_work);
+    CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice, stream));
 }
 
 

@@ -46,17 +46,19 @@ protected:
   void SetUp() override {
     CUSOLVER_CHECK(cusolverDnCreate(&cusolverH));
     CUBLAS_CHECK(cublasCreate(&cublasH));
+    allocator.reset(new defaultDeviceAllocator);
 
     params = ::testing::TestWithParam<SvdInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int len = params.len;
-
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
     allocate(data, len);
 
     ASSERT(params.n_row == 3, "This test only supports nrows=3!");
     ASSERT(params.len == 6, "This test only supports len=6!");
     T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-    updateDevice(data, data_h, len);
+    updateDevice(data, data_h, len, stream);
 
     int left_evl = params.n_row * params.n_col;
     int right_evl = params.n_col * params.n_col;
@@ -80,13 +82,14 @@ protected:
     allocate(right_eig_vectors_ref, right_evl);
     allocate(sing_vals_ref, params.n_col);
 
-    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl);
-    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl);
-    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col);
+    updateDevice(left_eig_vectors_ref, left_eig_vectors_ref_h, left_evl, stream);
+    updateDevice(right_eig_vectors_ref, right_eig_vectors_ref_h, right_evl, stream);
+    updateDevice(sing_vals_ref, sing_vals_ref_h, params.n_col, stream);
 
-    auto mgr = makeDefaultAllocator();
     svdQR(data, params.n_row, params.n_col, sing_vals_qr, left_eig_vectors_qr,
-          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH, mgr);
+          right_eig_vectors_trans_qr, true, true, true, cusolverH, cublasH,
+          allocator, stream);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void TearDown() override {
@@ -107,6 +110,7 @@ protected:
     *left_eig_vectors_ref, *right_eig_vectors_ref, *sing_vals_ref;
   cusolverDnHandle_t cusolverH = NULL;
   cublasHandle_t cublasH;
+  std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<SvdInputs<float>> inputsf2 = {
