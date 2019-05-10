@@ -65,7 +65,49 @@ void cumlCommunicator::allreduce(const void* sendbuff, void* recvbuff, size_t co
 }
 
 template<>
-cumlCommunicator::datatype_t cumlCommunicator::getDataType<double>()
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<char>() const
+{
+    return cumlCommunicator::CHAR;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<unsigned char>() const
+{
+    return cumlCommunicator::UINT8;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<int>() const
+{
+    return cumlCommunicator::INT;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<unsigned int>() const
+{
+    return cumlCommunicator::UINT;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<long long int>() const
+{
+    return cumlCommunicator::INT64;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<unsigned long long int>() const
+{
+    return cumlCommunicator::UINT64;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<float>() const
+{
+    return cumlCommunicator::FLOAT;
+}
+
+template<>
+cumlCommunicator::datatype_t cumlCommunicator::getDataType<double>() const
 {
     return cumlCommunicator::DOUBLE;
 }
