@@ -19,8 +19,9 @@ MPIRUN ?= mpirun
 
 MPICXX=mpicxx
 CUML_HOME ?= /home/jkraus/workspace/RAPIDS/cuml
+NCCL_HOME ?= /home/jkraus/workspace/NCCL/nccl/build
 MPICXX_FLAGS = -I$(CUML_HOME)/cuML/src -I$(CUML_HOME)/ml-prims/src -I$(CUML_HOME)/comms/include -I$(CUDA_HOME)/include -std=c++11
-LD_FLAGS = -L$(CUML_HOME)/cuML/build -lcuml++ -L$(CUML_HOME)/comms/build -lcumlcomms
+LD_FLAGS = -L$(CUML_HOME)/cuML/build -lcuml++ -L$(CUML_HOME)/comms/build -lcumlcomms -L$(CUDA_HOME)/lib64 -lcudart -L$(NCCL_HOME)/lib -lnccl
 
 simple_mpi: Makefile simple_mpi.cpp 
 	$(MPICXX) $(MPICXX_FLAGS) simple_mpi.cpp $(LD_FLAGS) -o simple_mpi

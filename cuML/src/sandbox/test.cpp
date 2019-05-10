@@ -19,6 +19,7 @@
 #include <iostream>
 #include <common/cumlHandle.hpp>
 #include <common/cuml_comms_int.hpp>
+#include <common/device_buffer.hpp>
 
 namespace ML {
 namespace sandbox{
@@ -26,6 +27,7 @@ namespace sandbox{
 void mpi_test(const ML::cumlHandle& h)
 {
     const cumlHandle_impl& handle = h.getImpl();
+    ML::detail::streamSyncer _(handle);
     const MLCommon::cumlCommunicator& communicator = handle.getCommunicator();
 
     const int rank = communicator.getRank();
@@ -69,6 +71,29 @@ void mpi_test(const ML::cumlHandle& h)
             for (auto i : received_data) 
                 std::cout << i << ", "; 
             std::cout<<std::endl;
+        }
+        communicator.barrier();
+    }
+
+    cudaStream_t stream = handle.getStream();
+
+    MLCommon::device_buffer<int> temp_d(handle.getDeviceAllocator(), stream);
+    temp_d.resize(1, stream);
+    CUDA_CHECK( cudaMemcpyAsync( temp_d.data(), &rank, sizeof(int), cudaMemcpyHostToDevice, stream ) );
+    communicator.allreduce(temp_d.data(), temp_d.data(), 1, MLCommon::cumlCommunicator::SUM, stream);
+    int temp_h = 0;
+    CUDA_CHECK( cudaMemcpyAsync( &temp_h, temp_d.data(), sizeof(int), cudaMemcpyDeviceToHost, stream ) );
+    CUDA_CHECK( cudaStreamSynchronize(stream) );
+    if ( 0 == rank )
+    {
+        std::cout<<"Sum of all ranks is: "<<std::endl;
+    }
+    communicator.barrier();
+    for (int r = 0; r < communicator.getSize(); ++r)
+    {
+        if ( r == rank )
+        {
+            std::cout<<"For rank "<<r<<" :"<<temp_h<<std::endl;
         }
         communicator.barrier();
     }

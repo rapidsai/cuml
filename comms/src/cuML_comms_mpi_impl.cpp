@@ -17,6 +17,7 @@
 #include "cuML_comms_mpi_impl.hpp"
 
 #include <memory>
+#include <cstdio>
 
 #include <cuML_comms.hpp>
 #include <common/cumlHandle.hpp>
@@ -35,6 +36,25 @@
     }                                                                               \
   } while (0)
 
+#define NCCL_CHECK(call)                                                        \
+  do {                                                                          \
+    ncclResult_t status = call;                                                 \
+    ASSERT(ncclSuccess == status, "ERROR: NCCL call='%s'. Reason:%s\n", #call,  \
+        ncclGetErrorString(status));                                            \
+  } while(0)
+
+//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
+//https://github.com/rapidsai/cuml/issues/100
+#define NCCL_CHECK_NO_THROW(call)                                       \
+  do {                                                                  \
+    ncclResult_t status = call;                                         \
+    if ( ncclSuccess != status ) {                                      \
+      std::fprintf(stderr,                                              \
+          "ERROR: NCCL call='%s' at file=%s line=%d failed with %s ",   \
+          #call, __FILE__, __LINE__, ncclGetErrorString(status) );      \
+    }                                                                   \
+  } while(0)
+
 namespace ML {
 
 namespace {
@@ -42,6 +62,20 @@ namespace {
     {
         switch ( datatype )
         {
+            case MLCommon::cumlCommunicator::CHAR:
+                return MPI_CHAR;
+            case MLCommon::cumlCommunicator::UINT8:
+                return MPI_UNSIGNED_CHAR;
+            case MLCommon::cumlCommunicator::INT:
+                return MPI_INT;
+            case MLCommon::cumlCommunicator::UINT:
+                return MPI_UNSIGNED;
+            case MLCommon::cumlCommunicator::INT64:
+                return MPI_LONG_LONG;
+            case MLCommon::cumlCommunicator::UINT64:
+                return MPI_UNSIGNED_LONG_LONG;
+            case MLCommon::cumlCommunicator::FLOAT:
+                return MPI_FLOAT;
             case MLCommon::cumlCommunicator::DOUBLE:
                 return MPI_DOUBLE;
         }
@@ -53,25 +87,51 @@ namespace {
         {
             case MLCommon::cumlCommunicator::SUM:
                 return MPI_SUM;
+            case MLCommon::cumlCommunicator::PROD:
+                return MPI_PROD;
+            case MLCommon::cumlCommunicator::MIN:
+                return MPI_MIN;
+            case MLCommon::cumlCommunicator::MAX:
+                return MPI_MAX;
         }
     }
 
 #ifdef HAVE_NCCL
-    MPI_Datatype getNCCLDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
+    ncclDataType_t getNCCLDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
         {
+            case MLCommon::cumlCommunicator::CHAR:
+                return ncclChar;
+            case MLCommon::cumlCommunicator::UINT8:
+                return ncclUint8;
+            case MLCommon::cumlCommunicator::INT:
+                return ncclInt;
+            case MLCommon::cumlCommunicator::UINT:
+                return ncclUint32;
+            case MLCommon::cumlCommunicator::INT64:
+                return ncclInt64;
+            case MLCommon::cumlCommunicator::UINT64:
+                return ncclUint64;
+            case MLCommon::cumlCommunicator::FLOAT:
+                return ncclFloat;
             case MLCommon::cumlCommunicator::DOUBLE:
                 return ncclDouble;
         }
     }
 
-    MPI_Op getNCCLOp( const cumlMPICommunicator_impl::op_t op )
+    ncclRedOp_t getNCCLOp( const cumlMPICommunicator_impl::op_t op )
     {
         switch ( op )
         {
             case MLCommon::cumlCommunicator::SUM:
                 return ncclSum;
+            case MLCommon::cumlCommunicator::PROD:
+                return ncclProd;
+            case MLCommon::cumlCommunicator::MIN:
+                return ncclMin;
+            case MLCommon::cumlCommunicator::MAX:
+                return ncclMax;
         }
     }
 #endif
@@ -93,11 +153,23 @@ cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm)
     MPI_CHECK( MPI_Comm_size( _mpi_comm, &_size ) );
     MPI_CHECK( MPI_Comm_rank( _mpi_comm, &_rank ) );
 #ifdef HAVE_NCCL
-    //TODO: Add NCCL comms initilization and test NCCL
+    //get NCCL unique ID at rank 0 and broadcast it to all others
+    ncclUniqueId id;
+    if ( 0 == _rank ) NCCL_CHECK(ncclGetUniqueId(&id));
+    MPI_CHECK(MPI_Bcast((void *)&id, sizeof(id), MPI_BYTE, 0, _mpi_comm));
+
+    //initializing NCCL
+    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, id, _rank));
 #endif
 }
 
-cumlMPICommunicator_impl::~cumlMPICommunicator_impl() {}
+cumlMPICommunicator_impl::~cumlMPICommunicator_impl()
+{
+#ifdef HAVE_NCCL
+    //finalizing NCCL
+    NCCL_CHECK_NO_THROW( ncclCommDestroy(_nccl_comm) );
+#endif
+}
 
 int cumlMPICommunicator_impl::getSize() const
 {
@@ -128,7 +200,7 @@ void cumlMPICommunicator_impl::isend(const void *buf, std::size_t size, int dest
         req_id = *it;
         _free_requests.erase(it);
     }
-    MPI_CHECK( MPI_Isend(buf, size, MPI_CHAR, dest, tag, _mpi_comm, &mpi_req) );
+    MPI_CHECK( MPI_Isend(buf, size, MPI_BYTE, dest, tag, _mpi_comm, &mpi_req) );
     _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
     *request = req_id;
 }
@@ -147,7 +219,7 @@ void cumlMPICommunicator_impl::irecv(void *buf, std::size_t size, int source, in
         req_id = *it;
         _free_requests.erase(it);
     }
-    MPI_CHECK( MPI_Irecv(buf, size, MPI_CHAR, source, tag, _mpi_comm, &mpi_req) );
+    MPI_CHECK( MPI_Irecv(buf, size, MPI_BYTE, source, tag, _mpi_comm, &mpi_req) );
     _requests_in_flight.insert( std::make_pair( req_id, mpi_req ) );
     *request = req_id;
 }

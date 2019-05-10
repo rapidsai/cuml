@@ -20,6 +20,16 @@
 #include <cuML_comms.hpp>
 #include <sandbox/test.hpp>
 
+#ifndef CUDA_RT_CALL
+#define CUDA_RT_CALL( call )                                                                       \
+{                                                                                                  \
+    cudaError_t cudaStatus = call;                                                                 \
+    if ( cudaSuccess != cudaStatus )                                                               \
+        fprintf(stderr, "ERROR: CUDA RT call \"%s\" in line %d of file %s failed with %s (%d).\n", \
+                        #call, __LINE__, __FILE__, cudaGetErrorString(cudaStatus), cudaStatus);    \
+}
+#endif //CUDA_RT_CALL
+
 #define MPI_CALL(call)                                                                \
     {                                                                                 \
         int mpi_status = call;                                                        \
@@ -44,6 +54,22 @@
 int main(int argc, char * argv[])
 {
     MPI_CALL(MPI_Init(&argc, &argv));
+    int rank = -1;
+    MPI_CALL(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
+    
+    int local_rank = -1;
+    {
+        MPI_Comm local_comm;
+        MPI_CALL(MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, rank, MPI_INFO_NULL,
+                                     &local_comm));
+
+        MPI_CALL(MPI_Comm_rank(local_comm, &local_rank));
+
+        MPI_CALL(MPI_Comm_free(&local_comm));
+    }
+
+    CUDA_RT_CALL(cudaSetDevice(local_rank));
+    CUDA_RT_CALL(cudaFree(0));
 
     MPI_Comm cuml_mpi_comm;
     MPI_CALL(MPI_Comm_dup(MPI_COMM_WORLD, &cuml_mpi_comm));

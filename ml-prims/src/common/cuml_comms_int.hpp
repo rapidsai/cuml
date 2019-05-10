@@ -41,11 +41,11 @@ class cumlCommunicator_iface;
 class cumlCommunicator {
 public:
     typedef unsigned int request_t;
-    enum datatype_t { DOUBLE };
-    enum op_t { SUM };
+    enum datatype_t { CHAR, UINT8, INT, UINT, INT64, UINT64, FLOAT, DOUBLE };
+    enum op_t { SUM, PROD, MIN, MAX };
 
     template<typename T>
-    datatype_t getDataType();
+    datatype_t getDataType() const;
 
     cumlCommunicator() =delete;
     cumlCommunicator(std::unique_ptr<cumlCommunicator_iface> impl);
