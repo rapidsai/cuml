@@ -13,13 +13,13 @@ from cuml.ts.stationarity import stationarity
 
 def test_arima():
 
-    num_samples = 1000
+    num_samples = 100
     xs = np.linspace(0, 1, num_samples)
     np.random.seed(12)
     noise = np.random.normal(scale=0.1, size=num_samples)
     ys = noise + 0.5*xs
 
-    num_batches = 1000
+    num_batches = 5
     # ys_df = pd.DataFrame([ys for i in range(num_batches)]).transpose()
     # ys_df = np.reshape
     ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
@@ -67,11 +67,11 @@ def test_gradient():
     np.random.seed(12)
     noise = np.random.normal(scale=0.1, size=num_samples)
     ys = noise + 0.5*xs
-    for num_batches in range(1,4):
+    for num_batches in range(1, 5):
         ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
-        order = (0, 1, 1)
+        order = (1, 1, 1)
         mu = 0.0
-        arparams = np.array([])
+        arparams = np.array([-0.01])
         maparams = np.array([-1.0])
         x = np.r_[mu, arparams, maparams]
         x = np.tile(x, num_batches)
@@ -80,16 +80,15 @@ def test_gradient():
 
         p, d, q = order
         num_parameters = 1 + p + q
-        f = batched_arima.BatchedARIMAModel.ll_f(num_batches, num_parameters, order, ys_df, x)
-        
-        g = batched_arima.BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, ys_df, x)
+        gpu = True
+        g = batched_arima.BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, ys_df, x, gpu=gpu)
         
         grad_fd = np.zeros(len(x))
         h = 1e-8
         for i in range(len(x)):
-            def fx(xs):
+            def fx(xp):
                 return batched_arima.BatchedARIMAModel.ll_f(num_batches, num_parameters, order,
-                                                            ys_df, xs).sum()
+                                                            ys_df, xp, gpu=gpu).sum()
 
             xph = np.copy(x)
             xmh = np.copy(x)
@@ -99,7 +98,7 @@ def test_gradient():
             f_mh = fx(xmh)
             grad_fd[i] = (f_ph-f_mh)/(2*h)
 
-
+        print("g={}, g_ref={}".format(g, grad_fd))
         np.testing.assert_array_equal(g, grad_fd)
 
 
@@ -146,9 +145,9 @@ def test_against_statsmodels(plot=True):
     ys = noise + 0.5*xs
     num_batches = 2
     ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
-    order = (0, 1, 1)
+    order = (1, 1, 1)
     mu = 0.0
-    arparams = np.array([])
+    arparams = np.array([-0.01])
     maparams = np.array([-1.0])
     # b_model = batched_arima.BatchedARIMAModel(num_batches*[order], np.tile(mu, num_batches),
     #                                           num_batches*[arparams],
