@@ -67,7 +67,7 @@ logger "Build libcuml..."
 mkdir -p $WORKSPACE/cpp/build
 cd $WORKSPACE/cpp/build
 logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH -DBUILD_PRIM_TESTS=OFF ..
 
 logger "Clean up make..."
 make clean
@@ -104,7 +104,9 @@ pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 ################################################################################
 
 logger "Build ml-prims tests..."
-cd $WORKSPACE/cpp/build
+mkdir -p $WORKSPACE/cpp/build_prims
+cd $WORKSPACE/cpp/build_prims
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a -DLAPACK_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH -DBUILD_CUML_CPP_LIBRARY=OFF ..
 
 logger "Clean up make..."
 make clean
@@ -113,4 +115,4 @@ make -j${PARALLEL_LEVEL} prims_test
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/ml-prims/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./test/prims_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./prims_test
