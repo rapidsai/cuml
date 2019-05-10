@@ -47,17 +47,20 @@ void runTsne(	const Type * __restrict__ X,
 
 
 	// Allocate distances
-	Type *distances;	cuda_malloc(distances, SIZE);
+	float *distances;	cuda_malloc(distances, SIZE);
 	long *indices;		cuda_malloc(indices, SIZE);
+
 	// Use FAISS for nearest neighbors [returns squared norm]
 	// Divide by max(abs(D)) to not cause exp(D) to explode
-	getDistances(X, n, p, indices, distances, n_neighbors, stream);
+	Distances_::getDistances(X, n, p, indices, distances, n_neighbors, SIZE, stream);
 
 
 	// Allocate Pij
 	float *Pij;			cuda_malloc(Pij, SIZE);
 	// Search Perplexity
-	searchPerplexity(Pij, distances, perplexity, perplexity_epsilon, n, n_neighbors, SIZE, stream);
+	Perplexity_Search_::searchPerplexity(Pij, distances, perplexity, 
+		perplexity_epsilon, n, n_neighbors, SIZE, stream);
+	
 	// Free distances
 	cuda_free(indices);
 	cuda_free(distances);

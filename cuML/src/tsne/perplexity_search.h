@@ -1,13 +1,8 @@
 
 using namespace ML;
-#include "cuda_utils.h"
-#include <cuda_runtime.h>
+#include "utils.h"
 #include <float.h>
 #include <limits.h>
-#include "utils.h"
-
-#include <thrust/device_ptr.h>
-#include <thrust/reduce.h>
 
 #pragma once
 
@@ -29,9 +24,9 @@ void computePijKernel(	volatile float * __restrict__ Pij,
     const float dist = distances[TID];
 
     if (j == 0 && dist == 0f)
-    	Pij[TID] = 0f;
+    	Pij[TID] = 0.0f;
     else
-    	Pij[TID] = MLCommon::myExp(-betas[i] * dist);
+    	Pij[TID] = (-betas[i] * dist);
 }
 
 
@@ -58,9 +53,9 @@ void perplexitySearchKernel(volatile float * __restrict__ betas,
     float min_beta = lower_bound[i];
     float max_beta = upper_bound[i];
 
-    const float perplexity = (neg_ent / sum_P) + MLCommon::myLog(sum_P);
+    const float perplexity = (neg_ent / sum_P) + log(sum_P);
     const float perplexity_diff = perplexity - log_perplexity_target;
-    const bool is_found = (perplexity_diff < epsilon && - perplexity_diff < epsilon);
+    const bool is_found = ((perplexity_diff < epsilon) && (-perplexity_diff < epsilon));
 
 
     if (!is_found) {
@@ -87,11 +82,27 @@ void perplexitySearchKernel(volatile float * __restrict__ betas,
 
 
 
-#include "stats/sum.h"
+// If val = x*log(x) == inf return 0 else val
+// Let function be compiled first so access in future faster
+static void xlogx(float *entropy, float *Pij, int SIZE, cudaStream_t stream) {
+	LinAlg::unaryOp(entropy, Pij, SIZE,
+					[] __device__(float x) {
+						if (x <= 0) return 0;
+						return x * log(x);
+						// No need to check isinf(x)
+						// since log(x) bounded approx -50, 50.
+					}, 
+					stream);
+}
+
+
+
+namespace Perplexity_Search_ {
+
 //
 void searchPerplexity(	const float * __restrict__ Pij,
 						const float * __restrict__ distances,
-						const float perplexity_target,
+						const float perplexity_target, // desired perplexity
 						const float epsilon,
 						const int n,
 						const int n_neighbors,
@@ -99,7 +110,7 @@ void searchPerplexity(	const float * __restrict__ Pij,
 						cudaStream_t stream)
 {	
 	assert(perplexity_target > 0);
-	const float log_perplexity_target = MLCommon::myLog(perplexity_target);
+	const float log_perplexity_target = log(perplexity_target);
 
 	// Allocate memory
 	float *betas;		cuda_calloc(betas, n, 1.0f);
@@ -110,14 +121,13 @@ void searchPerplexity(	const float * __restrict__ Pij,
 
 	// Work out blocksizes
     const int BlockSize1 = 1024;
-    const int NBlocks1 = round_up(SIZE, BlockSize1);
+    const int NBlocks1 = ceildiv(SIZE, BlockSize1);
 
     const int BlockSize2 = 128;
-    const int NBlocks2 = round_up(n, BlockSize2);
+    const int NBlocks2 = ceildiv(n, BlockSize2);
 
 
     bool all_found = 0;
-    int iter = 0;
     float *row_sumP;	cuda_malloc(row_sumP, n);
     float *neg_entropy;	cuda_malloc(neg_entropy, n);
 
@@ -129,60 +139,67 @@ void searchPerplexity(	const float * __restrict__ Pij,
 
 
     // Find best kernel bandwidth for each row
+    int iter = 0;
     while (!all_found && iter < 200) {
 
     	// Get Gaussian Kernel for each row
-    	computePijKernel<<<NBlocks1, BlockSize1>>>(Pij, distances, betas, n, n_neighbors, SIZE);
-    	CUDA_CHECK(cudaDeviceSynchronize());
+    	computePijKernel<<<NBlocks1, BlockSize1>>>(
+    		Pij, distances, betas, n, n_neighbors, SIZE);
+    	cuda_synchronize();
 
     	// Get entropy for each row
     	// TODO check if ROWSUM works by swapping col,row to row,col
-    	sum(row_sumP, Pij, n, n_neighbors, false, stream);
+    	Utils_::row_sum(row_sumP, Pij, n, n_neighbors, stream);
 
 
     	// If val = x*log(x) == inf return 0 else val
-    	LinAlg::unaryOp(entropy, Pij, SIZE,
-						[] __device__(Type x) {
-							const float val = x * MLCommon::myLog(x);
- 							return (val != val || isinf(val)) ? 0 : val;
-						}, 
-						stream);
+    	xlogx(entropy, Pij, SIZE, stream);
 
 
-    	// -1 * Row sum(entroy)
-    	sum(neg_entropy, entropy, n, n_neighbors, false, stream);
-    	LinAlg::unaryOp(neg_entropy, neg_entropy, n,
-						[] __device__(Type x) { return -x; }, stream);
+    	// -1 * Row_sum(entropy)
+    	Utils_::row_sum(neg_entropy, entropy, n, n_neighbors, stream);
+    	LinAlg::scalarMultiply(neg_entropy, neg_entropy, -1.0f, n, stream);
 
 
     	// Search Perplexity
     	perplexitySearchKernel<<<NBlocks2, BlockSize2>>>(
     		betas, lower_bound, upper_bound,
     		found, neg_entropy, row_sumP, log_perplexity_target, epsilon, n);
-    	CUDA_CHECK(cudaDeviceSynchronize());
+    	cuda_synchronize();
 
 
     	// Check if searching has been completed
-    	all_found = *(thrust::min_element(thrust::cuda::par.on(stream), found_start, found_end));
-
+    	all_found = Utils_::min_array(found_begin, found_end, stream);
 
     	iter++;
     }
 
-    cuda_free(neg_entropy);
-
-
-    // Divide Pij by row_sumP row wise
-	LinAlg::matrixVectorOp(Pij, Pij, row_sumP, n_neighbors, n, false, 0,
-							[] __device__(Type mat, Type b) { return mat / b; }, stream);
-
 
     // Free all allocations
-    cuda_free(row_sumP);
+    cuda_free(neg_entropy);
     cuda_free(betas);
     cuda_free(lower_bound);
     cuda_free(upper_bound);
     cuda_free(entropy);
     cuda_free(found);
+
+
+    // Pij / row_sumP.reshape(-1,1)
+    // NOTICE since division slower, perform 1/row_sumP first
+    LinAlg::unaryOp(row_sumP, row_sumP, n, 
+    				[] __device__(float x) {
+    					if (x == 0) return 0.0f;
+    					return 1.0f/x;
+    				},
+    				stream);
+
+	LinAlg::matrixVectorOp(Pij, Pij, row_sumP, n_neighbors, n, false, 0,
+							[] __device__(float mat, float b) { return mat*b; },
+							stream);
+    // Last free
+    cuda_free(row_sumP);
 }
 
+
+// end namespace
+}

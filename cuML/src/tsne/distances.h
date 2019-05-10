@@ -1,36 +1,26 @@
 
 // From UMAP/knn_graph/algo.h
 
-#include <iostream>
-#include <cuda_utils.h>
+using namespace ML;
 #include "utils.h"
 
 #include "knn/knn.h"
 #include "linalg/eltwise.h"
 
 #pragma once
-using namespace ML;
-#include <math.h>
 
 
-// TODO convert to CUDA kernel to find max(abs(D))
-template <typename Type>
-Type maxAbs(const Type * __restrict__ x, const int p) {
-	register Type max = 0, temp;
-	for (register int i = 0; i < p; i++)
-		if ( (temp = fabs(x[i])) > max)
-			max = temp;
-	return max;
-}
+namespace Distances_ {
 
-
+// FAISS returns d^2 not d.
 template <typename Type>
 void getDistances(	const Type * __restrict__ X,
 					const int n,
 					const int p,
 					long *indices,
-					Type *distances,
+					float *distances,
 					const int n_neighbors,
+					const int SIZE,
 					cudaStream_t stream)
 {
 	kNNParams *params = new kNNParams[1];
@@ -40,29 +30,28 @@ void getDistances(	const Type * __restrict__ X,
 
 	knn->fit(params, 1);
 	knn->search(X, n, indices, distances, n_neighbors);
-	// No need to postprocess distances since it's squared!
+	// No need to postprocess distances since it's already L2 squared!
 
 
 	// Now D / max(abs(D)) to allow exp(D) to not explode
-	//// TODO convert to GPU code
-	Type *max = (Type*) malloc(sizeof(Type) * n);
+	// Max(abs(D)) == max(min(D), max(D))
+	thrust::device_ptr<const float> begin = thrust::device_pointer_cast(distances);
+    thrust::device_ptr<const float> end = begin + SIZE;
 
-	#pragma omp parallel for if (n > 100) default(none)
-	for (int i = 0; i < n * n_neighbors; i++)
-		max[i] = maxAbs(distances + i*n, p);
+    float maxNorm = MAX(Utils_::max_array(begin, end, stream), 
+    					Utils_::min_array(begin, end, stream));
 
-	Type maxNorm = 0;
-	for (int i = 0; i < n; i++)
-		if (max[i] > maxNorm) maxNorm = max[i];
-	free(max);
-	////
 
 	// Divide distances inplace by max
-	Type div_maxNorm = 1.0f/maxNorm; // Mult faster than div
-	scalarMultiply(distances, distances, div_maxNorm, n*n_neighbors, stream);
+	float div_maxNorm = 1.0f/maxNorm; // Mult faster than div
+	LinAlg::scalarMultiply(distances, distances, div_maxNorm, SIZE, stream);
 
 
 	// Remove temp variables
 	delete knn;
 	delete params;
+}
+
+
+// end namespace
 }
