@@ -45,8 +45,6 @@ template <typename value_t>
 void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
     data.resetArray(stream, batchSize+1);
 
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
-
     int m = data.N;
     int n = min(data.N - startVertexId, batchSize);
     int k = data.D;
@@ -66,7 +64,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVe
     if (workspaceSize != 0)
         workspace.resize(workspaceSize, stream);
 
-    MLCommon::Distance::epsilon_neighborhood<distance_type, value_t, OutputTile_t>
+    MLCommon::Distance::epsilon_neighborhood<distance_type, value_t>
         (data.x, data.x+startVertexId*k, data.adj, m, n, k, eps2,
          (void*)workspace.data(), workspaceSize, stream,
          [vd, n] __device__ (int global_c_idx, bool in_neigh) {
