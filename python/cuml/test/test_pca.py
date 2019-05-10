@@ -26,16 +26,19 @@ from sklearn.datasets.samples_generator import make_blobs
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_fit(datatype, input_type, run_stress, run_quality):
+@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+                                  pytest.param('blobs',
+                                               marks=pytest.mark.stress),
+                                  pytest.param('iris',
+                                               marks=pytest.mark.quality)])
+def test_pca_fit(datatype, input_type, name):
 
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
+    if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
-        X, y = make_blobs(n_samples=n_samples*50,
-                          n_features=n_feats, random_state=0)
+        X, y = make_blobs(n_samples=500000,
+                          n_features=1000, random_state=0)
 
-    elif run_quality:
+    elif name == 'iris':
         iris = datasets.load_iris()
         X = iris.data
 
@@ -73,15 +76,18 @@ def test_pca_fit(datatype, input_type, run_stress, run_quality):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+                                  pytest.param('blobs',
+                                               marks=pytest.mark.stress),
+                                  pytest.param('iris',
+                                               marks=pytest.mark.quality)])
 def test_pca_fit_transform(datatype, input_type,
-                           run_stress, run_quality):
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
-        X, y = make_blobs(n_samples=n_samples*50,
-                          n_features=n_feats, random_state=0)
+                           name):
+    if name == 'blobs':
+        X, y = make_blobs(n_samples=500000,
+                          n_features=1000, random_state=0)
 
-    elif run_quality:
+    elif name == 'iris':
         iris = datasets.load_iris()
         X = iris.data
 
@@ -108,16 +114,19 @@ def test_pca_fit_transform(datatype, input_type,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+                                  pytest.param('blobs',
+                                               marks=pytest.mark.stress),
+                                  pytest.param('iris',
+                                               marks=pytest.mark.quality)])
 def test_pca_inverse_transform(datatype, input_type,
-                               run_stress, run_quality):
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
+                               name):
+    if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
-        X, y = make_blobs(n_samples=n_samples*50,
-                          n_features=n_feats, random_state=0)
+        X, y = make_blobs(n_samples=500000,
+                          n_features=1000, random_state=0)
 
-    elif run_quality:
+    elif name == 'iris':
         iris = datasets.load_iris()
         X = iris.data
 
