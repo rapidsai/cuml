@@ -187,9 +187,7 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
                                bool initP_with_kalman_iterations
                                ) {
 
-  nvtxNameOsThread(0, "MAIN");
   nvtxRangePush(__FUNCTION__);
-  nvtxMark("batched_kalman_cpu");
 
   const size_t num_batches = h_Zb.size();
   
@@ -513,7 +511,7 @@ void batched_kalman_filter(double* h_ys,
   // xfer from host to device
   double* d_ys;
   allocate(d_ys, nobs*num_batches);
-  updateDevice(d_ys, h_ys, nobs*num_batches);
+  updateDevice(d_ys, h_ys, nobs*num_batches, 0);
 
   auto memory_pool = std::make_shared<BatchedMatrixMemoryPool>(num_batches);
 
@@ -532,7 +530,7 @@ void batched_kalman_filter(double* h_ys,
         matrix_copy[i + bi*r*r] = h_Tb[bi][i];
       }
     }
-    updateDevice(Tb[0],matrix_copy.data(),r*r*num_batches);
+    updateDevice(Tb[0],matrix_copy.data(),r*r*num_batches, 0);
 
     if(!initP_with_kalman_iterations) {
       for(int bi=0;bi<num_batches;bi++) {
@@ -540,7 +538,7 @@ void batched_kalman_filter(double* h_ys,
           matrix_copy[i + bi*r*r] = h_P0b[bi][i];
         }
       }
-      updateDevice(P0[0],matrix_copy.data(),r*r*num_batches);
+      updateDevice(P0[0],matrix_copy.data(),r*r*num_batches, 0);
     }
 
     //Zb
@@ -549,7 +547,7 @@ void batched_kalman_filter(double* h_ys,
         matrix_copy[i + bi*r] = h_Zb[bi][i];
       }
     }
-    updateDevice(Zb[0],matrix_copy.data(),r*num_batches);
+    updateDevice(Zb[0],matrix_copy.data(),r*num_batches, 0);
 
     // Rb
     for(int bi=0;bi<num_batches;bi++) {
@@ -557,7 +555,7 @@ void batched_kalman_filter(double* h_ys,
         matrix_copy[i + bi*r] = h_Rb[bi][i];
       }
     }
-    updateDevice(Rb[0],matrix_copy.data(),r*num_batches);
+    updateDevice(Rb[0],matrix_copy.data(),r*num_batches, 0);
   }
 
 
@@ -579,10 +577,10 @@ void batched_kalman_filter(double* h_ys,
   ////////////////////////////////////////////////////////////
   // xfer results from GPU
   h_loglike_b.resize(num_batches);
-  updateHost(h_loglike_b.data(), d_loglike, num_batches);
+  updateHost(h_loglike_b.data(), d_loglike, num_batches, 0);
 
   vector<double> h_vs(ys_len*num_batches);
-  updateHost(h_vs.data(), d_vs, ys_len*num_batches);
+  updateHost(h_vs.data(), d_vs, ys_len*num_batches, 0);
 
   h_vs_b.resize(num_batches);
   for(int i=0;i<num_batches;i++) {
