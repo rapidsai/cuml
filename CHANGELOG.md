@@ -1,7 +1,7 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
-
+- PR #504: Contingency matrix ml-prim
 
 ## Improvements
 
