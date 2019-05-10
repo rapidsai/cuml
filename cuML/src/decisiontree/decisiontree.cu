@@ -405,7 +405,7 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 		std::iota(this->feature_selector.begin(), this->feature_selector.end(), 0);
 	}
 
-	std::random_shuffle(this->feature_selector.begin(), this->feature_selector.end());
+	//std::random_shuffle(this->feature_selector.begin(), this->feature_selector.end());
 	this->feature_selector.resize((int) (colper * this->dinfo.Ncols));
 
 	cudaDeviceProp prop;
@@ -414,10 +414,10 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 
 	if (this->split_algo == SPLIT_ALGO::HIST) {
 		this->shmem_used += 2 * sizeof(T) * ncols;
-		this->shmem_used += this->nbins * sizeof(T) * ncols * 2;
+		this->shmem_used += this->nbins * sizeof(T) * ncols * 3;
 		this->shmem_used += this->nbins * sizeof(int) * ncols;
 	} else {
-		this->shmem_used += this->nbins * sizeof(T) * ncols * 2;
+		this->shmem_used += this->nbins * sizeof(T) * ncols * 3;
 		this->shmem_used += this->nbins * sizeof(int) * ncols;
 	}
 	ASSERT(this->shmem_used <= this->max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", this->max_shared_mem, this->shmem_used);
@@ -458,8 +458,8 @@ TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper,
 	condition = condition || (n_sampled_rows < this->min_rows_per_node); // Do not split a node with less than min_rows_per_node samples
 
 	if (!condition)  {
-		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
-		condition = condition || (gain == 0.0f);
+		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, split_info, depth);  //ques and gain are output here		
+		condition = condition || (gain == 0.0f);		
 	}
 
 	if (this->treedepth != -1)
@@ -509,7 +509,7 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 
 	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
 	best_split_all_cols_regressor(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
-				      this->tempmem[0], &split_info[0], ques, gain, this->split_algo);
+				      this->tempmem[0], split_info, ques, gain, this->split_algo);
 	
 }
 
