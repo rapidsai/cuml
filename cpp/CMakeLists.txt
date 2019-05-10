@@ -65,10 +65,12 @@ set(GPU_ARCHS "" CACHE STRING
 set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
   "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
 
-# Bulding cuml_test or cuml_mg_test executables forces building libcuml++
-if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS)
-  set(BUILD_CUML_CPP_LIBRARY ON)
-endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS)
+# Disabling libcuml++ disables buidling algorithm tests and examples
+if(NOT BUILD_CUML_CPP_LIBRARY)
+  set(BUILD_CUML_TESTS OFF)
+  set(BUILD_CUML_MG_TESTS OFF)
+  set(BUILD_CUML_EXAMPLES OFF)
+endif(NOT BUILD_CUML_CPP_LIBRARY)
 
 
 ###################################################################################################
