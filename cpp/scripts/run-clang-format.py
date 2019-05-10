@@ -33,6 +33,7 @@ def listAllSources(fileRegexStr, srcdir, bindir, inplace):
                 allFiles.append((src, dst))
     return allFiles
 
+
 def parseArgs():
     argparser = argparse.ArgumentParser("Run clang-format on a project")
     argparser.add_argument("-bindir", type=str, default=".",
@@ -49,12 +50,14 @@ def parseArgs():
                            help="List of dirs where to find sources")
     return argparser.parse_args()
 
+
 def isNewer(src, dst):
     if not os.path.exists(dst):
         return True
     a = os.path.getmtime(src)
     b = os.path.getmtime(dst)
     return a >= b
+
 
 def runClangFormat(src, dst, exe):
     # run the clang format command itself
@@ -66,17 +69,20 @@ def runClangFormat(src, dst, exe):
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
-            print("Unable to run clang-format! Please configure your environment.")
+            print("Unable to run clang-format!"
+                  " Please configure your environment.")
             raise
     # run the diff to check if there are any formatting issues
     cmd = "diff -q %s %s >/dev/null" % (src, dst)
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print("clang-format failed! Run 'diff %s %s' to see the formatting issues!" %
+        print("clang-format failed!"
+              " Run 'diff %s %s' to see the formatting issues!" %
               (src, dst))
         return False
     return True
+
 
 def main():
     args = parseArgs()
@@ -97,6 +103,7 @@ def main():
               (sys.argv[0], args.srcdir, args.exe, " ".join(args.dirs)))
         sys.exit(-1)
     return
+
 
 if __name__ == "__main__":
     main()
