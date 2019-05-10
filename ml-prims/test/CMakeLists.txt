@@ -64,6 +64,7 @@ add_executable(mlcommon_test
   power.cu
   reduce.cu
   reduce_rows_by_key.cu
+  reverse.cu
   rng.cu
   rng_int.cu
   rsvd.cu
