@@ -41,11 +41,11 @@ from cuml.test.utils import array_equal
                                                     )])
 @pytest.mark.parametrize('k', [pytest.param(3,
                                             marks=pytest.mark.unit),
-                                       pytest.param(30,
-                                                    marks=pytest.mark.stress),
-                                       pytest.param(50,
-                                                    marks=pytest.mark.quality
-                                                    )])
+                               pytest.param(30,
+                                            marks=pytest.mark.stress),
+                               pytest.param(50,
+                                            marks=pytest.mark.quality
+                                            )])
 def test_knn(input_type, should_downcast, nrows, num_feats, k):
     n_samples = nrows
     n_feats = num_feats
