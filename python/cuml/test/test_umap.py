@@ -34,34 +34,45 @@ from sklearn.datasets.samples_generator import make_blobs
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
 
 
-def test_blobs_cluster():
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_feats', [pytest.param(10, marks=pytest.mark.unit),
+                                     pytest.param(1000,
+                                                  marks=pytest.mark.stress),
+                                     pytest.param(500,
+                                                  marks=pytest.mark.quality)])
+def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
-        n_samples=500, n_features=10, centers=5)
+        n_samples=nrows, n_features=n_feats, centers=5)
     embedding = UMAP_cuml(verbose=True).fit_transform(data)
     score = adjusted_rand_score(labels,
                                 KMeans(5).fit_predict(embedding))
-    assert score == 1.0
+    assert score > 0.98
 
 
-def test_umap_fit_transform_score(run_stress, run_quality):
+@pytest.mark.parametrize('nrows', [pytest.param(100, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_feats', [pytest.param(10, marks=pytest.mark.unit),
+                                     pytest.param(1000,
+                                                  marks=pytest.mark.stress),
+                                     pytest.param(500,
+                                                  marks=pytest.mark.quality)])
+def test_umap_fit_transform_score(nrows, n_feats):
 
-    if run_stress:
-        n_samples = 500000
-        n_features = 1000
-
-    elif run_quality:
-        n_samples = 5000
-        n_features = 100
-
-    else:
-        n_samples = 70
-        n_features = 10
+    n_samples = nrows
+    n_features = n_feats
 
     data, labels = make_blobs(n_samples=n_samples, n_features=n_features,
                               centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.1)
-    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
+    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=False)
 
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
@@ -78,7 +89,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                          verbose=True).fit_transform(data, iris.target)
+                          verbose=False).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -89,7 +100,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target = iris.target.copy()
     target[25:75] = -1
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                          verbose=True).fit_transform(data, target)
+                          verbose=False).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -99,7 +110,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = UMAP_cuml(n_neighbors=10, min_dist=0.01,
-                          verbose=True).fit_transform(data)
+                          verbose=False).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -109,7 +120,7 @@ def test_umap_trustworthiness_on_iris():
 
 
 @pytest.mark.parametrize('name', dataset_names)
-def test_umap_fit_transform_trust(name, run_stress, run_quality):
+def test_umap_fit_transform_trust(name):
 
     if name == 'iris':
         iris = datasets.load_iris()
@@ -130,7 +141,7 @@ def test_umap_fit_transform_trust(name, run_stress, run_quality):
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01)
-    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=True)
+    cuml_model = UMAP_cuml(n_neighbors=10, min_dist=0.01, verbose=False)
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
 
@@ -140,20 +151,26 @@ def test_umap_fit_transform_trust(name, run_stress, run_quality):
     assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
 
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_feats', [pytest.param(10, marks=pytest.mark.unit),
+                                     pytest.param(1000,
+                                                  marks=pytest.mark.stress),
+                                     pytest.param(500,
+                                                  marks=pytest.mark.quality)])
 @pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_data_formats(input_type, should_downcast,
-                           run_stress, run_quality):
+                           nrows, n_feats):
 
     dtype = np.float32 if not should_downcast else np.float64
-    n_samples = 50000
-    n_feats = 50
-    if run_stress:
+    n_samples = nrows
+    n_feats = n_feats
+    if nrows > 1000:
         X, y = datasets.make_blobs(n_samples=n_samples*10,
-                                   n_features=n_feats, random_state=0)
-
-    elif run_quality:
-        X, y = datasets.make_blobs(n_samples=int(n_samples/10),
                                    n_features=n_feats, random_state=0)
     else:
         # For now, FAISS based nearest_neighbors only supports single precision
@@ -161,7 +178,7 @@ def test_umap_data_formats(input_type, should_downcast,
         X = digits["data"].astype(dtype)
 
     umap = UMAP_cuml(n_neighbors=3, n_components=2,
-                     should_downcast=should_downcast, verbose=True)
+                     should_downcast=should_downcast, verbose=False)
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame(
@@ -175,24 +192,25 @@ def test_umap_data_formats(input_type, should_downcast,
         assert type(embeds) == np.ndarray
 
 
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_feats', [pytest.param(10, marks=pytest.mark.unit),
+                                     pytest.param(1000,
+                                                  marks=pytest.mark.stress),
+                                     pytest.param(500,
+                                                  marks=pytest.mark.quality)])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_umap_downcast_fails(input_type, run_stress, run_quality):
-    n_samples = 50000
-    n_feats = 50
-    if run_stress:
-        X, y = datasets.make_blobs(n_samples=n_samples*10,
-                                   n_features=n_feats, random_state=0)
-
-    elif run_quality:
-        X, y = datasets.make_blobs(n_samples=int(n_samples/10),
-                                   n_features=n_feats, random_state=0)
-
-    else:
-        X = np.array([[1.0, 1.0], [50.0, 1.0], [51.0, 1.0]],
-                     dtype=np.float64)
+def test_umap_downcast_fails(input_type, nrows, n_feats):
+    n_samples = nrows
+    n_feats = n_feats
+    X, y = datasets.make_blobs(n_samples=n_samples,
+                               n_features=n_feats, random_state=0)
 
     # Test fit() fails with double precision when should_downcast set to False
-    umap = UMAP_cuml(should_downcast=False, verbose=True)
+    umap = UMAP_cuml(should_downcast=False, verbose=False)
 
     if input_type == 'dataframe':
         X = cudf.DataFrame.from_pandas(pd.DataFrame(X))
