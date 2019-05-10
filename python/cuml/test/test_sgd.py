@@ -12,19 +12,28 @@ import pandas as pd
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
+@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
+                                   pytest.param(500000,
+                                                marks=pytest.mark.stress),
+                                   pytest.param(5000,
+                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('n_feats', [pytest.param(5, marks=pytest.mark.unit),
+                                     pytest.param(1000,
+                                                  marks=pytest.mark.stress),
+                                     pytest.param(500,
+                                                  marks=pytest.mark.quality)])
 def test_svd(datatype, lrate, input_type, penalty,
-             loss, run_stress, run_quality):
-    n_samples = 10000
-    n_feats = 50
-    if run_stress:
-        train_rows = np.int32(n_samples*80)
-        X, y = make_blobs(n_samples=n_samples*50,
+             loss, nrows, n_feats):
+    n_samples = nrows
+    if n_samples > 5000:
+        train_rows = np.int32(n_samples*0.8)
+        X, y = make_blobs(n_samples=n_samples,
                           n_features=n_feats, random_state=0)
         X_test = np.array(X[train_rows:, 0:]).astype(datatype)
         X_train = np.array(X[0:train_rows, :]).astype(datatype)
         y_train = np.array(y[0:train_rows, ]).astype(datatype)
 
-    elif run_quality:
+    elif n_samples > 100:
         iris = datasets.load_iris()
         X = iris.data
         y = iris.target
