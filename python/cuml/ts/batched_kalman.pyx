@@ -40,6 +40,7 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
                     Z_b, # list of numpy arrays
                     R_b,
                     T_b,
+                    P0,
                     int r,
                     gpu=True,
                     initP_with_kalman_iterations=True):
@@ -60,7 +61,7 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
     cdef np.ndarray[double, ndim=2, mode="fortran"] Z_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] R_bi
     cdef np.ndarray[double, ndim=2, mode="fortran"] T_bi
-    cdef np.ndarray[double, ndim=2, mode="fortran"] P0
+    cdef np.ndarray[double, ndim=2, mode="fortran"] P0_bi
     cdef vector[double*] vec_Zb
     cdef vector[double*] vec_Rb
     cdef vector[double*] vec_Tb
@@ -74,14 +75,15 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
         Z_bi = Z_b[i]
         R_bi = R_b[i]
         T_bi = T_b[i]
-        
+        P0_bi = P0[i]
         vec_Zb.push_back(&Z_bi[0,0])
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
         if not initP_with_kalman_iterations:
-            invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
-            P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
-            vec_P0.push_back(&P0[0,0])
+            # invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+            # P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+            vec_P0.push_back(&P0_bi[0,0])
+            # print("P0=",P0[0,0], P0[0,1], P0[1,0], P0[1,1])
 
     if gpu:
         batched_kalman_filter(&y[0,0],

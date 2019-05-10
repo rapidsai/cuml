@@ -30,7 +30,7 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
   if(P_init_by_iteration) {
     // use multiple kalman iteration as covariance (P) initialization
     P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 0; i++) {
       MatrixT K = 1.0 / P(0, 0) * T * P * Z.transpose();
       MatrixT L = T - K * Z;
       P = T * P * L.transpose() + R * R.transpose();

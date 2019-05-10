@@ -59,7 +59,7 @@ class BatchedARIMAModel:
                 for (i, lli) in enumerate(llb)]
 
     @staticmethod
-    def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False):
+    def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gpu=True):
         """Computes batched loglikelihood given parameters stored in `x`."""
         p, d, q = order
         mu = np.zeros(num_batches)
@@ -77,14 +77,15 @@ class BatchedARIMAModel:
                                     maparams,
                                     y)
 
-        ll_b = BatchedARIMAModel.loglike(b_model)
+        ll_b = BatchedARIMAModel.loglike(b_model, gpu)
         if return_negative_sum:
             return -ll_b.sum()
         else:
             return ll_b
 
+    #TODO: Fix this for multi-(p,q) case
     @staticmethod
-    def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8):
+    def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True):
         """Computes fd-gradient of batched loglikelihood given parameters stored in
         `x`. Because batches are independent, it only compute the function for the
         single-batch number of parameters."""
@@ -102,7 +103,7 @@ class BatchedARIMAModel:
 
         grad = np.zeros(len(x))
 
-        assert(len(x) / num_parameters == float(num_batches))
+        assert (len(x) / num_parameters) == float(num_batches)
         for i in range(num_parameters):
             fd[i] = h
 
@@ -112,15 +113,15 @@ class BatchedARIMAModel:
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph)
-            ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph)
+            ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu)
+            ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu)
 
             grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
-            
+
             if num_batches == 1:
                 grad[i] = grad_i_b
             else:
-                assert(len(grad[i::num_parameters]) == len(grad_i_b))
+                assert len(grad[i::num_parameters]) == len(grad_i_b)
                 # Distribute the result to all batches
                 grad[i::num_parameters] = grad_i_b
 
@@ -132,7 +133,8 @@ class BatchedARIMAModel:
             order: Tuple[int, int, int],
             mu0: float,
             ar_params0: np.ndarray,
-            ma_params0: np.ndarray):
+            ma_params0: np.ndarray,
+            opt_disp=-1):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
         with the given initial parameters. `y` is (num_samples, num_batches)
@@ -152,12 +154,12 @@ class BatchedARIMAModel:
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x)
+            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h=1e-10)
 
         x0 = np.r_[mu0, ar_params0, ma_params0]
         x0 = np.tile(x0, num_batches)
 
-        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf, approx_grad=False, iprint=-1)
+        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf, approx_grad=False, iprint=opt_disp)
 
         mu = np.zeros(num_batches)
         ar = []
@@ -205,18 +207,30 @@ class BatchedARIMAModel:
                                        Zb, Rb, Tb,
                                        # Z_dense, R_dense, T_dense,
                                        r,
-                                       gpu,initP_kalman_iterations)
+                                       gpu, initP_kalman_iterations)
         elif d == 1:
             
             y_diff_centered = BatchedARIMAModel.diffAndCenter(model.y, model.num_batches,
                                                               model.mu, model.ar_params)
 
+            P0 = []
+            for i in range(model.num_batches):
+                Z_bi = Zb[i]
+                R_bi = Rb[i]
+                T_bi = Tb[i]
+                
+                invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+                _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+                P0.append(_P0)
+                # print("P0[{}]={}".format(i, P0))
+
             ll_b, vs = batched_kfilter(y_diff_centered, # numpy
                                        # y_diff_centered.values, # pandas
                                        Zb, Rb, Tb,
+                                       P0,
                                        # Z_dense, R_dense, T_dense,
                                        r,
-                                       gpu,initP_kalman_iterations)
+                                       gpu, initP_kalman_iterations)
         else:
             raise NotImplementedError("ARIMA only support d==0,1")
 
