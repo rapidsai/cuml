@@ -239,7 +239,9 @@ set(CUML_LINK_LIBRARIES
   ${CUDA_nvgraph_LIBRARY}
   ${ZLIB_LIBRARIES}
   gpufaisslib
-  faisslib)
+  faisslib
+  "/usr/local/cuda-10.1/targets/x86_64-linux/lib/libnvToolsExt.so"
+  )
 
 if(OPENMP_FOUND)
   set(CUML_LINK_LIBRARIES ${CUML_LINK_LIBRARIES} OpenMP::OpenMP_CXX pthread)

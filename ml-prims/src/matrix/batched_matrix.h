@@ -290,7 +290,7 @@ BatchedMatrix b_aA_op_B(const BatchedMatrix &A, const BatchedMatrix &B,
 
   BatchedMatrix C(m, n, num_batches, A.pool());
 
-  LinAlg::binaryOp(C[0], A[0], B[0], m*n*num_batches, binary_op);
+  LinAlg::binaryOp(C[0], A[0], B[0], m*n*num_batches, binary_op, 0);
   
   return C;
 }
