@@ -31,15 +31,7 @@ namespace Algo {
 
 
 /**
- * Calculates both the vertex degree array and the epsilon neighborhood in a single kernel.
- *
- * Proposed API for this should be an epsilon neighborhood primitive that accepts a lambda and
- * executes the lambda with [n, acc, vertex].
- *
- * template<typename T, typename Lambda>
- * void epsilon_neighborhood(T *a, T *b, bool *adj, m, n, k, T eps,
- *      workspaceData, workspaceSize, fused_op, stream)
- *
+ * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
 template <typename value_t>
 void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
