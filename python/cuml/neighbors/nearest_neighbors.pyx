@@ -62,15 +62,17 @@ cdef extern from "knn/knn.h" namespace "ML":
 
 cdef class NearestNeighbors:
     """
-    NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
-    datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
-    each and every point, and return the top K datapoints which have the smallest distance to it.
-    
-    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic chunking will be done
-    in to a Numpy Array in a future release), and fits a special data structure first to
-    approximate the distance calculations, allowing our querying times to be O(plogn)
-    and not the brute force O(np) [where p = no(features)]:
-    
+    NearestNeighbors is a unsupervised algorithm where if one wants to find the
+    "closest" datapoint(s) to new unseen data, one can calculate a suitable
+    "distance" between each and every point, and return the top K datapoints
+    which have the smallest distance to it.
+
+    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic
+    chunking will be done in to a Numpy Array in a future release), and fits a
+    special data structure first to approximate the distance calculations,
+    allowing our querying times to be O(plogn) and not the brute force O(np)
+    [where p = no(features)]:
+
     Examples
     ---------
     .. code-block:: python
@@ -95,7 +97,8 @@ cdef class NearestNeighbors:
 
       nn_float = NearestNeighbors()
       nn_float.fit(gdf_float)
-      distances,indices = nn_float.kneighbors(gdf_float,k=3) #get 3 nearest neighbors
+      # get 3 nearest neighbors
+      distances,indices = nn_float.kneighbors(gdf_float,k=3)
 
       print(indices)
       print(distances)
@@ -134,23 +137,24 @@ cdef class NearestNeighbors:
     Parameters
     ----------
     n_neighbors: int (default = 5)
-        The top K closest datapoints you want the algorithm to return. If this number is large,
-        then expect the algorithm to run slower.
+        The top K closest datapoints you want the algorithm to return.
+        If this number is large, then expect the algorithm to run slower.
     should_downcast : bool (default = False)
-        Currently only single precision is supported in the underlying undex. Setting this to
-        true will allow single-precision input arrays to be automatically downcasted to single
-        precision. Default = False.
-        
+        Currently only single precision is supported in the underlying undex.
+        Setting this to true will allow single-precision input arrays to be
+        automatically downcasted to single precision.
+
     Notes
     ------
-    NearestNeighbors is a generative model. This means the data X has to be stored in order
-    for inference to occur.
-    
+    NearestNeighbors is a generative model. This means the data X has to be
+    stored in order for inference to occur.
+
     **Applications of NearestNeighbors**
-    
-        Applications of NearestNeighbors include recommendation systems where content or colloborative
-        filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
-        used in data visualization and regression / classification tasks.
+
+        Applications of NearestNeighbors include recommendation systems where
+        content or colloborative filtering is used. Since NearestNeighbors is a
+        relatively simple generative model, it is also used in data
+        visualization and regression / classification tasks.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
@@ -158,7 +162,7 @@ cdef class NearestNeighbors:
     For additional docs, see `scikitlearn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
-    
+
     cpdef kNN *k
 
     cdef int num_gpus
@@ -179,16 +183,17 @@ cdef class NearestNeighbors:
 
     cpdef kNNParams *input
 
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
+    def __cinit__(self, n_neighbors=5, n_gpus=1, devices=None, verbose=False,
+                  should_downcast=True):
         """
         Construct the NearestNeighbors object for training and querying.
 
         Parameters
         ----------
-        should_downcast: Bool
-            Currently only single precision is supported in the underlying undex. Setting this to
-            true will allow single-precision input arrays to be automatically downcasted to single
-            precision. Default = False.
+        should_downcast: bool (default = False)
+            Currently only single precision is supported in the underlying
+            index. Setting this to true will allow single-precision input
+            arrays to be automatically downcasted to single precision.
         """
         self._verbose = verbose
         self.n_gpus = n_gpus
@@ -214,7 +219,6 @@ cdef class NearestNeighbors:
     def _get_gdf_as_matrix_ptr(self, gdf):
         return self._get_ctype_ptr(gdf.as_gpu_matrix())
 
-
     def _downcast(self, X):
 
         if isinstance(X, cudf.DataFrame):
@@ -223,17 +227,22 @@ cdef class NearestNeighbors:
             if dtype != np.float32:
                 if self._should_downcast:
 
-                    new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
-                    overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+                    new_cols = [(col, X._cols[col].astype(np.float32))
+                                for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])
+                                      for colname, colval in new_cols])
 
                     if overflowed > 0:
-                        raise Exception("Downcast to single-precision resulted in data loss.")
+                        raise Exception("Downcast to single-precision resulted"
+                                        "in data loss.")
 
                     X = cudf.DataFrame(new_cols)
 
                 else:
-                    raise Exception("Input is double precision. Use 'should_downcast=True' "
-                                    "if you'd like it to be automatically casted to single precision.")
+                    raise Exception("Input is double precision. Use"
+                                    " 'should_downcast=True' "
+                                    "if you'd like it to be automatically"
+                                    " casted to single precision.")
 
             X_m = numba_utils.row_matrix(X)
 
@@ -244,17 +253,19 @@ cdef class NearestNeighbors:
                 if self._should_downcast:
                     X = np.ascontiguousarray(X.astype(np.float32))
                     if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted in data loss.")
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
                 else:
-                    raise Exception("Input is double precision. Use 'should_downcast=True' "
-                                    "if you'd like it to be automatically casted to single precision.")
+                    raise Exception("Input is double precision. Use"
+                                    " 'should_downcast=True' "
+                                    "if you'd like it to be automatically"
+                                    " casted to single precision.")
 
             X_m = cuda.to_device(X)
         else:
             raise Exception("Received unsupported input type " % type(X))
 
         return X_m
-
 
     def fit(self, X):
         """
@@ -280,12 +291,15 @@ cdef class NearestNeighbors:
             if X.dtype != np.float32:
                 if self._should_downcast:
                     X = np.ascontiguousarray(X, np.float32)
-                    if len(X[X==np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted in data loss.")
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
                 else:
-                    raise Exception("Only single precision floating point is supported for this"
-                                    "algorithm. Use 'should_downcast=True' if you'd like it to "
-                                    "be automatically casted to single precision.")
+                    raise Exception("Only single precision floating point is"
+                                    " supported for this algorithm. Use "
+                                    "'should_downcast=True' if you'd like it "
+                                    "to be automatically casted to single "
+                                    "precision.")
 
             sys_devices = set([d.id for d in cuda.gpus])
 
@@ -300,7 +314,8 @@ cdef class NearestNeighbors:
                 n_gpus = min(self.n_gpus, len(sys_devices))
                 final_devices = list(sys_devices)[:n_gpus]
 
-            final_devices = np.ascontiguousarray(np.array(final_devices), np.int32)
+            final_devices = np.ascontiguousarray(np.array(final_devices),
+                                                 np.int32)
 
             X_ctype = X.ctypes.data
             dev_ptr = final_devices.ctypes.data
@@ -328,9 +343,9 @@ cdef class NearestNeighbors:
 
     def _fit_mg(self, n_dims, alloc_info):
         """
-        Fits a model using multiple GPUs. This method takes in a list of dict objects
-        representing the distribution of the underlying device pointers. The device
-        information can be extracted from the pointers.
+        Fits a model using multiple GPUs. This method takes in a list of dict
+        objects representing the distribution of the underlying device
+        pointers. The device information can be extracted from the pointers.
 
         :param n_dims
             the number of features for each vector
@@ -342,10 +357,10 @@ cdef class NearestNeighbors:
         if self.k != NULL:
             del self.k
 
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        self.k = new kNN(n_dims, verbose=self._verbose)
 
         del self.input
-        self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
+        self.input = <kNNParams*> malloc(len(alloc_info) * sizeof(kNNParams))
 
         cdef uintptr_t input_ptr
         for i in range(len(alloc_info)):
@@ -360,8 +375,7 @@ cdef class NearestNeighbors:
         self.k.fit( < kNNParams * > self.input,
                     < int > len(alloc_info))
 
-
-    def kneighbors(self, X, k = None):
+    def kneighbors(self, X, k=None):
         """
         Query the GPU index for the k nearest neighbors of row vectors in X.
 
@@ -376,7 +390,8 @@ cdef class NearestNeighbors:
         Returns
         ----------
         distances: cuDF DataFrame or numpy ndarray
-            The distances of the k-nearest neighbors for each column vector in X
+            The distances of the k-nearest neighbors for each column vector
+            in X
 
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
@@ -390,9 +405,10 @@ cdef class NearestNeighbors:
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
         N = len(X)
 
-        # Need to establish result matrices for indices (Nxk) and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order = "C"))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order = "C"))
+        # Need to establish result matrices for indices (Nxk)
+        # and for distances (Nxk)
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
 
         cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
         cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
@@ -405,11 +421,11 @@ cdef class NearestNeighbors:
         if isinstance(X, cudf.DataFrame):
             inds = cudf.DataFrame()
             for i in range(0, I_ndarr.shape[1]):
-                inds[str(i)] = I_ndarr[:,i]
+                inds[str(i)] = I_ndarr[:, i]
 
             dists = cudf.DataFrame()
             for i in range(0, D_ndarr.shape[1]):
-                dists[str(i)] = D_ndarr[:,i]
+                dists[str(i)] = D_ndarr[:, i]
 
             return dists, inds
 
@@ -422,7 +438,6 @@ cdef class NearestNeighbors:
         del X_m
 
         return dists, inds
-
 
     def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
         """
@@ -448,7 +463,8 @@ cdef class NearestNeighbors:
         Returns
         ----------
         distances: cuDF DataFrame or numpy ndarray
-            The distances of the k-nearest neighbors for each column vector in X
+            The distances of the k-nearest neighbors for each column vector
+            in X
 
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
