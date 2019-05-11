@@ -35,35 +35,35 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
     cdef void tsvdFitSPMG(float *h_input,
                           float *h_components,
                           float *h_singular_vals,
-                  paramsTSVD prms,
+                          paramsTSVD prms,
                           int *gpu_ids,
                           int n_gpus)
 
     cdef void tsvdFitSPMG(double *h_input,
                           double *h_components,
                           double *h_singular_vals,
-                  paramsTSVD prms,
+                          paramsTSVD prms,
                           int *gpu_ids,
                           int n_gpus)
 
     cdef void tsvdFitTransformSPMG(float *h_input,
                                    float *h_trans_input,
-                           float *h_components,
+                                   float *h_components,
                                    float *h_explained_var,
-                           float *h_explained_var_ratio,
+                                   float *h_explained_var_ratio,
                                    float *h_singular_vals,
                                    paramsTSVD prms,
-                           int *gpu_ids,
+                                   int *gpu_ids,
                                    int n_gpus)
 
     cdef void tsvdFitTransformSPMG(double *h_input,
                                    double *h_trans_input,
-                           double *h_components,
+                                   double *h_components,
                                    double *h_explained_var,
-                           double *h_explained_var_ratio,
+                                   double *h_explained_var_ratio,
                                    double *h_singular_vals,
                                    paramsTSVD prms,
-                           int *gpu_ids,
+                                   int *gpu_ids,
                                    int n_gpus)
 
     cdef void tsvdInverseTransformSPMG(float *h_trans_input,
@@ -98,8 +98,10 @@ cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
                                 int *gpu_ids,
                                 int n_gpus)
 
+
 class TSVDparams:
-    def __init__(self,n_components,tol,iterated_power,random_state,svd_solver):
+    def __init__(self, n_components, tol, iterated_power, random_state,
+                 svd_solver):
         self.n_components = n_components
         self.svd_solver = svd_solver
         self.tol = tol
@@ -107,6 +109,7 @@ class TSVDparams:
         self.random_state = random_state
         self.n_cols = None
         self.n_rows = None
+
 
 class TruncatedSVDSPMG:
     """
@@ -194,11 +197,9 @@ class TruncatedSVDSPMG:
         self.explained_variance_ratio_ptr = None
         self.singular_values_ptr = None
 
-        self.algo_dict = {
-                'full': COV_EIG_DQ,
-                'auto': COV_EIG_DQ,
-                'jacobi': COV_EIG_JACOBI
-            }
+        self.algo_dict = {'full': COV_EIG_DQ,
+                          'auto': COV_EIG_DQ,
+                          'jacobi': COV_EIG_JACOBI}
 
     def _get_algorithm_c_name(self, algorithm):
         return self.algo_dict[algorithm]
@@ -211,20 +212,19 @@ class TruncatedSVDSPMG:
         self.components_ = cudf.utils.cudautils.zeros(n_cols*n_components,
                                                       self.gdf_datatype)
 
-        self.explained_variance_ = cudf.Series(cudf.utils.cudautils.zeros(
-                                                    n_components,
-                                                    self.gdf_datatype))
+        self.explained_variance_ = \
+            cudf.Series(cudf.utils.cudautils.zeros(n_components,
+                                                   self.gdf_datatype))
 
-        self.explained_variance_ratio_ = cudf.Series(np.zeros(
-                                                       n_components,
-                                                       self.gdf_datatype))
+        self.explained_variance_ratio_ = \
+            cudf.Series(np.zeros(n_components, self.gdf_datatype))
 
         self.mean_ = cudf.Series(cudf.utils.cudautils.zeros(n_cols,
                                                             self.gdf_datatype))
 
-        self.singular_values_ = cudf.Series(cudf.utils.cudautils.zeros(
-                                                    n_components,
-                                                    self.gdf_datatype))
+        self.singular_values_ = \
+            cudf.Series(cudf.utils.cudautils.zeros(n_components,
+                                                   self.gdf_datatype))
 
         self.noise_variance_ = cudf.Series(np.zeros(1,
                                                     dtype=self.gdf_datatype))
@@ -595,4 +595,3 @@ class TruncatedSVDSPMG:
         else:
             raise ValueError('Number of GPUS should be 2 or more'
                              'For single GPU, use the normal TruncatedSVD')
-

@@ -265,7 +265,8 @@ class LinearRegression(Base):
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
 
-        self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
+        self.coef_ = cudf.Series(np.zeros(self.n_cols,
+                                          dtype=self.gdf_datatype))
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1

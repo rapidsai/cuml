@@ -402,7 +402,7 @@ class Ridge(Base, RegressorMixin):
         params = dict()
         variables = ['alpha', 'fit_intercept', 'normalize', 'solver']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
 

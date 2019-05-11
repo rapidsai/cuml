@@ -258,11 +258,9 @@ class TruncatedSVD(Base):
                                                     dtype=self.gdf_datatype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
                                                    dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(
-                                      np.zeros(n_components,
+        self.explained_variance_ = cudf.Series(np.zeros(n_components,
                                                dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(
-                                            np.zeros(n_components,
+        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
                                                      dtype=self.gdf_datatype))
         self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
@@ -314,12 +312,15 @@ class TruncatedSVD(Base):
 
         cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
 
-        cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
-                                                    self.explained_variance_)
-        cdef uintptr_t explained_var_ratio_ptr = self._get_cudf_column_ptr(
-                                                self.explained_variance_ratio_)
-        cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
-                                                self.singular_values_)
+        cdef uintptr_t explained_var_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_)
+
+        cdef uintptr_t explained_var_ratio_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+
+        cdef uintptr_t singular_vals_ptr = \
+            self._get_cudf_column_ptr(self.singular_values_)
+
         cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         if self.n_components> self.n_cols:
@@ -498,9 +499,9 @@ class TruncatedSVD(Base):
         params.n_rows = len(X)
         params.n_cols = self.n_cols
 
-        t_input_data = cuda.to_device(
-                              np.zeros(params.n_rows*params.n_components,
-                                       dtype=gdf_datatype.type))
+        t_input_data = \
+            cuda.to_device(np.zeros(params.n_rows*params.n_components,
+                                    dtype=gdf_datatype.type))
 
         cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr

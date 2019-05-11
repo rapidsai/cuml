@@ -282,7 +282,7 @@ cdef class NearestNeighbors:
             del self.k
 
         n_dims = X.shape[1]
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        self.k = new kNN(n_dims, verbose=self._verbose)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
@@ -372,8 +372,8 @@ cdef class NearestNeighbors:
 
             self.input[i] = deref(params)
 
-        self.k.fit( < kNNParams * > self.input,
-                    < int > len(alloc_info))
+        self.k.fit(<kNNParams*> self.input,
+                   <int> len(alloc_info))
 
     def kneighbors(self, X, k=None):
         """
