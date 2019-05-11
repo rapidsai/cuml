@@ -124,8 +124,9 @@ cdef class UMAP:
         relative to the ``spread`` value, which determines the scale at which
         embedded points will be spread out.
     spread: float (optional, default 1.0)
-        The effective scale of embedded points. In combination with ``min_dist``
-        this determines how clustered/clumped the embedded points are.
+        The effective scale of embedded points. In combination with
+        ``min_dist`` this determines how clustered/clumped the embedded
+        points are.
     set_op_mix_ratio: float (optional, default 1.0)
         Interpolate between (fuzzy) union and intersection as the set operation
         used to combine local fuzzy simplicial sets to obtain a global fuzzy
@@ -185,7 +186,8 @@ cdef class UMAP:
     References
     ----------
     * Leland McInnes, John Healy, James Melville
-      UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction
+      UMAP: Uniform Manifold Approximation and Projection for Dimension
+      Reduction
       https://arxiv.org/abs/1802.03426
 
     """
@@ -214,13 +216,13 @@ cdef class UMAP:
                   negative_sample_rate=5,
                   transform_queue_size=4.0,
                   init="spectral",
-                  verbose = False,
-                  a = None,
-                  b = None,
-                  target_n_neighbors = -1,
-                  target_weights = 0.5,
-                  target_metric = "euclidean",
-                  should_downcast = True):
+                  verbose=False,
+                  a=None,
+                  b=None,
+                  target_n_neighbors=-1,
+                  target_weights=0.5,
+                  target_metric="euclidean",
+                  should_downcast=True):
 
         self.umap_params = new UMAPParams()
 
@@ -236,7 +238,7 @@ cdef class UMAP:
         elif(init == "random"):
             self.umap_params.init = <int>0
         else:
-            raise Exception("Initialization strategy not support: [init=%d]" % init)
+            raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is not None:
             self.umap_params.a = <float>a
@@ -267,7 +269,6 @@ cdef class UMAP:
 
         self.umap = new UMAP_API(self.umap_params)
 
-
     def __dealloc__(self):
         del self.umap_params
         del self.umap
@@ -280,17 +281,22 @@ cdef class UMAP:
             if dtype != np.float32:
                 if self._should_downcast:
 
-                    new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
-                    overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+                    new_cols = [(col, X._cols[col].astype(np.float32))
+                                for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])
+                                     for colname, colval in new_cols])
 
                     if overflowed > 0:
-                        raise Exception("Downcast to single-precision resulted in data loss.")
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
 
                     X = cudf.DataFrame(new_cols)
 
                 else:
-                    raise Exception("Input is double precision. Use 'should_downcast=True' "
-                                    "if you'd like it to be automatically casted to single precision.")
+                    raise Exception("Input is double precision. Use "
+                                    "'should_downcast=True' "
+                                    "if you'd like it to be automatically "
+                                    "casted to single precision.")
 
             X = numba_utils.row_matrix(X)
         elif isinstance(X, np.ndarray):
@@ -300,11 +306,14 @@ cdef class UMAP:
                 if self._should_downcast:
                     X = X.astype(np.float32)
                     if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted in data loss.")
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
 
                 else:
-                    raise Exception("Input is double precision. Use 'should_downcast=True' "
-                                    "if you'd like it to be automatically casted to single precision.")
+                    raise Exception("Input is double precision. Use"
+                                    " 'should_downcast=True' "
+                                    "if you'd like it to be automatically "
+                                    "casted to single precision.")
 
             X = cuda.to_device(X)
         else:
@@ -312,8 +321,7 @@ cdef class UMAP:
 
         return X
 
-
-    def fit(self, X, y = None):
+    def fit(self, X, y=None):
         """Fit X into an embedded space.
         Parameters
         ----------
@@ -324,7 +332,7 @@ cdef class UMAP:
         """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
-        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
+        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'  # noqa E501
 
         self.umap_params.n_neighbors = min(X.shape[0],
                                            self.umap_params.n_neighbors)
@@ -336,8 +344,8 @@ cdef class UMAP:
         self.raw_data = X_m.device_ctypes_pointer.value
 
         self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0],
-                                                  self.umap_params.n_components),
-                                            order = "C", dtype=np.float32))
+                                        self.umap_params.n_components),
+                                        order="C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
         cdef uintptr_t y_raw
@@ -363,7 +371,7 @@ cdef class UMAP:
 
         del X_m
 
-    def fit_transform(self, X, y = None):
+    def fit_transform(self, X, y=None):
         """Fit X into an embedded space and return that transformed
         output.
         Parameters
@@ -380,19 +388,19 @@ cdef class UMAP:
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:,i]
+                ret[str(i)] = self.arr_embed[:, i]
         elif isinstance(X, np.ndarray):
             ret = np.asarray(self.arr_embed)
 
         return ret
-
 
     def transform(self, X):
         """Transform X into the existing embedded space and return that
         transformed output.
 
         Please refer to the reference UMAP implementation for information
-        on the differences between fit_transform() and running fit() transform().
+        on the differences between fit_transform() and running fit()
+        transform().
 
         Specifically, the transform() function is stochastic:
         https://github.com/lmcinnes/umap/issues/158
@@ -408,29 +416,30 @@ cdef class UMAP:
         """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
-        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
-        assert X.shape[1] == self.n_dims, "n_features of X must match n_features of training data"
+        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'  # noqa E501
+        assert X.shape[1] == self.n_dims, "n_features of X must match n_features of training data"  # noqa E501
 
         X_m = self._downcast(X)
 
         cdef uintptr_t x_ptr = X_m.device_ctypes_pointer.value
 
-        embedding = cuda.to_device(np.zeros((X_m.shape[0], self.umap_params.n_components),
-                                            order = "C", dtype=np.float32))
+        embedding = cuda.to_device(np.zeros((X_m.shape[0],
+                                             self.umap_params.n_components),
+                                            order="C", dtype=np.float32))
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
 
         self.umap.transform(
                         <float*>x_ptr,
-                       <int>X_m.shape[0],
-                       <int>X_m.shape[1],
-                       <float*> self.embeddings,
-                       <int> self.arr_embed.shape[0],
-                       <float*> embed_ptr)
+                        <int>X_m.shape[0],
+                        <int>X_m.shape[1],
+                        <float*> self.embeddings,
+                        <int> self.arr_embed.shape[0],
+                        <float*> embed_ptr)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
             for i in range(0, embedding.shape[1]):
-                ret[str(i)] = embedding[:,i]
+                ret[str(i)] = embedding[:, i]
         elif isinstance(X, np.ndarray):
             ret = np.asarray(embedding)
 
