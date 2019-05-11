@@ -92,14 +92,15 @@ cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
 class TruncatedSVD(Base):
     """
-    TruncatedSVD is used to compute the top K singular values and vectors of a large matrix X.
-    It is much faster when n_components is small, such as in the use of PCA when 3 components is
-    used for 3D visualization.
+    TruncatedSVD is used to compute the top K singular values and vectors of a
+    large matrix X. It is much faster when n_components is small, such as in
+    the use of PCA when 3 components is used for 3D visualization.
 
-    cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
-    Full (default) uses a full eigendecomposition then selects the top K singular vectors.
-    The Jacobi algorithm is much faster as it iteratively tries to correct the top K singular
-    vectors, but might be less accurate.
+    cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms
+    Full and Jacobi. Full (default) uses a full eigendecomposition then selects
+    the top K singular vectors. The Jacobi algorithm is much faster as it
+    iteratively tries to correct the top K singular vectors, but might be
+    less accurate.
 
     Examples
     ---------
@@ -118,12 +119,14 @@ class TruncatedSVD(Base):
         gdf_float['1'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
         gdf_float['2'] = np.asarray([4.0,2.0,1.0], dtype = np.float32)
 
-        tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi", n_iter = 20, tol = 1e-9)
+        tsvd_float = TruncatedSVD(n_components = 2, algorithm = "jacobi",
+                                  n_iter = 20, tol = 1e-9)
         tsvd_float.fit(gdf_float)
 
         print(f'components: {tsvd_float.components_}')
         print(f'explained variance: {tsvd_float.explained_variance_}')
-        print(f'explained variance ratio: {tsvd_float.explained_variance_ratio_}')
+        exp_var = tsvd_float.explained_variance_ratio_
+        print(f'explained variance ratio: {exp_var}')
         print(f'singular values: {tsvd_float.singular_values_}')
 
         trans_gdf_float = tsvd_float.transform(gdf_float)
@@ -151,9 +154,11 @@ class TruncatedSVD(Base):
         0  7.439024
         1 4.0817795
 
-        Transformed matrix:           0            1
-        0 5.1659107    -2.512643
-        1 3.4638448 -0.042223275                                                                                                                     2 4.0809603    3.2164836
+        Transformed Matrix:
+        0           1         2
+        0   5.1659107    -2.512643
+        1   3.4638448    -0.042223275
+        2    4.0809603   3.2164836
 
         Input matrix:           0         1         2
         0       1.0  4.000001  4.000001
@@ -163,19 +168,23 @@ class TruncatedSVD(Base):
     Parameters
     -----------
     algorithm : 'full' or 'jacobi' or 'auto' (default = 'full')
-        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Full uses a eigendecomposition of the covariance matrix then discards
+        components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
     handle : cuml.Handle
         If it is None, a new one is created just for this class
     n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
+        The number of top K singular vectors / values you want.
+        Must be <= number(columns).
     n_iter : int (default = 15)
-        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+        Used in Jacobi solver. The more iterations, the more accurate, but
+        slower.
     random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
+        If you want results to be the same when you restart Python, select a
+        state.
     tol : float (default = 1e-7)
-        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
-        but the more slower the algorithm will get to converge.
+        Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
+        but but will slow down the algorithm's convergence.
     verbose : bool
         Whether to print debug spews
 
@@ -192,24 +201,28 @@ class TruncatedSVD(Base):
 
     Notes
     ------
-    TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number of components
-    you want is much smaller than the number of features. The approximation to the largest
-    singular values and vectors is very robust, however, this method loses a lot of accuracy
-    when you want many many components.
+    TruncatedSVD (the randomized version [Jacobi]) is fantastic when the number
+    of components you want is much smaller than the number of features. The
+    approximation to the largest singular values and vectors is very robust,
+    however, this method loses a lot of accuracy when you want many many
+    components.
 
     **Applications of TruncatedSVD**
 
-        TruncatedSVD is also known as Latent Semantic Indexing (LSI) which tries to find topics of a
-        word count matrix. If X previously was centered with mean removal, TruncatedSVD is the
-        same as TruncatedPCA. TruncatedSVD is also used in information retrieval tasks, recommendation
-        systems and data compression.
+        TruncatedSVD is also known as Latent Semantic Indexing (LSI) which
+        tries to find topics of a word count matrix. If X previously was
+        centered with mean removal, TruncatedSVD is the same as TruncatedPCA.
+        TruncatedSVD is also used in information retrieval tasks,
+        recommendation systems and data compression.
 
-    For additional examples, see `the Truncated SVD  notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
-    For additional documentation, see `scikitlearn's TruncatedSVD docs <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
+    For additional examples, see `the Truncated SVD  notebook
+    <https://github.com/rapidsai/notebooks/blob/master/cuml/tsvd_demo.ipynb>`_.
+    For additional documentation, see `scikitlearn's TruncatedSVD docs
+    <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.TruncatedSVD.html>`_.
     """
 
-    def __init__(self, algorithm='full', handle=None, n_components=1, n_iter=15,
-                 random_state=None, tol=1e-7, verbose=False):
+    def __init__(self, algorithm='full', handle=None, n_components=1,
+                 n_iter=15, random_state=None, tol=1e-7, verbose=False):
         # params
         super(TruncatedSVD, self).__init__(handle, verbose)
         self.algorithm = algorithm
@@ -299,7 +312,7 @@ class TruncatedSVD(Base):
         params.algorithm = self.c_algorithm
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t components_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
 
         cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
                                                     self.explained_variance_)
@@ -307,7 +320,7 @@ class TruncatedSVD(Base):
                                                 self.explained_variance_ratio_)
         cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
                                                 self.singular_values_)
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
@@ -316,8 +329,8 @@ class TruncatedSVD(Base):
         if self.gdf_datatype.type == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
-                             <float*> trans_input_ptr,
-                             <float*> components_ptr,
+                             <float*> t_input_ptr,
+                             <float*> comp_ptr,
                              <float*> explained_var_ptr,
                              <float*> explained_var_ratio_ptr,
                              <float*> singular_vals_ptr,
@@ -325,8 +338,8 @@ class TruncatedSVD(Base):
         else:
             tsvdFitTransform(handle_[0],
                              <double*> input_ptr,
-                             <double*> trans_input_ptr,
-                             <double*> components_ptr,
+                             <double*> t_input_ptr,
+                             <double*> comp_ptr,
                              <double*> explained_var_ptr,
                              <double*> explained_var_ratio_ptr,
                              <double*> singular_vals_ptr,
@@ -338,10 +351,11 @@ class TruncatedSVD(Base):
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
-            components_gdf[str(i)] = self.components_[i*params.n_components:(i+1)*params.n_components]
+            n_c = params.n_components
+            components_gdf[str(i)] = self.components_[i*n_c:(i+1)*n_c]
 
         self.components_ = components_gdf
-        self.components_ptr = components_ptr
+        self.components_ptr = comp_ptr
         self.explained_variance_ptr = explained_var_ptr
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
@@ -364,7 +378,7 @@ class TruncatedSVD(Base):
             Returns
             ----------
             X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense cuDF DataFrame
+                Reduced version of X as a dense cuDF DataFrame
 
         """
         self.fit(X, _transform=True)
@@ -422,16 +436,16 @@ class TruncatedSVD(Base):
 
         if gdf_datatype.type == np.float32:
             tsvdInverseTransform(handle_[0],
-                                        <float*> trans_input_ptr,
-                                        <float*> components_ptr,
-                                        <float*> input_ptr,
-                                        params)
+                                 <float*> trans_input_ptr,
+                                 <float*> components_ptr,
+                                 <float*> input_ptr,
+                                 params)
         else:
             tsvdInverseTransform(handle_[0],
-                                        <double*> trans_input_ptr,
-                                        <double*> components_ptr,
-                                        <double*> input_ptr,
-                                        params)
+                                 <double*> trans_input_ptr,
+                                 <double*> components_ptr,
+                                 <double*> input_ptr,
+                                 params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -439,7 +453,8 @@ class TruncatedSVD(Base):
 
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
-            X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
+            n_r = params.n_rows
+            X_original[str(i)] = input_data[i*n_r:(i+1)*n_r]
 
         return X_original
 
@@ -483,27 +498,27 @@ class TruncatedSVD(Base):
         params.n_rows = len(X)
         params.n_cols = self.n_cols
 
-        trans_input_data = cuda.to_device(
+        t_input_data = cuda.to_device(
                               np.zeros(params.n_rows*params.n_components,
                                        dtype=gdf_datatype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(trans_input_data)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if gdf_datatype.type == np.float32:
             tsvdTransform(handle_[0],
-                                 <float*> input_ptr,
-                                 <float*> components_ptr,
-                                 <float*> trans_input_ptr,
-                                 params)
+                          <float*> input_ptr,
+                          <float*> components_ptr,
+                          <float*> trans_input_ptr,
+                          params)
         else:
             tsvdTransform(handle_[0],
-                                 <double*> input_ptr,
-                                 <double*> components_ptr,
-                                 <double*> trans_input_ptr,
-                                 params)
+                          <double*> input_ptr,
+                          <double*> components_ptr,
+                          <double*> trans_input_ptr,
+                          params)
 
         # make sure the previously scheduled gpu tasks are complete before the
         # following transfers start
@@ -511,11 +526,10 @@ class TruncatedSVD(Base):
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
-            X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
+            X_new[str(i)] = t_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         del(X_m)
         return X_new
-
 
     def get_param_names(self):
         return ["algorithm", "n_components", "n_iter", "random_state", "tol"]
