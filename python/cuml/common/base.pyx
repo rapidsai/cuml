@@ -95,10 +95,10 @@ class Base:
 
     def get_params(self, deep=True):
         """
-        Returns a dict of all params owned by this class. If the child class has
-        appropriately overridden the `get_param_names` method and does not need
-        anything other than what is there in this method, then it doesn't have
-        to override this method
+        Returns a dict of all params owned by this class. If the child class
+        has appropriately overridden the `get_param_names` method and does not
+        need anything other than what is there in this method, then it doesn't
+        have to override this method
         """
         params = dict()
         variables = self.get_param_names()
