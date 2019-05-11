@@ -131,6 +131,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                         double *X_new,
                         int verbose)
 
+
 class KMeans(Base):
 
     """
@@ -370,7 +371,7 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -385,7 +386,7 @@ class KMeans(Base):
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa
+                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <InitMethod> init_value,       # init method
                 <int> self.max_iter,           # max_iterations
                 <double> self.tol,             # threshold
@@ -404,8 +405,10 @@ class KMeans(Base):
         self.handle.sync()
         cluster_centers_gdf = cudf.DataFrame()
         for i in range(0, self.n_cols):
-            cluster_centers_gdf[str(i)] = self.cluster_centers_[i:self.n_clusters*self.n_cols:self.n_cols] # noqa
-        self.cluster_centers_ = cluster_centers_gdf
+            n_c = self.n_cluster
+            n_cols = self.n_cols
+            cc_df[str(i)] = self.cluster_centers_[i:n_c*n_cols:n_cols]
+        self.cluster_centers_ = cc_df
 
         del(X_m)
 
