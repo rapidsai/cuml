@@ -57,7 +57,7 @@ cdef class Stream:
     def __cinit__(self):
         if self.s != 0:
             return
-        cdef _Stream stream;
+        cdef _Stream stream
         cdef _Error e = cudaStreamCreate(&stream)
         if e != 0:
             raise CudaRuntimeError("Stream create")

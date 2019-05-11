@@ -428,13 +428,12 @@ cdef class UMAP:
                                             order="C", dtype=np.float32))
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
 
-        self.umap.transform(
-                        <float*>x_ptr,
-                        <int>X_m.shape[0],
-                        <int>X_m.shape[1],
-                        <float*> self.embeddings,
-                        <int> self.arr_embed.shape[0],
-                        <float*> embed_ptr)
+        self.umap.transform(<float*>x_ptr,
+                            <int>X_m.shape[0],
+                            <int>X_m.shape[1],
+                            <float*> self.embeddings,
+                            <int> self.arr_embed.shape[0],
+                            <float*> embed_ptr)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()

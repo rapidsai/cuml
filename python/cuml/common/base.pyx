@@ -82,7 +82,6 @@ class Base:
         self.handle = cuml.common.handle.Handle() if handle is None else handle
         self.verbose = verbose
 
-
     def get_param_names(self):
         """
         Returns a list of hyperparameter names owned by this class. It is
@@ -91,7 +90,6 @@ class Base:
         implementation of `get_params` and `set_params` methods.
         """
         return []
-
 
     def get_params(self, deep=True):
         """
@@ -106,7 +104,6 @@ class Base:
             var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """

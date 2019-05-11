@@ -321,11 +321,9 @@ class PCA(Base):
                                                     dtype=self.gdf_datatype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
                                                    dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(
-                                      np.zeros(n_components,
+        self.explained_variance_ = cudf.Series(np.zeros(n_components,
                                                dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(
-                                            np.zeros(n_components,
+        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
                                                      dtype=self.gdf_datatype))
         self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
@@ -385,15 +383,20 @@ class PCA(Base):
 
         cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
 
-        cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
-                                                self.explained_variance_)
-        cdef uintptr_t explained_var_ratio_ptr = self._get_cudf_column_ptr(
-                                                self.explained_variance_ratio_)
-        cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
-                                                self.singular_values_)
+        cdef uintptr_t explained_var_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_)
+
+        cdef uintptr_t explained_var_ratio_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+
+        cdef uintptr_t singular_vals_ptr = \
+            self._get_cudf_column_ptr(self.singular_values_)
+
         cdef uintptr_t mean_ptr = self._get_cudf_column_ptr(self.mean_)
-        cdef uintptr_t noise_vars_ptr = self._get_cudf_column_ptr(
-                                            self.noise_variance_)
+
+        cdef uintptr_t noise_vars_ptr = \
+            self._get_cudf_column_ptr(self.noise_variance_)
+
         cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
@@ -565,7 +568,6 @@ class PCA(Base):
 
         """
 
-
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
             gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
@@ -591,9 +593,9 @@ class PCA(Base):
         params.n_cols = n_cols
         params.whiten = self.whiten
 
-        t_input_data = cuda.to_device(
-                              np.zeros(params.n_rows*params.n_components,
-                                       dtype=gdf_datatype.type))
+        t_input_data = \
+            cuda.to_device(np.zeros(params.n_rows*params.n_components,
+                                    dtype=gdf_datatype.type))
 
         cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr

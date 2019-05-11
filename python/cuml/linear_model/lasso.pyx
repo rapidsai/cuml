@@ -134,7 +134,8 @@ class Lasso:
         tol: float or double.
         selection : str, ‘cyclic’, or 'random'
 
-        For additional docs, see `scikitlearn's Lasso <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
+        For additional docs, see `scikitlearn's Lasso
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
         """
         self._check_alpha(alpha)
         self.alpha = alpha

@@ -65,7 +65,7 @@ cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
                           int n_features,
                           double *centroids,
                           int *labels,
-                          int verbose);
+                          int verbose)
 
     cdef void fit(cumlHandle& handle,
                   int n_clusters,
@@ -334,11 +334,11 @@ class KMeans(Base):
                                  'does not match the number of clusters %i'
                                  % (self.init.shape, self.n_clusters))
             init_value = Array
-            self.cluster_centers_ = cuda.device_array(
-                                           self.n_clusters * self.n_cols,
-                                           dtype=self.gdf_datatype)
-            self.cluster_centers_.copy_to_device(
-                                    numba_utils.row_matrix(self.init))
+            dim_cc = self.n_clusters * self.n_cols
+            self.cluster_centers_ = cuda.device_array(dim_cc,
+                                                      dtype=self.gdf_datatype)
+            si = self.init
+            self.cluster_centers_.copy_to_device(numba_utils.row_matrix(si))
 
         elif (isinstance(self.init, np.ndarray)):
             if(self.init.shape[0] != self.n_clusters):
@@ -363,9 +363,8 @@ class KMeans(Base):
         else:
             raise TypeError('initialization method not supported')
 
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(
-                                                        self.cluster_centers_)
-
+        c_c = self.cluster_centers_
+        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(c_c)
 
         if self.gdf_datatype.type == np.float32:
             fit_predict(
@@ -385,17 +384,17 @@ class KMeans(Base):
         elif self.gdf_datatype.type == np.float64:
             fit_predict(
                 handle_[0],
-                <int> self.n_clusters,         # n_clusters
-                <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
-                <InitMethod> init_value,       # init method
-                <int> self.max_iter,           # max_iterations
-                <double> self.tol,             # threshold
-                <int> self.random_state,       # seed
-                <double*> input_ptr,           # srcdata
-                <size_t> self.n_rows,          # n_samples (rows)
-                <size_t> self.n_cols,          # n_features (cols)
-                <double*> cluster_centers_ptr, # pred_centroids);
-                <int*> labels_ptr,             # pred_labels
+                <int> self.n_clusters,          # n_clusters
+                <int> 0,                        # distance metric as squared L2: @todo - support other metrics # noqa: E501
+                <InitMethod> init_value,        # init method
+                <int> self.max_iter,            # max_iterations
+                <double> self.tol,              # threshold
+                <int> self.random_state,        # seed
+                <double*> input_ptr,            # srcdata
+                <size_t> self.n_rows,           # n_samples (rows)
+                <size_t> self.n_cols,           # n_features (cols)
+                <double*> cluster_centers_ptr,  # pred_centroids);
+                <int*> labels_ptr,              # pred_labels
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'

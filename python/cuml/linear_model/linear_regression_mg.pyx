@@ -58,7 +58,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                              int n_rows,
                              int n_cols,
                              float *h_coef,
-                              float intercept,
+                             float intercept,
                              float *preds,
                              int *gpu_ids,
                              int n_gpus)
@@ -67,7 +67,7 @@ cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
                              int n_rows,
                              int n_cols,
                              double *h_coef,
-                     double intercept,
+                             double intercept,
                              double *preds,
                              int *gpu_ids,
                              int n_gpus)
