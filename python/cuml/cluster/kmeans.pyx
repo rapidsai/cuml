@@ -403,7 +403,7 @@ class KMeans(Base):
                             ' passed.')
 
         self.handle.sync()
-        cluster_centers_gdf = cudf.DataFrame()
+        cc_df = cudf.DataFrame()
         for i in range(0, self.n_cols):
             n_c = self.n_cluster
             n_cols = self.n_cols
