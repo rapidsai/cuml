@@ -72,8 +72,9 @@ cdef class Stream:
 
     def sync(self):
         """
-        Synchronize on the cudastream owned by this object. Note that this could
-        raise exception due to issues with previous asynchronous launches!
+        Synchronize on the cudastream owned by this object. Note that this
+        could raise exception due to issues with previous asynchronous
+        launches
         """
         cdef _Stream stream = <_Stream>self.s
         cdef _Error e = cudaStreamSynchronize(stream)
