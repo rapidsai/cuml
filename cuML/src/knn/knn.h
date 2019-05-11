@@ -32,7 +32,7 @@ namespace ML {
 	class kNNParams {
 	public:
 		float *ptr;
-		int N;
+		size_t N;
 		friend std::ostream & operator<<(std::ostream &str, kNNParams &v) {
 			str << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
 			return str;
@@ -46,7 +46,7 @@ namespace ML {
 
 		std::vector<kNNParams> knn_params;
 
-		int total_n;
+		size_t total_n;
 		int indices;
 		int D;
 		bool verbose;
@@ -66,9 +66,6 @@ namespace ML {
 
         void reset();
 
-        bool verify_size(size_t size, int device);
-
-
         /**
          * Search the kNN for the k-nearest neighbors of a set of query vectors
          * @param search_items set of vectors to query for neighbors
@@ -77,8 +74,8 @@ namespace ML {
          * @param res_D        pointer to device memory for returning k nearest distances
          * @param k            number of neighbors to query
          */
-		void search(const float *search_items, int search_items_size,
-		        long *res_I, float *res_D, int k);
+		void search(const float *search_items, size_t search_items_size,
+		        long *res_I, float *res_D, size_t k);
 
         /**
          * Fit a kNN model by creating separate indices for multiple given
@@ -86,7 +83,7 @@ namespace ML {
          * @param input  an array of pointers to data on (possibly different) devices
          * @param N      number of items in input array.
          */
-		void fit(kNNParams *input, int N);
+		void fit(kNNParams *input, size_t N);
 
 		/**
 		 * Chunk a host array up into one or many GPUs (determined by the provided
@@ -98,7 +95,7 @@ namespace ML {
 		 * @param n_chunks  number of elements in gpus
 		 * @param out       host pointer to copy output
 		 */
-		void fit_from_host(float *ptr, int n, int* devices, int n_chunks);
+		void fit_from_host(float *ptr, size_t n, int* devices, size_t n_chunks);
 
 		template <class C>
 		void merge_tables(long n, long k, long nshard,

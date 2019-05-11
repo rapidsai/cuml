@@ -182,7 +182,7 @@ namespace ML {
             params[0].ptr = X;
 
 
-            knn->fit(*&params, 1);
+            knn->fit(params, 1);
             knn->search(X, m, knn_indices, knn_dists, n_neighbors);
 
             fit_clusters(knn_indices, knn_dists, m, n_neighbors,

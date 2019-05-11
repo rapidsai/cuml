@@ -67,18 +67,18 @@ protected:
 	}
 
 	void TearDown() override {
-		CUDA_CHECK(cudaFree(d_train_inputs));
-		CUDA_CHECK(cudaFree(d_pred_I));
-		CUDA_CHECK(cudaFree(d_pred_D));
-		CUDA_CHECK(cudaFree(d_ref_I));
-		CUDA_CHECK(cudaFree(d_ref_D));
+        CUDA_CHECK(cudaFree(d_train_inputs));
+        CUDA_CHECK(cudaFree(d_pred_I));
+        CUDA_CHECK(cudaFree(d_pred_D));
+        CUDA_CHECK(cudaFree(d_ref_I));
+        CUDA_CHECK(cudaFree(d_ref_D));
 	}
 
 protected:
 
 	T* d_train_inputs;
 
-	int n = 3;
+	size_t n = 3;
 	int d = 1;
 
     std::vector<long> h_res_I = { 0, 1, 2, 1, 2, 0, 2, 1, 0 };
@@ -99,6 +99,23 @@ protected:
     kNNParams params[1];
 };
 
+typedef KNNTest<float> KNNTestFitFromHostSingleDevice;
+TEST_F(KNNTestFitFromHostSingleDevice, Fit) {
+
+    int devices = int{0};
+
+    knn->fit_from_host(h_train_inputs.data(), n, &devices, 1);
+
+    knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
+
+    ASSERT_TRUE(
+            devArrMatch(d_ref_D, d_pred_D, n*n, Compare<float>()));
+    ASSERT_TRUE(
+            devArrMatch(d_ref_I, d_pred_I, n*n, Compare<long>()));
+
+}
+
+
 
 typedef KNNTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
@@ -114,78 +131,5 @@ TEST_F(KNNTestF, Fit) {
 			devArrMatch(d_ref_I, d_pred_I, n*n, Compare<long>()));
 }
 
-typedef KNNTest<float> KNNTestFailsWithHostMemory;
-TEST_F(KNNTestFailsWithHostMemory, Fit) {
 
-    /*
-     * Assert fitting with host memory fails
-     */
-    params[0] = { h_train_inputs.data(), n };
-    bool caught = false;
-    try {
-        knn->fit(params, 1);
-    } catch(const std::runtime_error &e) {
-        caught = true;
-    }
-    ASSERT_TRUE(caught);
-
-
-    /**
-     * Assert searching with host memory search array fails
-     */
-    params[0] = { d_train_inputs, n };
-    caught = false;
-    try {
-        knn->fit(params, 1);
-        knn->search(h_train_inputs.data(), n, d_pred_I, d_pred_D, n);
-    } catch(std::runtime_error &e) {
-        caught = true;
-    }
-    ASSERT_TRUE(caught);
-
-    /**
-     * Assert searching with host memory indices array fails
-     */
-    params[0] = { d_train_inputs, n };
-    caught = false;
-    try {
-        knn->fit(params, 1);
-        knn->search(d_train_inputs, n, h_res_I.data(), d_pred_D, n);
-    } catch(std::runtime_error &e) {
-        caught = true;
-    }
-    ASSERT_TRUE(caught);
-
-
-    /**
-     * Assert searching with host memory dists array fails
-     */
-    params[0] = { d_train_inputs, n };
-    caught = false;
-    try {
-        knn->fit(params, 1);
-        knn->search(d_train_inputs, n, d_pred_I, h_res_D.data(), n);
-    } catch(std::runtime_error &e) {
-        caught = true;
-    }
-    ASSERT_TRUE(caught);
-}
-
-typedef KNNTest<float> KNNTestFitFromHostSingleDevice;
-TEST_F(KNNTestFitFromHostSingleDevice, Fit) {
-
-    int *devices = new int[1]{0};
-
-    knn->fit_from_host(h_train_inputs.data(), n, devices, 1);
-
-    knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
-
-    ASSERT_TRUE(
-            devArrMatch(d_ref_D, d_pred_D, n*n, Compare<float>()));
-    ASSERT_TRUE(
-            devArrMatch(d_ref_I, d_pred_I, n*n, Compare<long>()));
-
-    delete devices;
-}
-
-} // end namespace ML
+}; // end namespace ML
