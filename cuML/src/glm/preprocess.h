@@ -96,6 +96,8 @@ void postProcessData(const cumlHandle_impl& handle, math_t *input, int n_rows,
 			stream);
 	updateHost(intercept, d_intercept.data(), 1, stream);
 
+	CUDA_CHECK(cudaStreamSynchronize(stream));
+
 	Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
 	Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
 
