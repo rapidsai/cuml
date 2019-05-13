@@ -29,6 +29,7 @@ from libcpp.memory cimport shared_ptr
 cimport cuml.common.handle
 cimport cuml.common.cuda
 from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
 
 from cuml import numba_utils
@@ -38,17 +39,6 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
-
-cdef extern from "cuML.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-        cuml.common.cuda._Stream getStream()
-
 
 cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
 
@@ -84,20 +74,20 @@ cdef extern from "umap/umap.h" namespace "ML":
 
         UMAP_API(UMAPParams *p) except +
 
-        void fit(const cumlHandle &handle,
+        void fit(cumlHandle &handle,
                  float *X,
                  int n,
                  int d,
                  float *embeddings)
 
-        void fit(const cumlHandle &handle,
+        void fit(cumlHandle &handle,
                  float *X,
                  float *y,
                  int n,
                  int d,
                  float *embeddings)
 
-        void transform(const cumlHandle &handle,
+        void transform(cumlHandle &handle,
                        float *X,
                        int n,
                        int d,
@@ -221,6 +211,8 @@ cdef class UMAPImpl:
 
     cdef bool _should_downcast
 
+    cdef object handle
+
     def __cinit__(self,
                   n_neighbors=15,
                   n_components=2,
@@ -242,6 +234,8 @@ cdef class UMAPImpl:
                   target_metric = "euclidean",
                   should_downcast = True,
                   handle = None):
+
+        self.handle = handle
 
         self.umap_params = new UMAPParams()
 
@@ -361,12 +355,14 @@ cdef class UMAPImpl:
                                             order = "C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
+        cdef cumlHandle * handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+
         cdef uintptr_t y_raw
         if y is not None:
             y_m = self._downcast(y)
             y_raw = y_m.device_ctypes_pointer.value
             self.umap.fit(
-                <cumlHandle> self.handle,
+                handle_[0],
                 <float*> self.raw_data,
                 <float*> y_raw,
                 <int> X_m.shape[0],
@@ -377,7 +373,7 @@ cdef class UMAPImpl:
         else:
 
             self.umap.fit(
-                <cumlHandle>self.handle,
+                handle_[0],
                 <float*> self.raw_data,
                 <int> X_m.shape[0],
                 <int> X_m.shape[1],
@@ -442,8 +438,10 @@ cdef class UMAPImpl:
                                             order = "C", dtype=np.float32))
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
 
+        cdef cumlHandle * handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+
         self.umap.transform(
-                       <cumlHandle>self.handle,
+                       handle_[0],
                        <float*>x_ptr,
                        <int>X_m.shape[0],
                        <int>X_m.shape[1],

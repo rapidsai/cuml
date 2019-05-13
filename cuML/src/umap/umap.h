@@ -46,7 +46,7 @@ namespace ML {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-            void fit(const cumlHandle &handle, float *X, int n, int d, float *embeddings);
+            void fit(cumlHandle &handle, float *X, int n, int d, float *embeddings);
 
             /**
              * Fits a supervised UMAP model
@@ -61,7 +61,7 @@ namespace ML {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-            void fit(const cumlHandle &handle, float *X, float *y, int n, int d, float *embeddings);
+            void fit(cumlHandle &handle, float *X, float *y, int n, int d, float *embeddings);
 
             /**
              * Project a set of X vectors into the embedding space.
@@ -78,7 +78,7 @@ namespace ML {
              * @param out
              *        pointer to array for storing output embeddings (n, n_components)
              */
-            void transform(const cumlHandle &handle, float *X, int n, int d,
+            void transform(cumlHandle &handle, float *X, int n, int d,
                     float *embedding, int embedding_n,
                     float *out);
 
