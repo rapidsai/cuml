@@ -94,7 +94,8 @@ protected:
     long *d_ref_I;
     T* d_ref_D;
 
-    kNN *knn = new kNN(d);
+    cumlHandle handle;
+    kNN *knn = new kNN(handle, d);
 };
 
 

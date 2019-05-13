@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "cuML.hpp"
+
 #include <nvgraph.h>
 
 #include "sparse/nvgraph_wrappers.h"
@@ -43,12 +45,12 @@ namespace ML {
          */
 
         template<typename T>
-        void fit_clusters(int *rows, int *cols, T *vals, int nnz,
+        void fit_clusters(const cumlHandle &handle, int *rows, int *cols, T *vals, int nnz,
                 int n, int n_clusters, float eigen_tol, int *out) {
 
-            nvgraphHandle_t handle;
+            nvgraphHandle_t graphHandle;
             cudaDataType_t edge_dimT = CUDA_R_32F;
-            NVGRAPH_CHECK(nvgraphCreate (&handle));
+            NVGRAPH_CHECK(nvgraphCreate (&graphHandle));
 
             /**
              * Convert COO to CSR
@@ -73,7 +75,7 @@ namespace ML {
             CSR_input->nvertices = n;
             CSR_input->source_offsets = src_offsets;
 
-            NVGRAPH_CHECK(nvgraphConvertTopology(handle,
+            NVGRAPH_CHECK(nvgraphConvertTopology(graphHandle,
                     NVGRAPH_COO_32, (void*)COO_input, (void*)vals,
                     &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
@@ -94,17 +96,17 @@ namespace ML {
             clustering_params.kmean_max_iter = 0;
 
             nvgraphGraphDescr_t graph;
-            NVGRAPH_CHECK(nvgraphCreateGraphDescr(handle, &graph));
-            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph,
+            NVGRAPH_CHECK(nvgraphCreateGraphDescr(graphHandle, &graph));
+            NVGRAPH_CHECK(nvgraphSetGraphStructure(graphHandle, graph,
                     (void*)CSR_input, NVGRAPH_CSR_32));
-            NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
-            NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
+            NVGRAPH_CHECK(nvgraphAllocateEdgeData(graphHandle, graph, 1, &edge_dimT));
+            NVGRAPH_CHECK(nvgraphSetEdgeData(graphHandle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
+            NVGRAPH_CHECK(nvgraphSpectralClustering(graphHandle, graph, weight_index,
                     &clustering_params, out, eigVals, embedding));
 
-            NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
-            NVGRAPH_CHECK(nvgraphDestroy(handle));
+            NVGRAPH_CHECK(nvgraphDestroyGraphDescr(graphHandle, graph));
+            NVGRAPH_CHECK(nvgraphDestroy(graphHandle));
 
             CUDA_CHECK(cudaFree(src_offsets));
             CUDA_CHECK(cudaFree(dst_indices));
@@ -128,7 +130,7 @@ namespace ML {
          * @param out output array for labels (size m)
          */
         template<typename T>
-        void fit_clusters(long *knn_indices, T *knn_dists, int m, int n_neighbors,
+        void fit_clusters(const cumlHandle &handle, long *knn_indices, T *knn_dists, int m, int n_neighbors,
                 int n_clusters, float eigen_tol, int *out) {
 
             int *rows, *cols;
@@ -143,7 +145,7 @@ namespace ML {
 
             // todo: Need to symmetrize the knn to create the knn graph
 
-            fit_clusters(rows, cols, vals, m*n_neighbors, m, n_clusters, eigen_tol, out);
+            fit_clusters(handle, rows, cols, vals, m*n_neighbors, m, n_clusters, eigen_tol, out);
 
             CUDA_CHECK(cudaFree(rows));
             CUDA_CHECK(cudaFree(cols));
@@ -163,10 +165,10 @@ namespace ML {
          * @param out output array for labels (size m)
          */
         template<typename T>
-        void fit_clusters(T *X, int m, int n, int n_neighbors,
+        void fit_clusters(const cumlHandle &handle, T *X, int m, int n, int n_neighbors,
                 int n_clusters, float eigen_tol, int *out) {
 
-            kNN *knn = new kNN(n);
+            kNN knn(handle, n);
 
             long *knn_indices;
             float *knn_dists;
@@ -179,16 +181,14 @@ namespace ML {
             params[0].ptr = X;
 
 
-            knn->fit(*&params, 1);
-            knn->search(X, m, knn_indices, knn_dists, n_neighbors);
+            knn.fit(params, 1);
+            knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
-            fit_clusters(knn_indices, knn_dists, m, n_neighbors,
+            fit_clusters(handle, knn_indices, knn_dists, m, n_neighbors,
                     n_clusters, eigen_tol, out);
 
             CUDA_CHECK(cudaFree(knn_indices));
             CUDA_CHECK(cudaFree(knn_dists));
-
-            delete knn;
         }
 
         /***
@@ -205,12 +205,12 @@ namespace ML {
          * @param out output array for labels (size m)
          */
         template<typename T>
-        void fit_embedding(int *rows, int*cols, T *vals, int nnz, int n,
+        void fit_embedding(const cumlHandle &handle, int *rows, int*cols, T *vals, int nnz, int n,
                 int n_components, T *out) {
 
-            nvgraphHandle_t handle;
+            nvgraphHandle_t grapHandle;
             cudaDataType_t edge_dimT = CUDA_R_32F;
-            NVGRAPH_CHECK(nvgraphCreate (&handle));
+            NVGRAPH_CHECK(nvgraphCreate (&grapHandle));
 
             // Allocate csr arrays
             int *src_offsets, *dst_indices;
@@ -229,7 +229,7 @@ namespace ML {
             CSR_input->nvertices = n;
             CSR_input->source_offsets = src_offsets;
 
-            NVGRAPH_CHECK(nvgraphConvertTopology(handle, NVGRAPH_COO_32,
+            NVGRAPH_CHECK(nvgraphConvertTopology(grapHandle, NVGRAPH_COO_32,
                     (void*)COO_input, (void*)vals,
                     &edge_dimT, NVGRAPH_CSR_32, (void*)CSR_input, (void*)vals));
 
@@ -251,17 +251,17 @@ namespace ML {
             clustering_params.kmean_max_iter = 1;
 
             nvgraphGraphDescr_t graph;
-            NVGRAPH_CHECK(nvgraphCreateGraphDescr(handle, &graph));
-            NVGRAPH_CHECK(nvgraphSetGraphStructure(handle, graph,
+            NVGRAPH_CHECK(nvgraphCreateGraphDescr(grapHandle, &graph));
+            NVGRAPH_CHECK(nvgraphSetGraphStructure(grapHandle, graph,
                     (void*)CSR_input, NVGRAPH_CSR_32));
-            NVGRAPH_CHECK(nvgraphAllocateEdgeData(handle, graph, 1, &edge_dimT));
-            NVGRAPH_CHECK(nvgraphSetEdgeData(handle, graph, (void*)vals, 0));
+            NVGRAPH_CHECK(nvgraphAllocateEdgeData(grapHandle, graph, 1, &edge_dimT));
+            NVGRAPH_CHECK(nvgraphSetEdgeData(grapHandle, graph, (void*)vals, 0));
 
-            NVGRAPH_CHECK(nvgraphSpectralClustering(handle, graph, weight_index,
+            NVGRAPH_CHECK(nvgraphSpectralClustering(grapHandle, graph, weight_index,
                     &clustering_params, labels, eigVals, out));
 
-            NVGRAPH_CHECK(nvgraphDestroyGraphDescr(handle, graph));
-            NVGRAPH_CHECK(nvgraphDestroy(handle));
+            NVGRAPH_CHECK(nvgraphDestroyGraphDescr(grapHandle, graph));
+            NVGRAPH_CHECK(nvgraphDestroy(grapHandle));
 
             CUDA_CHECK(cudaFree(src_offsets));
             CUDA_CHECK(cudaFree(dst_indices));
@@ -284,7 +284,7 @@ namespace ML {
          * @param out output array for labels (size m)
          */
         template<typename T>
-        void fit_embedding(long *knn_indices, float *knn_dists, int m, int n_neighbors,
+        void fit_embedding(const cumlHandle &handle, long *knn_indices, float *knn_dists, int m, int n_neighbors,
             int n_components, T *out) {
 
             int *rows, *cols;
@@ -300,7 +300,7 @@ namespace ML {
             // todo: Need to symmetrize the knn graph here. UMAP works here because
             // it has already done this.
 
-            fit_embedding(rows, cols, vals, m*n_neighbors, m, n_components, out);
+            fit_embedding(handle, rows, cols, vals, m*n_neighbors, m, n_components, out);
 
             CUDA_CHECK(cudaFree(rows));
             CUDA_CHECK(cudaFree(cols));
@@ -319,11 +319,11 @@ namespace ML {
          * @param out output array for labels (size m)
          */
         template<typename T>
-        void fit_embedding(T *X, int m, int n,
+        void fit_embedding(const cumlHandle &handle, T *X, int m, int n,
                 int n_neighbors, int n_components,
                 T *out) {
 
-            kNN *knn = new kNN(n);
+            kNN knn(handle, n);
 
             long *knn_indices;
             float *knn_dists;
@@ -335,16 +335,20 @@ namespace ML {
             params[0].N = m;
             params[0].ptr = X;
 
-            knn->fit(*&params, 1);
-            knn->search(X, m, knn_indices, knn_dists, n_neighbors);
+            knn.fit(*&params, 1);
+            knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
-            fit_embedding(knn_indices, knn_dists, m, n_neighbors,
+            std::cout << "About to call" << std::endl;
+
+            fit_embedding(handle, knn_indices, knn_dists, m, n_neighbors,
                     n_components, out);
+
+            std::cout << "DONE!" << std::endl;
 
             CUDA_CHECK(cudaFree(knn_indices));
             CUDA_CHECK(cudaFree(knn_dists));
 
-            delete knn;
+            std::cout << "DONE!" << std::endl;
         }
     }
 }
