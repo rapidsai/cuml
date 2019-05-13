@@ -110,7 +110,8 @@ struct TemporaryMemory
 		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, mse_elements);
 		
 		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + n_bins * sizeof(T))* Ncols;
+		// memory of d_histout + d_colids + d_globalminmax + (d_mseout + d_predout)
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + 3 * n_bins * sizeof(T))* Ncols;
 
 	}
 

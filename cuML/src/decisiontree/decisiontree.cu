@@ -58,9 +58,9 @@ DecisionTreeParams::DecisionTreeParams() {}
  * @brief Decision tree hyper-parameter object constructor to set all DecisionTreeParams members.
  */
 DecisionTreeParams::DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_algo,
-				       int cfg_min_rows_per_node, bool cfg_bootstrap_features):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
+				       int cfg_min_rows_per_node, bool cfg_bootstrap_features, CRITERION cfg_split_criterion):max_depth(cfg_max_depth), max_leaves(cfg_max_leaves),
 											       max_features(cfg_max_features), n_bins(cfg_n_bins), split_algo(cfg_split_algo),
-											       min_rows_per_node(cfg_min_rows_per_node), bootstrap_features(cfg_bootstrap_features) {}
+											       min_rows_per_node(cfg_min_rows_per_node), bootstrap_features(cfg_bootstrap_features), split_criterion(cfg_split_criterion) {}
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
@@ -215,6 +215,9 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
 		tree_params.n_bins = n_sampled_rows;
 	}
+	if (tree_params.split_criterion != CRITERION::GINI) { // Only GINI split criterion supported for classification.
+		tree_params.split_criterion = CRITERION::GINI;
+	}
 	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
 		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
 }
@@ -234,12 +237,13 @@ void DecisionTreeClassifier<T>::plant(const cumlHandle_impl& handle, T *data, co
 	this->n_unique_labels = unique_labels;
 	this->min_rows_per_node = cfg_min_rows_per_node;
 	this->bootstrap_features = cfg_bootstrap_features;
+	this->split_criterion = CRITERION::GINI;
 
 	//Bootstrap features
 	this->feature_selector.resize(this->dinfo.Ncols);
 	if (this->bootstrap_features) {
 		srand(n_bins);
-		for(int i=0; i < this->dinfo.Ncols; i++) {
+		for (int i=0; i < this->dinfo.Ncols; i++) {
 			this->feature_selector.push_back( rand() % this->dinfo.Ncols );
 		}
 	} else {
@@ -373,14 +377,12 @@ void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const 
 		tree_params.n_bins = n_sampled_rows;
 	}
 	plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params.max_depth,
-    		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
+    		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
 }
 
 template<typename T>
 void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids, const int n_sampled_rows,
-				      int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features) {
-
-	//TODO FIXME - method body copied from Classifier as temp placeholder. FIXME
+				      int unique_labels, int maxdepth, int max_leaf_nodes, const float colper, int n_bins, int split_algo_flag, int cfg_min_rows_per_node, bool cfg_bootstrap_features, CRITERION cfg_split_criterion) {
 
 	this->split_algo = split_algo_flag;
 	this->dinfo.NLocalrows = nrows;
@@ -393,19 +395,20 @@ void DecisionTreeRegressor<T>::plant(const cumlHandle_impl& handle, T *data, con
 	this->n_unique_labels = unique_labels;
 	this->min_rows_per_node = cfg_min_rows_per_node;
 	this->bootstrap_features = cfg_bootstrap_features;
+	this->split_criterion = cfg_split_criterion;
 
 	//Bootstrap features
 	this->feature_selector.resize(this->dinfo.Ncols);
 	if (this->bootstrap_features) {
 		srand(n_bins);
-		for(int i=0; i < this->dinfo.Ncols; i++) {
+		for (int i=0; i < this->dinfo.Ncols; i++) {
 			this->feature_selector.push_back( rand() % this->dinfo.Ncols );
 		}
 	} else {
 		std::iota(this->feature_selector.begin(), this->feature_selector.end(), 0);
 	}
 
-	//std::random_shuffle(this->feature_selector.begin(), this->feature_selector.end());
+	std::random_shuffle(this->feature_selector.begin(), this->feature_selector.end());
 	this->feature_selector.resize((int) (colper * this->dinfo.Ncols));
 
 	cudaDeviceProp prop;
@@ -446,7 +449,6 @@ template<typename T>
 TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper, T *labels, int depth, unsigned int* rowids,
 												const int n_sampled_rows, MetricInfo<T> prev_split_info) {
 
-	//TODO FIXME - method body mostly copied from Classifier. FIXME
 	TreeNode<T, T> *node = new TreeNode<T, T>();
 	MetricQuestion<T> ques;
 	Question<T> node_ques;
@@ -502,15 +504,23 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 
 		T *labelptr = this->tempmem[0]->sampledlabels->data();
 		get_sampled_labels<T>(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
-		mse(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
+		if (this->split_criterion == CRITERION::MSE) {
+			mse<T, SquareFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
+		} else {
+			mse<T, AbsFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
+		}
 		//Unregister
 		CUDA_CHECK(cudaHostUnregister(colselector.data()));
 	}
 
 	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
-	best_split_all_cols_regressor(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
+	if (this->split_criterion == CRITERION::MSE) {
+		best_split_all_cols_regressor<T, SquareFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
 				      this->tempmem[0], split_info, ques, gain, this->split_algo);
-	
+	} else {
+		best_split_all_cols_regressor<T, AbsFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
+				      this->tempmem[0], split_info, ques, gain, this->split_algo);
+	}
 }
 
 // ---------------- Regression end

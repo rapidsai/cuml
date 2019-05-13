@@ -39,6 +39,7 @@ struct RfInputs {
 	int n_bins;
 	int split_algo;
 	int min_rows_per_node;
+	CRITERION split_criterion;
 };
 
 template<typename T>
@@ -53,9 +54,10 @@ protected:
 	void basicTest() {
 
 		params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+		params.split_criterion = CRITERION::GINI; // override MSE config, one criterion supported for classification
 
 		DecisionTree::DecisionTreeParams tree_params(params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-							     params.split_algo, params.min_rows_per_node, params.bootstrap_features);
+							     params.split_algo, params.min_rows_per_node, params.bootstrap_features, params.split_criterion);
 		RF_params rf_params(params.bootstrap, params.bootstrap_features, params.n_trees, params.rows_sample, tree_params);
 		//rf_params.print();
 
@@ -145,7 +147,7 @@ protected:
 		params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
 		DecisionTree::DecisionTreeParams tree_params(params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-							     params.split_algo, params.min_rows_per_node, params.bootstrap_features);
+							     params.split_algo, params.min_rows_per_node, params.bootstrap_features, params.split_criterion);
 		RF_params rf_params(params.bootstrap, params.bootstrap_features, params.n_trees, params.rows_sample, tree_params);
 		//rf_params.print();
 
@@ -225,19 +227,19 @@ protected:
 //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float> > inputsf2 = {
-	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2}, // single tree forest, bootstrap false, unlimited depth, 4 bins
-	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},	// single tree forest, bootstrap false, depth of 8, 4 bins
-	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2}, //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2} //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE}, // single tree forest, bootstrap false, unlimited depth, 4 bins
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE},	// single tree forest, bootstrap false, depth of 8, 4 bins
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE}, //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, CRITERION::MSE}, //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MSE} //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
 };
 
 const std::vector<RfInputs<double> > inputsd2 = { // Same as inputsf2
-	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2},
-	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2}
+	{4, 2, 1, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE},
+	{4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE},
+	{4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, CRITERION::MSE},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, CRITERION::MSE},
+	{4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE, 2, CRITERION::MSE}
 };
 
 
