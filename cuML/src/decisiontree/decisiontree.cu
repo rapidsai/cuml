@@ -85,6 +85,7 @@ void DecisionTreeParams::print() const {
 	std::cout << "n_bins: " << n_bins << std::endl;
 	std::cout << "split_algo: " << split_algo << std::endl;
 	std::cout << "min_rows_per_node: " << min_rows_per_node << std::endl;
+	std::cout << "split_criterion: " << split_criterion << std::endl;
 }
 
 
@@ -376,6 +377,7 @@ void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const 
 		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
 		tree_params.n_bins = n_sampled_rows;
 	}
+	ASSERT(tree_params.split_criterion != CRITERION::GINI, "GINI is invalid split criterion for regression");
 	plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params.max_depth,
     		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
 }
