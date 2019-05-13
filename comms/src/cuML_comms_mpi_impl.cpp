@@ -36,6 +36,21 @@
     }                                                                               \
   } while (0)
 
+//@todo adapt logging infrastructure for NCCL_CHECK_NO_THROW once available:
+//https://github.com/rapidsai/cuml/issues/100
+#define MPI_CHECK_NO_THROW(call)                                            \
+  do {                                                                      \
+    int status = call;                                                      \
+    if ( MPI_SUCCESS != status ) {                                          \
+      int mpi_error_string_lenght = 0;                                      \
+      char mpi_error_string[MPI_MAX_ERROR_STRING];                          \
+      MPI_Error_string(status, mpi_error_string, &mpi_error_string_lenght); \
+      std::fprintf(stderr,                                                  \
+          "ERROR: MPI call='%s' at file=%s line=%d failed with %s ",        \
+          #call, __FILE__, __LINE__, mpi_error_string );                    \
+    }                                                                       \
+  } while(0)
+
 #define NCCL_CHECK(call)                                                        \
   do {                                                                          \
     ncclResult_t status = call;                                                 \
@@ -167,8 +182,8 @@ void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm)
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm)
-    : _mpi_comm(comm), _size(0), _rank(1), _next_request_id(0)
+cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm)
+    : _owns_mpi_comm(owns_mpi_comm), _mpi_comm(comm), _size(0), _rank(1), _next_request_id(0)
 {
     int mpi_is_initialized = 0;
     MPI_CHECK( MPI_Initialized(&mpi_is_initialized) );
@@ -192,6 +207,10 @@ cumlMPICommunicator_impl::~cumlMPICommunicator_impl()
     //finalizing NCCL
     NCCL_CHECK_NO_THROW( ncclCommDestroy(_nccl_comm) );
 #endif
+    if (_owns_mpi_comm)
+    {
+        MPI_CHECK_NO_THROW(MPI_Comm_free(&_mpi_comm));
+    }
 }
 
 int cumlMPICommunicator_impl::getSize() const
@@ -202,6 +221,13 @@ int cumlMPICommunicator_impl::getSize() const
 int cumlMPICommunicator_impl::getRank() const
 {
     return _rank;
+}
+
+std::unique_ptr<MLCommon::cumlCommunicator_iface> cumlMPICommunicator_impl::commSplit( int color, int key ) const
+{
+    MPI_Comm new_comm;
+    MPI_CHECK( MPI_Comm_split(_mpi_comm, color, key, &new_comm) );
+    return std::unique_ptr<MLCommon::cumlCommunicator_iface>(new cumlMPICommunicator_impl(new_comm,true));
 }
 
 void cumlMPICommunicator_impl::barrier() const

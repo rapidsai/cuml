@@ -39,6 +39,11 @@ int cumlCommunicator::getRank() const
     return _impl->getRank();
 }
 
+cumlCommunicator cumlCommunicator::commSplit( int color, int key ) const
+{
+    return cumlCommunicator(_impl->commSplit(color,key));
+}
+
 void cumlCommunicator::barrier() const
 {
     _impl->barrier();

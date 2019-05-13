@@ -34,12 +34,14 @@ class cumlMPICommunicator_impl : public MLCommon::cumlCommunicator_iface {
 public:
     cumlMPICommunicator_impl() =delete;
 
-    cumlMPICommunicator_impl(MPI_Comm comm);
+    cumlMPICommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm=false);
 
     virtual ~cumlMPICommunicator_impl();
 
     virtual int getSize() const;
     virtual int getRank() const;
+
+    virtual std::unique_ptr<MLCommon::cumlCommunicator_iface> commSplit( int color, int key ) const;
 
     virtual void barrier() const;
 
@@ -62,6 +64,7 @@ public:
     virtual void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const;
 
 private:
+    bool                                                _owns_mpi_comm;
     MPI_Comm                                            _mpi_comm;
 #ifdef HAVE_NCCL
     ncclComm_t                                          _nccl_comm;

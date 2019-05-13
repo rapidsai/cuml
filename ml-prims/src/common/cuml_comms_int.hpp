@@ -59,6 +59,18 @@ public:
     int getRank() const;
 
     /**
+     * Creates new communicators based on colors and keys following the sematics of MPI_Comm_split.
+     *
+     * Note: Issuing concurrent communication requests to overlapping communicators can cause a 
+     *       deadlock.
+     *
+     * @param[in]   color   Control of subset assignment (nonnegative integer)
+     * @param[in]   key     Control of rank assignment
+     * @return              new communicator instance containing only the ranks with the same color
+     */
+    cumlCommunicator commSplit( int color, int key ) const;
+
+    /**
      * Synchronization all ranks for the underlying communicator.
      */
     void barrier() const;
