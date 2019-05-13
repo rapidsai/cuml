@@ -24,6 +24,13 @@ import pandas as pd
 import cudf
 import ctypes
 
+import cuml
+from libcpp.memory cimport shared_ptr
+cimport cuml.common.handle
+cimport cuml.common.cuda
+from cuml.common.base import Base
+
+
 from cuml import numba_utils
 
 from numba import cuda
@@ -31,6 +38,16 @@ from numba import cuda
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+
+cdef extern from "cuML.hpp" namespace "ML" nogil:
+    cdef cppclass deviceAllocator:
+        pass
+
+    cdef cppclass cumlHandle:
+        cumlHandle() except +
+        void setStream(cuml.common.cuda._Stream s)
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
+        cuml.common.cuda._Stream getStream()
 
 
 cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
@@ -67,18 +84,21 @@ cdef extern from "umap/umap.h" namespace "ML":
 
         UMAP_API(UMAPParams *p) except +
 
-        void fit(float *X,
+        void fit(const cumlHandle &handle,
+                 float *X,
                  int n,
                  int d,
                  float *embeddings)
 
-        void fit(float *X,
+        void fit(const cumlHandle &handle,
+                 float *X,
                  float *y,
                  int n,
                  int d,
                  float *embeddings)
 
-        void transform(float *X,
+        void transform(const cumlHandle &handle,
+                       float *X,
                        int n,
                        int d,
                        float *embedding,
@@ -86,7 +106,7 @@ cdef extern from "umap/umap.h" namespace "ML":
                        float *out)
 
 
-cdef class UMAP:
+cdef class UMAPImpl:
 
     """Uniform Manifold Approximation and Projection
     Finds a low dimensional embedding of the data that approximates
@@ -220,7 +240,8 @@ cdef class UMAP:
                   target_n_neighbors = -1,
                   target_weights = 0.5,
                   target_metric = "euclidean",
-                  should_downcast = True):
+                  should_downcast = True,
+                  handle = None):
 
         self.umap_params = new UMAPParams()
 
@@ -345,6 +366,7 @@ cdef class UMAP:
             y_m = self._downcast(y)
             y_raw = y_m.device_ctypes_pointer.value
             self.umap.fit(
+                <cumlHandle> self.handle,
                 <float*> self.raw_data,
                 <float*> y_raw,
                 <int> X_m.shape[0],
@@ -355,6 +377,7 @@ cdef class UMAP:
         else:
 
             self.umap.fit(
+                <cumlHandle>self.handle,
                 <float*> self.raw_data,
                 <int> X_m.shape[0],
                 <int> X_m.shape[1],
@@ -420,7 +443,8 @@ cdef class UMAP:
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
 
         self.umap.transform(
-                        <float*>x_ptr,
+                       <cumlHandle>self.handle,
+                       <float*>x_ptr,
                        <int>X_m.shape[0],
                        <int>X_m.shape[1],
                        <float*> self.embeddings,
@@ -437,3 +461,60 @@ cdef class UMAP:
         del X_m
 
         return ret
+
+
+class UMAP(Base):
+
+    def __init__(self,
+                  n_neighbors=15,
+                  n_components=2,
+                  n_epochs=500,
+                  learning_rate=1.0,
+                  min_dist=0.1,
+                  spread=1.0,
+                  set_op_mix_ratio=1.0,
+                  local_connectivity=1.0,
+                  repulsion_strength=1.0,
+                  negative_sample_rate=5,
+                  transform_queue_size=4.0,
+                  init="spectral",
+                  verbose = False,
+                  a = None,
+                  b = None,
+                  target_n_neighbors = -1,
+                  target_weights = 0.5,
+                  target_metric = "euclidean",
+                  should_downcast = True,
+                  handle = None):
+
+        super(UMAP, self).__init__(handle, verbose)
+
+        self._impl = UMAPImpl(n_neighbors,
+                              n_components,
+                              n_epochs,
+                              learning_rate,
+                              min_dist,
+                              spread,
+                              set_op_mix_ratio,
+                              local_connectivity,
+                              repulsion_strength,
+                              negative_sample_rate,
+                              transform_queue_size,
+                              init,
+                              verbose,
+                              a, b,
+                              target_n_neighbors,
+                              target_weights,
+                              target_metric,
+                              should_downcast,
+                              self.handle)
+
+
+    def fit(self, X, y = None):
+        return self._impl.fit(X, y)
+
+    def transform(self, X):
+        return self._impl.transform(X)
+
+    def fit_transform(self, X, y=None):
+        return self._impl.fit_transform(X, y)

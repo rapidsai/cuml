@@ -76,103 +76,7 @@ cdef extern from "knn/knn.h" namespace "ML":
 
 
 cdef class NearestNeighborsImpl:
-    """
-    NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
-    datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
-    each and every point, and return the top K datapoints which have the smallest distance to it.
-    
-    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic chunking will be done
-    in to a Numpy Array in a future release), and fits a special data structure first to
-    approximate the distance calculations, allowing our querying times to be O(plogn)
-    and not the brute force O(np) [where p = no(features)]:
-    
-    Examples
-    ---------
-    .. code-block:: python
 
-      import cudf
-      from cuml.neighbors import NearestNeighbors
-      import numpy as np
-
-      np_float = np.array([
-        [1,2,3], # Point 1
-        [1,2,4], # Point 2
-        [2,2,4]  # Point 3
-      ]).astype('float32')
-
-      gdf_float = cudf.DataFrame()
-      gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
-      gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
-      gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
-
-      print('n_samples = 3, n_dims = 3')
-      print(gdf_float)
-
-      nn_float = NearestNeighbors()
-      nn_float.fit(gdf_float)
-      distances,indices = nn_float.kneighbors(gdf_float,k=3) #get 3 nearest neighbors
-
-      print(indices)
-      print(distances)
-
-    Output:
-
-    .. code-block:: python
-
-      import cudf
-
-      # Both import methods supported
-      # from cuml.neighbors import NearestNeighbors
-      from cuml import NearestNeighbors
-
-      n_samples = 3, n_dims = 3
-
-      dim_0 dim_1 dim_2
-
-      0   1.0   2.0   3.0
-      1   1.0   2.0   4.0
-      2   2.0   2.0   4.0
-
-      # indices:
-
-               index_neighbor_0 index_neighbor_1 index_neighbor_2
-      0                0                1                2
-      1                1                0                2
-      2                2                1                0
-      # distances:
-
-               distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
-      0                 0.0                 1.0                 2.0
-      1                 0.0                 1.0                 1.0
-      2                 0.0                 1.0                 2.0
-
-    Parameters
-    ----------
-    n_neighbors: int (default = 5)
-        The top K closest datapoints you want the algorithm to return. If this number is large,
-        then expect the algorithm to run slower.
-    should_downcast : bool (default = False)
-        Currently only single precision is supported in the underlying undex. Setting this to
-        true will allow single-precision input arrays to be automatically downcasted to single
-        precision. Default = False.
-        
-    Notes
-    ------
-    NearestNeighbors is a generative model. This means the data X has to be stored in order
-    for inference to occur.
-    
-    **Applications of NearestNeighbors**
-    
-        Applications of NearestNeighbors include recommendation systems where content or colloborative
-        filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
-        used in data visualization and regression / classification tasks.
-
-    For an additional example see `the NearestNeighbors notebook
-    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
-
-    For additional docs, see `scikitlearn's NearestNeighbors
-    <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
-    """
     
     cpdef kNN *k
     #
@@ -275,14 +179,6 @@ cdef class NearestNeighborsImpl:
 
 
     def fit(self, X):
-        """
-        Fit GPU index for performing nearest neighbor queries.
-
-        Parameters
-        ----------
-        X : cuDF DataFrame or numpy ndarray
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
-        """
         assert len(X.shape) == 2, 'data should be two dimensional'
 
         if self.k != NULL:
@@ -345,17 +241,7 @@ cdef class NearestNeighborsImpl:
                        <int> 1)
 
     def _fit_mg(self, n_dims, alloc_info):
-        """
-        Fits a model using multiple GPUs. This method takes in a list of dict objects
-        representing the distribution of the underlying device pointers. The device
-        information can be extracted from the pointers.
 
-        :param n_dims
-            the number of features for each vector
-        :param alloc_info
-            a list of __cuda_array_interface__ dicts
-        :return:
-        """
 
         if self.k != NULL:
             del self.k
@@ -380,25 +266,7 @@ cdef class NearestNeighborsImpl:
 
 
     def kneighbors(self, X, k = None):
-        """
-        Query the GPU index for the k nearest neighbors of row vectors in X.
 
-        Parameters
-        ----------
-        X : cuDF DataFrame or numpy ndarray
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
-
-        k: Integer
-           The number of neighbors
-
-        Returns
-        ----------
-        distances: cuDF DataFrame or numpy ndarray
-            The distances of the k-nearest neighbors for each column vector in X
-
-        indices: cuDF DataFrame of numpy ndarray
-            The indices of the k-nearest neighbors for each column vector in X
-        """
 
         if k is None:
             k = self.n_neighbors
@@ -443,6 +311,139 @@ cdef class NearestNeighborsImpl:
 
 
     def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
+
+
+        cdef uintptr_t inds = I_ptr
+        cdef uintptr_t dists = D_ptr
+        cdef uintptr_t x = X_ctype
+
+        self.k.search(<float*>x,
+                      <int> N,
+                      <long*>inds,
+                      <float*>dists,
+                      <int> k)
+
+
+
+class NearestNeighbors(Base):
+    """
+    NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
+    datapoint(s) to new unseen data, one can calculate a suitable "distance" between
+    each and every point, and return the top K datapoints which have the smallest distance to it.
+
+    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic chunking will be done
+    in to a Numpy Array in a future release), and fits a special data structure first to
+    approximate the distance calculations, allowing our querying times to be O(plogn)
+    and not the brute force O(np) [where p = no(features)]:
+
+    Examples
+    ---------
+    .. code-block:: python
+
+      import cudf
+      from cuml.neighbors import NearestNeighbors
+      import numpy as np
+
+      np_float = np.array([
+        [1,2,3], # Point 1
+        [1,2,4], # Point 2
+        [2,2,4]  # Point 3
+      ]).astype('float32')
+
+      gdf_float = cudf.DataFrame()
+      gdf_float['dim_0'] = np.ascontiguousarray(np_float[:,0])
+      gdf_float['dim_1'] = np.ascontiguousarray(np_float[:,1])
+      gdf_float['dim_2'] = np.ascontiguousarray(np_float[:,2])
+
+      print('n_samples = 3, n_dims = 3')
+      print(gdf_float)
+
+      nn_float = NearestNeighbors()
+      nn_float.fit(gdf_float)
+      distances,indices = nn_float.kneighbors(gdf_float,k=3) #get 3 nearest neighbors
+
+      print(indices)
+      print(distances)
+
+    Output:
+
+    .. code-block:: python
+
+      import cudf
+
+      # Both import methods supported
+      # from cuml.neighbors import NearestNeighbors
+      from cuml import NearestNeighbors
+
+      n_samples = 3, n_dims = 3
+
+      dim_0 dim_1 dim_2
+
+      0   1.0   2.0   3.0
+      1   1.0   2.0   4.0
+      2   2.0   2.0   4.0
+
+      # indices:
+
+               index_neighbor_0 index_neighbor_1 index_neighbor_2
+      0                0                1                2
+      1                1                0                2
+      2                2                1                0
+      # distances:
+
+               distance_neighbor_0 distance_neighbor_1 distance_neighbor_2
+      0                 0.0                 1.0                 2.0
+      1                 0.0                 1.0                 1.0
+      2                 0.0                 1.0                 2.0
+
+    Parameters
+    ----------
+    n_neighbors: int (default = 5)
+        The top K closest datapoints you want the algorithm to return. If this number is large,
+        then expect the algorithm to run slower.
+    should_downcast : bool (default = False)
+        Currently only single precision is supported in the underlying undex. Setting this to
+        true will allow single-precision input arrays to be automatically downcasted to single
+        precision. Default = False.
+
+    Notes
+    ------
+    NearestNeighbors is a generative model. This means the data X has to be stored in order
+    for inference to occur.
+
+    **Applications of NearestNeighbors**
+
+        Applications of NearestNeighbors include recommendation systems where content or colloborative
+        filtering is used. Since NearestNeighbors is a relatively simple generative model, it is also
+        used in data visualization and regression / classification tasks.
+
+    For an additional example see `the NearestNeighbors notebook
+    <https://github.com/rapidsai/notebook/blob/master/python/notebooks/knn_demo.ipynb>`_.
+
+    For additional docs, see `scikitlearn's NearestNeighbors
+    <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
+    """
+
+    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False,
+                 should_downcast = True, handle = None):
+        super(NearestNeighbors, self).__init__(handle, verbose)
+        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices, verbose,
+                                          should_downcast, self.handle)
+
+    def fit(self, X):
+        """
+        Fit GPU index for performing nearest neighbor queries.
+
+        Parameters
+        ----------
+        X : cuDF DataFrame or numpy ndarray
+            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        """
+        return self._impl.fit(X)
+
+
+    def kneighbors(self, X, k = None):
+
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -471,33 +472,19 @@ cdef class NearestNeighborsImpl:
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
-
-        cdef uintptr_t inds = I_ptr
-        cdef uintptr_t dists = D_ptr
-        cdef uintptr_t x = X_ctype
-
-        self.k.search(<float*>x,
-                      <int> N,
-                      <long*>inds,
-                      <float*>dists,
-                      <int> k)
-
-
-
-class NearestNeighbors(Base):
-
-    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
-        super(NearestNeighbors, self).__init__(handle, verbose)
-
-        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices, verbose, should_downcast, self.handle)
-
-    def fit(self, X):
-        return self._impl.fit(X)
-
-
-    def kneighbors(self, X, k = None):
         return self._impl.kneighbors(X, k)
 
 
     def _fit_mg(self, n_dims, alloc_info):
+        """
+        Fits a model using multiple GPUs. This method takes in a list of dict objects
+        representing the distribution of the underlying device pointers. The device
+        information can be extracted from the pointers.
+
+        :param n_dims
+            the number of features for each vector
+        :param alloc_info
+            a list of __cuda_array_interface__ dicts
+        :return:
+        """
         return self._impl._fit_mg(n_dims, alloc_info)
