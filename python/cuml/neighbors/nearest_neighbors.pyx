@@ -23,6 +23,11 @@ import numpy as np
 import pandas as pd
 import cudf
 import ctypes
+import cuml
+from libcpp.memory cimport shared_ptr
+cimport cuml.common.handle
+cimport cuml.common.cuda
+from cuml.common.base import Base
 
 from libcpp cimport bool
 
@@ -36,6 +41,16 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml import numba_utils
 
+cdef extern from "cuML.hpp" namespace "ML" nogil:
+    cdef cppclass deviceAllocator:
+        pass
+
+    cdef cppclass cumlHandle:
+        cumlHandle() except +
+        void setStream(cuml.common.cuda._Stream s)
+        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
+        cuml.common.cuda._Stream getStream()
+
 cdef extern from "knn/knn.h" namespace "ML":
 
     cdef cppclass kNNParams:
@@ -43,8 +58,8 @@ cdef extern from "knn/knn.h" namespace "ML":
         int N
 
     cdef cppclass kNN:
-        kNN(int D, bool verbose) except +
-        void search(const float *search_items,
+        kNN(const cumlHandle &handle, int D, bool verbose) except +
+        void search(float *search_items,
                     int search_items_size,
                     long *res_I,
                     float *res_D,
@@ -60,7 +75,7 @@ cdef extern from "knn/knn.h" namespace "ML":
         )
 
 
-class NearestNeighbors:
+cdef class NearestNeighborsImpl:
     """
     NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
     datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
@@ -159,27 +174,29 @@ class NearestNeighbors:
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     
-    # cpdef kNN *k
+    cpdef kNN *k
     #
-    # cdef int num_gpus
+    cdef int num_gpus
     #
-    # cdef uintptr_t X_ctype
+    cdef uintptr_t X_ctype
     #
-    # cdef uintptr_t I_ptr
-    # cdef uintptr_t D_ptr
+    cdef uintptr_t I_ptr
+    cdef uintptr_t D_ptr
     #
-    # cdef object X_m
+    cdef object X_m
     #
-    # cdef bool _should_downcast
-    # cdef object n_gpus
-    # cdef object devices
-    # cdef bool _verbose
+    cdef bool _should_downcast
+    cdef object n_gpus
+    cdef object devices
+    cdef bool _verbose
     #
-    # cdef object n_neighbors
+    cdef object n_neighbors
     #
-    # cpdef kNNParams *input
+    cpdef kNNParams *input
 
-    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
+    cpdef object handle
+
+    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -197,6 +214,7 @@ class NearestNeighbors:
         self._should_downcast = should_downcast
         self.input = <kNNParams*> malloc(sizeof(kNNParams))
         self.k = NULL
+        self.handle = handle
 
     def __dealloc__(self):
         del self.k
@@ -271,7 +289,7 @@ class NearestNeighbors:
             del self.k
 
         n_dims = X.shape[1]
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        self.k = new kNN(<cumlHandle>self.handle, n_dims, verbose = self._verbose)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
@@ -342,7 +360,7 @@ class NearestNeighbors:
         if self.k != NULL:
             del self.k
 
-        self.k = new kNN(n_dims, verbose = self._verbose)
+        self.k = new kNN(<cumlHandle>self.handle, n_dims, verbose = self._verbose)
 
         del self.input
         self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
@@ -463,3 +481,23 @@ class NearestNeighbors:
                       <long*>inds,
                       <float*>dists,
                       <int> k)
+
+
+
+class NearestNeighbors(Base):
+
+    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
+        super(NearestNeighbors, self).__init__(handle, verbose)
+
+        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices, verbose, should_downcast, self.handle)
+
+    def fit(self, X):
+        return self._impl.fit(X)
+
+
+    def kneighbors(self, X, k = None):
+        return self._impl.kneighbors(X, k)
+
+
+    def _fit_mg(self, n_dims, alloc_info):
+        return self._impl._fit_mg(n_dims, alloc_info)
