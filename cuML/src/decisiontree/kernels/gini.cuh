@@ -22,6 +22,23 @@
 #include "gini_def.h"
 #include "cuda_utils.h"
 
+struct SquareFunctor {
+
+	template <typename T>
+	static __device__ T exec(T x) {
+		return MLCommon::myPow(x, (T) 2);
+	}
+};
+
+struct AbsFunctor {
+
+	template <typename T>
+	static __device__ T exec(T x) {
+		return MLCommon::myAbs(x);
+	}
+};
+
+
 template<class T>
 void MetricQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
 	bootstrapped_column = cfg_bootcolumn;
@@ -74,13 +91,14 @@ __global__ void pred_kernel(const T* __restrict__ labels, const int nrows, T* pr
 
 	__syncthreads();
 
-	if (threadIdx.x == 0)
+	if (threadIdx.x == 0) {
 		atomicAdd(predout, shmempred);
+	}
 
 	return;
 }
 
-template<typename T>
+template<typename T, typename F>
 __global__ void mse_kernel(const T* __restrict__ labels, const int nrows, const T* predout, T* mseout)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -94,13 +112,14 @@ __global__ void mse_kernel(const T* __restrict__ labels, const int nrows, const 
 
 	if (tid < nrows) {
 		T label = labels[tid] - (predout[0]/nrows);
-		atomicAdd(&shmemmse, label*label);
+		atomicAdd(&shmemmse, F::exec(label));
 	}
 
 	__syncthreads();
 
-	if (threadIdx.x == 0)
+	if (threadIdx.x == 0) {
 		atomicAdd(mseout, shmemmse);
+	}
 
 	return;
 }
@@ -130,7 +149,7 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 	return;
 }
 
-template<typename T>
+template<typename T, typename F>
 void mse(T *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, T>> tempmem, MetricInfo<T> & split_info)
 {
 	T *dpred = tempmem->d_predout->data();
@@ -143,13 +162,13 @@ void mse(T *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T,
 	
 	pred_kernel<<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred);
 	CUDA_CHECK(cudaGetLastError());
-	mse_kernel<<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred, dmse);
+	mse_kernel<T, F><<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred, dmse);
 	
 	CUDA_CHECK(cudaMemcpyAsync(hmse, dmse, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaMemcpyAsync(hpred, dpred, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	
-	split_info.best_metric = (float)hmse[0] / (float)nrows; //Update gini val
+	split_info.best_metric = (float)hmse[0] / (float)nrows; //Update split metric value
 	split_info.predict = hpred[0] / (T)nrows;
 	return;
 }

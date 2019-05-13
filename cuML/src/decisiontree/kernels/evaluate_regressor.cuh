@@ -23,7 +23,7 @@
 #include <float.h>
 #include "../algo_helper.h"
 
-template<typename T>
+template<typename T, typename F>
 __global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T pred_parent) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -62,11 +62,11 @@ __global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const 
 			if (localdata <= quesval) {
 				T temp = shmem_pred[coloffset +j] / shmem_count[coloffset + j] ;
 				temp = label - temp;
-				atomicAdd(&shmem_mse[j + coloffset], temp*temp);
+				atomicAdd(&shmem_mse[j + coloffset], F::exec(temp));
 			} else {
 				T temp = ( pred_parent*nrows - shmem_pred[coloffset +j] ) / (nrows - shmem_count[coloffset + j] );
 				temp = label - temp;
-				atomicAdd(&shmem_mse[j + coloffset + ncols*nbins], temp*temp);
+				atomicAdd(&shmem_mse[j + coloffset + ncols*nbins], F::exec(temp));
 			}
 		       
 		}
@@ -174,7 +174,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 	}
 }
 
-template<typename T>
+template<typename T, typename F>
 __global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile, const T pred_parent) {
 	
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -206,11 +206,11 @@ __global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ dat
 			if (localdata <= quesval) {
 				T temp = shmem_pred[coloffset +j] / shmem_count[coloffset + j] ;
 				temp = label - temp;
-				atomicAdd(&shmem_mse[j + coloffset], temp*temp);
+				atomicAdd(&shmem_mse[j + coloffset], F::exec(temp));
 			} else {
 				T temp = ( pred_parent*nrows - shmem_pred[coloffset +j] ) / (nrows - shmem_count[coloffset + j] );
 				temp = label - temp;
-				atomicAdd(&shmem_mse[j + coloffset + ncols*nbins], temp*temp);
+				atomicAdd(&shmem_mse[j + coloffset + ncols*nbins], F::exec(temp));
 			}
 	
 		}
@@ -288,7 +288,7 @@ void find_best_split_regressor(const std::shared_ptr<TemporaryMemory<T,T>> tempm
 }
 
 
-template<typename T>
+template<typename T, typename F>
 void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, const T *labels, const int nbins, const int nrows, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T,T>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
 {
 	int* d_colids = tempmem->d_colids->data();
@@ -333,10 +333,10 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
 		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_predout, d_histout);
-		compute_mse_minmax_kernel_reg<<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_mseout, d_predout, d_histout, split_info[0].predict);
+		compute_mse_minmax_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_globalminmax, d_mseout, d_predout, d_histout, split_info[0].predict);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_predout, d_histout, tempmem->d_quantile->data());
-		compute_mse_global_quantile_kernel_reg<<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_mseout, d_predout, d_histout, tempmem->d_quantile->data(), split_info[0].predict);
+		compute_mse_global_quantile_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, rowoffset, d_mseout, d_predout, d_histout, tempmem->d_quantile->data(), split_info[0].predict);
 	}
 	CUDA_CHECK(cudaGetLastError());
 	

@@ -81,12 +81,16 @@ struct DecisionTreeParams {
 	 */
 	int min_rows_per_node = 2;
 	/**
-	 * Wheather to bootstarp columns with or without replacement
+	 * Whether to bootstrap columns with or without replacement.
 	 */
 	bool bootstrap_features =  false;
+	/**
+	 * Node split criterion. GINI for classification, MSE or MAE for regression.
+	 */
+	CRITERION split_criterion = CRITERION::MSE;
 
 	DecisionTreeParams();
-	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node, bool cfg_bootstrap_features);
+	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node, bool cfg_bootstrap_features, CRITERION cfg_split_criterion);
 	void validity_check() const;
 	void print() const;
 };
@@ -111,6 +115,7 @@ class dt {
 		double construct_time;
 		int min_rows_per_node;
 		bool bootstrap_features;
+		CRITERION split_criterion;
 		std::vector<int> feature_selector;
 
 	    void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
@@ -160,7 +165,7 @@ public:
 private:
 	// Same as above fit, but planting is better for a tree then fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels = 1,
-		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false);
+		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false, CRITERION cfg_split_criterion=CRITERION::MSE);
 
 	TreeNode<T, T> * grow_tree(T *data, const float colper, T *labels, int depth, unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> prev_split_info);
 
