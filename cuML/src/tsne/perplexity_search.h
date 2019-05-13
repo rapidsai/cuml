@@ -53,7 +53,7 @@ void perplexitySearchKernel(volatile float * __restrict__ betas,
     float min_beta = lower_bound[i];
     float max_beta = upper_bound[i];
 
-    const float perplexity = (neg_ent / sum_P) + log(sum_P);
+    const float perplexity = (neg_ent / sum_P) + LOG(sum_P);
     const float perplexity_diff = perplexity - log_perplexity_target;
     const bool is_found = ((perplexity_diff < epsilon) && (-perplexity_diff < epsilon));
 
@@ -88,7 +88,7 @@ static void xlogx(float *entropy, float *Pij, int SIZE, cudaStream_t stream) {
 	LinAlg::unaryOp(entropy, Pij, SIZE,
 					[] __device__(float x) {
 						if (x <= 0) return 0;
-						return x * log(x);
+						return x * LOG(x);
 						// No need to check isinf(x)
 						// since log(x) bounded approx -50, 50.
 					}, 
@@ -97,20 +97,21 @@ static void xlogx(float *entropy, float *Pij, int SIZE, cudaStream_t stream) {
 
 
 
+// Searches for the best perplexity and stores it
+// in Pij
 namespace Perplexity_Search_ {
 
-//
-void searchPerplexity(	const float * __restrict__ Pij,
-						const float * __restrict__ distances,
-						const float perplexity_target, // desired perplexity
-						const float epsilon,
-						const int n,
-						const int n_neighbors,
-						const int SIZE,
-						cudaStream_t stream)
+void searchPerplexity(	float * __restrict__ Pij,
+								const float * __restrict__ distances,
+								const float perplexity_target, // desired perplexity
+								const float epsilon,
+								const int n,
+								const int n_neighbors,
+								const int SIZE,
+								cudaStream_t stream)
 {	
 	assert(perplexity_target > 0);
-	const float log_perplexity_target = log(perplexity_target);
+	const float log_perplexity_target = LOG(perplexity_target);
 
 	// Allocate memory
 	float *betas;		cuda_calloc(betas, n, 1.0f);
@@ -121,10 +122,10 @@ void searchPerplexity(	const float * __restrict__ Pij,
 
 	// Work out blocksizes
     const int BlockSize1 = 1024;
-    const int NBlocks1 = ceildiv(SIZE, BlockSize1);
+    const int NBlocks1 = Utils_::ceildiv(SIZE, BlockSize1);
 
     const int BlockSize2 = 128;
-    const int NBlocks2 = ceildiv(n, BlockSize2);
+    const int NBlocks2 = Utils_::ceildiv(n, BlockSize2);
 
 
     bool all_found = 0;
@@ -201,5 +202,26 @@ void searchPerplexity(	const float * __restrict__ Pij,
 }
 
 
+
+using namespace MLCommon::Sparse;
+// Symmetrize P + P.T after perplexity searching
+void P_add_PT(	const long * __restrict__ indices,
+				const int n,
+				const int n_neighbors,
+				COO<float> *P,
+				COO<float> *P_PT,
+				cudaStream_t stream)
+{
+	// Perform P + P.T
+	// Notice doubles memory allocation
+	MLCommon::Sparse::coo_symmetrize(P, P_PT,
+		[] __device__ (int row, int col, float val, float trans) {
+			return val + trans;
+		}, stream);
+	cuda_synchronize();
+}
+
+
 // end namespace
 }
+

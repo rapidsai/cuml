@@ -40,7 +40,7 @@ void getDistances(	const Type * __restrict__ X,
 
     float maxNorm = MAX(Utils_::max_array(begin, end, stream), 
     					Utils_::min_array(begin, end, stream));
-
+    if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
 	float div_maxNorm = 1.0f/maxNorm; // Mult faster than div

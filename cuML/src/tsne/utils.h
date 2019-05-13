@@ -1,6 +1,5 @@
 
 using namespace ML;
-#define TPB_X 32
 
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
@@ -8,13 +7,14 @@ using namespace ML;
 #include <stdbool.h>
 #include <iostream>
 #include <math.h>
+#include "sparse/coo.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
 #define cuda_free(x) 	CUDA_CHECK(cudaFree(x))
-#define exp(x)			MLCommon::myExp(x)
-#define log(x)			MLCommon::myLog(x)
+#define EXP(x)			MLCommon::myExp(x)
+#define LOG(x)			MLCommon::myLog(x)
 #define MAX(a, b)		((a > b) ? a : b)
 #define MIN(a, b)		((a < b) ? a : b)
 
@@ -38,6 +38,10 @@ void cuda_calloc(Type *&ptr, const size_t n, const Type val) {
 }
 
 
+
+//
+namespace Utils_ {
+
 // Determines number of blocks
 // Similar to page size determination --> need to round up
 inline int ceildiv(const int a, const int b) {
@@ -45,9 +49,6 @@ inline int ceildiv(const int a, const int b) {
 		return a/b + 1;
 	return a/b;
 }
-
-
-namespace Utils_ {
 
 // Finds minimum(array) from UMAP
 template <typename Type>
