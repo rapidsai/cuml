@@ -109,7 +109,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_class(const T* __rest
 	}
 }
 
-template<typename T, typename L>
+template<typename T, typename L, typename F>
 void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
@@ -125,31 +125,31 @@ void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tem
 
 			// if tmp_lnrows or tmp_rnrows is 0, the corresponding gini will be 1 but that doesn't
 			// matter as it won't count in the info_gain computation.
-			float tmp_gini_left = 1.0f;
-			float tmp_gini_right = 1.0f;
 			int tmp_lnrows = 0;
-
+			
 			//separate loop for now to avoid overflow.
 			for (int j = 0; j < n_unique_labels; j++) {
 				int hist_index = i * n_unique_labels + j;
 				tmp_lnrows += tempmem->h_histout->data()[col_hist_base_index + hist_index];
 			}
 			int tmp_rnrows = nrows - tmp_lnrows;
-
+			
 			if (tmp_lnrows == 0 || tmp_rnrows == 0)
 				continue;
 
+			std::vector<int> tmp_histleft(n_unique_labels);
+			std::vector<int> tmp_histright(n_unique_labels);
+			
 			// Compute gini right and gini left value for each bin.
 			for (int j = 0; j < n_unique_labels; j++) {
 				int hist_index = i * n_unique_labels + j;
-
-				float prob_left = (float) (tempmem->h_histout->data()[col_hist_base_index + hist_index]) / tmp_lnrows;
-				tmp_gini_left -= prob_left * prob_left;
-
-				float prob_right = (float) (split_info[0].hist[j] - tempmem->h_histout->data()[col_hist_base_index + hist_index]) / tmp_rnrows;
-				tmp_gini_right -=  prob_right * prob_right;
+				tmp_histleft[j] = tempmem->h_histout->data()[col_hist_base_index + hist_index];
+				tmp_histright[j] = split_info[0].hist[j] - tmp_histleft[j];
 			}
 
+			float tmp_gini_left = F::exec(tmp_histleft, tmp_lnrows);
+			float tmp_gini_right = F::exec(tmp_histright, tmp_rnrows);
+			
 			ASSERT((tmp_gini_left >= 0.0f) && (tmp_gini_left <= 1.0f), "gini left value %f not in [0.0, 1.0]", tmp_gini_left);
 			ASSERT((tmp_gini_right >= 0.0f) && (tmp_gini_right <= 1.0f), "gini right value %f not in [0.0, 1.0]", tmp_gini_right);
 
@@ -192,7 +192,7 @@ void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tem
 }
 
 
-template<typename T, typename L>
+template<typename T, typename L, typename F>
 void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
 {
 	int* d_colids = tempmem->d_colids->data();
@@ -236,8 +236,8 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 
 	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
-
-	find_best_split_classifier(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
+	
+	find_best_split_classifier<T, L, F>(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);
 	return;
 }
 
