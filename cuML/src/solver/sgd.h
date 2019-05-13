@@ -110,8 +110,8 @@ void sgdFit(const cumlHandle_impl& handle, math_t *input, int n_rows,
 	device_buffer<math_t> norm2_input(allocator, stream, 0);
 
 	if (fit_intercept) {
-		mu_input.reserve(n_cols, stream);
-		mu_labels.reserve(1, stream);
+		mu_input.resize(n_cols, stream);
+		mu_labels.resize(1, stream);
 
 		GLM::preProcessData(handle, input, n_rows, n_cols, labels, intercept,
 				mu_input.data(), mu_labels.data(), norm2_input.data(),
