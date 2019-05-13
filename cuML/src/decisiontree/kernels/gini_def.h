@@ -19,6 +19,8 @@
 #include "cub/cub.cuh"
 #include "../memory.cuh"
 #include <vector>
+#include "cuda_utils.h"
+#include <math.h>
 
 template<class T>
 struct MetricQuestion {
@@ -50,4 +52,42 @@ struct MetricInfo {
 	float best_metric = -1.0f;
 	T predict = 0;
 	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node. for classification
+};
+
+struct SquareFunctor {
+
+	template <typename T>
+	static __device__ __forceinline__ T exec(T x) {
+		return MLCommon::myPow(x, (T) 2);
+	}
+};
+
+struct AbsFunctor {
+
+	template <typename T>
+	static __device__ __forceinline__ T exec(T x) {
+		return MLCommon::myAbs(x);
+	}
+};
+
+struct GiniFunctor {
+	static float exec(std::vector<int>& hist,int nrows) {
+		float gval = 1.0;
+		for (int i=0; i < hist.size(); i++) {
+			float prob = ((float)hist[i]) / nrows;
+			gval -= prob*prob;
+		}
+		return gval;
+	}
+};
+
+struct EntropyFunctor {
+	static float exec(std::vector<int>& hist,int nrows) {
+		float eval = 0.0;
+		for (int i=0; i < hist.size(); i++) {
+			float prob = ((float)hist[i]) / nrows;
+			eval += prob * logf(prob);
+		}	       
+		return (-1*eval);
+	}
 };

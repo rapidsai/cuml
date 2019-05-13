@@ -85,9 +85,9 @@ struct DecisionTreeParams {
 	 */
 	bool bootstrap_features =  false;
 	/**
-	 * Node split criterion. GINI for classification, MSE or MAE for regression.
+	 * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
 	 */
-	CRITERION split_criterion = CRITERION::MSE;
+	CRITERION split_criterion = CRITERION_END;
 
 	DecisionTreeParams();
 	DecisionTreeParams(int cfg_max_depth, int cfg_max_leaves, float cfg_max_features, int cfg_n_bins, int cfg_split_aglo, int cfg_min_rows_per_node, bool cfg_bootstrap_features, CRITERION cfg_split_criterion);

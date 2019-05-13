@@ -22,23 +22,6 @@
 #include "gini_def.h"
 #include "cuda_utils.h"
 
-struct SquareFunctor {
-
-	template <typename T>
-	static __device__ T exec(T x) {
-		return MLCommon::myPow(x, (T) 2);
-	}
-};
-
-struct AbsFunctor {
-
-	template <typename T>
-	static __device__ T exec(T x) {
-		return MLCommon::myAbs(x);
-	}
-};
-
-
 template<class T>
 void MetricQuestion<T>::set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value) {
 	bootstrapped_column = cfg_bootcolumn;
@@ -124,12 +107,11 @@ __global__ void mse_kernel(const T* __restrict__ labels, const int nrows, const 
 	return;
 }
 
-template<typename T>
+template<typename T, typename F>
 void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T, int>> tempmem, MetricInfo<T> & split_info, int & unique_labels)
 {
 	int *dhist = tempmem->d_hist->data();
 	int *hhist = tempmem->h_hist->data();
-	float gval = 1.0;
 
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
 	gini_kernel<<< MLCommon::ceildiv(nrows, 128), 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
@@ -139,12 +121,10 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 
 	split_info.hist.resize(unique_labels, 0);
 	for (int i=0; i < unique_labels; i++) {
-		split_info.hist[i] = hhist[i]; //update_gini_hist
-		float prob = ((float)hhist[i]) / nrows;
-		gval -= prob*prob;
+		split_info.hist[i] = hhist[i]; 
 	}
-
-	split_info.best_metric = gval; //Update gini val
+	
+	split_info.best_metric = F::exec(split_info.hist, nrows);
 
 	return;
 }

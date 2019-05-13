@@ -23,7 +23,7 @@ enum SPLIT_ALGO {
 };
 
 enum CRITERION {
-	GINI, MSE, MAE,
+	GINI, ENTROPY, MSE, MAE, CRITERION_END,
 };
 
 };
