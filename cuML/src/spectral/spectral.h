@@ -338,17 +338,11 @@ namespace ML {
             knn.fit(*&params, 1);
             knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
-            std::cout << "About to call" << std::endl;
-
             fit_embedding(handle, knn_indices, knn_dists, m, n_neighbors,
                     n_components, out);
 
-            std::cout << "DONE!" << std::endl;
-
             CUDA_CHECK(cudaFree(knn_indices));
             CUDA_CHECK(cudaFree(knn_dists));
-
-            std::cout << "DONE!" << std::endl;
         }
     }
 }

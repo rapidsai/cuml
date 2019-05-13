@@ -60,7 +60,7 @@ cdef extern from "knn/knn.h" namespace "ML":
         )
 
 
-cdef class NearestNeighbors:
+class NearestNeighbors:
     """
     NearestNeighbors is a unsupervised algorithm where if one wants to find the "closest"
     datapoint(s) to new unseen data, one can calculate a suitable "distance" between 
@@ -159,27 +159,27 @@ cdef class NearestNeighbors:
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
     
-    cpdef kNN *k
+    # cpdef kNN *k
+    #
+    # cdef int num_gpus
+    #
+    # cdef uintptr_t X_ctype
+    #
+    # cdef uintptr_t I_ptr
+    # cdef uintptr_t D_ptr
+    #
+    # cdef object X_m
+    #
+    # cdef bool _should_downcast
+    # cdef object n_gpus
+    # cdef object devices
+    # cdef bool _verbose
+    #
+    # cdef object n_neighbors
+    #
+    # cpdef kNNParams *input
 
-    cdef int num_gpus
-
-    cdef uintptr_t X_ctype
-
-    cdef uintptr_t I_ptr
-    cdef uintptr_t D_ptr
-
-    cdef object X_m
-
-    cdef bool _should_downcast
-    cdef object n_gpus
-    cdef object devices
-    cdef bool _verbose
-
-    cdef object n_neighbors
-
-    cpdef kNNParams *input
-
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
+    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True):
         """
         Construct the NearestNeighbors object for training and querying.
 

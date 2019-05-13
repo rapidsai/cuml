@@ -43,7 +43,7 @@ namespace UMAPAlgo {
              */
             case 0:
                 RandomInit::launcher(X, n, d, knn_indices, knn_dists,  params, embedding,
-                                      stream);
+                                      handle);
                 break;
 
             case 1:

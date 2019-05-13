@@ -42,6 +42,7 @@ namespace ML {
 	        D(D), total_n(0), indices(0), verbose(verbose), owner(false) {
 	    this->handle = const_cast<cumlHandle_impl*>(&handle.getImpl());
 	}
+
 	kNN::~kNN() {
 
 	    try {
