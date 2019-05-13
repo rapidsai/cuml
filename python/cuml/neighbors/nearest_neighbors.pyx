@@ -58,7 +58,7 @@ cdef extern from "knn/knn.h" namespace "ML":
         int N
 
     cdef cppclass kNN:
-        kNN(const cumlHandle &handle, int D, bool verbose) except +
+        kNN(cumlHandle &handle, int D, bool verbose) except +
         void search(float *search_items,
                     int search_items_size,
                     long *res_I,
@@ -100,7 +100,8 @@ cdef class NearestNeighborsImpl:
 
     cpdef object handle
 
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False, should_downcast = True, handle = None):
+    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False,
+                  should_downcast = True, handle = None):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -185,7 +186,8 @@ cdef class NearestNeighborsImpl:
             del self.k
 
         n_dims = X.shape[1]
-        self.k = new kNN(<cumlHandle>self.handle, n_dims, verbose = self._verbose)
+        cdef cumlHandle * handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
@@ -246,7 +248,8 @@ cdef class NearestNeighborsImpl:
         if self.k != NULL:
             del self.k
 
-        self.k = new kNN(<cumlHandle>self.handle, n_dims, verbose = self._verbose)
+        cdef cumlHandle * handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
 
         del self.input
         self.input = < kNNParams * > malloc(len(alloc_info) * sizeof(kNNParams))
