@@ -143,6 +143,7 @@ void mse(T *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T,
 	pred_kernel<<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred);
 	CUDA_CHECK(cudaGetLastError());
 	mse_kernel<T, F><<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred, dmse);
+	CUDA_CHECK(cudaGetLastError());
 	
 	CUDA_CHECK(cudaMemcpyAsync(hmse, dmse, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
 	CUDA_CHECK(cudaMemcpyAsync(hpred, dpred, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));

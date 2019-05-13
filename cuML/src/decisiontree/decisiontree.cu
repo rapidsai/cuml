@@ -395,7 +395,7 @@ void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const 
 	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to MSE
 		tree_params.split_criterion = CRITERION::MSE;
 	}
-	ASSERT( (tree_params.split_criterion == CRITERION::MSE || tree_params.split_criterion == CRITERION::MAE ) , " Decision Tree Regressor split creteria, should be MSE or MAE\n");
+	ASSERT( (tree_params.split_criterion == CRITERION::MSE || tree_params.split_criterion == CRITERION::MAE ) , "Decision Tree Regressor split creteria should be MSE or MAE\n");
 	plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params.max_depth,
     		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
 }
