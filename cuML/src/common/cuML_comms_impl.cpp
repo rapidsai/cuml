@@ -44,12 +44,12 @@ void cumlCommunicator::barrier() const
     _impl->barrier();
 }
 
-void cumlCommunicator::isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const
+void cumlCommunicator::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
     _impl->isend(buf, size, dest, tag, request);
 }
 
-void cumlCommunicator::irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const
+void cumlCommunicator::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
     _impl->irecv(buf, size, source, tag, request);
 }
@@ -59,9 +59,34 @@ void cumlCommunicator::waitall(int count, request_t array_of_requests[]) const
     _impl->waitall(count, array_of_requests);
 }
 
-void cumlCommunicator::allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const
+void cumlCommunicator::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
 {
     _impl->allreduce(sendbuff, recvbuff, count, datatype, op, stream);
+}
+
+void cumlCommunicator::bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const
+{
+    _impl->bcast(buff, count, datatype, root, stream);
+}
+
+void cumlCommunicator::reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const
+{
+    _impl->reduce(sendbuff, recvbuff, count, datatype, op, root, stream);
+}
+
+void cumlCommunicator::allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const
+{
+    _impl->allgather(sendbuff, recvbuff, sendcount, datatype, stream);
+}
+
+void cumlCommunicator::allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const
+{
+    _impl->allgatherv(sendbuf, recvbuf, recvcounts, displs,datatype, stream);
+}
+
+void cumlCommunicator::reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const
+{
+    _impl->reducescatter(sendbuff, recvbuff, recvcount, datatype, op, stream);
 }
 
 template<>

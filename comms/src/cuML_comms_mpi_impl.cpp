@@ -58,6 +58,29 @@
 namespace ML {
 
 namespace {
+    size_t getDatatypeSize( const cumlMPICommunicator_impl::datatype_t datatype )
+    {
+        switch ( datatype )
+        {
+            case MLCommon::cumlCommunicator::CHAR:
+                return sizeof(char);
+            case MLCommon::cumlCommunicator::UINT8:
+                return sizeof(unsigned char);
+            case MLCommon::cumlCommunicator::INT:
+                return sizeof(int);
+            case MLCommon::cumlCommunicator::UINT:
+                return sizeof(unsigned int);
+            case MLCommon::cumlCommunicator::INT64:
+                return sizeof(long long int);
+            case MLCommon::cumlCommunicator::UINT64:
+                return sizeof(unsigned long long int);
+            case MLCommon::cumlCommunicator::FLOAT:
+                return sizeof(float);
+            case MLCommon::cumlCommunicator::DOUBLE:
+                return sizeof(double);
+        }
+    }
+
     MPI_Datatype getMPIDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
@@ -186,7 +209,7 @@ void cumlMPICommunicator_impl::barrier() const
     MPI_CHECK( MPI_Barrier( _mpi_comm ) );
 }
 
-void cumlMPICommunicator_impl::isend(const void *buf, std::size_t size, int dest, int tag, request_t *request) const
+void cumlMPICommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
     MPI_Request mpi_req;
     request_t req_id;
@@ -205,7 +228,7 @@ void cumlMPICommunicator_impl::isend(const void *buf, std::size_t size, int dest
     *request = req_id;
 }
 
-void cumlMPICommunicator_impl::irecv(void *buf, std::size_t size, int source, int tag, request_t *request) const
+void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
     MPI_Request mpi_req;
     request_t req_id;
@@ -239,13 +262,68 @@ void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[])
     MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE) );
 }
 
-void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, size_t count, datatype_t datatype, op_t op, cudaStream_t stream) const
+void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclAllReduce(sendbuff, recvbuff, count, getNCCLDatatype( datatype ), getNCCLOp( op ), _nccl_comm, stream) );
 #else
     CUDA_CHECK( cudaStreamSynchronize( stream ) );
     MPI_CHECK( MPI_Allreduce(sendbuff, recvbuff, count, getMPIDatatype( datatype ), getMPIOp( op ), _mpi_comm) );
+#endif
+}
+
+void cumlMPICommunicator_impl::bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    NCCL_CHECK( ncclBroadcast(buff, buff, count, getNCCLDatatype( datatype ), root, _nccl_comm, stream) );
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    MPI_CHECK( MPI_Bcast(buff, count, getMPIDatatype( datatype ), root, _mpi_comm) );
+#endif
+}
+
+void cumlMPICommunicator_impl::reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    NCCL_CHECK( ncclReduce(sendbuff, recvbuff, count, getNCCLDatatype( datatype ), getNCCLOp( op ), root, _nccl_comm, stream) );
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    MPI_CHECK( MPI_Reduce(sendbuff, recvbuff, count, getMPIDatatype( datatype ), getMPIOp( op ), root, _mpi_comm) );
+#endif
+}
+
+void cumlMPICommunicator_impl::allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    NCCL_CHECK( ncclAllGather(sendbuff, recvbuff, sendcount, getNCCLDatatype( datatype ), _nccl_comm, stream) );
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    MPI_CHECK( MPI_Allreduce(sendbuff, sendcount, getMPIDatatype( datatype ), recvbuff, sendcount, getMPIDatatype( datatype ), _mpi_comm) );
+#endif
+}
+
+void cumlMPICommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
+    //Listing 1 on page 4.
+    for (int root = 0; root < _size; ++root) {
+        NCCL_CHECK( ncclBroadcast(sendbuf, static_cast<char*>(recvbuf)+displs[root]*getDatatypeSize( datatype ), recvcounts[root], getNCCLDatatype( datatype ), root, _nccl_comm, stream) );
+    }
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    MPI_CHECK( MPI_Allgatherv(sendbuf, recvcounts[_rank], getMPIDatatype( datatype ), recvbuf, recvcounts, displs, getMPIDatatype( datatype ), _mpi_comm) );
+#endif
+}
+
+void cumlMPICommunicator_impl::reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const
+{
+#ifdef HAVE_NCCL
+    NCCL_CHECK( ncclReduceScatter(sendbuff, recvbuff, recvcount, getNCCLDatatype( datatype ), getNCCLOp( op ), _nccl_comm, stream) );
+#else
+    CUDA_CHECK( cudaStreamSynchronize( stream ) );
+    std::vector<int> recvcounts(_size,recvcount);
+    MPI_CHECK( MPI_Reduce_scatter(sendbuff, recvbuff, recvcounts.data(), getMPIDatatype( datatype ), getMPIOp( op ), _mpi_comm) );
 #endif
 }
 
