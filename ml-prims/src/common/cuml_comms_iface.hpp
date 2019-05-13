@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "cuml_comms_int.hpp"
 
 namespace MLCommon {
@@ -39,6 +41,8 @@ public:
 
     virtual int getSize() const =0;
     virtual int getRank() const =0;
+
+    virtual std::unique_ptr<cumlCommunicator_iface> commSplit( int color, int key ) const =0;
 
     virtual void barrier() const =0;
 
