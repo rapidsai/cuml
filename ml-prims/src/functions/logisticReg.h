@@ -63,23 +63,21 @@ void logisticRegLossGrads(math_t *input, int n_rows, int n_cols,
 
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
-	math_t *pen_grads = NULL;
+	device_buffer<math_t> pen_grads(allocator, stream, 0);
 
 	if (pen != penalty::NONE)
-		allocate(pen_grads, n_cols);
+		pen_grads.resize(n_cols, stream);
 
 	if (pen == penalty::L1) {
-		lassoGrad(pen_grads, coef, n_cols, alpha, stream);
+		lassoGrad(pen_grads.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridgeGrad(pen_grads, coef, n_cols, alpha, stream);
+		ridgeGrad(pen_grads.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio, stream);
+		elasticnetGrad(pen_grads.data(), coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(grads, grads, pen_grads, n_cols, stream);
-	    if (pen_grads != NULL)
-	        CUDA_CHECK(cudaFree(pen_grads));
+	    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
 	}
 }
 
@@ -114,23 +112,21 @@ void logisticRegLoss(math_t *input, int n_rows, int n_cols,
 
 	Stats::mean(loss, labels_pred.data(), 1, n_rows, false, false, stream);
 
-	math_t *pen_val = NULL;
+	device_buffer<math_t> pen_val(allocator, stream, 0);
 
     if (pen != penalty::NONE)
-	    allocate(pen_val, 1);
+    	pen_val.resize(1, stream);
 
 	if (pen == penalty::L1) {
-		lasso(pen_val, coef, n_cols, alpha, stream);
+		lasso(pen_val.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridge(pen_val, coef, n_cols, alpha, stream);
+		ridge(pen_val.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio, stream);
+		elasticnet(pen_val.data(), coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(loss, loss, pen_val, 1, stream);
-	    if (pen_val != NULL)
-	        CUDA_CHECK(cudaFree(pen_val));
+	    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
 	}
 
 }

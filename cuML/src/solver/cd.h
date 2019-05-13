@@ -101,10 +101,10 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 	std::vector<math_t> h_coef(n_cols, math_t(0));
 
 	if (fit_intercept) {
-		mu_input.reserve(n_cols, stream);
-		mu_labels.reserve(1, stream);
+		mu_input.resize(n_cols, stream);
+		mu_labels.resize(1, stream);
 		if (normalize) {
-			norm2_input.reserve(n_cols, stream);
+			norm2_input.resize(n_cols, stream);
 		}
 
 		GLM::preProcessData(handle, input, n_rows, n_cols, labels,
