@@ -56,7 +56,6 @@ struct TemporaryMemory
 
 	//For quantiles
 	MLCommon::device_buffer<T> *d_quantile = nullptr;
-	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
 
 	const ML::cumlHandle_impl& ml_handle;
 
@@ -80,8 +79,7 @@ struct TemporaryMemory
 
 		if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 			d_quantile = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, n_bins * quantile_elements);
-			d_temp_sampledcolumn = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, N * extra_elements);
-			totalmem += (n_bins + N) * extra_elements * sizeof(T);
+			totalmem += n_bins * extra_elements * sizeof(T);
 		}
 
 		sampledlabels = new MLCommon::device_buffer<L>(handle.getDeviceAllocator(), stream, N);
@@ -113,6 +111,7 @@ struct TemporaryMemory
 		// memory of d_histout + d_colids + d_globalminmax + (d_mseout + d_predout)
 		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + 3 * n_bins * sizeof(T))* Ncols;
 
+		this->print_info();
 	}
 
 	void print_info()
@@ -136,10 +135,6 @@ struct TemporaryMemory
 		if (d_quantile != nullptr) {
 			d_quantile->release(stream);
 			delete d_quantile;
-		}
-		if (d_temp_sampledcolumn != nullptr) {
-			d_temp_sampledcolumn->release(stream);
-			delete d_temp_sampledcolumn;
 		}
 
 		sampledlabels->release(stream);
