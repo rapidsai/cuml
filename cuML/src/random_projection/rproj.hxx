@@ -39,12 +39,13 @@ namespace ML {
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void gaussian_random_matrix(cumlHandle& h, rand_mat<math_t> *random_matrix,
+	void gaussian_random_matrix(const cumlHandle& h, rand_mat<math_t> *random_matrix,
 									paramsRPROJ& params)
 	{
 		cudaStream_t stream = h.getStream();
+        auto d_alloc = h.getDeviceAllocator();
 		int len = params.n_components * params.n_features;
-		allocate(random_matrix->dense_data, len);
+        random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
 		auto rng = Random::Rng(params.random_state);
 		math_t scale = 1.0 / sqrt(double(params.n_components));
 		rng.normal(random_matrix->dense_data, len, math_t(0), scale, stream);
@@ -57,15 +58,16 @@ namespace ML {
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void sparse_random_matrix(cumlHandle& h, rand_mat<math_t> *random_matrix,
+	void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t> *random_matrix,
 								paramsRPROJ& params)
 	{
 		cudaStream_t stream = h.getStream();
+        auto d_alloc = h.getDeviceAllocator();
 
 		if (params.density == 1.0f)
 		{
 			int len = params.n_components * params.n_features;
-			allocate(random_matrix->dense_data, len);
+            random_matrix->dense_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
 			auto rng = Random::Rng(params.random_state);
 			math_t scale = 1.0 / sqrt(math_t(params.n_components));
 			rng.scaled_bernoulli(random_matrix->dense_data, len, math_t(0.5), scale, stream);
@@ -95,17 +97,17 @@ namespace ML {
 			indptr[indptr_idx] = offset;
 
 			size_t len = offset;
-			allocate(random_matrix->indices, len);
+            random_matrix->indices = (int*)d_alloc->allocate(len * sizeof(int), stream);
 			updateDevice(random_matrix->indices, indices, len, stream);
 			alloc->deallocate(indices, indices_alloc, stream);
 
 			len = indptr_idx+1;
-			allocate(random_matrix->indptr, len);
+            random_matrix->indptr = (int*)d_alloc->allocate(len * sizeof(int), stream);
 			updateDevice(random_matrix->indptr, indptr, len, stream);
 			alloc->deallocate(indptr, indptr_alloc, stream);
 
 			len = offset;
-			allocate(random_matrix->sparse_data, len);
+            random_matrix->sparse_data = (math_t*)d_alloc->allocate(len * sizeof(math_t), stream);
 			auto rng = Random::Rng(params.random_state);
 			math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
 			rng.scaled_bernoulli(random_matrix->sparse_data, len, math_t(0.5), scale, stream);
@@ -121,7 +123,7 @@ namespace ML {
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void RPROJfit(cumlHandle& handle, rand_mat<math_t> *random_matrix, paramsRPROJ* params)
+	void RPROJfit(const cumlHandle& handle, rand_mat<math_t> *random_matrix, paramsRPROJ* params)
 	{
 		random_matrix->reset();
 
@@ -147,7 +149,7 @@ namespace ML {
 	 * @input param params: data structure that includes all the parameters of the model
 	 */
 	template<typename math_t>
-	void RPROJtransform(cumlHandle& handle, math_t *input, rand_mat<math_t> *random_matrix,
+	void RPROJtransform(const cumlHandle& handle, math_t *input, rand_mat<math_t> *random_matrix,
 							math_t *output, paramsRPROJ* params)
 	{
 		cudaStream_t stream = handle.getStream();

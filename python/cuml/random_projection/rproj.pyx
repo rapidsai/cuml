@@ -53,11 +53,11 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
         size_t sparse_data_size # sparse CSC random matrix number of non-zero elements
 
     # Function used to fit the model
-    cdef void RPROJfit[T](cumlHandle& handle, rand_mat[T] *random_matrix,
+    cdef void RPROJfit[T](const cumlHandle& handle, rand_mat[T] *random_matrix,
                             paramsRPROJ* params)
     
     # Function used to apply data transformation
-    cdef void RPROJtransform[T](cumlHandle& handle, T *input,
+    cdef void RPROJtransform[T](const cumlHandle& handle, T *input,
                                 rand_mat[T] *random_matrix, T *output,
                                 paramsRPROJ* params)
 
@@ -66,6 +66,32 @@ cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
 
 def johnson_lindenstrauss_min_dim(n_samples, eps=0.1):
+    """
+    In mathematics, the Johnson–Lindenstrauss lemma states that high-dimensional data
+    can be embedded into lower dimension while preserving the distances.
+
+    With p the random projection :
+    (1 - eps) ||u - v||^2 < ||p(u) - p(v)||^2 < (1 + eps) ||u - v||^2
+
+    This function finds the minimum number of components to guarantee that
+    the embedding is inside the eps error tolerance.
+
+    Parameters
+    ----------
+
+    n_samples : int
+        Number of samples.
+    eps : float in (0,1) (default = 0.1)
+        Maximum distortion rate as defined by the Johnson-Lindenstrauss lemma.
+    
+    Returns
+    -------
+
+    n_components : int
+        The minimal number of components to guarantee with good probability
+        an eps-embedding with n_samples.
+
+    """
     return c_johnson_lindenstrauss_min_dim(<size_t>n_samples, <double>eps)
 
 cdef class BaseRandomProjection():
@@ -419,7 +445,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
         The Johnson–Lindenstrauss lemma can produce very conservative
         n_components parameter as it makes no assumption on dataset structure.
 
-    density : float in range ]0, 1] (default = 'auto')
+    density : float in range (0, 1] (default = 'auto')
         Ratio of non-zero component in the random projection matrix.
 
         If density = 'auto', the value is set to the minimum density
