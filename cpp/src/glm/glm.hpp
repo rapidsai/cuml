@@ -32,9 +32,9 @@ namespace GLM {
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
  * @{
  */
-void olsFit(float *input, int n_rows, int n_cols, float *labels, float *coef,
+void olsFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, float *labels, float *coef,
             float *intercept, bool fit_intercept, bool normalize, int algo = 0);
-void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
+void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, double *labels, double *coef,
             double *intercept, bool fit_intercept, bool normalize,
             int algo = 0);
 /** @} */
@@ -54,11 +54,11 @@ void olsFit(double *input, int n_rows, int n_cols, double *labels, double *coef,
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
  * @{
  */
-void ridgeFit(float *input, int n_rows, int n_cols, float *labels, float *alpha,
+void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, float *labels, float *alpha,
               int n_alpha, float *coef, float *intercept, bool fit_intercept,
               bool normalize, int algo = 0);
 
-void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
+void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, double *labels,
               double *alpha, int n_alpha, double *coef, double *intercept,
               bool fit_intercept, bool normalize, int algo = 0);
 /** @} */
@@ -73,15 +73,15 @@ void ridgeFit(double *input, int n_rows, int n_cols, double *labels,
  * @param preds         device pointer to store predictions of size n_rows
  * @{
  */
-void olsPredict(const float *input, int n_rows, int n_cols, const float *coef,
+void olsPredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
                 float intercept, float *preds);
-void olsPredict(const double *input, int n_rows, int n_cols, const double *coef,
+void olsPredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols, const double *coef,
                 double intercept, double *preds);
 
-void ridgePredict(const float *input, int n_rows, int n_cols, const float *coef,
+void ridgePredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
                   float intercept, float *preds);
 
-void ridgePredict(const double *input, int n_rows, int n_cols,
+void ridgePredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols,
                   const double *coef, double intercept, double *preds);
 /** @} */
 
