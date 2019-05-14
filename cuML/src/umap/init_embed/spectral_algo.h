@@ -36,13 +36,14 @@ namespace UMAPAlgo {
              * Performs a spectral layout initialization
              */
             template<typename T>
-            void launcher(const T *X, int n, int d,
+            void launcher(const cumlHandle &handle,
+                          const T *X, int n, int d,
                           const long *knn_indices, const T *knn_dists,
                           MLCommon::Sparse::COO<float> *coo,
                           UMAPParams *params,
                           T *embedding) {
 
-                Spectral::fit_embedding(coo->rows, coo->cols, coo->vals, coo->nnz, n, params->n_components, embedding);
+                Spectral::fit_embedding(handle,coo->rows, coo->cols, coo->vals, coo->nnz, n, params->n_components, embedding);
             }
         }
     }

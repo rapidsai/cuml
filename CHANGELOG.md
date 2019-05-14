@@ -60,6 +60,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 

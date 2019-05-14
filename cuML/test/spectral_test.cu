@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "cuML.hpp"
+
 #include "spectral/spectral.h"
 
 #include "random/rng.h"
@@ -48,18 +50,18 @@ TEST_F(TestSpectralClustering, Fit) {
     int k = 3;
 
     float *X;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
     MLCommon::allocate(X, n*d);
+    cumlHandle handle;
+
 
     Random::Rng r(150, MLCommon::Random::GenTaps);
-    r.uniform(X, n*d, -1.0f, 1.0f, stream);
+    r.uniform(X, n*d, -1.0f, 1.0f, handle.getStream());
 
     int *out;
     MLCommon::allocate(out, n, true);
 
-    ML::Spectral::fit_clusters(X, n, d, k, 10, 1e-3f, out);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+
+    ML::Spectral::fit_clusters(handle, X, n, d, k, 10, 1e-3f, out);
 }
 
 typedef SpectralTest<float> TestSpectralEmbedding;
@@ -70,18 +72,16 @@ TEST_F(TestSpectralEmbedding, Fit) {
     int k = 3;
 
     float *X;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    cumlHandle handle;
     MLCommon::allocate(X, n*d);
 
     Random::Rng r(150, MLCommon::Random::GenTaps);
-    r.uniform(X, n*d, -1.0f, 1.0f, stream);
+    r.uniform(X, n*d, -1.0f, 1.0f, handle.getStream());
 
     float *out;
     MLCommon::allocate(out, n*2, true);
 
-    ML::Spectral::fit_embedding(X, n, d, k, 2, out);
-    CUDA_CHECK(cudaStreamDestroy(stream));
+    ML::Spectral::fit_embedding(handle, X, n, d, k, 2, out);
 }
 
 
