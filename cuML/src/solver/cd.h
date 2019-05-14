@@ -61,14 +61,16 @@ using namespace MLCommon;
  *        boolean parameter to control if the intercept will be fitted or not
  * @param normalize
  *        boolean parameter to control if the data will be normalized or not
+ * @param epochs
+ *        Maximum number of iterations that solver will run
  * @param loss
- *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now
  * @param alpha
  *        L1 parameter
  * @param l1_ratio
- *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2.
+ *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2
  * @param shuffle
- *        boolean parameter to control whether coordinates will be picked randomly or not.
+ *        boolean parameter to control whether coordinates will be picked randomly or not
  * @param tol
  *        tolerance to stop the solver
  * @param stream
@@ -88,7 +90,6 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 	cublasHandle_t cublas_handle = handle.getCublasHandle();
-	cusolverDnHandle_t cusolver_handle = handle.getcusolverDnHandle();
 
 	auto allocator = handle.getDeviceAllocator();
 	device_buffer<math_t> pred(allocator, stream, n_rows);
@@ -159,6 +160,8 @@ void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
 
 			coef_prev = h_coef[ci];
 			updateHost(&(h_coef[ci]), coef_loc, 1, stream);
+			CUDA_CHECK(cudaStreamSynchronize(stream));
+
 			math_t diff = abs(coef_prev - h_coef[ci]);
 
 			if (diff > d_coef_max)
