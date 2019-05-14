@@ -14,11 +14,17 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include "ml_utils.h"
+#include "cuML.hpp"
+
+
 namespace ML {
 namespace Solver {
 
-
-void sgdFit(float *input,
+void sgdFit(cumlHandle& handle,
+		    float *input,
 	        int n_rows,
 	        int n_cols,
 	        float *labels,
@@ -38,7 +44,8 @@ void sgdFit(float *input,
 	        float tol,
 	        int n_iter_no_change);
 
-void sgdFit(double *input,
+void sgdFit(cumlHandle& handle,
+		    double *input,
 	        int n_rows,
 	        int n_cols,
 	        double *labels,
@@ -58,20 +65,20 @@ void sgdFit(double *input,
 	        double tol,
 	        int n_iter_no_change);
 
-void sgdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+void sgdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss);
 
-void sgdPredict(const double *input, int n_rows, int n_cols,
+void sgdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss);
 
-void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const float *coef,
+void sgdPredictBinaryClass(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss);
 
-void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
+void sgdPredictBinaryClass(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss);
 
-
-void cdFit(float *input,
+void cdFit(cumlHandle& handle,
+		   float *input,
 		   int n_rows,
 		   int n_cols,
 		   float *labels,
@@ -86,7 +93,8 @@ void cdFit(float *input,
 		   bool shuffle,
 		   float tol);
 
-void cdFit(double *input,
+void cdFit(cumlHandle& handle,
+		   double *input,
 		   int n_rows,
 		   int n_cols,
 		   double *labels,
@@ -101,11 +109,11 @@ void cdFit(double *input,
 		   bool shuffle,
 		   double tol);
 
-void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+void cdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss);
 
-void cdPredict(const double *input, int n_rows, int n_cols,
+void cdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss);
 
-}
-}
+};
+}; // end namespace ML
