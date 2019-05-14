@@ -175,7 +175,7 @@ size_t getWorkspaceSize(InType* x, InType* y, int m, int n, int k) {
 
 template <DistanceType distanceType,typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda>
-void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
+void distance(InType* const x, InType* const y, OutType *dist, int m, int n, int k,
               void *workspace, size_t worksize,
               FinalLambda fin_op, cudaStream_t stream) {
   DistanceImpl<distanceType, InType, AccType, OutType, OutputTile_, FinalLambda> distImpl;
@@ -204,7 +204,7 @@ void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
  */
 template <DistanceType distanceType, typename InType, typename AccType, typename OutType,
           typename OutputTile_>
-void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
+void distance(InType* const x, InType* const y, OutType *dist, int m, int n, int k,
               void *workspace,
               size_t worksize, cudaStream_t stream) {
   auto default_fin_op =
@@ -241,7 +241,7 @@ void distance(InType *x, InType *y, OutType *dist, int m, int n, int k,
 template<DistanceType distanceType, typename T,
                                     typename OutputTile_= OutputTile_t,
                                     typename Lambda = auto (int, bool)->void >
-size_t epsilon_neighborhood(T *a, T *b, bool *adj, int m, int n, int k, T eps,
+size_t epsilon_neighborhood(T* const a, T* const b, bool *adj, int m, int n, int k, T eps,
             void *workspace, size_t worksize, cudaStream_t stream, Lambda fused_op) {
     auto epsilon_op = [n, eps, fused_op] __device__ (T val, int global_c_idx) {
         bool acc = val <= eps;
@@ -276,7 +276,7 @@ size_t epsilon_neighborhood(T *a, T *b, bool *adj, int m, int n, int k, T eps,
  */
 template<DistanceType distanceType, typename T,
                                     typename OutputTile_= OutputTile_t>
-size_t epsilon_neighborhood(T *a, T *b, bool *adj, int m, int n, int k, T eps,
+size_t epsilon_neighborhood(T* const a, T* const b, bool *adj, int m, int n, int k, T eps,
             void *workspace, size_t worksize, cudaStream_t stream) {
     return epsilon_neighborhood<distanceType, T, OutputTile_>(
         a, b, adj, m, n, k, eps, workspace, worksize, stream,
