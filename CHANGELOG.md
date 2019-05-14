@@ -153,6 +153,8 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342: Change default ABI to ON
+- PR #572: Pulling DBSCAN components into reusable primitives
+
 
 ## Bug Fixes
 

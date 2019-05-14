@@ -17,6 +17,8 @@
 
 #include "cuda_utils.h"
 
+#include "array/array.h"
+
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
 
@@ -60,7 +62,7 @@ public:
      * @param n_rows: number of rows in the dense matrix
      * @param n_cols: number of cols in the dense matrix
      */
-    CSR(int *row_ind, int *row_ind_ptr, T *vals, int nnz, int n_rows = -1, int n_cols = -1) {
+    CSR(int* const row_ind, int* const row_ind_ptr, T* const vals, int nnz, int n_rows = -1, int n_cols = -1) {
         this->row_ind = row_ind;
         this->row_ind_ptr = row_ind_ptr;
         this->vals = vals;
@@ -246,10 +248,10 @@ __global__ void csr_row_normalize_l1_kernel(
  * @param result: l1 normalized data array
  * @param stream: cuda stream to use
  */
-template<int TPB_X, typename T>
+template<int TPB_X = 32, typename T>
 void csr_row_normalize_l1(
-        int *ia,    // csr row ex_scan (sorted by row)
-        T *vals, int nnz,  // array of values and number of non-zeros
+        int* const ia,    // csr row ex_scan (sorted by row)
+        T* const vals, int nnz,  // array of values and number of non-zeros
         int m,          // num rows in csr
         T *result,
         cudaStream_t stream) {    // output array
@@ -261,7 +263,7 @@ void csr_row_normalize_l1(
                      m, result);
 }
 
-template<int TPB_X, typename T>
+template<int TPB_X = 32, typename T>
 __global__ void csr_row_normalize_max_kernel(
         int *ia,    // csr row ind array (sorted by row)
         T *vals, int nnz,  // array of values and number of non-zeros
@@ -310,10 +312,10 @@ __global__ void csr_row_normalize_max_kernel(
  * @param stream: cuda stream to use
  */
 
-template<int TPB_X, typename T>
+template<int TPB_X = 32, typename T>
 void csr_row_normalize_max(
-        int *ia,    // csr row ind array (sorted by row)
-        T *vals, int nnz,  // array of values and number of non-zeros
+        int* const ia,    // csr row ind array (sorted by row)
+        T* const vals, int nnz,  // array of values and number of non-zeros
         int m,          // num total rows in csr
         T *result,
         cudaStream_t stream) {
@@ -337,7 +339,7 @@ __device__ int get_stop_idx(T row, int m, int nnz, T *ind) {
     return stop_idx;
 }
 
-template<int TPB_X>
+template<int TPB_X = 32>
 __global__ void csr_to_coo_kernel(int *row_ind, int m, int *coo_rows, int nnz) {
 
     // row-based matrix 1 thread per row
@@ -368,7 +370,7 @@ void csr_to_coo(int *row_ind, int m, int *coo_rows, int nnz,
 }
 
 
-template<typename T, int TPB_X>
+template<typename T, int TPB_X = 32>
 __global__ void csr_add_calc_row_counts_kernel(
         int *a_ind, int *a_indptr, T *a_val, int nnz1,
         int *b_ind, int *b_indptr, T *b_val, int nnz2,
@@ -426,7 +428,7 @@ __global__ void csr_add_calc_row_counts_kernel(
 }
 
 
-template<typename T, int TPB_X>
+template<typename T, int TPB_X = 32>
 __global__ void csr_add_kernel(
        int *a_ind, int *a_indptr, T *a_val, int nnz1,
        int *b_ind, int *b_indptr, T *b_val, int nnz2,
@@ -491,10 +493,10 @@ __global__ void csr_add_kernel(
  * @param out_ind: output row_ind array
  * @param stream: cuda stream to use
  */
-template<typename T, int TPB_X>
+template<typename T, int TPB_X = 32>
 size_t csr_add_calc_inds(
-    int *a_ind, int *a_indptr, T *a_val, int nnz1,
-    int *b_ind, int *b_indptr, T *b_val, int nnz2,
+    int*  const a_ind, int* const a_indptr, T* const a_val, int nnz1,
+    int* const b_ind, int* const b_indptr, T* const b_val, int nnz2,
     int m, int *out_ind,
     cudaStream_t stream
 ) {
@@ -536,16 +538,16 @@ size_t csr_add_calc_inds(
  * @param b_val: right hand data array
  * @param nnz2: size of right hand index_ptr and val arrays
  * @param m: size of output array (number of rows in final matrix)
- * @param c_ind: output row_ind arra
+ * @param c_ind: output row_ind array
  * @param c_indptr: output ind_ptr array
  * @param c_val: output data array
  * @param stream: cuda stream to use
  */
-template<typename T, int TPB_X>
+template<typename T, int TPB_X = 32>
 void csr_add_finalize(
-    int *a_ind, int *a_indptr, T *a_val, int nnz1,
-    int *b_ind, int *b_indptr, T *b_val, int nnz2,
-    int m, int *c_ind, int *c_indptr, T *c_val,
+    int* const a_ind, int* const a_indptr, T* const a_val, int nnz1,
+    int* const b_ind, int* const b_indptr, T* const b_val, int nnz2,
+    int m, int* const c_ind, int *c_indptr, T *c_val,
     cudaStream_t stream
 ) {
     dim3 grid(MLCommon::ceildiv(m, TPB_X), 1, 1);
@@ -558,5 +560,377 @@ void csr_add_finalize(
     );
    CUDA_CHECK(cudaPeekAtLastError());
 }
+
+template <typename T, int TPB_X = 32, typename Lambda = auto(T, T, T)->void>
+__global__ void csr_row_op_kernel(T* const row_ind, T n_rows,
+        T nnz, Lambda op) {
+    T row = blockIdx.x*TPB_X + threadIdx.x;
+    if(row < n_rows) {
+        T start_idx = row_ind[row];
+        T stop_idx = row < n_rows-1 ? row_ind[row+1] : nnz;
+        op(row, start_idx, stop_idx);
+    }
+}
+
+/**
+ * @brief Perform a custom row operation on a CSR matrix in batches.
+ * @tparam T numerical type of row_ind array
+ * @tparam TPB_X number of threads per block to use for underlying kernel
+ * @tparam Lambda type of custom operation function
+ * @param row_ind the CSR row_ind array to perform parallel operations over
+ * @param total_rows total number vertices in graph
+ * @param batchSize size of row_ind
+ * @param op custom row operation functor accepting the row and beginning index.
+ * @param stream cuda stream to use
+ */
+template<typename T, int TPB_X = 32, typename Lambda = auto(T, T, T)->void>
+void csr_row_op(T* const row_ind, T n_rows, T nnz,
+        Lambda op, cudaStream_t stream) {
+
+    dim3 grid(MLCommon::ceildiv(n_rows, TPB_X), 1, 1);
+    dim3 blk(TPB_X, 1, 1);
+    csr_row_op_kernel<T, TPB_X><<<grid, blk, 0, stream>>>
+            (row_ind, n_rows, nnz, op);
+
+    CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from
+ * a row_ind array and adjacency array.
+ * @tparam T the numeric type of the index arrays
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @tparam Lambda function for fused operation in the adj_graph construction
+ * @param row_ind the input CSR row_ind array
+ * @param total_rows number of vertices in graph
+ * @param batchSize number of vertices in current batch
+ * @param adj an adjacency array (size batchSize * total_rows)
+ * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
+ * @param stream cuda stream to use
+ */
+template<typename T, int TPB_X = 32, typename Lambda = auto(T, T, T)->void>
+void csr_adj_graph_batched(T* const row_ind, T total_rows, T nnz, T batchSize,
+        bool* const adj, T *row_ind_ptr, cudaStream_t stream, Lambda fused_op) {
+    csr_row_op<T, TPB_X>(row_ind, batchSize, nnz,
+            [fused_op, adj, total_rows, row_ind_ptr, batchSize] __device__
+                (T row, T start_idx, T stop_idx) {
+
+            fused_op(row, start_idx, stop_idx);
+            int k = 0;
+            for(T i=0; i<total_rows; i++) {
+                // @todo: uncoalesced mem accesses!
+                if(adj[batchSize * i + row]) {
+                    row_ind_ptr[start_idx + k] = i;
+                    k += 1;
+                }
+            }
+    }, stream);
+}
+
+template<typename T, int TPB_X = 32, typename Lambda = auto (T, T, T)->void>
+void csr_adj_graph_batched(T* const row_ind, T total_rows, T nnz, T batchSize,
+        bool* const adj, T *row_ind_ptr, cudaStream_t stream) {
+    csr_adj_graph_batched(row_ind, total_rows, nnz, batchSize, adj,
+    row_ind_ptr, stream, [] __device__ (T row, T start_idx, T stop_idx) {});
+}
+
+/**
+ * @brief Constructs an adjacency graph CSR row_ind_ptr array from a
+ * a row_ind array and adjacency array.
+ * @tparam T the numeric type of the index arrays
+ * @tparam TPB_X the number of threads to use per block for kernels
+ * @param row_ind the input CSR row_ind array
+ * @param n_rows number of total vertices in graph
+ * @param adj an adjacency array
+ * @param row_ind_ptr output CSR row_ind_ptr for adjacency graph
+ * @param stream cuda stream to use
+ */
+template<typename T, int TPB_X = 32, typename Lambda = auto (T, T, T)->void>
+void csr_adj_graph(T* const row_ind, T total_rows, T nnz,
+        bool* const adj, T *row_ind_ptr, cudaStream_t stream, Lambda fused_op) {
+
+    csr_adj_graph_batched<T, TPB_X>(row_ind, total_rows, nnz, total_rows, adj,
+            row_ind_ptr, stream, fused_op);
+}
+
+template<typename T = int>
+class WeakCCState {
+    public:
+
+        bool *xa;
+        bool *fa;
+        bool *m;
+        bool owner;
+
+        WeakCCState(T n): owner(true) {
+            MLCommon::allocate(xa, n, true);
+            MLCommon::allocate(fa, n, true);
+            MLCommon::allocate(m, 1, true);
+        }
+
+        WeakCCState(bool *xa, bool *fa, bool *m):
+            owner(false), xa(xa), fa(fa), m(m) {
+        }
+
+        ~WeakCCState() {
+            if(owner) {
+                try {
+                    CUDA_CHECK(cudaFree(xa));
+                    CUDA_CHECK(cudaFree(fa));
+                    CUDA_CHECK(cudaFree(m));
+                } catch(Exception &e) {
+                    std::cout << "Exception freeing memory for WeakCCState: " <<
+                            e.what() << std::endl;
+                }
+            }
+        }
+};
+
+template <typename Type, int TPB_X = 32>
+__global__ void weak_cc_label_device(
+        Type *labels,
+        Type *row_ind, Type *row_ind_ptr, Type nnz,
+        bool *fa, bool *xa, bool *m,
+        int startVertexId, int batchSize) {
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<batchSize) {
+        if(fa[tid + startVertexId]) {
+            fa[tid + startVertexId] = false;
+            int start = int(row_ind[tid]);
+            Type ci, cj;
+            bool ci_mod = false;
+            ci = labels[tid + startVertexId];
+
+            Type degree = get_stop_idx(tid, batchSize,nnz, row_ind) - row_ind[tid];
+
+            for(int j=0; j< int(degree); j++) { // TODO: Can't this be calculated from the ex_scan?
+                cj = labels[row_ind_ptr[start + j]];
+                if(ci<cj) {
+                    atomicMin(labels + row_ind_ptr[start +j], ci);
+                    xa[row_ind_ptr[start+j]] = true;
+                    m[0] = true;
+                }
+                else if(ci>cj) {
+                    ci = cj;
+                    ci_mod = true;
+                }
+            }
+            if(ci_mod) {
+                atomicMin(labels + startVertexId + tid, ci);
+                xa[startVertexId + tid] = true;
+                m[0] = true;
+            }
+        }
+    }
+}
+
+
+template <typename Type, int TPB_X = 32, typename Lambda>
+__global__ void weak_cc_init_label_kernel(Type *labels, int startVertexId, int batchSize,
+        Type MAX_LABEL, Lambda filter_op) {
+    /** F1 and F2 in the paper correspond to fa and xa */
+    /** Cd in paper corresponds to db_cluster */
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<batchSize) {
+        if(filter_op(tid) && labels[tid + startVertexId]==MAX_LABEL)
+            labels[startVertexId + tid] = Type(startVertexId + tid + 1);
+    }
+}
+
+template <typename Type, int TPB_X = 32>
+__global__ void weak_cc_init_all_kernel(Type *labels, bool *fa, bool *xa,
+        Type N, Type MAX_LABEL) {
+    int tid = threadIdx.x + blockIdx.x*TPB_X;
+    if(tid<N) {
+        labels[tid] = MAX_LABEL;
+        fa[tid] = true;
+        xa[tid] = false;
+    }
+}
+
+template <typename Type, int TPB_X = 32, typename Lambda>
+void weak_cc_label_batched(Type *labels,
+        Type* const row_ind, Type* const row_ind_ptr, Type nnz, Type N,
+        WeakCCState<Type> *state,
+        Type startVertexId, Type batchSize,
+        cudaStream_t stream, Lambda filter_op) {
+    bool host_m;
+    bool *host_fa = (bool*)malloc(sizeof(bool)*N);
+    bool *host_xa = (bool*)malloc(sizeof(bool)*N);
+
+    dim3 blocks(ceildiv(batchSize, TPB_X));
+    dim3 threads(TPB_X);
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+
+    weak_cc_init_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(labels,
+            startVertexId, batchSize, MAX_LABEL, filter_op);
+    CUDA_CHECK(cudaPeekAtLastError());
+    do {
+        CUDA_CHECK( cudaMemsetAsync(state->m, false, sizeof(bool), stream) );
+        weak_cc_label_device<Type, TPB_X><<<blocks, threads, 0, stream>>>(
+                labels,
+                row_ind, row_ind_ptr, nnz,
+                state->fa, state->xa, state->m,
+                startVertexId, batchSize);
+        CUDA_CHECK(cudaPeekAtLastError());
+
+        //** swapping F1 and F2
+        MLCommon::updateHost(host_fa, state->fa, N, stream);
+        MLCommon::updateHost(host_xa, state->xa, N, stream);
+        MLCommon::updateDevice(state->fa, host_xa, N, stream);
+        MLCommon::updateDevice(state->xa, host_fa, N, stream);
+
+        //** Updating m *
+        MLCommon::updateHost(&host_m, state->m, 1, stream);
+        CUDA_CHECK(cudaStreamSynchronize(stream));
+    } while(host_m);
+}
+
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param nnz the size of row_ind_ptr array
+ * @param N number of vertices
+ * @param startVertexId the starting vertex index for the current batch
+ * @param batchSize number of vertices for current batch
+ * @param state instance of inter-batch state management
+ * @param stream the cuda stream to use
+ * @param filter_op an optional filtering function to determine which points
+ * should get considered for labeling.
+ */
+template<typename Type = int, int TPB_X = 32, typename Lambda = auto (Type)->bool>
+void weak_cc_batched(Type *labels, Type* const row_ind,  Type* const row_ind_ptr,
+        Type nnz, Type N, Type startVertexId, Type batchSize,
+        WeakCCState<Type> *state, cudaStream_t stream, Lambda filter_op) {
+
+    dim3 blocks(ceildiv(N, TPB_X));
+    dim3 threads(TPB_X);
+
+    Type MAX_LABEL = std::numeric_limits<Type>::max();
+    if(startVertexId == 0) {
+        weak_cc_init_all_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>
+            (labels, state->fa, state->xa, N, MAX_LABEL);
+        CUDA_CHECK(cudaPeekAtLastError());
+    }
+    weak_cc_label_batched<Type, TPB_X>(labels, row_ind, row_ind_ptr, nnz, N, state,
+            startVertexId, batchSize, stream, filter_op);
+}
+
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param nnz the size of row_ind_ptr array
+ * @param N number of vertices
+ * @param startVertexId the starting vertex index for the current batch
+ * @param batchSize number of vertices for current batch
+ * @param state instance of inter-batch state management
+ * @param stream the cuda stream to use
+ */
+template<typename Type = int, int TPB_X = 32>
+void weak_cc_batched(Type *labels, Type* const row_ind,  Type* const row_ind_ptr,
+        Type nnz, Type N, Type startVertexId, Type batchSize,
+        WeakCCState<Type> *state, cudaStream_t stream) {
+
+    weak_cc_batched(labels, row_ind, row_ind_ptr, nnz, N, startVertexId, batchSize,
+            state, stream, [] __device__ (int tid) {return true;});
+}
+
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param nnz the size of row_ind_ptr array
+ * @param N number of vertices
+ * @param stream the cuda stream to use
+ * @param filter_op an optional filtering function to determine which points
+ * should get considered for labeling.
+ */
+template<typename Type = int, int TPB_X = 32, typename Lambda = auto (Type)->bool>
+void weak_cc(Type *labels, Type* const row_ind, Type* const row_ind_ptr,
+        Type nnz, Type N, cudaStream_t stream, Lambda filter_op) {
+
+    WeakCCState<Type> state(N);
+    weak_cc_batched<Type, TPB_X>(
+            labels, row_ind, row_ind_ptr,
+            nnz, N, 0, N, stream,
+            filter_op);
+}
+
+/**
+ * @brief Compute weakly connected components. Note that the resulting labels
+ * may not be taken from a monotonically increasing set (eg. numbers may be
+ * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * which will make a monotonically increasing set of labels.
+ *
+ * This implementation comes from [1] and solves component labeling problem in
+ * parallel on CSR-indexes based upon the vertex degree and adjacency graph.
+ *
+ * [1] Hawick, K.A et al, 2010. "Parallel graph component labelling with GPUs and CUDA"
+ *
+ * @tparam Type the numeric type of non-floating point elements
+ * @tparam TPB_X the threads to use per block when configuring the kernel
+ * @tparam Lambda the type of an optional filter function (int)->bool
+ * @param labels an array for the output labels
+ * @param row_ind the compressed row index of the CSR array
+ * @param row_ind_ptr the row index pointer of the CSR array
+ * @param nnz the size of row_ind_ptr array
+ * @param N number of vertices
+ * @param stream the cuda stream to use
+ * should get considered for labeling.
+ */
+template<typename Type = int, int TPB_X = 32>
+void weak_cc(Type *labels, Type* const row_ind, Type* const row_ind_ptr,
+        Type nnz, Type N, cudaStream_t stream) {
+
+    WeakCCState<Type> state(N);
+    weak_cc_batched<Type, TPB_X>(
+            labels, row_ind, row_ind_ptr,
+            nnz, N, 0, N, stream,
+            [](Type t){return true;});
+}
+
+
+
 };
 };
