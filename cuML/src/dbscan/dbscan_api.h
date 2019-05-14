@@ -22,10 +22,12 @@ extern "C" {
 #endif
 
 //Single precision version of DBSCAN fit
-cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float* input, int n_rows, int n_cols, float eps, int min_pts, int *labels);
+cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float* input,
+        int n_rows, int n_cols, float eps, int min_pts, int *labels, size_t max_bytes_per_batch);
 
 //Double precision version of DBSCAN fit
-cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows, int n_cols, double eps, int min_pts, int *labels);
+cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input,
+        int n_rows, int n_cols, double eps, int min_pts, int *labels, size_t max_bytes_per_batch);
 
 #ifdef __cplusplus
 }

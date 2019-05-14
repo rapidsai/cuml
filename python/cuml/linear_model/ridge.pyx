@@ -29,10 +29,14 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.metrics.base import RegressorMixin
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
-cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(float *input,
+    cdef void ridgeFit(cumlHandle& handle,
+                       float *input,
                        int n_rows,
                        int n_cols,
                        float *labels,
@@ -44,7 +48,8 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
                        bool normalize,
                        int algo)
 
-    cdef void ridgeFit(double *input,
+    cdef void ridgeFit(cumlHandle& handle,
+                       double *input,
                        int n_rows,
                        int n_cols,
                        double *labels,
@@ -56,14 +61,16 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
                        bool normalize,
                        int algo)
 
-    cdef void ridgePredict(const float *input,
+    cdef void ridgePredict(cumlHandle& handle,
+                           const float *input,
                            int n_rows,
                            int n_cols,
                            const float *coef,
                            float intercept,
                            float *preds)
 
-    cdef void ridgePredict(const double *input,
+    cdef void ridgePredict(cumlHandle& handle,
+                           const double *input,
                            int n_rows,
                            int n_cols,
                            const double *coef,
@@ -71,7 +78,7 @@ cdef extern from "glm/glm_c.h" namespace "ML::GLM":
                            double *preds)
 
 
-class Ridge:
+class Ridge(Base, RegressorMixin):
 
     """
     Ridge extends LinearRegression by providing L2 regularization on the coefficients when
@@ -155,15 +162,15 @@ class Ridge:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
+
     Notes
     ------
     Ridge provides L2 regularization. This means that the coefficients can shrink to become
     very very small, but not zero. This can cause issues of interpretabiliy on the coefficients.
     Consider using Lasso, or thresholding small coefficients to zero.
-    
+
     **Applications of Ridge**
-        
+
         Ridge Regression is used in the same way as LinearRegression, but is used more frequently
         as it does not suffer from multicollinearity issues. Ridge is used in insurance premium
         prediction, stock market analysis and much more.
@@ -176,7 +183,7 @@ class Ridge:
     # New link : https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb
 
 
-    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
+    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False, handle=None):
 
         """
         Initializes the linear ridge regression class.
@@ -188,7 +195,8 @@ class Ridge:
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
-        # self._check_alpha(alpha)
+        self._check_alpha(alpha)
+        super(Ridge, self).__init__(handle=handle, verbose=False)
         self.alpha = alpha
         self.coef_ = None
         self.intercept_ = None
@@ -204,10 +212,9 @@ class Ridge:
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
-        for el in alpha:
-            if el <= 0.0:
-                msg = "alpha values have to be positive"
-                raise TypeError(msg.format(alpha))
+        if alpha <= 0.0:
+            msg = "alpha value has to be positive"
+            raise TypeError(msg.format(alpha))
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -267,14 +274,14 @@ class Ridge:
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
             y_ptr = self._get_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -288,9 +295,12 @@ class Ridge:
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
             c_alpha1 = self.alpha
-            ridgeFit(<float*>X_ptr,
+            ridgeFit(handle_[0],
+                     <float*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <float*>y_ptr,
@@ -305,7 +315,8 @@ class Ridge:
             self.intercept_ = c_intercept1
         else:
             c_alpha2 = self.alpha
-            ridgeFit(<double*>X_ptr,
+            ridgeFit(handle_[0],
+                     <double*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <double*>y_ptr,
@@ -318,6 +329,8 @@ class Ridge:
                        <int>self.algo)
 
             self.intercept_ = c_intercept2
+
+        self.handle.sync()
 
         return self
 
@@ -354,26 +367,31 @@ class Ridge:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
-            ridgePredict(<float*>X_ptr,
+            ridgePredict(handle_[0],
+                        <float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
                            <float>self.intercept_,
                            <float*>preds_ptr)
         else:
-            ridgePredict(<double*>X_ptr,
+            ridgePredict(handle_[0],
+                         <double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,
                            <double>self.intercept_,
                            <double*>preds_ptr)
+
+        self.handle.sync()
 
         del(X_m)
 

@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,17 +22,20 @@ include_directories(${GTEST_DIR}/googletest/include)
 # (please keep the filenames in alphabetical order)
 add_executable(mlcommon_test
   add.cu
+  array.cu
   binary_op.cu
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
   columnSort.cu
+  contingencyMatrix.cu
   coo.cu
   cov.cu
   csr.cu
   decoupled_lookback.cu
   dist_adj.cu
   dist_cos.cu
+  dist_eps.cu
   dist_euc_exp.cu
   dist_euc_unexp.cu
   dist_l1.cu
@@ -43,24 +46,32 @@ add_executable(mlcommon_test
   gather.cu
   gemm.cu
   grid_sync.cu
+  hinge.cu
   kselection.cu
+  linearReg.cu
+  log.cu
+  logisticReg.cu
   map_then_reduce.cu
   math.cu
   matrix.cu
   matrix_vector_op.cu
   mean.cu
   mean_center.cu
-  metrics.cu
+  minmax.cu
   mvg.cu
   multiply.cu
   norm.cu
+  penalty.cu
   permute.cu
   power.cu
   reduce.cu
   reduce_rows_by_key.cu
+  reverse.cu
   rng.cu
   rng_int.cu
   rsvd.cu
+  score.cu
+  sigmoid.cu
   sqrt.cu
   stddev.cu
   strided_reduction.cu
@@ -69,12 +80,6 @@ add_executable(mlcommon_test
   svd.cu
   transpose.cu
   unary_op.cu
-  hinge.cu
-  linearReg.cu
-  log.cu
-  logisticReg.cu
-  penalty.cu
-  sigmoid.cu
   weighted_mean.cu
   )
 

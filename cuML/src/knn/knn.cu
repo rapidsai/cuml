@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include "common/cumlHandle.hpp"
+
 #include "cuda_utils.h"
 #include "knn.h"
 #include <cuda_runtime.h>
@@ -22,6 +24,7 @@
 #include <faiss/gpu/GpuResources.h>
 #include <faiss/Heap.h>
 #include <faiss/gpu/GpuDistance.h>
+
 
 #include <omp.h>
 #include <vector>
@@ -35,12 +38,15 @@ namespace ML {
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
-	kNN::kNN(int D, bool verbose): D(D), total_n(0), indices(0), verbose(verbose), owner(false){}
+	kNN::kNN(const cumlHandle &handle, int D, bool verbose):
+	        D(D), total_n(0), indices(0), verbose(verbose), owner(false) {
+	    this->handle = const_cast<cumlHandle_impl*>(&handle.getImpl());
+	}
+
 	kNN::~kNN() {
 
 	    try {
 	        if(this->owner) {
-
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
 	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
@@ -85,10 +91,8 @@ namespace ML {
 	 */
 	void kNN::fit(kNNParams *input, int N) {
 
-
-        if(this->owner) {
+        if(this->owner)
             for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
-        }
 
 	    if(this->verbose)
 	        std::cout << "N=" << N << std::endl;
@@ -108,6 +112,16 @@ namespace ML {
         }
 	}
 
+	template<typename T>
+	void ASSERT_MEM(T *ptr, std::string name) {
+        cudaPointerAttributes s_att;
+        cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
+
+        if(s_err != 0 || s_att.device == -1)
+            std::cout << "Invalid device pointer encountered in " << name <<
+                      ". device=" << s_att.device << ", err=" << s_err << std::endl;
+	}
+
 	/**
 	 * Search the kNN for the k-nearest neighbors of a set of query vectors
 	 * @param search_items set of vectors to query for neighbors
@@ -125,24 +139,9 @@ namespace ML {
 		float *all_D = new float[indices*k*size_t(n)];
 		long *all_I = new long[indices*k*size_t(n)];
 
-
-		/**
-		 * Initial verification of memory
-		 */
-		for(int i = 0; i < indices; i++) {
-            kNNParams params = knn_params[i];
-
-            cudaPointerAttributes att;
-            cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
-
-            if(err == 0 && att.device > -1) {
-                CUDA_CHECK(cudaSetDevice(att.device));
-
-                if(!verify_size(size_t(params.N)*size_t(this->D)*4l, att.device))
-                    return;
-            }
-		}
-
+		ASSERT_MEM(search_items, "search items");
+		ASSERT_MEM(res_I, "output index array");
+        ASSERT_MEM(res_D, "output distance array");
 
         #pragma omp parallel
 		{
@@ -155,12 +154,20 @@ namespace ML {
                 cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
 
                 if(err == 0 && att.device > -1) {
+
                     CUDA_CHECK(cudaSetDevice(att.device));
+                    CUDA_CHECK(cudaPeekAtLastError());
 
                     try {
+
                         faiss::gpu::StandardGpuResources gpu_res;
+
+                        cudaStream_t stream;
+                        CUDA_CHECK(cudaStreamCreate(&stream));
+
                         gpu_res.noTempMemory();
                         gpu_res.setCudaMallocWarning(false);
+                        gpu_res.setDefaultStream(att.device, stream);
 
                         bruteForceKnn(&gpu_res,
                                     faiss::METRIC_L2,
@@ -174,11 +181,14 @@ namespace ML {
                                     all_I+(long(i)*k*long(n)));
 
                         CUDA_CHECK(cudaPeekAtLastError());
+                        CUDA_CHECK(cudaStreamSynchronize(stream));
+
+                        CUDA_CHECK(cudaStreamDestroy(stream));
+
 
                     } catch(const std::exception &e) {
                        std::cout << "Exception occurred: " << e.what() << std::endl;
                     }
-
 
                 } else {
                     std::stringstream ss;
@@ -191,8 +201,8 @@ namespace ML {
 		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
 				result_D, result_I, all_D, all_I, id_ranges.data());
 
-		MLCommon::updateDevice(res_D, result_D, k*size_t(n), 0);
-		MLCommon::updateDevice(res_I, result_I, k*size_t(n), 0);
+		MLCommon::updateDevice(res_D, result_D, k*size_t(n), handle->getStream());
+		MLCommon::updateDevice(res_I, result_I, k*size_t(n), handle->getStream());
 
 		delete all_D;
 		delete all_I;
@@ -250,7 +260,8 @@ namespace ML {
 
             float *ptr_d;
             MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
-            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i), size_t(length)*size_t(D), 0);
+            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i),
+                    size_t(length)*size_t(D), handle->getStream());
 
             kNNParams p;
             p.N = length;

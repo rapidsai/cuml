@@ -28,6 +28,8 @@ from cuml import numba_utils
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.common.base import Base
+
 
 cdef extern from "kalman_filter/kf_variables.h" namespace "kf::linear":
     enum Option:
@@ -108,7 +110,7 @@ cdef extern from "kalman_filter/lkf_py.h" namespace "kf::linear" nogil:
                          double*)
 
 
-class KalmanFilter:
+class KalmanFilter(Base):
     """
     Implements a Kalman filter. You are responsible for setting the
     various state variables to reasonable values; defaults  will
@@ -183,12 +185,6 @@ class KalmanFilter:
         Whether the Kalman Filter uses single or double precision
 
     """
-
-    def _get_ctype_ptr(self, obj):
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def _get_dtype(self, precision):
         return {
@@ -536,7 +532,7 @@ class KalmanFilter:
                 val = numba_utils.row_matrix(value)
 
             elif (isinstance(value, cudf.Series)):
-                val = value.to_gpu_array()
+                val = value._column._data.mem
 
             elif (isinstance(value, np.ndarray) or cuda.devicearray.is_cuda_ndarray(value)):
                 val = cuda.to_device(value)

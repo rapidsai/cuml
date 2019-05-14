@@ -31,12 +31,11 @@ namespace Matrix {
 using namespace std;
 
 /**
- * @defgroup copy matrix operation for column major matrices.
+ * @brief copy operation for matrices.
  * @param in: input matrix
  * @param out: output matrix
  * @param n_rows: number of rows of output matrix
  * @param n_cols: number of columns of output matrix
- * @{
  */
 template<typename m_t>
 void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
@@ -68,21 +67,10 @@ void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
  * @{
  */
 template <typename m_t>
-void copy(const m_t *in, m_t *out, int n_rows, int n_cols, cudaStream_t stream) {
-  auto m = n_rows;
-  auto size = n_rows * n_rows;
-  auto d_q_in = in;
-  auto d_q_out = out;
-  auto counting = thrust::make_counting_iterator<int>(0);
-
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
-    [=] __device__(int idx) {
-    int row = idx % m;
-    int col = idx / m;
-    d_q_out[col * m + row] = d_q_in[col * m + row];
-  });
+void copy(const m_t *in, m_t *out, int n_rows, int n_cols,
+          cudaStream_t stream) {
+  copyAsync(out, in, n_rows * n_cols, stream);
 }
-/** @} */
 
 /**
  * @defgroup copy matrix operation for column major matrices. First n_rows and
@@ -293,7 +281,7 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  * @{
  */
 template <typename m_t>
-void copyUpperTriangular(m_t *&src, m_t *&dst, int n_rows, int n_cols,
+void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
                           cudaStream_t stream) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
@@ -331,7 +319,7 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  * @{
  */
 template <typename m_t>
-void initializeDiagonalMatrix(m_t *vec, m_t *&matrix, int n_rows, int n_cols,
+void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
                                 cudaStream_t stream) {
   int k = min(n_rows, n_cols);
   dim3 block(64);

@@ -17,6 +17,8 @@
 #pragma once
 
 #include <stdint.h>
+#include "math_constants.h"
+#include <iomanip>
 #include "utils.h"
 
 namespace MLCommon {
@@ -84,7 +86,7 @@ DI void forEach(int num, L lambda) {
 }
 
 template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream) {
+std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream, int width = 4) {
 
     std::stringstream ss;
 
@@ -94,7 +96,7 @@ std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t strea
 
     ss << name << " = [ ";
     for(int i = 0; i < size; i++) {
-        ss << arr_h[i];
+        ss << std::setw(width) << arr_h[i];
 
         if(i < size-1)
             ss << ", ";
@@ -118,6 +120,18 @@ DI int laneId() {
   return id;
 }
 
+/**
+ * @brief Swap two values
+ * @tparam T the datatype of the values
+ * @param a first input
+ * @param b second input
+ */
+template <typename T>
+HDI void swap(T& a, T& b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
+}
 
 /** Device function to have atomic add support for older archs */
 #if __CUDA_ARCH__ < 600
@@ -242,14 +256,6 @@ HDI double myMax<double>(double x, double y) {
 /** @} */
 
 /**
- * Sign function
- */
-template <typename T>
-HDI int sgn(const T val) {
-  return (T(0) < val) - (val < T(0));
-}
-
-/**
  * @defgroup Min minimum of two numbers
  * @{
  */
@@ -266,6 +272,38 @@ HDI double myMin<double>(double x, double y) {
 /** @} */
 
 /**
+ * @brief Provide atomic min operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMin(T *address, T val) {
+    myAtomicReduce(address, val, myMin<T>);
+    return *address;
+}
+
+/**
+ * @brief Provide atomic max operation.
+ * @tparam T: data type for input data (float or double).
+ * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
+ * @param[in] val: new value to compare with old
+ */
+template<typename T>
+DI T myAtomicMax(T *address, T val) {
+    myAtomicReduce(address, val, myMax<T>);
+    return *address;
+}
+
+/**
+ * Sign function
+ */
+template <typename T>
+HDI int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
+/**
  * @defgroup Exp Exponential function
  * @{
  */
@@ -279,6 +317,15 @@ template <>
 HDI double myExp(double x) {
   return exp(x);
 }
+/** @} */
+
+/**
+ * @defgroup Cuda infinity values
+ * @{
+ */
+template <typename T> inline __device__ T myInf();
+template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
+template <> inline __device__ double myInf<double>() { return CUDART_INF; }
 /** @} */
 
 /**

@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include "cuML.hpp"
+
 #include "umap/umapparams.h"
 #include "umap/runner.h"
 #include "knn/knn.h"
@@ -38,10 +40,14 @@ class UMAPTest: public ::testing::Test {
 protected:
 	void basicTest() {
 
+	    cumlHandle handle;
+
 		umap_params = new UMAPParams();
 		umap_params->n_neighbors = k;
+		umap_params->verbose = true;
+		umap_params->target_metric = UMAPParams::MetricType::CATEGORICAL;
 
-		kNN *knn = new kNN(d);
+		kNN *knn = new kNN(handle, d);
 		cudaStream_t stream;
 		CUDA_CHECK(cudaStreamCreate(&stream));
 		UMAPAlgo::find_ab(umap_params, stream);
@@ -53,19 +59,39 @@ protected:
 			23.0, 7.0, 80.0
 		};
 
-    float* X_d;
+		std::vector<float> Y = {
+		        -1, 1, 1, 0
+		};
 
+		float *X_d, *Y_d;
+		MLCommon::allocate(Y_d, n);
 		MLCommon::allocate(X_d, n*d);
 		MLCommon::updateDevice(X_d, X.data(), n*d, stream);
+		MLCommon::updateDevice(Y_d, Y.data(), n, stream);
 
 		MLCommon::allocate(embeddings, n*umap_params->n_components);
 
-		UMAPAlgo::_fit<float, 256>(X_d, n, d, knn, umap_params, embeddings, stream);
+		std::cout << "Performing fit()" << std::endl;
+
+		UMAPAlgo::_fit<float, 256>(handle, X_d, n, d, knn, umap_params, embeddings, stream);
+
+		std::cout << "done." << std::endl;
+
+		std::cout << "Performing transform" << std::endl;
 
 		float *xformed;
 		MLCommon::allocate(xformed, n*umap_params->n_components);
 
-		UMAPAlgo::_transform<float, 256>(X_d, n, d, embeddings, n, knn, umap_params, xformed, stream);
+		UMAPAlgo::_transform<float, 32>(handle, X_d, n, d, embeddings, n, knn, umap_params, xformed, stream);
+
+		std::cout << "Done." << std::endl;
+
+        std::cout << "Performing supervised fit" << std::endl;
+
+		UMAPAlgo::_fit<float, 32>(handle, X_d, Y_d, n, d, knn, umap_params, embeddings, stream);
+
+		std::cout << "Done." << std::endl;
+
 		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 

@@ -51,11 +51,12 @@ protected:
 
     auto rows = params.rows, cols = params.cols;
     auto len = rows * cols;
+    IdxType vecLen = params.bcastAlongRows ? cols : rows;
 
     allocate(out, len);
     allocate(out_ref, len);
     allocate(data, len);
-    allocate(meanVec, cols);
+    allocate(meanVec, vecLen);
     r.normal(data, len, params.mean, (T)1.0, stream);
     mean(meanVec, data, cols, rows, params.sample, params.rowMajor, stream);
     meanCenter(out, data, meanVec, cols, rows, params.rowMajor,
