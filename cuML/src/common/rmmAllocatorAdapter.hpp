@@ -96,6 +96,8 @@ public:
         }
     }
 
+    virtual ~rmmAllocatorAdapter() {}
+
 private:
     const bool _rmmInitialized;
 };

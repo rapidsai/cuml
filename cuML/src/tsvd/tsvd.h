@@ -30,17 +30,25 @@
 #include <stats/mean.h>
 #include <stats/sum.h>
 #include "ml_utils.h"
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include "common/cumlHandle.hpp"
+#include "common/device_buffer.hpp"
+#include "common/allocatorAdapter.hpp"
 
 namespace ML {
 
 using namespace MLCommon;
 
 template<typename math_t>
-void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
-		math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms,
-		cusolverDnHandle_t cusolver_handle, cublasHandle_t cublas_handle,
-    cudaStream_t stream) {
-	int diff = prms.n_cols - prms.n_components;
+void calCompExpVarsSvd(const cumlHandle_impl& handle, math_t *in, math_t *components, math_t *singular_vals,
+                       math_t *explained_vars, math_t *explained_var_ratio, paramsTSVD prms,
+                       cudaStream_t stream) {
+    auto cusolver_handle = handle.getcusolverDnHandle();
+    auto cublas_handle = handle.getCublasHandle();
+    auto allocator = handle.getDeviceAllocator();
+
+        int diff = prms.n_cols - prms.n_components;
 	math_t ratio = math_t(diff) / math_t(prms.n_cols);
 	ASSERT(ratio >= math_t(0.2),
 			"Number of components should be less than at least 80 percent of the number of features");
@@ -54,45 +62,39 @@ void calCompExpVarsSvd(math_t *in, math_t *components, math_t *singular_vals,
 	ASSERT(total_random_vecs < prms.n_cols,
 			"RSVD should be used where the number of columns are at least 50");
 
-	math_t *components_temp;
-	allocate(components_temp, prms.n_cols, prms.n_components);
-	math_t *left_eigvec;
+	device_buffer<math_t> components_temp(allocator, stream, prms.n_cols * prms.n_components);
+	math_t *left_eigvec = nullptr;
 	LinAlg::rsvdFixedRank(in, prms.n_rows, prms.n_cols, singular_vals,
-			left_eigvec, components_temp, prms.n_components, p, true, false,
-			true, false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
-			cublas_handle);
+                              left_eigvec, components_temp.data(), prms.n_components, p, true, false,
+                              true, false, (math_t) prms.tol, prms.n_iterations, cusolver_handle,
+                              cublas_handle, stream);
 
-	LinAlg::transpose(components_temp, components, prms.n_cols,
-			prms.n_components, cublas_handle, stream);
-	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components);
-  auto mgr = makeDefaultAllocator();
-  Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, mgr);
-
-	if (components_temp)
-		CUDA_CHECK(cudaFree(components_temp));
-
+	LinAlg::transpose(components_temp.data(), components, prms.n_cols,
+                          prms.n_components, cublas_handle, stream);
+	Matrix::power(singular_vals, explained_vars, math_t(1), prms.n_components, stream);
+        Matrix::ratio(explained_vars, explained_var_ratio, prms.n_components, stream,
+                      allocator);
 }
 
 template<typename math_t>
-void calEig(math_t *in, math_t *components, math_t *explained_var,
-		paramsTSVD prms, cusolverDnHandle_t cusolver_handle,
-            cublasHandle_t cublas_handle, cudaStream_t stream,
-            DeviceAllocator &mgr) {
+void calEig(const cumlHandle_impl& handle, math_t *in, math_t *components,
+            math_t *explained_var, paramsTSVD prms, cudaStream_t stream) {
+    auto cusolver_handle = handle.getcusolverDnHandle();
+    auto allocator = handle.getDeviceAllocator();
 
 	if (prms.algorithm == solver::COV_EIG_JACOBI) {
 		LinAlg::eigJacobi(in, prms.n_cols, prms.n_cols, components,
 				explained_var, (math_t) prms.tol, prms.n_iterations,
-                                  cusolver_handle, stream, mgr);
+                                  cusolver_handle, stream, allocator);
 	} else {
 		LinAlg::eigDC(in, prms.n_cols, prms.n_cols, components, explained_var,
-                              cusolver_handle, stream, mgr);
+                              cusolver_handle, stream, allocator);
 	}
 
 	Matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
 	LinAlg::transpose(components, prms.n_cols, stream);
 
 	Matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
-
 }
 
 /**
@@ -102,16 +104,22 @@ void calEig(math_t *in, math_t *components, math_t *explained_var,
  * @param n_cols: number of columns of input matrix
  * @param components: components matrix.
  * @param n_cols_comp: number of columns of components matrix
+ * @param allocator device custom allocator object
+ * @param stream cuda stream
  * @{
  */
 template<typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
-		int n_cols_comp) {
+              int n_cols_comp, std::shared_ptr<deviceAllocator> allocator,
+              cudaStream_t stream) {
 
 	auto counting = thrust::make_counting_iterator(0);
 	auto m = n_rows;
 
-    thrust::for_each(counting, counting + n_cols, [=]__device__(int idx) {
+        ML::thrustAllocatorAdapter alloc(allocator, stream);
+        auto execution_policy = thrust::cuda::par(alloc).on(stream);
+        thrust::for_each(execution_policy,
+                        counting, counting + n_cols, [=]__device__(int idx) {
 			int d_i = idx * m;
 			int end = d_i + m;
 
@@ -144,61 +152,54 @@ void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
 
 /**
  * @brief perform fit operation for the tsvd. Generates eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
  * @output param singular_vals: singular values of the data. Size n_components * 1
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
+ * @input param stream cuda stream
  */
 template<typename math_t>
-void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSVD prms,
-		cublasHandle_t cublas_handle, cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
-    ///@todo: make this to be passed via the interface
-    auto mgr = makeDefaultAllocator();
+void tsvdFit(const cumlHandle_impl& handle, math_t *input, math_t *components,
+             math_t *singular_vals, paramsTSVD prms, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
+    auto allocator = handle.getDeviceAllocator();
 
-	ASSERT(prms.n_cols > 1,
-			"Parameter n_cols: number of columns cannot be less than two");
-	ASSERT(prms.n_rows > 1,
-			"Parameter n_rows: number of rows cannot be less than two");
-	ASSERT(prms.n_components > 0,
-			"Parameter n_components: number of components cannot be less than one");
+    ASSERT(prms.n_cols > 1,
+           "Parameter n_cols: number of columns cannot be less than two");
+    ASSERT(prms.n_rows > 1,
+           "Parameter n_rows: number of rows cannot be less than two");
+    ASSERT(prms.n_components > 0,
+           "Parameter n_components: number of components cannot be less than one");
 
-	if (prms.n_components > prms.n_cols)
-		prms.n_components = prms.n_cols;
+    if (prms.n_components > prms.n_cols)
+        prms.n_components = prms.n_cols;
 
-	math_t *input_cross_mult;
-	int len = prms.n_cols * prms.n_cols;
-	allocate(input_cross_mult, len);
+    int len = prms.n_cols * prms.n_cols;
+    device_buffer<math_t> input_cross_mult(allocator, stream, len);
 
-	math_t alpha = math_t(1);
-	math_t beta = math_t(0);
-	LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult,
-			prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
-                     cublas_handle, stream);
+    math_t alpha = math_t(1);
+    math_t beta = math_t(0);
+    LinAlg::gemm(input, prms.n_rows, prms.n_cols, input, input_cross_mult.data(),
+                 prms.n_cols, prms.n_cols, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta,
+                 cublas_handle, stream);
 
-	math_t *components_all;
-	math_t *explained_var_all;
+    device_buffer<math_t> components_all(allocator, stream, len);
+    device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
 
-	allocate(components_all, len);
-	allocate(explained_var_all, prms.n_cols);
+    calEig(handle, input_cross_mult.data(), components_all.data(),
+           explained_var_all.data(), prms, stream);
 
-	calEig(input_cross_mult, components_all, explained_var_all, prms,
-               cusolver_handle, cublas_handle, stream, mgr);
+    Matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
+                            prms.n_components, prms.n_cols, stream);
 
-	Matrix::truncZeroOrigin(components_all, prms.n_cols, components,
-			prms.n_components, prms.n_cols, stream);
-
-	math_t scalar = math_t(1);
-	Matrix::seqRoot(explained_var_all, singular_vals, scalar, prms.n_components, stream);
-
-	CUDA_CHECK(cudaFree(components_all));
-	CUDA_CHECK(cudaFree(explained_var_all));
-	CUDA_CHECK(cudaFree(input_cross_mult));
+    math_t scalar = math_t(1);
+    Matrix::seqRoot(explained_var_all.data(), singular_vals, scalar, prms.n_components, stream);
 }
 
 /**
  * @brief performs fit and transform operations for the tsvd. Generates transformed data, eigenvectors, explained vars, singular vals, etc.
+ * @input param handle: the internal cuml handle object
  * @input param input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
  * @output param trans_input: the transformed data. Size n_rows * n_components.
  * @output param components: the principal components of the input data. Size n_cols * n_components.
@@ -206,67 +207,57 @@ void tsvdFit(math_t *input, math_t *components, math_t *singular_vals, paramsTSV
  * @output param explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
  * @output param singular_vals: singular values of the data. Size n_components * 1
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
- * @input param cusolver_handle: cusolver handle
+ * @input param stream cuda stream
  */
 template<typename math_t>
-void tsvdFitTransform(math_t *input, math_t *trans_input, math_t *components,
-		math_t *explained_var, math_t *explained_var_ratio,
-		math_t *singular_vals, paramsTSVD prms, cublasHandle_t cublas_handle,
-                      cusolverDnHandle_t cusolver_handle, cudaStream_t stream) {
-    ///@todo: make this to be passed via the interface!
-    DeviceAllocator mgr = makeDefaultAllocator();
+void tsvdFitTransform(const cumlHandle_impl& handle, math_t *input,
+                      math_t *trans_input, math_t *components,
+                      math_t *explained_var, math_t *explained_var_ratio,
+                      math_t *singular_vals, paramsTSVD prms, cudaStream_t stream) {
+    auto allocator = handle.getDeviceAllocator();
 
-  tsvdFit(input, components, singular_vals, prms, cublas_handle, cusolver_handle, stream);
-	tsvdTransform(input, components, trans_input, prms, cublas_handle, stream);
+    tsvdFit(handle, input, components, singular_vals, prms, stream);
+    tsvdTransform(handle, input, components, trans_input, prms, stream);
 
-	signFlip(trans_input, prms.n_rows, prms.n_components, components,
-			prms.n_cols);
+    signFlip(trans_input, prms.n_rows, prms.n_components, components,
+             prms.n_cols, allocator, stream);
 
-	math_t *mu_trans;
-	allocate(mu_trans, prms.n_components);
+    device_buffer<math_t> mu_trans(allocator, stream, prms.n_components);
+    Stats::mean(mu_trans.data(), trans_input, prms.n_components, prms.n_rows, true,
+                false, stream);
+    Stats::vars(explained_var, trans_input, mu_trans.data(), prms.n_components,
+                prms.n_rows, true, false, stream);
 
-	Stats::mean(mu_trans, trans_input, prms.n_components, prms.n_rows, true,
-			false, stream);
-	Stats::vars(explained_var, trans_input, mu_trans, prms.n_components,
-			prms.n_rows, true, false, stream);
+    device_buffer<math_t> mu(allocator, stream, prms.n_cols);
+    device_buffer<math_t> vars(allocator, stream, prms.n_cols);
 
-	math_t *mu;
-	allocate(mu, prms.n_cols);
-	math_t *vars;
-	allocate(vars, prms.n_cols);
+    Stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, true, false, stream);
+    Stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true, false, stream);
 
-	Stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
-	Stats::vars(vars, input, mu, prms.n_cols, prms.n_rows, true, false, stream);
+    device_buffer<math_t> total_vars(allocator, stream, 1);
+    Stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
 
-	math_t *total_vars;
-	allocate(total_vars, 1);
-	Stats::sum(total_vars, vars, 1, prms.n_cols, false, stream);
+    math_t total_vars_h;
+    updateHost(&total_vars_h, total_vars.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    math_t scalar = math_t(1) / total_vars_h;
 
-	math_t total_vars_h;
-	updateHost(&total_vars_h, total_vars, 1, stream);
-        CUDA_CHECK(cudaStreamSynchronize(stream));
-	math_t scalar = math_t(1) / total_vars_h;
-
-	LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
-			prms.n_components, stream);
-
-	CUDA_CHECK(cudaFree(mu_trans));
-	CUDA_CHECK(cudaFree(mu));
-	CUDA_CHECK(cudaFree(vars));
-	CUDA_CHECK(cudaFree(total_vars));
+    LinAlg::scalarMultiply(explained_var_ratio, explained_var, scalar,
+                           prms.n_components, stream);
 }
 
 /**
  * @brief performs transform operation for the tsvd. Transforms the data to eigenspace.
+ * @input param handle the internal cuml handle object
  * @input param input: the data is transformed. Size n_rows x n_components.
  * @input param components: principal components of the input data. Size n_cols * n_components.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
+ * @input param stream cuda stream
  */
 template<typename math_t>
-void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
-		paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void tsvdTransform(const cumlHandle_impl& handle, math_t *input, math_t *components, math_t *trans_input,
+                   paramsTSVD prms, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than two");
@@ -284,15 +275,17 @@ void tsvdTransform(math_t *input, math_t *components, math_t *trans_input,
 
 /**
  * @brief performs inverse transform operation for the tsvd. Transforms the transformed data back to original data.
+ * @input param handle the internal cuml handle object
  * @input param trans_input: the data is fitted to PCA. Size n_rows x n_components.
  * @input param components: transpose of the principal components of the input data. Size n_components * n_cols.
  * @output param input: the data is fitted to PCA. Size n_rows x n_cols.
  * @input param prms: data structure that includes all the parameters from input size to algorithm.
- * @input param cublas_handle: cublas handle
+ * @input param stream cuda stream
  */
 template<typename math_t>
-void tsvdInverseTransform(math_t *trans_input, math_t *components,
-		math_t *input, paramsTSVD prms, cublasHandle_t cublas_handle, cudaStream_t stream) {
+void tsvdInverseTransform(const cumlHandle_impl& handle, math_t *trans_input, math_t *components,
+                          math_t *input, paramsTSVD prms, cudaStream_t stream) {
+    auto cublas_handle = handle.getCublasHandle();
 
 	ASSERT(prms.n_cols > 1,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -310,8 +303,4 @@ void tsvdInverseTransform(math_t *trans_input, math_t *components,
 
 }
 
-/** @} */
-
-}
-;
-// end namespace ML
+}; // end namespace ML

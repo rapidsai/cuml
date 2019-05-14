@@ -38,7 +38,7 @@ namespace Functions {
 template <typename math_t, typename idx_type = int>
 void hingeLossGradMult(math_t* data, const math_t* vec1, const math_t* vec2,
                        idx_type n_row, idx_type n_col, cudaStream_t stream) {
-	LinAlg::matrixVectorOp(data, data, vec1, vec2, n_col, n_row, false, true,
+	LinAlg::matrixVectorOp(data, data, vec1, vec2, n_col, n_row, false, false,
 		        		       [] __device__ (math_t a, math_t b, math_t c) {
 		                              if (c < math_t(1))
 		        		                  return -a * b;
@@ -78,89 +78,71 @@ void hingeH(const math_t *input, idx_type n_rows, idx_type n_cols,
 template<typename math_t>
 void hingeLossGrads(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *grads, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
-	math_t *input_t = NULL;
-	allocate(input_t, n_rows * n_cols);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
+	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle, stream);
 
-	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
-
-	LinAlg::transpose(input, input_t, n_rows, n_cols, cublas_handle, stream);
-	hingeLossGradMult(input_t, labels, labels_pred, n_cols, n_rows, stream);
-	LinAlg::transpose(input_t, input, n_cols, n_rows, cublas_handle, stream);
-
+	LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
+	hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
 	Stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
-	math_t *pen_grads = NULL;
+	device_buffer<math_t> pen_grads(allocator, stream, 0);
 
 	if (pen != penalty::NONE)
-		allocate(pen_grads, n_cols);
+		pen_grads.resize(n_cols, stream);
 
 	if (pen == penalty::L1) {
-		lassoGrad(pen_grads, coef, n_cols, alpha, stream);
+		lassoGrad(pen_grads.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridgeGrad(pen_grads, coef, n_cols, alpha, stream);
+		ridgeGrad(pen_grads.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnetGrad(pen_grads, coef, n_cols, alpha, l1_ratio, stream);
+		elasticnetGrad(pen_grads.data(), coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(grads, grads, pen_grads, n_cols, stream);
-	    if (pen_grads != NULL)
-	        CUDA_CHECK(cudaFree(pen_grads));
+	    LinAlg::add(grads, grads, pen_grads.data(), n_cols, stream);
 	}
 
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
-
-	if (input_t != NULL)
-		CUDA_CHECK(cudaFree(input_t));
 }
 
 
 template<typename math_t>
 void hingeLoss(math_t *input, int n_rows, int n_cols,
 		const math_t *labels, const math_t *coef, math_t *loss, penalty pen,
-		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle, cudaStream_t stream) {
+		math_t alpha, math_t l1_ratio, cublasHandle_t cublas_handle,
+		std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
 
-	math_t *labels_pred = NULL;
-	allocate(labels_pred, n_rows);
+	device_buffer<math_t> labels_pred(allocator, stream, n_rows);
 
-	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred, n_rows, 1, CUBLAS_OP_N,
+	LinAlg::gemm(input, n_rows, n_cols, coef, labels_pred.data(), n_rows, 1, CUBLAS_OP_N,
 			CUBLAS_OP_N, cublas_handle, stream);
 
-	LinAlg::eltwiseMultiply(labels_pred, labels_pred, labels, n_rows, stream);
+	LinAlg::eltwiseMultiply(labels_pred.data(), labels_pred.data(), labels, n_rows, stream);
 
-	hingeLossSubtract(labels_pred, labels_pred, math_t(1), n_rows, stream);
+	hingeLossSubtract(labels_pred.data(), labels_pred.data(), math_t(1), n_rows, stream);
 
-	Stats::sum(loss, labels_pred, 1, n_rows, false, stream);
+	Stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
-	math_t *pen_val = NULL;
+	device_buffer<math_t> pen_val(allocator, stream, 0);
 
     if (pen != penalty::NONE)
-	    allocate(pen_val, 1);
+    	pen_val.resize(1, stream);
 
 	if (pen == penalty::L1) {
-		lasso(pen_val, coef, n_cols, alpha, stream);
+		lasso(pen_val.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::L2) {
-		ridge(pen_val, coef, n_cols, alpha, stream);
+		ridge(pen_val.data(), coef, n_cols, alpha, stream);
 	} else if (pen == penalty::ELASTICNET) {
-		elasticnet(pen_val, coef, n_cols, alpha, l1_ratio, stream);
+		elasticnet(pen_val.data(), coef, n_cols, alpha, l1_ratio, stream);
 	}
 
 	if (pen != penalty::NONE) {
-	    LinAlg::add(loss, loss, pen_val, 1, stream);
-	    if (pen_val != NULL)
-	        CUDA_CHECK(cudaFree(pen_val));
+	    LinAlg::add(loss, loss, pen_val.data(), 1, stream);
 	}
-
-	if (labels_pred != NULL)
-	    CUDA_CHECK(cudaFree(labels_pred));
 
 }
 

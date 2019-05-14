@@ -46,7 +46,7 @@ namespace ML {
         math_t* d_pred_D = (math_t*)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
         kNNParams params = {input, n};
-        kNN knn(d);
+        kNN knn(h, d);
         knn.fit(&params, 1);
         knn.search(input, n, d_pred_I, d_pred_D, n_neighbors);
 

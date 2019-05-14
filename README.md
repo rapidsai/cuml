@@ -38,31 +38,27 @@ For additional examples, browse our complete [API documentation](https://docs.ra
 
 | Algorithm | Scale | Notes |
 | --- | --- | --- |
-| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
-| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package <br> Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) |
-| Principal Component Analysis (PCA) | Single GPU |
+| Coordinate Descent | Single-GPU | |
 | Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Single GPU |
-| K-Means Clustering | Multi-GPU |
-| K-Nearest Neighbors (KNN) | Multi-GPU | Multi-Node with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| K-Means Clustering | Single-GPU |
+| K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
+| Linear Kalman Filter | Single-GPU |
+| Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| Linear Regression with Lasso Regularization | Single-GPU |
+| Linear Regression with Elastic-Net Regularization | Single-GPU |
+| Principal Component Analysis (PCA) | Single GPU |
 | Ridge Regression | Single-GPU |
-| Kalman Filter | Single-GPU |
-| UMAP | Single-GPU |
 | Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |
+| Truncated Singular Value Decomposition (tSVD) | Single GPU | Multi-GPU available in conda cuda10 package |
+| UMAP | Single-GPU |
 
 ---
 
-Algorithms in progress:
-
-- More Kalman Filter versions
-- Lasso
-- Elastic-Net
-- Logistic Regression
-
-More ML algorithms in cuML and more ML primitives in ml-prims are being worked on. Goals for future versions include more algorithms and multi-gpu versions of the algorithms and primitives.
+More ML algorithms in cuML and more ML primitives in ml-prims are being worked on, among them: t-sne, random forests, spectral embedding, spectral clustering, random projections, support vector machine and others. Goals for future versions include more multi-gpu versions of the algorithms and primitives.
 
 ## Installation
 
-1. Install NVIDIA drivers with CUDA 9.2 or 10.0 
+1. Install NVIDIA drivers with CUDA 9.2 or 10.0
 2. Ensure `libomp` and `libopenblas` are installed, for example via apt:
 ```bash
 sudo apt install libopenblas-base libomp-dev
@@ -73,6 +69,7 @@ cuML can be installed using the `rapidsai` conda channel:
 
 CUDA 9.2
 ```bash
+
 conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=9.2
 ```
 
@@ -81,21 +78,8 @@ CUDA 10.0
 conda install -c nvidia -c rapidsai -c conda-forge -c defaults cuml cudatoolkit=10.0
 ```
 
-
-#### Pip
-cuML can also be installed using pip. Select the package based on your version of CUDA.
-
-
-```bash
-# cuda 9.2
-pip install cuml-cuda92
-
-# cuda 10.0
-pip install cuml-cuda100
-```
-
 ## Build/Install from Source
-See build [instructions](CONTRIBUTING.md#setting-up-your-build-environment).
+See the build [guide](BUILD.md).
 
 ## Contributing
 

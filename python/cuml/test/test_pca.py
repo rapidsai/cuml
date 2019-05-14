@@ -15,6 +15,7 @@
 
 import pytest
 from cuml import PCA as cuPCA
+from cuml.test.utils import get_handle
 from sklearn.decomposition import PCA as skPCA
 from cuml.test.utils import array_equal
 import cudf
@@ -23,23 +24,26 @@ import numpy as np
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_fit(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_pca_fit(datatype, input_type, use_handle):
 
     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                  dtype=datatype)
     skpca = skPCA(n_components=2)
     skpca.fit(X)
 
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
         gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
         gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
         cupca.fit(gdf)
-
     else:
         cupca.fit(X)
+
+    cupca.handle.sync()
 
     for attr in ['singular_values_', 'components_', 'explained_variance_',
                  'explained_variance_ratio_', 'noise_variance_']:
@@ -58,13 +62,15 @@ def test_pca_fit(datatype, input_type):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_fit_transform(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_pca_fit_transform(datatype, input_type, use_handle):
     X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                  dtype=datatype)
     skpca = skPCA(n_components=2)
     Xskpca = skpca.fit_transform(X)
 
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         gdf = cudf.DataFrame()
@@ -74,17 +80,20 @@ def test_pca_fit_transform(datatype, input_type):
 
     else:
         Xcupca = cupca.fit_transform(X)
+    cupca.handle.sync()
 
     assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-def test_pca_inverse_transform(datatype, input_type):
+@pytest.mark.parametrize('use_handle', [True, False])
+def test_pca_inverse_transform(datatype, input_type, use_handle):
     gdf = cudf.DataFrame()
     gdf['0'] = np.asarray([-1, -2, -3, 1, 2, 3], dtype=datatype)
     gdf['1'] = np.asarray([-1, -1, -2, 1, 1, 2], dtype=datatype)
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         Xcupca = cupca.fit_transform(gdf)
@@ -95,6 +104,8 @@ def test_pca_inverse_transform(datatype, input_type):
         Xcupca = cupca.fit_transform(X)
 
     input_gdf = cupca.inverse_transform(Xcupca)
+
+    cupca.handle.sync()
 
     assert array_equal(input_gdf, gdf,
                        1e-3, with_sign=True)

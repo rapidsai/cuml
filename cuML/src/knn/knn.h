@@ -14,10 +14,15 @@
  * limitations under the License.
  */
 
+#include "common/cumlHandle.hpp"
+
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/IndexProxy.h>
-#include <iostream>
 #include <faiss/gpu/GpuIndexFlat.h>
+
+#include <iostream>
+
+
 
 #pragma once
 
@@ -48,6 +53,7 @@ namespace ML {
 		bool verbose;
 		bool owner;
 
+		cumlHandle_impl *handle;
 
 
     public:
@@ -55,7 +61,7 @@ namespace ML {
 	     * Build a kNN object for training and querying a k-nearest neighbors model.
 	     * @param D     number of features in each vector
 	     */
-		kNN(int D, bool verbose = false);
+		kNN(const cumlHandle &handle, int D, bool verbose = false);
 		~kNN();
 
         void reset();
@@ -71,7 +77,8 @@ namespace ML {
          * @param res_D        pointer to device memory for returning k nearest distances
          * @param k            number of neighbors to query
          */
-		void search(const float *search_items, int search_items_size, long *res_I, float *res_D, int k);
+		void search(const float *search_items, int search_items_size,
+		        long *res_I, float *res_D, int k);
 
         /**
          * Fit a kNN model by creating separate indices for multiple given

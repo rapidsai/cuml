@@ -1,26 +1,46 @@
-# cuML 0.7.0 (Date TBD)
+# cuML 0.8.0 (Date TBD)
+
+## New Features
+- PR #504: Contingency matrix ml-prim
+
+## Improvements
+
+- PR #590: QN Recover from numeric errors
+- PR #482: Introduce cumlHandle for pca and tsvd
+- PR #573: Remove use of unnecessary cuDF column and series copies
+- PR #596: Introduce cumlHandle for ols and ridge
+- PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
+
+## Bug Fixes
+- PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
+
+
+# cuML 0.7.0 (10 May 2019)
 
 ## New Features
 
 - PR #405: Quasi-Newton GLM Solvers
-
-## New Features
-
-- PR #277: Added row- and column-wise weighted mean primitive
-- PR #424: Added a grid-sync struct for inter-block synchronization
-- PR #430: Adding R-Squared Score to ml primitives
-- PR #463: Added matrix gather to ml primitives
-- PR #435: Exposing cumlhandle in cython + developer guide
+- PR #277: Add row- and column-wise weighted mean primitive
+- PR #424: Add a grid-sync struct for inter-block synchronization
+- PR #430: Add R-Squared Score to ml primitives
+- PR #463: Add matrix gather to ml primitives
+- PR #435: Expose cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
-- PR #460: Random Forest & Decision Trees (Single-GPU, Classification
-- PR #491: added doxygen build target for ml-prims
+- PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
+- PR #491: Add doxygen build target for ml-prims
+- PR #505: Add R-Squared Score to python interface
+- PR #507: Add coordinate descent for lasso and elastic-net
+- PR #511: Add a minmax ml-prim
 - PR #516: Added Trustworthiness score feature
 - PR #520: Add local build script to mimic gpuCI
-- PR #503: Added column-wise matrix sort primitive
+- PR #503: Add column-wise matrix sort primitive
+- PR #525: Add docs build script to cuML
+- PR #528: Remove current KMeans and replace it with a new single GPU implementation built using ML primitives
 
 ## Improvements
 
+- PR #481: Refactoring Quasi-Newton to use cumlHandle
 - PR #467: Added validity check on cumlHandle_t
 - PR #461: Rewrote permute and added column major version
 - PR #440: README updates
@@ -38,6 +58,11 @@
 - PR #533: Add cudatoolkit conda dependency
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
 - PR #527: Added notes on UMAP differences from reference implementation
+- PR #540: Use latest release version in update-version CI script
+- PR #552: Re-enable assert in kmeans tests with xfail as needed
+- PR #581: Add shared memory fast col major to row major function back with bound checks
+- PR #592: More efficient matrix copy/reverse methods
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 
@@ -66,7 +91,24 @@
 - PR #499: DEVELOPER_GUIDE.md: fixed links and clarified ML::detail::streamSyncer example
 - PR #506: Re enable ml-prim tests in CI
 - PR #508: Fix for an error with default argument in LinAlg::meanSquaredError
+- PR #519: README.md Updates and adding BUILD.md back
+- PR #526: Fix the issue of wrong results when fit and transform of PCA are called separately
 - PR #531: Fixing missing arguments in updateDevice() for RF
+- PR #543: Exposing dbscan batch size through cython API and fixing broken batching
+- PR #551: Made use of ZLIB_LIBRARIES consistent between ml_test and ml_mg_test
+- PR #557: Modified CI script to run cuML tests before building mlprims and removed lapack flag
+- PR #578: Updated Readme.md to add lasso and elastic-net
+- PR #580: Fixing cython garbage collection bug in KNN
+- PR #577: Use find libz in prims cmake
+- PR #594: fixed cuda-memcheck mean_center test failures
+
+
+# cuML 0.6.1 (09 Apr 2019)
+
+## Bug Fixes
+
+- PR #462 Runtime library path fix for cuML pip package
+
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -114,6 +156,8 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342: Change default ABI to ON
+- PR #572: Pulling DBSCAN components into reusable primitives
+
 
 ## Bug Fixes
 

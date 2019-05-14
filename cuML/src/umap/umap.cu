@@ -43,12 +43,15 @@ namespace ML {
      * @param embeddings
      *        an array to return the output embeddings of size (n_samples, n_components)
      */
-    void UMAP_API::fit(float *X, int n, int d, float *embeddings) {
-        this->knn = new kNN(d);
-        cudaStream_t stream;
-        CUDA_CHECK(cudaStreamCreate(&stream));
-        UMAPAlgo::_fit<float, TPB_X>(X, n, d, knn, get_params(), embeddings, stream);
-        CUDA_CHECK(cudaStreamDestroy(stream));
+    void UMAP_API::fit(cumlHandle &handle, float *X, int n, int d, float *embeddings) {
+        this->knn = new kNN(handle, d);
+        UMAPAlgo::_fit<float, TPB_X>(handle, X, n, d, knn, get_params(), embeddings, handle.getStream());
+    }
+
+
+    void UMAP_API::fit(cumlHandle &handle, float *X, float *y, int n, int d, float *embeddings) {
+        this->knn = new kNN(handle, d);
+        UMAPAlgo::_fit<float, TPB_X>(handle, X, y, n, d, knn, get_params(), embeddings, handle.getStream());
     }
 
     /**
@@ -66,15 +69,10 @@ namespace ML {
      * @param out
      *        pointer to array for storing output embeddings (n, n_components)
      */
-    void UMAP_API::transform(float *X, int n, int d,
-            float *embedding, int embedding_n,
-            float *out) {
-        cudaStream_t stream;
-        CUDA_CHECK(cudaStreamCreate(&stream));
-        UMAPAlgo::_transform<float, TPB_X>(X, n, d,
-                embedding, embedding_n, knn,
-                get_params(), out, stream);
-        CUDA_CHECK(cudaStreamDestroy(stream));
+    void UMAP_API::transform(cumlHandle &handle, float *X, int n, int d,
+            float *embedding, int embedding_n, float *out) {
+        UMAPAlgo::_transform<float, TPB_X>(handle, X, n, d, embedding, embedding_n, knn,
+                get_params(), out, handle.getStream());
     }
 
     /**
