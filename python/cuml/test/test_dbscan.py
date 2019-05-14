@@ -24,6 +24,19 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from cuml.test.utils import fit_predict, get_pattern, clusters_equal
 
+
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
@@ -32,15 +45,15 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
-@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(5000,
-                                                marks=pytest.mark.quality),
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress)])
-def test_dbscan(datatype, input_type, use_handle, max_bytes_per_batch, nrows):
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+def test_dbscan(datatype, input_type, use_handle,
+                max_bytes_per_batch, nrows, ncols):
     # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
     n_samples = nrows
-    n_feats = 100
+    n_feats = ncols
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
     skdbscan = skDBSCAN(eps=3, min_samples=2)
@@ -65,11 +78,8 @@ def test_dbscan(datatype, input_type, use_handle, max_bytes_per_batch, nrows):
                                  'noisy_moons',
                                  'blobs',
                                  'no_structure'])
-@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress),
-                                   pytest.param(5000,
-                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
 def test_dbscan_sklearn_comparison(name, nrows):
     default_base = {'quantile': .3,
                     'eps': .3,
