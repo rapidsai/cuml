@@ -67,7 +67,7 @@ logger "Build libcuml..."
 mkdir -p $WORKSPACE/cpp/build
 cd $WORKSPACE/cpp/build
 logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH -DBUILD_PRIM_TESTS=OFF ..
+cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES=$CONDA_PREFIX/lib/libopenblas.a $GPU_ARCH -DBUILD_PRIMS_TESTS=OFF ..
 
 logger "Clean up make..."
 make clean
