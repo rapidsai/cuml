@@ -223,6 +223,7 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/common/cuml_api.cpp
   src/umap/umap.cu
   src/solver/solver.cu
+  src/random_projection/rproj.cu
   src/metrics/metrics.cu
   src/decisiontree/decisiontree.cu
   src/randomforest/randomforest.cu
