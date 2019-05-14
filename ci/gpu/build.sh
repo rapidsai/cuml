@@ -92,7 +92,11 @@ nvidia-smi
 
 logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./ml_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
+
+logger "GoogleTest for libcuml mg..."
+cd $WORKSPACE/cpp/build
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
@@ -115,4 +119,4 @@ make -j${PARALLEL_LEVEL} prims_test
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/cpp/build_prims
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/ml-prims/" ./prims_test
+GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
