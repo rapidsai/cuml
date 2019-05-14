@@ -104,12 +104,12 @@ def test_pca_fit_transform(datatype, input_type,
         X = pd.DataFrame(
                         {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
         X_cudf = cudf.DataFrame.from_pandas(X)
-        Xcupca = cupca.fit_transform(X_cudf)
+        X_cupca = cupca.fit_transform(X_cudf)
 
     else:
-        Xcupca = cupca.fit_transform(X)
+        X_cupca = cupca.fit_transform(X)
 
-    assert array_equal(Xcupca, Xskpca, 1e-3, with_sign=True)
+    assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -141,11 +141,11 @@ def test_pca_inverse_transform(datatype, input_type,
     cupca = cuPCA(n_components=2)
 
     if input_type == 'dataframe':
-        Xcupca = cupca.fit_transform(X_cudf)
+        X_cupca = cupca.fit_transform(X_cudf)
 
     else:
-        Xcupca = cupca.fit_transform(X)
+        X_cupca = cupca.fit_transform(X)
 
-    input_gdf = cupca.inverse_transform(Xcupca)
+    input_gdf = cupca.inverse_transform(X_cupca)
     assert array_equal(input_gdf, X_cudf,
                        1e-0, with_sign=True)
