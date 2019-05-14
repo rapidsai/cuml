@@ -225,7 +225,8 @@ add_library(${CUML_CPP_TARGET} SHARED
   src/solver/solver.cu
   src/metrics/metrics.cu
   src/decisiontree/decisiontree.cu
-  src/randomforest/randomforest.cu)
+  src/randomforest/randomforest.cu
+  src/metrics/trustworthiness.cu)
 
 set(CUML_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}

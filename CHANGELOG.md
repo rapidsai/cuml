@@ -27,12 +27,12 @@
 - PR #435: Expose cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
-- PR #444: Add supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 - PR #491: Add doxygen build target for ml-prims
 - PR #505: Add R-Squared Score to python interface
 - PR #507: Add coordinate descent for lasso and elastic-net
 - PR #511: Add a minmax ml-prim
+- PR #516: Added Trustworthiness score feature
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Add column-wise matrix sort primitive
 - PR #525: Add docs build script to cuML
