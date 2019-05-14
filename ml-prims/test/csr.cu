@@ -21,6 +21,7 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
+#include <limits>
 #include <iostream>
 
 namespace MLCommon {
@@ -61,12 +62,7 @@ TEST_P(CSRToCOO, Result) {
 
     csr_to_coo<32>(ex_scan, 4, result, 10, stream);
 
-    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
-
     ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
-
-
-    std::cout << "Verified!" << std::endl;
 
     delete ex_scan_h;
     delete verify_h;
@@ -104,8 +100,6 @@ TEST_P(CSRRowNormalizeMax, Result) {
     updateDevice(verify, *&verify_h, 10, stream);
 
     csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
-
-    std::cout << MLCommon::arr2Str(result, 10, "result", stream) << std::endl;
 
     ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
@@ -222,6 +216,140 @@ TEST_P(CSRSum, Result) {
     CUDA_CHECK(cudaFree(result_indptr));
     CUDA_CHECK(cudaFree(result_val));
 }
+
+typedef CSRTest<float> CSRRowOpTest;
+TEST_P(CSRRowOpTest, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int *ex_scan;
+    float *result, *verify;
+
+    int ex_scan_h[4] = {0, 4, 8, 9 };
+
+    float verify_h[10] =  { 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0 };
+
+    allocate(verify, 10);
+    allocate(ex_scan, 4);
+    allocate(result, 10, true);
+
+    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+    updateDevice(verify, *&verify_h, 10, stream);
+
+    csr_row_op<int, 32>(ex_scan, 4, 10,
+            [result] __device__ (int row, int start_idx, int stop_idx) {
+                for(int i = start_idx; i < stop_idx; i++ )
+                    result[i] = row;
+            }, stream);
+
+    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+
+    cudaStreamDestroy(stream);
+
+    CUDA_CHECK(cudaFree(ex_scan));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+}
+
+typedef CSRTest<float> AdjGraphTest;
+TEST_P(AdjGraphTest, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int *row_ind, *result, *verify;
+    bool *adj;
+
+    int row_ind_h[3] = {0, 3, 6 };
+    bool adj_h[18] = {  1,    1,    1,    1,    1,    1,    1,    1,    1,    0,    0,    0,    0,    0,    0,    0,    0,    0 };
+
+    int verify_h[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
+
+    allocate(row_ind, 3);
+    allocate(adj, 18);
+    allocate(result, 9, true);
+    allocate(verify, 9);
+
+    updateDevice(row_ind, *&row_ind_h, 3, stream);
+    updateDevice(adj, *&adj_h, 18, stream);
+    updateDevice(verify, *&verify_h, 9, stream);
+
+    csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
+
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
+
+    cudaStreamDestroy(stream);
+
+    CUDA_CHECK(cudaFree(row_ind));
+    CUDA_CHECK(cudaFree(adj));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+}
+
+typedef CSRTest<float> WeakCCTest;
+TEST_P(WeakCCTest, Result) {
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    int *row_ind, *row_ind_ptr, *result, *verify;
+
+    int row_ind_h1[3] = {0, 3, 6 };
+    int row_ind_ptr_h1[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
+    int verify_h1[6] =  {    1,    1,    1, 2147483647, 2147483647, 2147483647  };
+
+    int row_ind_h2[3] = {0, 2, 4 };
+    int row_ind_ptr_h2[5] =  { 3, 4, 3, 4, 5  };
+    int verify_h2[6] =  { 1, 1, 1, 5, 5, 5 };
+
+    allocate(row_ind, 3);
+    allocate(row_ind_ptr, 9);
+    allocate(result, 9, true);
+    allocate(verify, 9);
+
+    WeakCCState<int> state(6);
+
+    /**
+     * Run batch #1
+     */
+    updateDevice(row_ind, *&row_ind_h1, 3, stream);
+    updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
+    updateDevice(verify, *&verify_h1, 6, stream);
+
+    weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state, stream);
+
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+
+    /**
+     * Run batch #2
+     */
+    updateDevice(row_ind, *&row_ind_h2, 3, stream);
+    updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
+    updateDevice(verify, *&verify_h2, 6, stream);
+
+    weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state, stream);
+
+    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+
+    cudaStreamDestroy(stream);
+
+    CUDA_CHECK(cudaFree(row_ind));
+    CUDA_CHECK(cudaFree(row_ind_ptr));
+    CUDA_CHECK(cudaFree(verify));
+    CUDA_CHECK(cudaFree(result));
+}
+
+INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTest,
+                        ::testing::ValuesIn(inputsf));
+
+
+INSTANTIATE_TEST_CASE_P(CSRTests, AdjGraphTest,
+                        ::testing::ValuesIn(inputsf));
+
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowOpTest,
+                        ::testing::ValuesIn(inputsf));
+
 
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRToCOO,
                         ::testing::ValuesIn(inputsf));

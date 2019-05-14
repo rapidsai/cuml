@@ -22,17 +22,20 @@ include_directories(${GTEST_DIR}/googletest/include)
 # (please keep the filenames in alphabetical order)
 add_executable(mlcommon_test
   add.cu
+  array.cu
   binary_op.cu
   ternary_op.cu
   coalesced_reduction.cu
   cuda_utils.cu
   columnSort.cu
+  contingencyMatrix.cu
   coo.cu
   cov.cu
   csr.cu
   decoupled_lookback.cu
   dist_adj.cu
   dist_cos.cu
+  dist_eps.cu
   dist_euc_exp.cu
   dist_euc_unexp.cu
   dist_l1.cu
@@ -63,6 +66,7 @@ add_executable(mlcommon_test
   power.cu
   reduce.cu
   reduce_rows_by_key.cu
+  reverse.cu
   rng.cu
   rng_int.cu
   rsvd.cu
