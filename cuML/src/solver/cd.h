@@ -41,6 +41,8 @@ using namespace MLCommon;
 
 /**
  * Fits a linear, lasso, and elastic-net regression model using Coordinate Descent solver
+ * @param cumlHandle_impl
+ *        Reference of cumlHandle
  * @param input
  *        pointer to an array in column-major format (size of n_rows, n_cols)
  * @param n_rows
@@ -59,41 +61,26 @@ using namespace MLCommon;
  *        boolean parameter to control if the intercept will be fitted or not
  * @param normalize
  *        boolean parameter to control if the data will be normalized or not
+ * @param epochs
+ *        Maximum number of iterations that solver will run
  * @param loss
- *        enum to use different loss functions. Only linear regression loss functions is supported right now.
+ *        enum to use different loss functions. Only linear regression loss functions is supported right now
  * @param alpha
  *        L1 parameter
  * @param l1_ratio
- *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2.
+ *        ratio of alpha will be used for L1. (1 - l1_ratio) * alpha will be used for L2
  * @param shuffle
- *        boolean parameter to control whether coordinates will be picked randomly or not.
+ *        boolean parameter to control whether coordinates will be picked randomly or not
  * @param tol
  *        tolerance to stop the solver
  * @param stream
  *        cuda stream
- * @param cublas_handle
- *        cublas handle
- * @param cusolver_handle
- *        cusolver handle
-*/
+ */
 template<typename math_t>
-void cdFit(math_t *input,
-		   int n_rows,
-		   int n_cols,
-		   math_t *labels,
-		   math_t *coef,
-		   math_t *intercept,
-		   bool fit_intercept,
-		   bool normalize,
-		   int epochs,
-		   ML::loss_funct loss,
-		   math_t alpha,
-		   math_t l1_ratio,
-		   bool shuffle,
-		   math_t tol,
-		   cudaStream_t stream,
-		   cublasHandle_t cublas_handle,
-		   cusolverDnHandle_t cusolver_handle) {
+void cdFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols,
+		math_t *labels, math_t *coef, math_t *intercept, bool fit_intercept,
+		bool normalize, int epochs, ML::loss_funct loss, math_t alpha,
+		math_t l1_ratio, bool shuffle, math_t tol, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -102,35 +89,28 @@ void cdFit(math_t *input,
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	math_t *mu_input = nullptr;
-	math_t *mu_labels = nullptr;
-	math_t *norm2_input = nullptr;
-	math_t *pred = nullptr;
-	math_t *residual = nullptr;
-	math_t *squared = nullptr;
-	math_t *loss_value = nullptr;
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
 
-	allocate(loss_value, 1);
-	allocate(pred, n_rows, true);
-	allocate(residual, n_rows, true);
-	allocate(squared, n_cols, true);
+	auto allocator = handle.getDeviceAllocator();
+	device_buffer<math_t> pred(allocator, stream, n_rows);
+	device_buffer<math_t> residual(allocator, stream, n_rows);
+	device_buffer<math_t> squared(allocator, stream, n_cols);
+	device_buffer<math_t> mu_input(allocator, stream, 0);
+	device_buffer<math_t> mu_labels(allocator, stream, 0);
+	device_buffer<math_t> norm2_input(allocator, stream, 0);
 
 	std::vector<math_t> h_coef(n_cols, math_t(0));
 
 	if (fit_intercept) {
-		allocate(mu_input, n_cols);
-		allocate(mu_labels, 1);
+		mu_input.resize(n_cols, stream);
+		mu_labels.resize(1, stream);
 		if (normalize) {
-			allocate(norm2_input, n_cols);
+			norm2_input.resize(n_cols, stream);
 		}
 
-                ///@todo: remove this cumlHandle and use the cumlHandle_impl
-                /// passed to this method instead!!
-                cumlHandle handle;
-                handle.setStream(stream);
-		GLM::preProcessData(handle.getImpl(), input, n_rows, n_cols, labels, intercept,
-                                    mu_input, mu_labels, norm2_input, fit_intercept, normalize,
-                                    stream);
+		GLM::preProcessData(handle, input, n_rows, n_cols, labels,
+				intercept, mu_input.data(), mu_labels.data(), norm2_input.data(), fit_intercept,
+				normalize, stream);
 	}
 
 	std::vector<int> ri(n_cols);
@@ -142,14 +122,14 @@ void cdFit(math_t *input,
 
 	if (normalize) {
 		math_t scalar = math_t(1.0) + l2_alpha;
-		Matrix::setValue(squared, squared, scalar, n_cols, stream);
+		Matrix::setValue(squared.data(), squared.data(), scalar, n_cols, stream);
 	} else {
-		LinAlg::colNorm(squared, input, n_cols, n_rows, LinAlg::L2Norm, false,
+		LinAlg::colNorm(squared.data(), input, n_cols, n_rows, LinAlg::L2Norm, false,
 				stream);
-		LinAlg::addScalar(squared, squared, l2_alpha, n_cols, stream);
+		LinAlg::addScalar(squared.data(), squared.data(), l2_alpha, n_cols, stream);
 	}
 
-	copy(residual, labels, n_rows, stream);
+	copy(residual.data(), labels, n_rows, stream);
 
 	for (int i = 0; i < epochs; i++) {
 		if (i > 0 && shuffle) {
@@ -163,21 +143,25 @@ void cdFit(math_t *input,
 		for (int j = 0; j < n_cols; j++) {
 			int ci = ri[j];
 			math_t *coef_loc = coef + ci;
-			math_t *squared_loc = squared + ci;
+			math_t *squared_loc = squared.data() + ci;
 			math_t *input_col_loc = input + (ci * n_rows);
 
-			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows, stream);
-			LinAlg::add(residual, residual, pred, n_rows, stream);
-			LinAlg::gemm(input_col_loc, n_rows, 1, residual, coef_loc, 1, 1,
-								CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
+			LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
+					stream);
+			LinAlg::add(residual.data(), residual.data(), pred.data(), n_rows, stream);
+			LinAlg::gemm(input_col_loc, n_rows, 1, residual.data(), coef_loc, 1, 1,
+					CUBLAS_OP_T, CUBLAS_OP_N, cublas_handle, stream);
 
 			if (l1_ratio > math_t(0.0))
 				Functions::softThres(coef_loc, coef_loc, alpha, 1, stream);
 
-			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1, stream);
+			LinAlg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
+					stream);
 
 			coef_prev = h_coef[ci];
 			updateHost(&(h_coef[ci]), coef_loc, 1, stream);
+			CUDA_CHECK(cudaStreamSynchronize(stream));
+
 			math_t diff = abs(coef_prev - h_coef[ci]);
 
 			if (diff > d_coef_max)
@@ -186,8 +170,9 @@ void cdFit(math_t *input,
 			if (abs(h_coef[ci]) > coef_max)
 				coef_max = abs(h_coef[ci]);
 
-			LinAlg::multiplyScalar(pred, input_col_loc, h_coef[ci], n_rows, stream);
-			LinAlg::subtract(residual, residual, pred, n_rows, stream);
+			LinAlg::multiplyScalar(pred.data(), input_col_loc, h_coef[ci], n_rows,
+					stream);
+			LinAlg::subtract(residual.data(), residual.data(), pred.data(), n_rows, stream);
 		}
 
 		bool flag_continue = true;
@@ -205,37 +190,13 @@ void cdFit(math_t *input,
 	}
 
 	if (fit_intercept) {
-                ///@todo: remove this cumlHandle and use the cumlHandle_impl
-                /// passed to this method instead!!
-                cumlHandle handle;
-                handle.setStream(stream);
-		GLM::postProcessData(handle.getImpl(), input, n_rows, n_cols, labels, coef,
-                                     intercept, mu_input, mu_labels, norm2_input,
-                                     fit_intercept, normalize, stream);
+		GLM::postProcessData(handle, input, n_rows, n_cols, labels,
+				coef, intercept, mu_input.data(), mu_labels.data(), norm2_input.data(),
+				fit_intercept, normalize, stream);
 
-		if (mu_input != nullptr)
-			CUDA_CHECK(cudaFree(mu_input));
-		if (mu_labels != nullptr)
-			CUDA_CHECK(cudaFree(mu_labels));
-		if (normalize) {
-			if (norm2_input != nullptr)
-				cudaFree(norm2_input);
-		}
 	} else {
 		*intercept = math_t(0);
 	}
-
-	if (pred != nullptr)
-		CUDA_CHECK(cudaFree(pred));
-
-	if (residual != nullptr)
-		CUDA_CHECK(cudaFree(residual));
-
-	if (squared != nullptr)
-		CUDA_CHECK(cudaFree(squared));
-
-	if (loss_value != nullptr)
-		CUDA_CHECK(cudaFree(loss_value));
 
 }
 
@@ -259,11 +220,11 @@ void cdFit(math_t *input,
  *        cuda stream
  * @param cublas_handle
  *        cublas handle
-*/
+ */
 template<typename math_t>
-void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
-		math_t intercept, math_t *preds, ML::loss_funct loss, cudaStream_t stream,
-		cublasHandle_t cublas_handle) {
+void cdPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows,
+		int n_cols, const math_t *coef, math_t intercept, math_t *preds,
+		ML::loss_funct loss, cudaStream_t stream) {
 
 	ASSERT(n_cols > 0,
 			"Parameter n_cols: number of columns cannot be less than one");
@@ -272,7 +233,9 @@ void cdPredict(const math_t *input, int n_rows, int n_cols, const math_t *coef,
 	ASSERT(loss == ML::loss_funct::SQRD_LOSS,
 			"Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept, cublas_handle, stream);
+	cublasHandle_t cublas_handle = handle.getCublasHandle();
+	Functions::linearRegH(input, n_rows, n_cols, coef, preds, intercept,
+			cublas_handle, stream);
 
 }
 
