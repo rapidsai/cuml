@@ -22,21 +22,21 @@ def test_svd(datatype, lrate, input_type, penalty,
 
     if name == 'blobs':
         n_samples = 500000
-        train_rows = np.int32(n_samples*0.8)
+        train_rows = int(n_samples*0.8)
         X, y = make_blobs(n_samples=n_samples,
                           n_features=1000, random_state=0)
-        X_test = np.array(X[train_rows:, 0:]).astype(datatype)
-        X_train = np.array(X[0:train_rows, :]).astype(datatype)
-        y_train = np.array(y[0:train_rows, ]).astype(datatype)
+        X_test = np.array(X[train_rows:, 0:], dtype=datatype)
+        X_train = np.array(X[0:train_rows, :], dtype=datatype)
+        y_train = np.array(y[0:train_rows, ], dtype=datatype)
 
     elif name == 'iris':
         iris = datasets.load_iris()
         X = iris.data
         y = iris.target
-        train_rows = np.int32((np.shape(X)[0])*0.8)
-        X_test = np.array(X[train_rows:, 0:]).astype(datatype)
-        X_train = np.array(X[0:train_rows, :]).astype(datatype)
-        y_train = np.array(y[0:train_rows, ]).astype(datatype)
+        train_rows = int((np.shape(X)[0])*0.8)
+        X_test = np.array(X[train_rows:, 0:], dtype=datatype)
+        X_train = np.array(X[0:train_rows, :], dtype=datatype)
+        y_train = np.array(y[0:train_rows, ], dtype=datatype)
 
     else:
         X_train = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]],
