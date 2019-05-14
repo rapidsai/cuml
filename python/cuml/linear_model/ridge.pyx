@@ -212,10 +212,9 @@ class Ridge(Base, RegressorMixin):
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
-        for el in alpha:
-            if el <= 0.0:
-                msg = "alpha values have to be positive"
-                raise TypeError(msg.format(alpha))
+        if alpha <= 0.0:
+            msg = "alpha value has to be positive"
+            raise TypeError(msg.format(alpha))
 
     def _get_algorithm_int(self, algorithm):
         return {
