@@ -31,40 +31,45 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
-    cdef void olsFit(float *input,
+    cdef void olsFit(cumlHandle& handle,
+                     float *input,
                      int n_rows,
                      int n_cols,
                      float *labels,
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsFit(double *input,
+    cdef void olsFit(cumlHandle& handle,
+                     double *input,
                      int n_rows,
                      int n_cols,
                      double *labels,
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsPredict(const float *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const float *input,
                          int n_rows,
                          int n_cols,
                          const float *coef,
                          float intercept,
-                         float *preds)
+                         float *preds) except +
 
-    cdef void olsPredict(const double *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const double *input,
                          int n_rows,
                          int n_cols,
                          const double *coef,
                          double intercept,
-                         double *preds)
+                         double *preds) except +
 
 
 class LinearRegression(Base):
@@ -166,7 +171,7 @@ class LinearRegression(Base):
     # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
 
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
+    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False, handle=None):
 
         """
         Initializes the linear regression class.
@@ -178,6 +183,7 @@ class LinearRegression(Base):
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
+        super(LinearRegression, self).__init__(handle=handle, verbose=False)
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
@@ -256,31 +262,38 @@ class LinearRegression(Base):
 
         cdef float c_intercept1
         cdef double c_intercept2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
 
-            olsFit(<float*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <float*>y_ptr,
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <float*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <float*>y_ptr,
+                   <float*>coef_ptr,
+                   <float*>&c_intercept1,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept1
         else:
-            olsFit(<double*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <double*>y_ptr,
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <double*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <double*>y_ptr,
+                   <double*>coef_ptr,
+                   <double*>&c_intercept2,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept2
+
+        self.handle.sync()
+
         return self
 
 
@@ -322,21 +335,26 @@ class LinearRegression(Base):
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
-            olsPredict(<float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr)
+            olsPredict(handle_[0],
+                       <float*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <float*>coef_ptr,
+                       <float>self.intercept_,
+                       <float*>preds_ptr)
         else:
-            olsPredict(<double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr)
+            olsPredict(handle_[0],
+                       <double*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <double*>coef_ptr,
+                       <double>self.intercept_,
+                       <double*>preds_ptr)
+
+        self.handle.sync()
 
         del(X_m)
 
