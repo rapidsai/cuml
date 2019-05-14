@@ -111,7 +111,7 @@ struct TemporaryMemory
 		// memory of d_histout + d_colids + d_globalminmax + (d_mseout + d_predout)
 		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + 3 * n_bins * sizeof(T))* Ncols;
 
-		this->print_info();
+		//this->print_info();
 	}
 
 	void print_info()

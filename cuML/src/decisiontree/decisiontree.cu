@@ -220,7 +220,7 @@ void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const
 	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to GINI
 		tree_params.split_criterion = CRITERION::GINI;
 	}
-	ASSERT( (tree_params.split_criterion == CRITERION::GINI || tree_params.split_criterion == CRITERION::ENTROPY ) , " Decision Tree Classifer split creteria, should be Gini or Entropy\n");
+	ASSERT( (tree_params.split_criterion == CRITERION::GINI || tree_params.split_criterion == CRITERION::ENTROPY ), " Decision Tree Classifer split criteria, should be Gini or Entropy\n");
 
 	return plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
 		     tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo, tree_params.min_rows_per_node, tree_params.bootstrap_features);
