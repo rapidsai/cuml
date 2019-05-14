@@ -4,9 +4,9 @@
 
 RF_BASE_DIR="/gpfs/fs1/myrtop/rapids_repos/regression_random_forest/cuml"
 #Compile
-nvcc -g -std=c++11 -arch=sm_70 rf_testing.cu ../../decisiontree/decisiontree.cu ../../common/cuml_api.cpp ../../common/cumlHandle.cpp -I$RF_BASE_DIR/ml-prims/src/ -I$RF_BASE_DIR/cuML/external/ml-prims/external/cub -I$RF_BASE_DIR/cuML/src -I$RF_BASE_DIR/thirdparty/cuml/ml-prims/src/ -lcublas -lcudart -lcusolver -lcusparse --expt-extended-lambda  -o rf_testing
+nvcc -std=c++11 -arch=sm_70 rf_testing.cu ../../decisiontree/decisiontree.cu ../../common/cuml_api.cpp ../../common/cumlHandle.cpp -I$RF_BASE_DIR/ml-prims/src/ -I$RF_BASE_DIR/cuML/external/ml-prims/external/cub -I$RF_BASE_DIR/cuML/src -I$RF_BASE_DIR/thirdparty/cuml/ml-prims/src/ -lcublas -lcudart -lcusolver -lcusparse --expt-extended-lambda  -o rf_testing
 
-if [ ! -e tmp_rf_testing ]; then
+if [ ! -e rf_testing ]; then
 	echo "Error in building tmp_rf_testing"
 	exit
 fi
