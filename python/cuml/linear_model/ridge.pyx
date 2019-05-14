@@ -31,10 +31,12 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
-    cdef void ridgeFit(float *input,
+    cdef void ridgeFit(cumlHandle& handle,
+                       float *input,
                        int n_rows,
                        int n_cols,
                        float *labels,
@@ -46,7 +48,8 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo)
 
-    cdef void ridgeFit(double *input,
+    cdef void ridgeFit(cumlHandle& handle,
+                       double *input,
                        int n_rows,
                        int n_cols,
                        double *labels,
@@ -58,14 +61,16 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                        bool normalize,
                        int algo)
 
-    cdef void ridgePredict(const float *input,
+    cdef void ridgePredict(cumlHandle& handle,
+                           const float *input,
                            int n_rows,
                            int n_cols,
                            const float *coef,
                            float intercept,
                            float *preds)
 
-    cdef void ridgePredict(const double *input,
+    cdef void ridgePredict(cumlHandle& handle,
+                           const double *input,
                            int n_rows,
                            int n_cols,
                            const double *coef,
@@ -178,7 +183,7 @@ class Ridge(Base, RegressorMixin):
     # New link : https://github.com/rapidsai/notebooks/blob/master/cuml/ridge_regression_demo.ipynb
 
 
-    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False):
+    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True, normalize=False, handle=None):
 
         """
         Initializes the linear ridge regression class.
@@ -190,7 +195,8 @@ class Ridge(Base, RegressorMixin):
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
-        # self._check_alpha(alpha)
+        self._check_alpha(alpha)
+        super(Ridge, self).__init__(handle=handle, verbose=False)
         self.alpha = alpha
         self.coef_ = None
         self.intercept_ = None
@@ -206,10 +212,9 @@ class Ridge(Base, RegressorMixin):
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
-        for el in alpha:
-            if el <= 0.0:
-                msg = "alpha values have to be positive"
-                raise TypeError(msg.format(alpha))
+        if alpha <= 0.0:
+            msg = "alpha value has to be positive"
+            raise TypeError(msg.format(alpha))
 
     def _get_algorithm_int(self, algorithm):
         return {
@@ -290,9 +295,12 @@ class Ridge(Base, RegressorMixin):
         cdef double c_intercept2
         cdef float c_alpha1
         cdef double c_alpha2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
             c_alpha1 = self.alpha
-            ridgeFit(<float*>X_ptr,
+            ridgeFit(handle_[0],
+                     <float*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <float*>y_ptr,
@@ -307,7 +315,8 @@ class Ridge(Base, RegressorMixin):
             self.intercept_ = c_intercept1
         else:
             c_alpha2 = self.alpha
-            ridgeFit(<double*>X_ptr,
+            ridgeFit(handle_[0],
+                     <double*>X_ptr,
                        <int>self.n_rows,
                        <int>self.n_cols,
                        <double*>y_ptr,
@@ -320,6 +329,8 @@ class Ridge(Base, RegressorMixin):
                        <int>self.algo)
 
             self.intercept_ = c_intercept2
+
+        self.handle.sync()
 
         return self
 
@@ -361,21 +372,26 @@ class Ridge(Base, RegressorMixin):
         cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
-            ridgePredict(<float*>X_ptr,
+            ridgePredict(handle_[0],
+                        <float*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <float*>coef_ptr,
                            <float>self.intercept_,
                            <float*>preds_ptr)
         else:
-            ridgePredict(<double*>X_ptr,
+            ridgePredict(handle_[0],
+                         <double*>X_ptr,
                            <int>n_rows,
                            <int>n_cols,
                            <double*>coef_ptr,
                            <double>self.intercept_,
                            <double*>preds_ptr)
+
+        self.handle.sync()
 
         del(X_m)
 
