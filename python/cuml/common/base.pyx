@@ -26,7 +26,7 @@ import cuml.common.cuda
 import cudf
 
 
-cdef class Base:
+class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
