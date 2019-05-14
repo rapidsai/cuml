@@ -12,7 +12,7 @@ import pandas as pd
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
                                   pytest.param('blobs',
                                                marks=pytest.mark.stress),
                                   pytest.param('iris',
