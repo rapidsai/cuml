@@ -205,6 +205,7 @@ protected:
 		CUDA_CHECK(cudaFree(pred_svm_ref));
 		CUDA_CHECK(cudaFree(pred_log));
 		CUDA_CHECK(cudaFree(pred_log_ref));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
