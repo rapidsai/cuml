@@ -26,7 +26,7 @@ from sklearn.datasets.samples_generator import make_blobs
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
                                   pytest.param('blobs',
                                                marks=pytest.mark.stress),
                                   pytest.param('iris',
@@ -76,7 +76,7 @@ def test_pca_fit(datatype, input_type, name):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
                                   pytest.param('blobs',
                                                marks=pytest.mark.stress),
                                   pytest.param('iris',
@@ -114,7 +114,7 @@ def test_pca_fit_transform(datatype, input_type,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param('None', marks=pytest.mark.unit),
+@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
                                   pytest.param('blobs',
                                                marks=pytest.mark.stress),
                                   pytest.param('iris',
