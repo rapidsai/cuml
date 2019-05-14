@@ -17,6 +17,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "math_constants.h"
 #include <iomanip>
 #include "utils.h"
 
@@ -119,6 +120,18 @@ DI int laneId() {
   return id;
 }
 
+/**
+ * @brief Swap two values
+ * @tparam T the datatype of the values
+ * @param a first input
+ * @param b second input
+ */
+template <typename T>
+HDI void swap(T& a, T& b) {
+    T tmp = a;
+    a = b;
+    b = tmp;
+}
 
 /** Device function to have atomic add support for older archs */
 #if __CUDA_ARCH__ < 600
@@ -304,6 +317,15 @@ template <>
 HDI double myExp(double x) {
   return exp(x);
 }
+/** @} */
+
+/**
+ * @defgroup Cuda infinity values
+ * @{
+ */
+template <typename T> inline __device__ T myInf();
+template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
+template <> inline __device__ double myInf<double>() { return CUDART_INF; }
 /** @} */
 
 /**

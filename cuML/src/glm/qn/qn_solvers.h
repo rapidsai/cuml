@@ -41,9 +41,9 @@
  */
 
 #include <cuda_utils.h>
-#include <glm/qn/simple_mat.h>
 #include <glm/qn/qn_linesearch.h>
 #include <glm/qn/qn_util.h>
+#include <glm/qn/simple_mat.h>
 
 namespace ML {
 namespace GLM {
@@ -130,22 +130,29 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Initial step
   T step = T(1.0) / nrm2(drt, dev_scalar, stream);
+  T fxp = fx;
 
   *k = 1;
   int end = 0;
   for (; *k <= param.max_iterations; (*k)++) {
-    if (isnan(fx) || isinf(fx)) {
-      return OPT_NUMERIC_ERROR;
-    }
     // Save the curent x and gradient
-    xp = x;
-    gradp = grad;
+    xp.copy_async(x, stream);
+    gradp.copy_async(grad, stream);
+    fxp = fx;
 
     // Line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
         ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
-    if (lsret != LS_SUCCESS)
-      return OPT_LS_FAILED;
+
+    bool isLsSuccess = lsret == LS_SUCCESS;
+    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+      fx = fxp;
+      x.copy_async(xp, stream);
+      grad.copy_async(gradp, stream);
+      if (!isLsSuccess)
+        return OPT_LS_FAILED;
+      return OPT_NUMERIC_ERROR;
+    }
 
     if (check_convergence(param, *k, fx, x, grad, fx_hist, verbosity,
                           dev_scalar, stream)) {
@@ -175,7 +182,7 @@ inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
                           const int pg_limit, SimpleVec<T> &pseudo,
                           cudaStream_t stream) {
   if (grad.len > pg_limit) {
-    pseudo = grad;
+    pseudo.copy_async(grad, stream);
     SimpleVec<T> mask(pseudo.data, pg_limit);
     mask.assign_binary(x, grad, pseudo_grad, stream);
   } else {
@@ -268,23 +275,29 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // Initial step
   T step = T(1.0) / std::max(T(1), nrm2(drt, dev_scalar, stream));
+  T fxp = fx;
 
   int end = 0;
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
-    if (isnan(fx) || isinf(fx)) {
-      return OPT_NUMERIC_ERROR;
-    }
     // Save the curent x and gradient
-    xp = x;
-    gradp = grad;
+    xp.copy_async(x, stream);
+    gradp.copy_async(grad, stream);
+    fxp = fx;
 
     // Projected line search to update x, fx and gradient
     LINE_SEARCH_RETCODE lsret =
         ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt,
                                xp, l1_penalty, dev_scalar, stream);
 
-    if (lsret != LS_SUCCESS)
-      return OPT_LS_FAILED;
+    bool isLsSuccess = lsret == LS_SUCCESS;
+    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+      fx = fxp;
+      x.copy_async(xp, stream);
+      grad.copy_async(gradp, stream);
+      if (!isLsSuccess)
+        return OPT_LS_FAILED;
+      return OPT_NUMERIC_ERROR;
+    }
     // recompute pseudo
     //  pseudo.assign_binary(x, grad, pseudo_grad);
     update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
@@ -315,15 +328,18 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  * Chooses the right algorithm, depending on presence of l1 term
  */
 template <typename T, typename LossFunction>
-inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
-                       LossFunction &loss, const T l1,
+inline int qn_minimize(const cumlHandle_impl &handle, SimpleVec<T> &x, T *fx,
+                       int *num_iters, LossFunction &loss, const T l1,
                        const LBFGSParam<T> &opt_param, cudaStream_t stream,
                        const int verbosity = 0) {
 
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    SimpleVecOwning<T> workspace(lbfgs_workspace_size(opt_param, x.len));
+
+    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+                                   lbfgs_workspace_size(opt_param, x.len));
+    SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_lbfgs(opt_param,
                     loss,      // function to minimize
@@ -343,7 +359,9 @@ inline int qn_minimize(SimpleVec<T> &x, T *fx, int *num_iters,
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
-    SimpleVecOwning<T> workspace(owlqn_workspace_size(opt_param, x.len));
+    MLCommon::device_buffer<T> tmp(handle.getDeviceAllocator(), stream,
+                                   owlqn_workspace_size(opt_param, x.len));
+    SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_owlqn(opt_param,
                     loss, // function to minimize

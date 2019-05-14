@@ -133,7 +133,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k, const T f
   T gnorm = nrm2(grad, dev_scalar, stream);
 
   if (verbosity > 0) {
-    printf("%04d: f(x)=%.6f conv.crit=%.6f (gnorm=%.6f, xnorm=%.6f)\n", k, fx,
+    printf("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)\n", k, fx,
            gnorm / std::max(T(1), xnorm), gnorm, xnorm);
   }
   // Convergence test -- gradient

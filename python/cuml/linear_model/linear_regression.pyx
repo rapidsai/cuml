@@ -25,46 +25,54 @@ import numpy as np
 
 from numba import cuda
 from collections import defaultdict
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-cdef extern from "glm/glm_c.h" namespace "ML::GLM":
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
-    cdef void olsFit(float *input,
+cdef extern from "glm/glm.hpp" namespace "ML::GLM":
+
+    cdef void olsFit(cumlHandle& handle,
+                     float *input,
                      int n_rows,
                      int n_cols,
                      float *labels,
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsFit(double *input,
+    cdef void olsFit(cumlHandle& handle,
+                     double *input,
                      int n_rows,
                      int n_cols,
                      double *labels,
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsPredict(const float *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const float *input,
                          int n_rows,
                          int n_cols,
                          const float *coef,
                          float intercept,
-                         float *preds)
+                         float *preds) except +
 
-    cdef void olsPredict(const double *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const double *input,
                          int n_rows,
                          int n_cols,
                          const double *coef,
                          double intercept,
-                         double *preds)
+                         double *preds) except +
 
 
-class LinearRegression:
+class LinearRegression(Base):
 
     """
     LinearRegression is a simple machine learning model where the response y is modelled by a
@@ -142,16 +150,16 @@ class LinearRegression:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
+
     Notes
     ------
     LinearRegression suffers from multicollinearity (when columns are correlated with each other),
-    and variance explosions from outliers. Consider using Ridge Regression to fix the multicollinearity 
-    problem,and consider maybe first DBSCAN to remove the outliers, or using leverage statistics to 
+    and variance explosions from outliers. Consider using Ridge Regression to fix the multicollinearity
+    problem,and consider maybe first DBSCAN to remove the outliers, or using leverage statistics to
     filter possible outliers.
-    
+
     **Applications of LinearRegression**
-        
+
         LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
         It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
         machine learning tasks. This model should be first tried if the machine learning problem is a
@@ -163,7 +171,7 @@ class LinearRegression:
     # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
 
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
+    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False, handle=None):
 
         """
         Initializes the linear regression class.
@@ -175,12 +183,13 @@ class LinearRegression:
         normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
+        super(LinearRegression, self).__init__(handle=handle, verbose=False)
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         if algorithm in ['svd', 'eig']:
-            self.algorithm = algorithm 
+            self.algorithm = algorithm
             self.algo = self._get_algorithm_int(algorithm)
         else:
             msg = "algorithm {!r} is not supported"
@@ -193,15 +202,6 @@ class LinearRegression:
             'svd': 0,
             'eig': 1
         }[algorithm]
-
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
 
     def fit(self, X, y):
         """
@@ -245,48 +245,55 @@ class LinearRegression:
         if self.n_cols == 1:
             self.algo = 0 # eig based method doesn't work when there is only one column.
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_column_ptr(y)
+            y_ptr = self._get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
         cdef double c_intercept2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
 
-            olsFit(<float*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <float*>y_ptr,
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <float*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <float*>y_ptr,
+                   <float*>coef_ptr,
+                   <float*>&c_intercept1,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept1
         else:
-            olsFit(<double*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <double*>y_ptr,
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <double*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <double*>y_ptr,
+                   <double*>coef_ptr,
+                   <double*>&c_intercept2,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept2
+
+        self.handle.sync()
+
         return self
 
 
@@ -323,26 +330,31 @@ class LinearRegression:
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
-            olsPredict(<float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr)
+            olsPredict(handle_[0],
+                       <float*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <float*>coef_ptr,
+                       <float>self.intercept_,
+                       <float*>preds_ptr)
         else:
-            olsPredict(<double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr)
+            olsPredict(handle_[0],
+                       <double*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <double*>coef_ptr,
+                       <double>self.intercept_,
+                       <double*>preds_ptr)
+
+        self.handle.sync()
 
         del(X_m)
 

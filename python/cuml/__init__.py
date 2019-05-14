@@ -31,6 +31,8 @@ from cuml.linear_model.ridge import Ridge
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.elastic_net import ElasticNet
 
+from cuml.metrics.regression import r2_score
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix

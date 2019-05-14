@@ -26,6 +26,13 @@ find_package(OpenMP REQUIRED)
 #find_package(ClangFormat REQUIRED)
 #find_package(ClangTidy REQUIRED)
 
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+  message(STATUS "ZLib found in ${ZLIB_INCLUDE_DIRS}")
+else()
+  message(FATAL_ERROR "ZLib not found, please check your settings.")
+endif(ZLIB_FOUND)
+
 # Submodules
 set(GTEST_DIR ${PROJECT_SOURCE_DIR}/external/googletest CACHE STRING
   "Path to the googletest repo")
@@ -87,7 +94,7 @@ set(MLPRIMS_LIBS
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_cusparse_LIBRARY}
   pthread
-  z)
+  ${ZLIB_LIBRARIES})
 
 include_directories(src
   ${CUTLASS_DIR}
