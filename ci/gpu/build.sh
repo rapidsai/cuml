@@ -94,9 +94,10 @@ logger "GoogleTest for libcuml..."
 cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp/" ./test/ml
 
-logger "GoogleTest for libcuml mg..."
-cd $WORKSPACE/cpp/build
-GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
+# Disabled while CI/the test become compatible
+# logger "GoogleTest for libcuml mg..."
+# cd $WORKSPACE/cpp/build
+# GTEST_OUTPUT="xml:${WORKSPACE}/test-results/libcuml_cpp_mg/" ./test/ml_mg
 
 logger "Python pytest for cuml..."
 cd $WORKSPACE/python
