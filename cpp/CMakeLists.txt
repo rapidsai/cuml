@@ -111,9 +111,6 @@ set(GTEST_LIBNAME "gtest_main" CACHE STRING
 set(FAISS_DIR ${PROJECT_SOURCE_DIR}/external/faiss CACHE STRING
   "Path to FAISS source directory")
 
-set(MLPRIMS_DIR ${PROJECT_SOURCE_DIR}/src_prims/ CACHE STRING
-  "Path to the ml-prims repo")
-
 set(CUB_DIR ${PROJECT_SOURCE_DIR}/external/cub CACHE STRING
   "Path to cub repo")
 
@@ -323,7 +320,7 @@ install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
 # - doxygen targets -------------------------------------------------------------------------------
 
 # include(cmake/doxygen.cmake)
-# add_doxygen_target(IN_DOXYFILE ${MLPRIMS_DIR}/Doxyfile.in
+# add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
 #   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 #   CWD ${CMAKE_CURRENT_BINARY_DIR})
 
