@@ -70,16 +70,16 @@ $ make install
 To run tests (optional):
 
 ```bash
-$ ./ml_test # Single GPU algorithm tests
-$ ./ml_mg_test # Multi GPU algorithm tests
-$ ./prims_test # ML Primitive function tests
+$ ./test/ml # Single GPU algorithm tests
+$ ./test/ml_mg # Multi GPU algorithm tests
+$ ./test/prims # ML Primitive function tests
 ```
 
 If you want a list of the available tests:
 ```bash
-$ ./ml_test --gtest_list_tests # Single GPU algorithm tests
-$ ./ml_mg_test --gtest_list_tests # Multi GPU algorithm tests
-$ ./prims_test --gtest_list_tests # ML Primitive function tests
+$ ./test/ml --gtest_list_tests # Single GPU algorithm tests
+$ ./test/ml_mg --gtest_list_tests # Multi GPU algorithm tests
+$ ./test/prims --gtest_list_tests # ML Primitive function tests
 ```
 
 4. Build the `cuml` python package:
@@ -116,7 +116,7 @@ cuML's cmake has the following configurable flags available:
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
-| BUILD_PRIM_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
