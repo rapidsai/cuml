@@ -66,7 +66,7 @@ protected:
        /*       */0.30134279};
     T* d_ABref;
     allocate(d_ABref, 4);
-    updateDevice(d_ABref, ABref.data(), ABref.size());
+    updateDevice(d_ABref, ABref.data(), ABref.size(), 0);
 
     // B@Z.T = array([[0.067131 ],
     //                [0.0999348]])
@@ -74,13 +74,13 @@ protected:
                         0.0999348};
     T* d_BZTref;
     allocate(d_BZTref, 2);
-    updateDevice(d_BZTref, BZTref.data(), BZTref.size());
+    updateDevice(d_BZTref, BZTref.data(), BZTref.size(), 0);
 
     // Z@B = array([[0.06149412, 0.1028698 ]])
     vector<T> ZBref = {0.06149412, 0.1028698};
     T* d_ZBref;
     allocate(d_ZBref, 2);
-    updateDevice(d_ZBref, ZBref.data(), ZBref.size());
+    updateDevice(d_ZBref, ZBref.data(), ZBref.size(), 0);
 
     vector<T> ApBref = {
                         0.40228028,
@@ -90,7 +90,7 @@ protected:
     };
     T* d_ApBref;
     allocate(d_ApBref, 4);
-    updateDevice(d_ApBref, ApBref.data(), ApBref.size());
+    updateDevice(d_ApBref, ApBref.data(), ApBref.size(), 0);
 
     vector<T> AmBref = {
                         0.05401648,
@@ -100,7 +100,7 @@ protected:
     };
     T* d_AmBref;
     allocate(d_AmBref, 4);
-    updateDevice(d_AmBref, AmBref.data(), AmBref.size());
+    updateDevice(d_AmBref, AmBref.data(), AmBref.size(), 0);
 
     // A+B = array([[0.40228028, 0.53746966],[1.11255454, 0.6426357 ]])
     // A-B = array([[ 0.05401648,  0.10489752],[ 0.73153098, -0.07286638]])
@@ -121,9 +121,9 @@ protected:
     BatchedMatrix BbM(2, 2, num_batches, memory_pool);
     BatchedMatrix ZbM(1, 2, num_batches, memory_pool);
     for(int i=0;i<num_batches;i++) {
-      updateDevice(AbM[i], A.data(), 4);
-      updateDevice(BbM[i], B.data(), 4);
-      updateDevice(ZbM[i], Z.data(), 2);
+      updateDevice(AbM[i], A.data(), 4, 0);
+      updateDevice(BbM[i], B.data(), 4, 0);
+      updateDevice(ZbM[i], Z.data(), 2, 0);
     }
 
     //////////////////////////////////////////////////////////////
