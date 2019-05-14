@@ -44,6 +44,8 @@ For additional examples, browse our complete [API documentation](https://docs.ra
 | K-Nearest Neighbors (KNN) | Multi-GPU with [dask-cuml](http://github.com/rapidsai/dask-cuml) <br> Uses [Faiss](https://github.com/facebookresearch/faiss) |
 | Linear Kalman Filter | Single-GPU |
 | Linear Regression (OLS) | Single GPU | Multi-GPU available in conda cuda10 package and [dask-cuml](http://github.com/rapidsai/dask-cuml) |
+| Linear Regression with Lasso Regularization | Single-GPU |
+| Linear Regression with Elastic-Net Regularization | Single-GPU |
 | Principal Component Analysis (PCA) | Single GPU |
 | Ridge Regression | Single-GPU |
 | Stochastic Gradient Descent | Single-GPU | for linear regression, logistic regression, and linear svm with L1, L2, and elastic-net penalties |

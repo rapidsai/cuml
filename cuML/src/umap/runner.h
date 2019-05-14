@@ -98,7 +98,8 @@ namespace UMAPAlgo {
     }
 
 	template<typename T, int TPB_X>
-	size_t _fit(T *X,       // input matrix
+	size_t _fit(const cumlHandle &handle,
+	            T *X,       // input matrix
 	            int n,      // rows
 	            int d,      // cols
 	            kNN *knn,
@@ -147,7 +148,7 @@ namespace UMAPAlgo {
         /**
          * Run initialization method
          */
-		InitEmbed::run(X, n, d,
+		InitEmbed::run(handle, X, n, d,
 		        knn_indices, knn_dists,
 		        &cgraph_coo,
 		        params, embeddings, stream,
@@ -168,7 +169,8 @@ namespace UMAPAlgo {
 	}
 
     template<typename T, int TPB_X>
-	size_t _fit(T *X,    // input matrix
+	size_t _fit(const cumlHandle &handle,
+                T *X,    // input matrix
 	            T *y,    // labels
                 int n,
                 int d,
@@ -238,6 +240,7 @@ namespace UMAPAlgo {
             if(params->verbose)
                 std::cout << "Performing general intersection" << std::endl;
             Supervised::perform_general_intersection<TPB_X, T>(
+                    handle,
                     y,
                     &rgraph_coo, &final_coo,
                     params, stream);
@@ -254,7 +257,7 @@ namespace UMAPAlgo {
         /**
          * Initialize embeddings
          */
-        InitEmbed::run(X, n, d,
+        InitEmbed::run(handle, X, n, d,
                 knn_indices, knn_dists, &ocoo,
                 params, embeddings, stream,
                 params->init);
@@ -281,7 +284,8 @@ namespace UMAPAlgo {
 	 *
 	 */
 	template<typename T, int TPB_X>
-	size_t _transform(const float *X,
+	size_t _transform(const cumlHandle &handle,
+                      const float *X,
 	                  int n,
 	                  int d,
 	                  T *embedding,

@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include "cuda_runtime.h"
 #include "distance/distance.h"
 #include <math.h>
@@ -29,66 +30,45 @@ namespace VertexDeg {
 namespace Algo {
 
 
+/**
+ * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
+ */
 template <typename value_t>
 void launcher(const ML::cumlHandle_impl& handle, Pack<value_t> data, int startVertexId, int batchSize, cudaStream_t stream) {
     data.resetArray(stream, batchSize+1);
-
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
     int m = data.N;
     int n = min(data.N - startVertexId, batchSize);
     int k = data.D;
 
-    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
-    size_t workspaceSize = 0;
+    int* vd = data.vd;
 
     value_t eps2 = data.eps * data.eps;
 
-    int* vd = data.vd;
-    bool* adj = data.adj;
-
-    /**
-     * Epilogue operator to fuse the construction of boolean eps neighborhood adjacency matrix, vertex degree array,
-     * and the final distance matrix into a single kernel.
-     */
-    auto dbscan_op = [n, eps2, vd, adj] __device__
-        (value_t val, 							// current value in gemm matrix
-		int global_c_idx) {						// index of output in global memory
-        int acc = val <= eps2;
-        int vd_offset = global_c_idx / n;   // bucket offset for the vertex degrees
-        atomicAdd(vd+vd_offset, acc);
-        atomicAdd(vd+n, acc);
-        return bool(acc);
-    };
+    MLCommon::device_buffer<char> workspace(handle.getDeviceAllocator(), stream);
+    size_t workspaceSize = 0;
 
     constexpr auto distance_type = MLCommon::Distance::DistanceType::EucUnexpandedL2;
 
     workspaceSize =  MLCommon::Distance::getWorkspaceSize<distance_type, value_t, value_t, bool>
-    		(data.x, data.x+startVertexId*k, 					// x & y inputs
-    		 m, n, k 											// Cutlass block params
-    );
+            (data.x, data.x+startVertexId*k, m, n, k);
 
-    CUDA_CHECK(cudaPeekAtLastError());
-
-    if (workspaceSize != 0) {
+    if (workspaceSize != 0)
         workspace.resize(workspaceSize, stream);
-    }
 
-    MLCommon::Distance::distance<distance_type, value_t, value_t, bool, OutputTile_t>
-    		(data.x, data.x+startVertexId*k, 					// x & y inputs
-             adj,
-    		 m, n, k, 											// Cutlass block params
-			 (void*)workspace.data(), workspaceSize, 					// workspace params
-    		 dbscan_op, 										// epilogue operator
-    		 stream												// cuda stream
-	 );
+    MLCommon::Distance::epsilon_neighborhood<distance_type, value_t>
+        (data.x, data.x+startVertexId*k, data.adj, m, n, k, eps2,
+         (void*)workspace.data(), workspaceSize, stream,
+         [vd, n] __device__ (int global_c_idx, bool in_neigh) {
+             // fused construction of vertex degree
+             int batch_vertex = global_c_idx - (n * (global_c_idx / n));
+             atomicAdd(vd+batch_vertex, in_neigh);
+             atomicAdd(vd+n, in_neigh);
+         }
+	);
 
     CUDA_CHECK(cudaPeekAtLastError());
 }
-
-
-
-
 }  // end namespace Algo6
 }  // end namespace VertexDeg
 }; // end namespace Dbscan
