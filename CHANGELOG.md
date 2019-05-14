@@ -13,7 +13,7 @@
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 
 
-# cuML 0.7.0 (Date TBD)
+# cuML 0.7.0 (10 May 2019)
 
 ## New Features
 
@@ -98,6 +98,14 @@
 - PR #580: Fixing cython garbage collection bug in KNN
 - PR #577: Use find libz in prims cmake
 - PR #594: fixed cuda-memcheck mean_center test failures
+
+
+# cuML 0.6.1 (09 Apr 2019)
+
+## Bug Fixes
+
+- PR #462 Runtime library path fix for cuML pip package
+
 
 # cuML 0.6.0 (22 Mar 2019)
 

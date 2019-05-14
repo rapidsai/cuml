@@ -119,7 +119,7 @@ protected:
 			prms.algorithm = solver::COV_EIG_DQ;
 		else if (params.algo == 1)
 			prms.algorithm = solver::COV_EIG_JACOBI;
-		
+
 		allocate(data2, len);
 		r.uniform(data2, len, T(-1.0), T(1.0), stream);
 		allocate(data2_trans, prms.n_rows * prms.n_components);
