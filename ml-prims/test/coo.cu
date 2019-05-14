@@ -105,8 +105,6 @@ TEST_P(COOSymmetrize, Result) {
             [] __device__ (int row, int col, float val, float trans) { return val+trans; },
             stream);
 
-    std::cout << out << std::endl;
-
     ASSERT_TRUE(out.nnz == expected.nnz);
     ASSERT_TRUE(devArrMatch<int>(out.rows, expected.rows, out.nnz, Compare<int>()));
     ASSERT_TRUE(devArrMatch<int>(out.cols, expected.cols, out.nnz, Compare<int>()));
@@ -201,8 +199,6 @@ TEST_P(COORemoveZeros, Result) {
     updateDevice(in.cols, in_h.cols, params.nnz, stream);
     updateDevice(in.vals, in_h.vals, params.nnz, stream);
 
-    std::cout << in << std::endl;
-
     coo_sort<float>(&in);
 
     int out_rows_ref_h[2]  = { 0, 3 };
@@ -214,8 +210,6 @@ TEST_P(COORemoveZeros, Result) {
 
     COO<float> out_ref(2, 5, 5);
     COO<float> out;
-
-    std::cout << in << std::endl;
 
     updateDevice(out_ref.rows, *&out_rows_ref_h, 2, stream);
     updateDevice(out_ref.cols, *&out_cols_ref_h, 2, stream);

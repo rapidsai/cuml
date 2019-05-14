@@ -32,6 +32,8 @@ protected:
         cudaStream_t stream;
         CUDA_CHECK(cudaStreamCreate(&stream));
 
+        allocator.reset(new defaultDeviceAllocator);
+
         allocate(in, len);
         allocate(out, 1);
         allocate(out_lasso, 1);
@@ -90,38 +92,38 @@ protected:
         T l1_ratio = 0.5;
 
         linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out, penalty::NONE,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
         linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_grad, penalty::NONE,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
         linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso, penalty::L1,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
         linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_lasso_grad, penalty::L1,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
         linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge, penalty::L2,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_ridge_grad, penalty::L2,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
         linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_elasticnet, penalty::ELASTICNET,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_elasticnet_grad, penalty::ELASTICNET,
-                                      alpha, l1_ratio, cublas_handle, stream);
+                                      alpha, l1_ratio, cublas_handle, allocator, stream);
 
         updateDevice(in, h_in, len, stream);
 
@@ -159,6 +161,7 @@ protected:
     T *out_ref, *out_lasso_ref, *out_ridge_ref, *out_elasticnet_ref;
     T *out_grad, *out_lasso_grad, *out_ridge_grad, *out_elasticnet_grad;
     T *out_grad_ref, *out_lasso_grad_ref, *out_ridge_grad_ref, *out_elasticnet_grad_ref;
+    std::shared_ptr<deviceAllocator> allocator;
 };
 
 const std::vector<LinRegLossInputs<float> > inputsf = {
