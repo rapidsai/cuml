@@ -284,6 +284,27 @@ public:
   }
 
   /**
+   * @brief Generate bernoulli distributed array and applies scale
+   * @tparam Type data type in which to compute the probabilities
+   * @tparam LenType data type used to represent length of the arrays
+   * @param ptr the output array
+   * @param len the number of elements in the output
+   * @param prob coin-toss probability for heads
+   * @param scale scaling factor
+   * @param stream stream where to launch the kernel
+   */
+  template <typename Type, typename LenType = int>
+  void scaled_bernoulli(Type *ptr, LenType len, Type prob, Type scale,
+                          cudaStream_t stream)
+  {
+      static_assert(std::is_floating_point<Type>::value,
+                  "Type for 'uniform' can only be floating point type!");
+      randImpl(offset, ptr, len,
+              [=] __device__(Type val, LenType idx) { return val > prob ? -scale : scale; },
+              NumThreads, nBlocks, type, stream);
+  }
+
+  /**
    * @brief Generate gumbel distributed random numbers
    * @tparam Type data type of output random number
    * @tparam LenType data type used to represent length of the arrays

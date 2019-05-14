@@ -421,5 +421,43 @@ INSTANTIATE_TEST_CASE_P(RngTests, RngTestD, ::testing::ValuesIn(inputsd));
     // std::cout << "mean_res:" << h_mean_result << "\n";
   }
 
+template<typename T, int len, int scale>
+class ScaledBernoulliTest : public ::testing::Test {
+    protected:
+        void SetUp() override {
+            CUDA_CHECK(cudaStreamCreate(&stream));
+
+            Rng r(42);
+
+            allocate(data, len * sizeof(T), stream);
+            r.scaled_bernoulli(data, len, T(0.5), T(scale), stream);
+        }
+
+        void TearDown() override {
+            CUDA_CHECK(cudaFree(data));
+        }
+
+        void rangeCheck() {
+            T* h_data = new T[len];
+            updateHost(h_data, data, len, stream);
+            ASSERT_TRUE(std::none_of(h_data, h_data + len, [](const T& a) { return a < -scale || a > scale; }));
+            delete[] h_data;
+        }
+
+        T* data;
+        cudaStream_t stream;
+};
+
+typedef ScaledBernoulliTest<float, 500, 35> ScaledBernoulliTest1;
+TEST_F(ScaledBernoulliTest1, RangeCheck) {
+    rangeCheck();
+}
+
+typedef ScaledBernoulliTest<double, 100, 220> ScaledBernoulliTest2;
+TEST_F(ScaledBernoulliTest2, RangeCheck) {
+    rangeCheck();
+}
+
+
 } // end namespace Random
 } // end namespace MLCommon
