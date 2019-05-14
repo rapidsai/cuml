@@ -3,11 +3,13 @@ import numpy as np
 from typing import List, Tuple
 from .arima import ARIMAModel, loglike, predict_in_sample, forecast_values
 from .kalman import init_kalman_matrices
-from .batched_kalman import batched_kfilter
+from .batched_kalman import batched_kfilter, pynvtx_range_push, pynvtx_range_pop
 import scipy.optimize as opt
 from IPython.core.debugger import set_trace
 # import cudf
 import pandas as pd
+
+# import torch.cuda.nvtx as nvtx
 
 class BatchedARIMAModel:
     r"""
@@ -61,6 +63,7 @@ class BatchedARIMAModel:
     @staticmethod
     def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gpu=True):
         """Computes batched loglikelihood given parameters stored in `x`."""
+        pynvtx_range_push("ll_f")
         p, d, q = order
         mu = np.zeros(num_batches)
         arparams = []
@@ -78,6 +81,7 @@ class BatchedARIMAModel:
                                     y)
 
         ll_b = BatchedARIMAModel.loglike(b_model, gpu)
+        pynvtx_range_pop()
         if return_negative_sum:
             return -ll_b.sum()
         else:
@@ -89,6 +93,7 @@ class BatchedARIMAModel:
         """Computes fd-gradient of batched loglikelihood given parameters stored in
         `x`. Because batches are independent, it only compute the function for the
         single-batch number of parameters."""
+        pynvtx_range_push("ll_gf")
         p, d, q = order
         mu = np.zeros(num_batches)
         arparams = []
@@ -125,6 +130,7 @@ class BatchedARIMAModel:
                 # Distribute the result to all batches
                 grad[i::num_parameters] = grad_i_b
 
+        pynvtx_range_pop()        
         return grad
 
 
@@ -192,7 +198,7 @@ class BatchedARIMAModel:
 
     @staticmethod
     def run_kalman(model,
-                   gpu=True, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
+                   gpu=True, initP_kalman_iterations=True) -> Tuple[np.ndarray, np.ndarray]:
         """Run the (batched) kalman filter for the given model (and contained batched
         series). `initP_kalman_iterations, if true uses kalman iterations, and if false
         uses an analytical approximation.`"""
@@ -204,10 +210,21 @@ class BatchedARIMAModel:
         _, d, _ = model.order[0]
 
         if d == 0:
+            P0 = []
+            if not initP_kalman_iterations:
+                for i in range(model.num_batches):
+                    Z_bi = Zb[i]
+                    R_bi = Rb[i]
+                    T_bi = Tb[i]
+
+                    invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+                    _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+                    P0.append(_P0)
+                    # print("P0[{}]={}".format(i, P0))
+
             ll_b, vs = batched_kfilter(np.asfortranarray(model.y), # numpy
-                                       # y_diff_centered.values, # pandas
                                        Zb, Rb, Tb,
-                                       # Z_dense, R_dense, T_dense,
+                                       P0,
                                        r,
                                        gpu, initP_kalman_iterations)
         elif d == 1:
@@ -215,22 +232,24 @@ class BatchedARIMAModel:
             y_diff_centered = BatchedARIMAModel.diffAndCenter(model.y, model.num_batches,
                                                               model.mu, model.ar_params)
 
+            
             P0 = []
-            for i in range(model.num_batches):
-                Z_bi = Zb[i]
-                R_bi = Rb[i]
-                T_bi = Tb[i]
-                
-                invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
-                _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
-                P0.append(_P0)
-                # print("P0[{}]={}".format(i, P0))
+            if not initP_kalman_iterations:
+                pynvtx_range_push("compute P0")
+                for i in range(model.num_batches):
+                    Z_bi = Zb[i]
+                    R_bi = Rb[i]
+                    T_bi = Tb[i]
 
+                    invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+                    _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+                    P0.append(_P0)
+                    # print("P0[{}]={}".format(i, P0))
+
+                pynvtx_range_pop()
             ll_b, vs = batched_kfilter(y_diff_centered, # numpy
-                                       # y_diff_centered.values, # pandas
                                        Zb, Rb, Tb,
                                        P0,
-                                       # Z_dense, R_dense, T_dense,
                                        r,
                                        gpu, initP_kalman_iterations)
         else:
@@ -241,13 +260,13 @@ class BatchedARIMAModel:
     @staticmethod
     def loglike(model, gpu=True) -> np.ndarray:
         """Compute the batched loglikelihood (return a LL for each batch)"""
-        ll_b, _ = BatchedARIMAModel.run_kalman(model, gpu)
+        ll_b, _ = BatchedARIMAModel.run_kalman(model, gpu=gpu)
         return ll_b
 
     @staticmethod
     def predict_in_sample(model, gpu=True):
         """Return in-sample prediction on batched series given batched model"""
-        _, vs = BatchedARIMAModel.run_kalman(model, gpu)
+        _, vs = BatchedARIMAModel.run_kalman(model, gpu=gpu)
 
         assert_same_d(model.order) # We currently assume the same d for all series
         _, d, _ = model.order[0]
@@ -298,6 +317,7 @@ def assert_same_d(b_order):
 
 def init_batched_kalman_matrices(b_ar_params, b_ma_params):
     """Builds batched-versions of the kalman matrices given batched AR and MA parameters"""
+    pynvtx_range_push("init_batched_kalman_matrices")
 
     Zb = []
     Rb = []
@@ -312,6 +332,7 @@ def init_batched_kalman_matrices(b_ar_params, b_ma_params):
         Rb.append(R)
         Tb.append(T)
 
+    pynvtx_range_pop()
     return Zb, Rb, Tb, r_max
 
 

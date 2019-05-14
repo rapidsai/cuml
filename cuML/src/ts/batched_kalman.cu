@@ -31,6 +31,14 @@ using MLCommon::updateHost;
 ////////////////////////////////////////////////////////////
 #include <iostream>
 
+void nvtx_range_push(std::string msg) {
+  nvtxRangePush(msg.c_str());
+}
+
+void nvtx_range_pop() {
+  nvtxRangePop();
+}
+
 void process_mem_usage(double& vm_usage, double& resident_set)
 {
   vm_usage     = 0.0;

@@ -2,6 +2,7 @@
 #define ARIMA_BATCHED_KALMAN_H
 
 #include <vector>
+#include <string>
 
 // reference implementation
 void batched_kalman_filter_cpu(const std::vector<double*>& h_ys_b, // { vector size batches, each item size nobs }
@@ -27,5 +28,9 @@ void batched_kalman_filter(double* d_ys_b,
                            std::vector<std::vector<double>>& h_vs_b,
                            bool initP_with_kalman_iterations=true);
 
+
+void nvtx_range_push(std::string msg);
+
+void nvtx_range_pop();
 
 #endif
