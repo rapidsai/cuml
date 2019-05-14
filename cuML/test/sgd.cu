@@ -29,15 +29,6 @@ protected:
 		params = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
 		int len = params.n_row * params.n_col;
 
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
-
 		allocate(data, len);
 		allocate(labels, params.n_row);
 		allocate(coef, params.n_col, true);
@@ -71,36 +62,23 @@ protected:
 		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
 		int n_iter_no_change = 10;
 
-		sgdFit(data, params.n_row, params.n_col, labels, coef, &intercept,
+		sgdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef, &intercept,
 				fit_intercept, params.batch_size, epochs, lr_type, lr, power_t, loss,
 				pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-				cublas_handle, cusolver_handle, stream);
+				stream);
 
 		fit_intercept = true;
 		intercept2 = T(0);
-		sgdFit(data, params.n_row, params.n_col, labels, coef2, &intercept2,
+		sgdFit(handle.getImpl(), data, params.n_row, params.n_col, labels, coef2, &intercept2,
 				fit_intercept, params.batch_size, epochs, ML::lr_type::CONSTANT, lr,
 				power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle, stream);
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
+				n_iter_no_change, stream);
 
 	}
 
 	void logisticRegressionTest() {
 		params = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
 		int len = params.n_row2 * params.n_col2;
-
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		T *coef_class;
 		allocate(data_logreg, len);
@@ -138,34 +116,21 @@ protected:
 		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::NONE;
 		int n_iter_no_change = 10;
 
-		sgdFit(data_logreg, params.n_row2, params.n_col2, labels_logreg,
+		sgdFit(handle.getImpl(), data_logreg, params.n_row2, params.n_col2, labels_logreg,
 				coef_class, &intercept_class, fit_intercept, params.batch_size, epochs,
 				lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle, stream);
+				n_iter_no_change, stream);
 
-		sgdPredictBinaryClass(data_logreg_test, params.n_row2, params.n_col2,
-				coef_class, intercept_class, pred_log, loss, cublas_handle, stream);
+		sgdPredictBinaryClass(handle.getImpl(), data_logreg_test, params.n_row2, params.n_col2,
+				coef_class, intercept_class, pred_log, loss, stream);
 
 		CUDA_CHECK(cudaFree(coef_class));
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
 	void svmTest() {
 		params = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
 		int len = params.n_row2 * params.n_col2;
-
-		cublasHandle_t cublas_handle;
-		CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-		cusolverDnHandle_t cusolver_handle = NULL;
-		CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-		cudaStream_t stream;
-		CUDA_CHECK(cudaStreamCreate(&stream));
 
 		T *coef_class;
 		allocate(data_svmreg, len);
@@ -203,23 +168,21 @@ protected:
 		MLCommon::Functions::penalty pen = MLCommon::Functions::penalty::L2;
 		int n_iter_no_change = 10;
 
-		sgdFit(data_svmreg, params.n_row2, params.n_col2, labels_svmreg,
+		sgdFit(handle.getImpl(), data_svmreg, params.n_row2, params.n_col2, labels_svmreg,
 				coef_class, &intercept_class, fit_intercept, params.batch_size, epochs,
 				lr_type, lr, power_t, loss, pen, alpha, l1_ratio, shuffle, tol,
-				n_iter_no_change, cublas_handle, cusolver_handle, stream);
+				n_iter_no_change, stream);
 
-		sgdPredictBinaryClass(data_svmreg_test, params.n_row2, params.n_col2,
-				coef_class, intercept_class, pred_svm, loss, cublas_handle, stream);
+		sgdPredictBinaryClass(handle.getImpl(), data_svmreg_test, params.n_row2, params.n_col2,
+				coef_class, intercept_class, pred_svm, loss, stream);
 
 		CUDA_CHECK(cudaFree(coef_class));
-
-		CUBLAS_CHECK(cublasDestroy(cublas_handle));
-		CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 
 	}
 
 	void SetUp() override {
+		CUDA_CHECK(cudaStreamCreate(&stream));
+		handle.setStream(stream);
 		linearRegressionTest();
 		logisticRegressionTest();
 		svmTest();
@@ -242,6 +205,7 @@ protected:
 		CUDA_CHECK(cudaFree(pred_svm_ref));
 		CUDA_CHECK(cudaFree(pred_log));
 		CUDA_CHECK(cudaFree(pred_log_ref));
+		CUDA_CHECK(cudaStreamDestroy(stream));
 	}
 
 protected:
@@ -252,6 +216,8 @@ protected:
 	T *data_svmreg, *data_svmreg_test, *labels_svmreg;
 	T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
 	T intercept, intercept2;
+	cudaStream_t stream;
+	cumlHandle handle;
 
 };
 
