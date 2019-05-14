@@ -97,109 +97,6 @@ cdef extern from "umap/umap.h" namespace "ML":
 
 
 cdef class UMAPImpl:
-
-    """Uniform Manifold Approximation and Projection
-    Finds a low dimensional embedding of the data that approximates
-    an underlying manifold.
-
-    Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
-
-    Parameters
-    ----------
-    n_neighbors: float (optional, default 15)
-        The size of local neighborhood (in terms of number of neighboring
-        sample points) used for manifold approximation. Larger values
-        result in more global views of the manifold, while smaller
-        values result in more local data being preserved. In general
-        values should be in the range 2 to 100.
-    n_components: int (optional, default 2)
-        The dimension of the space to embed into. This defaults to 2 to
-        provide easy visualization, but can reasonably be set to any
-    n_epochs: int (optional, default None)
-        The number of training epochs to be used in optimizing the
-        low dimensional embedding. Larger values result in more accurate
-        embeddings. If None is specified a value will be selected based on
-        the size of the input dataset (200 for large datasets, 500 for small).
-    learning_rate: float (optional, default 1.0)
-        The initial learning rate for the embedding optimization.
-    init: string (optional, default 'spectral')
-        How to initialize the low dimensional embedding. Options are:
-            * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
-            * 'random': assign initial embedding positions at random.
-    min_dist: float (optional, default 0.1)
-        The effective minimum distance between embedded points. Smaller values
-        will result in a more clustered/clumped embedding where nearby points
-        on the manifold are drawn closer together, while larger values will
-        result on a more even dispersal of points. The value should be set
-        relative to the ``spread`` value, which determines the scale at which
-        embedded points will be spread out.
-    spread: float (optional, default 1.0)
-        The effective scale of embedded points. In combination with ``min_dist``
-        this determines how clustered/clumped the embedded points are.
-    set_op_mix_ratio: float (optional, default 1.0)
-        Interpolate between (fuzzy) union and intersection as the set operation
-        used to combine local fuzzy simplicial sets to obtain a global fuzzy
-        simplicial sets. Both fuzzy set operations use the product t-norm.
-        The value of this parameter should be between 0.0 and 1.0; a value of
-        1.0 will use a pure fuzzy union, while 0.0 will use a pure fuzzy
-        intersection.
-    local_connectivity: int (optional, default 1)
-        The local connectivity required -- i.e. the number of nearest
-        neighbors that should be assumed to be connected at a local level.
-        The higher this value the more connected the manifold becomes
-        locally. In practice this should be not more than the local intrinsic
-        dimension of the manifold.
-    repulsion_strength: float (optional, default 1.0)
-        Weighting applied to negative samples in low dimensional embedding
-        optimization. Values higher than one will result in greater weight
-        being given to negative samples.
-    negative_sample_rate: int (optional, default 5)
-        The number of negative samples to select per positive sample
-        in the optimization process. Increasing this value will result
-        in greater repulsive force being applied, greater optimization
-        cost, but slightly more accuracy.
-    transform_queue_size: float (optional, default 4.0)
-        For transform operations (embedding new points using a trained model_
-        this will control how aggressively to search for nearest neighbors.
-        Larger values will result in slower performance but more accurate
-        nearest neighbor evaluation.
-    a: float (optional, default None)
-        More specific parameters controlling the embedding. If None these
-        values are set automatically as determined by ``min_dist`` and
-        ``spread``.
-    b: float (optional, default None)
-        More specific parameters controlling the embedding. If None these
-        values are set automatically as determined by ``min_dist`` and
-        ``spread``.
-    verbose: bool (optional, default False)
-        Controls verbosity of logging.
-
-    Notes
-    -----
-    This module is heavily based on Leland McInnes' reference UMAP package.
-    However, there are a number of differences and features that are not yet
-    implemented in cuml.umap:
-      * Specifying the random seed
-      * Using a non-euclidean distance metric (support for a fixed set
-        of non-euclidean metrics is planned for an upcoming release).
-      * Using a pre-computed pairwise distance matrix (under consideration
-        for future releases)
-      * Manual initialization of initial embedding positions
-
-    In addition to these missing features, you should expect to see
-    the final embeddings differing between cuml.umap and the reference
-    UMAP. In particular, the reference UMAP uses an approximate kNN
-    algorithm for large data sizes while cuml.umap always uses exact
-    kNN.
-
-    References
-    ----------
-    * Leland McInnes, John Healy, James Melville
-      UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction
-      https://arxiv.org/abs/1802.03426
-
-    """
-
     cpdef UMAPParams *umap_params
     cpdef UMAP_API *umap
     cdef uintptr_t embeddings
@@ -329,14 +226,6 @@ cdef class UMAPImpl:
 
 
     def fit(self, X, y = None):
-        """Fit X into an embedded space.
-        Parameters
-        ----------
-        X : array, shape (n_samples, n_features)
-            X contains a sample per row.
-        y : array, shape (n_samples)
-            y contains a label per row.
-        """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
         assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
@@ -383,17 +272,6 @@ cdef class UMAPImpl:
         del X_m
 
     def fit_transform(self, X, y = None):
-        """Fit X into an embedded space and return that transformed
-        output.
-        Parameters
-        ----------
-        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
-            X contains a sample per row.
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the training data in low-dimensional space.
-        """
         self.fit(X, y)
 
         if isinstance(X, cudf.DataFrame):
@@ -407,24 +285,6 @@ cdef class UMAPImpl:
 
 
     def transform(self, X):
-        """Transform X into the existing embedded space and return that
-        transformed output.
-
-        Please refer to the reference UMAP implementation for information
-        on the differences between fit_transform() and running fit() transform().
-
-        Specifically, the transform() function is stochastic:
-        https://github.com/lmcinnes/umap/issues/158
-
-        Parameters
-        ----------
-        X : array, shape (n_samples, n_features)
-            New data to be transformed.
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the new data in low-dimensional space.
-        """
 
         assert len(X.shape) == 2, 'data should be two dimensional'
         assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'
@@ -462,6 +322,110 @@ cdef class UMAPImpl:
 
 
 class UMAP(Base):
+
+    """Uniform Manifold Approximation and Projection
+    Finds a low dimensional embedding of the data that approximates
+    an underlying manifold.
+
+    Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
+
+    Parameters
+    ----------
+    n_neighbors: float (optional, default 15)
+        The size of local neighborhood (in terms of number of neighboring
+        sample points) used for manifold approximation. Larger values
+        result in more global views of the manifold, while smaller
+        values result in more local data being preserved. In general
+        values should be in the range 2 to 100.
+    n_components: int (optional, default 2)
+        The dimension of the space to embed into. This defaults to 2 to
+        provide easy visualization, but can reasonably be set to any
+    n_epochs: int (optional, default None)
+        The number of training epochs to be used in optimizing the
+        low dimensional embedding. Larger values result in more accurate
+        embeddings. If None is specified a value will be selected based on
+        the size of the input dataset (200 for large datasets, 500 for small).
+    learning_rate: float (optional, default 1.0)
+        The initial learning rate for the embedding optimization.
+    init: string (optional, default 'spectral')
+        How to initialize the low dimensional embedding. Options are:
+            * 'spectral': use a spectral embedding of the fuzzy 1-skeleton
+            * 'random': assign initial embedding positions at random.
+    min_dist: float (optional, default 0.1)
+        The effective minimum distance between embedded points. Smaller values
+        will result in a more clustered/clumped embedding where nearby points
+        on the manifold are drawn closer together, while larger values will
+        result on a more even dispersal of points. The value should be set
+        relative to the ``spread`` value, which determines the scale at which
+        embedded points will be spread out.
+    spread: float (optional, default 1.0)
+        The effective scale of embedded points. In combination with ``min_dist``
+        this determines how clustered/clumped the embedded points are.
+    set_op_mix_ratio: float (optional, default 1.0)
+        Interpolate between (fuzzy) union and intersection as the set operation
+        used to combine local fuzzy simplicial sets to obtain a global fuzzy
+        simplicial sets. Both fuzzy set operations use the product t-norm.
+        The value of this parameter should be between 0.0 and 1.0; a value of
+        1.0 will use a pure fuzzy union, while 0.0 will use a pure fuzzy
+        intersection.
+    local_connectivity: int (optional, default 1)
+        The local connectivity required -- i.e. the number of nearest
+        neighbors that should be assumed to be connected at a local level.
+        The higher this value the more connected the manifold becomes
+        locally. In practice this should be not more than the local intrinsic
+        dimension of the manifold.
+    repulsion_strength: float (optional, default 1.0)
+        Weighting applied to negative samples in low dimensional embedding
+        optimization. Values higher than one will result in greater weight
+        being given to negative samples.
+    negative_sample_rate: int (optional, default 5)
+        The number of negative samples to select per positive sample
+        in the optimization process. Increasing this value will result
+        in greater repulsive force being applied, greater optimization
+        cost, but slightly more accuracy.
+    transform_queue_size: float (optional, default 4.0)
+        For transform operations (embedding new points using a trained model_
+        this will control how aggressively to search for nearest neighbors.
+        Larger values will result in slower performance but more accurate
+        nearest neighbor evaluation.
+    a: float (optional, default None)
+        More specific parameters controlling the embedding. If None these
+        values are set automatically as determined by ``min_dist`` and
+        ``spread``.
+    b: float (optional, default None)
+        More specific parameters controlling the embedding. If None these
+        values are set automatically as determined by ``min_dist`` and
+        ``spread``.
+    verbose: bool (optional, default False)
+        Controls verbosity of logging.
+
+    Notes
+    -----
+    This module is heavily based on Leland McInnes' reference UMAP package.
+    However, there are a number of differences and features that are not yet
+    implemented in cuml.umap:
+      * Specifying the random seed
+      * Using a non-euclidean distance metric (support for a fixed set
+        of non-euclidean metrics is planned for an upcoming release).
+      * Using a pre-computed pairwise distance matrix (under consideration
+        for future releases)
+      * Manual initialization of initial embedding positions
+
+    In addition to these missing features, you should expect to see
+    the final embeddings differing between cuml.umap and the reference
+    UMAP. In particular, the reference UMAP uses an approximate kNN
+    algorithm for large data sizes while cuml.umap always uses exact
+    kNN.
+
+    References
+    ----------
+    * Leland McInnes, John Healy, James Melville
+      UMAP: Uniform Manifold Approximation and Projection for Dimension Reduction
+      https://arxiv.org/abs/1802.03426
+
+    """
+
+
 
     def __init__(self,
                   n_neighbors=15,
@@ -509,10 +473,51 @@ class UMAP(Base):
 
 
     def fit(self, X, y = None):
+        """Fit X into an embedded space.
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features)
+            X contains a sample per row.
+        y : array, shape (n_samples)
+            y contains a label per row.
+        """
+
         return self._impl.fit(X, y)
 
     def transform(self, X):
+
+        """Transform X into the existing embedded space and return that
+        transformed output.
+
+        Please refer to the reference UMAP implementation for information
+        on the differences between fit_transform() and running fit() transform().
+
+        Specifically, the transform() function is stochastic:
+        https://github.com/lmcinnes/umap/issues/158
+
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features)
+            New data to be transformed.
+        Returns
+        -------
+        X_new : array, shape (n_samples, n_components)
+            Embedding of the new data in low-dimensional space.
+        """
+
         return self._impl.transform(X)
 
     def fit_transform(self, X, y=None):
+        """Fit X into an embedded space and return that transformed
+        output.
+        Parameters
+        ----------
+        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
+            X contains a sample per row.
+        Returns
+        -------
+        X_new : array, shape (n_samples, n_components)
+            Embedding of the training data in low-dimensional space.
+        """
+
         return self._impl.fit_transform(X, y)
