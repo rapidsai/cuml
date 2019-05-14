@@ -19,6 +19,7 @@
 #include <iostream>
 #include <utils.h>
 #include "random/rng.h"
+#include "random/permute.h"
 #include <map>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
