@@ -9,12 +9,14 @@
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
 - PR #601: Cython PEP8 cleanup and CI integration
+- PR #596: Introduce cumlHandle for ols and ridge
+- PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 
 
-# cuML 0.7.0 (Date TBD)
+# cuML 0.7.0 (10 May 2019)
 
 ## New Features
 
@@ -61,6 +63,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 
@@ -99,6 +102,14 @@
 - PR #580: Fixing cython garbage collection bug in KNN
 - PR #577: Use find libz in prims cmake
 - PR #594: fixed cuda-memcheck mean_center test failures
+
+
+# cuML 0.6.1 (09 Apr 2019)
+
+## Bug Fixes
+
+- PR #462 Runtime library path fix for cuML pip package
+
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -146,6 +157,8 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342: Change default ABI to ON
+- PR #572: Pulling DBSCAN components into reusable primitives
+
 
 ## Bug Fixes
 

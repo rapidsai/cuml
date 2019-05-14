@@ -280,6 +280,7 @@ namespace UMAPAlgo {
 
         template<int TPB_X, typename T>
         void perform_general_intersection(
+                const cumlHandle &handle,
                 T *y,
                 COO<T> *rgraph_coo, COO<T> *final_coo,
                 UMAPParams *params,
@@ -288,7 +289,7 @@ namespace UMAPAlgo {
             /**
              * Calculate kNN for Y
              */
-            kNN y_knn(1);
+            kNN y_knn(handle, 1);
             long *y_knn_indices;
             T *y_knn_dists;
 
