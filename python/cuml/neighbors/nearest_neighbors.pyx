@@ -79,25 +79,17 @@ cdef class NearestNeighborsImpl:
 
     
     cpdef kNN *k
-    #
     cdef int num_gpus
-    #
     cdef uintptr_t X_ctype
-    #
     cdef uintptr_t I_ptr
     cdef uintptr_t D_ptr
-    #
     cdef object X_m
-    #
     cdef bool _should_downcast
     cdef object n_gpus
     cdef object devices
     cdef bool _verbose
-    #
     cdef object n_neighbors
-    #
     cpdef kNNParams *input
-
     cpdef object handle
 
     def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False,
