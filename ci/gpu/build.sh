@@ -73,7 +73,7 @@ logger "Clean up make..."
 make clean
 
 logger "Make libcuml++ and algorithm tests..."
-make -j${PARALLEL_LEVEL} cuml++ ml_test ml_mg_test
+make -j${PARALLEL_LEVEL} cuml++ ml ml_mg
 
 logger "Install libcuml++..."
 make -j${PARALLEL_LEVEL} install
@@ -115,7 +115,7 @@ cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON -DBLAS_LIBRARIES
 logger "Clean up make..."
 make clean
 logger "Make ml-prims test..."
-make -j${PARALLEL_LEVEL} prims_test
+make -j${PARALLEL_LEVEL} prims
 
 logger "Run ml-prims test..."
 cd $WORKSPACE/cpp/build_prims
