@@ -32,7 +32,7 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
-| BUILD_PRIM_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
@@ -45,9 +45,9 @@ After running CMake in a `build` directory, if the `BUILD_*` options were not tu
 ```bash
 $ make -j # Build libcuml++ and all tests
 $ make -j cuml++ # Build libcuml++
-$ make -j ml_test # Build ml_test algorithm tests binary
-$ make -j ml_mg_test # Build ml_mg_test multi GPU algorithms tests binary
-$ make -j prims_test # Build prims_test ML primitive unit tests binary
+$ make -j ml # Build ml_test algorithm tests binary
+$ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
+$ make -j prims # Build prims_test ML primitive unit tests binary
 ```
 
 ### Third Party Modules
