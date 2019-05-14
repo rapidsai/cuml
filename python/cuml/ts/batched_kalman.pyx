@@ -7,6 +7,7 @@ cimport numpy as np
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, free
 from libcpp cimport bool
+from libcpp.string cimport string
 
 cdef extern from "ts/batched_kalman.h":
 
@@ -35,6 +36,18 @@ cdef extern from "ts/batched_kalman.h":
                                  vector[vector[double]]& vec_vs_b,
                                  bool initP_with_kalman_iterations)
 
+
+  void nvtx_range_push(string msg)
+
+  void nvtx_range_pop()
+
+
+def pynvtx_range_push(msg):
+    cdef string s = msg.encode("UTF-8")
+    nvtx_range_push(s)
+
+def pynvtx_range_pop():
+    nvtx_range_pop()
 
 def batched_kfilter(np.ndarray[double, ndim=2] y,
                     Z_b, # list of numpy arrays
@@ -75,11 +88,11 @@ def batched_kfilter(np.ndarray[double, ndim=2] y,
         Z_bi = Z_b[i]
         R_bi = R_b[i]
         T_bi = T_b[i]
-        P0_bi = P0[i]
         vec_Zb.push_back(&Z_bi[0,0])
         vec_Rb.push_back(&R_bi[0,0])
         vec_Tb.push_back(&T_bi[0,0])
         if not initP_with_kalman_iterations:
+            P0_bi = P0[i]
             # invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
             # P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
             vec_P0.push_back(&P0_bi[0,0])
