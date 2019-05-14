@@ -272,8 +272,10 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/kmeans/kmeans.cu
     src/knn/knn.cu
     src/metrics/metrics.cu
+    src/metrics/trustworthiness.cu
     src/pca/pca.cu
     src/randomforest/randomforest.cu
+    src/random_projection/rproj.cu
     src/solver/solver.cu
     src/tsvd/tsvd.cu
     src/umap/umap.cu)

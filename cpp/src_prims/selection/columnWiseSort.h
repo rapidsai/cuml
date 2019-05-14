@@ -22,6 +22,7 @@
 
 #include <cub/cub.cuh>
 #include <limits>
+#include <map>
 
 #define INST_BLOCK_SORT(keyIn, keyOut, valueInOut, rows, columns, blockSize, elemPT, stream) \
 devKeyValSortColumnPerRow<InType, OutType, blockSize, elemPT><<<rows, blockSize, 0, stream>>> \
