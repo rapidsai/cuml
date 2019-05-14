@@ -16,17 +16,16 @@
 
 #include "sgd.h"
 #include "cd.h"
-#include "solver_c.h"
+#include "solver.hpp"
 #include "ml_utils.h"
-#include <linalg/cublas_wrappers.h>
-#include <linalg/cusolver_wrappers.h>
 
 namespace ML {
 namespace Solver {
 
 using namespace ML;
 
-void sgdFit(float *input,
+void sgdFit(cumlHandle& handle,
+		    float *input,
 	        int n_rows,
 	        int n_cols,
 	        float *labels,
@@ -88,45 +87,32 @@ void sgdFit(float *input,
 				    "glm.cu: this learning rate type is not supported.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdFit(input,
-			       n_rows,
-				   n_cols,
-				   labels,
-				   coef,
-				   intercept,
-				   fit_intercept,
-				   batch_size,
-				   epochs,
-				   learning_rate_type,
-				   eta0,
-				   power_t,
-				   loss_funct,
-				   pen,
-				   alpha,
-				   l1_ratio,
-				   shuffle,
-				   tol,
-				   n_iter_no_change,
-				   cublas_handle,
-				   cusolver_handle,
-				   stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdFit(handle.getImpl(),
+		   input,
+		   n_rows,
+		   n_cols,
+		   labels,
+		   coef,
+		   intercept,
+		   fit_intercept,
+		   batch_size,
+		   epochs,
+		   learning_rate_type,
+		   eta0,
+		   power_t,
+		   loss_funct,
+		   pen,
+		   alpha,
+		   l1_ratio,
+		   shuffle,
+		   tol,
+		   n_iter_no_change,
+		   handle.getStream());
 
 }
 
-void sgdFit(double *input,
+void sgdFit(cumlHandle& handle,
+		    double *input,
 	        int n_rows,
 	        int n_cols,
 	        double *labels,
@@ -186,45 +172,31 @@ void sgdFit(double *input,
 				    "glm.cu: this learning rate type is not supported.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdFit(input,
-			       n_rows,
-				   n_cols,
-				   labels,
-				   coef,
-				   intercept,
-				   fit_intercept,
-				   batch_size,
-				   epochs,
-				   learning_rate_type,
-				   eta0,
-				   power_t,
-				   loss_funct,
-				   pen,
-				   alpha,
-				   l1_ratio,
-				   shuffle,
-				   tol,
-				   n_iter_no_change,
-				   cublas_handle,
-				   cusolver_handle,
-				   stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdFit(handle.getImpl(),
+		   input,
+		   n_rows,
+		   n_cols,
+		   labels,
+		   coef,
+		   intercept,
+		   fit_intercept,
+		   batch_size,
+		   epochs,
+		   learning_rate_type,
+		   eta0,
+		   power_t,
+		   loss_funct,
+		   pen,
+		   alpha,
+		   l1_ratio,
+		   shuffle,
+		   tol,
+		   n_iter_no_change,
+		   handle.getStream());
 
 }
 
-void sgdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+void sgdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -239,20 +211,11 @@ void sgdPredict(const float *input, int n_rows, int n_cols, const float *coef,
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 
 }
 
-void sgdPredict(const double *input, int n_rows, int n_cols,
+void sgdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -267,20 +230,11 @@ void sgdPredict(const double *input, int n_rows, int n_cols,
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 
 }
 
-void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const float *coef,
+void sgdPredictBinaryClass(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -295,20 +249,11 @@ void sgdPredictBinaryClass(const float *input, int n_rows, int n_cols, const flo
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 
 }
 
-void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
+void sgdPredictBinaryClass(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -323,22 +268,12 @@ void sgdPredictBinaryClass(const double *input, int n_rows, int n_cols,
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	sgdPredictBinaryClass(input, n_rows, n_cols, coef, intercept, preds, loss_funct, cublas_handle, stream);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-
-	// should probably do a stream sync before destroy
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 
 }
 
-void cdFit(float *input,
+void cdFit(cumlHandle& handle,
+		   float *input,
 		   int n_rows,
 		   int n_cols,
 		   float *labels,
@@ -358,40 +293,26 @@ void cdFit(float *input,
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	cdFit(input,
-			   n_rows,
-			   n_cols,
-			   labels,
-			   coef,
-			   intercept,
-			   fit_intercept,
-			   normalize,
-			   epochs,
-			   loss_funct,
-			   alpha,
-			   l1_ratio,
-			   shuffle,
-			   tol,
-			   stream,
-			   cublas_handle,
-			   cusolver_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+	cdFit(handle.getImpl(),
+		  input,
+		  n_rows,
+		  n_cols,
+		  labels,
+		  coef,
+		  intercept,
+		  fit_intercept,
+		  normalize,
+		  epochs,
+		  loss_funct,
+		  alpha,
+		  l1_ratio,
+		  shuffle,
+		  tol,
+		  handle.getStream());
 }
 
-void cdFit(double *input,
+void cdFit(cumlHandle& handle,
+		   double *input,
 		   int n_rows,
 		   int n_cols,
 		   double *labels,
@@ -407,44 +328,30 @@ void cdFit(double *input,
 		   double tol) {
 
 	ASSERT(loss == 0,
-			"Parameter loss: Only SQRT_LOSS function is supported for now");
+				"Parameter loss: Only SQRT_LOSS function is supported for now");
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cusolverDnHandle_t cusolver_handle = NULL;
-	CUSOLVER_CHECK(cusolverDnCreate(&cusolver_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	cdFit(input,
-			   n_rows,
-			   n_cols,
-			   labels,
-			   coef,
-			   intercept,
-			   fit_intercept,
-			   normalize,
-			   epochs,
-			   loss_funct,
-			   alpha,
-			   l1_ratio,
-			   shuffle,
-			   tol,
-			   stream,
-			   cublas_handle,
-			   cusolver_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUSOLVER_CHECK(cusolverDnDestroy(cusolver_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	cdFit(handle.getImpl(),
+		  input,
+		  n_rows,
+		  n_cols,
+		  labels,
+		  coef,
+		  intercept,
+		  fit_intercept,
+		  normalize,
+		  epochs,
+		  loss_funct,
+		  alpha,
+		  l1_ratio,
+		  shuffle,
+		  tol,
+		  handle.getStream());
 
 }
 
-void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
+void cdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -455,20 +362,10 @@ void cdPredict(const float *input, int n_rows, int n_cols, const float *coef,
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, stream, cublas_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
-
+	cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 }
 
-void cdPredict(const double *input, int n_rows, int n_cols,
+void cdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
 		const double *coef, double intercept, double *preds, int loss) {
 
 	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -479,16 +376,7 @@ void cdPredict(const double *input, int n_rows, int n_cols,
 			"glm.cu: other functions are not supported yet.");
 	}
 
-	cublasHandle_t cublas_handle;
-	CUBLAS_CHECK(cublasCreate(&cublas_handle));
-
-	cudaStream_t stream;
-	CUDA_CHECK(cudaStreamCreate(&stream));
-
-	cdPredict(input, n_rows, n_cols, coef, intercept, preds, loss_funct, stream, cublas_handle);
-
-	CUBLAS_CHECK(cublasDestroy(cublas_handle));
-	CUDA_CHECK(cudaStreamDestroy(stream));
+	cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
 }
 
 }

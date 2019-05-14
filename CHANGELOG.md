@@ -9,6 +9,7 @@
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
+- PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -61,6 +62,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 
@@ -154,6 +156,8 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342: Change default ABI to ON
+- PR #572: Pulling DBSCAN components into reusable primitives
+
 
 ## Bug Fixes
 

@@ -116,6 +116,7 @@ if(BUILD_PRIMS_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(prims
       prims/add.cu
+      prims/array.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/coalesced_reduction.cu
@@ -128,6 +129,7 @@ if(BUILD_PRIMS_TESTS)
       prims/decoupled_lookback.cu
       prims/dist_adj.cu
       prims/dist_cos.cu
+      prims/dist_eps.cu
       prims/dist_euc_exp.cu
       prims/dist_euc_unexp.cu
       prims/dist_l1.cu
