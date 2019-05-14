@@ -27,22 +27,6 @@
 #include <linalg/norm.h>
 #include <stats/sum.h>
 #include <matrix/math.h>
-/*
- * Copyright (c) 2019, NVIDIA CORPORATION.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 #include <matrix/matrix.h>
 #include "preprocess.h"
 #include "common/cumlHandle.hpp"
@@ -53,6 +37,19 @@ namespace GLM {
 
 using namespace MLCommon;
 
+/**
+ * @defgroup Functions fit an ordinary least squares model
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param labels        device pointer to label vector of length n_rows
+ * @param coef          device pointer to hold the solution for weights of size n_cols
+ * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param fit_intercept if true, fit intercept
+ * @param normalize     if true, normalize data to zero mean, unit variance
+ * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2: QR-decomposition)
+ * @{
+ */
 template<typename math_t>
 void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels, math_t *coef,
             math_t *intercept, bool fit_intercept, bool normalize,
@@ -106,6 +103,16 @@ void olsFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols
 
 }
 
+/**
+ * @defgroup Functions to make predictions with a fitted ordinary least squares and ridge regression model
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param coef          weights of the model
+ * @param intercept     bias term of the model
+ * @param preds         device pointer to store predictions of size n_rows
+ * @{
+ */
 template<typename math_t>
 void olsPredict(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols, const math_t *coef,
 		math_t intercept, math_t *preds, cudaStream_t stream) {
