@@ -19,26 +19,26 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+import cudf
+import cuml
+import ctypes
 import numpy as np
 import pandas as pd
-import cudf
-import ctypes
-
-import cuml
-from libcpp.memory cimport shared_ptr
-cimport cuml.common.handle
-cimport cuml.common.cuda
-from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
-
 
 from cuml import numba_utils
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
 from numba import cuda
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+
+from libcpp.memory cimport shared_ptr
+
+cimport cuml.common.handle
+cimport cuml.common.cuda
 
 cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
 
@@ -123,14 +123,14 @@ cdef class UMAPImpl:
                   negative_sample_rate=5,
                   transform_queue_size=4.0,
                   init="spectral",
-                  verbose = False,
-                  a = None,
-                  b = None,
-                  target_n_neighbors = -1,
-                  target_weights = 0.5,
-                  target_metric = "euclidean",
-                  should_downcast = True,
-                  handle = None):
+                  verbose=False,
+                  a=None,
+                  b=None,
+                  target_n_neighbors=-1,
+                  target_weights=0.5,
+                  target_metric="euclidean",
+                  should_downcast=True,
+                  handle=None):
 
         self.handle = handle
 
@@ -231,7 +231,7 @@ cdef class UMAPImpl:
 
         return X
 
-    def fit(self, X, y = None):
+    def fit(self, X, y=None):
 
         assert len(X.shape) == 2, 'data should be two dimensional'
         assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'  # noqa E501
@@ -250,7 +250,7 @@ cdef class UMAPImpl:
                                         order="C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-        cdef cumlHandle * handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         cdef uintptr_t y_raw
         if y is not None:
@@ -277,7 +277,7 @@ cdef class UMAPImpl:
 
         del X_m
 
-    def fit_transform(self, X, y = None):
+    def fit_transform(self, X, y=None):
         self.fit(X, y)
 
         if isinstance(X, cudf.DataFrame):
@@ -306,14 +306,13 @@ cdef class UMAPImpl:
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.umap.transform(
-                       handle_[0],
-                       <float*>x_ptr,
-                       <int>X_m.shape[0],
-                       <int>X_m.shape[1],
-                       <float*> self.embeddings,
-                       <int> self.arr_embed.shape[0],
-                       <float*> embed_ptr)
+        self.umap.transform(handle_[0],
+                            <float*>x_ptr,
+                            <int>X_m.shape[0],
+                            <int>X_m.shape[1],
+                            <float*> self.embeddings,
+                            <int> self.arr_embed.shape[0],
+                            <float*> embed_ptr)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
@@ -433,29 +432,27 @@ class UMAP(Base):
 
     """
 
-
-
     def __init__(self,
-                  n_neighbors=15,
-                  n_components=2,
-                  n_epochs=500,
-                  learning_rate=1.0,
-                  min_dist=0.1,
-                  spread=1.0,
-                  set_op_mix_ratio=1.0,
-                  local_connectivity=1.0,
-                  repulsion_strength=1.0,
-                  negative_sample_rate=5,
-                  transform_queue_size=4.0,
-                  init="spectral",
-                  verbose = False,
-                  a = None,
-                  b = None,
-                  target_n_neighbors = -1,
-                  target_weights = 0.5,
-                  target_metric = "euclidean",
-                  should_downcast = True,
-                  handle = None):
+                 n_neighbors=15,
+                 n_components=2,
+                 n_epochs=500,
+                 learning_rate=1.0,
+                 min_dist=0.1,
+                 spread=1.0,
+                 set_op_mix_ratio=1.0,
+                 local_connectivity=1.0,
+                 repulsion_strength=1.0,
+                 negative_sample_rate=5,
+                 transform_queue_size=4.0,
+                 init="spectral",
+                 verbose=False,
+                 a=None,
+                 b=None,
+                 target_n_neighbors=-1,
+                 target_weights=0.5,
+                 target_metric="euclidean",
+                 should_downcast=True,
+                 handle=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -479,8 +476,7 @@ class UMAP(Base):
                               should_downcast,
                               self.handle)
 
-
-    def fit(self, X, y = None):
+    def fit(self, X, y=None):
         """Fit X into an embedded space.
         Parameters
         ----------

@@ -24,22 +24,25 @@ import pandas as pd
 import cudf
 import ctypes
 import cuml
-from libcpp.memory cimport shared_ptr
-cimport cuml.common.handle
-cimport cuml.common.cuda
+
+from cuml import numba_utils
 from cuml.common.base import Base
 
+from cython.operator cimport dereference as deref
+
 from libcpp cimport bool
+from libcpp.memory cimport shared_ptr
 
 from librmm_cffi import librmm as rmm
 from libc.stdlib cimport malloc, free
-from cython.operator cimport dereference as deref
-from numba import cuda
 
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml import numba_utils
+from numba import cuda
+
+cimport cuml.common.handle
+cimport cuml.common.cuda
 
 cdef extern from "cuML.hpp" namespace "ML" nogil:
     cdef cppclass deviceAllocator:
@@ -91,9 +94,8 @@ cdef class NearestNeighborsImpl:
     cpdef kNNParams *input
     cpdef object handle
 
-
-    def __cinit__(self, n_neighbors = 5, n_gpus = 1, devices = None,
-                  verbose = False, should_downcast = True, handle = None):
+    def __cinit__(self, n_neighbors=5, n_gpus=1, devices=None,
+                  verbose=False, should_downcast=True, handle=None):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -186,7 +188,7 @@ cdef class NearestNeighborsImpl:
         n_dims = X.shape[1]
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
+        self.k = new kNN(handle_[0], n_dims, verbose=self._verbose)
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
@@ -251,7 +253,7 @@ cdef class NearestNeighborsImpl:
             del self.k
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.k = new kNN(handle_[0], n_dims, verbose = self._verbose)
+        self.k = new kNN(handle_[0], n_dims, verbose=self._verbose)
 
         del self.input
         self.input = <kNNParams*> malloc(len(alloc_info) * sizeof(kNNParams))
@@ -269,7 +271,7 @@ cdef class NearestNeighborsImpl:
         self.k.fit(<kNNParams*> self.input,
                    <int> len(alloc_info))
 
-    def kneighbors(self, X, k = None):
+    def kneighbors(self, X, k=None):
 
         if k is None:
             k = self.n_neighbors
@@ -429,11 +431,12 @@ class NearestNeighbors(Base):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
 
-    def __init__(self, n_neighbors = 5, n_gpus = 1, devices = None, verbose = False,
-                 should_downcast = True, handle = None):
+    def __init__(self, n_neighbors=5, n_gpus=1, devices=None, verbose=False,
+                 should_downcast=True, handle=None):
         super(NearestNeighbors, self).__init__(handle, verbose)
-        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices, verbose,
-                                          should_downcast, self.handle)
+        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices,
+                                          verbose, should_downcast,
+                                          self.handle)
 
     def fit(self, X):
         """
@@ -446,8 +449,7 @@ class NearestNeighbors(Base):
         """
         return self._impl.fit(X)
 
-
-    def kneighbors(self, X, k = None):
+    def kneighbors(self, X, k=None):
 
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
@@ -480,12 +482,11 @@ class NearestNeighbors(Base):
         """
         return self._impl.kneighbors(X, k)
 
-
     def _fit_mg(self, n_dims, alloc_info):
         """
-        Fits a model using multiple GPUs. This method takes in a list of dict objects
-        representing the distribution of the underlying device pointers. The device
-        information can be extracted from the pointers.
+        Fits a model using multiple GPUs. This method takes in a list of dict
+        objects representing the distribution of the underlying device
+        pointers. The device information can be extracted from the pointers.
 
         :param n_dims
             the number of features for each vector
