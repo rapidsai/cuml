@@ -24,6 +24,8 @@
 #include <common/cumlHandle.hpp>
 #include <common/allocatorAdapter.hpp>
 
+#include "sparse/csr.h"
+
 using namespace thrust;
 
 namespace Dbscan {
@@ -32,39 +34,39 @@ namespace Algo {
 
 using namespace MLCommon;
 
-template <typename Type, int TPB_X>
-__global__ void adj_graph_kernel(Pack<Type> data, int batchSize) {
-    int row = blockIdx.x*TPB_X + threadIdx.x;
-    int N = data.N;
-    if(row < batchSize) {
-        int k = 0;
-        data.core_pts[row] = (data.vd[row] >= data.minPts);
-        Type scan_id = data.ex_scan[row];
-        for(int i=0; i<N; i++) {
-            // @todo: uncoalesced mem accesses!
-            if(data.adj[batchSize * i + row]) {
-                data.adj_graph[scan_id + k] = i;
-                k = k + 1;
-            }
-        }
-    }
-    __syncthreads();
-}
-
-
 static const int TPB_X = 256;
 
+/**
+ * Takes vertex degree array (vd) and CSR row_ind array (ex_scan) to produce the
+ * CSR row_ind_ptr array (adj_graph) and filters into a core_pts array based on min_pts.
+ */
 template <typename Type>
-void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
-    dim3 blocks(ceildiv(batchSize, TPB_X));
-    dim3 threads(TPB_X);
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, Type batchSize, cudaStream_t stream) {
+
     device_ptr<int> dev_vd = device_pointer_cast(data.vd); 
     device_ptr<Type> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
     ML::thrustAllocatorAdapter alloc( handle.getDeviceAllocator(), stream );
-    auto execution_policy = thrust::cuda::par(alloc).on(stream);
-    exclusive_scan(execution_policy, dev_vd, dev_vd + batchSize, dev_ex_scan);
-    adj_graph_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(data, batchSize);
+    exclusive_scan(thrust::cuda::par(alloc).on(stream),
+            dev_vd, dev_vd + batchSize, dev_ex_scan);
+
+    bool *core_pts = data.core_pts;
+    int minPts = data.minPts;
+    int *vd = data.vd;
+
+    MLCommon::Sparse::csr_adj_graph_batched<Type, TPB_X>(
+            data.ex_scan,
+            data.N,
+            data.adjnnz,
+            batchSize,
+            data.adj,
+            data.adj_graph,
+            stream,
+            [core_pts, minPts, vd] __device__ (Type row, Type start_idx, Type stop_idx) {
+        // fuse the operation of core points construction
+        core_pts[row] = (vd[row] >= minPts);
+    });
+
     CUDA_CHECK(cudaPeekAtLastError());
 }
 
