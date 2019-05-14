@@ -30,6 +30,7 @@ void olsFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, floa
 
     olsFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
            normalize, handle.getStream(), algo);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 
 }
 
@@ -38,13 +39,15 @@ void olsFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, dou
 
     olsFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
            normalize, handle.getStream(), algo);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void olsPredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds) {
 
-	olsPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+    olsPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
                handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void olsPredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols, const double *coef,
@@ -52,6 +55,7 @@ void olsPredict(const cumlHandle &handle, const double *input, int n_rows, int n
 
     olsPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
                handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, float *labels, float *alpha,
@@ -60,6 +64,7 @@ void ridgeFit(const cumlHandle &handle, float *input, int n_rows, int n_cols, fl
 
     ridgeFit(handle.getImpl(), input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
              fit_intercept, normalize, handle.getStream(), algo);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, double *labels,
@@ -68,18 +73,21 @@ void ridgeFit(const cumlHandle &handle, double *input, int n_rows, int n_cols, d
 
     ridgeFit(handle.getImpl(), input, n_rows, n_cols, labels, alpha, n_alpha, coef, intercept,
              fit_intercept, normalize, handle.getStream(), algo);
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgePredict(const cumlHandle &handle, const float *input, int n_rows, int n_cols, const float *coef,
 		float intercept, float *preds) {
 
     ridgePredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void ridgePredict(const cumlHandle &handle, const double *input, int n_rows, int n_cols, const double *coef,
 		double intercept, double *preds) {
 
     ridgePredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, handle.getStream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.getStream()));
 }
 
 void qnFit(const cumlHandle &cuml_handle, float *X, float *y, int N, int D,
