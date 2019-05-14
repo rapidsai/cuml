@@ -16,7 +16,8 @@
 
 set (CMAKE_FIND_NO_INSTALL_PREFIX TRUE FORCE)
 
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_policy(SET CMP0079 NEW)
 
 project(CUML VERSION 0.8.0 LANGUAGES CXX CUDA)
 
@@ -44,7 +45,7 @@ option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
 
-option(BUILD_PRIM_TESTS "Build ml-prim tests" ON)
+option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
 
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 
@@ -254,7 +255,9 @@ include_directories(
 
 add_subdirectory(${GTEST_DIR} ${PROJECT_BINARY_DIR}/googletest)
 
-file(GLOB_RECURSE ml_prims_header "src_prims/*.h" "src_prims/*.hpp")
+set(PRIMS_TEST_UTILS
+    src_prims/cuda_utils.h
+    src_prims/utils.h)
 
 ###################################################################################################
 # - build libcuml++ shared library ------------------------------------------------------------------
@@ -298,92 +301,18 @@ if(BUILD_CUML_CPP_LIBRARY)
 endif(BUILD_CUML_CPP_LIBRARY)
 
 ###################################################################################################
-# - build ml_test executable ----------------------------------------------------------------------
+# - build test executables ------------------------------------------------------------------------
 
-if(BUILD_CUML_TESTS)
-
-  file(GLOB_RECURSE cuml_test_cuda_sources "test/sg/*.cu")
-
-  add_executable(ml_test
-    ${cuml_test_cuda_sources}
-    ${ml_prims_header})
-
-  target_link_libraries(ml_test
-    ${GTEST_LIBNAME}
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    gpufaisslib
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    faisslib
-    ${CUML_CPP_TARGET}
-    pthread
-    ${ZLIB_LIBRARIES})
-
-endif(BUILD_CUML_TESTS)
-
-###################################################################################################
-# - build ml_mg_test executable -------------------------------------------------------------------
-
-if(BUILD_CUML_MG_TESTS)
-
-  file(GLOB_RECURSE cuml_mg_test_cuda_sources "test/mg/*.cu")
-
-  add_executable(ml_mg_test
-      ${cuml_mg_test_cuda_sources}
-      ${ml_prims_header})
-
-  target_link_libraries(ml_mg_test
-    ${GTEST_LIBNAME}
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_CUDART_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    ${CUDA_nvgraph_LIBRARY}
-    gpufaisslib
-    faisslib
-    ${CUML_CPP_TARGET}
-    pthread
-    ${ZLIB_LIBRARIES})
-
-endif(BUILD_CUML_MG_TESTS)
-
-###################################################################################################
-# - build prims_test executable ----------------------------------------------------------------
-
-if(BUILD_PRIM_TESTS)
-
-  file(GLOB_RECURSE mlprims_test_cuda_sources "test/prims/*.cu")
-
-  set(MLPRIMS_LINK_LIBRARIES
-    ${CUDA_cublas_LIBRARY}
-    ${CUDA_curand_LIBRARY}
-    ${CUDA_cusolver_LIBRARY}
-    ${CUDA_cusparse_LIBRARY}
-    pthread
-    ${ZLIB_LIBRARIES})
-
-  add_executable(prims_test
-    ${mlprims_test_cuda_sources}
-    ${ml_prims_header})
-
-  target_link_libraries(prims_test
-    ${GTEST_LIBNAME}
-    ${MLPRIMS_LINK_LIBRARIES})
-
-endif(BUILD_PRIM_TESTS)
+if(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
+  add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
+endif(BUILD_CUML_TESTS OR BUILD_CUML_MG_TESTS OR BUILD_PRIMS_TESTS)
 
 ###################################################################################################
 # - build examples -------------------------------------------------------------------------
 
-if (DISABLE_EXAMPLES OR ${BUILD_CUML_EXAMPLES})
+if (BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
-endif(DISABLE_EXAMPLES OR ${BUILD_CUML_EXAMPLES})
+endif(BUILD_CUML_EXAMPLES)
 
 ###################################################################################################
 # - install targets -------------------------------------------------------------------------------
