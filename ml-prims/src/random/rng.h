@@ -290,6 +290,7 @@ public:
    * @param ptr the output array
    * @param len the number of elements in the output
    * @param prob coin-toss probability for heads
+   * @param scale scaling factor
    * @param stream stream where to launch the kernel
    */
   template <typename Type, typename LenType = int>

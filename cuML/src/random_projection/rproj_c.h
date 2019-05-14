@@ -69,11 +69,11 @@ namespace ML{
     };
 
     template<typename math_t>
-    void RPROJfit(cumlHandle& handle, rand_mat<math_t> *random_matrix,
+    void RPROJfit(const cumlHandle& handle, rand_mat<math_t> *random_matrix,
                     paramsRPROJ* params);
 
     template<typename math_t>
-    void RPROJtransform(cumlHandle& handle, math_t *input,
+    void RPROJtransform(const cumlHandle& handle, math_t *input,
                             rand_mat<math_t> *random_matrix,
                             math_t *output, paramsRPROJ* params);
 
