@@ -125,6 +125,21 @@ void ridgeEig(const cumlHandle_impl& handle, math_t *A, int n_rows, int n_cols, 
 	CUDA_CHECK(cudaFree(S));
 }
 
+/**
+ * @defgroup Functions fit a ridge regression model (l2 regularized least squares)
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param labels        device pointer to label vector of length n_rows
+ * @param alpha         device pointer to parameters of the l2 regularizer
+ * @param n_alpha       number of regularization parameters
+ * @param coef          device pointer to hold the solution for weights of size n_cols
+ * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param fit_intercept if true, fit intercept
+ * @param normalize     if true, normalize data to zero mean, unit variance
+ * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
+ * @{
+ */
 template<typename math_t>
 void ridgeFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_cols, math_t *labels,
               math_t *alpha, int n_alpha, math_t *coef, math_t *intercept,
@@ -184,6 +199,16 @@ void ridgeFit(const cumlHandle_impl& handle, math_t *input, int n_rows, int n_co
 
 }
 
+/**
+ * @defgroup Functions to make predictions with a fitted ordinary least squares and ridge regression model
+ * @param input         device pointer to feature matrix n_rows x n_cols
+ * @param n_rows        number of rows of the feature matrix
+ * @param n_cols        number of columns of the feature matrix
+ * @param coef          weights of the model
+ * @param intercept     bias term of the model
+ * @param preds         device pointer to store predictions of size n_rows
+ * @{
+ */
 template<typename math_t>
 void ridgePredict(const cumlHandle_impl& handle, const math_t *input, int n_rows, int n_cols,
 		const math_t *coef, math_t intercept, math_t *preds,
