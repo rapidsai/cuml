@@ -179,7 +179,8 @@ class LinearRegression(Base):
 
     """
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False, handle=None):
+    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+                 handle=None):
 
         """
         Initializes the linear regression class.

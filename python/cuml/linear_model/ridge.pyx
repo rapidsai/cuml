@@ -311,16 +311,16 @@ class Ridge(Base, RegressorMixin):
             c_alpha1 = self.alpha
             ridgeFit(handle_[0],
                      <float*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <float*>y_ptr,
-                       <float*>&c_alpha1,
-                       <int>self.n_alpha,
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+                     <int>self.n_rows,
+                     <int>self.n_cols,
+                     <float*>y_ptr,
+                     <float*>&c_alpha1,
+                     <int>self.n_alpha,
+                     <float*>coef_ptr,
+                     <float*>&c_intercept1,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo)
 
             self.intercept_ = c_intercept1
         else:
@@ -328,16 +328,16 @@ class Ridge(Base, RegressorMixin):
 
             ridgeFit(handle_[0],
                      <double*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <double*>y_ptr,
-                       <double*>&c_alpha2,
-                       <int>self.n_alpha,
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+                     <int>self.n_rows,
+                     <int>self.n_cols,
+                     <double*>y_ptr,
+                     <double*>&c_alpha2,
+                     <int>self.n_alpha,
+                     <double*>coef_ptr,
+                     <double*>&c_intercept2,
+                     <bool>self.fit_intercept,
+                     <bool>self.normalize,
+                     <int>self.algo)
 
             self.intercept_ = c_intercept2
 
@@ -387,20 +387,20 @@ class Ridge(Base, RegressorMixin):
 
         if pred_datatype.type == np.float32:
             ridgePredict(handle_[0],
-                        <float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr)
+                         <float*>X_ptr,
+                         <int>n_rows,
+                         <int>n_cols,
+                         <float*>coef_ptr,
+                         <float>self.intercept_,
+                         <float*>preds_ptr)
         else:
             ridgePredict(handle_[0],
                          <double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr)
+                         <int>n_rows,
+                         <int>n_cols,
+                         <double*>coef_ptr,
+                         <double>self.intercept_,
+                         <double*>preds_ptr)
 
         self.handle.sync()
 

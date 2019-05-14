@@ -90,22 +90,22 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                          int loss) except +
 
     cdef void sgdPredictBinaryClass(cumlHandle& handle,
-                         const float *input,
-                         int n_rows,
-                         int n_cols,
-                         const float *coef,
-                         float intercept,
-                         float *preds,
-                         int loss) except +
+                                    const float *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const float *coef,
+                                    float intercept,
+                                    float *preds,
+                                    int loss) except +
 
     cdef void sgdPredictBinaryClass(cumlHandle& handle,
-                         const double *input,
-                         int n_rows,
-                         int n_cols,
-                         const double *coef,
-                         double intercept,
-                         double *preds,
-                         int loss) except +
+                                    const double *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const double *coef,
+                                    double intercept,
+                                    double *preds,
+                                    int loss) except +
 
 
 class SGD(Base):
@@ -491,22 +491,22 @@ class SGD(Base):
 
         if pred_datatype.type == np.float32:
             sgdPredictBinaryClass(handle_[0],
-                           <float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr,
-                           <int>self.loss)
+                                  <float*>X_ptr,
+                                  <int>n_rows,
+                                  <int>n_cols,
+                                  <float*>coef_ptr,
+                                  <float>self.intercept_,
+                                  <float*>preds_ptr,
+                                  <int>self.loss)
         else:
             sgdPredictBinaryClass(handle_[0],
-                           <double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr,
-                           <int>self.loss)
+                                  <double*>X_ptr,
+                                  <int>n_rows,
+                                  <int>n_cols,
+                                  <double*>coef_ptr,
+                                  <double>self.intercept_,
+                                  <double*>preds_ptr,
+                                  <int>self.loss)
 
         self.handle.sync()
 

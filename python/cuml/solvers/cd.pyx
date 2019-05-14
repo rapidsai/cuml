@@ -30,37 +30,36 @@ from cuml.common.handle cimport cumlHandle
 cdef extern from "solver/solver.hpp" namespace "ML::Solver":
 
     cdef void cdFit(cumlHandle& handle,
-                   float *input,
-		               int n_rows,
-		               int n_cols,
-		               float *labels,
-		               float *coef,
-		               float *intercept,
-		               bool fit_intercept,
-		               bool normalize,
-		               int epochs,
-		               int loss,
-		               float alpha,
-		               float l1_ratio,
-		               bool shuffle,
-		               float tol) except +
-
+                    float *input,
+                    int n_rows,
+                    int n_cols,
+                    float *labels,
+                    float *coef,
+                    float *intercept,
+                    bool fit_intercept,
+                    bool normalize,
+                    int epochs,
+                    int loss,
+                    float alpha,
+                    float l1_ratio,
+                    bool shuffle,
+                    float tol) except +
 
     cdef void cdFit(cumlHandle& handle,
-                   double *input,
-		               int n_rows,
-		               int n_cols,
-		               double *labels,
-		               double *coef,
-		               double *intercept,
-		               bool fit_intercept,
-		               bool normalize,
-		               int epochs,
-		               int loss,
-		               double alpha,
-		               double l1_ratio,
-		               bool shuffle,
-		               double tol) except +
+                    double *input,
+                    int n_rows,
+                    int n_cols,
+                    double *labels,
+                    double *coef,
+                    double *intercept,
+                    bool fit_intercept,
+                    bool normalize,
+                    int epochs,
+                    int loss,
+                    double alpha,
+                    double l1_ratio,
+                    bool shuffle,
+                    double tol) except +
 
     cdef void cdPredict(cumlHandle& handle,
                         const float *input,
@@ -79,6 +78,7 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                         double intercept,
                         double *preds,
                         int loss) except +
+
 
 class CD(Base):
     """
@@ -152,8 +152,8 @@ class CD(Base):
     """
 
     def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
-        fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
-        shuffle=True, handle=None):
+                 fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
+                 shuffle=True, handle=None):
 
         if loss in ['squared_loss']:
             self.loss = self._get_loss_int(loss)
