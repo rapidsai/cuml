@@ -25,12 +25,21 @@ dataset_names = ['blobs', 'noisy_circles'] + \
                  for ds in ['noisy_moons', 'varied', 'aniso']]
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.parametrize('name', dataset_names)
-@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress),
-                                   pytest.param(5000,
-                                                marks=pytest.mark.quality)])
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
 def test_kmeans_sklearn_comparison(name, nrows):
 
     default_base = {'quantile': .3,
