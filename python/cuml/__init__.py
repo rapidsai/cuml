@@ -31,6 +31,8 @@ from cuml.linear_model.ridge import Ridge
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.elastic_net import ElasticNet
 
+from cuml.metrics.regression import r2_score
+
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
@@ -39,6 +41,8 @@ from cuml.solvers.sgd import SGD
 from cuml.solvers.cd import CD
 
 from cuml.manifold.umap import UMAP
+
+from cuml.random_projection.rproj import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
 from ._version import get_versions
 __version__ = get_versions()['version']
