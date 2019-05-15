@@ -280,7 +280,7 @@ void find_best_split_regressor(const std::shared_ptr<TemporaryMemory<T,T>> tempm
 		T ques_val;
 		T *d_quantile = tempmem->d_quantile->data();
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
-		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+		MLCommon::updateHost(&ques_val, &d_quantile[q_index], 1, tempmem->stream);
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), ques_val);
 	}
@@ -340,10 +340,9 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	}
 	CUDA_CHECK(cudaGetLastError());
 	
-	CUDA_CHECK(cudaMemcpyAsync(h_mseout, d_mseout, n_mse_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_count_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(h_predout, d_predout, n_pred_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
-	
+	MLCommon::updateHost(h_mseout, d_mseout, n_mse_bytes / sizeof(T), tempmem->stream);
+	MLCommon::updateHost(h_histout, d_histout, n_count_bytes / sizeof(int), tempmem->stream);
+	MLCommon::updateHost(h_predout, d_predout, n_pred_bytes / sizeof(T), tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	
 	find_best_split_regressor(tempmem, nbins, colselector, &split_info[0], nrows, ques, gain, split_algo);

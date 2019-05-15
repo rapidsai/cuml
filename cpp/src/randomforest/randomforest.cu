@@ -263,12 +263,18 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
-		} else {
-			std::vector<unsigned int> h_selected_rows(n_rows);
-			std::iota(h_selected_rows.begin(), h_selected_rows.end(), 0);
-			std::random_shuffle(h_selected_rows.begin(), h_selected_rows.end());
-			h_selected_rows.resize(n_sampled_rows);
-			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows, stream);
+		} else { // Sampling w/o replacement
+			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
+			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
+			thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(), inkeys->data() + n_rows);
+			int *perms = nullptr;
+			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
+			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
+			MLCommon::copyAsync(selected_rows.data(), outkeys->data(), n_sampled_rows, stream);
+			inkeys->release(stream);
+			outkeys->release(stream);
+			delete inkeys;
+			delete outkeys;
 		}
 
 		/* Build individual tree in the forest.
@@ -429,13 +435,14 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
-		} else {
+		} else { // Sampling w/o replacement
 			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
 			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
 			thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(), inkeys->data() + n_rows);
 			int *perms = nullptr;
 			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
-			CUDA_CHECK(cudaMemcpyAsync(selected_rows.data(), outkeys->data(), n_sampled_rows * sizeof(unsigned int), cudaMemcpyDeviceToDevice, stream));
+			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
+			MLCommon::copyAsync(selected_rows.data(), outkeys->data(), n_sampled_rows, stream);
 			inkeys->release(stream);
 			outkeys->release(stream);
 			delete inkeys;
@@ -448,7 +455,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, /*n_unique_labels,*/ this->rf_params.tree_params);
+		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, this->rf_params.tree_params);
 
 		//Cleanup
 		selected_rows.release(stream);
