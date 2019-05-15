@@ -16,10 +16,9 @@
 
 #include <memory>
 
-#include "../../../ml-prims/src/common/cuml_comms_int.hpp"
-#include "../../../ml-prims/src/common/cuml_comms_iface.hpp"
-
-#include "../../ml-prims/src/utils.h"
+#include "common/cuml_comms_int.hpp"
+#include "common/cuml_comms_iface.hpp"
+#include "utils.h"
 
 namespace MLCommon {
 

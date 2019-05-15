@@ -22,7 +22,7 @@
 #include <cuML_comms.hpp>
 #include <common/cumlHandle.hpp>
 
-#include "../../ml-prims/src/utils.h"
+#include <utils.h>
 
 #define MPI_CHECK(call)                                                             \
   do {                                                                              \
