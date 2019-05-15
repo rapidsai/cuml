@@ -25,7 +25,7 @@
 #include <cusolverDn.h>
 #include <cusparse.h>
 
-#include "../../../ml-prims/src/common/cuml_comms_int.hpp"
+#include "common/cuml_comms_int.hpp"
 
 #include "../cuML_api.h"
 #include "../cuML.hpp"

@@ -23,13 +23,13 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CUML_DIR ${PROJECT_SOURCE_DIR}/.. CACHE STRING "Path to the cuML repo")
-set(CUML_LIBRARY ${CUML_DIR}/cuML/build/libcuml++.so CACHE STRING "Path to the cuML lib")
+set(CUML_LIBRARY ${CUML_DIR}/build/libcuml++.so CACHE STRING "Path to the cuML lib")
 set(NCCL_INCLUDE_DIR /home/jkraus/workspace/NCCL/nccl/build/include CACHE STRING "NCCL include path.")
 set(NCCL_LIBRARY /home/jkraus/workspace/NCCL/nccl/build/lib/libnccl.so CACHE STRING "Path to the NCCL library.")
 
 add_definitions(-DHAVE_NCCL)
 
-include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${MPI_CXX_INCLUDE_PATH} ${CUML_DIR}/cuML/src ${CUML_DIR}/ml-prims/src ${NCCL_INCLUDE_DIR} )
+include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${MPI_CXX_INCLUDE_PATH} ${CUML_DIR}/src ${CUML_DIR}/src_prims ${NCCL_INCLUDE_DIR} )
 
 add_library(cumlcomms SHARED src/cuML_comms_mpi_impl.cpp)
 target_link_libraries(cumlcomms ${CUML_LIBRARY} ${MPI_C_LIBRARIES})

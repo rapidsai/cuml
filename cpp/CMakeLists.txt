@@ -265,6 +265,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
+    src/common/cuML_comms_impl.cpp
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
