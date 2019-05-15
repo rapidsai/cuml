@@ -24,13 +24,22 @@ from sklearn import datasets
 from sklearn.datasets.samples_generator import make_blobs
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
-                                  pytest.param('blobs',
-                                               marks=pytest.mark.stress),
-                                  pytest.param('iris',
-                                               marks=pytest.mark.quality)])
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+                         stress_param('blobs')])
 def test_pca_fit(datatype, input_type, name):
 
     if name == 'blobs':
@@ -76,11 +85,8 @@ def test_pca_fit(datatype, input_type, name):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
-                                  pytest.param('blobs',
-                                               marks=pytest.mark.stress),
-                                  pytest.param('iris',
-                                               marks=pytest.mark.quality)])
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+                         stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name):
     if name == 'blobs':
@@ -114,11 +120,8 @@ def test_pca_fit_transform(datatype, input_type,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
-                                  pytest.param('blobs',
-                                               marks=pytest.mark.stress),
-                                  pytest.param('iris',
-                                               marks=pytest.mark.quality)])
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+                         stress_param('blobs')])
 def test_pca_inverse_transform(datatype, input_type,
                                name):
     if name == 'blobs':
