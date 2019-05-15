@@ -59,6 +59,7 @@ public:
 
     void setCommunicator( std::shared_ptr<MLCommon::cumlCommunicator> communicator );
     const MLCommon::cumlCommunicator& getCommunicator() const;
+    bool commsInitialized() const;
 
 private:
     //TODO: What is the right number?
