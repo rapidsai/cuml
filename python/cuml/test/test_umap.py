@@ -89,7 +89,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                          verbose=False).fit_transform(data, iris.target)
+                       verbose=False).fit_transform(data, iris.target)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
 
@@ -100,7 +100,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
     target = iris.target.copy()
     target[25:75] = -1
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                          verbose=False).fit_transform(data, target)
+                       verbose=False).fit_transform(data, target)
 
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -110,7 +110,7 @@ def test_umap_trustworthiness_on_iris():
     iris = datasets.load_iris()
     data = iris.data
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
-                          verbose=False).fit_transform(data)
+                       verbose=False).fit_transform(data)
     trust = trustworthiness(iris.data, embedding, 10)
 
     # We are doing a spectral embedding but not a
@@ -150,6 +150,7 @@ def test_umap_fit_transform_trust(name):
 
     assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
+
 @pytest.mark.parametrize('name', [unit_param('digits')])
 @pytest.mark.parametrize('nrows', [quality_param(5000),
                          stress_param(500000)])
@@ -158,7 +159,7 @@ def test_umap_fit_transform_trust(name):
 @pytest.mark.parametrize('should_downcast', [True])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 def test_umap_data_formats(input_type, should_downcast,
-                           nrows, n_feats):
+                           nrows, n_feats, name):
 
     dtype = np.float32 if not should_downcast else np.float64
     n_samples = nrows
@@ -174,7 +175,7 @@ def test_umap_data_formats(input_type, should_downcast,
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
     umap = cuUMAP(n_neighbors=3, n_components=2,
-                     should_downcast=should_downcast, verbose=False)
+                  should_downcast=should_downcast, verbose=False)
 
     if input_type == 'dataframe':
         X_pd = pd.DataFrame(
