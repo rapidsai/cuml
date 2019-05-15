@@ -7,16 +7,25 @@ from sklearn import datasets
 import pandas as pd
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.parametrize('lrate', ['constant', 'invscaling', 'adaptive'])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
 @pytest.mark.parametrize('loss', ['hinge', 'log', 'squared_loss'])
-@pytest.mark.parametrize('name', [pytest.param(None, marks=pytest.mark.unit),
-                                  pytest.param('blobs',
-                                               marks=pytest.mark.stress),
-                                  pytest.param('iris',
-                                               marks=pytest.mark.quality)])
+@pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
+                         stress_param('blobs')])
 def test_svd(datatype, lrate, input_type, penalty,
              loss, name):
 
