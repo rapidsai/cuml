@@ -93,7 +93,7 @@ template<typename T, typename L>
 void make_split(T *column, MetricQuestion<T> & ques, const int nrows, int& nrowsleft, int& nrowsright, unsigned int* rowids, int split_algo, const std::shared_ptr<TemporaryMemory<T, L>> tempmem)
 {
 
-	int *temprowids = tempmem->temprowids->data();
+	unsigned int *temprowids = tempmem->temprowids->data();
 	char *d_flags_left = tempmem->d_flags_left->data();
 	char *d_flags_right = tempmem->d_flags_right->data();
 	T *question_value = tempmem->question_value->data();
@@ -112,17 +112,18 @@ void make_split(T *column, MetricQuestion<T> & ques, const int nrows, int& nrows
 
 
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);
-	CUDA_CHECK(cudaMemcpyAsync(&nrowsleftright[0], d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost, tempmem->stream));
+	MLCommon::updateHost(&nrowsleftright[0], d_num_selected_out, 1, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
 	nrowsleft = nrowsleftright[0];
 	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows);
-	CUDA_CHECK(cudaMemcpyAsync(&nrowsleftright[1], d_num_selected_out, sizeof(int), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(rowids, temprowids, nrows*sizeof(int), cudaMemcpyDeviceToDevice, tempmem->stream));
+	MLCommon::updateHost(&nrowsleftright[1], d_num_selected_out, 1, tempmem->stream);
+	MLCommon::copyAsync(rowids, temprowids, nrows, tempmem->stream);
 	
 	// Copy GPU-computed question value to tree node.
-	if (split_algo == ML::SPLIT_ALGO::HIST)
-		CUDA_CHECK(cudaMemcpyAsync(&(ques.value), question_value, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+	if (split_algo == ML::SPLIT_ALGO::HIST) {
+		MLCommon::updateHost(&(ques.value), question_value, 1, tempmem->stream);
+	}
 
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	nrowsright = nrowsleftright[1];

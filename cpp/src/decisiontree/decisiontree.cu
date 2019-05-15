@@ -343,7 +343,7 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 	if (depth == 0) {
 		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 		// Copy sampled column IDs to device memory
-		CUDA_CHECK(cudaMemcpyAsync(this->tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, this->tempmem[0]->stream));
+		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
 		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
 		
 		int *labelptr = this->tempmem[0]->sampledlabels->data();
@@ -519,7 +519,7 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 	if (depth == 0) {
 		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
 		// Copy sampled column IDs to device memory
-		CUDA_CHECK(cudaMemcpyAsync(this->tempmem[0]->d_colids->data(), colselector.data(), sizeof(int) * colselector.size(), cudaMemcpyHostToDevice, this->tempmem[0]->stream));
+		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
 		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
 
 		T *labelptr = this->tempmem[0]->sampledlabels->data();

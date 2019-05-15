@@ -184,7 +184,7 @@ void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tem
 		T ques_val;
 		T *d_quantile = tempmem->d_quantile->data();
 		int q_index = col_selector[best_col_id] * nbins  + best_bin_id;
-		CUDA_CHECK(cudaMemcpyAsync(&ques_val, &d_quantile[q_index], sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+		MLCommon::updateHost(&ques_val, &d_quantile[q_index], 1, tempmem->stream);
 		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 		ques.set_question_fields(best_col_id, col_selector[best_col_id], best_bin_id, nbins, n_cols, std::numeric_limits<T>::max(), -std::numeric_limits<T>::max(), ques_val);
 	}
@@ -202,7 +202,8 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 
 	int ncols = colselector.size();
 	int col_minmax_bytes = sizeof(T) * 2 * ncols;
-	int n_hist_bytes = n_unique_labels * nbins * sizeof(int) * ncols;
+	int n_hist_elements = n_unique_labels * nbins * ncols;
+	int n_hist_bytes = n_hist_elements * sizeof(int);
 
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
@@ -234,7 +235,7 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	}
 	CUDA_CHECK(cudaGetLastError());
 
-	CUDA_CHECK(cudaMemcpyAsync(h_histout, d_histout, n_hist_bytes, cudaMemcpyDeviceToHost, tempmem->stream));
+	MLCommon::updateHost(h_histout, d_histout, n_hist_elements, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	
 	find_best_split_classifier<T, L, F>(tempmem, nbins, n_unique_labels, colselector, &split_info[0], nrows, ques, gain, split_algo);

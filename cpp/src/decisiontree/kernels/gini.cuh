@@ -116,7 +116,7 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 	CUDA_CHECK(cudaMemsetAsync(dhist, 0, sizeof(int)*unique_labels, tempmem->stream));
 	gini_kernel<<< MLCommon::ceildiv(nrows, 128), 128, sizeof(int)*unique_labels, tempmem->stream>>>(labels_in, nrows, unique_labels, dhist);
 	CUDA_CHECK(cudaGetLastError());
-	CUDA_CHECK(cudaMemcpyAsync(hhist, dhist, sizeof(int)*unique_labels, cudaMemcpyDeviceToHost, tempmem->stream));
+	MLCommon::updateHost(hhist, dhist, unique_labels, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
 	split_info.hist.resize(unique_labels, 0);
@@ -145,8 +145,8 @@ void mse(T *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory<T,
 	mse_kernel<T, F><<< MLCommon::ceildiv(nrows, 128), 128, 0, tempmem->stream>>>(labels_in, nrows, dpred, dmse);
 	CUDA_CHECK(cudaGetLastError());
 	
-	CUDA_CHECK(cudaMemcpyAsync(hmse, dmse, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
-	CUDA_CHECK(cudaMemcpyAsync(hpred, dpred, sizeof(T), cudaMemcpyDeviceToHost, tempmem->stream));
+	MLCommon::updateHost(hmse, dmse, 1, tempmem->stream);
+	MLCommon::updateHost(hpred, dpred, 1, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	
 	split_info.best_metric = (float)hmse[0] / (float)nrows; //Update split metric value

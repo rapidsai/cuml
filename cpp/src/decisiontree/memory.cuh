@@ -45,7 +45,8 @@ struct TemporaryMemory
 	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
 	size_t split_temp_storage_bytes = 0;
 
-	MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
+	MLCommon::device_buffer<int> *d_num_selected_out;
+	MLCommon::device_buffer<unsigned int> *temprowids;
 	MLCommon::device_buffer<T> *question_value, *temp_data;
 
 	//Total temp mem
@@ -89,7 +90,7 @@ struct TemporaryMemory
 		d_num_selected_out = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, 1);
 		d_flags_left = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
 		d_flags_right = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
-		temprowids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
+		temprowids = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, N);
 		question_value = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
 
 		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
