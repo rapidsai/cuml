@@ -47,7 +47,8 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_linear_models(datatype, X_type, y_type, algorithm, nrows, ncols, n_info):
+def test_linear_models(datatype, X_type, y_type, algorithm,
+                       nrows, ncols, n_info):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=(nrows), n_features=ncols,
                            n_informative=n_info, random_state=0)
