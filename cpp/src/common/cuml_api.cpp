@@ -19,7 +19,7 @@
 
 #include "cumlHandle.hpp"
 
-#include "../../../ml-prims/src/utils.h"
+#include "../../src_prims/utils.h"
 
 namespace ML {
 namespace detail {

@@ -20,7 +20,7 @@
 
 #include <thrust/system/cuda/execution_policy.h>
 
-#include "../../../ml-prims/src/utils.h"
+#include "../../src_prims/utils.h"
 
 #include "../cuML.hpp"
 
@@ -54,7 +54,7 @@ public:
     {}
 
     stdAllocatorAdapter& operator=(const stdAllocatorAdapter& other) = default;
-    
+
     stdAllocatorAdapter(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream)
         : _allocator(allocator), _stream(stream)
     {}
@@ -74,7 +74,7 @@ public:
     {
         return static_cast<pointer>(_allocator->allocate( size, _stream ));
     }
-    void deallocate(pointer ptr, size_type size) { 
+    void deallocate(pointer ptr, size_type size) {
         _allocator->deallocate(ptr, size, _stream);
     }
 
@@ -126,9 +126,9 @@ public:
     thrustAllocatorAdapter(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream)
         : _allocator(allocator), _stream(stream)
     {}
-    
+
     ~thrustAllocatorAdapter() {}
-    
+
     char* allocate(const size_t size)
     {
         return static_cast<char*>(_allocator->allocate( size, _stream ));
@@ -144,7 +144,7 @@ private:
     cudaStream_t                        _stream = 0;
 };
 
-namespace 
+namespace
 {
     thrustAllocatorAdapter _decltypeHelper{0,0};
 }
@@ -171,7 +171,7 @@ inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator, cudaS
         delete alloc;
         delete pointer;
     };
-    
+
     std::unique_ptr<T, decltype(deleter)> policy{new T(*alloc), deleter};
     return policy;
 }

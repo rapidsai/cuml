@@ -6,11 +6,13 @@
 
 ## Improvements
 
+- PR #597: C++ cuML and ml-prims folder refactor
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
 - PR #596: Introduce cumlHandle for ols and ridge
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -63,7 +65,6 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
-- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 

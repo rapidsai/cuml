@@ -16,7 +16,7 @@
 
 #include "cumlHandle.hpp"
 
-#include "../../../ml-prims/src/utils.h"
+#include "../../src_prims/utils.h"
 
 //TODO: Delete CUBLAS_CHECK and CUSOLVER_CHECK once
 //      https://github.com/rapidsai/cuml/issues/239 is addressed
@@ -261,7 +261,7 @@ void cumlHandle_impl::waitOnUserStream() const
 
 void cumlHandle_impl::waitOnInternalStreams() const
 {
-    for (auto s : _streams) 
+    for (auto s : _streams)
     {
         CUDA_CHECK( cudaEventRecord( _event, s ) );
         CUDA_CHECK( cudaStreamWaitEvent( _userStream, _event, 0 ) );
