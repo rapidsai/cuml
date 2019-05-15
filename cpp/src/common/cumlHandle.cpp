@@ -284,6 +284,11 @@ const MLCommon::cumlCommunicator& cumlHandle_impl::getCommunicator() const
     return *_communicator;
 }
 
+bool cumlHandle_impl::commsInitialized() const
+{
+    return (nullptr != _communicator.get());
+}
+
 void cumlHandle_impl::createResources()
 {
     cudaStream_t stream;
