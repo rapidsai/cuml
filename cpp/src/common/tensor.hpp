@@ -18,7 +18,7 @@
 #include <vector>
 #include <common/cuml_allocator.hpp>
 
-namespace ML {  
+namespace ML {
 
 template <typename DataT,
 	  int Dim,
@@ -28,28 +28,28 @@ public:
     enum { NumDim = Dim };
     typedef DataT* DataPtrT;
 
-    __host__ 
+    __host__
     ~Tensor(){
 	if (_state == AllocState::Owner){
 	    if(memory_type(_data) == cudaMemoryTypeDevice){
 		_dAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
-	    }else if(memory_type(_data) == cudaMemoryTypeHost){	
+	    }else if(memory_type(_data) == cudaMemoryTypeHost){
 		_hAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
 	    }
 	}
-    }	
+    }
 
-    __host__ 
+    __host__
     Tensor(DataPtrT data,
 	   const std::vector <IndexT> &sizes)
 	: _data(data), _state(AllocState::NotOwner){
 
 	static_assert(Dim > 0,
-		      "must have > 0 dimensions");      
+		      "must have > 0 dimensions");
 
 	ASSERT(sizes.size() == Dim,
 	       "invalid argument: # of entries in the input argument 'sizes' must match the tensor dimension" );
-      
+
 	for (int i = 0; i < Dim; ++i) {
 	    _size[i] = sizes[i];
 	}
@@ -58,11 +58,11 @@ public:
 	for (int j = Dim - 2; j >= 0; --j) {
 	    _stride[j] = _stride[j + 1] * _size[j + 1];
 	}
-    }  
-    
+    }
+
     // allocate the data using the allocator and release when the object goes out of scope
     // allocating tensor is the owner of the data
-    __host__ 
+    __host__
     Tensor(const std::vector <IndexT> &sizes,
      	   std::shared_ptr<MLCommon::deviceAllocator> allocator,
 	   cudaStream_t stream):
@@ -71,11 +71,11 @@ public:
 	_state(AllocState::Owner){
 
 	static_assert(Dim > 0,
-		      "must have > 0 dimensions");      
+		      "must have > 0 dimensions");
 
 	ASSERT(sizes.size() == Dim,
 	       "dimension mismatch" );
-    
+
 	for (int i = 0; i < Dim; ++i) {
 	    _size[i] = sizes[i];
 	}
@@ -84,16 +84,16 @@ public:
 	for (int j = Dim - 2; j >= 0; --j) {
 	    _stride[j] = _stride[j + 1] * _size[j + 1];
 	}
-  
+
 	_data = static_cast<DataT *>(_dAllocator->allocate(this->getSizeInBytes(),
 							   _stream));
 
 	CUDA_CHECK( cudaStreamSynchronize( _stream ) );
-    
+
 	ASSERT(this->data() || (this->getSizeInBytes() == 0),
 	       "device allocation failed");
     }
-    
+
     /// returns the total number of elements contained within our data
     __host__  size_t
     numElements() const {
@@ -110,7 +110,7 @@ public:
     __host__  inline IndexT getSize(int i) const {
 	return _size[i];
     }
-    
+
     /// returns the stride array
     __host__  inline const IndexT* strides() const {
 	return _stride;
@@ -120,7 +120,7 @@ public:
     __host__  inline const IndexT getStride(int i) const {
 	return _stride[i];
     }
-    
+
     /// returns the total size in bytes of our data
     __host__  size_t getSizeInBytes() const {
 	return numElements() * sizeof(DataT);
@@ -136,7 +136,7 @@ public:
     __host__  inline DataPtrT begin() {
 	return _data;
     }
-    
+
     /// returns a raw pointer to the end of our data
     __host__  inline DataPtrT end() {
 	return data() + numElements();
@@ -173,8 +173,8 @@ public:
 	    offset += start_pos[dim] * getStride(dim);
 	}
 	DataPtrT newData = this->data() + offset;
-      
-            
+
+
 	// The total size of the new view must be the <= total size of the old view
 	size_t curSize = numElements();
 	size_t newSize = 1;
@@ -188,26 +188,26 @@ public:
 
 	return Tensor<DataT, NewDim, IndexT>(newData, sizes);
     }
-    
+
 
 private:
     enum AllocState {
 	/// This tensor itself owns the memory, which must be freed via
 	/// cudaFree
 	Owner,
-      
+
 	/// This tensor itself is not an owner of the memory; there is
 	/// nothing to free
 	NotOwner
     };
-    
+
 
 protected:
-     
+
     std::shared_ptr<MLCommon::deviceAllocator>   _dAllocator;
     std::shared_ptr<MLCommon::hostAllocator>   _hAllocator;
 
-    /// Raw pointer to where the tensor data begins 
+    /// Raw pointer to where the tensor data begins
     DataPtrT _data;
 
     /// Array of strides (in sizeof(T) terms) per each dimension
@@ -221,5 +221,5 @@ protected:
     cudaStream_t _stream;
 };
 
-}; // end namespace ML 
+}; // end namespace ML
 
