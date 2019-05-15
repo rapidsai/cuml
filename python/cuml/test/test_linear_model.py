@@ -25,27 +25,29 @@ import pandas as pd
 from sklearn.datasets import make_regression
 
 
+def unit_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
+
+
+def quality_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.quality)
+
+
+def stress_param(*args, **kwargs):
+    return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('y_type', ['series', 'ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
-@pytest.mark.parametrize('nrows', [pytest.param(20, marks=pytest.mark.unit),
-                                   pytest.param(500000,
-                                                marks=pytest.mark.stress),
-                                   pytest.param(5000,
-                                                marks=pytest.mark.quality)])
-@pytest.mark.parametrize('ncols', [pytest.param(3, marks=pytest.mark.unit),
-                                   pytest.param(1000,
-                                                marks=pytest.mark.stress),
-                                   pytest.param(100,
-                                                marks=pytest.mark.quality)])
-@pytest.mark.parametrize('n_info', [pytest.param(2, marks=pytest.mark.unit),
-                                    pytest.param(500,
-                                                 marks=pytest.mark.stress),
-                                    pytest.param(50,
-                                                 marks=pytest.mark.quality)])
-def test_unit(datatype, X_type, y_type, algorithm, nrows, ncols, n_info):
-    n_info = 2
+@pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),
+                         stress_param(500000)])
+@pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
+                         stress_param(1000)])
+@pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
+                         stress_param(500)])
+def test_linear_models(datatype, X_type, y_type, algorithm, nrows, ncols, n_info):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=(nrows), n_features=ncols,
                            n_informative=n_info, random_state=0)
@@ -71,7 +73,7 @@ def test_unit(datatype, X_type, y_type, algorithm, nrows, ncols, n_info):
                       solver=algorithm)
 
     if X_type == 'dataframe':
-        y_train = pd.DataFrame({'fea0': y_train[0:, ]})
+        y_train = pd.DataFrame({'labels': y_train[0:, ]})
         X_train = pd.DataFrame(
             {'fea%d' % i: X_train[0:, i] for i in range(X_train.shape[1])})
         X_test = pd.DataFrame(
