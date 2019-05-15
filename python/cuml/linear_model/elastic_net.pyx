@@ -31,7 +31,7 @@ class ElasticNet:
     predicting response y with a linear combination of the predictors in X. It can reduce
     the variance of the predictors, force some coefficients to be smaell, and improves the conditioning of the problem.
 
-    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit a linear model. 
+    cuML's ElasticNet expects a cuDF DataFrame, uses coordinate descent to fit a linear model.
 
     Examples
     ---------
@@ -84,11 +84,11 @@ class ElasticNet:
     -----------
     alpha : float or double
         Constant that multiplies the L1 term. Defaults to 1.0.
-        alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object. 
-        For numerical reasons, using alpha = 0 with the Lasso object is not advised. 
+        alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object.
+        For numerical reasons, using alpha = 0 with the Lasso object is not advised.
         Given this, you should use the LinearRegression object.
-    l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1. 
-        For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is an L1 penalty. 
+    l1_ratio: The ElasticNet mixing parameter, with 0 <= l1_ratio <= 1.
+        For l1_ratio = 0 the penalty is an L2 penalty. For l1_ratio = 1 it is an L1 penalty.
         For 0 < l1_ratio < 1, the penalty is a combination of L1 and L2.
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
@@ -99,10 +99,10 @@ class ElasticNet:
     max_iter : int
         The maximum number of iterations
     tol : float, optional
-        The tolerance for the optimization: if the updates are smaller than tol, 
+        The tolerance for the optimization: if the updates are smaller than tol,
         the optimization code checks the dual gap for optimality and continues until it is smaller than tol.
     selection : str, default ‘cyclic’
-        If set to ‘random’, a random coefficient is updated every iteration rather than looping over features sequentially by default. 
+        If set to ‘random’, a random coefficient is updated every iteration rather than looping over features sequentially by default.
         This (setting to ‘random’) often leads to significantly faster convergence especially when tol is higher than 1e-4.
 
     Attributes
@@ -111,7 +111,7 @@ class ElasticNet:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
+
 
     For additional docs, see `scikitlearn's ElasticNet <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
@@ -125,8 +125,8 @@ class ElasticNet:
         ----------
         alpha : float or double.
         l1_ratio : float or double.
-        fit_intercept: boolean. 
-        normalize: boolean. 
+        fit_intercept: boolean.
+        normalize: boolean.
         max_iter: int
         tol: float or double.
         selection : str, ‘cyclic’, or 'random'
@@ -150,7 +150,7 @@ class ElasticNet:
         else:
             msg = "selection {!r} is not supported"
             raise TypeError(msg.format(selection))
-       
+
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
@@ -181,7 +181,7 @@ class ElasticNet:
         if self.selection == 'random':
             shuffle = True
 
-        self.cuElasticNet = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
+        self.cuElasticNet = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha,
                           l1_ratio=self.l1_ratio, shuffle=shuffle, max_iter=self.max_iter)
         self.cuElasticNet.fit(X, y)
 
@@ -241,5 +241,5 @@ class ElasticNet:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-        
+
         return self
