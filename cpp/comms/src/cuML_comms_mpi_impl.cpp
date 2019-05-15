@@ -324,7 +324,7 @@ void cumlMPICommunicator_impl::allgather(const void* sendbuff, void* recvbuff, i
     NCCL_CHECK( ncclAllGather(sendbuff, recvbuff, sendcount, getNCCLDatatype( datatype ), _nccl_comm, stream) );
 #else
     CUDA_CHECK( cudaStreamSynchronize( stream ) );
-    MPI_CHECK( MPI_Allreduce(sendbuff, sendcount, getMPIDatatype( datatype ), recvbuff, sendcount, getMPIDatatype( datatype ), _mpi_comm) );
+    MPI_CHECK( MPI_Allgather(sendbuff, sendcount, getMPIDatatype( datatype ), recvbuff, sendcount, getMPIDatatype( datatype ), _mpi_comm) );
 #endif
 }
 
