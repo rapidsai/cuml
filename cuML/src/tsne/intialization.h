@@ -28,7 +28,7 @@ namespace Intialization_ {
 
 void Initialize(int *err) 
 {
-	// TODO set cache levels
+    // TODO set cache levels
     InitializationKernel<<<1, 1>>>(err);
     cuda_synchronize();
 }
@@ -36,18 +36,18 @@ void Initialize(int *err)
 
 
 float *randomVector(const float minimum,
-					const float maximum,
-					const int size, 
-					const long long seed,
-					cudaStream_t stream)
+                    const float maximum,
+                    const int size, 
+                    const long long seed,
+                    cudaStream_t stream)
 {
-	if (seed < 0) {
-		struct timeval tp;
-	    gettimeofday(&tp, NULL);
-	    seed = tp.tv_sec * 1000 + tp.tv_usec;
-	}
+    if (seed < 0) {
+        struct timeval tp;
+        gettimeofday(&tp, NULL);
+        seed = tp.tv_sec * 1000 + tp.tv_usec;
+    }
 
-	float *embedding;
+    float *embedding;
     MLCommon::Random::Rng random(seed);
     random.uniform<float>(embedding, size, minimum, maximum, stream);
     return embedding;

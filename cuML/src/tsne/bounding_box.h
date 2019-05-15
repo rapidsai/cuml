@@ -94,7 +94,7 @@ void boundingBoxKernel(volatile int * __restrict__ cell_starts,
             embedding_y[k] = (miny + maxy) * 0.5f;
             k *= 4;
             for (i = 0; i < 4; i++)
-            	children[k + i] = -1;
+                children[k + i] = -1;
 
             stepd++;
         }
@@ -107,37 +107,37 @@ void boundingBoxKernel(volatile int * __restrict__ cell_starts,
 namespace BoundingBox_ {
 
 
-void boundingBox(	int * __restrict__ cell_starts,
-					int * __restrict__ children,
-					float * __restrict__ cell_mass,
-					float * __restrict__ embedding,
-					float * __restrict__ x_max,
-					float * __restrict__ y_max,
-					float * __restrict__ x_min,
-					float * __restrict__ y_min,
-					const int N_NODES,
-					const int n,
-					const in BLOCKS,
-					const int bounding_kernel_factor,
-					const int bounding_kernel_threads)
+void boundingBox(   int * __restrict__ cell_starts,
+                    int * __restrict__ children,
+                    float * __restrict__ cell_mass,
+                    float * __restrict__ embedding,
+                    float * __restrict__ x_max,
+                    float * __restrict__ y_max,
+                    float * __restrict__ x_min,
+                    float * __restrict__ y_min,
+                    const int N_NODES,
+                    const int n,
+                    const in BLOCKS,
+                    const int bounding_kernel_factor,
+                    const int bounding_kernel_threads)
 {
-	boundingBoxKernel<<<BLOCKS * bounding_kernel_factor,
-						bounding_kernel_threads,
-						sizeof(float)*4*bounding_kernel_threads>>> \
-					(
-						cell_starts,
-						children,
-						cell_mass,
-						embedding,
-						embedding + N_NODES + 1,
-						x_max,
-						y_max,
-						x_min,
-						y_min,
-						N_NODES, n,
-						bounding_kernel_threads
-					);
-	cuda_synchronize();
+    boundingBoxKernel<<<BLOCKS * bounding_kernel_factor,
+                        bounding_kernel_threads,
+                        sizeof(float)*4*bounding_kernel_threads>>> \
+                    (
+                        cell_starts,
+                        children,
+                        cell_mass,
+                        embedding,
+                        embedding + N_NODES + 1,
+                        x_max,
+                        y_max,
+                        x_min,
+                        y_min,
+                        N_NODES, n,
+                        bounding_kernel_threads
+                    );
+    cuda_synchronize();
 }
 
 
