@@ -9,6 +9,7 @@ using namespace MLCommon::Sparse;
 #include "distances.h"
 #include "perplexity_search.h"
 #include "gpu_info.h"
+#include "intialization.h"
 
 #pragma once
 
@@ -34,7 +35,10 @@ void runTsne(	const Type * __restrict__ X,
 				// Iterations, termination crtierion
 				const int exaggeration_iter = 250,
 				const int max_iter = 1000,
-				const float min_grad_norm = 1e-7)
+				const float min_grad_norm = 1e-7,
+
+                // Seed for random data
+                const long long seed = -1)
 {	
 	// Currently only allows n_components = 2
 	assert(n_components == 2);
@@ -63,6 +67,10 @@ void runTsne(	const Type * __restrict__ X,
     	&tree_kernel_factor, &sort_kernel_threads, &sort_kernel_factor, 
     	&summary_kernel_threads, &summary_kernel_factor);
 
+    // Intialize cache levels and errors
+    int *err;       cuda_malloc(err, 1);
+    Intialization_::Initialize(err);
+    //
 
 
 	// Nodes needed for BH
@@ -100,7 +108,7 @@ void runTsne(	const Type * __restrict__ X,
 
 	// Change P to COO matrix
 	COO<float> P;
-	MLCommon::Sparse::from_knn(indices, Pij, n, n_neighbors, P);
+	MLCommon::Sparse::from_knn(indices, Pij, n, n_neighbors, &P);
 	cuda_free(Pij);
 
 
@@ -119,7 +127,7 @@ void runTsne(	const Type * __restrict__ X,
 	float *normalization;	cuda_malloc(normalization, N_NODES+1);
 
 	float *gains;			cuda_calloc(gains, n*2, 1.0f);
-	float *prev_forces;		cuda_calloc(prev_forces, n*2, 0.0f);
+	float *old_forces;		cuda_calloc(prev_forces, n*2, 0.0f);
 
 	int *cell_starts;		cuda_malloc(cell_starts, N_NODES+1);
 	int *children;			cuda_malloc(children, (N_NODES+1)*4);
@@ -133,10 +141,34 @@ void runTsne(	const Type * __restrict__ X,
 	float *y_min;			cuda_malloc(y_min, BLOCKS*bounding_kernel_factor);
 
 
+    // Intialize embedding
+    float *embedding = Intialization_::randomVector(-5, 5, (N_NODES+1)*2, seed, stream);
+
+    // Make a random vector to add noise to the embeddings
+    float *noise = Intialization_::randomVector(-0.05, 0.05, (N_NODES+1)*2, seed, stream);
+
+
+
+    // Gradient updates
+    float exaggeration = early_exaggeration;
+    float momentum = pre_momentum;
+
+    for (size_t i = 0; i < max_iter; i++) {
+        if (i == exaggeration_iter) {
+            exaggeration = 1.0f;
+            momentum = post_momentum;
+        }
+
+
+    }
+    //
 
 
 	// Free everything
 	P_PT.destroy();
+
+    cuda_free(noise);
+    cuda_free(embedding);
 
 	cuda_free(y_min);
 	cuda_free(x_min);
@@ -148,7 +180,7 @@ void runTsne(	const Type * __restrict__ X,
 	cuda_free(children);
 	cuda_free(cell_starts);
 
-	cuda_free(prev_forces);
+	cuda_free(old_forces);
 	cuda_free(gains);
 
 	cuda_free(normalization);
@@ -156,6 +188,7 @@ void runTsne(	const Type * __restrict__ X,
 	cuda_free(repulsion);
 	cuda_free(P_x_Q);
 
+    cuda_free(err);
 
 	// Destory CUDA stream
 	CUDA_CHECK(cudaStreamDestroy(stream));

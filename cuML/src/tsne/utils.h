@@ -1,5 +1,6 @@
 
 using namespace ML;
+#pragma once
 
 #include "cuda_utils.h"
 #include <cuda_runtime.h>
