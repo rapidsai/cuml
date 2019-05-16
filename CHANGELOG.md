@@ -10,6 +10,7 @@
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
+- PR #601: Cython PEP8 cleanup and CI integration
 - PR #596: Introduce cumlHandle for ols and ridge
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
