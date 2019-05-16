@@ -133,3 +133,25 @@ class Base:
         Get ctype pointer of a cudf column
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
+
+    def _input_to_array(self, obj):
+        """
+        Convert input obj to device array suitable for C++ methods
+        """
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = numba_utils.row_matrix(X)
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(X)
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
+
+        else:
+            msg = "X matrix format  not supported"
+            raise TypeError(msg)
+
+        return X_m
