@@ -23,9 +23,6 @@ import ctypes
 import cudf
 import numpy as np
 
-from numba import cuda
-from cuml import numba_utils
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
