@@ -22,11 +22,11 @@
 
 import cuml.common.handle
 import cuml.common.cuda
+import cuml.numba_utils
 
 import cudf
-
-from numba import cuda
-from cuml import numba_utils
+import numba
+import numpy as np
 
 
 class Base:
@@ -149,7 +149,7 @@ class Base:
 
         elif (isinstance(X, np.ndarray)):
             self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
+            X_m = numba.cuda.to_device(X)
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
