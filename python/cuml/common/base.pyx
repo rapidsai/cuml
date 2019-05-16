@@ -25,6 +25,9 @@ import cuml.common.cuda
 
 import cudf
 
+from numba import cuda
+from cuml import numba_utils
+
 
 class Base:
     """
