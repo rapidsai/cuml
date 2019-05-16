@@ -49,7 +49,7 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
     }
     __syncthreads();
     for (int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-        int col = i / nrows;
+	int col = i / nrows;
         int row = i % nrows;
         if(colids != nullptr) {
             col = colids[col];
@@ -59,8 +59,9 @@ __global__ void minmaxKernel(const T* data, const unsigned int* rowids,
         }
         int index = row + col * row_stride;
         T coldata = data[index];
-        myAtomicMin(&s_min[col], coldata);
-        myAtomicMax(&s_max[col], coldata);
+	//Min max values are saved in shared memory and global memory as per the shuffled colids.
+        myAtomicMin(&s_min[(int)(i / nrows)], coldata);
+        myAtomicMax(&s_max[(int)(i / nrows)], coldata);
         if(sampledcols != nullptr) {
             sampledcols[i] = coldata;
         }
@@ -109,7 +110,6 @@ void minmax(const T* data, const unsigned int* rowids, const unsigned int* colid
                                                    globalmax, init_val);
     CUDA_CHECK(cudaPeekAtLastError());
     nblks = ceildiv(nrows * ncols, TPB);
-    //nblks = max(nblks, 65536);
     nblks = min(nblks, 65536);
     size_t smemSize = sizeof(T) * 2 * ncols;
     minmaxKernel<T><<<nblks, TPB, smemSize, stream>>>(

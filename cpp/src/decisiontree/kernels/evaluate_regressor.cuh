@@ -323,8 +323,7 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	*/
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
-		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), std::numeric_limits<T>::max());
-		//MLCommon::Stats::minmax<T, threads>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), tempmem->stream);
+		MLCommon::Stats::minmax<T, threads>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), tempmem->stream);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}
