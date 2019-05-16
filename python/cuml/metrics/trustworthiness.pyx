@@ -42,7 +42,7 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        int n_neighbors)
 
 
-def _get_array_ptr(self, obj):
+def _get_array_ptr(obj):
     """
     Get ctype pointer of a numba style device array
     """

@@ -212,14 +212,14 @@ class CD(Base):
             msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_column_ptr(y)
+            y_ptr = self._get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -305,11 +305,11 @@ class CD(Base):
             msg = "X matrix format  not supported"
             raise TypeError(msg)
 
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
