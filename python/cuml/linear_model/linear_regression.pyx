@@ -229,23 +229,9 @@ class LinearRegression(Base):
 
         """
 
+        X_m = self._input_to_array(X)
+
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
-            raise TypeError(msg)
-
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
@@ -328,23 +314,9 @@ class LinearRegression(Base):
 
         """
 
+        X_m = self._input_to_array(X)
+
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            n_rows = len(X)
-            n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            pred_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
         X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)

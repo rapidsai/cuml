@@ -279,15 +279,6 @@ class SGD(Base):
             'elasticnet': 3
         }[penalty]
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
     def fit(self, X, y):
         """
         Fit the model with X and y.
@@ -299,31 +290,17 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
+        X_m = self._input_to_array(X)
+
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
-            raise TypeError(msg)
-
-        X_ptr = self._get_ctype_ptr(X_m)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_column_ptr(y)
+            y_ptr = self._get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_ctype_ptr(y_m)
+            y_ptr = self._get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -402,28 +379,14 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
+        X_m = self._input_to_array(X)
+
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            n_rows = len(X)
-            n_cols = len(X._cols)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
-        elif (isinstance(X, np.ndarray)):
-            pred_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        X_ptr = self._get_ctype_ptr(X_m)
-
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -465,28 +428,14 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
+        X_m = self._input_to_array(X)
+
         cdef uintptr_t X_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            pred_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix(order='F')
-            n_rows = len(X)
-            n_cols = len(X._cols)
+        X_ptr = self._get_dev_array_ptr(X_m)
 
-        elif (isinstance(X, np.ndarray)):
-            pred_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        X_ptr = self._get_ctype_ptr(X_m)
-
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
-        cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
