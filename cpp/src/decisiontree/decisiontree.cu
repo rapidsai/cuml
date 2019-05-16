@@ -337,11 +337,11 @@ TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colp
 template<typename T>
 void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const float colper, MetricQuestion<T> & ques, float& gain,
 												unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) {
-	std::vector<int>& colselector = this->feature_selector;
+	std::vector<unsigned int>& colselector = this->feature_selector;
 
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
-		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
+		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(unsigned int) * colselector.size(), cudaHostRegisterDefault));
 		// Copy sampled column IDs to device memory
 		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
 		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
@@ -513,11 +513,11 @@ template<typename T>
 void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const float colper, MetricQuestion<T> & ques, float& gain,
 												unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) {
 
-	std::vector<int>& colselector = this->feature_selector;
+	std::vector<unsigned int>& colselector = this->feature_selector;
 	
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
-		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(int) * colselector.size(), cudaHostRegisterDefault));
+		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(unsigned int) * colselector.size(), cudaHostRegisterDefault));
 		// Copy sampled column IDs to device memory
 		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
 		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));

@@ -22,13 +22,14 @@
 #include "col_condenser.cuh"
 #include <float.h>
 #include "../algo_helper.h"
+#include "stats/minmax.h"
 
 /*
    The output of the function is a histogram array, of size ncols * nbins * n_unique_lables
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
+__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -73,7 +74,7 @@ __global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, con
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -110,7 +111,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_class(const T* __rest
 }
 
 template<typename T, typename L, typename F>
-void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const int nbins, const int n_unique_labels, const std::vector<int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
+void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tempmem, const int nbins, const int n_unique_labels, const std::vector<unsigned int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
 
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -193,9 +194,9 @@ void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tem
 
 
 template<typename T, typename L, typename F>
-void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
+void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<unsigned int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
 {
-	int* d_colids = tempmem->d_colids->data();
+	unsigned int* d_colids = tempmem->d_colids->data();
 	T* d_globalminmax = tempmem->d_globalminmax->data();
 	int *d_histout = tempmem->d_histout->data();
 	int *h_histout = tempmem->h_histout->data();
@@ -207,7 +208,7 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
-	int threads = 512;
+	const int threads = 512;
 	int blocks = MLCommon::ceildiv(nrows * ncols, threads);
 	if (blocks > 65536)
 		blocks = 65536;
@@ -220,6 +221,7 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
 		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), std::numeric_limits<T>::max());
+        //MLCommon::Stats::minmax<T, threads>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), tempmem->stream);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}

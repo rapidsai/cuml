@@ -54,7 +54,7 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	MLCommon::device_buffer<int> *d_offsets;
 	MLCommon::device_buffer<T> *d_keys_out;
 	T  *d_keys_in = tempmem->temp_data->data();
-	int *colids = nullptr;
+	unsigned int *colids = nullptr;
 
 	d_offsets = new MLCommon::device_buffer<int>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_cols + 1);
 

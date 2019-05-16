@@ -116,7 +116,7 @@ class dt {
 		int min_rows_per_node;
 		bool bootstrap_features;
 		CRITERION split_criterion;
-		std::vector<int> feature_selector;
+		std::vector<unsigned int> feature_selector;
 
 	    void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
 		void split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);

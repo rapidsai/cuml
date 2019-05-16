@@ -22,9 +22,10 @@
 #include "col_condenser.cuh"
 #include <float.h>
 #include "../algo_helper.h"
+#include "stats/minmax.h"
 
 template<typename T, typename F>
-__global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T pred_parent) {
+__global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T pred_parent) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -85,7 +86,7 @@ __global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const 
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* predout, int* countout) {
+__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, const T* __restrict__ globalminmax, T* predout, int* countout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -134,7 +135,7 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* predout, int* countout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* predout, int* countout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -175,7 +176,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 }
 
 template<typename T, typename F>
-__global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile, const T pred_parent) {
+__global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int rowoffset, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile, const T pred_parent) {
 	
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -225,7 +226,7 @@ __global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ dat
 }
 
 template<typename T>
-void find_best_split_regressor(const std::shared_ptr<TemporaryMemory<T,T>> tempmem, const int nbins, const std::vector<int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
+void find_best_split_regressor(const std::shared_ptr<TemporaryMemory<T,T>> tempmem, const int nbins, const std::vector<unsigned int>& col_selector, MetricInfo<T> split_info[3], const int nrows, MetricQuestion<T> & ques, float & gain, const int split_algo) {
 	
 	gain = 0.0f;
 	int best_col_id = -1;
@@ -289,9 +290,9 @@ void find_best_split_regressor(const std::shared_ptr<TemporaryMemory<T,T>> tempm
 
 
 template<typename T, typename F>
-void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, const T *labels, const int nbins, const int nrows, const int rowoffset, const std::vector<int>& colselector, const std::shared_ptr<TemporaryMemory<T,T>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
+void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, const T *labels, const int nbins, const int nrows, const int rowoffset, const std::vector<unsigned int>& colselector, const std::shared_ptr<TemporaryMemory<T,T>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
 {
-	int* d_colids = tempmem->d_colids->data();
+	unsigned int* d_colids = tempmem->d_colids->data();
 	T* d_globalminmax = tempmem->d_globalminmax->data();
 	int *d_histout = tempmem->d_histout->data();
 	int *h_histout = tempmem->h_histout->data();
@@ -310,7 +311,7 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	CUDA_CHECK(cudaMemsetAsync((void*)d_predout, 0, n_pred_bytes, tempmem->stream));
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_count_bytes, tempmem->stream));
 	
-	int threads = 512;
+	const int threads = 512;
 	int blocks = MLCommon::ceildiv(nrows * ncols, threads);
 	if (blocks > 65536)
 		blocks = 65536;
@@ -323,6 +324,7 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	size_t shmemsize = col_minmax_bytes;
 	if (split_algo == ML::SPLIT_ALGO::HIST) { // Histograms (min, max)
 		allcolsampler_minmax_kernel<<<blocks, threads, shmemsize, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), std::numeric_limits<T>::max());
+		//MLCommon::Stats::minmax<T, threads>(data, rowids, d_colids, nrows, ncols, rowoffset, &d_globalminmax[0], &d_globalminmax[colselector.size()], tempmem->temp_data->data(), tempmem->stream);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) { // Global quantiles; just col condenser
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}
