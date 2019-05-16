@@ -42,6 +42,13 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
                                                        int n_neighbors)
 
 
+def _get_array_ptr(self, obj):
+        """
+        Get ctype pointer of a numba style device array
+        """
+        return obj.device_ctypes_pointer.value
+
+
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                     metric='euclidean', should_downcast=True):
     """
@@ -97,8 +104,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         d_X = cuda.to_device(X)
         d_X_embedded = cuda.to_device(X_embedded)
 
-    cdef uintptr_t d_X_ptr = _get_dev_array_ptr(d_X)
-    cdef uintptr_t d_X_embedded_ptr = _get_dev_array_ptr(d_X_embedded)
+    cdef uintptr_t d_X_ptr = _get_array_ptr(d_X)
+    cdef uintptr_t d_X_embedded_ptr = _get_array_ptr(d_X_embedded)
 
     cdef cumlHandle* handle_ = <cumlHandle*>0
     if handle is None:
