@@ -1,16 +1,19 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
+- PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
 
 ## Improvements
 
+- PR #597: C++ cuML and ml-prims folder refactor
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
 - PR #601: Cython PEP8 cleanup and CI integration
 - PR #596: Introduce cumlHandle for ols and ridge
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -28,12 +31,12 @@
 - PR #435: Expose cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
-- PR #444: Add supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 - PR #491: Add doxygen build target for ml-prims
 - PR #505: Add R-Squared Score to python interface
 - PR #507: Add coordinate descent for lasso and elastic-net
 - PR #511: Add a minmax ml-prim
+- PR #516: Added Trustworthiness score feature
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Add column-wise matrix sort primitive
 - PR #525: Add docs build script to cuML
@@ -63,7 +66,6 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
-- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 
 ## Bug Fixes
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,5 +14,6 @@
 # limitations under the License.
 #
 
-from cuml.metrics.trustworthiness import trustworthiness
-from cuml.metrics.regression import r2_score
+from cuml.random_projection.rproj import GaussianRandomProjection
+from cuml.random_projection.rproj import SparseRandomProjection
+from cuml.random_projection.rproj import johnson_lindenstrauss_min_dim
