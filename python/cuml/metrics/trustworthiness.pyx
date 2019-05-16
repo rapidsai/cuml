@@ -97,8 +97,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         d_X = cuda.to_device(X)
         d_X_embedded = cuda.to_device(X_embedded)
 
-    cdef uintptr_t d_X_ptr = get_ctype_ptr(d_X)
-    cdef uintptr_t d_X_embedded_ptr = get_ctype_ptr(d_X_embedded)
+    cdef uintptr_t d_X_ptr = _get_dev_array_ptr(d_X)
+    cdef uintptr_t d_X_embedded_ptr = _get_dev_array_ptr(d_X_embedded)
 
     cdef cumlHandle* handle_ = <cumlHandle*>0
     if handle is None:
@@ -120,13 +120,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     if handle is None:
         del handle_
     return res
-
-
-def get_ctype_ptr(obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
 
 
 def to_single_precision(X):
