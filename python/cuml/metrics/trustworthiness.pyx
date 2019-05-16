@@ -43,10 +43,10 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 
 
 def _get_array_ptr(self, obj):
-        """
-        Get ctype pointer of a numba style device array
-        """
-        return obj.device_ctypes_pointer.value
+    """
+    Get ctype pointer of a numba style device array
+    """
+    return obj.device_ctypes_pointer.value
 
 
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
