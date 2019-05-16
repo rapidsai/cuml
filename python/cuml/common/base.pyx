@@ -137,13 +137,13 @@ class Base:
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-    def _input_to_array(self, obj):
+    def _input_to_array(self, X):
         """
-        Convert input obj to device array suitable for C++ methods
+        Convert input X to device array suitable for C++ methods
         """
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
+            X_m = cuml.numba_utils.row_matrix(X)
             self.n_rows = len(X)
             self.n_cols = len(X._cols)
 
