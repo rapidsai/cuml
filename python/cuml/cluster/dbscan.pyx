@@ -178,22 +178,24 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
+        # cdef uintptr_t input_ptr
+        # if (isinstance(X, cudf.DataFrame)):
+        #     self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+        #     X_m = numba_utils.row_matrix(X)
+        #     self.n_rows = len(X)
+        #     self.n_cols = len(X._cols)
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
+        # elif (isinstance(X, np.ndarray)):
+        #     self.gdf_datatype = X.dtype
+        #     X_m = cuda.to_device(X)
+        #     self.n_rows = X.shape[0]
+        #     self.n_cols = X.shape[1]
 
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
+        # else:
+        #     msg = "X matrix format  not supported"
+        #     raise TypeError(msg)
+
+        X_m = self._input_to_array(X)
 
         input_ptr = self._get_dev_array_ptr(X_m)
 
