@@ -158,3 +158,5 @@ class Base:
             raise TypeError(msg)
 
         return X_m
+
+    # todo: getter for single column (series) input
