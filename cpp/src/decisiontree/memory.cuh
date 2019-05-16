@@ -34,7 +34,8 @@ struct TemporaryMemory
 	
 	//Host/Device histograms and device minmaxs
 	MLCommon::device_buffer<T> *d_globalminmax;
-	MLCommon::device_buffer<int> *d_histout, *d_colids;
+	MLCommon::device_buffer<int> *d_histout;
+	MLCommon::device_buffer<unsigned int> *d_colids;
 	MLCommon::host_buffer<int> *h_histout;
 	MLCommon::device_buffer<T> *d_mseout, *d_predout;
 	MLCommon::host_buffer<T> *h_mseout, *h_predout;
@@ -108,9 +109,9 @@ struct TemporaryMemory
 		d_mseout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 2*mse_elements);
 		d_predout = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, mse_elements);
 		
-		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
+		d_colids = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, Ncols);
 		// memory of d_histout + d_colids + d_globalminmax + (d_mseout + d_predout)
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T) + 3 * n_bins * sizeof(T))* Ncols;
+		totalmem += (n_hist_elements * sizeof(int) + sizeof(unsigned int) + 2*sizeof(T) + 3 * n_bins * sizeof(T))* Ncols;
 
 		//this->print_info();
 	}

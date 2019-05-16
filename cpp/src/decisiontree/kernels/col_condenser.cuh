@@ -37,17 +37,18 @@ void get_sampled_labels(const T *labels, T *outlabels, unsigned int* rowids, con
 }
 
 template<typename T>
-__global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* sampledcols)
+__global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* sampledcols)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
 	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
 		int newcolid = (int)(i / nrows);
 		int myrowstart;
-		if( colids != nullptr)
+		if (colids != nullptr) {
 			myrowstart = colids[ newcolid ] * rowoffset;
-		else
+		} else {
 			myrowstart = newcolid * rowoffset;
+		}
 
 		int index = rowids[ i % nrows] + myrowstart;
 		sampledcols[i] = data[index];
@@ -56,7 +57,7 @@ __global__ void allcolsampler_kernel(const T* __restrict__ data, const unsigned 
 }
 
 template<typename T>
-__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols, T init_min_val)
+__global__ void allcolsampler_minmax_kernel(const T* __restrict__ data, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nrows, const int ncols, const int rowoffset, T* globalmin, T* globalmax, T* sampledcols, T init_min_val)
 {
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];

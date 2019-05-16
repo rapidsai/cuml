@@ -35,8 +35,8 @@ __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax,
 }
 
 template <typename T>
-__global__ void minmaxKernel(const T* data, const int* rowids,
-                             const int* colids, int nrows, int ncols,
+__global__ void minmaxKernel(const T* data, const unsigned int* rowids,
+                             const unsigned int* colids, int nrows, int ncols,
                              int row_stride, T* g_min, T* g_max, T* sampledcols,
                              T init_min_val) {
     int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -100,7 +100,7 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
  *    in shared memory
  */
 template <typename T, int TPB = 512>
-void minmax(const T* data, const int* rowids, const int* colids, int nrows,
+void minmax(const T* data, const unsigned int* rowids, const unsigned int* colids, int nrows,
             int ncols, int row_stride, T* globalmin, T* globalmax,
             T* sampledcols, cudaStream_t stream) {
     int nblks = ceildiv(ncols, TPB);
@@ -109,7 +109,8 @@ void minmax(const T* data, const int* rowids, const int* colids, int nrows,
                                                    globalmax, init_val);
     CUDA_CHECK(cudaPeekAtLastError());
     nblks = ceildiv(nrows * ncols, TPB);
-    nblks = max(nblks, 65536);
+    //nblks = max(nblks, 65536);
+    nblks = min(nblks, 65536);
     size_t smemSize = sizeof(T) * 2 * ncols;
     minmaxKernel<T><<<nblks, TPB, smemSize, stream>>>(
         data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
