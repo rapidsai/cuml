@@ -178,7 +178,7 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        # cdef uintptr_t input_ptr
+        #
         # if (isinstance(X, cudf.DataFrame)):
         #     self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
         #     X_m = numba_utils.row_matrix(X)
@@ -197,6 +197,7 @@ class DBSCAN(Base):
 
         X_m = self._input_to_array(X)
 
+        cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
