@@ -244,13 +244,9 @@ class Ridge(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        X_m = self._input_to_array(X)
+        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
 
         cdef uintptr_t X_ptr
-
-        else:
-            msg = "X matrix must be a cuDF dataframe or Numpy ndarray"
-            raise TypeError(msg)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -343,17 +339,17 @@ class Ridge(Base, RegressorMixin):
 
         """
 
-        X_m = self._input_to_array(X)
+        X_m, n_rows, n_cols, datatype = self._matrix_input_to_array(X)
 
         cdef uintptr_t X_ptr
         X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
+        preds = cudf.Series(np.zeros(n_rows, dtype=datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if pred_datatype.type == np.float32:
+        if datatype.type == np.float32:
             ridgePredict(handle_[0],
                          <float*>X_ptr,
                          <int>n_rows,

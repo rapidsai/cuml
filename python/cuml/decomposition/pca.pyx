@@ -346,7 +346,7 @@ class PCA(Base):
 
         """
 
-       X_m = self._input_to_array(X)
+        X_m = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
@@ -476,7 +476,7 @@ class PCA(Base):
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
-        X_m = self._input_to_array(X)
+        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
 
         cdef uintptr_t trans_input_ptr
         trans_input_ptr = self._get_dev_array_ptr(X_m)
@@ -546,7 +546,7 @@ class PCA(Base):
 
         """
 
-        X_m = self._input_to_array(X)
+        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)

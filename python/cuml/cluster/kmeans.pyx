@@ -304,7 +304,7 @@ class KMeans(Base):
 
         """
 
-        X_m = self._input_to_array(X)
+        X_m = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
@@ -424,7 +424,7 @@ class KMeans(Base):
 
         """
 
-        X_m = self._input_to_array(X)
+        X_m = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
 
@@ -481,7 +481,7 @@ class KMeans(Base):
 
         """
 
-        X_m = self._input_to_array(X)
+        X_m = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
 
