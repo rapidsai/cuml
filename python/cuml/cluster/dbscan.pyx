@@ -167,7 +167,7 @@ class DBSCAN(Base):
 
             Parameters
             ----------
-            X : cuDF DataFrame
+            X : cuDF DataFrame, numpy array or numba device array
                Dense matrix (floats or doubles) of shape (n_samples,
                n_features)
         """
@@ -175,7 +175,8 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        X_m = self._input_to_array(X)
+        X_m, self.n_rows, self.n_cols, self.gdf_datatype = \
+            self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)

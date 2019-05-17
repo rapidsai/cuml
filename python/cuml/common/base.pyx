@@ -28,6 +28,10 @@ import cudf
 import numba
 import numpy as np
 
+from numba import cuda
+
+from librmm_cffi import librmm as rmm
+
 
 class Base:
     """
@@ -127,36 +131,59 @@ class Base:
 
     def _get_dev_array_ptr(self, obj):
         """
-        Get ctype pointer of a numba style device array
+        Returns ctype pointer of a numba style device array
         """
         return obj.device_ctypes_pointer.value
 
     def _get_cudf_column_ptr(self, col):
         """
-        Get ctype pointer of a cudf column
+        Returns ctype pointer of a cudf column
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-    def _input_to_array(self, X):
+    def _matrix_input_to_array(self, X):
         """
         Convert input X to device array suitable for C++ methods
-        """
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = cuml.numba_utils.row_matrix(X)
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
+        Acceptable input formats:
+        * cuDF Dataframe
+        * Numpy array
+        * cuda array interface compliant array (like Cupy)
+        * numba device array
 
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = numba.cuda.to_device(X)
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
+        Returns a new device array if the input was not a numba device array.
+        Returns a reference to the input X if its a numba device array or cuda
+            array interface compliant (like cupy)
+        """
+        if isinstance(X, cudf.DataFrame):
+            datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = cuml.numba_utils.row_matrix(X)
+
+        elif isinstance(X, np.ndarray):
+            datatype = X.dtype
+            X_m = rmm.to_device(X)
+
+        elif cuda.is_cuda_array(X):
+            # Use cuda array interface to do create a numba device array by
+            # reference
+            X_m = cuda.as_cuda_array(X)
+
+        elif cuda.devicearray.is_cuda_ndarray(X):
+            X_m = X
+
+            # Will need to allocate new output array using rmm and copy the
+            # numba device array to an rmm owned device array
+
+            # out_dev_array = rmm.device_array_like(X_m)
+            # out_dev_array.copy_to_device(X_m)
 
         else:
-            msg = "X matrix format  not supported"
+            msg = "X matrix format " + str(X.__class__) +  " not supported"
             raise TypeError(msg)
 
-        return X_m
+        if X_m:
+            n_rows = X_m.shape[0]
+            n_cols = X_m.shape[1]
+
+        return X_m, n_rows, n_cols, datatype
 
     # todo: getter for single column (series) input
