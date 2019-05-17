@@ -111,12 +111,12 @@ void make_split(T *column, MetricQuestion<T> & ques, const int nrows, int& nrows
 	int *d_num_selected_out = tempmem->d_num_selected_out->data();
 
 
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows);
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_left, temprowids, d_num_selected_out, nrows, tempmem->stream);
 	MLCommon::updateHost(&nrowsleftright[0], d_num_selected_out, 1, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
 	nrowsleft = nrowsleftright[0];
-	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows);
+	cub::DeviceSelect::Flagged(d_temp_storage, temp_storage_bytes, rowids, d_flags_right, &temprowids[nrowsleft], d_num_selected_out, nrows, tempmem->stream);
 	MLCommon::updateHost(&nrowsleftright[1], d_num_selected_out, 1, tempmem->stream);
 	MLCommon::copyAsync(rowids, temprowids, nrows, tempmem->stream);
 	
