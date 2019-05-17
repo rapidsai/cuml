@@ -141,7 +141,7 @@ class Base:
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-    def _matrix_input_to_array(self, X):
+    def _matrix_input_to_array(self, X, order='F'):
         """
         Convert input X to device array suitable for C++ methods
         Acceptable input formats:
@@ -156,7 +156,10 @@ class Base:
         """
         if isinstance(X, cudf.DataFrame):
             datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = cuml.numba_utils.row_matrix(X)
+            if order == 'F':
+                X_m = X.as_gpu_matrix(order='F')
+            elif order == 'C':
+                X_m = cuml.numba_utils.row_matrix(X)
 
         elif isinstance(X, np.ndarray):
             datatype = X.dtype
@@ -177,7 +180,7 @@ class Base:
             # out_dev_array.copy_to_device(X_m)
 
         else:
-            msg = "X matrix format " + str(X.__class__) +  " not supported"
+            msg = "X matrix format " + str(X.__class__) + " not supported"
             raise TypeError(msg)
 
         if X_m:
