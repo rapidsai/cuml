@@ -285,7 +285,7 @@ void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[])
          _free_requests.insert( req_it->first );
         _requests_in_flight.erase( req_it );
     }
-    MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUS_IGNORE) );
+    MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE) );
 }
 
 void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
