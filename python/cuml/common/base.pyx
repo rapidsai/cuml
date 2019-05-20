@@ -25,7 +25,6 @@ import cuml.common.cuda
 import cuml.numba_utils
 
 import cudf
-import numba
 import numpy as np
 
 from numba import cuda
@@ -163,29 +162,23 @@ class Base:
 
         elif isinstance(X, np.ndarray):
             datatype = X.dtype
-            X_m = rmm.to_device(X)
+            X_m = rmm.to_device(np.array(X, order=order, copy=False))
 
         elif cuda.is_cuda_array(X):
-            # Use cuda array interface to do create a numba device array by
-            # reference
+            # Use cuda array interface to create a device array by reference
             X_m = cuda.as_cuda_array(X)
 
         elif cuda.devicearray.is_cuda_ndarray(X):
             X_m = X
 
-            # Will need to allocate new output array using rmm and copy the
-            # numba device array to an rmm owned device array
-
-            # out_dev_array = rmm.device_array_like(X_m)
-            # out_dev_array.copy_to_device(X_m)
-
         else:
             msg = "X matrix format " + str(X.__class__) + " not supported"
             raise TypeError(msg)
 
-        if X_m:
-            n_rows = X_m.shape[0]
-            n_cols = X_m.shape[1]
+        n_rows = X_m.shape[0]
+        n_cols = X_m.shape[1]
+
+        # todo: add check of alignment and nans
 
         return X_m, n_rows, n_cols, datatype
 
