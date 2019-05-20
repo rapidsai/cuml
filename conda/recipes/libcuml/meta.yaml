@@ -30,6 +30,7 @@ requirements:
     - cudf 0.7*
     - cudatoolkit {{ cuda_version }}.*
     - lapack
+    - libclang
   run:
     - cudf 0.7*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
