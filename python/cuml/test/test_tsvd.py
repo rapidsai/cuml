@@ -14,6 +14,7 @@
 
 import pytest
 from cuml import TruncatedSVD as cuTSVD
+from cuml.test.utils import get_handle
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from cuml.test.utils import array_equal
 import cudf
@@ -37,10 +38,11 @@ def stress_param(*args, **kwargs):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
 def test_tsvd_fit(datatype, input_type,
-                  name):
+                  name, use_handle):
 
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
@@ -60,7 +62,8 @@ def test_tsvd_fit(datatype, input_type,
     sktsvd = skTSVD(n_components=1)
     sktsvd.fit(X)
 
-    cutsvd = cuTSVD(n_components=1)
+    handle, stream = get_handle(use_handle)
+    cutsvd = cuTSVD(n_components=1, handle=handle)
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
@@ -71,6 +74,8 @@ def test_tsvd_fit(datatype, input_type,
     else:
         cutsvd.fit(X)
 
+    cutsvd.handle.sync()
+
     for attr in ['singular_values_', 'components_',
                  'explained_variance_ratio_']:
         with_sign = False if attr in ['components_'] else True
@@ -80,10 +85,11 @@ def test_tsvd_fit(datatype, input_type,
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
 def test_tsvd_fit_transform(datatype, input_type,
-                            name):
+                            name, use_handle):
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -102,7 +108,8 @@ def test_tsvd_fit_transform(datatype, input_type,
     skpca = skTSVD(n_components=1)
     Xsktsvd = skpca.fit_transform(X)
 
-    cutsvd = cuTSVD(n_components=1)
+    handle, stream = get_handle(use_handle)
+    cutsvd = cuTSVD(n_components=1, handle=handle)
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
@@ -113,15 +120,18 @@ def test_tsvd_fit_transform(datatype, input_type,
     else:
         Xcutsvd = cutsvd.fit_transform(X)
 
+    cutsvd.handle.sync()
+
     assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('random'),
                          stress_param('blobs')])
 def test_tsvd_inverse_transform(datatype, input_type,
-                                name):
+                                name, use_handle):
 
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
@@ -151,4 +161,7 @@ def test_tsvd_inverse_transform(datatype, input_type,
         Xcutsvd = cutsvd.fit_transform(X)
 
     input_gdf = cutsvd.inverse_transform(Xcutsvd)
+
+    cutsvd.handle.sync()
+
     assert array_equal(input_gdf, X_cudf, 0.4, with_sign=True)

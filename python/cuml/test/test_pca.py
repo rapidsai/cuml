@@ -15,6 +15,7 @@
 
 import pytest
 from cuml import PCA as cuPCA
+from cuml.test.utils import get_handle
 from sklearn.decomposition import PCA as skPCA
 from cuml.test.utils import array_equal
 import cudf
@@ -38,9 +39,11 @@ def stress_param(*args, **kwargs):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
-def test_pca_fit(datatype, input_type, name):
+def test_pca_fit(datatype, input_type,
+                 name, use_handle):
 
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
@@ -58,7 +61,8 @@ def test_pca_fit(datatype, input_type, name):
     skpca = skPCA(n_components=2)
     skpca.fit(X)
 
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         X = pd.DataFrame({'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
@@ -67,6 +71,8 @@ def test_pca_fit(datatype, input_type, name):
 
     else:
         cupca.fit(X)
+
+    cupca.handle.sync()
 
     for attr in ['singular_values_', 'components_', 'explained_variance_',
                  'explained_variance_ratio_', 'noise_variance_']:
@@ -85,10 +91,11 @@ def test_pca_fit(datatype, input_type, name):
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
-                           name):
+                           name, use_handle):
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -104,7 +111,8 @@ def test_pca_fit_transform(datatype, input_type,
     skpca = skPCA(n_components=2)
     Xskpca = skpca.fit_transform(X)
 
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
@@ -113,17 +121,19 @@ def test_pca_fit_transform(datatype, input_type,
         X_cupca = cupca.fit_transform(X_cudf)
 
     else:
-        X_cupca = cupca.fit_transform(X)
+        Xcupca = cupca.fit_transform(X)
+    cupca.handle.sync()
 
     assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
 def test_pca_inverse_transform(datatype, input_type,
-                               name):
+                               name, use_handle):
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
         X, y = make_blobs(n_samples=500000,
@@ -148,6 +158,8 @@ def test_pca_inverse_transform(datatype, input_type,
 
     else:
         X_cupca = cupca.fit_transform(X)
+
+    cupca.handle.sync()
 
     input_gdf = cupca.inverse_transform(X_cupca)
     assert array_equal(input_gdf, X_cudf,
