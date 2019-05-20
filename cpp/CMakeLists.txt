@@ -99,6 +99,11 @@ else()
   message(STATUS "Manually setting BLAS to ${BLAS_LIBRARIES}")
 endif()
 
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+find_package(ClangFormat 8.0.0 EXACT REQUIRED)
+# TODO: enable this when we are ready!
+#find_package(ClangTidy 8.0.0 EXACT REQUIRED)
+
 ###################################################################################################
 # - External Dependencies--------------------------------------------------------------------------
 
@@ -326,3 +331,9 @@ install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
 #   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 #   CWD ${CMAKE_CURRENT_BINARY_DIR})
 
+###################################################################################################
+# - clang-format targets --------------------------------------------------------------------------
+
+add_clang_format(
+  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
+  SRCDIR ${PROJECT_SOURCE_DIR})

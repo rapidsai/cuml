@@ -19,36 +19,55 @@ import re
 import os
 import subprocess
 import argparse
+import gitutils
 
 
-# TODO: prepare 'dst' correctly!
-def listAllSources(fileRegexStr, srcdir, bindir, inplace):
-    fileRegex = re.compile(fileRegexStr)
+def listAllSourceFiles(fileRegex, srcdirs, dstdir, inplace):
     allFiles = []
-    for d, s, files in os.walk(srcdir):
-        for f in files:
-            if re.search(fileRegex, f):
-                src = os.path.join(d, f)
-                dst = src + ".clang.format" if not inplace else src
-                allFiles.append((src, dst))
+    for srcdir in srcdirs:
+        for root, dirs, files in os.walk(srcdir):
+            for f in files:
+                if re.search(fileRegex, f):
+                    src = os.path.join(root, f)
+                    if inplace:
+                        _dir = root
+                    else:
+                        _dir = os.path.join(dstdir, os.path.basename(root))
+                    dst = os.path.join(_dir, f)
+                    allFiles.append((src, dst))
+    return allFiles
+
+
+def listAllChangedFiles(fileRegex, dstdir, inplace):
+    allFiles = []
+    def checkThisFile(f):
+        return True if fileRegex.search(f) else False
+    files = gitutils.modifiedFiles(filter=checkThisFile)
+    for f in files:
+        dst = f if inplace else os.path.join(dstdir, f)
+        allFiles.append((f, dst))
     return allFiles
 
 
 def parseArgs():
-    argparser = argparse.ArgumentParser("Run clang-format on a project")
-    argparser.add_argument("-bindir", type=str, default=".",
+    argparser = argparse.ArgumentParser("Runs clang-format on a project")
+    argparser.add_argument("-dstdir", type=str, default=".",
                            help="Path to the current build directory.")
     argparser.add_argument("-exe", type=str, default="clang-format",
                            help="Path to clang-format exe")
     argparser.add_argument("-inplace", default=False, action="store_true",
                            help="Replace the source files itself.")
-    argparser.add_argument("-regex", type=str, default=r"[.](h|cpp|cu)$",
+    argparser.add_argument("-regex", type=str, default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
+    argparser.add_argument("-onlyChangedFiles", default=False, action="store_true",
+                           help="Run the formatter on changedFiles only.")
     argparser.add_argument("-srcdir", type=str, default=".",
                            help="Path to directory containing the dirs.")
     argparser.add_argument("dirs", type=str, nargs="*",
                            help="List of dirs where to find sources")
-    return argparser.parse_args()
+    args = argparser.parse_args()
+    args.regexCompiled = re.compile(args.regex)
+    return args
 
 
 def isNewer(src, dst):
@@ -60,6 +79,9 @@ def isNewer(src, dst):
 
 
 def runClangFormat(src, dst, exe):
+    dstdir = os.path.dirname(dst)
+    if not os.path.exists(dstdir):
+        os.makedirs(dstdir)
     # run the clang format command itself
     if isNewer(src, dst):
         if src == dst:
@@ -69,16 +91,14 @@ def runClangFormat(src, dst, exe):
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
-            print("Unable to run clang-format!"
-                  " Please configure your environment.")
+            print("Unable to run clang-format! Please configure your environment.")
             raise
     # run the diff to check if there are any formatting issues
     cmd = "diff -q %s %s >/dev/null" % (src, dst)
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print("clang-format failed!"
-              " Run 'diff %s %s' to see the formatting issues!" %
+        print("clang-format failed! Run 'diff %s %s' to see the formatting issues!" %
               (src, dst))
         return False
     return True
@@ -86,11 +106,13 @@ def runClangFormat(src, dst, exe):
 
 def main():
     args = parseArgs()
-    allFiles = []
-    for d in args.dirs:
-        srcdir = os.path.join(args.srcdir, d)
-        bindir = os.path.join(args.bindir, d)
-        allFiles += listAllSources(args.regex, srcdir, bindir, args.inplace)
+    # Either run the format checker on only the changed files or all the source
+    # files as specified by the user
+    if args.onlyChangedFiles:
+        allFiles = listAllChangedFiles(args.regexCompiled, args.dstdir, args.inplace)
+    else:
+        allFiles = listAllSourceFiles(args.regexCompiled, args.dirsr, dstdir, args.inplace)
+    # actual format checker
     status = True
     for src, dst in allFiles:
         if not runClangFormat(src, dst, args.exe):
@@ -99,8 +121,13 @@ def main():
         print("Clang-format failed! Look at errors above and fix them, or if")
         print("you trust the clang-format, you can also run the following")
         print("command to bulk fix the files!")
-        print("  %s -inplace -srcdir %s -exe %s %s" %
-              (sys.argv[0], args.srcdir, args.exe, " ".join(args.dirs)))
+        if args.onlyChangedFiles:
+            print("  python %s -inplace -onlyChangedFiles -dstdir %s -exe %s" %
+                  (sys.argv[0], args.dstdir, args.srcdir, args.exe))
+        else:
+            print("  python %s -inplace -dstdir %s -srcdir %s -exe %s %s" %
+                  (sys.argv[0], args.dstdir, args.srcdir, args.exe,
+                   " ".join(args.dirs)))
         sys.exit(-1)
     return
 
