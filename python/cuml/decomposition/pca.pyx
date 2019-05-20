@@ -318,18 +318,18 @@ class PCA(Base):
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
-                                                    dtype=self.gdf_datatype))
+                                                    dtype=self.dtype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
-                                                   dtype=self.gdf_datatype))
+                                                   dtype=self.dtype))
         self.explained_variance_ = cudf.Series(np.zeros(n_components,
-                                               dtype=self.gdf_datatype))
+                                               dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
+                                                     dtype=self.dtype))
+        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.dtype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
+                                                     dtype=self.dtype))
         self.noise_variance_ = cudf.Series(np.zeros(1,
-                                                    dtype=self.gdf_datatype))
+                                                    dtype=self.dtype))
 
     def fit(self, X, _transform=False):
         """
@@ -346,7 +346,7 @@ class PCA(Base):
 
         """
 
-        X_m = self._matrix_input_to_array(X)
+        X_m, self.n_rows, self.n_cols, self.dtype = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
@@ -386,7 +386,7 @@ class PCA(Base):
         cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype.type == np.float32:
             pcaFitTransform(handle_[0],
                             <float*> input_ptr,
                             <float*> t_input_ptr,
@@ -476,19 +476,21 @@ class PCA(Base):
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
+
+        # todo: check n_cols and dtype
 
         cdef uintptr_t trans_input_ptr
         trans_input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
-                                             dtype=gdf_datatype.type))
+                                             dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
 
@@ -497,7 +499,7 @@ class PCA(Base):
         cdef uintptr_t mean_ptr = self.mean_ptr
 
         cdef cumlHandle* h_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             pcaInverseTransform(h_[0],
                                 <float*> trans_input_ptr,
                                 <float*> components_ptr,
@@ -546,7 +548,9 @@ class PCA(Base):
 
         """
 
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, n_cols, dtype = self._matrix_input_to_array(X)
+
+        # todo: check dtype
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
@@ -559,7 +563,7 @@ class PCA(Base):
 
         t_input_data = \
             cuda.to_device(np.zeros(params.n_rows*params.n_components,
-                                    dtype=gdf_datatype.type))
+                                    dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
@@ -567,7 +571,7 @@ class PCA(Base):
         cdef uintptr_t mean_ptr = self.mean_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             pcaTransform(handle_[0],
                          <float*> input_ptr,
                          <float*> components_ptr,

@@ -175,21 +175,21 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        X_m, self.n_rows, self.n_cols, self.dtype = \
+        X_m, n_rows, n_cols, self.dtype = \
             self._matrix_input_to_array(X, order='C')
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(np.zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
 
         if self.dtype.type == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
-                      <int> self.n_rows,
-                      <int> self.n_cols,
+                      <int> n_rows,
+                      <int> n_cols,
                       <float> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
@@ -198,8 +198,8 @@ class DBSCAN(Base):
         else:
             dbscanFit(handle_[0],
                       <double*>input_ptr,
-                      <int> self.n_rows,
-                      <int> self.n_cols,
+                      <int> n_rows,
+                      <int> n_cols,
                       <double> self.eps,
                       <int> self.min_samples,
                       <int*> labels_ptr,
