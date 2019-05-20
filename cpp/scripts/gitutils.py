@@ -60,7 +60,7 @@ def changedFilesBetween(b1, b2):
     current = branch()
     __git("checkout", "--quiet", b1)
     __git("checkout", "--quiet", b2)
-    files = __gitdiff("--name-only", "--ignore-submodules", "%s...%s" % \
+    files = __gitdiff("--name-only", "--ignore-submodules", "%s...%s" %
                       (b1, b2))
     __git("checkout", "--quiet", current)
     return files.splitlines()

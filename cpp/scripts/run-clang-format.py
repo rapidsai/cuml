@@ -95,8 +95,8 @@ def runClangFormat(src, dst, exe):
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
-            print("Unable to run clang-format! Maybe your env is not configured"
-                  " properly?")
+            print("Unable to run clang-format! Maybe your env is not "
+                  "configured properly?")
             raise
     # run the diff to check if there are any formatting issues
     cmd = "diff -q %s %s >/dev/null" % (src, dst)
@@ -118,8 +118,8 @@ def main():
         allFiles = listAllChangedFiles(args.regexCompiled, args.dstdir,
                                        args.inplace)
     else:
-        allFiles = listAllSourceFiles(args.regexCompiled, args.dirsr, dstdir,
-                                      args.inplace)
+        allFiles = listAllSourceFiles(args.regexCompiled, args.dirs,
+                                      args.dstdir, args.inplace)
     # actual format checker
     status = True
     for src, dst in allFiles:
