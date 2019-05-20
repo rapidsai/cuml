@@ -52,6 +52,7 @@
 - PR #500: Added CI check for black listed CUDA Runtime API calls
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
+- PR #407: Test files to run stress, correctness and unit tests for cuml algos
 - PR #512: generic copy method for copying buffers between device/host
 - PR #533: Add cudatoolkit conda dependency
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
