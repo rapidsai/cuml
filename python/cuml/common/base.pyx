@@ -175,6 +175,8 @@ class Base:
             msg = "X matrix format " + str(X.__class__) + " not supported"
             raise TypeError(msg)
 
+        datatype = X_m.dtype
+
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 

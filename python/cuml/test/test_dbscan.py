@@ -19,6 +19,7 @@ from cuml.test.utils import get_handle
 from sklearn.cluster import DBSCAN as skDBSCAN
 import cudf
 import numpy as np
+from numba import cuda
 
 from sklearn.preprocessing import StandardScaler
 
@@ -30,11 +31,11 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
 
 @pytest.mark.parametrize('max_bytes_per_batch', [10, 200, 2e6])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray',
+                                        'numba_dev_array', 'cupy'])
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch):
-
-    # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
+  200=2 batches, 2e6=1 batch
 
     X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                  dtype=datatype)
@@ -50,8 +51,17 @@ def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch):
         gdf['0'] = np.asarray([1, 2, 2, 8, 8, 25], dtype=datatype)
         gdf['1'] = np.asarray([2, 2, 3, 7, 8, 80], dtype=datatype)
         cu_labels = cudbscan.fit_predict(gdf)
-    else:
+    elif input_type == 'ndarray':
         cu_labels = cudbscan.fit_predict(X)
+    elif input_type == 'numba_dev_array':
+        cu_labels = cudbscan.fit_predict(cuda.to_device(X))
+    elif input_type == 'cupy':
+        try:
+            import cupy as cp
+        except ImportError:
+            pytest.skip('CuPy is not installed')
+        cu_labels = cudbscan.fit_predict(cp.array(X))
+
     cudbscan.handle.sync()
 
     for i in range(X.shape[0]):
