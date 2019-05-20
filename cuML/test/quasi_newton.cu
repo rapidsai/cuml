@@ -88,7 +88,7 @@ T run(const cumlHandle_impl &handle, LossFunction &loss, const SimpleMat<T> &X,
       cudaStream_t stream) {
 
   int max_iter = 100;
-  T grad_tol = 1e-8;
+  T grad_tol = 1e-16;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
