@@ -22,7 +22,7 @@
 
 import cuml.common.handle
 import cuml.common.cuda
-import cuml.numba_utils
+import cuml.utils.numba_utils
 
 import cudf
 import numpy as np
@@ -158,7 +158,7 @@ class Base:
             if order == 'F':
                 X_m = X.as_gpu_matrix(order='F')
             elif order == 'C':
-                X_m = cuml.numba_utils.row_matrix(X)
+                X_m = cuml.utils.numba_utils.row_matrix(X)
 
         elif isinstance(X, np.ndarray):
             datatype = X.dtype
