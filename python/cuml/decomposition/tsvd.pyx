@@ -255,18 +255,18 @@ class TruncatedSVD(Base):
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
-                                                    dtype=self.gdf_datatype))
+                                                    dtype=self.dtype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
-                                                   dtype=self.gdf_datatype))
+                                                   dtype=self.dtype))
         self.explained_variance_ = cudf.Series(np.zeros(n_components,
-                                               dtype=self.gdf_datatype))
+                                               dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
+                                                     dtype=self.dtype))
+        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.dtype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
+                                                     dtype=self.dtype))
         self.noise_variance_ = cudf.Series(np.zeros(1,
-                                                    dtype=self.gdf_datatype))
+                                                    dtype=self.dtype))
 
     def fit(self, X, _transform=True):
         """
@@ -278,7 +278,8 @@ class TruncatedSVD(Base):
                 Training data (floats or doubles)
 
         """
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, self.n_rows, self.n_cols, self.dtype = \
+            self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
@@ -309,7 +310,7 @@ class TruncatedSVD(Base):
             raise ValueError(' n_components must be < n_features')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype.type == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
                              <float*> t_input_ptr,
@@ -391,25 +392,27 @@ class TruncatedSVD(Base):
 
         """
 
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
+
+        # todo: check for dtype
 
         cdef uintptr_t trans_input_ptr
         trans_input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
 
         input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
-                                             dtype=gdf_datatype.type))
+                                             dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             tsvdInverseTransform(handle_[0],
                                  <float*> trans_input_ptr,
                                  <float*> components_ptr,
@@ -449,26 +452,26 @@ class TruncatedSVD(Base):
 
         """
 
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
 
         cdef uintptr_t input_ptr
         input_ptr = self._get_dev_array_ptr(X_m)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
 
         t_input_data = \
             cuda.to_device(np.zeros(params.n_rows*params.n_components,
-                                    dtype=gdf_datatype.type))
+                                    dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             tsvdTransform(handle_[0],
                           <float*> input_ptr,
                           <float*> components_ptr,
