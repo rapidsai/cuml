@@ -184,6 +184,13 @@ if(CMAKE_COMPILER_IS_GNUCXX)
 endif(CMAKE_COMPILER_IS_GNUCXX)
 
 ###################################################################################################
+# - clang-format targets --------------------------------------------------------------------------
+
+add_clang_format(
+  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
+  SRCDIR ${PROJECT_SOURCE_DIR})
+
+###################################################################################################
 # - FAISS Build  ----------------------------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
@@ -301,6 +308,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   endif(OPENMP_FOUND)
 
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
+  add_dependencies(${CUML_CPP_TARGET} ${ClangFormat_TARGET})
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -330,10 +338,3 @@ install(TARGETS ${CUML_CPP_TARGET} DESTINATION lib)
 # add_doxygen_target(IN_DOXYFILE src_prims/Doxyfile.in
 #   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
 #   CWD ${CMAKE_CURRENT_BINARY_DIR})
-
-###################################################################################################
-# - clang-format targets --------------------------------------------------------------------------
-
-add_clang_format(
-  DSTDIR ${PROJECT_BINARY_DIR}/clang-format
-  SRCDIR ${PROJECT_SOURCE_DIR})

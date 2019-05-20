@@ -29,6 +29,8 @@ find_package_handle_standard_args(ClangFormat DEFAULT_MSG
 
 include(CMakeParseArguments)
 
+set(ClangFormat_TARGET format)
+
 # clang formatting as a target in the final build stage
 function(add_clang_format)
   if(ClangFormat_FOUND)
@@ -36,7 +38,7 @@ function(add_clang_format)
     set(oneValueArgs DSTDIR SRCDIR)
     set(multiValueArgs "")
     cmake_parse_arguments(cf "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    add_custom_target(format
+    add_custom_target(${ClangFormat_TARGET}
       ALL
       COMMAND python
         ${ClangFormat_PY}
