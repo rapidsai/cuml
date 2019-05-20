@@ -59,9 +59,9 @@ def test_blobs_cluster(nrows, n_feats):
     assert score == 1.0
 
 
-@pytest.mark.parametrize('nrows', [unit_param(30), quality_param(5000),
+@pytest.mark.parametrize('nrows', [unit_param(10), quality_param(5000),
                          stress_param(500000)])
-@pytest.mark.parametrize('n_feats', [unit_param(10), quality_param(100),
+@pytest.mark.parametrize('n_feats', [unit_param(3), quality_param(100),
                          stress_param(1000)])
 def test_umap_fit_transform_score(nrows, n_feats):
 
