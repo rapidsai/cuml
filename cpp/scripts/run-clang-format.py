@@ -40,8 +40,10 @@ def listAllSourceFiles(fileRegex, srcdirs, dstdir, inplace):
 
 def listAllChangedFiles(fileRegex, dstdir, inplace):
     allFiles = []
+
     def checkThisFile(f):
         return True if fileRegex.search(f) else False
+
     files = gitutils.modifiedFiles(filter=checkThisFile)
     for f in files:
         dst = f if inplace else os.path.join(dstdir, f)
@@ -57,9 +59,11 @@ def parseArgs():
                            help="Path to clang-format exe")
     argparser.add_argument("-inplace", default=False, action="store_true",
                            help="Replace the source files itself.")
-    argparser.add_argument("-regex", type=str, default=r"[.](cu|cuh|h|hpp|cpp)$",
+    argparser.add_argument("-regex", type=str,
+                           default=r"[.](cu|cuh|h|hpp|cpp)$",
                            help="Regex string to filter in sources")
-    argparser.add_argument("-onlyChangedFiles", default=False, action="store_true",
+    argparser.add_argument("-onlyChangedFiles", default=False,
+                           action="store_true",
                            help="Run the formatter on changedFiles only.")
     argparser.add_argument("-srcdir", type=str, default=".",
                            help="Path to directory containing the dirs.")
@@ -91,14 +95,16 @@ def runClangFormat(src, dst, exe):
         try:
             subprocess.check_call(cmd, shell=True)
         except subprocess.CalledProcessError:
-            print("Unable to run clang-format! Please configure your environment.")
+            print("Unable to run clang-format! Maybe your env is not configured"
+                  " properly?")
             raise
     # run the diff to check if there are any formatting issues
     cmd = "diff -q %s %s >/dev/null" % (src, dst)
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print("clang-format failed! Run 'diff %s %s' to see the formatting issues!" %
+        print("clang-format failed! Run 'diff %s %s' to know more about the "
+              "formatting violations!" %
               (src, dst))
         return False
     return True
@@ -109,9 +115,11 @@ def main():
     # Either run the format checker on only the changed files or all the source
     # files as specified by the user
     if args.onlyChangedFiles:
-        allFiles = listAllChangedFiles(args.regexCompiled, args.dstdir, args.inplace)
+        allFiles = listAllChangedFiles(args.regexCompiled, args.dstdir,
+                                       args.inplace)
     else:
-        allFiles = listAllSourceFiles(args.regexCompiled, args.dirsr, dstdir, args.inplace)
+        allFiles = listAllSourceFiles(args.regexCompiled, args.dirsr, dstdir,
+                                      args.inplace)
     # actual format checker
     status = True
     for src, dst in allFiles:

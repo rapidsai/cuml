@@ -60,7 +60,8 @@ def changedFilesBetween(b1, b2):
     current = branch()
     __git("checkout", "--quiet", b1)
     __git("checkout", "--quiet", b2)
-    files = __gitdiff("--name-only", "--ignore-submodules", "%s...%s" % (b1, b2))
+    files = __gitdiff("--name-only", "--ignore-submodules", "%s...%s" % \
+                      (b1, b2))
     __git("checkout", "--quiet", current)
     return files.splitlines()
 
@@ -94,7 +95,8 @@ def modifiedFiles(filter=None):
     checked. This happens, all the while using the same script.
     """
     if "PR_TARGET_BRANCH" in os.environ and branch() == "current-pr-branch":
-        allFiles = changedFilesBetween(os.environ["PR_TARGET_BRANCH"], branch())
+        allFiles = changedFilesBetween(os.environ["PR_TARGET_BRANCH"],
+                                       branch())
     else:
         allFiles = uncommittedFiles()
     files = []
@@ -128,5 +130,5 @@ def listFilesToCheck(filesDirs, filter=None):
                 allFiles.append(f)
         elif os.path.isdir(f):
             files = listAllFilesInDir(f)
-            allFiles += filterFilesToCheck(files, filter)
+            allFiles += listFilesToCheck(files, filter)
     return allFiles
