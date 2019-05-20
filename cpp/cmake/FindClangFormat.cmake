@@ -18,11 +18,10 @@ string(REPLACE ":" ";" EnvPath $ENV{PATH})
 find_program(ClangFormat_EXE
   NAMES clang-format
   PATHS EnvPath
-  DOC "path to clang-format exe"
-  NO_DEFAULT_PATH)
+  DOC "path to clang-format exe")
 find_program(ClangFormat_PY
   NAMES run-clang-format.py
-  PATHS ${MLPRIMS_DIR}/scripts
+  PATHS ${PROJECT_SOURCE_DIR}/scripts
   DOC "path to run-clang-format python script")
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(ClangFormat DEFAULT_MSG
@@ -34,31 +33,18 @@ include(CMakeParseArguments)
 function(add_clang_format)
   if(ClangFormat_FOUND)
     set(options "")
-    set(oneValueArgs "")
-    set(multiValueArgs TARGETS SRCS)
+    set(oneValueArgs DSTDIR SRCDIR)
+    set(multiValueArgs "")
     cmake_parse_arguments(cf "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
-    foreach(cf_TARGET ${cf_TARGETS})
-      if(NOT TARGET ${cf_TARGET})
-        message(FATAL_ERROR "add_clang_format: '${cf_TARGET}' is not a target")
-      endif()
-    endforeach()
-    set(dummy_file clang_format_output)
-    add_custom_command(OUTPUT ${dummy_file}
-      COMMENT "Clang-Format ${cf_TARGET}"
+    add_custom_target(format
+      ALL
       COMMAND python
         ${ClangFormat_PY}
-        -bindir ${CMAKE_SOURCE_DIR}
-        -exe ${ClangFormat_EXE}
-        -srcdir ${CMAKE_SOURCE_DIR} ${cf_SRCS})
-    # add the dependency on this dummy target
-    # So, if the main source file has been modified, clang-format will
-    # automatically be run on it!
-    add_custom_target(clang_format
-      SOURCES ${dummy_file}
-      COMMENT "Clang-Format for target ${_target}")
-    foreach(cf_TARGET ${cf_TARGETS})
-      add_dependencies(${cf_TARGET} clang_format)
-    endforeach()
+          -dstdir ${cf_DSTDIR}
+          -exe ${ClangFormat_EXE}
+          -onlyChangedFiles
+      COMMENT "Run clang-format on the cpp source files"
+      WORKING_DIRECTORY ${cf_SRCDIR})
   else()
     message("add_clang_format: clang-format exe not found")
   endif()
