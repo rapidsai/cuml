@@ -109,7 +109,7 @@ def test_pca_fit_transform(datatype, input_type,
                      dtype=datatype)
 
     skpca = skPCA(n_components=2)
-    Xskpca = skpca.fit_transform(X)
+    X_skpca = skpca.fit_transform(X)
 
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
@@ -121,10 +121,10 @@ def test_pca_fit_transform(datatype, input_type,
         X_cupca = cupca.fit_transform(X_cudf)
 
     else:
-        Xcupca = cupca.fit_transform(X)
+        X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
 
-    assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+    assert array_equal(X_cupca, X_skpca, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
