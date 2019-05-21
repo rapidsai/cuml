@@ -345,11 +345,9 @@ class PCA(Base):
         cluster labels
 
         """
-
-        X_m, self.n_rows, self.n_cols, self.dtype = self._matrix_input_to_array(X)
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr ,self.n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -476,13 +474,10 @@ class PCA(Base):
         X_original : cuDF DataFrame, shape (n_samples, n_features)
 
         """
-        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
+        cdef uintptr_t trans_input_ptr
+        X_m, trans_input_ptr, n_rows, _, dtype = self._input_to_array(X)
 
         # todo: check n_cols and dtype
-
-        cdef uintptr_t trans_input_ptr
-        trans_input_ptr = self._get_dev_array_ptr(X_m)
-
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = n_rows
@@ -548,13 +543,10 @@ class PCA(Base):
 
         """
 
-        X_m, n_rows, n_cols, dtype = self._matrix_input_to_array(X)
+        cdef uintptr_t input_ptr
+        X_m, input_ptr, n_rows, n_cols, dtype = self._input_to_array(X)
 
         # todo: check dtype
-
-        cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
-
         cpdef paramsPCA params
         params.n_components = self.n_components
         params.n_rows = n_rows

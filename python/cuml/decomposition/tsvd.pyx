@@ -278,11 +278,9 @@ class TruncatedSVD(Base):
                 Training data (floats or doubles)
 
         """
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            self._matrix_input_to_array(X)
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -392,13 +390,10 @@ class TruncatedSVD(Base):
 
         """
 
-        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
+        cdef uintptr_t trans_input_ptr
+        X_m, trans_input_ptr, n_rows, _, dtype = self._input_to_array(X)
 
         # todo: check for dtype
-
-        cdef uintptr_t trans_input_ptr
-        trans_input_ptr = self._get_dev_array_ptr(X_m)
-
         cpdef paramsTSVD params
         params.n_components = self.n_components
         params.n_rows = n_rows
@@ -451,11 +446,8 @@ class TruncatedSVD(Base):
                 Reduced version of X. This will always be a dense DataFrame.
 
         """
-
-        X_m, n_rows, _, dtype = self._matrix_input_to_array(X)
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, n_rows, _, dtype = self._input_to_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
