@@ -229,7 +229,12 @@ class LinearRegression(Base):
 
         """
 
-        X_m, n_rows, self.n_cols, self.dtype = self._matrix_input_to_array(X)
+        cdef uintptr_t X_ptr, y_ptr
+        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X)
+
+        y_m, y_ptr, _, _, _ = \
+            self._input_to_array(y)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -244,19 +249,6 @@ class LinearRegression(Base):
             # choice. Github issue #602
             # eig based method doesn't work when there is only one column.
             self.algo = 0
-
-        cdef uintptr_t X_ptr
-        X_ptr = self._get_dev_array_ptr(X_m)
-
-        cdef uintptr_t y_ptr
-        if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_cudf_column_ptr(y)
-        elif (isinstance(y, np.ndarray)):
-            y_m = cuda.to_device(y)
-            y_ptr = self._get_dev_array_ptr(y_m)
-        else:
-            msg = "y vector must be a cuDF series or Numpy ndarray"
-            raise TypeError(msg)
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols,
                                           dtype=self.dtype))
@@ -296,6 +288,9 @@ class LinearRegression(Base):
 
         self.handle.sync()
 
+        del X_m
+        del y_m
+
         return self
 
     def predict(self, X):
@@ -313,11 +308,8 @@ class LinearRegression(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-
-        X_m, n_rows, n_cols, dtype = self._matrix_input_to_array(X)
-
         cdef uintptr_t X_ptr
-        X_ptr = self._get_dev_array_ptr(X_m)
+        X_m, X_ptr, n_rows, n_cols, dtype = self._input_to_array(X)
 
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=dtype))
