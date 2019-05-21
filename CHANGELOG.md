@@ -17,6 +17,7 @@
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
+- PR #620: C++: Removed old unit-test files in ml-prims
 
 
 # cuML 0.7.0 (10 May 2019)
