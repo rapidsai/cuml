@@ -79,7 +79,7 @@ __global__ void add_dev_scalar_kernel(math_t* outDev, const math_t* inDev,
  */
 template <typename math_t, typename IdxType = int>
 void addDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev,
-                   int len, cudaStream_t stream)
+                  IdxType len, cudaStream_t stream)
 {
     // TODO: block dimension has not been tuned
     dim3 block (256);

@@ -82,7 +82,7 @@ __global__ void subtract_dev_scalar_kernel(math_t* outDev, const math_t* inDev,
  */
 template <typename math_t, typename IdxType = int, int TPB = 256>
 void subtractDevScalar(math_t* outDev, const math_t* inDev, const math_t* singleScalarDev,
-                         IdxType len, cudaStream_t stream)
+                       IdxType len, cudaStream_t stream)
 {
     // Just for the note - there is no way to express such operation with cuBLAS in effective way
     // https://stackoverflow.com/questions/14051064/add-scalar-to-vector-in-blas-cublas-cuda
