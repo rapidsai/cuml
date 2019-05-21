@@ -140,8 +140,8 @@ class Base:
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-    def _matrix_input_to_array(self, X, order='F', check_dtype=False,
-                               deepcopy=False):
+    def _input_to_array(self, X, order='F', deepcopy=False,
+                               check_dtype=False, check_dims=False):
         """
         Convert input X to device array suitable for C++ methods
         Acceptable input formats:
@@ -155,12 +155,19 @@ class Base:
         Returns a reference to the input X if its a numba device array or cuda
             array interface compliant (like cupy)
         """
+
         if isinstance(X, cudf.DataFrame):
             datatype = np.dtype(X[X.columns[0]]._column.dtype)
             if order == 'F':
                 X_m = X.as_gpu_matrix(order='F')
             elif order == 'C':
                 X_m = cuml.utils.numba_utils.row_matrix(X)
+
+        elif (isinstance(X, cudf.Series)):
+            if deepcopy:
+                X_m = X.to_gpu_array()
+            else:
+                X_m = X._column._data.mem
 
         elif isinstance(X, np.ndarray):
             datatype = X.dtype
@@ -185,7 +192,15 @@ class Base:
                 raise TypeError("ba")
 
         n_rows = X_m.shape[0]
-        n_cols = X_m.shape[1]
+        if len(X_m.shape) > 1:
+            n_cols = X_m.shape[1]
+        else:
+            n_cols = 1
+
+        if check_dims:
+            if n_rows != check_dims[0] or n_cols != check_dims[1]:
+                del X_m
+                raise ValueError("ba")
 
         X_ptr = self._get_dev_array_ptr(X_m)
 
