@@ -56,8 +56,9 @@ def test_dbscan(datatype, input_type, use_handle,
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
-    skdbscan = skDBSCAN(eps=3, min_samples=2)
-    sk_labels = skdbscan.fit_predict(X)
+    if nrows!= 500000:
+        skdbscan = skDBSCAN(eps=3, min_samples=2)
+        sk_labels = skdbscan.fit_predict(X)
     handle, stream = get_handle(use_handle)
     cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
                         max_bytes_per_batch=max_bytes_per_batch)
@@ -71,7 +72,8 @@ def test_dbscan(datatype, input_type, use_handle,
         cu_labels = cudbscan.fit_predict(X)
 
     for i in range(X.shape[0]):
-        assert cu_labels[i] == sk_labels[i]
+        if nrows!= 500000:
+            assert cu_labels[i] == sk_labels[i]
 
 
 @pytest.mark.parametrize("name", [
@@ -95,20 +97,15 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+    if nrows!= 500000:
+        dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
+        sk_y_pred, sk_n_clusters = fit_predict(dbscan,
+                                               'sk_DBSCAN', X)
+
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
+    cu_y_pred, cu_n_clusters = fit_predict(cuml_dbscan,
+                                          'cuml_DBSCAN', X)
 
-    clustering_algorithms = (
-        ('sk_DBSCAN', dbscan),
-        ('cuml_DBSCAN', cuml_dbscan)
-    )
-
-    sk_y_pred, sk_n_clusters = fit_predict(clustering_algorithms[0][1],
-                                           clustering_algorithms[0][0], X)
-
-    cu_y_pred, cu_n_clusters = fit_predict(clustering_algorithms[1][1],
-                                           clustering_algorithms[1][0], X)
-
-    assert(sk_n_clusters == cu_n_clusters)
-
-    clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
+    if nrows!= 500000:
+        assert(sk_n_clusters == cu_n_clusters)
+        clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
