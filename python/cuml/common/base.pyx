@@ -141,7 +141,8 @@ class Base:
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
     def _input_to_array(self, X, order='F', deepcopy=False,
-                               check_dtype=False, check_dims=False):
+                               check_dtype=False, check_cols=False,
+                               check_rows=False):
         """
         Convert input X to device array suitable for C++ methods
         Acceptable input formats:
@@ -197,9 +198,12 @@ class Base:
         else:
             n_cols = 1
 
-        if check_dims:
-            if n_rows != check_dims[0] or n_cols != check_dims[1]:
-                del X_m
+        if check_cols:
+            if n_cols != check_cols:
+                raise ValueError("ba")
+
+        if check_rows:
+            if n_rows != check_rows:
                 raise ValueError("ba")
 
         X_ptr = self._get_dev_array_ptr(X_m)
@@ -207,7 +211,3 @@ class Base:
         # todo: add check of alignment and nans
 
         return X_m, X_ptr, n_rows, n_cols, datatype
-
-    # todo: getter for single column (series) input
-
-    # def _column_input_to_array(self, y):
