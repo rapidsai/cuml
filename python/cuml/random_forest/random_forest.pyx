@@ -2,10 +2,9 @@ import ctypes
 import cudf
 import numpy as np
 import warnings
-
 from numba import cuda
 from cuml import numba_utils
-
+from cuml.common.handle cimport cumlHandle
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
