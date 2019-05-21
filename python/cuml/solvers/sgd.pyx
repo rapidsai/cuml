@@ -26,6 +26,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 cdef extern from "solver/solver.hpp" namespace "ML::Solver":
 
@@ -290,17 +292,17 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        X_m = self._matrix_input_to_array(X)
+        X_m = input_to_array(X)
 
         cdef uintptr_t X_ptr
-        X_ptr = self._get_dev_array_ptr(X_m)
+        X_ptr = get_dev_array_ptr(X_m)
 
         cdef uintptr_t y_ptr
         if (isinstance(y, cudf.Series)):
-            y_ptr = self._get_cudf_column_ptr(y)
+            y_ptr = get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
             y_m = cuda.to_device(y)
-            y_ptr = self._get_dev_array_ptr(y_m)
+            y_ptr = get_dev_array_ptr(y_m)
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
@@ -309,7 +311,7 @@ class SGD(Base):
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols,
                                           dtype=self.gdf_datatype))
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -379,14 +381,14 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        X_m, n_rows, n_cols, datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, n_cols, datatype = input_to_array(X)
 
         cdef uintptr_t X_ptr
-        X_ptr = self._get_dev_array_ptr(X_m)
+        X_ptr = get_dev_array_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=datatype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -428,14 +430,14 @@ class SGD(Base):
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
 
-        X_m, n_rows, n_cols, datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, n_cols, datatype = input_to_array(X)
 
         cdef uintptr_t X_ptr
-        X_ptr = self._get_dev_array_ptr(X_m)
+        X_ptr = get_dev_array_ptr(X_m)
 
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=datatype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if datatype.type == np.float32:

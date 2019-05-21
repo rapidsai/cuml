@@ -32,6 +32,8 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
@@ -246,10 +248,10 @@ class Ridge(Base, RegressorMixin):
         """
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X)
+            input_to_array(X)
 
         y_m, y_ptr, _, _, _ = \
-            self._input_to_array(y)
+            input_to_array(y)
 
         if self.n_cols < 1:
             msg = "X matrix must have at least a column"
@@ -268,7 +270,7 @@ class Ridge(Base, RegressorMixin):
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols,
                                           dtype=self.dtype))
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -312,6 +314,9 @@ class Ridge(Base, RegressorMixin):
 
         self.handle.sync()
 
+        del X_m
+        del y_m
+
         return self
 
     def predict(self, X):
@@ -330,11 +335,11 @@ class Ridge(Base, RegressorMixin):
 
         """
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = self._input_to_array(X)
+        X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
 
-        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
+        cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=dtype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if dtype.type == np.float32:

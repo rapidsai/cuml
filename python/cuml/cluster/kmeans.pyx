@@ -33,6 +33,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
@@ -307,12 +309,12 @@ class KMeans(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X, order='C')
+            input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if (isinstance(self.init, cudf.DataFrame)):
             if(len(self.init) != self.n_clusters):
@@ -350,7 +352,7 @@ class KMeans(Base):
             raise TypeError('initialization method not supported')
 
         c_c = self.cluster_centers_
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(c_c)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
 
         if self.dtype.type == np.float32:
             fit_predict(
@@ -426,14 +428,14 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X, order='C')
+            input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype.type == np.float32:
             predict(
@@ -481,16 +483,16 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X, order='C')
+            input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
-        cdef uintptr_t cluster_centers_ptr = self._get_dev_array_ptr(clust_mat)
+        cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
                                     dtype=self.dtype.type))
 
-        cdef uintptr_t preds_ptr = self._get_dev_array_ptr(preds_data)
+        cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
 
         if self.dtype.type == np.float32:
             transform(

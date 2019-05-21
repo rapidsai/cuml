@@ -31,6 +31,8 @@ from libc.stdint cimport uintptr_t
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 
 cdef extern from "pca/pca.hpp" namespace "ML":
@@ -347,7 +349,7 @@ class PCA(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr ,self.n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X)
+            input_to_array(X)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -365,23 +367,23 @@ class PCA(Base):
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_)
 
         cdef uintptr_t explained_var_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_)
+            get_cudf_column_ptr(self.explained_variance_)
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+            get_cudf_column_ptr(self.explained_variance_ratio_)
 
         cdef uintptr_t singular_vals_ptr = \
-            self._get_cudf_column_ptr(self.singular_values_)
+            get_cudf_column_ptr(self.singular_values_)
 
-        cdef uintptr_t mean_ptr = self._get_cudf_column_ptr(self.mean_)
+        cdef uintptr_t mean_ptr = get_cudf_column_ptr(self.mean_)
 
         cdef uintptr_t noise_vars_ptr = \
-            self._get_cudf_column_ptr(self.noise_variance_)
+            get_cudf_column_ptr(self.noise_variance_)
 
-        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.dtype.type == np.float32:
@@ -475,7 +477,7 @@ class PCA(Base):
 
         """
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = self._input_to_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = input_to_array(X)
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
@@ -544,7 +546,7 @@ class PCA(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, dtype = self._input_to_array(X)
+        X_m, input_ptr, n_rows, n_cols, dtype = input_to_array(X)
 
         # todo: check dtype
         cpdef paramsPCA params
@@ -557,7 +559,7 @@ class PCA(Base):
             cuda.to_device(np.zeros(params.n_rows*params.n_components,
                                     dtype=dtype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
+        cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr

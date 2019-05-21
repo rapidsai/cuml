@@ -31,7 +31,8 @@ from libc.stdint cimport uintptr_t
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
@@ -280,7 +281,7 @@ class TruncatedSVD(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            self._input_to_array(X)
+            input_to_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -291,18 +292,18 @@ class TruncatedSVD(Base):
         params.algorithm = self.c_algorithm
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_)
 
         cdef uintptr_t explained_var_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_)
+            get_cudf_column_ptr(self.explained_variance_)
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+            get_cudf_column_ptr(self.explained_variance_ratio_)
 
         cdef uintptr_t singular_vals_ptr = \
-            self._get_cudf_column_ptr(self.singular_values_)
+            get_cudf_column_ptr(self.singular_values_)
 
-        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
@@ -391,7 +392,7 @@ class TruncatedSVD(Base):
         """
 
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = self._input_to_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = input_to_array(X)
 
         # todo: check for dtype
         cpdef paramsTSVD params
@@ -447,7 +448,7 @@ class TruncatedSVD(Base):
 
         """
         cdef uintptr_t input_ptr
-        X_m, n_rows, _, dtype = self._input_to_array(X)
+        X_m, n_rows, _, dtype = input_to_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -458,7 +459,7 @@ class TruncatedSVD(Base):
             cuda.to_device(np.zeros(params.n_rows*params.n_components,
                                     dtype=dtype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
+        cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()

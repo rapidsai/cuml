@@ -29,6 +29,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 from collections import defaultdict
 
@@ -178,11 +180,11 @@ class DBSCAN(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, n_rows, n_cols, self.dtype = \
-            self._input_to_array(X, order='C')
+            input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(n_rows, dtype=np.int32))
-        cdef uintptr_t labels_ptr = self._get_cudf_column_ptr(self.labels_)
+        cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype.type == np.float32:
             dbscanFit(handle_[0],

@@ -29,6 +29,8 @@ from libcpp cimport bool
 
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_array
 
 cdef extern from "random_projection/rproj_c.h" namespace "ML":
 
@@ -252,8 +254,8 @@ cdef class BaseRandomProjection():
                                   dtype=self.gdf_datatype,
                                   order='F')
 
-        cdef uintptr_t input_ptr = self._get_dev_array_ptr(X_m)
-        cdef uintptr_t output_ptr = self._get_dev_array_ptr(X_new)
+        cdef uintptr_t input_ptr = get_dev_array_ptr(X_m)
+        cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
 
         if self.params.n_features != n_features:
             raise ValueError("n_features must be same as on fitting: %d" %
