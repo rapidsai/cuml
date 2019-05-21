@@ -304,11 +304,10 @@ class KMeans(Base):
 
         """
 
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            self._matrix_input_to_array(X, order='C')
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -425,11 +424,9 @@ class KMeans(Base):
 
         """
 
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            self._matrix_input_to_array(X, order='C')
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
@@ -482,12 +479,9 @@ class KMeans(Base):
 
         """
 
-        X_m, self.n_rows, self.n_cols, self.dtype = \
-            self._matrix_input_to_array(X, order='C')
-
         cdef uintptr_t input_ptr
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            self._input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
