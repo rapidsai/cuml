@@ -244,7 +244,7 @@ class Ridge(Base, RegressorMixin):
            Dense vector (floats or doubles) of shape (n_samples, 1)
 
         """
-        X_m, n_rows, n_cols, gdf_datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, self.n_cols, self.dtype = self._matrix_input_to_array(X)
 
         cdef uintptr_t X_ptr
 
@@ -252,7 +252,7 @@ class Ridge(Base, RegressorMixin):
             msg = "X matrix must have at least a column"
             raise TypeError(msg)
 
-        if self.n_rows < 2:
+        if n_rows < 2:
             msg = "X matrix must have at least two rows"
             raise TypeError(msg)
 
@@ -276,7 +276,7 @@ class Ridge(Base, RegressorMixin):
         self.n_alpha = 1
 
         self.coef_ = cudf.Series(np.zeros(self.n_cols,
-                                          dtype=self.gdf_datatype))
+                                          dtype=self.dtype))
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
@@ -285,11 +285,11 @@ class Ridge(Base, RegressorMixin):
         cdef double c_alpha2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype.type == np.float32:
             c_alpha1 = self.alpha
             ridgeFit(handle_[0],
                      <float*>X_ptr,
-                     <int>self.n_rows,
+                     <int>n_rows,
                      <int>self.n_cols,
                      <float*>y_ptr,
                      <float*>&c_alpha1,
@@ -306,7 +306,7 @@ class Ridge(Base, RegressorMixin):
 
             ridgeFit(handle_[0],
                      <double*>X_ptr,
-                     <int>self.n_rows,
+                     <int>n_rows,
                      <int>self.n_cols,
                      <double*>y_ptr,
                      <double*>&c_alpha2,
@@ -339,17 +339,17 @@ class Ridge(Base, RegressorMixin):
 
         """
 
-        X_m, n_rows, n_cols, datatype = self._matrix_input_to_array(X)
+        X_m, n_rows, n_cols, dtype = self._matrix_input_to_array(X)
 
         cdef uintptr_t X_ptr
         X_ptr = self._get_dev_array_ptr(X_m)
 
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(np.zeros(n_rows, dtype=datatype))
+        preds = cudf.Series(np.zeros(n_rows, dtype=dtype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if datatype.type == np.float32:
+        if dtype.type == np.float32:
             ridgePredict(handle_[0],
                          <float*>X_ptr,
                          <int>n_rows,
