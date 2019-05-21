@@ -2,22 +2,22 @@ import ctypes
 import cudf
 import numpy as np
 import warnings
+
 from numba import cuda
 from cuml import numba_utils
-from cuml.common.handle cimport cumlHandle
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
-
+from cuml.common.handle cimport cumlHandle
+cimport rf_pxd
 
 cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
-
-
     struct RF_metrics:
-        float accuracy,
+        float accuracy
 
     enum RF_type:
         CLASSIFICATION,
@@ -32,7 +32,8 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef cppclass rf:
         pass
                     
-
+    cdef cppclass rfClassifier:
+        pass
             
     cdef void fit(cumlHandle& handle,
                   float *rf_classifier,
@@ -66,16 +67,11 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
 
     cdef RF_metrics cross_validate(cumlHandle& handle,
                                    float * rf_classifier, float * input, int * ref_labels,
-				   int n_rows, int n_cols, int * predictions, bool verbose=false);
+				   int n_rows, int n_cols, int * predictions, bool verbos);
     cdef RF_metrics cross_validate(cumlHandle& handle,
                                    double * rf_classifier, double * input, int * ref_labels,
-				   int n_rows, int n_cols, int * predictions, bool verbose=false);
-
-
-cdef extern from "randomforest/randomforest.hpp" namespace "ML::rfClassifier":
-    cdef void fit(PASS)
-    cdef void predict(PASS)
-    RF_metric cross_validate(PASS)                  
+				   int n_rows, int n_cols, int * predictions, bool verbose);
+                
         
 
 
