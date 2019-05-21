@@ -14,9 +14,7 @@
 #
 
 import datetime
-import os
 import re
-import sys
 import gitutils
 
 
@@ -48,7 +46,7 @@ def getCopyrightYears(line):
     if res:
         return (int(res.group(1)), int(res.group(2)))
     return (None, None)
-            
+
 
 def checkCopyright(f):
     """
@@ -74,7 +72,8 @@ def checkCopyright(f):
     fp.close()
     # copyright header itself not found
     if not crFound:
-        errs.append((f, 0, "Copyright header missing or formatted incorrectly"))
+        errs.append((f, 0,
+                     "Copyright header missing or formatted incorrectly"))
     # even if the year matches a copyright header, make the check pass
     if yearMatched:
         errs = []
