@@ -145,7 +145,7 @@ public:
 			const int n_sampled_rows, const int unique_labels, DecisionTreeParams tree_params);
 
 private:
-	// Same as above fit, but planting is better for a tree then fitting.
+	// Same as above fit, but planting is better for a tree than fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, int *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels,
 		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false);
 
@@ -163,7 +163,7 @@ public:
 			const int n_sampled_rows, DecisionTreeParams tree_params);
 
 private:
-	// Same as above fit, but planting is better for a tree then fitting.
+	// Same as above fit, but planting is better for a tree than fitting.
 	void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels = 1,
 		   int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2, bool cfg_bootstrap_features=false, CRITERION cfg_split_criterion=CRITERION::MSE);
 
