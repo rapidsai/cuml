@@ -140,14 +140,16 @@ class Base:
         """
         return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-    def _matrix_input_to_array(self, X, order='F'):
+    def _matrix_input_to_array(self, X, order='F', check_dtype=False,
+                               deepcopy=False):
         """
         Convert input X to device array suitable for C++ methods
         Acceptable input formats:
-        * cuDF Dataframe
-        * Numpy array
-        * cuda array interface compliant array (like Cupy)
-        * numba device array
+        * cuDF Dataframe - returns a deep copy always
+        * Numpy array - returns a copy in device always
+        * cuda array interface compliant array (like Cupy) - returns a
+            reference unless deepcopy=True
+        * numba device array - returns a reference unless deepcopy=True
 
         Returns a new device array if the input was not a numba device array.
         Returns a reference to the input X if its a numba device array or cuda
@@ -177,11 +179,20 @@ class Base:
 
         datatype = X_m.dtype
 
+        if check_dtype:
+            if datatype.dtype != check_dtype.dtype:
+                del X_m
+                raise TypeError("ba")
+
         n_rows = X_m.shape[0]
         n_cols = X_m.shape[1]
 
+        X_ptr = self._get_dev_array_ptr(X_m)
+
         # todo: add check of alignment and nans
 
-        return X_m, n_rows, n_cols, datatype
+        return X_m, X_ptr, n_rows, n_cols, datatype
 
     # todo: getter for single column (series) input
+
+    # def _column_input_to_array(self, y):
