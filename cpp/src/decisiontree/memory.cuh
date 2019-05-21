@@ -94,7 +94,7 @@ struct TemporaryMemory
 		temprowids = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, N);
 		question_value = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
 
-		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
+		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N, stream);
 		d_split_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, split_temp_storage_bytes);
 
 		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);

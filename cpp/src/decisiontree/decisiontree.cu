@@ -303,16 +303,16 @@ TreeNode<T, int>* DecisionTreeClassifier<T>::grow_tree(T *data, const float colp
 	bool condition = ((depth != 0) && (prev_split_info.best_metric == 0.0f));  // This node is a leaf, no need to search for best split
 	condition = condition || (n_sampled_rows < this->min_rows_per_node); // Do not split a node with less than min_rows_per_node samples
 
-	if (!condition)  {
-		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
-		condition = condition || (gain == 0.0f);
-	}
-
 	if (this->treedepth != -1)
 		condition = (condition || (depth == this->treedepth));
 
 	if (this->maxleaves != -1)
 		condition = (condition || (this->leaf_counter >= this->maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
+
+	if (!condition)  {
+		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, &split_info[0], depth);  //ques and gain are output here
+		condition = condition || (gain == 0.0f);
+	}
 
 	if (condition) {
 		node->prediction = get_class_hist(split_info[0].hist);
@@ -479,16 +479,16 @@ TreeNode<T, T>* DecisionTreeRegressor<T>::grow_tree(T *data, const float colper,
 	bool condition = ((depth != 0) && (prev_split_info.best_metric == 0.0f));  // This node is a leaf, no need to search for best split
 	condition = condition || (n_sampled_rows < this->min_rows_per_node); // Do not split a node with less than min_rows_per_node samples
 
-	if (!condition)  {
-		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, split_info, depth);  //ques and gain are output here		
-		condition = condition || (gain == 0.0f);		
-	}
-
 	if (this->treedepth != -1)
 		condition = (condition || (depth == this->treedepth));
 
 	if (this->maxleaves != -1)
 		condition = (condition || (this->leaf_counter >= this->maxleaves)); // FIXME not fully respecting maxleaves, but >= constraints it more than ==
+
+	if (!condition) {
+		find_best_fruit_all(data, labels, colper, ques, gain, rowids, n_sampled_rows, split_info, depth);  //ques and gain are output here
+		condition = condition || (gain == 0.0f);
+	}
 
 	if (condition) {
 		node->prediction = split_info[0].predict;
@@ -542,9 +542,6 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 				      this->tempmem[0], split_info, ques, gain, this->split_algo);
 	}
 }
-
-// ---------------- Regression end
-
 
 //Class specializations
 template class dt<float, int>;
