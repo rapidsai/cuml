@@ -59,7 +59,7 @@ def test_ols(datatype, X_type, y_type, algorithm):
     print(cu_predict)
 
     # print(skols.coef_)
-    print(cuols.gdf_datatype)
+    print(cuols.dtype)
     print(y.dtype)
 
     assert array_equal(sk_predict, cu_predict, 1e-3, with_sign=True)
