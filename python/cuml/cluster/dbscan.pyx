@@ -175,11 +175,10 @@ class DBSCAN(Base):
         if self.labels_ is not None:
             del self.labels_
 
-        X_m, n_rows, n_cols, self.dtype = \
-            self._matrix_input_to_array(X, order='C')
-
         cdef uintptr_t input_ptr
-        input_ptr = self._get_dev_array_ptr(X_m)
+
+        X_m, input_ptr, n_rows, n_cols, self.dtype = \
+            self._matrix_input_to_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.labels_ = cudf.Series(np.zeros(n_rows, dtype=np.int32))
