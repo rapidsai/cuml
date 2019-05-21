@@ -14,6 +14,7 @@
 - PR #596: Introduce cumlHandle for ols and ridge
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
+- PR #618: CI: Enable copyright header checks
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
