@@ -35,8 +35,8 @@ void getDistances(  const Type * __restrict__ X,
 
     // Now D / max(abs(D)) to allow exp(D) to not explode
     // Max(abs(D)) == max(min(D), max(D))
-    thrust::device_ptr<const float> begin = thrust::device_pointer_cast(distances);
-    thrust::device_ptr<const float> end = begin + SIZE;
+    thrust::device_ptr<float> begin = thrust::device_pointer_cast(distances);
+    thrust::device_ptr<float> end = begin + SIZE;
 
     float maxNorm = MAX(Utils_::max_array(begin, end, stream), 
                         Utils_::min_array(begin, end, stream));

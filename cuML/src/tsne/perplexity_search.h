@@ -23,10 +23,10 @@ void computePijKernel(  volatile float * __restrict__ Pij,
     const int j = TID % n_neighbors;
     const float dist = distances[TID];
 
-    if (j == 0 && dist == 0f)
-        Pij[TID] = 0f;
+    if (j == 0 && dist == 0.0f)
+        Pij[TID] = 0.0f;
     else
-        Pij[TID] = (-betas[i] * dist);
+        Pij[TID] = EXP(-betas[i] * dist);
 }
 
 
@@ -87,9 +87,8 @@ void perplexitySearchKernel(volatile float * __restrict__ betas,
 static void xlogx(float *entropy, float *Pij, int SIZE, cudaStream_t stream) {
     LinAlg::unaryOp(entropy, Pij, SIZE,
                     [] __device__(float x) {
-                        if (x <= 0f) return 0f;
+                        if (x <= 0.0f || isinf(x)) return 0.0f;
                         return x * LOG(x);
-                        // No need to check isinf(x)
                         // since log(x) bounded approx -50, 50.
                     }, 
                     stream);
@@ -102,21 +101,21 @@ static void xlogx(float *entropy, float *Pij, int SIZE, cudaStream_t stream) {
 namespace Perplexity_Search_ {
 
 void searchPerplexity(  float * __restrict__ Pij,
-                                const float * __restrict__ distances,
-                                const float perplexity_target, // desired perplexity
-                                const float epsilon,
-                                const int n,
-                                const int n_neighbors,
-                                const int SIZE,
-                                cudaStream_t stream)
+                        const float * __restrict__ distances,
+                        const float perplexity_target, // desired perplexity
+                        const float epsilon,
+                        const int n,
+                        const int n_neighbors,
+                        const int SIZE,
+                        cudaStream_t stream)
 {   
     assert(perplexity_target > 0);
     const float log_perplexity_target = LOG(perplexity_target);
 
     // Allocate memory
-    float *betas;       cuda_calloc(betas, n, 1f);
-    float *lower_bound; cuda_calloc(lower_bound, n, -FLT_MAX);
-    float *upper_bound; cuda_calloc(upper_bound, n, FLT_MAX);
+    float *betas;       cuda_calloc(betas, n, 1.0f);
+    float *lower_bound; cuda_calloc(lower_bound, n, 0.0f);
+    float *upper_bound; cuda_calloc(upper_bound, n, 1000.0f);
     float *entropy;     cuda_malloc(entropy, SIZE);
     bool *found;        cuda_malloc(found, n);
 
@@ -159,7 +158,7 @@ void searchPerplexity(  float * __restrict__ Pij,
 
         // -1 * Row_sum(entropy)
         Utils_::row_sum(neg_entropy, entropy, n, n_neighbors, stream);
-        LinAlg::scalarMultiply(neg_entropy, neg_entropy, -1f, n, stream);
+        LinAlg::scalarMultiply(neg_entropy, neg_entropy, -1.0f, n, stream);
 
 
         // Search Perplexity
@@ -189,8 +188,8 @@ void searchPerplexity(  float * __restrict__ Pij,
     // NOTICE since division slower, perform 1/row_sumP first
     LinAlg::unaryOp(row_sumP, row_sumP, n, 
                     [] __device__(float x) {
-                        if (x == 0f) return 0f;
-                        return 1f/x;
+                        if (x == 0.0f) return 0.0f;
+                        return 1.0f/x;
                     },
                     stream);
 

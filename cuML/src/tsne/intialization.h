@@ -8,14 +8,16 @@ using namespace ML;
 
 #pragma once
 
+#define set_cache(a, b) cudaFuncSetCacheConfig(a, b)
+
 
 __device__ volatile int stepd, bottomd, maxdepthd;
 __device__ unsigned int blkcntd;
 __device__ volatile float radiusd;
 
-__global__ void InitializationKernel(int * __restrict err)
+__global__ void InitializationKernel(int * __restrict errd)
 {
-    *err = 0;
+    *errd = 0;
     stepd = -1;
     maxdepthd = 1;
     blkcntd = 0;
@@ -26,10 +28,13 @@ __global__ void InitializationKernel(int * __restrict err)
 namespace Intialization_ {
 
 
-void Initialize(int *err) 
+void Initialize(int *errd) 
 {
     // TODO set cache levels
-    InitializationKernel<<<1, 1>>>(err);
+    set_cache(BoundingBox_::boundingBoxKernel, cudaFuncCachePreferShared);
+
+    //
+    InitializationKernel<<<1, 1>>>(errd);
     cuda_synchronize();
 }
 
@@ -41,16 +46,17 @@ float *randomVector(const float minimum,
                     const long long seed,
                     cudaStream_t stream)
 {
+    // from UMAP
     if (seed < 0) {
         struct timeval tp;
         gettimeofday(&tp, NULL);
         seed = tp.tv_sec * 1000 + tp.tv_usec;
     }
 
-    float *embedding;
+    float *vector;
     MLCommon::Random::Rng random(seed);
-    random.uniform<float>(embedding, size, minimum, maximum, stream);
-    return embedding;
+    random.uniform<float>(vector, size, minimum, maximum, stream);
+    return vector;
 }
 
 // end namespace

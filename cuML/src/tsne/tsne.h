@@ -10,6 +10,11 @@ using namespace MLCommon::Sparse;
 #include "perplexity_search.h"
 #include "gpu_info.h"
 #include "intialization.h"
+#include "bounding_box.h"
+#include "build_tree.h"
+#include "summary.h"
+#include "repulsion.h"
+#include "attraction.h"
 
 #pragma once
 
@@ -20,7 +25,7 @@ void runTsne(   const Type * __restrict__ X,
                 const int n_components = 2,
                 const float perplexity = 50f,
                 const float perplexity_epsilon = 1e-3,
-                const float early_exaggeration = 2f,
+                const float early_exaggeration = 2.0f,
                 int n_neighbors = 100,
 
                 // Learning rates and momentum
@@ -46,20 +51,13 @@ void runTsne(   const Type * __restrict__ X,
 
 
     // Get all device info and properties
-    int BLOCKS;
-    int TPB_X;      // Notice only 32 is supported
-    int integration_kernel_threads;
-    int integration_kernel_factor;
-    int repulsive_kernel_threads;
-    int repulsive_kernel_factor;
-    int bounding_kernel_threads;
-    int bounding_kernel_factor; 
-    int tree_kernel_threads;
-    int tree_kernel_factor;
-    int sort_kernel_threads;
-    int sort_kernel_factor;
-    int summary_kernel_threads;
-    int summary_kernel_factor;
+    int BLOCKS, TPB_X;      // Notice only 32 is supported
+    int integration_kernel_threads, integration_kernel_factor;
+    int repulsive_kernel_threads, repulsive_kernel_factor;
+    int bounding_kernel_threads, bounding_kernel_factor; 
+    int tree_kernel_threads, tree_kernel_factor;
+    int sort_kernel_threads, sort_kernel_factor;
+    int summary_kernel_threads, summary_kernel_factor;
 
     GPU_Info_::gpuInfo(&BLOCKS, &TPB_X, &integration_kernel_threads, 
         &integration_kernel_factor, &repulsive_kernel_threads, &repulsive_kernel_factor, 
@@ -68,8 +66,8 @@ void runTsne(   const Type * __restrict__ X,
         &summary_kernel_threads, &summary_kernel_factor);
 
     // Intialize cache levels and errors
-    int *err;       cuda_malloc(err, 1);
-    Intialization_::Initialize(err);
+    int *errd;       cuda_malloc(errd, 1);
+    Intialization_::Initialize(errd);
     //
 
 
@@ -142,7 +140,7 @@ void runTsne(   const Type * __restrict__ X,
 
 
     // Intialize embedding
-    float *embedding = Intialization_::randomVector(-5, 5, (N_NODES+1)*2, seed, stream);
+    float *embedding = Intialization_::randomVector(-100, 100, (N_NODES+1)*2, seed, stream);
 
     // Make a random vector to add noise to the embeddings
     float *noise = Intialization_::randomVector(-0.05, 0.05, (N_NODES+1)*2, seed, stream);
@@ -159,6 +157,75 @@ void runTsne(   const Type * __restrict__ X,
             momentum = post_momentum;
         }
 
+        // Zero out repulsion and attraction
+        cuda_memset(attraction, n*2);
+        cuda_memset(repulsion, (N_NODES+1)*2);
+        //
+
+
+        // Find bounding boxes for points
+        BoundingBox_::boundingBoxKernel<<<BLOCKS*FACTOR1, THREADS1>>>(
+            N_NODES, n,
+            cell_starts,
+            children,
+            cell_mass,
+            embedding,
+            embedding + N_NODES + 1,
+            x_max,
+            y_max,
+            x_min,
+            y_min);
+        cuda_synchronize();
+        //
+
+
+        // Create KD Tree
+        BuildTree_::clearKernel1<<<BLOCKS, 1024>>>(N_NODES, n, children);
+
+        BuildTree_::treeBuildingKernel<<<BLOCKS*FACTOR2, THREADS2>>>(
+            N_NODES, n, errd,
+            children,
+            embedding,
+            embedding + N_NODES + 1);
+        
+        BuildTree_::clearKernel2<<<BLOCKS, 1024>>>(N_NODES, cell_starts, cell_mass);
+        cuda_synchronize();
+        //
+
+
+        // Summarize KD Tree and sort the cells
+        Summary_::summarizationKernel<<<BLOCKS*FACTOR3, THREADS3>>>(
+            N_NODES, n,
+            cell_counts,
+            children,
+            cell_mass,
+            embedding,
+            embedding + N_NODES + 1);
+        cuda_synchronize();
+
+        Summary_::sortKernel<<<BLOCKS*FACTOR4, THREADS4>>>(
+            N_NODES, n,
+            cell_sorted,
+            cell_counts,
+            cell_starts,
+            children);
+        cuda_synchronize();
+        //
+
+
+        // Repulsive forces
+        Repulsion_::repulsionKernel<<<BLOCKS*FACTOR5, THREADS5>>>(
+            N_NODES, n, errd,
+            theta, epsilon_squared,
+            cell_sorted,
+            children,
+            cell_mass,
+            embedding,
+            embedding + N_NODES + 1,
+            repulsion,
+            repulsion + N_NODES + 1,
+            normalization);
+        cuda_synchronize();
 
     }
     //
@@ -188,7 +255,7 @@ void runTsne(   const Type * __restrict__ X,
     cuda_free(repulsion);
     cuda_free(P_x_Q);
 
-    cuda_free(err);
+    cuda_free(errd);
 
     // Destory CUDA stream
     CUDA_CHECK(cudaStreamDestroy(stream));
