@@ -14,4 +14,5 @@
 # limitations under the License.
 #
 
+from cuml.metrics.trustworthiness import trustworthiness
 from cuml.metrics.regression import r2_score
