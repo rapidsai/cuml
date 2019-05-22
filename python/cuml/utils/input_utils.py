@@ -37,7 +37,7 @@ def get_cudf_column_ptr(col):
     """
     return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
-def get_dtype(obj):
+def get_dtype(X):
     """
     Returns dtype of obj as a Numpy style dtype (like np.float32)
     """
@@ -47,7 +47,7 @@ def get_dtype(obj):
         dtype = np.dtype(X._column.dtype)
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
-    elif isinstance(c, cupy.ndarray):
+    elif isinstance(X, cupy.ndarray):
         dtype = X.dtype
     elif cuda.devicearray.is_cuda_ndarray(X):
         dtype = X.dtype
@@ -152,7 +152,7 @@ def convert_dtype(X, to_dtype=np.float32):
     if isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)
         if dtype != to_dtype:
-            new_cols = [(col, X._cols[col].astype(np.float32))
+            new_cols = [(col, X._cols[col].astype(to_dtype))
                         for col in X._cols]
             overflowed = sum([len(colval[colval >= np.inf])
                               for colname, colval in new_cols])
@@ -161,17 +161,18 @@ def convert_dtype(X, to_dtype=np.float32):
                 raise TypeError("Data type conversion resulted"
                                 "in data loss.")
 
-            X_m = cudf.DataFrame(new_cols)
+            return cudf.DataFrame(new_cols)
 
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
-            X_m = np.ascontiguousarray(X.astype(np.float32))
+            X_m = np.ascontiguousarray(X.astype(to_dtype))
             if len(X[X == np.inf]) > 0:
                 raise TypeError("Data type conversion resulted"
                                 "in data loss.")
+            return X_m
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
 
-    return X_m
+    return X
