@@ -154,6 +154,11 @@ namespace UMAPAlgo {
 		        params, embeddings, stream,
 		        params->init);
 
+        if (params->callback) {
+            params->callback->setup(n, params->n_components);
+            params->callback->on_preprocess_end(embeddings);
+        }
+
 		/**
 		 * Run simplicial set embedding to approximate low-dimensional representation
 		 */
@@ -161,6 +166,9 @@ namespace UMAPAlgo {
 		        X, n, d,
 		        &cgraph_coo,
 		        params, embeddings, stream);
+
+        if (params->callback)
+            params->callback->on_train_end(embeddings);
 
 		CUDA_CHECK(cudaFree(knn_dists));
         CUDA_CHECK(cudaFree(knn_indices));
@@ -177,7 +185,7 @@ namespace UMAPAlgo {
                 kNN *knn,
                 UMAPParams *params,
                 T *embeddings, cudaStream_t stream) {
-
+                    
         int k = params->n_neighbors;
 
 	    if(params->target_n_neighbors == -1)
@@ -262,6 +270,9 @@ namespace UMAPAlgo {
                 params, embeddings, stream,
                 params->init);
 
+        if (params->callback)
+            params->callback->on_preprocess_end(embeddings);
+
         /**
          * Run simplicial set embedding to approximate low-dimensional representation
          */
@@ -271,6 +282,9 @@ namespace UMAPAlgo {
                 params,
                 embeddings,
                 stream);
+
+        if (params->callback)
+            params->callback->on_train_end(embeddings);
 
         CUDA_CHECK(cudaPeekAtLastError());
 
