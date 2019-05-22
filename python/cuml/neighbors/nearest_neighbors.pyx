@@ -141,8 +141,8 @@ cdef class NearestNeighborsImpl:
                 if self._should_downcast:
                     X = np.ascontiguousarray(X, np.float32)
                     if len(X[X == np.inf]) > 0:
-                        raise ValueError("Downcast to single-precision resulted"
-                                        " in data loss.")
+                        raise ValueError("Downcast to single-precision "
+                                        "resulted in data loss.")
                 else:
                     raise TypeError("Only single precision floating point is"
                                     " supported for this algorithm. Use "
@@ -182,8 +182,6 @@ cdef class NearestNeighborsImpl:
                     input_to_array(X, convert_to_dtype=np.float32)
             else:
                 self.X_m, X_ctype, n_rows, _, dtype = input_to_array(X)
-
-            # X_ctype = self.X_m.device_ctypes_pointer.value
 
             params = new kNNParams()
             params.N = <int>n_rows
