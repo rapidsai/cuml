@@ -16,9 +16,9 @@ export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set versions of packages needed to be grabbed
-export CUDF_VERSION=0.7.*
-export NVSTRINGS_VERSION=0.7.*
-export RMM_VERSION=0.7.*
+export CUDF_VERSION=0.8.*
+export NVSTRINGS_VERSION=0.8.*
+export RMM_VERSION=0.8.*
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE

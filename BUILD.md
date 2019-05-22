@@ -4,7 +4,7 @@
 
 To install cuML from source, ensure the dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.7)
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.8)
 2. zlib
 3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
@@ -124,6 +124,3 @@ cuML's cmake has the following configurable flags available:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
-
-
-
