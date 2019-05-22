@@ -19,20 +19,20 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
-
-import cudf
-import numpy as np
 from cuml.solvers import CD
+
 
 class Lasso:
 
     """
-    Lasso extends LinearRegression by providing L1 regularization on the coefficients when
-    predicting response y with a linear combination of the predictors in X. It can zero some of
-    the coefficients for feature selection, and improves the conditioning of the problem.
+    Lasso extends LinearRegression by providing L1 regularization on the
+    coefficients when predicting response y with a linear combination of the
+    predictors in X. It can zero some of the coefficients for feature
+    selection, and improves the conditioning of the problem.
 
-    cuML's Lasso expects a cuDF DataFrame, uses coordinate descent to fit a linear model. 
-    
+    cuML's Lasso expects a cuDF DataFrame or NumPy matrix, and uses coordinate
+    descent to fit a linear model.
+
     Examples
     ---------
 
@@ -84,23 +84,29 @@ class Lasso:
     -----------
     alpha : float or double
         Constant that multiplies the L1 term. Defaults to 1.0.
-        alpha = 0 is equivalent to an ordinary least square, solved by the LinearRegression object. 
-        For numerical reasons, using alpha = 0 with the Lasso object is not advised. 
-        Given this, you should use the LinearRegression object.
+        alpha = 0 is equivalent to an ordinary least square, solved by the
+        LinearRegression class.
+        For numerical reasons, using alpha = 0 with the Lasso class is not
+        advised.
+        Given this, you should use the LinearRegression class.
     fit_intercept : boolean (default = True)
         If True, Lasso tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2 norm.
+        If True, the predictors in X will be normalized by dividing by it's L2
+        norm.
         If False, no scaling will be done.
     max_iter : int
         The maximum number of iterations
     tol : float, optional
-        The tolerance for the optimization: if the updates are smaller than tol, 
-        the optimization code checks the dual gap for optimality and continues until it is smaller than tol.
+        The tolerance for the optimization: if the updates are smaller than
+        tol, the optimization code checks the dual gap for optimality and
+        continues until it is smaller than tol.
     selection : str, default ‘cyclic’
-        If set to ‘random’, a random coefficient is updated every iteration rather than looping over features sequentially by default. 
-        This (setting to ‘random’) often leads to significantly faster convergence especially when tol is higher than 1e-4.
+        If set to ‘random’, a random coefficient is updated every iteration
+        rather than looping over features sequentially by default.
+        This (setting to ‘random’) often leads to significantly faster
+        convergence especially when tol is higher than 1e-4.
 
     Attributes
     -----------
@@ -108,11 +114,13 @@ class Lasso:
         The estimated coefficients for the linear regression model.
     intercept_ : array
         The independent term. If fit_intercept_ is False, will be 0.
-        
-    For additional docs, see `scikitlearn's Lasso <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
+
+    For additional docs, see `scikitlearn's Lasso
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
- 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3, selection='cyclic'):
+
+    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+                 max_iter=1000, tol=1e-3, selection='cyclic'):
 
         """
         Initializes the lasso regression class.
@@ -120,13 +128,14 @@ class Lasso:
         Parameters
         ----------
         alpha : float or double.
-        fit_intercept: boolean. 
-        normalize: boolean. 
+        fit_intercept: boolean.
+        normalize: boolean.
         max_iter: int
         tol: float or double.
         selection : str, ‘cyclic’, or 'random'
 
-        For additional docs, see `scikitlearn's Lasso <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
+        For additional docs, see `scikitlearn's Lasso
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
         """
         self._check_alpha(alpha)
         self.alpha = alpha
@@ -138,11 +147,11 @@ class Lasso:
         self.tol = tol
         self.culasso = None
         if selection in ['cyclic', 'random']:
-             self.selection = selection
+            self.selection = selection
         else:
             msg = "selection {!r} is not supported"
             raise TypeError(msg.format(selection))
-       
+
         self.intercept_value = 0.0
 
     def _check_alpha(self, alpha):
@@ -168,8 +177,10 @@ class Lasso:
         if self.selection == 'random':
             shuffle = True
 
-        self.culasso = CD(fit_intercept=self.fit_intercept, normalize=self.normalize, alpha=self.alpha, 
-                          l1_ratio=1.0, shuffle=shuffle, max_iter=self.max_iter)
+        self.culasso = CD(fit_intercept=self.fit_intercept,
+                          normalize=self.normalize, alpha=self.alpha,
+                          l1_ratio=1.0, shuffle=shuffle,
+                          max_iter=self.max_iter)
         self.culasso.fit(X, y)
 
         self.coef_ = self.culasso.coef_
@@ -195,7 +206,6 @@ class Lasso:
 
         return self.culasso.predict(X)
 
-
     def get_params(self, deep=True):
         """
         Sklearn style return parameter state
@@ -205,12 +215,12 @@ class Lasso:
         deep : boolean (default = True)
         """
         params = dict()
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'selection']
+        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+                     'selection']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
@@ -222,11 +232,12 @@ class Lasso:
         """
         if not params:
             return self
-        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol', 'selection']
+        variables = ['alpha', 'fit_intercept', 'normalize', 'max_iter', 'tol',
+                     'selection']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter for estimator')
             else:
                 setattr(self, key, value)
-        
+
         return self
