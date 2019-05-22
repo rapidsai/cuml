@@ -191,10 +191,10 @@ cdef class UMAPImpl:
 
         if self._should_downcast:
             X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_array(X, convert_to_dtype=np.float32)
+                input_to_array(X, order='C', convert_to_dtype=np.float32)
         else:
             X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_array(X, check_dtype=np.float32)
+                input_to_array(X, order='C', check_dtype=np.float32)
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -256,10 +256,10 @@ cdef class UMAPImpl:
         cdef uintptr_t x_ptr
         if self._should_downcast:
             X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_array(X, convert_to_dtype=np.float32)
+                input_to_array(X, order='C', convert_to_dtype=np.float32)
         else:
             X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_array(X, check_dtype=np.float32)
+                input_to_array(X, order='C', check_dtype=np.float32)
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "

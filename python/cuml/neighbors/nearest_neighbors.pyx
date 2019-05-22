@@ -178,9 +178,10 @@ cdef class NearestNeighborsImpl:
         else:
             if self._should_downcast:
                 self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_array(X, convert_to_dtype=np.float32)
+                    input_to_array(X, order='C', convert_to_dtype=np.float32)
             else:
-                self.X_m, X_ctype, n_rows, _, dtype = input_to_array(X)
+                self.X_m, X_ctype, n_rows, _, dtype = input_to_array(X,
+                                                                     order='C')
 
             params = new kNNParams()
             params.N = <int>n_rows
@@ -222,9 +223,9 @@ cdef class NearestNeighborsImpl:
 
         if self._should_downcast:
             X_m, X_ctype, N, _, dtype = \
-                input_to_array(X, convert_to_dtype=np.float32)
+                input_to_array(X, order='C', convert_to_dtype=np.float32)
         else:
-            X_m, X_ctype, N, _, dtype = input_to_array(X)
+            X_m, X_ctype, N, _, dtype = input_to_array(X, order='C')
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
