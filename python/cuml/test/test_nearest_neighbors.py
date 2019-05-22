@@ -49,9 +49,11 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
 
-    knn_sk = skKNN(metric="l2")
-    knn_sk.fit(X)
-    D_sk, I_sk = knn_sk.kneighbors(X, k)
+    if nrows != 500000:
+        knn_sk = skKNN(metric="l2")
+        knn_sk.fit(X)
+        D_sk, I_sk = knn_sk.kneighbors(X, k)
+
     knn_cu = cuKNN(should_downcast=should_downcast)
 
     if input_type == 'dataframe':
@@ -78,8 +80,9 @@ def test_knn(input_type, should_downcast, nrows, n_feats, k):
         D_cuml_arr = D_cuml
         I_cuml_arr = I_cuml
 
-    assert array_equal(D_cuml_arr, np.square(D_sk), 1e-2, with_sign=True)
-    assert I_cuml_arr.all() == I_sk.all()
+    if nrows != 500000:
+        assert array_equal(D_cuml_arr, np.square(D_sk), 1e-2, with_sign=True)
+        assert I_cuml_arr.all() == I_sk.all()
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
