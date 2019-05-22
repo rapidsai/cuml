@@ -24,9 +24,9 @@ import numpy as np
 
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
-@pytest.mark.parametrize('n_samples', [1000, 2500])
-@pytest.mark.parametrize('n_features', [500, 1000])
-@pytest.mark.parametrize('n_components', [100, 200])
+@pytest.mark.parametrize('n_samples', [100, 1000])
+@pytest.mark.parametrize('n_features', [100, 500])
+@pytest.mark.parametrize('n_components', [10, 100])
 def test_trustworthiness(input_type, n_samples, n_features, n_components):
     centers = round(n_samples*0.4)
     X, y = make_blobs(n_samples=n_samples, centers=centers,
