@@ -214,8 +214,8 @@ cdef class UMAPImpl:
 
         cdef uintptr_t y_raw
         if y is not None:
-            y_m = self._downcast(y)
-            y_raw = y_m.device_ctypes_pointer.value
+            y_m, y_raw, _, _, _ = \
+            input_to_array(y)
             self.umap.fit(
                 handle_[0],
                 <float*> self.raw_data,
