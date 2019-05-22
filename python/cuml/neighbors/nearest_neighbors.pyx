@@ -25,7 +25,6 @@ import cudf
 import ctypes
 import cuml
 
-from cuml import numba_utils
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
     input_to_array
