@@ -142,7 +142,7 @@ cdef class NearestNeighborsImpl:
                     X = np.ascontiguousarray(X, np.float32)
                     if len(X[X == np.inf]) > 0:
                         raise ValueError("Downcast to single-precision "
-                                        "resulted in data loss.")
+                                         "resulted in data loss.")
                 else:
                     raise TypeError("Only single precision floating point is"
                                     " supported for this algorithm. Use "
