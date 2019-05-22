@@ -37,10 +37,27 @@ def get_cudf_column_ptr(col):
     """
     return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
+def get_dtype(obj):
+    """
+    Returns dtype of obj as a Numpy style dtype (like np.float32)
+    """
+    if isinstance(X, cudf.DataFrame):
+        dtype = np.dtype(X[X.columns[0]]._column.dtype)
+    elif (isinstance(X, cudf.Series)):
+        dtype = np.dtype(X._column.dtype)
+    elif isinstance(X, np.ndarray):
+        dtype = X.dtype
+    elif isinstance(c, cupy.ndarray):
+        dtype = X.dtype
+    elif cuda.devicearray.is_cuda_ndarray(X):
+        dtype = X.dtype
+
+    return dtype
+
 
 def input_to_array(X, order='F', deepcopy=False,
-                   check_dtype=False, check_cols=False,
-                   check_rows=False):
+                   check_dtype=False, convert_to_dtype=False,
+                   check_cols=False, check_rows=False):
     """
     Convert input X to device array suitable for C++ methods
     Acceptable input formats:
@@ -57,8 +74,12 @@ def input_to_array(X, order='F', deepcopy=False,
         array interface compliant (like cupy)
     """
 
+    if convert_to_dtype:
+        X = convert_dtype(X, to_dtype=convert_to_dtype)
+        check_dtype = False
+
     if isinstance(X, cudf.DataFrame):
-        datatype = np.dtype(X[X.columns[0]]._column.dtype)
+        dtype = np.dtype(X[X.columns[0]]._column.dtype)
         if order == 'F':
             X_m = X.as_gpu_matrix(order='F')
         elif order == 'C':
@@ -71,7 +92,7 @@ def input_to_array(X, order='F', deepcopy=False,
             X_m = X._column._data.mem
 
     elif isinstance(X, np.ndarray):
-        datatype = X.dtype
+        dtype = X.dtype
         X_m = rmm.to_device(np.array(X, order=order, copy=False))
 
     elif cuda.is_cuda_array(X):
@@ -85,10 +106,10 @@ def input_to_array(X, order='F', deepcopy=False,
         msg = "X matrix format " + str(X.__class__) + " not supported"
         raise TypeError(msg)
 
-    datatype = X_m.dtype
+    dtype = X_m.dtype
 
     if check_dtype:
-        if datatype.dtype != check_dtype.dtype:
+        if dtype.dtype != check_dtype.dtype:
             del X_m
             raise TypeError("ba")
 
@@ -110,4 +131,47 @@ def input_to_array(X, order='F', deepcopy=False,
 
     # todo: add check of alignment and nans
 
-    return X_m, X_ptr, n_rows, n_cols, datatype
+    return X_m, X_ptr, n_rows, n_cols, dtype
+
+
+def convert_dtype(X, to_dtype=np.float32):
+    """
+    Convert X to be of dtype `dtype`
+    """
+
+    # Using cuDF for converting numba and device array interface inputs
+
+    if cuda.devicearray.is_cuda_ndarray(X):
+        X_df = cudf.Dataframe()
+        X = X_df.from_gpu_matrix(X)
+
+    if cuda.is_cuda_array(X):
+        X_df = cudf.Dataframe()
+        X = X_df.from_gpu_matrix(cuda.as_cuda_array(X))
+
+    if isinstance(X, cudf.DataFrame):
+        dtype = np.dtype(X[X.columns[0]]._column.dtype)
+        if dtype != to_dtype:
+            new_cols = [(col, X._cols[col].astype(np.float32))
+                        for col in X._cols]
+            overflowed = sum([len(colval[colval >= np.inf])
+                              for colname, colval in new_cols])
+
+            if overflowed > 0:
+                raise TypeError("Data type conversion resulted"
+                                "in data loss.")
+
+            X_m = cudf.DataFrame(new_cols)
+
+    elif isinstance(X, np.ndarray):
+        dtype = X.dtype
+        if dtype != to_dtype:
+            X_m = np.ascontiguousarray(X.astype(np.float32))
+            if len(X[X == np.inf]) > 0:
+                raise TypeError("Data type conversion resulted"
+                                "in data loss.")
+
+    else:
+        raise TypeError("Received unsupported input type " % type(X))
+
+    return X_m
