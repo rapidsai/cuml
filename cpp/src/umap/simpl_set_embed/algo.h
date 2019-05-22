@@ -32,6 +32,8 @@
 #include <string>
 #include <sys/time.h>
 
+#include <internals/internals.h>
+
 #pragma once
 
 namespace UMAPAlgo {
@@ -297,6 +299,9 @@ namespace UMAPAlgo {
 	                    seed,
 	                    *params
 	                );
+
+                    if (params->callback)
+                        params->callback->on_epoch_end(head_embedding);
 
                     alpha = params->initial_alpha * (1.0 - (T(n) / T(n_epochs)));
 	            }

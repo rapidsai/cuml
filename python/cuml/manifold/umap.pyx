@@ -19,6 +19,7 @@
 # cython: embedsignature = True
 # cython: language_level = 3
 
+
 import cudf
 import cuml
 import ctypes
@@ -46,6 +47,9 @@ cdef extern from "umap/umapparams.h" namespace "ML::UMAPParams":
         EUCLIDEAN = 0,
         CATEGORICAL = 1
 
+cdef extern from "internals/internals.h" namespace "ML::Internals":
+    cdef cppclass GraphBasedDimRedCallback
+
 cdef extern from "umap/umapparams.h" namespace "ML":
 
     cdef cppclass UMAPParams:
@@ -67,6 +71,7 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         int target_n_neighbors,
         float target_weights,
         MetricType target_metric
+        GraphBasedDimRedCallback* callback
 
 
 cdef extern from "umap/umap.h" namespace "ML":
@@ -130,7 +135,8 @@ cdef class UMAPImpl:
                   target_weights=0.5,
                   target_metric="euclidean",
                   should_downcast=True,
-                  handle=None):
+                  handle=None,
+                  callback=None):
 
         self.handle = handle
 
@@ -174,6 +180,11 @@ cdef class UMAPImpl:
             self.umap_params.target_metric = MetricType.CATEGORICAL
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
+
+        cdef uintptr_t callback_ptr = 0
+        if callback:
+            callback_ptr = callback.get_native_callback()
+            self.umap_params.callback = <GraphBasedDimRedCallback*>callback_ptr
 
         self._should_downcast = should_downcast
 
@@ -452,7 +463,8 @@ class UMAP(Base):
                  target_weights=0.5,
                  target_metric="euclidean",
                  should_downcast=True,
-                 handle=None):
+                 handle=None,
+                 callback=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -474,7 +486,10 @@ class UMAP(Base):
                               target_weights,
                               target_metric,
                               should_downcast,
-                              self.handle)
+                              self.handle,
+                              callback)
+
+        self.callback = callback  # prevent callback destruction
 
     def fit(self, X, y=None):
         """Fit X into an embedded space.
