@@ -192,7 +192,8 @@ class KalmanFilter(Base):
             'double': np.float64,
         }[precision]
 
-    def __init__(self, dim_x, dim_z, solver='long', precision='single', seed=False):
+    def __init__(self, dim_x, dim_z, solver='long', precision='single',
+                 seed=False):
 
         if solver in ['long', 'short_implicit', 'short_explicit']:
             self._algorithm = self._get_algorithm_c_name(solver)
@@ -244,8 +245,6 @@ class KalmanFilter(Base):
         cdef int c_dim_x = dim_x
         cdef int c_dim_z = dim_z
 
-
-
         with nogil:
 
             workspace_size = get_workspace_size_f32(var_ptr,
@@ -261,9 +260,9 @@ class KalmanFilter(Base):
                                                     <float*> _R_ptr,
                                                     <float*> _H_ptr)
 
-        self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
+        self.workspace = cuda.to_device(np.zeros(workspace_size,
+                                                 dtype=self.dtype))
         self._workspace_size = workspace_size
-
 
     def _get_algorithm_c_name(self, algorithm):
         return {
@@ -271,7 +270,6 @@ class KalmanFilter(Base):
             'short_implicit': ShortFormExplicit,
             'short_explicit': ShortFormImplicit,
         }[algorithm]
-
 
     def predict(self, B=None, F=None, Q=None):
         """
@@ -386,12 +384,7 @@ class KalmanFilter(Base):
                          <void*> _ws_ptr,
                          <size_t&> workspace_size)
 
-
                 predict_f64(var64)
-
-            # if workspace_size != current_size:
-        #     self.workspace = cuda.to_device(np.zeros(workspace_size, dtype=self.dtype))
-
 
     def update(self, z, R=None, H=None):
         """
@@ -468,8 +461,6 @@ class KalmanFilter(Base):
                                                         <float*> _R_ptr,
                                                         <float*> _H_ptr)
 
-
-
                 init_f32(var32,
                          <int> dim_x,
                          <int> dim_z,
@@ -505,8 +496,6 @@ class KalmanFilter(Base):
                                                         <double*> _R_ptr,
                                                         <double*> _H_ptr)
 
-
-
                 init_f64(var64,
                          <int> dim_x,
                          <int> dim_z,
@@ -525,7 +514,6 @@ class KalmanFilter(Base):
                 update_f64(var64,
                            <double*> z_ptr)
 
-
     def __setattr__(self, name, value):
         if name in ["F", "x_up", "x", "P_up", "P", "Q", "H", "R", "z"]:
             if (isinstance(value, cudf.DataFrame)):
@@ -534,7 +522,8 @@ class KalmanFilter(Base):
             elif (isinstance(value, cudf.Series)):
                 val = value._column._data.mem
 
-            elif (isinstance(value, np.ndarray) or cuda.devicearray.is_cuda_ndarray(value)):
+            elif (isinstance(value, np.ndarray) or
+                  cuda.devicearray.is_cuda_ndarray(value)):
                 val = cuda.to_device(value)
 
             super(KalmanFilter, self).__setattr__(name, val)

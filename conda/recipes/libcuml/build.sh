@@ -12,11 +12,11 @@ printenv
 # Cleanup local git
 git clean -xdf
 # Change directory for build process
-cd cuML
+cd cpp
 # Use CMake-based build procedure
 mkdir build
 cd build
 # configure
 cmake $CMAKE_COMMON_VARIABLES ..
 # build
-make -j${PARALLEL_LEVEL} VERBOSE=1 install
+make -j${PARALLEL_LEVEL} cuml++ VERBOSE=1 install
