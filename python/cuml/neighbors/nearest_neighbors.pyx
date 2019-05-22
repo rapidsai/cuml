@@ -231,8 +231,8 @@ cdef class NearestNeighborsImpl:
         I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
         D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
 
-        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
-        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+        cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
         self._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
 
