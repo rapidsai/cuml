@@ -348,7 +348,7 @@ class PCA(Base):
 
         """
         cdef uintptr_t input_ptr
-        X_m, input_ptr ,self.n_rows, self.n_cols, self.dtype = \
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
             input_to_array(X)
 
         cpdef paramsPCA params

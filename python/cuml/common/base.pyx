@@ -23,6 +23,7 @@
 import cuml.common.handle
 import cuml.common.cuda
 
+
 class Base:
     """
     Base class for all the ML algos. It handles some of the common operations
