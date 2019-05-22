@@ -156,20 +156,25 @@ class BatchedARIMAModel:
 
         def f(x):
             # Maximimize LL means minimize negative
-            return -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu).sum())
+            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu).sum())
+            return n_llf_sum/(num_samples-1)/num_batches
 
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu)
+            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu)
+            return n_gllf/(num_samples-1)/num_batches
 
         x0 = np.r_[mu0, ar_params0, ma_params0]
         x0 = np.tile(x0, num_batches)
-
-        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf, approx_grad=False, iprint=opt_disp)
+        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=None,
+                                            approx_grad=True,
+                                            iprint=opt_disp,
+                                            factr=100,
+                                            m=12)
 
         if res['warnflag'] > 0:
-            raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)")
+            raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
 
         mu = np.zeros(num_batches)
         ar = []
