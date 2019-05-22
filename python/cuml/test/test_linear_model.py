@@ -47,8 +47,8 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 @pytest.mark.parametrize('n_info', [unit_param(2), quality_param(50),
                          stress_param(500)])
-def test_linear_models(datatype, X_type, y_type, algorithm,
-                       nrows, ncols, n_info):
+def test_linear_models(datatype, X_type, y_type,
+                       algorithm, nrows, ncols, n_info):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=(nrows), n_features=ncols,
                            n_informative=n_info, random_state=0)
@@ -56,13 +56,14 @@ def test_linear_models(datatype, X_type, y_type, algorithm,
     X_train = np.asarray(X[0:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[0:train_rows, ]).astype(datatype)
 
-    # sklearn linear and ridge regression model initialization and fit
-    skols = skLinearRegression(fit_intercept=True,
-                               normalize=False)
-    skols.fit(X_train, y_train)
-    skridge = skRidge(fit_intercept=False,
-                      normalize=False)
-    skridge.fit(X_train, y_train)
+    if nrows != 500000:
+        # sklearn linear and ridge regression model initialization and fit
+        skols = skLinearRegression(fit_intercept=True,
+                                   normalize=False)
+        skols.fit(X_train, y_train)
+        skridge = skRidge(fit_intercept=False,
+                          normalize=False)
+        skridge.fit(X_train, y_train)
 
     # Initialization of cuML's linear and ridge regression models
     cuols = cuLinearRegression(fit_intercept=True,
@@ -103,8 +104,10 @@ def test_linear_models(datatype, X_type, y_type, algorithm,
         curidge.fit(X_train, y_train)
         curidge_predict = curidge.predict(X_test).to_array()
 
-    skols_predict = skols.predict(X_test)
-    skridge_predict = skridge.predict(X_test)
-
-    assert array_equal(skols_predict, cuols_predict, 1e-1, with_sign=True)
-    assert array_equal(skridge_predict, curidge_predict, 1e-1, with_sign=True)
+    if nrows != 500000:
+        skols_predict = skols.predict(X_test)
+        skridge_predict = skridge.predict(X_test)
+        assert array_equal(skols_predict, cuols_predict,
+                           1e-1, with_sign=True)
+        assert array_equal(skridge_predict, curidge_predict,
+                           1e-1, with_sign=True)
