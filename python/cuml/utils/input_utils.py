@@ -37,6 +37,7 @@ def get_cudf_column_ptr(col):
     """
     return cudf.bindings.cudf_cpp.get_column_data_ptr(col._column)
 
+
 def get_dtype(X):
     """
     Returns dtype of obj as a Numpy style dtype (like np.float32)
@@ -47,7 +48,7 @@ def get_dtype(X):
         dtype = np.dtype(X._column.dtype)
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
-    elif isinstance(X, cupy.ndarray):
+    elif cuda.is_cuda_array(X):
         dtype = X.dtype
     elif cuda.devicearray.is_cuda_ndarray(X):
         dtype = X.dtype
