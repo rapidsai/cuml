@@ -56,7 +56,7 @@ def test_dbscan(datatype, input_type, use_handle,
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
-    if nrows!= 500000:
+    if nrows != 500000:
         skdbscan = skDBSCAN(eps=3, min_samples=2)
         sk_labels = skdbscan.fit_predict(X)
     handle, stream = get_handle(use_handle)
@@ -72,7 +72,7 @@ def test_dbscan(datatype, input_type, use_handle,
         cu_labels = cudbscan.fit_predict(X)
 
     for i in range(X.shape[0]):
-        if nrows!= 500000:
+        if nrows != 500000:
             assert cu_labels[i] == sk_labels[i]
 
 
@@ -97,15 +97,15 @@ def test_dbscan_sklearn_comparison(name, nrows):
 
     X = StandardScaler().fit_transform(X)
 
-    if nrows!= 500000:
+    if nrows != 500000:
         dbscan = skDBSCAN(eps=params['eps'], min_samples=5)
         sk_y_pred, sk_n_clusters = fit_predict(dbscan,
                                                'sk_DBSCAN', X)
 
     cuml_dbscan = cuDBSCAN(eps=params['eps'], min_samples=5)
     cu_y_pred, cu_n_clusters = fit_predict(cuml_dbscan,
-                                          'cuml_DBSCAN', X)
+                                           'cuml_DBSCAN', X)
 
-    if nrows!= 500000:
+    if nrows != 500000:
         assert(sk_n_clusters == cu_n_clusters)
         clusters_equal(sk_y_pred, cu_y_pred, sk_n_clusters)
