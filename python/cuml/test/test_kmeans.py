@@ -54,29 +54,26 @@ def test_kmeans_sklearn_comparison(name, nrows):
     params = default_base.copy()
     params.update(pat[1])
 
-    kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
     cuml_kmeans = cuml.KMeans(n_clusters=params['n_clusters'])
 
     X, y = pat[0]
 
     X = StandardScaler().fit_transform(X)
 
-    clustering_algorithms = (
-        ('sk_Kmeans', kmeans),
-        ('cuml_Kmeans', cuml_kmeans),
-    )
+    cu_y_pred, _ = fit_predict(cuml_kmeans,
+                               'cuml_Kmeans', X)
 
-    sk_y_pred, _ = fit_predict(clustering_algorithms[0][1],
-                               clustering_algorithms[0][0], X)
+    if nrows != 500000:
+        kmeans = cluster.KMeans(n_clusters=params['n_clusters'])
+        sk_y_pred, _ = fit_predict(kmeans,
+                                   'sk_Kmeans', X)
 
-    cu_y_pred, _ = fit_predict(clustering_algorithms[1][1],
-                               clustering_algorithms[1][0], X)
+        # Noisy circles clusters are rotated in the results,
+        # since we are comparing 2 we just need to compare that both clusters
+        # have approximately the same number of points.
+        calculation = (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred)
+        if name == 'noisy_circles':
+            assert calculation < 2e-3
 
-    # Noisy circles clusters are rotated in the results,
-    # since we are comparing 2 we just need to compare that both clusters
-    # have approximately the same number of points.
-    if name == 'noisy_circles':
-        assert (np.sum(sk_y_pred) - np.sum(cu_y_pred))/len(sk_y_pred) < 2e-3
-
-    else:
-        assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
+        else:
+            assert clusters_equal(sk_y_pred, cu_y_pred, params['n_clusters'])
