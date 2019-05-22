@@ -59,8 +59,9 @@ def test_tsvd_fit(datatype, input_type,
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                      dtype=datatype)
 
-    sktsvd = skTSVD(n_components=1)
-    sktsvd.fit(X)
+    if name != 'blobs':
+        sktsvd = skTSVD(n_components=1)
+        sktsvd.fit(X)
 
     handle, stream = get_handle(use_handle)
     cutsvd = cuTSVD(n_components=1, handle=handle)
@@ -76,11 +77,12 @@ def test_tsvd_fit(datatype, input_type,
 
     cutsvd.handle.sync()
 
-    for attr in ['singular_values_', 'components_',
-                 'explained_variance_ratio_']:
-        with_sign = False if attr in ['components_'] else True
-        assert array_equal(getattr(cutsvd, attr), getattr(sktsvd, attr),
-                           0.4, with_sign=with_sign)
+    if name != 'blobs':
+        for attr in ['singular_values_', 'components_',
+                     'explained_variance_ratio_']:
+            with_sign = False if attr in ['components_'] else True
+            assert array_equal(getattr(cutsvd, attr), getattr(sktsvd, attr),
+                               0.4, with_sign=with_sign)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -105,8 +107,9 @@ def test_tsvd_fit_transform(datatype, input_type,
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                      dtype=datatype)
 
-    skpca = skTSVD(n_components=1)
-    Xsktsvd = skpca.fit_transform(X)
+    if name != 'blobs':
+        skpca = skTSVD(n_components=1)
+        Xsktsvd = skpca.fit_transform(X)
 
     handle, stream = get_handle(use_handle)
     cutsvd = cuTSVD(n_components=1, handle=handle)
@@ -122,7 +125,8 @@ def test_tsvd_fit_transform(datatype, input_type,
 
     cutsvd.handle.sync()
 
-    assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
+    if name != 'blobs':
+        assert array_equal(Xcutsvd, Xsktsvd, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
