@@ -35,7 +35,7 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
                                         'numba_dev_array', 'cupy'])
 @pytest.mark.parametrize('use_handle', [True, False])
 def test_dbscan_predict(datatype, input_type, use_handle, max_bytes_per_batch):
-  # 200=2 batches, 2e6=1 batch
+    # 200=2 batches, 2e6=1 batch
 
     X = np.array([[1, 2], [2, 2], [2, 3], [8, 7], [8, 8], [25, 80]],
                  dtype=datatype)

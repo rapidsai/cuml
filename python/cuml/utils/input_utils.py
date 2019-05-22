@@ -39,8 +39,8 @@ def get_cudf_column_ptr(col):
 
 
 def input_to_array(X, order='F', deepcopy=False,
-                           check_dtype=False, check_cols=False,
-                           check_rows=False):
+                   check_dtype=False, check_cols=False,
+                   check_rows=False):
     """
     Convert input X to device array suitable for C++ methods
     Acceptable input formats:
