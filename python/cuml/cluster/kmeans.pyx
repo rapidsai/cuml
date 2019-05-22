@@ -25,7 +25,7 @@ import numpy as np
 import warnings
 
 from numba import cuda
-from cuml import numba_utils
+from cuml.utils import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
