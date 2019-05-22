@@ -31,51 +31,56 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
-    cdef void olsFit(float *input,
+    cdef void olsFit(cumlHandle& handle,
+                     float *input,
                      int n_rows,
                      int n_cols,
                      float *labels,
                      float *coef,
                      float *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsFit(double *input,
+    cdef void olsFit(cumlHandle& handle,
+                     double *input,
                      int n_rows,
                      int n_cols,
                      double *labels,
                      double *coef,
                      double *intercept,
                      bool fit_intercept,
-                     bool normalize, int algo)
+                     bool normalize, int algo) except +
 
-    cdef void olsPredict(const float *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const float *input,
                          int n_rows,
                          int n_cols,
                          const float *coef,
                          float intercept,
-                         float *preds)
+                         float *preds) except +
 
-    cdef void olsPredict(const double *input,
+    cdef void olsPredict(cumlHandle& handle,
+                         const double *input,
                          int n_rows,
                          int n_cols,
                          const double *coef,
                          double intercept,
-                         double *preds)
+                         double *preds) except +
 
 
 class LinearRegression(Base):
 
     """
-    LinearRegression is a simple machine learning model where the response y is modelled by a
-    linear combination of the predictors in X.
+    LinearRegression is a simple machine learning model where the response y is
+    modelled by a linear combination of the predictors in X.
 
-    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix and provides 2
-    algorithms SVD and Eig to fit a linear model. SVD is more stable, but Eig (default)
-    is much more faster.
+    cuML's LinearRegression expects either a cuDF DataFrame or a NumPy matrix
+    and provides 2 algorithms SVD and Eig to fit a linear model. SVD is more
+    stable, but Eig (default) is much faster.
 
     Examples
     ---------
@@ -89,7 +94,8 @@ class LinearRegression(Base):
         from cuml import LinearRegression
         from cuml.linear_model import LinearRegression
 
-        lr = LinearRegression(fit_intercept = True, normalize = False, algorithm = "eig")
+        lr = LinearRegression(fit_intercept = True, normalize = False,
+                              algorithm = "eig")
 
         X = cudf.DataFrame()
         X['col1'] = np.array([1,1,2,2], dtype = np.float32)
@@ -130,13 +136,15 @@ class LinearRegression(Base):
     Parameters
     -----------
     algorithm : 'eig' or 'svd' (default = 'eig')
-        Eig uses a eigendecomposition of the covariance matrix, and is much faster.
-        SVD is slower, but is guaranteed to be stable.
+        Eig uses a eigendecomposition of the covariance matrix, and is much
+        faster.
+        SVD is slower, but guaranteed to be stable.
     fit_intercept : boolean (default = True)
         If True, LinearRegression tries to correct for the global mean of y.
         If False, the model expects that you have centered the data.
     normalize : boolean (default = False)
-        If True, the predictors in X will be normalized by dividing by it's L2 norm.
+        If True, the predictors in X will be normalized by dividing by it's
+        L2 norm.
         If False, no scaling will be done.
 
     Attributes
@@ -148,36 +156,46 @@ class LinearRegression(Base):
 
     Notes
     ------
-    LinearRegression suffers from multicollinearity (when columns are correlated with each other),
-    and variance explosions from outliers. Consider using Ridge Regression to fix the multicollinearity
-    problem,and consider maybe first DBSCAN to remove the outliers, or using leverage statistics to
-    filter possible outliers.
+    LinearRegression suffers from multicollinearity (when columns are
+    correlated with each other), and variance explosions from outliers.
+    Consider using Ridge Regression to fix the multicollinearity problem, and
+    consider maybe first DBSCAN to remove the outliers, or statistical analysis
+    to filter possible outliers.
 
     **Applications of LinearRegression**
 
-        LinearRegression is used in regression tasks where one wants to predict say sales or house prices.
-        It is also used in extrapolation or time series tasks, dynamic systems modelling and many other
-        machine learning tasks. This model should be first tried if the machine learning problem is a
-        regression task (predicting a continuous variable).
+        LinearRegression is used in regression tasks where one wants to predict
+        say sales or house prices. It is also used in extrapolation or time
+        series tasks, dynamic systems modelling and many other machine learning
+        tasks. This model should be first tried if the machine learning problem
+        is a regression task (predicting a continuous variable).
 
-    For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    For additional docs, see `scikitlearn's OLS
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+
+    For an additional example see `the OLS notebook
+    <https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb>`_.
+
+
     """
-    # For an additional example see `the OLS notebook <https://github.com/rapidsai/cuml/blob/master/python/notebooks/glm_demo.ipynb>`_.
-    # New link: https://github.com/rapidsai/cuml/blob/master/python/notebooks/linear_regression_demo.ipynb
 
-
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False):
+    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+                 handle=None):
 
         """
         Initializes the linear regression class.
 
         Parameters
         ----------
-        algorithm : Type: string. 'eig' (default) and 'svd' are supported algorithms.
-        fit_intercept: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
-        normalize: boolean. For more information, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+        algorithm : Type: string. 'eig' (default) and 'svd' are supported
+        algorithms.
+        fit_intercept: boolean. For more information, see `scikitlearn's OLS
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+        normalize: boolean. For more information, see `scikitlearn's OLS
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
 
         """
+        super(LinearRegression, self).__init__(handle=handle, verbose=False)
         self.coef_ = None
         self.intercept_ = None
         self.fit_intercept = fit_intercept
@@ -237,7 +255,10 @@ class LinearRegression(Base):
             raise TypeError(msg)
 
         if self.n_cols == 1:
-            self.algo = 0 # eig based method doesn't work when there is only one column.
+            # TODO: Throw algorithm when this changes algorithm from the user's
+            # choice. Github issue #602
+            # eig based method doesn't work when there is only one column.
+            self.algo = 0
 
         X_ptr = self._get_dev_array_ptr(X_m)
 
@@ -251,38 +272,45 @@ class LinearRegression(Base):
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
 
-        self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
+        self.coef_ = cudf.Series(np.zeros(self.n_cols,
+                                          dtype=self.gdf_datatype))
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1
         cdef double c_intercept2
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.gdf_datatype.type == np.float32:
 
-            olsFit(<float*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <float*>y_ptr,
-                       <float*>coef_ptr,
-                       <float*>&c_intercept1,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <float*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <float*>y_ptr,
+                   <float*>coef_ptr,
+                   <float*>&c_intercept1,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept1
         else:
-            olsFit(<double*>X_ptr,
-                       <int>self.n_rows,
-                       <int>self.n_cols,
-                       <double*>y_ptr,
-                       <double*>coef_ptr,
-                       <double*>&c_intercept2,
-                       <bool>self.fit_intercept,
-                       <bool>self.normalize,
-                       <int>self.algo)
+            olsFit(handle_[0],
+                   <double*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <double*>y_ptr,
+                   <double*>coef_ptr,
+                   <double*>&c_intercept2,
+                   <bool>self.fit_intercept,
+                   <bool>self.normalize,
+                   <int>self.algo)
 
             self.intercept_ = c_intercept2
-        return self
 
+        self.handle.sync()
+
+        return self
 
     def predict(self, X):
         """
@@ -322,26 +350,30 @@ class LinearRegression(Base):
         cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
         if pred_datatype.type == np.float32:
-            olsPredict(<float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr)
+            olsPredict(handle_[0],
+                       <float*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <float*>coef_ptr,
+                       <float>self.intercept_,
+                       <float*>preds_ptr)
         else:
-            olsPredict(<double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr)
+            olsPredict(handle_[0],
+                       <double*>X_ptr,
+                       <int>n_rows,
+                       <int>n_cols,
+                       <double*>coef_ptr,
+                       <double>self.intercept_,
+                       <double*>preds_ptr)
+
+        self.handle.sync()
 
         del(X_m)
 
         return preds
-
 
     def get_params(self, deep=True):
         """
@@ -352,12 +384,11 @@ class LinearRegression(Base):
         deep : boolean (default = True)
         """
         params = dict()
-        variables = ['algorithm','fit_intercept','normalize']
+        variables = ['algorithm', 'fit_intercept', 'normalize']
         for key in variables:
-            var_value = getattr(self,key,None)
+            var_value = getattr(self, key, None)
             params[key] = var_value
         return params
-
 
     def set_params(self, **params):
         """
@@ -369,7 +400,7 @@ class LinearRegression(Base):
         """
         if not params:
             return self
-        variables = ['algorithm','fit_intercept','normalize']
+        variables = ['algorithm', 'fit_intercept', 'normalize']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter %s for estimator')

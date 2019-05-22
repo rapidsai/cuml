@@ -57,7 +57,8 @@ cdef class Handle:
     """
 
     # ML::cumlHandle doesn't have copy operator. So, use pointer for the object
-    # python world cannot access to this raw object directly, hence use 'size_t'!
+    # python world cannot access to this raw object directly, hence use
+    # 'size_t'!
     cdef size_t h
 
     def __cinit__(self):
@@ -81,7 +82,8 @@ cdef class Handle:
         Second, the allocator based on RMM. So, this function, basically makes
         the cumlHandle use a more efficient allocator, instead of the default.
         """
-        cdef shared_ptr[deviceAllocator] rmmAlloc = shared_ptr[deviceAllocator](new rmmAllocatorAdapter())
+        cdef shared_ptr[deviceAllocator] rmmAlloc = (
+            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         h_.setDeviceAllocator(rmmAlloc)
 
@@ -89,8 +91,8 @@ cdef class Handle:
         """
         Issues a sync on the stream set for this handle.
 
-        Once we make `cuml.cuda.Stream` as a mandatory option for creating `cuml.Handle`,
-        this should go away!
+        Once we make `cuml.cuda.Stream` as a mandatory option for creating
+        `cuml.Handle`, this should go away
         """
         cdef cumlHandle* h_ = <cumlHandle*>self.h
         cdef _Stream stream = h_.getStream()
