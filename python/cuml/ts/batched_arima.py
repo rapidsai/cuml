@@ -34,6 +34,7 @@ class BatchedARIMAModel:
         self.y = y
         self.num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         self.num_batches = y.shape[1]
+        self.yp = None
 
     def __repr__(self):
         return "Batched ARIMA Model {}, mu:{}, ar:{}, ma:{}".format(self.order, self.mu,
@@ -140,7 +141,7 @@ class BatchedARIMAModel:
             mu0: float,
             ar_params0: np.ndarray,
             ma_params0: np.ndarray,
-            opt_disp=-1, h=1e-8):
+            opt_disp=-1, h=1e-8, gpu=True):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
         with the given initial parameters. `y` is (num_samples, num_batches)
@@ -155,17 +156,18 @@ class BatchedARIMAModel:
 
         def f(x):
             # Maximimize LL means minimize negative
-            return -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x).sum())
+            return -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu).sum())
 
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h)
+            return -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu)
 
         x0 = np.r_[mu0, ar_params0, ma_params0]
         x0 = np.tile(x0, num_batches)
 
         x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf, approx_grad=False, iprint=opt_disp)
+
         if res['warnflag'] > 0:
             raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)")
 
@@ -192,13 +194,14 @@ class BatchedARIMAModel:
 
         B0 = np.zeros(num_batches)
         for (i, (mu, ar)) in enumerate(zip(mu, ar_params)):
-            B0[i] = mu/(1-np.sum(ar))
+            # B0[i] = mu/(1-np.sum(ar))
+            B0[i] = mu
 
         return np.asfortranarray(y_diff-B0)
 
     @staticmethod
     def run_kalman(model,
-                   gpu=True, initP_kalman_iterations=True) -> Tuple[np.ndarray, np.ndarray]:
+                   gpu=True, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
         """Run the (batched) kalman filter for the given model (and contained batched
         series). `initP_kalman_iterations, if true uses kalman iterations, and if false
         uses an analytical approximation.`"""
@@ -275,39 +278,90 @@ class BatchedARIMAModel:
             y_p = model.y - vs
         elif d == 1:
             y_diff = np.diff(model.y, axis=0)
-            y_p = model.y[0:-1, :] + (y_diff - vs)
+            # Following statsmodel `predict(typ='levels')`, by adding original
+            # signal back to differenced prediction, we retrive a prediction of
+            # the original signal.
+            predict = (y_diff - vs)
+            y_p = model.y[0:-1, :] + predict
         else:
             # d>1
             raise NotImplementedError("Only support d==0,1")
 
         # Extend prediction by 1 when d==1
         if d == 1:
-            y_f = BatchedARIMAModel.forecast(model, 1, y_p)
-            y_p1 = np.zeros((y_p.shape[0]+1, y_p.shape[1]))
-            y_p1[:-1, :] = y_p
-            y_p1[-1, :] = y_f
-            y_p = y_p1
+            # forecast a single value to make prediction length of original signal
+            fc1 = np.zeros(model.num_batches)
+            for i in range(model.num_batches):
+                fc1[i] = BatchedARIMAModel.fc_single(1, model.order[i], y_diff[:,i],
+                                                     vs[:,i], model.mu[i],
+                                                     model.ma_params[i],
+                                                     model.ar_params[i])
+
             
+            final_term = model.y[-1, :] + fc1
+
+            # append final term to prediction
+            temp = np.zeros((y_p.shape[0]+1, y_p.shape[1]))
+            temp[:-1, :] = y_p
+            temp[-1, :] = final_term
+            y_p = temp
 
         model.yp = y_p
         return y_p
 
+
     @staticmethod
-    def forecast(model, nsteps: int, prev_values=None) -> np.ndarray:
+    def fc_single(num_steps, order, y_diff, vs, mu, ma_params, ar_params):
+
+        p, _, q = order
+
+        y_ = np.zeros(p+num_steps)
+        vs_ = np.zeros(q+num_steps)
+        if p>0:
+            y_[:p] = y_diff[-p:]
+        if q>0:
+            vs_[:q] = vs[-q:]
+
+        fcast = np.zeros(num_steps)
+
+        for i in range(num_steps):
+            mu_star = mu * (1-ar_params.sum())
+            fcast[i] = mu_star
+            if p > 0:
+                fcast[i] += np.dot(ar_params, y_[i:i+p])
+            if q > 0 and i < q:
+                fcast[i] += np.dot(ma_params, vs_[i:i+q])
+            if p > 0:
+                y_[i+p] = fcast[i]
+
+        return fcast
+        
+    @staticmethod
+    def forecast(model, nsteps: int) -> np.ndarray:
         """Forecast the given model `nsteps` into the future."""
         y_fc_b = np.zeros((nsteps, model.num_batches))
+
+        _, vs = BatchedARIMAModel.run_kalman(model)
+
         for i in range(model.num_batches):
-            if prev_values is not None:
-                y_fc_b[:, i] = forecast_values(model.order[i], None,
-                                               model.ar_params[i], model.mu[i],
-                                               nsteps, prev_values[:, i])
-            else:
-                y_fc_b[:, i] = forecast_values(model.order[i], model.yp[:, i],
-                                               model.ar_params[i], model.mu[i],
-                                               nsteps, None)
+            p, d, q = model.order[i]
+            vsi = vs[:,i]
+            ydiff_i = np.diff(model.y[:, i],axis=0)
+            fc = BatchedARIMAModel.fc_single(nsteps, (p,d,q), ydiff_i, vsi,
+                                             model.mu[i], model.ma_params[i],
+                                             model.ar_params[i])
+
+            if model.order[i][1] > 0: # d > 0
+                fc = undifference(fc, model.y[-1,i])[1:]
+
+            y_fc_b[:, i] = fc[:]
 
         return y_fc_b
 
+def undifference(x, x0):
+    # set_trace()
+    xi = np.append(x0, x)
+    return np.cumsum(xi)
 
 def assert_same_d(b_order):
     """Checks that all values of d in batched order are same"""
