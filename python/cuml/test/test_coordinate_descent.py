@@ -57,10 +57,11 @@ def test_lasso(datatype, X_type, lr, algorithm,
     X_train = np.asarray(X[0:train_rows, :], dtype=datatype)
     y_train = np.asarray(y[0:train_rows, ], dtype=datatype)
 
-    sk_lasso = Lasso(alpha=np.array([lr]), fit_intercept=True,
-                     normalize=False, max_iter=1000,
-                     selection=algorithm, tol=1e-10)
-    sk_lasso.fit(X_train, y_train)
+    if nrows != 500000:
+        sk_lasso = Lasso(alpha=np.array([lr]), fit_intercept=True,
+                         normalize=False, max_iter=1000,
+                         selection=algorithm, tol=1e-10)
+        sk_lasso.fit(X_train, y_train)
 
     cu_lasso = cuLasso(alpha=np.array([lr]), fit_intercept=True,
                        normalize=False, max_iter=1000,
@@ -85,8 +86,9 @@ def test_lasso(datatype, X_type, lr, algorithm,
         cu_lasso.fit(X_train, y_train)
         cu_predict = cu_lasso.predict(X_test)
 
-    sk_predict = sk_lasso.predict(X_test)
-    assert array_equal(sk_predict, cu_predict, 1e-1, with_sign=True)
+    if nrows != 500000:
+        sk_predict = sk_lasso.predict(X_test)
+        assert array_equal(sk_predict, cu_predict, 1e-1, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -110,11 +112,12 @@ def test_elastic_net(datatype, X_type, lr, algorithm,
     X_train = np.asarray(X[0:train_rows, :], dtype=datatype)
     y_train = np.asarray(y[0:train_rows, ], dtype=datatype)
 
-    elastic_sk = ElasticNet(alpha=np.array([0.1]), fit_intercept=True,
-                            normalize=False, max_iter=1000,
-                            selection=algorithm, tol=1e-10)
+    if nrows != 500000:
+        elastic_sk = ElasticNet(alpha=np.array([0.1]), fit_intercept=True,
+                                normalize=False, max_iter=1000,
+                                selection=algorithm, tol=1e-10)
 
-    elastic_sk.fit(X_train, y_train)
+        elastic_sk.fit(X_train, y_train)
 
     elastic_cu = cuElasticNet(alpha=np.array([0.1]), fit_intercept=True,
                               normalize=False, max_iter=1000,
@@ -139,6 +142,6 @@ def test_elastic_net(datatype, X_type, lr, algorithm,
         elastic_cu.fit(X_train, y_train)
         cu_predict = elastic_cu.predict(X_test)
 
-    sk_predict = elastic_sk.predict(X_test)
-
-    assert array_equal(sk_predict, cu_predict, 1e-1, with_sign=True)
+    if nrows != 500000:
+        sk_predict = elastic_sk.predict(X_test)
+        assert array_equal(sk_predict, cu_predict, 1e-1, with_sign=True)
