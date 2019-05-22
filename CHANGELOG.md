@@ -3,6 +3,7 @@
 ## New Features
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
+- PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 
 ## Improvements
 
