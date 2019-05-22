@@ -109,7 +109,7 @@ def input_to_array(X, order='F', deepcopy=False,
     dtype = X_m.dtype
 
     if check_dtype:
-        if dtype.dtype != check_dtype.dtype:
+        if dtype != check_dtype:
             del X_m
             raise TypeError("ba")
 

@@ -185,67 +185,26 @@ cdef class UMAPImpl:
         del self.umap_params
         del self.umap
 
-    def _downcast(self, X):
-
-        if isinstance(X, cudf.DataFrame):
-            dtype = np.dtype(X[X.columns[0]]._column.dtype)
-
-            if dtype != np.float32:
-                if self._should_downcast:
-
-                    new_cols = [(col, X._cols[col].astype(np.float32))
-                                for col in X._cols]
-                    overflowed = sum([len(colval[colval >= np.inf])
-                                     for colname, colval in new_cols])
-
-                    if overflowed > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
-
-                    X = cudf.DataFrame(new_cols)
-
-                else:
-                    raise Exception("Input is double precision. Use "
-                                    "'should_downcast=True' "
-                                    "if you'd like it to be automatically "
-                                    "casted to single precision.")
-
-            X = numba_utils.row_matrix(X)
-        elif isinstance(X, np.ndarray):
-            dtype = X.dtype
-
-            if dtype != np.float32:
-                if self._should_downcast:
-                    X = X.astype(np.float32)
-                    if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
-
-                else:
-                    raise Exception("Input is double precision. Use"
-                                    " 'should_downcast=True' "
-                                    "if you'd like it to be automatically "
-                                    "casted to single precision.")
-
-            X = cuda.to_device(X)
-        else:
-            raise Exception("Received unsupported input type " % type(X))
-
-        return X
-
     def fit(self, X, y=None):
 
-        assert len(X.shape) == 2, 'data should be two dimensional'
-        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'  # noqa E501
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
-        self.umap_params.n_neighbors = min(X.shape[0],
+        if self._should_downcast:
+            X_m, X_ctype, n_rows, n_cols, dtype = \
+                input_to_array(X, convert_to_dtype=np.float32)
+        else:
+            X_m, X_ctype, n_rows, n_cols, dtype = \
+                input_to_array(X, check_dtype=np.float32)
+
+        if n_rows <= 1:
+            raise ValueError("There needs to be more than 1 sample to "
+                             "build nearest the neighbors graph")
+
+        self.umap_params.n_neighbors = min(n_rows,
                                            self.umap_params.n_neighbors)
-
-        self.n_dims = X.shape[1]
-
-        X_m = self._downcast(X)
-
-        self.raw_data = X_m.device_ctypes_pointer.value
+        self.n_dims = n_cols
+        self.raw_data = X_ctype
 
         self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0],
                                         self.umap_params.n_components),
@@ -292,14 +251,24 @@ cdef class UMAPImpl:
         return ret
 
     def transform(self, X):
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
-        assert len(X.shape) == 2, 'data should be two dimensional'
-        assert X.shape[0] > 1, 'need more than 1 sample to build nearest neighbors graph'  # noqa E501
-        assert X.shape[1] == self.n_dims, "n_features of X must match n_features of training data"  # noqa E501
+        cdef uintptr_t x_ptr
+        if self._should_downcast:
+            X_m, x_ptr, n_rows, n_cols, dtype = \
+                input_to_array(X, convert_to_dtype=np.float32)
+        else:
+            X_m, x_ptr, n_rows, n_cols, dtype = \
+                input_to_array(X, check_dtype=np.float32)
 
-        X_m = self._downcast(X)
+        if n_rows <= 1:
+            raise ValueError("There needs to be more than 1 sample to "
+                             "build nearest the neighbors graph")
 
-        cdef uintptr_t x_ptr = X_m.device_ctypes_pointer.value
+        if n_cols != self.n_dims:
+            raise ValueError("n_features of X must match n_features of "
+                             "training data")
 
         embedding = cuda.to_device(np.zeros((X_m.shape[0],
                                              self.umap_params.n_components),
