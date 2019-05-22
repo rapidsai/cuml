@@ -42,8 +42,7 @@ def stress_param(*args, **kwargs):
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('name', [unit_param(None), quality_param('iris'),
                          stress_param('blobs')])
-def test_pca_fit(datatype, input_type,
-                 name, use_handle):
+def test_pca_fit(datatype, input_type, name, use_handle):
 
     if name == 'blobs':
         pytest.skip('fails when using blobs dataset')
@@ -108,8 +107,9 @@ def test_pca_fit_transform(datatype, input_type,
         X = np.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
                      dtype=datatype)
 
-    skpca = skPCA(n_components=2)
-    Xskpca = skpca.fit_transform(X)
+    if name != 'blobs':
+        skpca = skPCA(n_components=2)
+        Xskpca = skpca.fit_transform(X)
 
     handle, stream = get_handle(use_handle)
     cupca = cuPCA(n_components=2, handle=handle)
@@ -121,10 +121,11 @@ def test_pca_fit_transform(datatype, input_type,
         X_cupca = cupca.fit_transform(X_cudf)
 
     else:
-        Xcupca = cupca.fit_transform(X)
+        X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
 
-    assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+    if name != 'blobs':
+        assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -151,7 +152,8 @@ def test_pca_inverse_transform(datatype, input_type,
                        {'fea%d' % i: X[0:, i] for i in range(X.shape[1])})
     X_cudf = cudf.DataFrame.from_pandas(X_pd)
 
-    cupca = cuPCA(n_components=2)
+    handle, stream = get_handle(use_handle)
+    cupca = cuPCA(n_components=2, handle=handle)
 
     if input_type == 'dataframe':
         X_cupca = cupca.fit_transform(X_cudf)
@@ -159,8 +161,8 @@ def test_pca_inverse_transform(datatype, input_type,
     else:
         X_cupca = cupca.fit_transform(X)
 
+    input_gdf = cupca.inverse_transform(X_cupca)
     cupca.handle.sync()
 
-    input_gdf = cupca.inverse_transform(X_cupca)
-    assert array_equal(input_gdf, X_cudf,
+    assert array_equal(input_gdf, X,
                        1e-0, with_sign=True)
