@@ -1,19 +1,27 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
-
+- PR #515: Added Random Projection feature
+- PR #504: Contingency matrix ml-prim
 
 ## Improvements
 
+- PR #597: C++ cuML and ml-prims folder refactor
 - PR #590: QN Recover from numeric errors
 - PR #482: Introduce cumlHandle for pca and tsvd
 - PR #573: Remove use of unnecessary cuDF column and series copies
+- PR #601: Cython PEP8 cleanup and CI integration
+- PR #596: Introduce cumlHandle for ols and ridge
+- PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
+- PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
+- PR #622: Updated to use 0.8 dependencies
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
+- PR #620: C++: Removed old unit-test files in ml-prims
 
 
-# cuML 0.7.0 (Date TBD)
+# cuML 0.7.0 (10 May 2019)
 
 ## New Features
 
@@ -25,12 +33,12 @@
 - PR #435: Expose cumlhandle in cython + developer guide
 - PR #455: Remove default-stream arguement across ml-prims and cuML
 - PR #375: cuml cpp shared library renamed to libcuml++.so
-- PR #444: Add supervised training to UMAP
 - PR #460: Random Forest & Decision Trees (Single-GPU, Classification)
 - PR #491: Add doxygen build target for ml-prims
 - PR #505: Add R-Squared Score to python interface
 - PR #507: Add coordinate descent for lasso and elastic-net
 - PR #511: Add a minmax ml-prim
+- PR #516: Added Trustworthiness score feature
 - PR #520: Add local build script to mimic gpuCI
 - PR #503: Add column-wise matrix sort primitive
 - PR #525: Add docs build script to cuML
@@ -60,6 +68,7 @@
 - PR #540: Use latest release version in update-version CI script
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
+- PR #592: More efficient matrix copy/reverse methods
 
 ## Bug Fixes
 
@@ -98,6 +107,14 @@
 - PR #580: Fixing cython garbage collection bug in KNN
 - PR #577: Use find libz in prims cmake
 - PR #594: fixed cuda-memcheck mean_center test failures
+
+
+# cuML 0.6.1 (09 Apr 2019)
+
+## Bug Fixes
+
+- PR #462 Runtime library path fix for cuML pip package
+
 
 # cuML 0.6.0 (22 Mar 2019)
 
@@ -145,6 +162,8 @@
 - PR #315: Documentation updating and enhancements
 - PR #330: Added ignored argument to pca.fit_transform to map to sklearn's implemenation
 - PR #342: Change default ABI to ON
+- PR #572: Pulling DBSCAN components into reusable primitives
+
 
 ## Bug Fixes
 

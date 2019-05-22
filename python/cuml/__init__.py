@@ -42,6 +42,9 @@ from cuml.solvers.cd import CD
 
 from cuml.manifold.umap import UMAP
 
+from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
+from cuml.random_forest.random_forest import Randomforest
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions

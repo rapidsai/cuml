@@ -112,15 +112,16 @@ cdef extern from "pca/pca.hpp" namespace "ML":
 
 class PCA(Base):
     """
-    PCA (Principal Component Analysis) is a fundamental dimensionality reduction technique used to
-    combine features in X in linear combinations such that each new component captures the most
-    information or variance of the data. N_components is usually small, say at 3, where it can be
-    used for data visualization, data compression and exploratory analysis.
+    PCA (Principal Component Analysis) is a fundamental dimensionality
+    reduction technique used to combine features in X in linear combinations
+    such that each new component captures the most information or variance of
+    the data. N_components is usually small, say at 3, where it can be used for
+    data visualization, data compression and exploratory analysis.
 
-    cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and Jacobi.
-    Full (default) uses a full eigendecomposition then selects the top K eigenvectors.
-    The Jacobi algorithm is much faster as it iteratively tries to correct the top K eigenvectors,
-    but might be less accurate.
+    cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and
+    Jacobi. Full (default) uses a full eigendecomposition then selects the top
+    K eigenvectors. The Jacobi algorithm is much faster as it iteratively tries
+    to correct the top K eigenvectors, but might be less accurate.
 
     Examples
     ---------
@@ -144,7 +145,8 @@ class PCA(Base):
 
         print(f'components: {pca_float.components_}')
         print(f'explained variance: {pca_float.explained_variance_}')
-        print(f'explained variance ratio: {pca_float.explained_variance_ratio_}')
+        exp_var = pca_float.explained_variance_ratio_
+        print(f'explained variance ratio: {exp_var}')
 
         print(f'singular values: {pca_float.singular_values_}')
         print(f'mean: {pca_float.mean_}')
@@ -205,28 +207,33 @@ class PCA(Base):
     Parameters
     ----------
     copy : boolean (default = True)
-        If True, then copies data then removes mean from data. False might cause data to be
-        overwritten with its mean centered version.
+        If True, then copies data then removes mean from data. False might
+        cause data to be overwritten with its mean centered version.
     handle : cuml.Handle
         If it is None, a new one is created just for this class
     iterated_power : int (default = 15)
-        Used in Jacobi solver. The more iterations, the more accurate, but the slower.
+        Used in Jacobi solver. The more iterations, the more accurate, but
+        slower.
     n_components : int (default = 1)
-        The number of top K singular vectors / values you want. Must be <= number(columns).
+        The number of top K singular vectors / values you want.
+        Must be <= number(columns).
     random_state : int / None (default = None)
-        If you want results to be the same when you restart Python, select a state.
+        If you want results to be the same when you restart Python, select a
+        state.
     svd_solver : 'full' or 'jacobi' or 'auto' (default = 'full')
-        Full uses a eigendecomposition of the covariance matrix then discards components.
+        Full uses a eigendecomposition of the covariance matrix then discards
+        components.
         Jacobi is much faster as it iteratively corrects, but is less accurate.
     tol : float (default = 1e-7)
-        Used if algorithm = "jacobi". The smaller the tolerance, the more accurate,
-        but the more slower the algorithm will get to converge.
+        Used if algorithm = "jacobi". Smaller tolerance can increase accuracy,
+        but but will slow down the algorithm's convergence.
     verbose : bool
         Whether to print debug spews
     whiten : boolean (default = False)
-        If True, de-correlates the components. This is done by dividing them by the corresponding
-        singular values then multiplying by sqrt(n_samples). Whitening allows each component
-        to have unit variance and removes multi-collinearity. It might be beneficial for downstream
+        If True, de-correlates the components. This is done by dividing them by
+        the corresponding singular values then multiplying by sqrt(n_samples).
+        Whitening allows each component to have unit variance and removes
+        multi-collinearity. It might be beneficial for downstream
         tasks like LinearRegression where correlated features cause problems.
 
 
@@ -248,25 +255,29 @@ class PCA(Base):
 
     Notes
     ------
-    PCA considers linear combinations of features, specifically those that maximise global
-    variance structure. This means PCA is fantastic for global structure analyses, but weak
-    for local relationships. Consider UMAP or T-SNE for a locally important embedding.
+    PCA considers linear combinations of features, specifically those that
+    maximise global variance structure. This means PCA is fantastic for global
+    structure analyses, but weak for local relationships. Consider UMAP or
+    T-SNE for a locally important embedding.
 
     **Applications of PCA**
 
-        PCA is used extensively in practice for data visualization and data compression. It has been used
-        to visualize extremely large word embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
-        datasets of everyday objects and images, and used to distinguish between cancerous cells from
-        healthy cells.
+        PCA is used extensively in practice for data visualization and data
+        compression. It has been used to visualize extremely large word
+        embeddings like Word2Vec and GloVe in 2 or 3 dimensions, large
+        datasets of everyday objects and images, and used to distinguish
+        between cancerous cells from healthy cells.
 
 
-    For an additional example see `the PCA notebook <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
-    For additional docs, see `scikitlearn's PCA <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
+    For an additional example see `the PCA notebook
+    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
+    For additional docs, see `scikitlearn's PCA
+    <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
     def __init__(self, copy=True, handle=None, iterated_power=15,
-                 n_components=1, random_state=None, svd_solver='auto', tol=1e-7,
-                 verbose=False, whiten=False):
+                 n_components=1, random_state=None, svd_solver='auto',
+                 tol=1e-7, verbose=False, whiten=False):
         # parameters
         super(PCA, self).__init__(handle=handle, verbose=verbose)
         self.copy = copy
@@ -310,11 +321,9 @@ class PCA(Base):
                                                     dtype=self.gdf_datatype))
         self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
                                                    dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(
-                                      np.zeros(n_components,
+        self.explained_variance_ = cudf.Series(np.zeros(n_components,
                                                dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(
-                                            np.zeros(n_components,
+        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
                                                      dtype=self.gdf_datatype))
         self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
         self.singular_values_ = cudf.Series(np.zeros(n_components,
@@ -366,30 +375,36 @@ class PCA(Base):
         params.algorithm = self.c_algorithm
 
         if self.n_components > self.n_cols:
-            raise ValueError('Number of components should not be greater than the number of columns in the data')
+            raise ValueError('Number of components should not be greater than'
+                             'the number of columns in the data')
 
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t components_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
 
-        cdef uintptr_t explained_var_ptr = self._get_cudf_column_ptr(
-                                                self.explained_variance_)
-        cdef uintptr_t explained_var_ratio_ptr = self._get_cudf_column_ptr(
-                                                self.explained_variance_ratio_)
-        cdef uintptr_t singular_vals_ptr = self._get_cudf_column_ptr(
-                                                self.singular_values_)
+        cdef uintptr_t explained_var_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_)
+
+        cdef uintptr_t explained_var_ratio_ptr = \
+            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+
+        cdef uintptr_t singular_vals_ptr = \
+            self._get_cudf_column_ptr(self.singular_values_)
+
         cdef uintptr_t mean_ptr = self._get_cudf_column_ptr(self.mean_)
-        cdef uintptr_t noise_vars_ptr = self._get_cudf_column_ptr(
-                                            self.noise_variance_)
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+
+        cdef uintptr_t noise_vars_ptr = \
+            self._get_cudf_column_ptr(self.noise_variance_)
+
+        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         if self.gdf_datatype.type == np.float32:
             pcaFitTransform(handle_[0],
                             <float*> input_ptr,
-                            <float*> trans_input_ptr,
-                            <float*> components_ptr,
+                            <float*> t_input_ptr,
+                            <float*> comp_ptr,
                             <float*> explained_var_ptr,
                             <float*> explained_var_ratio_ptr,
                             <float*> singular_vals_ptr,
@@ -399,8 +414,8 @@ class PCA(Base):
         else:
             pcaFitTransform(handle_[0],
                             <double*> input_ptr,
-                            <double*> trans_input_ptr,
-                            <double*> components_ptr,
+                            <double*> t_input_ptr,
+                            <double*> comp_ptr,
                             <double*> explained_var_ptr,
                             <double*> explained_var_ratio_ptr,
                             <double*> singular_vals_ptr,
@@ -414,10 +429,11 @@ class PCA(Base):
 
         components_gdf = cudf.DataFrame()
         for i in range(0, params.n_cols):
-            components_gdf[str(i)] = self.components_[i*params.n_components:(i+1)*params.n_components]
+            n_c = params.n_components
+            components_gdf[str(i)] = self.components_[i*n_c:(i+1)*n_c]
 
         self.components_ = components_gdf
-        self.components_ptr = components_ptr
+        self.components_ptr = comp_ptr
         self.explained_variance_ptr = explained_var_ptr
         self.explained_variance_ratio_ptr = explained_var_ratio_ptr
         self.singular_values_ptr = singular_vals_ptr
@@ -439,7 +455,8 @@ class PCA(Base):
         Parameters
         ----------
         X : cuDF DataFrame, shape (n_samples, n_features)
-          training data (floats or doubles), where n_samples is the number of samples, and n_features is the number of features.
+          training data (floats or doubles), where n_samples is the number of
+          samples, and n_features is the number of features.
 
         y : ignored
 
@@ -465,7 +482,8 @@ class PCA(Base):
         Parameters
         ----------
         X : cuDF DataFrame, shape (n_samples, n_components)
-            New data (floats or doubles), where n_samples is the number of samples and n_components is the number of components.
+            New data (floats or doubles), where n_samples is the number of
+            samples and n_components is the number of components.
 
         Returns
         -------
@@ -524,7 +542,8 @@ class PCA(Base):
 
         X_original = cudf.DataFrame()
         for i in range(0, params.n_cols):
-            X_original[str(i)] = input_data[i*params.n_rows:(i+1)*params.n_rows]
+            n_r = params.n_rows
+            X_original[str(i)] = input_data[i*n_r:(i+1)*n_r]
 
         del(X_m)
 
@@ -534,19 +553,20 @@ class PCA(Base):
         """
         Apply dimensionality reduction to X.
 
-        X is projected on the first principal components previously extracted from a training set.
+        X is projected on the first principal components previously extracted
+        from a training set.
 
         Parameters
         ----------
         X : cuDF DataFrame, shape (n_samples, n_features)
-            New data (floats or doubles), where n_samples is the number of samples and n_features is the number of features.
+            New data (floats or doubles), where n_samples is the number of
+            samples and n_features is the number of features.
 
         Returns
         -------
         X_new : cuDF DataFrame, shape (n_samples, n_components)
 
         """
-
 
         cdef uintptr_t input_ptr
         if (isinstance(X, cudf.DataFrame)):
@@ -573,11 +593,11 @@ class PCA(Base):
         params.n_cols = n_cols
         params.whiten = self.whiten
 
-        trans_input_data = cuda.to_device(
-                              np.zeros(params.n_rows*params.n_components,
-                                       dtype=gdf_datatype.type))
+        t_input_data = \
+            cuda.to_device(np.zeros(params.n_rows*params.n_components,
+                                    dtype=gdf_datatype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(trans_input_data)
+        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
         cdef uintptr_t singular_vals_ptr = self.singular_values_ptr
         cdef uintptr_t mean_ptr = self.mean_ptr
@@ -606,11 +626,10 @@ class PCA(Base):
 
         X_new = cudf.DataFrame()
         for i in range(0, params.n_components):
-            X_new[str(i)] = trans_input_data[i*params.n_rows:(i+1)*params.n_rows]
+            X_new[str(i)] = t_input_data[i*params.n_rows:(i+1)*params.n_rows]
 
         del(X_m)
         return X_new
-
 
     def get_param_names(self):
         return ["copy", "iterated_power", "n_components", "svd_solver", "tol",

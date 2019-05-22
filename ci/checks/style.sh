@@ -12,7 +12,7 @@ PATH=/conda/bin:$PATH
 source activate gdf
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --exclude=cuML,ml-prims,__init__.py,versioneer.py`
+FLAKE=`flake8 --exclude=cuML,ml-prims,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
 RETVAL=$?
 
 # Output results if failure otherwise show pass
