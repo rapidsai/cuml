@@ -52,11 +52,13 @@ def stress_param(*args, **kwargs):
                          stress_param(1000)])
 def test_blobs_cluster(nrows, n_feats):
     data, labels = datasets.make_blobs(
-        n_samples=nrows, n_features=n_feats, centers=5)
-    embedding = cuUMAP(verbose=True).fit_transform(data)
-    score = adjusted_rand_score(labels,
-                                KMeans(5).fit_predict(embedding))
-    assert score == 1.0
+        n_samples=nrows, n_features=n_feats, centers=5, random_state=0)
+    embedding = cuUMAP(verbose=False).fit_transform(data)
+
+    if nrows != 500000:
+        score = adjusted_rand_score(labels,
+                                    KMeans(5).fit_predict(embedding))
+        assert score == 1.0
 
 
 @pytest.mark.parametrize('nrows', [unit_param(10), quality_param(5000),
@@ -77,12 +79,14 @@ def test_umap_fit_transform_score(nrows, n_feats):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data)
 
-    cuml_score = adjusted_rand_score(labels,
-                                     KMeans(10).fit_predict(cuml_embedding))
-    score = adjusted_rand_score(labels,
-                                KMeans(10).fit_predict(embedding))
+    if nrows != 500000:
+        cuml_score = adjusted_rand_score(labels,
+                                         KMeans(10).fit_predict(
+                                             cuml_embedding))
+        score = adjusted_rand_score(labels,
+                                    KMeans(10).fit_predict(embedding))
 
-    assert array_equal(score, cuml_score, 1e-2, with_sign=True)
+        assert array_equal(score, cuml_score, 1e-2, with_sign=True)
 
 
 def test_supervised_umap_trustworthiness_on_iris():
@@ -171,9 +175,9 @@ def test_umap_data_formats(input_type, should_downcast,
         X = digits["data"].astype(dtype)
 
     else:
-        # use the blobs dataset for quality and stress tests
         X, y = datasets.make_blobs(n_samples=n_samples,
                                    n_features=n_feats, random_state=0)
+
     umap = cuUMAP(n_neighbors=3, n_components=2,
                   should_downcast=should_downcast, verbose=False)
 
