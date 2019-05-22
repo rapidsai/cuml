@@ -15,9 +15,11 @@
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 - PR #616: Enable clang-format for enforcing coding style
+- PR #622: Updated to use 0.8 dependencies
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
+- PR #620: C++: Removed old unit-test files in ml-prims
 
 
 # cuML 0.7.0 (10 May 2019)
