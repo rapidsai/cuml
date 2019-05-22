@@ -215,7 +215,7 @@ cdef class UMAPImpl:
         cdef uintptr_t y_raw
         if y is not None:
             y_m, y_raw, _, _, _ = \
-            input_to_array(y)
+                input_to_array(y)
             self.umap.fit(
                 handle_[0],
                 <float*> self.raw_data,
