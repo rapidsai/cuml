@@ -14,6 +14,7 @@
 - PR #596: Introduce cumlHandle for ols and ridge
 - PR #579: Introduce cumlHandle for cd and sgd, and propagate C++ errors in cython level for cd and sgd
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
+- PR #618: CI: Enable copyright header checks
 - PR #622: Updated to use 0.8 dependencies
 
 ## Bug Fixes
@@ -60,6 +61,7 @@
 - PR #500: Added CI check for black listed CUDA Runtime API calls
 - PR #475: exposing cumlHandle for dbscan from python-side
 - PR #395: Edited the CONTRIBUTING.md file
+- PR #407: Test files to run stress, correctness and unit tests for cuml algos
 - PR #512: generic copy method for copying buffers between device/host
 - PR #533: Add cudatoolkit conda dependency
 - PR #524: Use cmake find blas and find lapack to pass configure options to faiss
