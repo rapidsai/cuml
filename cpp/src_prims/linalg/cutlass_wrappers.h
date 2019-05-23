@@ -541,9 +541,9 @@ template <
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
   typename Lambda, typename FinalLambda>
-void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, int m,
-                  int n, int k, OType alpha, IType const *A, int lda,
-                  IType const *B, int ldb, OType beta, OType const *C, int ldc,
+void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+                  Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
+                  IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
                   OType *D, Lambda op, FinalLambda fin_op,
                   cudaStream_t stream) {
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
@@ -577,9 +577,9 @@ template <
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
   typename Lambda>
-void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, int m,
-                  int n, int k, OType alpha, IType const *A, int lda,
-                  IType const *B, int ldb, OType beta, OType const *C, int ldc,
+void gemmLauncher(cublasOperation_t transA, cublasOperation_t transB, Index_ m,
+                  Index_ n, Index_ k, OType alpha, IType const *A, Index_ lda,
+                  IType const *B, Index_ ldb, OType beta, OType const *C, Index_ ldc,
                   OType *D, Lambda op, cudaStream_t stream) {
   typedef CustomGemmTraits<IType, AccType, OType, kLayoutA, kLayoutB,
                            OutputTile_, AccumulatorsPerThread_,
@@ -651,9 +651,9 @@ template <
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
   typename Lambda, typename FinalLambda>
-void baseGemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
-              int k, OType alpha, IType const *A, int lda, IType const *B,
-              int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
+void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m, Index_ n,
+              Index_ k, OType alpha, IType const *A, Index_ lda, IType const *B,
+              Index_ ldb, OType beta, OType const *C, Index_ ldc, OType *D, Lambda op,
               FinalLambda fin_op, cudaStream_t stream) {
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
@@ -704,9 +704,9 @@ template <
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = cutlass::gemm::GemmEpilogue<GemmEpilogueTraits_>,
   typename Lambda>
-void baseGemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
-              int k, OType alpha, IType const *A, int lda, IType const *B,
-              int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
+void baseGemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m, Index_ n,
+              Index_ k, OType alpha, IType const *A, Index_ lda, IType const *B,
+              Index_ ldb, OType beta, OType const *C, Index_ ldc, OType *D, Lambda op,
               cudaStream_t stream) {
   if (transA == CUBLAS_OP_N && transB == CUBLAS_OP_N) {
     gemmLauncher<IType, AccType, OType, cutlass::MatrixLayout::kColumnMajor,
