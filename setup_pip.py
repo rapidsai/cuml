@@ -39,22 +39,39 @@ install_requires = [
     'cudf-cuda{}>={},<{}'.format(cuda_version, cudf_version, max_cudf_version)
 ]
 
+exc_list = ['python/cuml/linear_model/linear_regression_mg.pyx',
+            'python/cuml/decomposition/tsvd_mg.pyx']
 
 cython_files = ['python/cuml/*/*.pyx']
 
+cuda_include_dir = '/usr/local/cuda/include'
+cuda_lib_dir = "/usr/local/cuda/lib"
+
+rmm_include_dir = '/include'
+rmm_lib_dir = '/lib'
+
+if os.environ.get('CONDA_PREFIX', None):
+    conda_prefix = os.environ.get('CONDA_PREFIX')
+    rmm_include_dir = conda_prefix + rmm_include_dir
+    rmm_lib_dir = conda_prefix + rmm_lib_dir
+
 extensions = [
-    CMakeExtension('cuml', 'cuML'),
+    CMakeExtension('cuml++', 'cuML'),
     Extension("*",
               sources=cython_files,
               include_dirs=['cuML/src',
+                            'cuML/external',
                             'cuML/external/ml-prims/src',
                             'cuML/external/ml-prims/external/cutlass',
                             'cuML/external/cutlass',
-                            'cuML/external/ml-prims/external/cub'],
+                            'cuML/external/ml-prims/external/cub',
+                            cuda_include_dir,
+                            rmm_include_dir],
               library_dirs=[get_python_lib(), distutils_dir_name('lib')],
-              libraries=['cuml'],
+              libraries=['cuda', 'cuml++', 'rmm'],
               language='c++',
-              runtime_library_dirs=['$ORIGIN'],
+              runtime_library_dirs=[get_python_lib(), cuda_lib_dir,
+                                    rmm_lib_dir],
               extra_compile_args=['-std=c++11'])
 ]
 
@@ -75,13 +92,14 @@ setup(name=name,
       ],
       packages=find_packages(where='python'),
       package_dir={
-          'cuML': 'python/cuml'
+          'cuml': 'python/cuml'
       },
       author="NVIDIA Corporation",
       license='Apache 2.0',
       install_requires=install_requires,
       python_requires='>=3.6,<3.8',
-      ext_modules=cythonize(extensions),
+      ext_modules=cythonize(extensions,
+                            exclude=exc_list),
       cmdclass={
           'build_ext': CMakeBuildExt,
           'install_headers': InstallHeaders
