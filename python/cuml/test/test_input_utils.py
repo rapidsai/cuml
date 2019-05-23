@@ -15,7 +15,6 @@
 #
 
 import pytest
-import cuml.utils.numba_utils
 
 import cudf
 import numpy as np
@@ -23,10 +22,7 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from librmm_cffi import librmm as rmm
-
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+from cuml.utils import input_to_array
 
 from cuml.utils.input_utils import convert_dtype
 
@@ -78,7 +74,7 @@ def test_convert_inputs(from_dtype, to_dtype, input_type, num_rows, num_cols):
         pytest.xfail("float16 not yet supported by numba/cuDF.from_gpu_matrix")
 
     input_data, real_data = get_input(input_type, num_rows, num_cols,
-                                  from_dtype, out_dtype=to_dtype)
+                                      from_dtype, out_dtype=to_dtype)
 
     converted_data = convert_dtype(input_data, to_dtype=to_dtype)
 
@@ -131,7 +127,3 @@ def get_input(type, nrows, ncols, dtype, out_dtype=False):
             return result, rand_mat.astype(out_dtype)
         else:
             return result, rand_mat
-
-
-
-
