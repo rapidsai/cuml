@@ -19,6 +19,8 @@ namespace Matrix {
 std::shared_ptr<double*>
 init(double* A, std::pair<int, int> shape, int num_batches, bool gpu=true);
 
+__global__ void identity_matrix_kernel(double** I, int r);
+
 template<typename T>
 void cudaFreeT(T *ptr) { CUDA_CHECK(cudaFree(ptr)); }
 
@@ -191,7 +193,31 @@ public:
     return &(m_A_dense[id*m_shape.first*m_shape.second]);
   }
 
+  BatchedMatrix vec() const {
+    int m = m_shape.first;
+    int n = m_shape.second;
+    int r = m*n;
+    BatchedMatrix toVec(r, 1, m_num_batches, m_pool);
+    cudaMemcpy(toVec[0], this->operator[](0), m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
+    return toVec;
+  }
+
+  BatchedMatrix mat(int m, int n) const {
+    int r = m_shape.first * m_shape.second;
+    BatchedMatrix toMat(m, n, m_num_batches, m_pool);
+    cudaMemcpy(toMat[0], this->operator[](0), m_num_batches * r * sizeof(double), cudaMemcpyDeviceToDevice);
+    return toMat;
+  }
+
   std::shared_ptr<BatchedMatrixMemoryPool> pool() const { return m_pool; }
+
+  static BatchedMatrix Identity(int m, int num_batches, std::shared_ptr<BatchedMatrixMemoryPool> pool) {
+    BatchedMatrix I(m, m, num_batches, pool, true);
+
+    identity_matrix_kernel<<<num_batches, std::min(1024, m)>>>(I.data(), m);
+
+    return I;
+  }
 
 private:
 
@@ -276,28 +302,18 @@ __global__ void kronecker_product_kernel(double** A,
 
 }
 
-BatchedMatrix b_kron(const BatchedMatrix& A,
-                     const BatchedMatrix& B) {
-
-  int m = A.shape().first;
-  int n = A.shape().second;
-
-  int p = A.shape().first;
-  int q = B.shape().second;
-
-  // resulting shape
-  int km = m*p;
-  int kn = n*q;
-
-  BatchedMatrix AkB(km, kn, A.batches(), A.pool());
-
-  // run kronecker...
-  dim3 threads(std::min(p,32), std::min(q,32));
-  kronecker_product_kernel<<<A.batches(), threads>>>(A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
-
-  return AkB;
-
+//! Kernel to creates an Identity matrix
+__global__ void identity_matrix_kernel(double** I, int r) {
+  int bid = blockIdx.x;
+  int tid = threadIdx.x;
+  for(int b=0;b<r;b+=blockDim.x) {
+    int idx = tid + b;
+    if(idx < r) {
+      I[bid][idx + r*idx] = 1;  
+    }
+  }
 }
+
 
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
@@ -394,6 +410,54 @@ BatchedMatrix operator+(const BatchedMatrix& A, const BatchedMatrix& B) {
 BatchedMatrix operator-(const BatchedMatrix& A, const BatchedMatrix& B) {
   return b_aA_op_B(A, B,  [] __device__ (double a, double b) {return a - b;});
 }
+
+//! Solve Ax = b for given batched matrix A and batched vector b
+BatchedMatrix b_solve(const BatchedMatrix& A,
+                      const BatchedMatrix& b) {
+  auto num_batches = A.batches();
+  auto& handle = A.pool()->cublasHandle();
+
+  int n = A.shape().first;
+  int* P;
+  allocate(P, n*num_batches);
+  int* info;
+  allocate(info, num_batches);
+
+  BatchedMatrix Ainv(n, n, num_batches, A.pool());
+
+  CUBLAS_CHECK(cublasDgetrfBatched(handle, n, A.data(), n, P, info, num_batches));
+  CUBLAS_CHECK(cublasDgetriBatched(handle, n, A.data(), n, P, Ainv.data(), n, info, num_batches));
+
+  BatchedMatrix x = Ainv*b;
+
+  return x;
+}
+
+BatchedMatrix b_kron(const BatchedMatrix& A,
+                     const BatchedMatrix& B) {
+
+  int m = A.shape().first;
+  int n = A.shape().second;
+
+  int p = A.shape().first;
+  int q = B.shape().second;
+
+  // resulting shape
+  int km = m*p;
+  int kn = n*q;
+
+  BatchedMatrix AkB(km, kn, A.batches(), A.pool());
+
+  // run kronecker...
+  dim3 threads(std::min(p,32), std::min(q,32));
+  kronecker_product_kernel<<<A.batches(), threads>>>(A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
+
+  return AkB;
+
+}
+
+
+
 
 }
 }

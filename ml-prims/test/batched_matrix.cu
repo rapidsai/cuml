@@ -121,6 +121,12 @@ protected:
     allocate(d_AkBref, 16);
     updateDevice(d_AkBref, AkBref.data(), AkBref.size(), 0);
 
+    vector<T> AsolveZref = {0.16354207, 0.23837218};
+
+    T* d_AsolveZref;
+    allocate(d_AsolveZref, 2);
+    updateDevice(d_AsolveZref, AsolveZref.data(), 2, 0);
+
     //////////////////////////////////////////////////////////////
     // setup gpu memory
     int num_batches = 3;
@@ -136,10 +142,13 @@ protected:
     BatchedMatrix AbM(2, 2, num_batches, memory_pool);
     BatchedMatrix BbM(2, 2, num_batches, memory_pool);
     BatchedMatrix ZbM(1, 2, num_batches, memory_pool);
+    BatchedMatrix ZbM_col(2, 1, num_batches, memory_pool);
+   
     for(int i=0;i<num_batches;i++) {
       updateDevice(AbM[i], A.data(), 4, 0);
       updateDevice(BbM[i], B.data(), 4, 0);
       updateDevice(ZbM[i], Z.data(), 2, 0);
+      updateDevice(ZbM_col[i], Z.data(), 2, 0);
     }
 
     //////////////////////////////////////////////////////////////
@@ -166,6 +175,9 @@ protected:
     std::cout << "A (x) B\n";
     BatchedMatrix AkB = b_kron(AbM, BbM);
 
+    std::cout << "A\\Z.T\n";
+    BatchedMatrix xB = b_solve(AbM, ZbM_col);
+
     //////////////////////////////////////////////////////////////
     // compare answers
     for(int i=0;i<num_batches;i++) {
@@ -181,11 +193,16 @@ protected:
                               CompareApprox<T>(params.tolerance)));
       ASSERT_TRUE(devArrMatch(d_AkBref, AkB[i], AkB.shape().first, AkB.shape().second,
                               CompareApprox<T>(params.tolerance)));
+      ASSERT_TRUE(devArrMatch(d_AsolveZref, xB[i], 2,
+                              CompareApprox<T>(params.tolerance)));
+
+
       // Compare two different matrices to check failure case
       ASSERT_FALSE(devArrMatch(d_ABref, A_m_B[i], A_m_B.shape().first, A_m_B.shape().second,
                                CompareApprox<T>(params.tolerance)));
+      ASSERT_FALSE(devArrMatch(d_AsolveZref, ZbM[i], 2,
+                               CompareApprox<T>(params.tolerance)));
 
-      
     }
   }
 
