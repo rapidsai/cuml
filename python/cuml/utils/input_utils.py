@@ -130,8 +130,6 @@ def input_to_array(X, order='F', deepcopy=False,
 
     X_ptr = get_dev_array_ptr(X_m)
 
-    # todo: add check of alignment and nans
-
     return X_m, X_ptr, n_rows, n_cols, dtype
 
 
@@ -143,11 +141,11 @@ def convert_dtype(X, to_dtype=np.float32):
     # Using cuDF for converting numba and device array interface inputs
 
     if cuda.devicearray.is_cuda_ndarray(X):
-        X_df = cudf.Dataframe()
+        X_df = cudf.DataFrame()
         X = X_df.from_gpu_matrix(X)
 
     if cuda.is_cuda_array(X):
-        X_df = cudf.Dataframe()
+        X_df = cudf.DataFrame()
         X = X_df.from_gpu_matrix(cuda.as_cuda_array(X))
 
     if isinstance(X, cudf.DataFrame):
