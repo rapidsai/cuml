@@ -215,6 +215,90 @@ private:
 
 };
 
+// extern __shared__ double s_array[]; // size = 3 (m x n) (one for each matrix
+// //! the small-matrix version with A,B same size and one for result block
+// __global__ void kronecker_small_ident(double** A, double** B,
+//                                       int m, int n,
+//                                       double** AkB,
+//                                       int km, int kn
+//                                 ) {
+  
+//   double* s_A = &s_array[0];
+//   double* s_B = &s_array[m*n];
+//   double* s_AkB_ij = &s_array[2*m*n];
+
+//   int bid = blockIdx.x;
+//   int tid = threadIdx.x;
+//   s_A[tid] = A[bid][tid];
+//   s_B[tid] = B[bid][tid];
+
+//   __syncthreads();
+
+//   for(int i=0; i<m; i++) {
+//     for(int j=0; j<n; j++) {
+//       s_AkB_ij[tid] = s_A[i*m + j] * s_B[tid];
+//     }
+//     AkB[]
+//   }
+
+// }
+
+//! Computes kronecker prodcut between AkB <- A (x) B
+__global__ void kronecker_product_kernel(double** A,
+                                         int m, int n,
+                                         double** B,
+                                         int p, int q,
+                                         double** AkB,
+                                         int k_m, int k_n) {
+
+  int bid = blockIdx.x;
+
+  for(int ia=0;ia<n;ia++) {
+    for(int ja=0;ja<m;ja++) {
+      double A_ia_ja = A[bid][ia + ja * m];
+
+      for(int iblock=0; iblock < p; iblock += blockDim.x) {        
+        int ib = threadIdx.x + iblock*blockDim.x;
+        if(ib < p) {
+          for (int jblock = 0; jblock < q; jblock += blockDim.y) {
+            int jb = threadIdx.y + jblock * blockDim.y;
+            if (jb < q) {
+              int i_ab = ia * p + ib;
+              int j_ab = ja * q + jb;
+              AkB[bid][i_ab + j_ab * k_m] =
+                   A_ia_ja * B[bid][ib + jb * p];
+            }
+          }
+        }
+      }
+    }
+  }
+
+}
+
+BatchedMatrix b_kron(const BatchedMatrix& A,
+                     const BatchedMatrix& B) {
+
+  int m = A.shape().first;
+  int n = A.shape().second;
+
+  int p = A.shape().first;
+  int q = B.shape().second;
+
+  // resulting shape
+  int km = m*p;
+  int kn = n*q;
+
+  BatchedMatrix AkB(km, kn, A.batches(), A.pool());
+
+  // run kronecker...
+  dim3 threads(std::min(p,32), std::min(q,32));
+  kronecker_product_kernel<<<A.batches(), threads>>>(A.data(), m, n, B.data(), p, q, AkB.data(), km, kn);
+
+  return AkB;
+
+}
+
 // Multiplies each matrix in a batch-A with it's batch-B counterpart.
 // A = [A1,A2,A3], B=[B1,B2,B3]
 // return [A1*B1, A2*B2, A3*B3]

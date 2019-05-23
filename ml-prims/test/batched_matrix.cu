@@ -105,6 +105,22 @@ protected:
     // A+B = array([[0.40228028, 0.53746966],[1.11255454, 0.6426357 ]])
     // A-B = array([[ 0.05401648,  0.10489752],[ 0.73153098, -0.07286638]])
 
+    // In [90]: np.kron(A,B)                                                                         
+    // Out[90]: 
+    //   array([[0.03972791, 0.04934532, 0.05592831, 0.06946754],
+    //          [0.04346495, 0.08162032, 0.06118926, 0.11490376],
+    //          [0.16055706, 0.199425  , 0.04960751, 0.06161658],
+    //          [0.17566001, 0.32986176, 0.05427388, 0.10191778]])
+
+    // note: column major layout
+    vector<T> AkBref = {0.03972791, 0.04346495, 0.16055706, 0.17566001, 0.04934532,
+                        0.08162032, 0.199425  , 0.32986176, 0.05592831, 0.06118926,
+                        0.04960751, 0.05427388, 0.06946754, 0.11490376, 0.06161658,
+                        0.10191778};
+    T* d_AkBref;
+    allocate(d_AkBref, 16);
+    updateDevice(d_AkBref, AkBref.data(), AkBref.size(), 0);
+
     //////////////////////////////////////////////////////////////
     // setup gpu memory
     int num_batches = 3;
@@ -147,6 +163,9 @@ protected:
     std::cout << "3:AB * B\n";
     BatchedMatrix TestAlloc3 = AB * BbM;
 
+    std::cout << "A (x) B\n";
+    BatchedMatrix AkB = b_kron(AbM, BbM);
+
     //////////////////////////////////////////////////////////////
     // compare answers
     for(int i=0;i<num_batches;i++) {
@@ -160,10 +179,13 @@ protected:
                               CompareApprox<T>(params.tolerance)));
       ASSERT_TRUE(devArrMatch(d_AmBref, A_m_B[i], A_m_B.shape().first, A_m_B.shape().second,
                               CompareApprox<T>(params.tolerance)));
-
+      ASSERT_TRUE(devArrMatch(d_AkBref, AkB[i], AkB.shape().first, AkB.shape().second,
+                              CompareApprox<T>(params.tolerance)));
       // Compare two different matrices to check failure case
       ASSERT_FALSE(devArrMatch(d_ABref, A_m_B[i], A_m_B.shape().first, A_m_B.shape().second,
                                CompareApprox<T>(params.tolerance)));
+
+      
     }
   }
 
