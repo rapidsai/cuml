@@ -25,25 +25,21 @@ namespace Dbscan {
 namespace VertexDeg {
 
 
-template <typename Type>
-void run(const ML::cumlHandle_impl& handle, bool* adj, int* vd, Type* x, Type eps, int N, int D,
-         int algo, int startVertexId, int batchSize, cudaStream_t stream) {
-         Pack<Type> data = {vd, adj, x, eps, N, D};
-
+template <typename Type, typename Index_ = int>
+void run(const ML::cumlHandle_impl& handle, bool* adj, Index_* vd, Type* x, Type eps,
+         Index_ N, Index_ D,
+         int algo, Index_ startVertexId, Index_ batchSize, cudaStream_t stream) {
+    Pack<Type, Index_> data = {vd, adj, x, eps, N, D};
     switch(algo) {
-
     case 0:
-       Naive::launcher(data, startVertexId, batchSize, stream);
+        Naive::launcher<Type, Index_>(data, startVertexId, batchSize, stream);
     	break;
-
     case 1:
-       Algo::launcher<Type>(handle, data, startVertexId, batchSize, stream);
+        Algo::launcher<Type, Index_>(handle, data, startVertexId, batchSize, stream);
     	break;
-
     default:
         ASSERT(false, "Incorrect algo passed! '%d'", algo);
     }
-
 }
 
 } // namespace VertexDeg
