@@ -1,18 +1,13 @@
-[submodule "thirdparty/cuml/faiss"]
-	path = thirdparty/cuml/faiss
+[submodule "thirdparty/faiss"]
+	path = thirdparty/faiss
 	url = https://github.com/facebookresearch/faiss
-[submodule "external/googletest"]
-    path = thirdparty/cuml/googletest
-    url = https://github.com/google/googletest
-[submodule "ml-prims/external/cutlass"]
-    path = thirdparty/ml-prims/cutlass
+    ignore = dirty
+[submodule "thirdparty/cutlass"]
+	path = thirdparty/cutlass
     url = https://github.com/NVIDIA/cutlass
-[submodule "ml-prims/external/cub"]
-    path = thirdparty/ml-prims/cub
+[submodule "thirdparty/cub"]
+	path = thirdparty/cub
     url = https://github.com/NVlabs/cub
-[submodule "ml-prims/external/googletest"]
-    path = thirdparty/ml-prims/googletest
+[submodule "thirdparty/googletest"]
+	path = thirdparty/googletest
     url = https://github.com/google/googletest
-[submodule "thirdparty/h2o4gpu"]
-	path = thirdparty/h2o4gpu
-	url = https://github.com/h2oai/h2o4gpu

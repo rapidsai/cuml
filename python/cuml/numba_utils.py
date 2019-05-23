@@ -1,4 +1,4 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,36 +14,29 @@
 #
 
 import numba
-from librmm_cffi import librmm as rmm
-from numba.cuda.cudadrv.driver import driver
 import math
+
 from numba import cuda
+from numba.cuda.cudadrv.driver import driver
+from librmm_cffi import librmm as rmm
 
 
 def row_matrix(df):
     """Compute the C (row major) version gpu matrix of df
 
-    This implements the algorithm documented in
-    http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/
+    :param col_major: an `np.ndarray` or a `DeviceNDArrayBase` subclass.
+        If already on the device, its stream will be used to perform the
+        transpose (and to copy `row_major` to the device if necessary).
 
-    :param a: an `np.ndarray` or a `DeviceNDArrayBase` subclass. If already on
-        the device its stream will be used to perform the transpose (and to
-        copy `b` to the device if necessary).
-
-    Adapted from numba:
-    https://github.com/numba/numba/blob/master/numba/cuda/kernels/transpose.py
-
-    To be replaced by CUDA ml-prim in upcoming version
     """
 
     cols = [df._cols[k] for k in df._cols]
-    ncol = len(cols)
-    nrow = len(df)
+    ncols = len(cols)
+    nrows = len(df)
     dtype = cols[0].dtype
 
-    a = df.as_gpu_matrix(order='F')
-    b = rmm.device_array((nrow, ncol), dtype=dtype, order='C')
-    dtype = numba.typeof(a)
+    col_major = df.as_gpu_matrix(order='F')
+    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order='C')
 
     tpb = driver.get_device().MAX_THREADS_PER_BLOCK
 
@@ -52,10 +45,35 @@ def row_matrix(df):
 
     tile_shape = (tile_height, tile_width + 1)
 
-    @cuda.jit
-    def kernel(input, output):
+    # blocks and threads for the shared memory/tiled algorithm
+    # see http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/ # noqa
+    blocks = int((row_major.shape[1]) / tile_height + 1), int((row_major.shape[0]) / tile_width + 1) # noqa
+    threads = tile_height, tile_width
 
-        tile = cuda.shared.array(shape=tile_shape, dtype=numba.float32)
+    # blocks per gpu for the general kernel
+    bpg = (nrows + tpb - 1) // tpb
+
+    if dtype == 'float32':
+        dev_dtype = numba.float32
+
+    else:
+        dev_dtype = numba.float64
+
+    @cuda.jit
+    def general_kernel(_col_major, _row_major):
+        tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
+        if tid >= nrows:
+            return
+        _col_offset = 0
+        while _col_offset < _col_major.shape[1]:
+            col_idx = _col_offset
+            _row_major[tid, col_idx] = _col_major[tid, col_idx]
+            _col_offset += 1
+
+    @cuda.jit
+    def shared_kernel(input, output):
+
+        tile = cuda.shared.array(shape=tile_shape, dtype=dev_dtype)
 
         tx = cuda.threadIdx.x
         ty = cuda.threadIdx.y
@@ -70,11 +88,12 @@ def row_matrix(df):
         if y < output.shape[0] and x < output.shape[1]:
             output[y, x] = tile[tx, ty]
 
-    # one block per tile, plus one for remainders
-    blocks = int((b.shape[1]) / tile_height + 1), int((b.shape[0]) /
-                                                      tile_width + 1)
-    # one thread per tile element
-    threads = tile_height, tile_width
-    kernel[blocks, threads](a, b)
+    # check if we cannot call the shared memory kernel
+    # block limits: 2**31-1 for x, 65535 for y dim of blocks
+    if blocks[0] > 2147483647 or blocks[1] > 65535:
+        general_kernel[bpg, tpb](col_major, row_major)
 
-    return b
+    else:
+        shared_kernel[blocks, threads](col_major, row_major)
+
+    return row_major

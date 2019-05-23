@@ -27,10 +27,12 @@ build:
 requirements:
   build:
     - cmake>=3.12.4
-    - cudf 0.6*
+    - cudf 0.8*
+    - cudatoolkit {{ cuda_version }}.*
+    - lapack
   run:
-    - cuda{{ cuda_major }}{{ cuda_minor }}
-    - cudf 0.6*
+    - cudf 0.8*
+    - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
 
 about:
   home: http://rapids.ai/

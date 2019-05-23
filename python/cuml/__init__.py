@@ -14,6 +14,10 @@
 # limitations under the License.
 #
 
+from cuml.common.base import Base
+from cuml.common.handle import Handle
+import cuml.common.cuda as cuda
+
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
 
@@ -24,14 +28,21 @@ from cuml.filter.kalman_filter import KalmanFilter
 
 from cuml.linear_model.linear_regression import LinearRegression
 from cuml.linear_model.ridge import Ridge
+from cuml.linear_model.lasso import Lasso
+from cuml.linear_model.elastic_net import ElasticNet
+
+from cuml.metrics.regression import r2_score
 
 from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
 from cuml.solvers.sgd import SGD
+from cuml.solvers.cd import CD
 
 from cuml.manifold.umap import UMAP
+
+from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
 from ._version import get_versions
 __version__ = get_versions()['version']
