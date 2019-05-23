@@ -131,7 +131,7 @@ def main():
         print("command to bulk fix the files!")
         if args.onlyChangedFiles:
             print("  python %s -inplace -onlyChangedFiles -dstdir %s -exe %s" %
-                  (sys.argv[0], args.dstdir, args.srcdir, args.exe))
+                  (sys.argv[0], args.dstdir, args.exe))
         else:
             print("  python %s -inplace -dstdir %s -srcdir %s -exe %s %s" %
                   (sys.argv[0], args.dstdir, args.srcdir, args.exe,
