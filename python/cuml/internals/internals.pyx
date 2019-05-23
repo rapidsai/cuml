@@ -43,11 +43,13 @@ cdef extern from "callbacks_implems.h" namespace "ML::Internals":
 
 cdef class PyCallback:
 
-    def get_numba_matrix(self, embeddings, shape):
+    def get_numba_matrix(self, embeddings, shape, typestr):
+
+        sizeofType = 4 if typestr == "float32" else 8
         desc = {
             'shape': shape,
-            'strides': (shape[1]*4, 1*4),
-            'typestr': np.float32,
+            'strides': (shape[1]*sizeofType, sizeofType),
+            'typestr': typestr,
             'data': [embeddings],
             'order': 'C'
         }
