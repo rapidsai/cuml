@@ -155,7 +155,7 @@ namespace UMAPAlgo {
 		        params->init);
 
         if (params->callback) {
-            params->callback->setup(n, params->n_components);
+            params->callback->setup<T>(n, params->n_components);
             params->callback->on_preprocess_end(embeddings);
         }
 
