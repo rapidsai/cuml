@@ -16,9 +16,9 @@ export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
 
 # Set versions of packages needed to be grabbed
-export CUDF_VERSION=0.7.*
-export NVSTRINGS_VERSION=0.7.*
-export RMM_VERSION=0.7.*
+export CUDF_VERSION=0.8.*
+export NVSTRINGS_VERSION=0.8.*
+export RMM_VERSION=0.8.*
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
@@ -36,7 +36,7 @@ nvidia-smi
 logger "Activate conda env..."
 source activate gdf
 conda install -c rapidsai/label/cuda${CUDA_REL} -c rapidsai-nightly/label/cuda${CUDA_REL} cudf=${CUDF_VERSION} rmm=${RMM_VERSION} nvstrings=${NVSTRINGS_VERSION}
-conda install -c conda-forge lapack cmake==3.14.3 cupy
+conda install -c conda-forge lapack cmake==3.14.3 umap-learn cupy
 
 logger "Check versions..."
 python --version

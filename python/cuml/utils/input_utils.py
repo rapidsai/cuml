@@ -167,7 +167,7 @@ def convert_dtype(X, to_dtype=np.float32):
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
         if dtype != to_dtype:
-            X_m = np.ascontiguousarray(X.astype(to_dtype))
+            X_m = X.astype(to_dtype)
             if len(X[X == np.inf]) > 0:
                 raise TypeError("Data type conversion resulted"
                                 "in data loss.")
