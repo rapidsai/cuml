@@ -107,15 +107,12 @@ def modifiedFiles(filter=None):
 
 
 def listAllFilesInDir(folder):
-    """Utility functino to list all files/subdirs in the input folder"""
-    files = []
-    for f in os.listdir(folder):
-        thisFile = os.path.join(folder, f)
-        if os.path.isfile(thisFile):
-            files.append(thisFile)
-        elif os.path.isdir(thisFile):
-            files += listAllFilesInDir(thisFile)
-    return files
+    """Utility function to list all files/subdirs in the input folder"""
+    allFiles = []
+    for root, dirs, files in os.walk(folder):
+        for name in files:
+            allFiles.append(os.path.join(root, name))
+    return allFiles
 
 
 def listFilesToCheck(filesDirs, filter=None):
@@ -130,5 +127,7 @@ def listFilesToCheck(filesDirs, filter=None):
                 allFiles.append(f)
         elif os.path.isdir(f):
             files = listAllFilesInDir(f)
-            allFiles += listFilesToCheck(files, filter)
+            for f in files:
+                if filter is None or filter(f):
+                    allFiles.append(f)
     return allFiles
