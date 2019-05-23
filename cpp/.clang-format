@@ -3,28 +3,28 @@
 #   http://releases.llvm.org/8.0.0/tools/clang/docs/ClangFormatStyleOptions.html
 Language:        Cpp
 # BasedOnStyle:  Google
-AccessModifierOffset: -2
-AlignAfterOpenBracket: DontAlign
+AccessModifierOffset: -1
+AlignAfterOpenBracket: Align
 AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
-AlignEscapedNewlines: Right
+AlignEscapedNewlines: Left
 AlignOperands:   true
 AlignTrailingComments: true
-AllowAllParametersOfDeclarationOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 AllowShortFunctionsOnASingleLine: All
 AllowShortIfStatementsOnASingleLine: true
-AllowShortLoopsOnASingleLine: false
+AllowShortLoopsOnASingleLine: true
 # This is deprecated
 AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
-AlwaysBreakBeforeMultilineStrings: false
-AlwaysBreakTemplateDeclarations: MultiLine
+AlwaysBreakBeforeMultilineStrings: true
+AlwaysBreakTemplateDeclarations: Yes
 BinPackArguments: true
 BinPackParameters: true
 BraceWrapping:
-  AfterClass:      true
+  AfterClass:      false
   AfterControlStatement: false
   AfterEnum:       false
   AfterFunction:   false
@@ -36,27 +36,29 @@ BraceWrapping:
   BeforeCatch:     false
   BeforeElse:      false
   IndentBraces:    false
+  # disabling the below splits, else, they'll just add to the vertical length of source files!
   SplitEmptyFunction: false
   SplitEmptyRecord: false
   SplitEmptyNamespace: false
 BreakBeforeBinaryOperators: None
 BreakBeforeBraces: Attach
 BreakBeforeInheritanceComma: false
-BreakInheritanceList: AfterColon
-BreakBeforeTernaryOperators: false
-BreakConstructorInitializers: AfterColon
+BreakInheritanceList: BeforeColon
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializersBeforeComma: false
+BreakConstructorInitializers: BeforeColon
 BreakAfterJavaFieldAnnotations: false
 BreakStringLiterals: true
 ColumnLimit:     80
 CommentPragmas:  '^ IWYU pragma:'
 CompactNamespaces: false
 ConstructorInitializerAllOnOneLineOrOnePerLine: true
+# Kept the below 2 to be the same as `IndentWidth` to keep everything uniform
 ConstructorInitializerIndentWidth: 2
 ContinuationIndentWidth: 2
 Cpp11BracedListStyle: true
 DerivePointerAlignment: true
-##TODO: once we are ready, set this to false   <--- NOTE THIS ONE
-DisableFormat:   true
+DisableFormat:   false
 ExperimentalAutoDetectBinPacking: false
 FixNamespaceComments: true
 ForEachMacros:   
@@ -74,7 +76,7 @@ IncludeCategories:
   - Regex:           '.*'
     Priority:        3
 IncludeIsMainRegex: '([-_](test|unittest))?$'
-IndentCaseLabels: false
+IndentCaseLabels: true
 IndentPPDirectives: None
 IndentWidth:     2
 IndentWrappedFunctionNames: false
@@ -97,7 +99,7 @@ PenaltyBreakString: 1000
 PenaltyBreakTemplateDeclaration: 10
 PenaltyExcessCharacter: 1000000
 PenaltyReturnTypeOnItsOwnLine: 200
-PointerAlignment: Right
+PointerAlignment: Left
 RawStringFormats: 
   - Language:        Cpp
     Delimiters:      
@@ -108,6 +110,21 @@ RawStringFormats:
       - CPP
       - 'c++'
       - 'C++'
+    CanonicalDelimiter: ''
+  - Language:        TextProto
+    Delimiters:
+      - pb
+      - PB
+      - proto
+      - PROTO
+    EnclosingFunctions:
+      - EqualsProto
+      - EquivToProto
+      - PARSE_PARTIAL_TEXT_PROTO
+      - PARSE_TEST_PROTO
+      - PARSE_TEXT_PROTO
+      - ParseTextOrDie
+      - ParseTextProtoOrDie
     CanonicalDelimiter: ''
     BasedOnStyle:    google
 ReflowComments:  true
@@ -128,10 +145,12 @@ SpacesInContainerLiterals: true
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
+# Being explicit here, since we are anyways C++11 (and soon to be C++14)
 Standard:        Cpp11
 StatementMacros: 
   - Q_UNUSED
   - QT_REQUIRE_VERSION
-TabWidth:        4
+# Be consistent, even for people who use tab for indentation!
+TabWidth:        2
 UseTab:          Never
 ...
