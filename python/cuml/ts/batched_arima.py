@@ -6,6 +6,8 @@ from .kalman import init_kalman_matrices
 from .batched_kalman import batched_kfilter, pynvtx_range_push, pynvtx_range_pop
 import scipy.optimize as opt
 from IPython.core.debugger import set_trace
+import statsmodels.tsa.tsatools as sm_tools
+import statsmodels.tsa.arima_model as sm_arima
 # import cudf
 import pandas as pd
 
@@ -147,7 +149,55 @@ class BatchedARIMAModel:
         with the given initial parameters. `y` is (num_samples, num_batches)
 
         """
+
+        def unpack(p, q, nb, x):
+            num_parameters = 1 + p + q
+            mu = np.zeros(nb)
+            ar = []
+            ma = []
+            for i in range(nb):
+                xi = x[i*num_parameters:(i+1)*num_parameters]
+                mu[i] = xi[0]
+                ar.append(xi[1:p+1])
+                ma.append(xi[p+1:])
+
+            return (mu, ar, ma)
+
+        def pack(p, q, nb, mu, ar, ma):
+            num_parameters = 1 + p + q
+            x = np.zeros(num_parameters*nb)
+            for i in range(nb):
+                xi = np.array([mu[i]])
+                xi = np.r_[xi, ar[i]]
+                xi = np.r_[xi, ma[i]]
+                x[i*num_parameters:(i+1)*num_parameters] = xi
+            return x
+
+        def batch_trans(p, q, nb, x):
+            mu, ar, ma = unpack(p, q, nb, x)
+            ar2 = []
+            ma2 = []
+            for ib in range(nb):
+                ari = sm_tools._ar_transparams(np.copy(ar[ib]))
+                mai = sm_tools._ma_transparams(np.copy(ma[ib]))
+                ar2.append(ari)
+                ma2.append(mai)
+            Tx = pack(p, q, nb, mu, ar2, ma2)
+            return Tx
+
+        def batch_invtrans(p, q, nb, x):
+            mu, ar, ma = unpack(p, q, nb, x)
+            ar2 = []
+            ma2 = []
+            for ib in range(nb):
+                ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
+                mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
+                ar2.append(ari)
+                ma2.append(mai)
+            Tx = pack(p, q, nb, mu, ar2, ma2)
+            return Tx
         
+
         p, d, q = order
         num_parameters = 1 + p + q
 
@@ -156,38 +206,40 @@ class BatchedARIMAModel:
 
         def f(x):
             # Maximimize LL means minimize negative
-            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu).sum())
+            x2 = batch_trans(p, q, num_batches, x)
+            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x2, gpu=gpu).sum())
             return n_llf_sum/(num_samples-1)/num_batches
 
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu)
+            x2 = batch_trans(p, q, num_batches, x)
+            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x2, h, gpu=gpu)
             return n_gllf/(num_samples-1)/num_batches
 
-        x0 = np.r_[mu0, ar_params0, ma_params0]
+
+        ar0_2 = sm_tools._ar_invtransparams(np.copy(ar_params0))
+        ma0_2 = sm_tools._ma_invtransparams(np.copy(ma_params0))
+
+        x0 = np.r_[mu0, ar0_2, ma0_2]
         x0 = np.tile(x0, num_batches)
+
         x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=None,
                                             approx_grad=True,
                                             iprint=opt_disp,
                                             factr=100,
-                                            m=12)
+                                            m=12,
+                                            pgtol=1e-8)
 
+        print("xf=", x)
         if res['warnflag'] > 0:
             raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
 
-        mu = np.zeros(num_batches)
-        ar = []
-        ma = []
-        for i in range(num_batches):
-            xi = x[i*num_parameters:(i+1)*num_parameters]
-            mu[i] = xi[0]
-            ar.append(xi[1:p+1])
-            ma.append(xi[p+1:])
-
+        Tx = batch_trans(p, q, num_batches, x)
+        mu, ar, ma = unpack(p, q, num_batches, Tx)
+        
         fit_model = BatchedARIMAModel(num_batches*[order], mu, ar, ma, y)
         
-
         return fit_model
 
 
@@ -372,6 +424,16 @@ def assert_same_d(b_order):
     """Checks that all values of d in batched order are same"""
     b_d = [d for _, d, _ in b_order]
     assert (np.array(b_d) == b_d[0]).all()
+
+def init_x0(order, y):
+    (p, d, q) = order
+    if d == 1:
+        yd = np.diff(y)
+    else:
+        yd = np.copy(y)
+    arma = sm_arima.ARMA(yd, order)
+    arma.exog = np.ones((len(yd),1))
+    return arma._fit_start_params_hr((p,q,d))
 
 
 def init_batched_kalman_matrices(b_ar_params, b_ma_params):
