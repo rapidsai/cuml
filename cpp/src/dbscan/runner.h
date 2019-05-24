@@ -106,6 +106,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D, Typ
     MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
 
 	for (int i = 0; i < nBatches; i++) {
+            std::cout << "Running batch id = " << i << "\n";
 		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
 		Type startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
@@ -118,14 +119,15 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D, Typ
         MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
-		// Running AdjGraph
-		if (curradjlen > adjlen || adj_graph.data() == NULL) {
-			adjlen = curradjlen;
+        // Running AdjGraph
+        if (curradjlen > adjlen || adj_graph.data() == NULL) {
+            adjlen = curradjlen;
             adj_graph.resize(adjlen, stream);
-		}
+        }
 
-		AdjGraph::run(handle, adj, vd, adj_graph.data(), adjlen, ex_scan, N, minPts, core_pts,
-				algoAdj, nPoints, stream);
+        AdjGraph::run<Type, Index_>(handle, adj, vd, adj_graph.data(), adjlen,
+                                    ex_scan, N, minPts, core_pts, algoAdj,
+                                    nPoints, stream);
 
 	    MLCommon::Sparse::weak_cc_batched<Type, TPB>(
             labels, ex_scan, adj_graph.data(), adjlen, N,
@@ -139,7 +141,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D, Typ
 
     Type MAX_LABEL = std::numeric_limits<Type>::max();
 
-    int nblks = ceildiv(N, TPB);
+    int nblks = ceildiv<int>(N, TPB);
     relabelForSkl<Type><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
 
     CUDA_CHECK(cudaPeekAtLastError());

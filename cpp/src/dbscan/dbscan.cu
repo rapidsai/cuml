@@ -24,14 +24,17 @@ namespace ML {
 
 using namespace Dbscan;
 
+// @todo
+// In the below 2 calls, the Index type has been hard-coded to `int64_t`
+// We should pick the right Index type based on the input dimensions.
 void dbscanFit(const cumlHandle& handle, float *input, int n_rows, int n_cols, float eps, int min_pts,
 		       int *labels, size_t max_bytes_per_batch = 0, bool verbose) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
+    dbscanFitImpl<float, int64_t>(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
 }
 
 void dbscanFit(const cumlHandle& handle, double *input, int n_rows, int n_cols, double eps, int min_pts,
 		       int *labels, size_t max_bytes_per_batch = 0, bool verbose) {
-	dbscanFitImpl(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
+    dbscanFitImpl<double, int64_t>(handle.getImpl(), input, n_rows, n_cols, eps, min_pts, labels, max_bytes_per_batch, handle.getStream(), verbose);
 }
 
 }; // end namespace ML
