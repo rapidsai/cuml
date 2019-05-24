@@ -73,7 +73,7 @@
 namespace ML {
 
 namespace {
-    size_t getDatatypeSize( const cumlMPICommunicator_impl::datatype_t datatype )
+    size_t getDatatypeSize( const cumlNCCLCommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
         {
@@ -96,7 +96,7 @@ namespace {
         }
     }
 
-    MPI_Datatype getMPIDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
+    MPI_Datatype getMPIDatatype( const cumlNCCLCommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
         {
@@ -119,7 +119,7 @@ namespace {
         }
     }
 
-    MPI_Op getMPIOp( const cumlMPICommunicator_impl::op_t op )
+    MPI_Op getMPIOp( const cumlNCCLCommunicator_impl::op_t op )
     {
         switch ( op )
         {
@@ -135,7 +135,7 @@ namespace {
     }
 
 #ifdef HAVE_NCCL
-    ncclDataType_t getNCCLDatatype( const cumlMPICommunicator_impl::datatype_t datatype )
+    ncclDataType_t getNCCLDatatype( const cumlNCCLCommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
         {
@@ -158,7 +158,7 @@ namespace {
         }
     }
 
-    ncclRedOp_t getNCCLOp( const cumlMPICommunicator_impl::op_t op )
+    ncclRedOp_t getNCCLOp( const cumlNCCLCommunicator_impl::op_t op )
     {
         switch ( op )
         {
@@ -175,14 +175,14 @@ namespace {
 #endif
 }
 
-void initialize_mpi_comms(cumlHandle& handle, MPI_Comm comm)
+void initialize_comms(cumlHandle& handle, MPI_Comm comm)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>( 
-         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlMPICommunicator_impl(comm) ) );
+         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm) ) );
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm)
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm)
     : _owns_mpi_comm(owns_mpi_comm), _mpi_comm(comm), _size(0), _rank(1), _next_request_id(0)
 {
     int mpi_is_initialized = 0;
@@ -201,7 +201,7 @@ cumlMPICommunicator_impl::cumlMPICommunicator_impl(MPI_Comm comm, const bool own
 #endif
 }
 
-cumlMPICommunicator_impl::~cumlMPICommunicator_impl()
+cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl()
 {
 #ifdef HAVE_NCCL
     //finalizing NCCL
@@ -213,29 +213,29 @@ cumlMPICommunicator_impl::~cumlMPICommunicator_impl()
     }
 }
 
-int cumlMPICommunicator_impl::getSize() const
+int cumlNCCLCommunicator_impl::getSize() const
 {
     return _size;
 }
 
-int cumlMPICommunicator_impl::getRank() const
+int cumlNCCLCommunicator_impl::getRank() const
 {
     return _rank;
 }
 
-std::unique_ptr<MLCommon::cumlCommunicator_iface> cumlMPICommunicator_impl::commSplit( int color, int key ) const
+std::unique_ptr<MLCommon::cumlCommunicator_iface> cumlNCCLCommunicator_impl::commSplit( int color, int key ) const
 {
     MPI_Comm new_comm;
     MPI_CHECK( MPI_Comm_split(_mpi_comm, color, key, &new_comm) );
-    return std::unique_ptr<MLCommon::cumlCommunicator_iface>(new cumlMPICommunicator_impl(new_comm,true));
+    return std::unique_ptr<MLCommon::cumlCommunicator_iface>(new cumlNCCLCommunicator_impl(new_comm,true));
 }
 
-void cumlMPICommunicator_impl::barrier() const
+void cumlNCCLCommunicator_impl::barrier() const
 {
     MPI_CHECK( MPI_Barrier( _mpi_comm ) );
 }
 
-void cumlMPICommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
+void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
     MPI_Request mpi_req;
     request_t req_id;
@@ -254,7 +254,7 @@ void cumlMPICommunicator_impl::isend(const void *buf, int size, int dest, int ta
     *request = req_id;
 }
 
-void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
+void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
     MPI_Request mpi_req;
     request_t req_id;
@@ -273,7 +273,7 @@ void cumlMPICommunicator_impl::irecv(void *buf, int size, int source, int tag, r
     *request = req_id;
 }
 
-void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[]) const
+void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]) const
 {
     std::vector<MPI_Request> requests;
     requests.reserve(count);
@@ -288,7 +288,7 @@ void cumlMPICommunicator_impl::waitall(int count, request_t array_of_requests[])
     MPI_CHECK( MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE) );
 }
 
-void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclAllReduce(sendbuff, recvbuff, count, getNCCLDatatype( datatype ), getNCCLOp( op ), _nccl_comm, stream) );
@@ -298,7 +298,7 @@ void cumlMPICommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, i
 #endif
 }
 
-void cumlMPICommunicator_impl::bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::bcast(void* buff, int count, datatype_t datatype, int root, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclBroadcast(buff, buff, count, getNCCLDatatype( datatype ), root, _nccl_comm, stream) );
@@ -308,7 +308,7 @@ void cumlMPICommunicator_impl::bcast(void* buff, int count, datatype_t datatype,
 #endif
 }
 
-void cumlMPICommunicator_impl::reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::reduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, int root, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclReduce(sendbuff, recvbuff, count, getNCCLDatatype( datatype ), getNCCLOp( op ), root, _nccl_comm, stream) );
@@ -318,7 +318,7 @@ void cumlMPICommunicator_impl::reduce(const void* sendbuff, void* recvbuff, int 
 #endif
 }
 
-void cumlMPICommunicator_impl::allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::allgather(const void* sendbuff, void* recvbuff, int sendcount, datatype_t datatype, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclAllGather(sendbuff, recvbuff, sendcount, getNCCLDatatype( datatype ), _nccl_comm, stream) );
@@ -328,7 +328,7 @@ void cumlMPICommunicator_impl::allgather(const void* sendbuff, void* recvbuff, i
 #endif
 }
 
-void cumlMPICommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf, const int recvcounts[], const int displs[], datatype_t datatype, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     //From: "An Empirical Evaluation of Allgatherv on Multi-GPU Systems" - https://arxiv.org/pdf/1812.05964.pdf
@@ -342,7 +342,7 @@ void cumlMPICommunicator_impl::allgatherv(const void *sendbuf, void *recvbuf, co
 #endif
 }
 
-void cumlMPICommunicator_impl::reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const
+void cumlNCCLCommunicator_impl::reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const
 {
 #ifdef HAVE_NCCL
     NCCL_CHECK( ncclReduceScatter(sendbuff, recvbuff, recvcount, getNCCLDatatype( datatype ), getNCCLOp( op ), _nccl_comm, stream) );

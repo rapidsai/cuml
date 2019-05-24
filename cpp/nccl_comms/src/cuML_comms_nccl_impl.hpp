@@ -20,23 +20,19 @@
 #include <unordered_set>
 #include <utility>
 
-#include <mpi.h>
-
-#ifdef HAVE_NCCL
 #include <nccl.h>
-#endif
 
 #include <common/cuml_comms_iface.hpp>
 
 namespace ML {
-    
-class cumlMPICommunicator_impl : public MLCommon::cumlCommunicator_iface {
+
+class cumlNCCLCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 public:
-    cumlMPICommunicator_impl() =delete;
+    cumlNCCLCommunicator_impl() =delete;
 
-    cumlMPICommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm=false);
+    cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank, ncclUniqueId id);
 
-    virtual ~cumlMPICommunicator_impl();
+    virtual ~cumlNCCLCommunicator_impl();
 
     virtual int getSize() const;
     virtual int getRank() const;
@@ -64,16 +60,9 @@ public:
     virtual void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const;
 
 private:
-    bool                                                _owns_mpi_comm;
-    MPI_Comm                                            _mpi_comm;
-#ifdef HAVE_NCCL
-    ncclComm_t                                          _nccl_comm;
-#endif
+    ncclComm_t                                            _nccl_comm;
     int                                                 _size;
     int                                                 _rank;
-    mutable request_t                                   _next_request_id;
-    mutable std::unordered_map<request_t,MPI_Request>   _requests_in_flight;
-    mutable std::unordered_set<request_t>               _free_requests;
 };
 
 } // end namespace ML
