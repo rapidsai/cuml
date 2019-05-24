@@ -27,7 +27,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 cdef extern from "solver/solver.hpp" namespace "ML::Solver":
 
@@ -294,10 +294,10 @@ class SGD(Base):
 
         cdef uintptr_t X_ptr, y_ptr
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
-            input_to_array(X)
+            input_to_dev_array(X)
 
         y_m, y_ptr, _, _, _ = \
-            input_to_array(y)
+            input_to_dev_array(y)
 
         self.n_alpha = 1
 
@@ -377,7 +377,7 @@ class SGD(Base):
         """
 
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = input_to_array(X)
+        X_m, X_ptr, n_rows, n_cols, self.dtype = input_to_dev_array(X)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=self.dtype))
@@ -424,7 +424,7 @@ class SGD(Base):
         """
 
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
+        X_m, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(X)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(np.zeros(n_rows, dtype=dtype))

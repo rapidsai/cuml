@@ -34,7 +34,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
@@ -309,7 +309,7 @@ class KMeans(Base):
         cdef uintptr_t input_ptr
 
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_array(X, order='C')
+            input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
@@ -428,7 +428,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_array(X, order='C')
+            input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
@@ -483,7 +483,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_array(X, order='C')
+            input_to_dev_array(X, order='C')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)

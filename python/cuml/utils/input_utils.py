@@ -56,7 +56,7 @@ def get_dtype(X):
     return dtype
 
 
-def input_to_array(X, order='F', deepcopy=False,
+def input_to_dev_array(X, order='F', deepcopy=False,
                    check_dtype=False, convert_to_dtype=False,
                    check_cols=False, check_rows=False):
     """

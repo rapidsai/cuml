@@ -22,7 +22,7 @@ import numpy as np
 from numba import cuda
 from copy import deepcopy
 
-from cuml.utils import input_to_array
+from cuml.utils import input_to_dev_array
 
 from cuml.utils.input_utils import convert_dtype
 
@@ -48,10 +48,10 @@ test_num_cols = [1, 10, 8000]
 @pytest.mark.parametrize('input_type', test_input_types)
 @pytest.mark.parametrize('num_rows', test_num_rows)
 @pytest.mark.parametrize('num_cols', test_num_cols)
-def test_input_to_array(dtype, input_type, num_rows, num_cols):
+def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     input_data, real_data = get_input(input_type, num_rows, num_cols, dtype)
 
-    X, X_ptr, n_rows, n_cols, dtype = input_to_array(input_data)
+    X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data)
 
     np.testing.assert_equal(X.copy_to_host(), real_data)
 

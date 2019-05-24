@@ -30,7 +30,7 @@ from libcpp cimport bool
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 cdef extern from "random_projection/rproj_c.h" namespace "ML":
 

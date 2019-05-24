@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
@@ -281,7 +281,7 @@ class TruncatedSVD(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_array(X)
+            input_to_dev_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -392,7 +392,7 @@ class TruncatedSVD(Base):
         """
 
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = input_to_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = input_to_dev_array(X)
 
         # todo: check for dtype
         cpdef paramsTSVD params
@@ -448,7 +448,7 @@ class TruncatedSVD(Base):
 
         """
         cdef uintptr_t input_ptr
-        X_m, n_rows, _, dtype = input_to_array(X)
+        X_m, n_rows, _, dtype = input_to_dev_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
