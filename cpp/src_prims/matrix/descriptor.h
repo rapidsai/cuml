@@ -70,6 +70,10 @@ class Descriptor {
 
       /**
        * @brief for a given matrix with only a single block.
+       * @param _M number of rows in matrix
+       * @param _N number of columns in matrix
+       * @param device the device id of the matrix
+       * @param intraBlk are the blocks in row-major or col-major?
        */
       Descriptor(SizeType _M, SizeType _N, int device, Layout intraBlk = LayoutRowMajor):
           M(_M), N(_N), MB(M), NB(N), intraBlockLayout(intaBlk)  {
