@@ -28,7 +28,7 @@ import pandas as pd
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 from numba import cuda
 
@@ -191,10 +191,10 @@ cdef class UMAPImpl:
 
         if self._should_downcast:
             X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_array(X, order='C', convert_to_dtype=np.float32)
+                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
         else:
             X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_array(X, order='C', check_dtype=np.float32)
+                input_to_dev_array(X, order='C', check_dtype=np.float32)
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -215,7 +215,7 @@ cdef class UMAPImpl:
         cdef uintptr_t y_raw
         if y is not None:
             y_m, y_raw, _, _, _ = \
-                input_to_array(y)
+                input_to_dev_array(y)
             self.umap.fit(
                 handle_[0],
                 <float*> self.raw_data,
@@ -256,10 +256,10 @@ cdef class UMAPImpl:
         cdef uintptr_t x_ptr
         if self._should_downcast:
             X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_array(X, order='C', convert_to_dtype=np.float32)
+                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
         else:
             X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_array(X, order='C', check_dtype=np.float32)
+                input_to_dev_array(X, order='C', check_dtype=np.float32)
 
         if n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "

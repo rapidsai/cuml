@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_array
+    input_to_dev_array
 
 
 cdef extern from "pca/pca.hpp" namespace "ML":
@@ -349,7 +349,7 @@ class PCA(Base):
         """
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_array(X)
+            input_to_dev_array(X)
 
         cpdef paramsPCA params
         params.n_components = self.n_components
@@ -477,7 +477,7 @@ class PCA(Base):
 
         """
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = input_to_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = input_to_dev_array(X)
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
@@ -546,7 +546,7 @@ class PCA(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, dtype = input_to_array(X)
+        X_m, input_ptr, n_rows, n_cols, dtype = input_to_dev_array(X)
 
         # todo: check dtype
         cpdef paramsPCA params
