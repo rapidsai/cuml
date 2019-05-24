@@ -16,6 +16,7 @@
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 - PR #618: CI: Enable copyright header checks
 - PR #622: Updated to use 0.8 dependencies
+- PR #626: Added build.sh script, updated CI scripts and documentation
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
