@@ -59,6 +59,34 @@ def test_arima():
         
     return ys_df
 
+def test_cpu_vs_gpu():
+    """test CPU vs GPU implementation"""
+    num_samples = 10
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys = noise + 0.5*xs
+    for num_batches in range(1, 5):
+
+        ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
+        order = (1, 1, 1)
+        mu = 0.0
+        arparams = np.array([-0.01])
+        maparams = np.array([-1.0])
+        x = np.r_[mu, arparams, maparams]
+        x = np.tile(x, num_batches)
+        num_samples = ys_df.shape[0]
+        num_batches = ys_df.shape[1]
+
+        p, d, q = order
+        num_parameters = 1 + p + q
+        gpu = False
+        print("Batched Gradient")
+        ll_gpu = batched_arima.BatchedARIMAModel.ll_f(num_batches, num_parameters, order, ys_df, x, gpu=True)
+        ll_cpu = batched_arima.BatchedARIMAModel.ll_f(num_batches, num_parameters, order, ys_df, x, gpu=False)
+
+        print("BS({}) GPU vs CPU={} vs {}".format(num_batches, ll_gpu, ll_cpu))
+        np.testing.assert_almost_equal(ll_gpu, ll_cpu)
 
 def test_gradient():
     """test gradient implementation"""

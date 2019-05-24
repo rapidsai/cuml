@@ -64,10 +64,18 @@ class BatchedARIMAModel:
                 for (i, lli) in enumerate(llb)]
 
     @staticmethod
-    def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gpu=True):
+    def ll_f(num_batches, num_parameters, order, y, x, return_negative_sum=False, gpu=True, trans=False):
         """Computes batched loglikelihood given parameters stored in `x`."""
         pynvtx_range_push("ll_f")
-        p, d, q = order
+
+        # Apply stationarity-inducing transform.
+        if trans:
+            pynvtx_range_push("ll_f_trans")
+            p, _, q = order
+            x = batch_trans(p, q, num_batches, np.copy(x))
+            pynvtx_range_pop()
+
+        p, _, q = order
         mu = np.zeros(num_batches)
         arparams = []
         maparams = []
@@ -92,7 +100,7 @@ class BatchedARIMAModel:
 
     #TODO: Fix this for multi-(p,q) case
     @staticmethod
-    def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True):
+    def ll_gf(num_batches, num_parameters, order, y, x, h=1e-8, gpu=True, trans=False):
         """Computes fd-gradient of batched loglikelihood given parameters stored in
         `x`. Because batches are independent, it only compute the function for the
         single-batch number of parameters."""
@@ -121,8 +129,8 @@ class BatchedARIMAModel:
             # reset perturbation
             fd[i] = 0.0
 
-            ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu)
-            ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu)
+            ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu, trans=trans)
+            ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu, trans=trans)
 
             grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
 
@@ -150,54 +158,6 @@ class BatchedARIMAModel:
 
         """
 
-        def unpack(p, q, nb, x):
-            num_parameters = 1 + p + q
-            mu = np.zeros(nb)
-            ar = []
-            ma = []
-            for i in range(nb):
-                xi = x[i*num_parameters:(i+1)*num_parameters]
-                mu[i] = xi[0]
-                ar.append(xi[1:p+1])
-                ma.append(xi[p+1:])
-
-            return (mu, ar, ma)
-
-        def pack(p, q, nb, mu, ar, ma):
-            num_parameters = 1 + p + q
-            x = np.zeros(num_parameters*nb)
-            for i in range(nb):
-                xi = np.array([mu[i]])
-                xi = np.r_[xi, ar[i]]
-                xi = np.r_[xi, ma[i]]
-                x[i*num_parameters:(i+1)*num_parameters] = xi
-            return x
-
-        def batch_trans(p, q, nb, x):
-            mu, ar, ma = unpack(p, q, nb, x)
-            ar2 = []
-            ma2 = []
-            for ib in range(nb):
-                ari = sm_tools._ar_transparams(np.copy(ar[ib]))
-                mai = sm_tools._ma_transparams(np.copy(ma[ib]))
-                ar2.append(ari)
-                ma2.append(mai)
-            Tx = pack(p, q, nb, mu, ar2, ma2)
-            return Tx
-
-        def batch_invtrans(p, q, nb, x):
-            mu, ar, ma = unpack(p, q, nb, x)
-            ar2 = []
-            ma2 = []
-            for ib in range(nb):
-                ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
-                mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
-                ar2.append(ari)
-                ma2.append(mai)
-            Tx = pack(p, q, nb, mu, ar2, ma2)
-            return Tx
-        
-
         p, d, q = order
         num_parameters = 1 + p + q
 
@@ -206,15 +166,13 @@ class BatchedARIMAModel:
 
         def f(x):
             # Maximimize LL means minimize negative
-            x2 = batch_trans(p, q, num_batches, x)
-            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x2, gpu=gpu).sum())
+            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
             return n_llf_sum/(num_samples-1)/num_batches
 
         # optimized finite differencing gradient for batches
         def gf(x):
             # Recall: We maximize LL by minimizing -LL
-            x2 = batch_trans(p, q, num_batches, x)
-            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x2, h, gpu=gpu)
+            n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
             return n_gllf/(num_samples-1)/num_batches
 
 
@@ -224,12 +182,13 @@ class BatchedARIMAModel:
         x0 = np.r_[mu0, ar0_2, ma0_2]
         x0 = np.tile(x0, num_batches)
 
-        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=None,
-                                            approx_grad=True,
+        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf,
+                                            approx_grad=False,
                                             iprint=opt_disp,
                                             factr=100,
                                             m=12,
-                                            pgtol=1e-8)
+                                            pgtol=1e-8,
+                                            epsilon=1e-8)
 
         print("xf=", x)
         if res['warnflag'] > 0:
@@ -387,6 +346,59 @@ class BatchedARIMAModel:
             y_fc_b[:, i] = fc[:]
 
         return y_fc_b
+
+def unpack(p, q, nb, x):
+    """Unpack linearized parameters into mu, ar, and ma batched-groupings"""
+    num_parameters = 1 + p + q
+    mu = np.zeros(nb)
+    ar = []
+    ma = []
+    for i in range(nb):
+        xi = x[i*num_parameters:(i+1)*num_parameters]
+        mu[i] = xi[0]
+        ar.append(xi[1:p+1])
+        ma.append(xi[p+1:])
+
+    return (mu, ar, ma)
+
+def pack(p, q, nb, mu, ar, ma):
+    """Pack mu, ar, and ma batched-groupings into a linearized vector `x`"""
+    num_parameters = 1 + p + q
+    x = np.zeros(num_parameters*nb)
+    for i in range(nb):
+        xi = np.array([mu[i]])
+        xi = np.r_[xi, ar[i]]
+        xi = np.r_[xi, ma[i]]
+        x[i*num_parameters:(i+1)*num_parameters] = xi
+    return x
+
+def batch_trans(p, q, nb, x):
+    """Apply the stationarity/invertibility guaranteeing transform to batched-parameter vector x."""
+    mu, ar, ma = unpack(p, q, nb, x)
+    ar2 = []
+    ma2 = []
+    for ib in range(nb):
+        ari = sm_tools._ar_transparams(np.copy(ar[ib]))
+        mai = sm_tools._ma_transparams(np.copy(ma[ib]))
+        ar2.append(ari)
+        ma2.append(mai)
+    Tx = pack(p, q, nb, mu, ar2, ma2)
+    return Tx
+
+def batch_invtrans(p, q, nb, x):
+    """Apply the *inverse* stationarity/invertibility guaranteeing transform to
+       batched-parameter vector x.
+    """
+    mu, ar, ma = unpack(p, q, nb, x)
+    ar2 = []
+    ma2 = []
+    for ib in range(nb):
+        ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
+        mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
+        ar2.append(ari)
+        ma2.append(mai)
+    Tx = pack(p, q, nb, mu, ar2, ma2)
+    return Tx
 
 def undifference(x, x0):
     # set_trace()

@@ -44,6 +44,9 @@ void kalman_filter(double* ptr_ys, int ys_len, double* ptr_Z, double* ptr_R, dou
     Map<VectorT> RRT_ravel(RRT.data(), RRT.size());
     VectorT P0_vec = invImTT * RRT_ravel;
     Map<MatrixT> P0(P0_vec.data(), r, r);
+    // auto& stream = std::cout;
+    // stream.precision(16);
+    // stream << "P0=" << P0 << "\n";
     P = P0;
   }
   
