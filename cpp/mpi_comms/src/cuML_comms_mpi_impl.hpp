@@ -30,13 +30,13 @@
 
 namespace ML {
     
-class cumlNCCLCommunicator_impl : public MLCommon::cumlCommunicator_iface {
+class cumlMPICommunicator_impl : public MLCommon::cumlCommunicator_iface {
 public:
-    cumlNCCLCommunicator_impl() =delete;
+    cumlMPICommunicator_impl() =delete;
 
-    cumlNCCLCommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm=false);
+    cumlMPICommunicator_impl(MPI_Comm comm, const bool owns_mpi_comm=false);
 
-    virtual ~cumlNCCLCommunicator_impl();
+    virtual ~cumlMPICommunicator_impl();
 
     virtual int getSize() const;
     virtual int getRank() const;
