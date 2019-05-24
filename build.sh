@@ -18,19 +18,22 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims -v -g -n --buildAllGPUArch -h"
-HELP="$0 [clean] [libcuml] [cuml] [-v] [-g] [-n] [-h]
+VALIDARGS="clean libcuml cuml prims -v -g -n --buildAllGPUArch --multigpu -h --help"
+HELP="$0 [<target> ...] [<flag> ...]
+ where <target> is:
    clean             - remove all existing build artifacts and configuration (start over)
    libcuml           - build the cuml C++ code only
    cuml              - build the cuml Python package
    prims             - build the ML prims tests
+ and <flag> is:
    -v                - verbose build mode
    -g                - build for debug
    -n                - no install step
    --buildAllGPUArch - build for all supported GPU architectures
+   --multigpu        - Build cuml with multigpu support (requires libcumlMG and CUDA >=10.0)
    -h                - print this text
 
-   default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
+ default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
@@ -41,6 +44,7 @@ VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
+MULTIGPU=""
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -53,7 +57,7 @@ function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
 }
 
-if hasArg -h; then
+if hasArg -h || hasArg --help; then
     echo "${HELP}"
     exit 0
 fi
@@ -81,6 +85,9 @@ fi
 if hasArg --buildAllGPUArch; then
     BUILD_ALL_GPU_ARCH=1
 fi
+if hasArg --multigpu; then
+    MULTIGPU=--multigpu
+fi
 
 # Various build options use nvidia-smi for querying the system
 HAS_NVIDIA_SMI=1
@@ -104,7 +111,7 @@ if hasArg clean; then
 fi
 
 ################################################################################
-# Configure for building
+# Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     # Configure the build for the GPU type of this machine, or all (GPU_ARCH="")
@@ -137,8 +144,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
           -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so \
-          -DLAPACK_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so \
+          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.a \
           ${GPU_ARCH} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
 fi
@@ -153,22 +159,12 @@ fi
 # Build and (optionally) install the cuml Python package
 if (( ${NUMARGS} == 0 )) || hasArg cuml; then
 
-    # Set the multigpu option based on CUDA version: version 9.2 will disable
-    # multigpu, all others assume it should be enabled.
-    MULTIGPU_OPTION=--multigpu
-    if (( ${HAS_NVIDIA_SMI} )); then
-        CUDA_VERSION=$(nvidia-smi -q|grep "CUDA Version"|awk '{print $NF}')
-        if [[ ${CUDA_VERSION} == "9.2" ]]; then
-            MULTIGPU_OPTION=""
-        fi
-    fi
-
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-	python setup.py build_ext --inplace ${MULTIGPU_OPTION}
-	python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU_OPTION}
+	python setup.py build_ext --inplace ${MULTIGPU}
+	python setup.py install --single-version-externally-managed --record=record.txt ${MULTIGPU}
     else
-	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU_OPTION}
+	python setup.py build_ext --inplace --library-dir=${LIBCUML_BUILD_DIR} ${MULTIGPU}
     fi
 fi
 
