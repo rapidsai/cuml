@@ -33,9 +33,15 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
     cdef cppclass rfClassifier[T]:
         rfClassifier()
         rfClassifier(RF_params *)
-        void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
-        void predict(const cumlHandle& user_handle, float * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
-        RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
+        void fit(const cumlHandle& user_handle, T * input, int n_rows,
+		 int n_cols, int * labels, int n_unique_labels);
+        void predict(const cumlHandle& user_handle, float * input, 
+		     int n_rows, int n_cols, int * predictions,
+		     bool verbose=false) const;
+        RF_metrics cross_validate(const cumlHandle& user_handle, const T * input,
+				  const int * ref_labels, int n_rows, 
+				  int n_cols, int * predictions, 
+				  bool verbose=false) const;
 
     cdef void fit(cumlHandle& handle,
                   float *rf_classifier,
@@ -81,7 +87,9 @@ class RandomForest():
     """
     
     # min_rows_per_node in cuml = min_samples_split in sklearn
-    def __init__(self, n_estimators=10, max_depth=None, max_features=None, min_samples_split=None, bootstrap=True, type="classifier"):
+    def __init__(self, n_estimators=10, max_depth=None, 
+		 max_features=None, min_samples_split=None, 
+		 bootstrap=True, type="classifier"):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_features = max_features
@@ -166,7 +174,8 @@ class RandomForest():
                 <int*> preds_ptr)
 
         else:
-            raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
+            raise TypeError("supports only float32 and float64 input, "
+			    "but input of type '%s' passed." % (str(self.gdf_datatype.type)))
 
         self.handle.sync()
         del(X_m)
