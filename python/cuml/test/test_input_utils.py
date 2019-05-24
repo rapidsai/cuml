@@ -63,8 +63,8 @@ def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     del real_data
 
 
-@pytest.mark.parametrize('num_rows', [100])
-@pytest.mark.parametrize('num_cols', [100])
+@pytest.mark.parametrize('num_rows', [1, 100])
+@pytest.mark.parametrize('num_cols', [1, 100])
 @pytest.mark.parametrize('to_dtype', test_dtypes_acceptable)
 @pytest.mark.parametrize('from_dtype', test_dtypes_all)
 @pytest.mark.parametrize('input_type', test_input_types)
