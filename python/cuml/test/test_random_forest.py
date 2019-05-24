@@ -28,7 +28,7 @@ def test_rf_predict_numpy(datatype, use_handle):
     cuml_model = curfc(handle=handle, n_estimators=3, max_depth=2)
     cuml_model.fit(X_train, y_train)
     cuml_predict = cuml_model.predict(X_test)
-    sk_model = skrfc(eps=3, min_samples=2)
+    sk_model = skrfc(n_estimators=3, max_depth=2)
     sk_model.fit(X_train, y_train)
     sk_predict = sk_model.predict(X_test)
     print(X.shape[0])
