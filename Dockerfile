@@ -8,7 +8,7 @@ ADD ml-prims /cuml/ml-prims
 ADD cuML /cuml/cuML
 WORKDIR /cuml/cuML
 RUN source activate ${CONDA_ENV} && \
-    conda install -c teju85 libclang && \
+    conda install -c rapidsai libclang && \
     conda clean -ya
 RUN source activate ${CONDA_ENV} && \
     mkdir build && \

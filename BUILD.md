@@ -11,7 +11,7 @@ To install cuML from source, ensure the dependencies are met:
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-8. clang-format (= 8.0.0) - This is needed if you are building this C++ library from source. For the ones using conda environment, our rapids official channel should have this available, until then, the installation command is `conda install -c teju85 libclang`. For the ones not using conda, please install this version using your favorite packaging SW (viz., yum, apt-get, ...). This is needed to enforce uniform C++ coding style across the project.
+8. clang-format (= 8.0.0) - This is needed if you are building this C++ library from source. For the ones using conda environment, our rapids official channel should have this available, until then, the installation command is `conda install -c rapidsai libclang`. For the ones not using conda, please install this version using your favorite packaging SW (viz., yum, apt-get, ...). This is needed to enforce uniform C++ coding style across the project.
 
 ## Installing from Source:
 
