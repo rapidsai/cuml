@@ -76,7 +76,7 @@ int main(int argc, char * argv[])
 
     {
         ML::cumlHandle cumlHandle;
-        initialize_mpi_comms(cumlHandle, cuml_mpi_comm);
+        initialize_comms(cumlHandle, cuml_mpi_comm);
         ML::sandbox::mpi_test(cumlHandle);
     }
 
