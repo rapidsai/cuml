@@ -16,6 +16,7 @@
 
 
 #include "randomforest.h"
+#include "randomforest.hpp"
 
 namespace ML {
 
