@@ -220,8 +220,8 @@ void batched_kalman_filter_cpu(const vector<double*>& h_ys_b, // { vector size b
 }
 
 __device__ void Mv(double* A, double* v, int r, int tid, double* out) {
+  out[tid] = 0.0;
   if(tid < r) {
-    out[tid] = 0.0;
     for(int i=0; i<r; i++) {
       out[tid] += A[tid + r*i] * v[i];
     }
@@ -300,8 +300,10 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     // MatrixT K = 1.0/Fs[it] * (T * P * Z.transpose());
     // tmpA = P*Z.T
     Mv(s_P, s_Z, r, tid, tmpA);
+    __syncthreads();
     // tmpB = T*tmpA
     Mv(s_T, tmpA, r, tid, tmpB);
+    __syncthreads();
     // tmpB = 1/Fs[it] * tmpB
     if(tid < r) {
       s_K[tid] = 1/Fs[it + bid*nobs] * tmpB[tid];
@@ -311,8 +313,8 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
 
     // 4.
     // alpha = T*alpha + K*vs[it];
+    Mv(s_T, s_alpha, r, tid, tmpA);
     if (tid < r) {
-      Mv(s_T, s_alpha, r, tid, tmpA);
       s_alpha[tid] = tmpA[tid] + s_K[tid] * vs[it + bid * nobs];
     }
     __syncthreads();
@@ -324,10 +326,10 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     // tmpA[1] = K[1]*Z[0]
     // tmpA[2] = K[0]*Z[1]
     // tmpA[3] = K[1]*Z[1]
-    // pytest [i//3 % 3 for i in range(9)] -> 0 1 2 0 1 2 0 1 2
+    // pytest [i % 3 for i in range(9)] -> 0 1 2 0 1 2 0 1 2
     // pytest [i//3 % 3 for i in range(9)] -> 0 0 0 1 1 1 2 2 2
 
-    tmpA[tid] = s_K[tid % r] * s_Z[tid / r % r];
+    tmpA[tid] = s_K[tid % r] * s_Z[(tid / r) % r];
 
     __syncthreads();
     // tmpA = T-tmpA
@@ -347,7 +349,7 @@ __global__ void batched_kalman_loop_kernel(double* ys, int nobs,
     __syncthreads();
     // tmpB = T*tmpA;
     MM(s_T, tmpA, r, tid, tmpB);
-
+    __syncthreads();
     // P = tmpB + RRT
     s_P[tid] = tmpB[tid] + s_RRT[tid];
     __syncthreads();
@@ -459,6 +461,9 @@ void _batched_kalman_filter(double* d_ys,
     BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
     BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
+    // auto& stream = std::cout;
+    // stream.precision(16);
+    // MLCommon::myPrintDevVector("P0", P[0], 4*P0.batches(), stream);
   }
 
   // init alpha to zero
