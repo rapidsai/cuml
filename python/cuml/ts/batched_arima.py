@@ -261,7 +261,7 @@ class BatchedARIMAModel:
                    gpu=True, initP_kalman_iterations=False) -> Tuple[np.ndarray, np.ndarray]:
         """Run the (batched) kalman filter for the given model (and contained batched
         series). `initP_kalman_iterations, if true uses kalman iterations, and if false
-        uses an analytical approximation.`"""
+        uses an analytical approximation (Durbin Koopman pg 138).`"""
         b_ar_params = model.ar_params
         b_ma_params = model.ma_params
         Zb, Rb, Tb, r = init_batched_kalman_matrices(b_ar_params, b_ma_params)
@@ -270,46 +270,19 @@ class BatchedARIMAModel:
         _, d, _ = model.order[0]
 
         if d == 0:
-            P0 = []
-            if not initP_kalman_iterations:
-                for i in range(model.num_batches):
-                    Z_bi = Zb[i]
-                    R_bi = Rb[i]
-                    T_bi = Tb[i]
-
-                    invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
-                    _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
-                    P0.append(_P0)
-                    # print("P0[{}]={}".format(i, P0))
 
             ll_b, vs = batched_kfilter(np.asfortranarray(model.y), # numpy
                                        Zb, Rb, Tb,
-                                       P0,
                                        r,
                                        gpu, initP_kalman_iterations)
         elif d == 1:
-            
+
             y_diff_centered = BatchedARIMAModel.diffAndCenter(model.y, model.num_batches,
                                                               model.mu, model.ar_params)
 
-            
-            P0 = []
-            if not initP_kalman_iterations:
-                pynvtx_range_push("compute P0")
-                for i in range(model.num_batches):
-                    Z_bi = Zb[i]
-                    R_bi = Rb[i]
-                    T_bi = Tb[i]
 
-                    invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
-                    _P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
-                    P0.append(_P0)
-                    # print("P0[{}]={}".format(i, P0))
-
-                pynvtx_range_pop()
             ll_b, vs = batched_kfilter(y_diff_centered, # numpy
                                        Zb, Rb, Tb,
-                                       P0,
                                        r,
                                        gpu, initP_kalman_iterations)
         else:
