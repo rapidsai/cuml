@@ -498,3 +498,4 @@ class NearestNeighbors(Base):
 
     def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
         self._impl._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
+
