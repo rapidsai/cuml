@@ -103,8 +103,9 @@ def runClangFormat(src, dst, exe):
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print("clang-format failed! Run 'cd % && diff %s %s' to know more"
-              " about the formatting violations!" % (os.getcwd(), src, dst))
+        srcPath = os.path.join(os.getcwd(), src)
+        print("clang-format failed! Run 'diff -y %s %s | more' to know more"
+              " about the formatting violations!" % (srcPath, dst))
         return False
     return True
 
@@ -125,16 +126,9 @@ def main():
         if not runClangFormat(src, dst, args.exe):
             status = False
     if not status:
-        print("Clang-format failed! Look at errors above and fix them, or if")
-        print("you trust the clang-format, you can also run the following")
-        print("command to bulk fix the files!")
-        if args.onlyChangedFiles:
-            print("  python %s -inplace -onlyChangedFiles -dstdir %s -exe %s" %
-                  (sys.argv[0], args.dstdir, args.exe))
-        else:
-            print("  python %s -inplace -dstdir %s -srcdir %s -exe %s %s" %
-                  (sys.argv[0], args.dstdir, args.srcdir, args.exe,
-                   " ".join(args.dirs)))
+        print("Clang-format failed! Look at errors above and fix them, you ")
+        print("can also run the following command to bulk fix all the flagged")
+        print(" violations above:  make fix-format")
         sys.exit(-1)
     return
 

@@ -38,6 +38,7 @@ function(add_clang_format)
     set(oneValueArgs DSTDIR SRCDIR)
     set(multiValueArgs "")
     cmake_parse_arguments(cf "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    # to flag violations
     add_custom_target(${ClangFormat_TARGET}
       ALL
       COMMAND python
@@ -46,6 +47,16 @@ function(add_clang_format)
           -exe ${ClangFormat_EXE}
           -onlyChangedFiles
       COMMENT "Run clang-format on the cpp source files"
+      WORKING_DIRECTORY ${cf_SRCDIR})
+    # to fix the flagged violations (only to be run locally!)
+    add_custom_target(fix-${ClangFormat_TARGET}
+      COMMAND python
+      ${ClangFormat_PY}
+        -dstdir ${cf_DSTDIR}
+        -exe ${ClangFormat_EXE}
+        -onlyChangedFiles
+        -inplace
+      COMMENT "Run the inplace fix for clang-format flagged violations"
       WORKING_DIRECTORY ${cf_SRCDIR})
   else()
     message("add_clang_format: clang-format exe not found")
