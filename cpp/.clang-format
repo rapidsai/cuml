@@ -127,7 +127,8 @@ RawStringFormats:
       - ParseTextProtoOrDie
     CanonicalDelimiter: ''
     BasedOnStyle:    google
-ReflowComments:  true
+# Enabling comment reflow causes doxygen comments to be messed up in their formats!
+ReflowComments:  false
 SortIncludes:    true
 SortUsingDeclarations: true
 SpaceAfterCStyleCast: false
@@ -150,7 +151,7 @@ Standard:        Cpp11
 StatementMacros: 
   - Q_UNUSED
   - QT_REQUIRE_VERSION
-# Be consistent, even for people who use tab for indentation!
+# Be consistent with indent-width, even for people who use tab for indentation!
 TabWidth:        2
 UseTab:          Never
 ...
