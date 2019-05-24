@@ -11,6 +11,22 @@ The implementation of cuML is single threaded.
 
 ## Coding style
 
+## Code format
+### Introduction
+Coding format checker is a way to enforce uniform coding format across all C++/CUDA sources in cuML repo. To achieve this, we are relying on `clang-format`.
+
+### How is the check done?
+[run-clang-format.py](scripts/run-clang-format.py) is run as a first thing when a developer runs `make`. This script figures out the set of files that the developer has modified/staged and runs clang-format on them. In case there are some formatting differences between the one done by the dev and the one suggested by clang-format, an error is raised and the build fails.
+
+### How to know the formatting violations?
+When there are formatting errors, the above script prints a 'diff' command, using which one could figure out the places where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations itself, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
+
+### How to fix the formatting violations?
+When there are formatting violations, this script, at the end, prints an `-inplace` command using which one can request this script to update these formatting errors automatically. This is the easiest way to fix formatting errors. [This]() screencast shows a typical edit-build-fix-build-test cycle during cuML development, with this formatting check turned on. Hopefully, this should give you an idea of how to work with this checker during your development cycles.
+
+### clang-format version?
+To also avoid causing spurious coding format violations, we have decided to stick to the exact clang-format version of `8.0.0`. This is being enforced at the cmake level itself which checks for this exact version while finding for clang-format binaries. For more details on the dependencies, refer [here](./README.md#dependencies).
+
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
 
