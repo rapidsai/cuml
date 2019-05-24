@@ -187,6 +187,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
 
 # cuML 0.5.1 (05 Feb 2019)
 
