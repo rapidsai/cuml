@@ -13,7 +13,11 @@ The implementation of cuML is single threaded.
 
 ## Code format
 ### Introduction
-Coding format checker is a way to enforce uniform coding format across all C++/CUDA sources in cuML repo. To achieve this, we are relying on `clang-format`.
+Coding format checker is a way to enforce uniform coding format across all C++/CUDA sources in cuML repo. To achieve this, we are relying on `clang-format`. And the coding style we are following is based on google style guide [here](https://google.github.io/styleguide/cppguide.html#Formatting). The only digressions from this style are:
+1. Do not split empty functions/records/namespaces
+2. Keep the indentation as 2 spaces "everywhere", including the cases of continuation lines.
+3. Disable reflowing of comments
+To know the reasons behind these deviations from the google style guide, refer to the comments [here](./.clang-format).
 
 ### How is the check done?
 [run-clang-format.py](scripts/run-clang-format.py) is run as a first thing when a developer runs `make`. This script figures out the set of files that the developer has modified/staged and runs clang-format on them. In case there are some formatting differences between the one done by the dev and the one suggested by clang-format, an error is raised and the build fails.
