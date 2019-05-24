@@ -151,19 +151,19 @@ class Descriptor {
 
 
       /** total number of blocks across all workers */
-      int totalBlocks() const { return numRowBlocks() * numColBlocks(); }
+      SizeType totalBlocks() const { return numRowBlocks() * numColBlocks(); }
 
       /** total number of blocks along the row dimension */
-      int numRowBlocks() const { return ceildiv(M, MB); }
+      SizeType numRowBlocks() const { return ceildiv(M, MB); }
 
       /** total number of blocks along the column dimension */
-      int numColBlocks() const { return ceildiv(N, NB); }
+      SizeType numColBlocks() const { return ceildiv(N, NB); }
 
-      int getM() const {
+      SizeType getM() const {
           return M;
       }
 
-      int getN() const {
+      SizeType getN() const {
           return N;
       }
 
