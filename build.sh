@@ -18,25 +18,27 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims -v -g -n --buildAllGPUArch --multigpu -h --help"
+VALIDARGS="clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
-   clean             - remove all existing build artifacts and configuration (start over)
-   libcuml           - build the cuml C++ code only
-   cuml              - build the cuml Python package
-   prims             - build the ML prims tests
+   clean         - remove all existing build artifacts and configuration (start over)
+   libcuml       - build the cuml C++ code only
+   cuml          - build the cuml Python package
+   prims         - build the ML prims tests
  and <flag> is:
-   -v                - verbose build mode
-   -g                - build for debug
-   -n                - no install step
-   --buildAllGPUArch - build for all supported GPU architectures
-   --multigpu        - Build cuml with multigpu support (requires libcumlMG and CUDA >=10.0)
-   -h                - print this text
+   -v            - verbose build mode
+   -g            - build for debug
+   -n            - no install step
+   --allgpuarch  - build for all supported GPU architectures
+   --multigpu    - Build cuml with multigpu support (requires libcumlMG and CUDA >=10.0)
+   -h            - print this text
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
+# TODO: consider adding the faiss build dir to clean, possibly only done with a
+# new "deep-clean" target.
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -82,7 +84,7 @@ fi
 if hasArg -n; then
     INSTALL_TARGET=""
 fi
-if hasArg --buildAllGPUArch; then
+if hasArg --allgpuarch; then
     BUILD_ALL_GPU_ARCH=1
 fi
 if hasArg --multigpu; then
@@ -116,6 +118,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
 
     # Configure the build for the GPU type of this machine, or all (GPU_ARCH="")
     # if it cannot be detected.
+    # TODO: add additional detected GPU archs
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         if (( ${HAS_NVIDIA_SMI} )); then
             GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
@@ -131,7 +134,7 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
             fi
         else
             echo "nvidia-smi was not found on PATH and is needed for detecting the GPU arch"
-            echo "Ensure nvidia-smi is on PATH or use --buildAllGPUArch"
+            echo "Ensure nvidia-smi is on PATH or use --allgpuarch"
             exit 1
         fi
     else
