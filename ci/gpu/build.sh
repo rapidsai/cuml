@@ -76,5 +76,5 @@ pytest --cache-clear --junitxml=${WORKSPACE}/junit-cuml.xml -v
 ################################################################################
 
 logger "Run ml-prims test..."
-cd $WORKSPACE/cpp/build_prims
+cd $WORKSPACE/cpp/build
 GTEST_OUTPUT="xml:${WORKSPACE}/test-results/prims/" ./test/prims
