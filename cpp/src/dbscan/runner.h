@@ -106,7 +106,6 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D, Typ
     MLCommon::Sparse::WeakCCState<Type> state(xa, fa, m);
 
 	for (int i = 0; i < nBatches; i++) {
-            std::cout << "Running batch id = " << i << "\n";
 		MLCommon::device_buffer<Type> adj_graph(handle.getDeviceAllocator(), stream);
 		Type startVertexId = i * batchSize;
         int nPoints = min(N-startVertexId, batchSize);
