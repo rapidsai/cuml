@@ -42,7 +42,7 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<value_t, index_t> data,
     index_t n = min(data.N - startVertexId, batchSize);
     index_t k = data.D;
 
-    index_t* vd = data.vd;
+    int* vd = data.vd;
 
     value_t eps2 = data.eps * data.eps;
 

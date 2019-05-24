@@ -26,7 +26,7 @@ struct Pack {
      * Last position is the sum of all elements in this array (excluding it)
      * Hence, its length is one more than the number of points
      */
-    Index_ *vd;
+    int *vd;
     /** the adjacency matrix */
     bool *adj;
     /** input dataset */
@@ -43,7 +43,7 @@ struct Pack {
      * @param stream cuda stream where to perform this operation
      */
     void resetArray(cudaStream_t stream, Index_ vdlen) {
-        CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_)*vdlen, stream));
+        CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int)*vdlen, stream));
     }
 };
 

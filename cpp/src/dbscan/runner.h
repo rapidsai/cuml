@@ -37,9 +37,9 @@ static const int TPB = 256;
  * 1. Turn any labels matching MAX_LABEL into -1
  * 2. Subtract 1 from all other labels.
  */
-template <typename Type>
-__global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
-    int tid = threadIdx.x + blockDim.x * blockIdx.x;
+template <typename Type, typename Index_ = int>
+__global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
+    Index_ tid = threadIdx.x + blockDim.x * blockIdx.x;
     if(labels[tid] == MAX_LABEL) labels[tid] = -1;
     else if(tid < N) --labels[tid];
 }
@@ -48,16 +48,12 @@ __global__ void relabelForSkl(Type* labels, Type N, Type MAX_LABEL) {
  * Turn the non-monotonic labels from weak_cc primitive into
  * an array of labels drawn from a monotonically increasing set.
  */
-template <typename Type>
-void final_relabel(Type *db_cluster, Type N, cudaStream_t stream) {
-
+template <typename Type, typename Index_ = int>
+void final_relabel(Type *db_cluster, Index_ N, cudaStream_t stream) {
     Type MAX_LABEL = std::numeric_limits<Type>::max();
-
     MLCommon::Array::make_monotonic(db_cluster, db_cluster, N, stream,
             [MAX_LABEL] __device__ (int val) {return val == MAX_LABEL;});
 }
-
-template<typename Type, typename Type_f>
 
 
 /* @param N number of points
@@ -72,16 +68,17 @@ template<typename Type, typename Type_f>
  * @param stream the cudaStream where to launch the kernels
  * @return in case the temp buffer is null, this returns the size needed.
  */
-size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f eps, Type minPts, Type* labels,
-		int algoVd, int algoAdj, int algoCcl, void* workspace, int nBatches, cudaStream_t stream) {
+template<typename Type, typename Type_f, typename Index_ = int>
+size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Index_ N, Index_ D, Type_f eps, Type minPts, Type* labels,
+		int algoVd, int algoAdj, int algoCcl, void* workspace, Index_ nBatches, cudaStream_t stream) {
 
     const size_t align = 256;
-    Type batchSize = ceildiv(N, nBatches);
+    Index_ batchSize = ceildiv(N, nBatches);
     size_t adjSize = alignTo<size_t>(sizeof(bool) * N * batchSize, align);
     size_t corePtsSize = alignTo<size_t>(sizeof(bool) * batchSize, align);
     size_t xaSize = alignTo<size_t>(sizeof(bool) * N, align);
     size_t mSize = alignTo<size_t>(sizeof(bool), align);
-    size_t vdSize = alignTo<size_t>(sizeof(Type) * (batchSize + 1), align);
+    size_t vdSize = alignTo<size_t>(sizeof(int) * (batchSize + 1), align);
     size_t exScanSize = alignTo<size_t>(sizeof(Type) * batchSize, align);
 
     if(workspace == NULL) {
@@ -102,7 +99,7 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
     bool* xa = (bool*)temp;        temp += xaSize;
     bool* fa = (bool*)temp;        temp += xaSize;
     bool* m = (bool*)temp;         temp += mSize;
-    int* vd = (int*)temp;        temp += vdSize;
+    int* vd = (int*)temp;          temp += vdSize;
     Type* ex_scan = (Type*)temp;   temp += exScanSize;
 
 	// Running VertexDeg
@@ -115,8 +112,8 @@ size_t run(const ML::cumlHandle_impl& handle, Type_f* x, Type N, Type D, Type_f 
 
         if(nPoints <= 0)
             continue;
-		VertexDeg::run(handle, adj, vd, x, eps, N, D, algoVd,
-				startVertexId, nPoints, stream);
+        VertexDeg::run<Type_f, Index_>(handle, adj, vd, x, eps, N, D, algoVd,
+                                       startVertexId, nPoints, stream);
 
         MLCommon::updateHost(&curradjlen, vd + nPoints, 1, stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));

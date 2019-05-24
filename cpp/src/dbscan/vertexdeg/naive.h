@@ -53,7 +53,7 @@ __global__ void vertex_degree_kernel(Pack<Type, Index_> data, Index_ startVertex
     Index_ D = data.D;
     Type *x = data.x;
     bool *adj = data.adj;
-    Index_ *vd = data.vd;
+    int *vd = data.vd;
     for(Index_ d=0;d<D;++d) {
         Type a = __ldg(x+(row+startVertexId)*D+d);
         Type b = __ldg(x+col*D+d);
