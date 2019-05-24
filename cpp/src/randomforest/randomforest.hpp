@@ -16,10 +16,31 @@
 
 #pragma once
 #include <cuML.hpp>
+#include "randomforest.h"
+#include "decisiontree/decisiontree.h"
 
 namespace ML{
 
-// Stateless API functions: fit, predict and cross_validate.
+struct RF_metrics {
+	float accuracy;
+
+	RF_metrics(float cfg_accuracy);
+	void print();
+};
+
+template <class T>
+class rfClassifier : public rf<T> {
+	public:
+
+	rfClassifier(RF_params cfg_rf_params);
+
+	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
+	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
+	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
+
+};
+
+
 void fit(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 void fit(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
 
@@ -31,4 +52,5 @@ RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<floa
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels,
 							int n_rows, int n_cols, int * predictions, bool verbose=false);
 
-}
+};
+
