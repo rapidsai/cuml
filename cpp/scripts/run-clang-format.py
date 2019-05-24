@@ -103,9 +103,8 @@ def runClangFormat(src, dst, exe):
     try:
         subprocess.check_call(cmd, shell=True)
     except subprocess.CalledProcessError:
-        print("clang-format failed! Run 'diff %s %s' to know more about the "
-              "formatting violations!" %
-              (src, dst))
+        print("clang-format failed! Run 'cd % && diff %s %s' to know more"
+              " about the formatting violations!" % (os.getcwd(), src, dst))
         return False
     return True
 
