@@ -128,7 +128,7 @@ $ ./build.sh libcuml -v                # build and install libcuml with verbose 
 $ ./build.sh libcuml -g                # build and install libcuml for debug
 $ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
 $ ./build.sh libcuml -n                # build libcuml but do not install
-$ ./build.sh prims --buildAllGPUArch   # build the ML prims tests for all supported GPU architectures
+$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
 $ ./build.sh cuml --multigpu           # build the cuml python package with multi-GPU support (requires libcumlMG and CUDA >= 10.0)
 ```
 
