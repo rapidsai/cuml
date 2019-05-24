@@ -51,7 +51,10 @@ def uncommittedFiles():
         f = f.decode(encoding='UTF-8')
         f = f.strip(" ")
         tmp = f.split(" ", 1)
-        ret.append(tmp[1])
+        # only consider staged files or uncommitted files
+        # in other words, ignore untracked files
+        if tmp[0] == "M" or tmp[0] == "A":
+            ret.append(tmp[1])
     return ret
 
 
