@@ -364,8 +364,8 @@ struct CustomGemm : public BaseClass {
                      cudaStream_t stream) {
     // Setup the grid.
     dim3 grid;
-    grid.x = ceildiv(params.m, Traits::OutputTile::kW);
-    grid.y = ceildiv(params.n, Traits::OutputTile::kH);
+    grid.x = ceildiv<int>(params.m, Traits::OutputTile::kW);
+    grid.y = ceildiv<int>(params.n, Traits::OutputTile::kH);
     // The number of threads.
     dim3 block;
     block.x = BaseClass::kThreads;
