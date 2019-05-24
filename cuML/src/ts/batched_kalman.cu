@@ -24,6 +24,8 @@ using std::vector;
 using MLCommon::Matrix::BatchedMatrix;
 using MLCommon::Matrix::BatchedMatrixMemoryPool;
 using MLCommon::Matrix::b_gemm;
+using MLCommon::Matrix::b_kron;
+using MLCommon::Matrix::b_solve;
 using MLCommon::allocate;
 using MLCommon::updateDevice;
 using MLCommon::updateHost;
@@ -433,7 +435,6 @@ void _batched_kalman_filter(double* d_ys,
                             const BatchedMatrix& Zb,
                             const BatchedMatrix& Tb,
                             const BatchedMatrix& Rb,
-                            const BatchedMatrix& P0,
                             int r,
                             double* d_vs,
                             double* d_Fs,
@@ -444,13 +445,21 @@ void _batched_kalman_filter(double* d_ys,
   const size_t num_batches = Zb.batches();
 
   BatchedMatrix RRT = b_gemm(Rb, Rb, false, true);
-
-  // MatrixT P = T * T.transpose() - T * Z.transpose() * Z * T.transpose() + R * R.transpose();
+  
   BatchedMatrix P(r, r, num_batches, Zb.pool(), false);
   if(initP_with_kalman_iterations)
+    // A single Kalman iteration
     P = b_gemm(Tb,Tb,false,true) - Tb * b_gemm(Zb,b_gemm(Zb,Tb,false,true),true,false) + RRT;
-  else
+  else {
+    // # (Durbin Koopman "Time Series Analysis" pg 138)
+    // NumPy version
+    //   invImTT = np.linalg.pinv(np.eye(r**2) - np.kron(T_bi, T_bi))
+    //   P0 = np.reshape(invImTT @ (R_bi @ R_bi.T).ravel(), (r, r), order="F")
+    BatchedMatrix I_m_TxT = BatchedMatrix::Identity(r*r, num_batches, Zb.pool()) - b_kron(Tb, Tb);
+    BatchedMatrix invI_m_TxT_x_RRTvec = b_solve(I_m_TxT, RRT.vec());
+    BatchedMatrix P0 = invI_m_TxT_x_RRTvec.mat(r, r);
     P = P0;
+  }
 
   // init alpha to zero
   BatchedMatrix alpha(r, 1, num_batches, Zb.pool(), true);
@@ -503,7 +512,6 @@ void batched_kalman_filter(double* h_ys,
                            const vector<double*>& h_Zb, // { vector size batches, each item size Zb }
                            const vector<double*>& h_Rb, // { vector size batches, each item size Rb }
                            const vector<double*>& h_Tb, // { vector size batches, each item size Tb }
-                           const vector<double*>& h_P0b, // { vector size batches, each item size Tb }
                            int r,
                            int num_batches,
                            std::vector<double>& h_loglike_b,
@@ -526,7 +534,6 @@ void batched_kalman_filter(double* h_ys,
   BatchedMatrix Zb(1, r, num_batches, memory_pool);
   BatchedMatrix Tb(r, r, num_batches, memory_pool);
   BatchedMatrix Rb(r, 1, num_batches, memory_pool);
-  BatchedMatrix P0(r, r, num_batches, memory_pool);
 
   ////////////////////////////////////////////////////////////
   // Copy matrices to device
@@ -539,15 +546,6 @@ void batched_kalman_filter(double* h_ys,
       }
     }
     updateDevice(Tb[0],matrix_copy.data(),r*r*num_batches, 0);
-
-    if(!initP_with_kalman_iterations) {
-      for(int bi=0;bi<num_batches;bi++) {
-        for(int i=0;i<r*r;i++) {
-          matrix_copy[i + bi*r*r] = h_P0b[bi][i];
-        }
-      }
-      updateDevice(P0[0],matrix_copy.data(),r*r*num_batches, 0);
-    }
 
     //Zb
     for(int bi=0;bi<num_batches;bi++) {
@@ -579,7 +577,7 @@ void batched_kalman_filter(double* h_ys,
   allocate(d_sigma2, num_batches);
   allocate(d_loglike, num_batches);
 
-  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, P0, r, d_vs, d_Fs, d_loglike, d_sigma2,
+  _batched_kalman_filter(d_ys, nobs, Zb, Tb, Rb, r, d_vs, d_Fs, d_loglike, d_sigma2,
                          initP_with_kalman_iterations);
 
   ////////////////////////////////////////////////////////////
