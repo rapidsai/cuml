@@ -13,23 +13,23 @@ The implementation of cuML is single threaded.
 
 ## Code format
 ### Introduction
-Coding format checker is a way to enforce uniform coding format across all C++/CUDA sources in cuML repo. To achieve this, we are relying on `clang-format`. And the coding style we are following is based on google style guide [here](https://google.github.io/styleguide/cppguide.html#Formatting). The only digressions from this style are:
-1. Do not split empty functions/records/namespaces
-2. Keep the indentation as 2 spaces "everywhere", including the cases of continuation lines.
-3. Disable reflowing of comments
-To know the reasons behind these deviations from the google style guide, refer to the comments [here](./.clang-format).
+cuML relies on `clang-format` to enforce code style across all C++ and CUDA source code. The coding style is based on the [Google style guide](https://google.github.io/styleguide/cppguide.html#Formatting). The only digressions from this style are the following.
+1. Do not split empty functions/records/namespaces.
+2. Two-space indentation everywhere, including the line continuations.
+3. Disable reflowing of comments.
+The reasons behind these deviations from the Google style guide are given in comments [here](./.clang-format).
 
 ### How is the check done?
-[run-clang-format.py](scripts/run-clang-format.py) is run as a first thing when a developer runs `make`. This script figures out the set of files that the developer has modified/staged and runs clang-format on them. In case there are some formatting differences between the one done by the dev and the one suggested by clang-format, an error is raised and the build fails.
+[run-clang-format.py](scripts/run-clang-format.py) is run first by `make`. This script runs clang-format only on modified files. An error is raised if the code diverges from the format suggested by clang-format, and the build fails.
 
 ### How to know the formatting violations?
-When there are formatting errors, the above script prints a 'diff' command, using which one could figure out the places where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations itself, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
+When there are formatting errors, `run-clang-format.py` prints a `diff` command, showing where there are formatting differences. Unfortunately, unlike `flake8`, `clang-format` does NOT print descriptions of the violations, but instead directly formats the code. So, the only way currently to know why there are formatting differences is to run the diff command as suggested by this script against each violating source file.
 
 ### How to fix the formatting violations?
-When there are formatting violations, this script, at the end, prints an `-inplace` command using which one can request this script to update these formatting errors automatically. This is the easiest way to fix formatting errors. [This](https://asciinema.org/a/248215) screencast shows a typical build-fix-build cycle during cuML development, with this formatting check turned on. Hopefully, this should give you an idea of how to work with this checker during your development cycles.
+When there are formatting violations, `run-clang-format.py` prints an `-inplace` command you can use to automatically fix formatting errors. This is the easiest way to fix formatting errors. [This screencast](https://asciinema.org/a/248215) shows a typical build-fix-build cycle during cuML development.
 
 ### clang-format version?
-To also avoid causing spurious coding format violations, we have decided to stick to the exact clang-format version of `8.0.0`. This is being enforced at the cmake level itself which checks for this exact version while finding for clang-format binaries. For more details on the dependencies, refer [here](./README.md#dependencies).
+To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by a CMake check for the required version. [See here for more details on the dependencies](./README.md#dependencies).
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
