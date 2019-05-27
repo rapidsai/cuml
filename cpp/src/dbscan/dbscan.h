@@ -24,7 +24,7 @@ namespace ML {
 using namespace Dbscan;
 
 // Default max mem set to a reasonable value for a 16gb card.
-static const size_t DEFAULT_MAX_MEM_BYTES = 8e9;
+static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
 
 template<typename T, typename Index_ = int>
 Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
