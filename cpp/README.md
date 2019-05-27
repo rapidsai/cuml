@@ -19,7 +19,7 @@ The test folder has subfolders that reflect this distinction between the compone
 3. CUDA (>= 9.2)
 4. gcc (>=5.4.0)
 5. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-6. clang-format (= 8.0.0) - This is needed if you are building this C++ library from source. For the ones using conda environment, our rapids official channel should have this available, until then, the installation command is `conda install -c rapidsai libclang`. For the ones not using conda, please install this version using your favorite packaging SW (viz., yum, apt-get, ...). This is needed to enforce uniform C++ coding style across the project.
+6. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
 
 ### Building cuML:
 
