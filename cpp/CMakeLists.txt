@@ -61,7 +61,9 @@ set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
 
 set(GPU_ARCHS "" CACHE STRING
-  "List of GPU architectures (semicolon-separated) to be compiled for")
+  "List of GPU architectures (semicolon-separated) to be compiled for."
+  " Pass a value of 'ALL' if you want to compile for all supported GPU "
+  "architectures.")
 
 set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
   "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
@@ -151,6 +153,11 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
 endif()
 
 if(NOT "${GPU_ARCHS}")
+  include(cmake/EvalGpuArchs.cmake)
+  evaluate_gpu_archs(GPU_ARCHS)
+endif()
+
+if(GPU_ACHS EQUAL ALL)
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
@@ -159,6 +166,7 @@ if(NOT "${GPU_ARCHS}")
     set(GPU_ARCHS "${GPU_ARCHS};75")
   endif()
 endif()
+message("GPU_ARCHS = ${GPU_ARCHS}")
 
 foreach(arch ${GPU_ARCHS})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
