@@ -155,7 +155,7 @@ if("${GPU_ARCHS}" STREQUAL "")
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
 
-if(GPU_ACHS EQUAL ALL)
+if("${GPU_ACHS}" STREQUAL "ALL")
   set(GPU_ARCHS "60")
   if((CUDA_VERSION_MAJOR EQUAL 9) OR (CUDA_VERSION_MAJOR GREATER 9))
     set(GPU_ARCHS "${GPU_ARCHS};70")
