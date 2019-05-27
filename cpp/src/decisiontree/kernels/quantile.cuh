@@ -48,7 +48,6 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	int max_ncols = free_mem / (2 * n_sampled_rows * sizeof(T));
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
-	//std::cout << "Preprocess quantiles w/ " << batch_cols << " batch columns (default " << ncols << " columns)." << std::endl;
 
 	int threads = 128;
 	MLCommon::device_buffer<int> *d_offsets;

@@ -359,7 +359,8 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 		CUDA_CHECK(cudaHostUnregister(colselector.data()));
 	}
 
-	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
+	// Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
+	int current_nbins = ((this->split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) && (n_sampled_rows < this->nbins)) ? n_sampled_rows : this->nbins;
 	
 	if (this->split_criterion == CRITERION::GINI) {			
 		best_split_all_cols_classifier<T, int, GiniFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->n_unique_labels, this->dinfo.NLocalrows, colselector,
@@ -533,7 +534,9 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 		CUDA_CHECK(cudaHostUnregister(colselector.data()));
 	}
 
-	int current_nbins = (n_sampled_rows < this->nbins) ? n_sampled_rows : this->nbins;
+	// Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
+	int current_nbins = ((this->split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) && (n_sampled_rows < this->nbins)) ? n_sampled_rows : this->nbins;
+
 	if (this->split_criterion == CRITERION::MSE) {
 		best_split_all_cols_regressor<T, SquareFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
 				      this->tempmem[0], split_info, ques, gain, this->split_algo);
