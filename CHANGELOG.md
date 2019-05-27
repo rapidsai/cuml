@@ -3,6 +3,7 @@
 ## New Features
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
+- PR #635: Random Forest & Decision Tree Regression (Single-GPU)
 
 ## Improvements
 
