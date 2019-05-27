@@ -61,9 +61,7 @@ set(BLAS_LIBRARIES "" CACHE STRING
     "Location of BLAS library")
 
 set(GPU_ARCHS "" CACHE STRING
-  "List of GPU architectures (semicolon-separated) to be compiled for."
-  " Pass a value of 'ALL' if you want to compile for all supported GPU "
-  "architectures.")
+  "List of GPU architectures (semicolon-separated) to be compiled for. Pass a value of 'ALL' if you want to compile for all supported GPU architectures.")
 
 set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
   "Ignore any libs added implicitly from the CMAKE_INSTALL_DIR")
@@ -152,7 +150,7 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 endif()
 
-if(NOT "${GPU_ARCHS}")
+if("${GPU_ARCHS}" STREQUAL "")
   include(cmake/EvalGpuArchs.cmake)
   evaluate_gpu_archs(GPU_ARCHS)
 endif()
