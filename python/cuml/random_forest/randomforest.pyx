@@ -1,6 +1,3 @@
-### create a self.n_unique_labels or define it before assignment
-
-
 import ctypes
 import cudf
 import numpy as np
