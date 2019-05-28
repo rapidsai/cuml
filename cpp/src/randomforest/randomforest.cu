@@ -14,16 +14,9 @@
  * limitations under the License.
  */
 
-#pragma once
-#include "decisiontree/decisiontree.h"
-#include <iostream>
-#include <utils.h>
-#include "random/rng.h"
-#include <map>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+
 #include "randomforest.h"
-#include "randomforest.hpp"
+#include "rf_basic.h"
 
 namespace ML {
 
@@ -198,7 +191,6 @@ void rf<T>::print_rf_detailed() {
 }
 
 
-
 /**
  * @brief Construct rfClassifier object.
  * @tparam T: data type for input data (float or double).
@@ -349,6 +341,16 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 	return stats;
 }
 
+
+template class rfClassifier<float>;
+template class rfClassifier<double>;
+
+
+template class rf<float>;
+template class rf<double>;
+
+// Stateless API functions: fit, predict and cross_validate
+
 /**
  * @brief Build (i.e., fit, train) random forest classifier for input data of type float.
  * @param[in] user_handle: cumlHandle
@@ -409,6 +411,37 @@ void predict(const cumlHandle& user_handle, const rfClassifier<double> * rf_clas
 	rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 }
 
+/**
+ * @brief Predict target feature for input data of type float and validate against ref_labels.
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels,
+							int n_rows, int n_cols, int * predictions, bool verbose) {
+	return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows, n_cols, predictions, verbose);
+}
+
+/**
+ * @brief Predict target feature for input data of type double and validate against ref_labels.
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels,
+							int n_rows, int n_cols, int * predictions, bool verbose) {
+	return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows, n_cols, predictions, verbose);
+}
 
 };
 // end namespace ML
