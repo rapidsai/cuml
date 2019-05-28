@@ -58,8 +58,8 @@ def get_dtype(X):
 
 
 def input_to_dev_array(X, order='F', deepcopy=False,
-                   check_dtype=False, convert_to_dtype=False,
-                   check_cols=False, check_rows=False):
+                       check_dtype=False, convert_to_dtype=False,
+                       check_cols=False, check_rows=False):
     """
     Convert input X to device array suitable for C++ methods
     Acceptable input formats:
@@ -71,9 +71,11 @@ def input_to_dev_array(X, order='F', deepcopy=False,
         reference unless deepcopy=True
     * numba device array - returns a reference unless deepcopy=True
 
-    Returns a new device array if the input was not a numba device array.
-    Returns a reference to the input X if its a numba device array or cuda
-        array interface compliant (like cupy)
+    Returns: namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
+
+    `dev_array` is a new device array if the input was not a numba device
+        array. It is a reference to the input X if it was a numba device array
+        or cuda array interface compliant (like cupy)
     """
 
     if convert_to_dtype:
