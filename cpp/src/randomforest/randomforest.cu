@@ -349,12 +349,63 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 	return stats;
 }
 
-
-void fit(const cumlHandle& user_handle, rfClassifier<T> * rf_classifier, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+/**
+ * @brief Build (i.e., fit, train) random forest classifier for input data of type float.
+ * @param[in] user_handle: cumlHandle
+ * @param[in,out] rf_classifier: pointer to the rfClassifier object, previously constructed by the user.
+ * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
+ * @param[in] n_rows: number of training data samples.
+ * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
+ * @param[in] labels: 1D array of target features (int only), with one label per training sample. Device pointer.
+				  Assumption: labels were preprocessed to map to ascending numbers from 0;
+				  needed for current gini impl. in decision tree
+ * @param[in] n_unique_labels: #unique label values (known during preprocessing)
+ */
+void fit(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
 }
 
-void predict(const cumlHandle& user_handle, const rfClassifier<T> * rf_classifier, const T * input, int n_rows, int n_cols, int * predictions, bool verbose) {
+/**
+ * @brief Build (i.e., fit, train) random forest classifier for input data of type double.
+ * @param[in] user_handle: cumlHandle
+ * @param[in,out] rf_classifier: pointer to the rfClassifier object, previously constructed by the user.
+ * @param[in] input: train data (n_rows samples, n_cols features) in column major format, excluding labels. Device pointer.
+ * @param[in] n_rows: number of training data samples.
+ * @param[in] n_cols: number of features (i.e., columns) excluding target feature.
+ * @param[in] labels: 1D array of target features (int only), with one label per training sample. Device pointer.
+				  Assumption: labels were preprocessed to map to ascending numbers from 0;
+				  needed for current gini impl. in decision tree
+ * @param[in] n_unique_labels: #unique label values (known during preprocessing)
+ */
+void fit(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, double * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
+}
+
+/**
+ * @brief Predict target feature for input data of type float; n-ary classification for single feature supported.
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+void predict(const cumlHandle& user_handle, const rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, int * predictions, bool verbose) {
+	rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, verbose);
+}
+
+/**
+ * @brief Predict target feature for input data of type double; n-ary classification for single feature supported.
+ * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
+ * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] n_rows: number of  data samples.
+ * @param[in] n_cols: number of features (excluding target feature).
+ * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in] verbose: flag for debugging purposes.
+ */
+void predict(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, int * predictions, bool verbose) {
 	rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 }
 
