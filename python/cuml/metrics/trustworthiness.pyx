@@ -113,7 +113,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         X_m, d_X_ptr, n_samples, n_features, dtype1 = \
             input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
         X_m2, d_X_embedded_ptr, n_rows, n_components, dtype2 = \
-            input_to_dev_array(X_embedded, order='C', convert_to_dtype=np.float32)
+            input_to_dev_array(X_embedded, order='C',
+                               convert_to_dtype=np.float32)
     else:
         X_m, d_X_ptr, n_samples, n_features, dtype = \
             input_to_dev_array(X, order='C', check_dtype=np.float32)

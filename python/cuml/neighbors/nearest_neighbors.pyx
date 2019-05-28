@@ -178,10 +178,11 @@ cdef class NearestNeighborsImpl:
         else:
             if self._should_downcast:
                 self.X_m, X_ctype, n_rows, _, dtype = \
-                    input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
+                    input_to_dev_array(X, order='C',
+                                       convert_to_dtype=np.float32)
             else:
-                self.X_m, X_ctype, n_rows, _, dtype = input_to_dev_array(X,
-                                                                     order='C')
+                self.X_m, X_ctype, n_rows, _, dtype = \
+                    input_to_dev_array(X, order='C')
 
             params = new kNNParams()
             params.N = <int>n_rows
