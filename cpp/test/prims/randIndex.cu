@@ -1,4 +1,4 @@
-/*
+	/*
  * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +44,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
 	void SetUp() override {
 
 		//getting the parameters
-		params = ::testing::TestWithParam<randIndexParam>::GetParam();
+		params = ::testing::TestWithParam<randIndexParam>::GetParam();	
 
 		size = params.nElements;
 		lowerLabelRange = params.lowerLabelRange;
@@ -52,13 +52,13 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
 
 		//generating random value test input
 		std::vector<int> arr1(size, 0);
-    	std::vector<int> arr2(size, 0);
-    	std::random_device rd;
-    	std::default_random_engine dre(rd());
-    	std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
+		std::vector<int> arr2(size, 0);
+		std::random_device rd;
+		std::default_random_engine dre(rd());
+		std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    	std::generate(arr1.begin(), arr1.end(), [&](){return intGenerator(dre); });
-    	std::generate(arr2.begin(), arr2.end(), [&](){return intGenerator(dre); });
+		std::generate(arr1.begin(), arr1.end(), [&](){return intGenerator(dre); });
+		std::generate(arr2.begin(), arr2.end(), [&](){return intGenerator(dre); });
 
 		//generating the golden output
 		int64_t a_truth=0,b_truth=0,iter=0,jiter;
@@ -115,11 +115,11 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
 
 //setting test parameter values
 const std::vector<randIndexParam> inputs = {
-  {199, 1, 10, 0.000001},
-  {200, 1, 100, 0.000001},
-  {10, 1, 1200, 0.000001},
-  {100, 1, 10000, 0.000001},
-  {198, 1, 100, 0.000001}
+	{199, 1, 10, 0.000001},
+	{200, 1, 100, 0.000001},
+	{10, 1, 1200, 0.000001},
+	{100, 1, 10000, 0.000001},
+	{198, 1, 100, 0.000001}
 };
 
 
