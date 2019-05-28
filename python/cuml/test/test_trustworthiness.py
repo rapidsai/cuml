@@ -23,7 +23,7 @@ import cudf
 import numpy as np
 
 
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('n_samples', [10, 100])
 @pytest.mark.parametrize('n_features', [10, 100])
 @pytest.mark.parametrize('n_components', [2, 10])
