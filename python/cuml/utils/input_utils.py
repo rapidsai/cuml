@@ -97,14 +97,23 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
-        X_m = rmm.to_device(np.array(X, order=order, copy=False))
+        X_m = rmm.to_device(np.array(X, order=order, copy=deepcopy))
 
     elif cuda.is_cuda_array(X):
         # Use cuda array interface to create a device array by reference
         X_m = cuda.as_cuda_array(X)
+        if deepcopy:
+            out_dev_array = rmm.device_array_like(X_m)
+            out_dev_array.copy_to_device(X_m)
+            X_m = out_dev_array
 
     elif cuda.devicearray.is_cuda_ndarray(X):
-        X_m = X
+        if deepcopy:
+            out_dev_array = rmm.device_array_like(X)
+            out_dev_array.copy_to_device(X)
+            X_m = out_dev_array
+        else:
+            X_m = X
 
     else:
         msg = "X matrix format " + str(X.__class__) + " not supported"
