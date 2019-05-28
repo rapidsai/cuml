@@ -36,43 +36,43 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         pass
 
     cdef void fit(cumlHandle& handle,
-                  float *rf_classifier,
-                  float *input,
-                  int n_rows,
-                  int n_cols,
-                  int *labels,
-                  int n_unique_labels)
+                  rfClassifier[float]*,
+                  float *,
+                  int ,
+                  int ,
+                  int *,
+                  int)
 
     cdef void fit(cumlHandle& handle,
-                  double *rf_classifier,
-                  double *input,
-                  int n_rows,
-                  int n_cols,
-                  int *labels,
-                  int n_unique_labels)
+                  rfClassifier[double]*,
+                  double *,
+                  int ,
+                  int ,
+                  int *,
+                  int)
 
     cdef void predict(cumlHandle& handle,
-                      float *rf_classifier,
-                      float *input,
-                      int n_rows,
-                      int n_cols,
-                      int *predictions,
-                      bool verbose)
+                      rfClassifier[float]*,
+                      float *,
+                      int ,
+                      int ,
+                      int *,
+                      bool)
 
     cdef void predict(cumlHandle& handle,
-                      double *rf_classifier,
-                      double *input,
-                      int n_rows,
-                      int n_cols,
-                      int *predictions,
-                      bool verbose)
+                      rfClassifier[double]*,
+                      double *,
+                      int ,
+                      int ,
+                      int *,
+                      bool)
 
     cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   float * rf_classifier, float * input, int * ref_labels,
-				   int n_rows, int n_cols, int * predictions, bool verbose);
+                                   rfClassifier[float] * , float * , int * ,
+				   int , int , int * , bool);
     cdef RF_metrics cross_validate(cumlHandle& handle,
-                                   double * rf_classifier, double * input, int * ref_labels,
-				   int n_rows, int n_cols, int * predictions, bool verbose);
+                                   rfClassifier[double] *, double * , int * ,
+				   int , int , int * , bool);
 
 class RandomForest():
     """
@@ -131,11 +131,12 @@ class RandomForest():
 
         n_unique_labels = 10
 
-        cdef rfClassifier rf_classifier
+        cdef rfClassifier[float] rf_classifier32
+        cdef rfClassifier[double] rf_classifier64
 
         if self.gdf_datatype.type == np.float32:
             fit(handle_[0],
-                <float*> rf_classifier,
+                rf_classifier32,
                 <float*> X_ptr,
                 <int> self.n_rows,
                 <int> self.n_cols,
@@ -143,7 +144,7 @@ class RandomForest():
                 <int> n_unique_labels)
         else:
             fit(handle_[0],
-                <float*> rf_classifier,
+                rf_classifier64,
                 <float*> X_ptr,
                 <int> self.n_rows,
                 <int> self.n_cols,
@@ -182,24 +183,26 @@ class RandomForest():
         cdef cumlHandle* handle_ = <cumlHandle*> <size_t> self.handle.getHandle()
 
 
-        cdef rfClassifier rf_classifier
+        cdef rfClassifier[float] rf_classifier_pred32
+        cdef rfClassifier[double] rf_classifier_pred64
+
         if self.gdf_datatype.type == np.float32:
-            fit(handle_[0],
-                <float*> rf_classifier,
-                <float*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <int*> preds_ptr,
-                <bool> self.verbose)
+            predict(handle_[0],
+                    rf_classifier_pred32,
+                    <float*> X_ptr,
+                    <int> self.n_rows,
+                    <int> self.n_cols,
+                    <int*> preds_ptr,
+                    <bool> self.verbose)
 
         elif self.gdf_datatype.type == np.float64:
-            fit(handle_[0],
-                <double*> rf_classifier,
-                <double*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <int*> preds_ptr,
-                <bool> self.verbose)
+            predict(handle_[0],
+                    rf_classifier_pred64,
+                    <double*> X_ptr,
+                    <int> self.n_rows,
+                    <int> self.n_cols,
+                    <int*> preds_ptr,
+                    <bool> self.verbose)
 
         else:
             raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
