@@ -67,17 +67,5 @@ class rf {
 		void print_rf_detailed();
 };
 
-template <class T>
-class rfClassifier : public rf<T> {
-	public:
-
-	rfClassifier(RF_params cfg_rf_params);
-
-	void fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels);
-	void predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
-	RF_metrics cross_validate(const cumlHandle& user_handle, const T * input, const int * ref_labels, int n_rows, int n_cols, int * predictions, bool verbose=false) const;
-
-};
-
 
 };
