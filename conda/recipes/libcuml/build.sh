@@ -10,4 +10,4 @@ printenv
 # Cleanup local git
 git clean -xdf
 
-./build.sh clean libcuml -v
+./build.sh clean libcuml -v --allgpuarch
