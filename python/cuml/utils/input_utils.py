@@ -19,6 +19,7 @@ import cuml.utils.numba_utils
 import cudf
 import numpy as np
 
+from collections import namedtuple
 from numba import cuda
 
 from librmm_cffi import librmm as rmm
@@ -130,7 +131,10 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     X_ptr = get_dev_array_ptr(X_m)
 
-    return X_m, X_ptr, n_rows, n_cols, dtype
+    result = namedtuple('dev_array', 'array pointer n_rows n_cols dtype')
+
+    return result(array=X_m, pointer=X_ptr, n_rows=n_rows, n_cols=n_cols,
+                  dtype=dtype)
 
 
 def convert_dtype(X, to_dtype=np.float32):
