@@ -73,38 +73,6 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         trustworthiness score : double
             Trustworthiness of the low-dimensional embedding
     """
-    # if (isinstance(X, cudf.DataFrame) and
-    #         isinstance(X_embedded, cudf.DataFrame)):
-    #     datatype1 = np.dtype(X[X.columns[0]]._column.dtype)
-    #     datatype2 = np.dtype(X_embedded[X_embedded.columns[0]]._column.dtype)
-    #     n_samples = len(X)
-    #     n_features = len(X._cols)
-    #     n_components = len(X_embedded._cols)
-    # elif isinstance(X, np.ndarray) and isinstance(X_embedded, np.ndarray):
-    #     datatype1 = X.dtype
-    #     datatype2 = X_embedded.dtype
-    #     n_samples, n_features = X.shape
-    #     n_components = X_embedded.shape[1]
-    # else:
-    #     raise TypeError("X and X_embedded parameters must both be cuDF"
-    #                     " Dataframes or Numpy ndarray")
-
-    # if datatype1 != np.float32 or datatype2 != np.float32:
-    #     if should_downcast:
-    #         X = to_single_precision(X)
-    #         X_embedded = to_single_precision(X_embedded)
-    #     else:
-    #         raise Exception("Input is double precision. Use "
-    #                         "'should_downcast=True' "
-    #                         "if you'd like it to be automatically "
-    #                         "casted to single precision.")
-
-    # if isinstance(X, cudf.DataFrame):
-    #     d_X = X.as_gpu_matrix(order='C')
-    #     d_X_embedded = X_embedded.as_gpu_matrix(order='C')
-    # elif isinstance(X, np.ndarray):
-    #     d_X = cuda.to_device(X)
-    #     d_X_embedded = cuda.to_device(X_embedded)
 
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
