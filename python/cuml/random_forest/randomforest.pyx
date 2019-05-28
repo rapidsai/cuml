@@ -31,52 +31,44 @@ cdef extern from "randomforest/randomforest.hpp" namespace "ML":
         pass
 
     cdef cppclass rfClassifier[T]:
-        rfClassifier()
-        rfClassifier(RF_params *)
-        void fit(const cumlHandle& user_handle, T * input, 
-		 int n_rows, int n_cols, 
-		 int * labels, int n_unique_labels);
-        void predict(const cumlHandle& user_handle, float * input, 
-		     int n_rows, int n_cols, int * predictions,
-		     bool verbose=false) const;
-        RF_metrics cross_validate(const cumlHandle& user_handle, 
-				  const T * input, const int * ref_labels, 
-				  int n_rows, int n_cols, int * predictions, 
-				  bool verbose=false) const;
+        pass
 
-    cdef void fit(cumlHandle& handle,
-                  float *rf_classifier,
-                  float *input,
-                  int n_rows,
-                  int n_cols,
-                  int *labels)
+    cdef void fit_f32(cumlHandle& handle,
+                      rfClassifier[float] *,
+                      float *,
+                      int ,
+                      int ,
+                      int *,
+                      int)
 
-    cdef void fit(cumlHandle& handle,
-                  double *rf_classifier,
-                  double *input,
-                  int n_rows,
-                  int n_cols,
-                  int *labels)
+    cdef void fit_f64(cumlHandle& handle,
+                      rfClassifier[double] *,
+                      double *,
+                      int ,
+                      int ,
+                      int *,
+                      int)
 
-    cdef void predict(cumlHandle& handle,
-                      float *rf_classifier,
-                      float *input,
-                      int n_rows,
-                      int n_cols,
-                      int *predictions,
-                      bool verbose)
+    cdef void predict_f32(cumlHandle& handle,
+                          rfClassifier[float] *,
+                          float *,
+                          int ,
+                          int ,
+                          int *,
+                          bool)
 
-    cdef void predict(cumlHandle& handle,
-                      double *rf_classifier,
-                      double *input,
-                      int n_rows,
-                      int n_cols,
-                      int *predictions,
-                      bool verbose)
+    cdef void predict_f64(cumlHandle& handle,
+                          rfClassifier[double] *,
+                          double *,
+                          int ,
+                          int ,
+                          int *,
+                          bool)
+
 
     cdef RF_metrics cross_validate(cumlHandle& handle,
                                    float * rf_classifier, float * input, int * ref_labels,
-				   int n_rows, int n_cols, int * predictions, bool verbos);
+				   int n_rows, int n_cols, int * predictions, bool verbose);
     cdef RF_metrics cross_validate(cumlHandle& handle,
                                    double * rf_classifier, double * input, int * ref_labels,
 				   int n_rows, int n_cols, int * predictions, bool verbose);
@@ -88,15 +80,14 @@ class RandomForest():
     """
     
     # min_rows_per_node in cuml = min_samples_split in sklearn
-    def __init__(self, n_estimators=10, max_depth=None, 
-		 max_features=None, min_samples_split=None, 
-		 bootstrap=True, type="classifier"):
+    def __init__(self, n_estimators=10, max_depth=None, max_features=None, min_samples_split=None, bootstrap=True, type="classifier"):
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_features = max_features
         self.min_samples_split = min_samples_split
         self.type = self._get_type(type)
         self.bootstrap = bootstrap
+        self.verbose = False
 
     def _get_type(self, type):
         if type == "classifier":
@@ -125,6 +116,7 @@ class RandomForest():
 
         X_ptr = self._get_dev_array_ptr(X_m)
 
+
         if (isinstance(y, cudf.Series)):
             y_ptr = self._get_cudf_column_ptr(y)
         elif (isinstance(y, np.ndarray)):
@@ -133,24 +125,31 @@ class RandomForest():
         else:
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
+
         cdef cumlHandle* handle_ = <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef rfClassifier rf_classifier
+        cdef rfClassifier[float] * rf_classifier32
+        cdef rfClassifier[double] * rf_classifier64
+
+
+        n_unique_labels = 10
 
         if self.gdf_datatype.type == np.float32:
-            fit(handle_[0],
-                <float*> rf_classifier,
+            fit_f32(handle_[0],
+                rf_classifier32,
                 <float*> X_ptr,
                 <int> self.n_rows,
                 <int> self.n_cols,
-                <int*> y_ptr)
+                <int*> y_ptr,
+                <int> n_unique_labels)
         else:
-            fit(handle_[0],
-                <float*> rf_classifier,
-                <float*> X_ptr,
+            fit_f64(handle_[0],
+                rf_classifier64,
+                <double*> X_ptr,
                 <int> self.n_rows,
                 <int> self.n_cols,
-                <int*> y_ptr)
+                <int*> y_ptr,
+                <int> n_unique_labels)
 
         # make sure that the `fit` is complete before the following delete
         # call happens
@@ -179,27 +178,30 @@ class RandomForest():
         X_ptr = self._get_dev_array_ptr(X_m)
 
         preds = cudf.Series(np.zeros(self.n_rows, dtype=self.gdf_datatype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds)
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(preds).value
 
         cdef cumlHandle* handle_ = <cumlHandle*> <size_t> self.handle.getHandle()
 
-        cdef rfClassifier rf_classifier
+        cdef rfClassifier[float] * rf_classifier_pred32
+        cdef rfClassifier[double] * rf_classifier_pred64
 
         if self.gdf_datatype.type == np.float32:
-            fit(handle_[0],
-                <float*> rf_classifier,
-                <float*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <int*> preds_ptr)
+            predict_f32(handle_[0],
+                   rf_classifier_pred32,
+                   <float*> X_ptr,
+                   <int> self.n_rows,
+                   <int> self.n_cols,
+                   <int*> preds_ptr,
+                   <bool> self.verbose)
 
         elif self.gdf_datatype.type == np.float64:
-            fit(handle_[0],
-                <double*> rf_classifier,
-                <double*> X_ptr,
-                <int> self.n_rows,
-                <int> self.n_cols,
-                <int*> preds_ptr)
+            predict_f64(handle_[0],
+                    rf_classifier_pred64,
+                    <double*> X_ptr,
+                    <int> self.n_rows,
+                    <int> self.n_cols,
+                    <int*> preds_ptr,
+                    <bool> self.verbose)
 
         else:
             raise TypeError("supports only float32 and float64 input, but input of type '%s' passed." % (str(self.gdf_datatype.type)))
