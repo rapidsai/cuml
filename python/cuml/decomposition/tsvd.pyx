@@ -97,11 +97,11 @@ class TruncatedSVD(Base):
     large matrix X. It is much faster when n_components is small, such as in
     the use of PCA when 3 components is used for 3D visualization.
 
-    cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms
-    Full and Jacobi. Full (default) uses a full eigendecomposition then selects
-    the top K singular vectors. The Jacobi algorithm is much faster as it
-    iteratively tries to correct the top K singular vectors, but might be
-    less accurate.
+    cuML's TruncatedSVD an array-like object or cuDF DataFrame, and provides 2
+    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
+    then selects the top K singular vectors. The Jacobi algorithm is much
+    faster as it iteratively tries to correct the top K singular vectors, but
+    might be less accurate.
 
     Examples
     ---------
@@ -271,12 +271,14 @@ class TruncatedSVD(Base):
 
     def fit(self, X, _transform=True):
         """
-            Fit LSI model on training cudf DataFrame X.
+        Fit LSI model on training cudf DataFrame X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                Training data (floats or doubles)
+        Parameters
+        ----------
+       X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
 
         """
         cdef uintptr_t input_ptr
@@ -351,17 +353,19 @@ class TruncatedSVD(Base):
 
     def fit_transform(self, X):
         """
-            Fit LSI model to X and perform dimensionality reduction on X.
+        Fit LSI model to X and perform dimensionality reduction on X.
 
-            Parameters
-            ----------
-            X GDF : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                Training data (floats or doubles)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X as a dense cuDF DataFrame
+        Returns
+        ----------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+            Reduced version of X as a dense cuDF DataFrame
 
         """
         self.fit(X, _transform=True)
@@ -375,19 +379,21 @@ class TruncatedSVD(Base):
 
     def inverse_transform(self, X):
         """
-            Transform X back to its original space.
+        Transform X back to its original space.
 
-            Returns a cuDF DataFrame X_original whose transform would be X.
+        Returns a cuDF DataFrame X_original whose transform would be X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, shape (n_samples, n_components)
-                New data.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_original : cuDF DataFrame, shape (n_samples, n_features)
-                Note that this is always a dense cuDF DataFrame.
+        Returns
+        ----------
+        X_original : cuDF DataFrame, shape (n_samples, n_features)
+            Note that this is always a dense cuDF DataFrame.
 
         """
 
@@ -434,17 +440,19 @@ class TruncatedSVD(Base):
 
     def transform(self, X):
         """
-            Perform dimensionality reduction on X.
+        Perform dimensionality reduction on X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                New data.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense DataFrame.
+        Returns
+        ----------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+            Reduced version of X. This will always be a dense DataFrame.
 
         """
         cdef uintptr_t input_ptr

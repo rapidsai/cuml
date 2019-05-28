@@ -143,9 +143,9 @@ class KMeans(Base):
     For every cluster of points, a mean is computed (hence the name), and this
     becomes the new centroid.
 
-    cuML's KMeans expects a cuDF DataFrame, and supports the scalable KMeans++
-    intialization method. This method is more stable than randomnly selecting
-    K points.
+    cuML's KMeans expects an array-like object or cuDF DataFrame, and supports
+    the scalable KMeans++ intialization method. This method is more stable
+    than randomnly selecting K points.
 
     Examples
     --------
@@ -301,8 +301,10 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
@@ -407,9 +409,10 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
         return self.fit(X).labels_
@@ -420,9 +423,10 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
@@ -475,9 +479,10 @@ class KMeans(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
 
@@ -530,22 +535,23 @@ class KMeans(Base):
         del(clust_mat)
         return preds_gdf
 
-    def fit_transform(self, input_gdf):
+    def fit_transform(self, X):
         """
-        Compute clustering and transform input_gdf to cluster-distance space.
+        Compute clustering and transform X to cluster-distance space.
 
         Parameters
         ----------
-        input_gdf : cuDF DataFrame
-                    Dense matrix (floats or doubles) of shape
-                    (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
-        return self.fit(input_gdf).transform(input_gdf)
+        return self.fit(X).transform(X)
 
     def get_params(self, deep=True):
         """
-        Sklearn style return parameter state
+        Scikit-learn style return parameter state
 
         Parameters
         -----------
@@ -562,7 +568,7 @@ class KMeans(Base):
 
     def set_params(self, **params):
         """
-        Sklearn style set parameter state to dictionary of params.
+        Scikit-learn style set parameter state to dictionary of params.
 
         Parameters
         -----------

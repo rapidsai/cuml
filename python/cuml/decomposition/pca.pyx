@@ -120,10 +120,11 @@ class PCA(Base):
     the data. N_components is usually small, say at 3, where it can be used for
     data visualization, data compression and exploratory analysis.
 
-    cuML's PCA expects a cuDF DataFrame, and provides 2 algorithms Full and
-    Jacobi. Full (default) uses a full eigendecomposition then selects the top
-    K eigenvectors. The Jacobi algorithm is much faster as it iteratively tries
-    to correct the top K eigenvectors, but might be less accurate.
+    cuML's PCA expects an array-like object or cuDF DataFrame, and provides 2
+    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
+    then selects the top K eigenvectors. The Jacobi algorithm is much faster
+    as it iteratively tries to correct the top K eigenvectors, but might be
+    less accurate.
 
     Examples
     ---------
@@ -339,8 +340,10 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-          Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -440,9 +443,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
           training data (floats or doubles), where n_samples is the number of
           samples, and n_features is the number of features.
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
 
         y : ignored
 
@@ -467,9 +472,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_components)
+        X : array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
             samples and n_components is the number of components.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -535,9 +542,11 @@ class PCA(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             New data (floats or doubles), where n_samples is the number of
-            samples and n_features is the number of features.
+            samples and n_components is the number of components.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
