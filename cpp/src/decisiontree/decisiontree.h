@@ -25,6 +25,7 @@
 #include <map>
 #include <climits>
 #include <common/cumlHandle.hpp>
+#include "decisiontree_rf_params.h"
 
 namespace ML {
 namespace DecisionTree {
