@@ -5,10 +5,10 @@ using namespace ML;
 using namespace MLCommon::Sparse;
 
 #include <assert.h>
+#include <stdio.h>
 
 #include "distances.h"
 #include "perplexity_search.h"
-#include "gpu_info.h"
 #include "intialization.h"
 #include "bounding_box.h"
 #include "build_tree.h"
@@ -17,6 +17,7 @@ using namespace MLCommon::Sparse;
 #include "attraction.h"
 
 #pragma once
+
 
 template <typename Type>
 void runTsne(   const Type * __restrict__ X,
@@ -40,7 +41,7 @@ void runTsne(   const Type * __restrict__ X,
                 // Iterations, termination crtierion
                 const int exaggeration_iter = 250,
                 const int max_iter = 1000,
-                const float min_grad_norm = 1e-7,
+                const float min_grad_norm = 1e-7f,
 
                 // Seed for random data
                 const long long seed = -1)
@@ -50,32 +51,27 @@ void runTsne(   const Type * __restrict__ X,
     if (n_neighbors > n) n_neighbors = n;
 
 
-    // Get all device info and properties
-    int BLOCKS, TPB_X;      // Notice only 32 is supported
-    int integration_kernel_threads, integration_kernel_factor;
-    int repulsive_kernel_threads, repulsive_kernel_factor;
-    int bounding_kernel_threads, bounding_kernel_factor; 
-    int tree_kernel_threads, tree_kernel_factor;
-    int sort_kernel_threads, sort_kernel_factor;
-    int summary_kernel_threads, summary_kernel_factor;
-
-    GPU_Info_::gpuInfo(&BLOCKS, &TPB_X, &integration_kernel_threads, 
-        &integration_kernel_factor, &repulsive_kernel_threads, &repulsive_kernel_factor, 
-        &bounding_kernel_threads, &bounding_kernel_factor, &tree_kernel_threads, 
-        &tree_kernel_factor, &sort_kernel_threads, &sort_kernel_factor, 
-        &summary_kernel_threads, &summary_kernel_factor);
-
     // Intialize cache levels and errors
     int *errd;       cuda_malloc(errd, 1);
     Intialization_::Initialize(errd);
     //
 
 
+    // Get GPU information
+    cudaDeviceProp GPU_info;
+    cudaGetDeviceProperties(&GPU_info, 0);
+
+    if (GPU_info.warpSize != WARPSIZE) {
+        fprintf(stderr, "Warp size must be %d\n", GPU_info.warpSize);
+        exit(-1);
+    }
+    //
+
+
     // Nodes needed for BH
     int nnodes = 2*n;
     if (nnodes < 1024 * BLOCKS) nnodes = 1024 * BLOCKS;
-    while ((nnodes & (TPB_X - 1)) != 0)
-        nnodes++;
+    while ((nnodes & (WARPSIZE - 1)) != 0) nnodes++;
     nnodes--;
 
     const int N_NODES = nnodes;
@@ -116,27 +112,33 @@ void runTsne(   const Type * __restrict__ X,
     P.destroy();
     cuda_free(indices);
     const int NNZ = P_PT.nnz;   // Get total NNZ
+
+    // Convert COO to CSR matrix
+    float *VAL = P_PT.vals;
+    int *COL = P_PT.cols;
+    int *ROW;       cuda_malloc(ROW, n+1);
+    MLCommon::Sparse::sorted_coo_to_csr(&P_PT, ROW, stream);
     
 
     // Allocate space
-    float *P_x_Q;           cuda_malloc(P_x_Q, NNZ);
-    float *repulsion;       cuda_calloc(repulsion, (N_NODES+1)*2, 0.0f);
-    float *attraction;      cuda_calloc(attraction, n*2, 0.0f);
+    float *PQ;              cuda_malloc(PQ, NNZ);
+    float *repulsion;       cuda_calloc(repulsion, (N_NODES+1)*2, 0.0f, stream);
+    float *attraction;      cuda_calloc(attraction, n*2, 0.0f, stream);
     float *normalization;   cuda_malloc(normalization, N_NODES+1);
 
-    float *gains;           cuda_calloc(gains, n*2, 1.0f);
-    float *old_forces;      cuda_calloc(prev_forces, n*2, 0.0f);
+    float *gains;           cuda_calloc(gains, n*2, 1.0f, stream);
+    float *old_forces;      cuda_calloc(prev_forces, n*2, 0.0f, stream);
 
     int *cell_starts;       cuda_malloc(cell_starts, N_NODES+1);
     int *children;          cuda_malloc(children, (N_NODES+1)*4);
-    float *cell_mass;       cuda_calloc(cell_mass, N_NODES+1, 1.0f);
+    float *cell_mass;       cuda_calloc(cell_mass, N_NODES+1, 1.0f, stream);
     int *cell_counts;       cuda_malloc(cell_counts, N_NODES+1);
     int *cell_sorted;       cuda_malloc(cell_sorted, N_NODES+1);
     
-    float *x_max;           cuda_malloc(x_max, BLOCKS*bounding_kernel_factor);
-    float *y_max;           cuda_malloc(y_max, BLOCKS*bounding_kernel_factor);
-    float *x_min;           cuda_malloc(x_min, BLOCKS*bounding_kernel_factor);
-    float *y_min;           cuda_malloc(y_min, BLOCKS*bounding_kernel_factor);
+    float *x_max;           cuda_malloc(x_max, BLOCKS*FACTOR1);
+    float *y_max;           cuda_malloc(y_max, BLOCKS*FACTOR1);
+    float *x_min;           cuda_malloc(x_min, BLOCKS*FACTOR1);
+    float *y_min;           cuda_malloc(y_min, BLOCKS*FACTOR1);
 
 
     // Intialize embedding
@@ -233,6 +235,7 @@ void runTsne(   const Type * __restrict__ X,
 
     // Free everything
     P_PT.destroy();
+    cuda_free(ROW);
 
     cuda_free(noise);
     cuda_free(embedding);
@@ -253,7 +256,7 @@ void runTsne(   const Type * __restrict__ X,
     cuda_free(normalization);
     cuda_free(attraction);
     cuda_free(repulsion);
-    cuda_free(P_x_Q);
+    cuda_free(PQ);
 
     cuda_free(errd);
 

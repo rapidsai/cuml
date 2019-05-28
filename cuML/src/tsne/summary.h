@@ -7,6 +7,7 @@ using namespace ML;
 
 namespace Summary_ {
 
+
 __global__
 __launch_bounds__(THREADS3, FACTOR3)
 void summarizationKernel(const int N_NODES, 

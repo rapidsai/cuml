@@ -73,7 +73,7 @@ void cuda_memset(Type *&ptr, const size_t n) {
 
 // Malloc and memset some space
 template <typename Type>
-void cuda_calloc(Type *&ptr, const size_t n, const Type val) {
+void cuda_calloc(Type *&ptr, const size_t n, const Type val, cudaStream_t stream) {
     // From ml-prims / src / utils.h
     // Just allows easier memsetting
     CUDA_CHECK(cudaMalloc((void **)&ptr, sizeof(Type) * n));
@@ -86,7 +86,7 @@ void cuda_calloc(Type *&ptr, const size_t n, const Type val) {
     else {
         thrust::device_ptr<Type> begin = thrust::device_pointer_cast(ptr);
         // IS THIS CORRECT??
-        thrust::fill(/*thrust::cuda::par.on(stream), */ begin, begin+n, val);
+        thrust::fill(thrust::cuda::par.on(stream), begin, begin+n, val);
     }
 }
 
