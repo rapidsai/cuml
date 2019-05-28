@@ -1,4 +1,4 @@
-#include "decisiontree/decisiontree.h"
+#include "decisiontree/decisiontree_rf_params.h"
 
 namespace ML {
 
@@ -49,7 +49,7 @@ class rf {
 	protected:
 		RF_params rf_params;
 		int rf_type;
-		DecisionTree::DecisionTreeClassifier<T> * trees;
+		//DecisionTree::DecisionTreeClassifier<T> * trees;
 
 	public:
 		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
@@ -59,6 +59,4 @@ class rf {
 		void print_rf_summary();
 		void print_rf_detailed();
 };
-
-
 };
