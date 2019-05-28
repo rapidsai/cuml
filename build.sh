@@ -91,13 +91,6 @@ if hasArg --multigpu; then
     MULTIGPU=--multigpu
 fi
 
-# Various build options use nvidia-smi for querying the system
-HAS_NVIDIA_SMI=1
-which nvidia-smi > /dev/null
-if (( $? != 0 )); then
-    HAS_NVIDIA_SMI=0
-fi
-
 # If clean given, run it prior to any other steps
 if hasArg clean; then
     # If the dirs to clean are mounted dirs in a container, the
@@ -115,31 +108,12 @@ fi
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
-
-    # Configure the build for the GPU type of this machine, or all (GPU_ARCH="")
-    # if it cannot be detected.
-    # TODO: add additional detected GPU archs
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        if (( ${HAS_NVIDIA_SMI} )); then
-            GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
-            if [[ $GPU == *"P100"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"60\""
-                echo "Building for Pascal..."
-            elif [[ $GPU == *"V100"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"70\""
-                echo "Building for Volta..."
-            elif [[ $GPU == *"T4"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"75\""
-                echo "Building for Turing..."
-            fi
-        else
-            echo "nvidia-smi was not found on PATH and is needed for detecting the GPU arch"
-            echo "Ensure nvidia-smi is on PATH or use --allgpuarch"
-            exit 1
-        fi
-    else
         GPU_ARCH=""
-        echo "Building for *ALL* GPU architectures..."
+        echo "Building for the architecture of the GPU in the system..."
+    else
+        GPU_ARCH="-DGPU_ARCHS=ALL"
+        echo "Building for *ALL* supported GPU architectures..."
     fi
 
     mkdir -p ${LIBCUML_BUILD_DIR}
