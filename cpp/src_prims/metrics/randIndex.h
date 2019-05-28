@@ -67,20 +67,20 @@ void computeTheNumerator_backup(const T* firstClusterArray,const T* secondCluste
 	uint64_t j = threadIdx.x + blockIdx.x*blockDim.x;
 	uint64_t i = threadIdx.y + blockIdx.y*blockDim.y;
 
-    if(i<size&&j<size){
-        //checking if row <= column to prevent double counting
-        if(j>=i){
-            return;
-        }
-        //checking if the pair have been classified the same by both the clusters
-        else if(firstClusterArray[i]==firstClusterArray[j]&&secondClusterArray[i]==secondClusterArray[j]){
-            atomicAdd((unsigned long long int*)a,1);
-        }
-        //checking if the pair have been classified differently by both the clusters
-        else if(firstClusterArray[i]!=firstClusterArray[j]&&secondClusterArray[i]!=secondClusterArray[j]){
-            atomicAdd((unsigned long long int*)b,1);
-        }
-    }
+	if(i<size&&j<size){
+		//checking if row <= column to prevent double counting
+		if(j>=i){
+		    return;
+		}
+		//checking if the pair have been classified the same by both the clusters
+		else if(firstClusterArray[i]==firstClusterArray[j]&&secondClusterArray[i]==secondClusterArray[j]){
+		    atomicAdd((unsigned long long int*)a,1);
+		}
+		//checking if the pair have been classified differently by both the clusters
+		else if(firstClusterArray[i]!=firstClusterArray[j]&&secondClusterArray[i]!=secondClusterArray[j]){
+		    atomicAdd((unsigned long long int*)b,1);
+		}
+	}
 }
 
 
@@ -105,15 +105,15 @@ void computeTheNumerator(const T* firstClusterArray,const T* secondClusterArray,
 
 	if(i < size && j < size && j<i) {
 
-        //checking if the pair have been classified the same by both the clusters
-        if(firstClusterArray[i]==firstClusterArray[j]&&secondClusterArray[i]==secondClusterArray[j]){
-            ++myA;
-        }
+	//checking if the pair have been classified the same by both the clusters
+	if(firstClusterArray[i]==firstClusterArray[j]&&secondClusterArray[i]==secondClusterArray[j]){
+		++myA;
+	}
 
-        //checking if the pair have been classified differently by both the clusters
-        else if(firstClusterArray[i]!=firstClusterArray[j]&&secondClusterArray[i]!=secondClusterArray[j]){
-        	++myB;
-        }		
+	//checking if the pair have been classified differently by both the clusters
+	else if(firstClusterArray[i]!=firstClusterArray[j]&&secondClusterArray[i]!=secondClusterArray[j]){
+		++myB;
+		}			
 	}
 
 	//specialize blockReduce for a 2D block of 1024 threads of type uint64_t	
@@ -170,7 +170,7 @@ float computeRandIndex(T* firstClusterArray, T* secondClusterArray, uint64_t siz
 	//error handling
 	CUDA_CHECK(cudaGetLastError());
 
- 	//denominator
+	//denominator
 	uint64_t nChooseTwo = size*(size-1)/2;
 
 	//calculating the randIndex
