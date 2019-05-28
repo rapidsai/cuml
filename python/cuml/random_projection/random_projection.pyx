@@ -189,24 +189,15 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        if isinstance(X, cudf.DataFrame):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            n_samples = len(X)
-            n_features = len(X._cols)
 
-        elif isinstance(X, np.ndarray):
-            self.gdf_datatype = X.dtype
-            n_samples, n_features = X.shape
-
-        else:
-            msg = "X matrix format not supported"
-            raise TypeError(msg)
+        _, _, n_samples, n_features, self.dtype = \
+            input_to_dev_array(X)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.params.n_samples = n_samples
         self.params.n_features = n_features
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             RPROJfit[float](handle_[0], self.rand_matS, &self.params)
         else:
             RPROJfit[double](handle_[0], self.rand_matD, &self.params)
@@ -235,26 +226,15 @@ cdef class BaseRandomProjection():
 
         """
 
-        if isinstance(X, cudf.DataFrame):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix()
-            n_samples = len(X)
-            n_features = len(X._cols)
+        cdef uintptr_t input_ptr
 
-        elif isinstance(X, np.ndarray):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_samples, n_features = X.shape
-
-        else:
-            msg = "X matrix format not supported"
-            raise TypeError(msg)
+        X_m, input_ptr, n_samples, n_features, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         X_new = cuda.device_array((n_samples, self.params.n_components),
-                                  dtype=self.gdf_datatype,
+                                  dtype=self.dtype,
                                   order='F')
 
-        cdef uintptr_t input_ptr = get_dev_array_ptr(X_m)
         cdef uintptr_t output_ptr = get_dev_array_ptr(X_new)
 
         if self.params.n_features != n_features:
@@ -263,7 +243,7 @@ cdef class BaseRandomProjection():
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.gdf_datatype.type == np.float32:
+        if dtype == np.float32:
             RPROJtransform[float](handle_[0],
                                   <float*> input_ptr,
                                   self.rand_matS,
@@ -287,8 +267,13 @@ cdef class BaseRandomProjection():
                 gdf_X_new[str(i)] = h_X_new[:, i]
             return gdf_X_new
 
-        else:
+        elif isinstance(X, np.ndarray):
             return X_new.copy_to_host()
+
+        else:
+            return X_new
+
+        del X_m
 
 
 class GaussianRandomProjection(Base, BaseRandomProjection):
