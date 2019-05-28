@@ -450,10 +450,14 @@ class UMAP(Base):
         """Fit X into an embedded space.
         Parameters
         ----------
-        X : array, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
-        y : array, shape (n_samples)
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, 1)
             y contains a label per row.
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         """
 
         return self._impl.fit(X, y)
@@ -472,8 +476,10 @@ class UMAP(Base):
 
         Parameters
         ----------
-        X : array, shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
             New data to be transformed.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         Returns
         -------
         X_new : array, shape (n_samples, n_components)
@@ -487,8 +493,10 @@ class UMAP(Base):
         output.
         Parameters
         ----------
-        X : array, shape (n_samples, n_features) or (n_samples, n_samples)
+        X : array-like (device or host) shape = (n_samples, n_features)
             X contains a sample per row.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         Returns
         -------
         X_new : array, shape (n_samples, n_components)

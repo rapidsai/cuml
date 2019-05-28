@@ -178,10 +178,10 @@ cdef class BaseRandomProjection():
 
         Parameters
         ----------
-            X : cuDF DataFrame or Numpy array
-                Dense matrix (floats or doubles) of shape
-                (n_samples, n_features)
-                Used to provide shape information
+            X : array-like (device or host) shape = (n_samples, n_features)
+                Used to provide shape information.
+                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+                ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------
@@ -214,10 +214,11 @@ cdef class BaseRandomProjection():
 
         Parameters
         ----------
-            X : cuDF DataFrame or Numpy array
-                Dense matrix (floats or doubles) of shape
-                (n_samples, n_features)
-                Used as input matrix
+            X : array-like (device or host) shape = (n_samples, n_features)
+                Dense matrix (floats or doubles) of shape (n_samples,
+                n_features).
+                Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+                ndarray, cuda array interface compliant array like CuPy
 
         Returns
         -------

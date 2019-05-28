@@ -88,9 +88,10 @@ class Ridge(Base, RegressorMixin):
     predictors in X. It can reduce the variance of the predictors, and improves
     the conditioning of the problem.
 
-    cuML's Ridge expects a cuDF DataFrame, and provides 3 algorithms SVD, Eig
-    and CD to fit a linear model. SVD is more stable, but Eig (default) is much
-    faster. CD uses Coordinate Descent and can be faster when data is large.
+    cuML's Ridge an array-like object or cuDF DataFrame, and provides 3
+    algorithms: SVD, Eig and CD to fit a linear model. SVD is more stable,
+    but Eig (default) is much faster. CD uses Coordinate Descent and can be
+    faster when data is large.
 
     Examples
     ---------
@@ -239,11 +240,15 @@ class Ridge(Base, RegressorMixin):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (floats or doubles) of shape (n_samples, 1).
+            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         """
         cdef uintptr_t X_ptr, y_ptr
@@ -325,8 +330,10 @@ class Ridge(Base, RegressorMixin):
 
         Parameters
         ----------
-        X : cuDF DataFrame
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         Returns
         ----------

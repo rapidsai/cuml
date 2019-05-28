@@ -282,7 +282,7 @@ class NearestNeighbors(Base):
     "distance" between each and every point, and return the top K datapoints
     which have the smallest distance to it.
 
-    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic
+    cuML's KNN an array-like object or cuDF DataFrame (where automatic
     chunking will be done in to a Numpy Array in a future release), and fits a
     special data structure first to approximate the distance calculations,
     allowing our querying times to be O(plogn) and not the brute force O(np)
@@ -391,8 +391,10 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame or numpy ndarray
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         """
         return self._impl.fit(X)
 
@@ -403,20 +405,13 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X_ctype : Ctypes pointer (row-major)
-            Pointer to input data
-
-        N: Intetger
-            The number of rows in X
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         k: Integer
             Number of neighbors to search
-
-        I_ptr: Ctypes pointer (row-major)
-            Pointer to N*k array for output indices
-
-        D_ptr: Ctypes pointer (row-major)
-            Pointer to N*k array for output distances
 
         Returns
         ----------

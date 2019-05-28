@@ -63,8 +63,9 @@ class DBSCAN(Base):
     where data is concentrated. This allows DBSCAN to generalize to many
     problems if the datapoints tend to congregate in larger groups.
 
-    cuML's DBSCAN expects a cuDF DataFrame, and constructs an adjacency graph
-    to compute the distances between close neighbours.
+    cuML's DBSCAN expects an array-like object or cuDF DataFrame, and
+    constructs an adjacency graph to compute the distances between close
+    neighbours.
 
     Examples
     ---------
@@ -165,13 +166,14 @@ class DBSCAN(Base):
 
     def fit(self, X):
         """
-            Perform DBSCAN clustering from features.
+        Perform DBSCAN clustering from features.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, numpy array or numba device array
-               Dense matrix (floats or doubles) of shape (n_samples,
-               n_features)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
         """
 
         if self.labels_ is not None:
@@ -214,17 +216,19 @@ class DBSCAN(Base):
 
     def fit_predict(self, X):
         """
-            Performs clustering on input_gdf and returns cluster labels.
+        Performs clustering on input_gdf and returns cluster labels.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame
-              Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+          Dense matrix (floats or doubles) of shape (n_samples, n_features)
+          Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+          ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            -------
-            y : cuDF Series, shape (n_samples)
-              cluster labels
+        Returns
+        -------
+        y : cuDF Series, shape (n_samples)
+          cluster labels
         """
         self.fit(X)
         return self.labels_
