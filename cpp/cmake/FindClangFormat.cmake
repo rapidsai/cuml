@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-# Finds clang-tidy exe based on the PATH env variable
+# Finds clang-format exe based on the PATH env variable
 string(REPLACE ":" ";" EnvPath $ENV{PATH})
 find_program(ClangFormat_EXE
   NAMES clang-format
@@ -23,9 +23,22 @@ find_program(ClangFormat_PY
   NAMES run-clang-format.py
   PATHS ${PROJECT_SOURCE_DIR}/scripts
   DOC "path to run-clang-format python script")
+
+# Figure out the version of clang-format, if found
+if(ClangFormat_EXE)
+  execute_process(COMMAND ${ClangFormat_EXE} --version
+    OUTPUT_VARIABLE __cf_version_out
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  string(REGEX REPLACE
+    "^clang-format version ([0-9.-]+).*$" "\\1"
+    ClangFormat_VERSION_STRING
+    "${__cf_version_out}")
+endif()
+
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(ClangFormat DEFAULT_MSG
-  ClangFormat_EXE ClangFormat_PY)
+find_package_handle_standard_args(ClangFormat
+  REQUIRED_VARS ClangFormat_EXE ClangFormat_PY
+  VERSION_VAR ClangFormat_VERSION_STRING)
 
 include(CMakeParseArguments)
 
