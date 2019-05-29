@@ -10,10 +10,6 @@ if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     CUDA_REL=${CUDA:0:4}
   fi
 
-  # for libclang installation
-  # without this, the below build used to fail while trying to find libclang!
-  conda config --add channels rapidsai
-
   if [ "$BUILD_ABI" == "1" ]; then
     conda build conda/recipes/libcuml --python=${PYTHON}
   else
