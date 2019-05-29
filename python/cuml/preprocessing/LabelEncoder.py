@@ -14,17 +14,7 @@ def _enforce_str(y: cudf.Series) -> cudf.Series:
     return y
 
 
-# FIXME I didn't have cuml built. this would be cuml.common.Base
-class Base(object):
-    def __init__(self, *args, **kwargs):
-        self._fitted = False
-
-    def check_is_fitted(self):
-        if not self._fitted:
-            raise TypeError("Model must first be .fit()")
-
-
-class LabelEncoder(Base):
+class LabelEncoder(object):
     """
     An nvcategory based implementation of ordinal label encoding
 
@@ -84,10 +74,15 @@ class LabelEncoder(Base):
         1    0
         dtype: int64
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
+
+    def _check_is_fitted(self):
+        if not self._fitted:
+            raise TypeError("Model must first be .fit()")
 
     def fit(self, y: cudf.Series) -> "LabelEncoder":
         """
@@ -136,7 +131,7 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
-        self.check_is_fitted()
+        self._check_is_fitted()
         y = _enforce_str(y)
         encoded = cudf.Series(
             nvcategory.from_strings(y.data)
