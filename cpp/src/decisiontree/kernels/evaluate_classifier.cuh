@@ -29,7 +29,7 @@
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
+__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const int nbins, const int nrows, const int ncols, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -54,7 +54,7 @@ __global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, con
 		T base_quesval = minmaxshared[mycolid] + delta;
 
 		T localdata = data[i];
-		int label = labels[ rowids[ i % nrows ] ];
+		int label = labels[ i % nrows ];
 		for (int j=0; j < nbins; j++) {
 			T quesval = base_quesval + j * delta;
 
@@ -73,7 +73,7 @@ __global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, con
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -90,7 +90,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_class(const T* __rest
 		int coloffset = mycolid*n_unique_labels*nbins;
 
 		T localdata = data[i];
-		int label = labels[ rowids[ i % nrows ] ];
+		int label = labels[ i % nrows ];
 		for (int j=0; j < nbins; j++) {
 			int quantile_index = colids[mycolid] * nbins + j;
 			T quesval = quantile[quantile_index];
@@ -223,14 +223,16 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 		allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(data, rowids, d_colids, nrows, ncols, rowoffset, tempmem->temp_data->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
+	L *labelptr = tempmem->sampledlabels->data();
+	get_sampled_labels<L>(labels, labelptr, rowids, nrows, tempmem->stream);
 
 	shmemsize = n_hist_bytes;
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
-		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, nbins, nrows, ncols, n_unique_labels, d_globalminmax, d_histout);
+		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, n_unique_labels, d_globalminmax, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, n_unique_labels,  d_histout, tempmem->d_quantile->data());
+		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, n_unique_labels,  d_histout, tempmem->d_quantile->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
 

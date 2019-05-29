@@ -25,7 +25,7 @@
 #include "stats/minmax.h"
 
 template<typename T, typename F>
-__global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T pred_parent) {
+__global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const int nbins, const int nrows, const int ncols, const T* __restrict__ globalminmax, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T pred_parent) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -55,7 +55,7 @@ __global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const 
 		T base_quesval = minmaxshared[mycolid] + delta;
 
 		T localdata = data[i];
-		T label = labels[ rowids[ i % nrows ] ];
+		T label = labels[ i % nrows];
 		for (int j=0; j < nbins; j++) {
 			T quesval = base_quesval + j * delta;
 			
@@ -85,7 +85,7 @@ __global__ void compute_mse_minmax_kernel_reg(const T* __restrict__ data, const 
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const int nbins, const int nrows, const int ncols, const T* __restrict__ globalminmax, T* predout, int* countout) {
+__global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const int nbins, const int nrows, const int ncols, const T* __restrict__ globalminmax, T* predout, int* countout) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -112,7 +112,7 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 		T base_quesval = minmaxshared[mycolid] + delta;
 
 		T localdata = data[i];
-		T label = labels[ rowids[ i % nrows ] ];
+		T label = labels[ i % nrows ];
 		for (int j=0; j < nbins; j++) {
 			T quesval = base_quesval + j * delta;
 
@@ -133,7 +133,7 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, T* predout, int* countout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, T* predout, int* countout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -152,7 +152,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 		int coloffset = mycolid*nbins;
 
 		T localdata = data[i];
-		T label = labels[ rowids[ i % nrows ] ];
+		T label = labels[ i % nrows ];
 		for (int j=0; j < nbins; j++) {
 			int quantile_index = colids[mycolid] * nbins + j;
 			T quesval = quantile[quantile_index];
@@ -173,7 +173,7 @@ __global__ void all_cols_histograms_global_quantile_kernel_reg(const T* __restri
 }
 
 template<typename T, typename F>
-__global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ rowids, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile, const T pred_parent) {
+__global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ data, const T* __restrict__ labels, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, T* mseout, const T* __restrict__ predout, const int* __restrict__ countout, const T* __restrict__ quantile, const T pred_parent) {
 	
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
@@ -195,7 +195,7 @@ __global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ dat
 		int coloffset = mycolid*nbins;
 		
 		T localdata = data[i];
-		T label = labels[ rowids[ i % nrows ] ];
+		T label = labels[ i % nrows ];
 		for (int j=0; j < nbins; j++) {
 			int quantile_index = colids[mycolid] * nbins + j;
 			T quesval = quantile[quantile_index];
@@ -326,14 +326,17 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 	CUDA_CHECK(cudaGetLastError());
 	
 	shmemsize = n_pred_bytes + n_count_bytes;
-	
+
+	T *labelptr = tempmem->sampledlabels->data();
+	get_sampled_labels<T>(labels, labelptr, rowids, nrows, tempmem->stream);
+
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += col_minmax_bytes;
-		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, nbins, nrows, ncols, d_globalminmax, d_predout, d_histout);
-		compute_mse_minmax_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, nbins, nrows, ncols, d_globalminmax, d_mseout, d_predout, d_histout, split_info[0].predict);
+		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, d_globalminmax, d_predout, d_histout);
+		compute_mse_minmax_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, d_globalminmax, d_mseout, d_predout, d_histout, split_info[0].predict);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, d_predout, d_histout, tempmem->d_quantile->data());
-		compute_mse_global_quantile_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labels, rowids, d_colids, nbins, nrows, ncols, d_mseout, d_predout, d_histout, tempmem->d_quantile->data(), split_info[0].predict);
+		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, d_predout, d_histout, tempmem->d_quantile->data());
+		compute_mse_global_quantile_kernel_reg<T, F><<<blocks, threads, shmemsize + n_mse_bytes, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, d_mseout, d_predout, d_histout, tempmem->d_quantile->data(), split_info[0].predict);
 	}
 	CUDA_CHECK(cudaGetLastError());
 	
