@@ -16,7 +16,7 @@
 
 #pragma once
 #include "algo_helper.h"
-#include "kernels/gini_def.h"
+#include "kernels/metric_def.h"
 #include "memory.cuh"
 #include <common/Timer.h>
 #include <vector>

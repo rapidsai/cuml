@@ -19,7 +19,7 @@
 #include "cub/cub.cuh"
 #include "../memory.cuh"
 #include <vector>
-#include "gini_def.h"
+#include "metric_def.h"
 #include "cuda_utils.h"
 
 template<class T>

@@ -16,7 +16,7 @@
 
 #include <utils.h>
 #include "decisiontree.h"
-#include "kernels/gini.cuh"
+#include "kernels/metric.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate_classifier.cuh"
