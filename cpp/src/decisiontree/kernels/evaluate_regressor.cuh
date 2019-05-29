@@ -17,7 +17,7 @@
 #pragma once
 #include <utils.h>
 #include <limits>
-#include "gini.cuh"
+#include "metric.cuh"
 #include "../memory.cuh"
 #include "col_condenser.cuh"
 #include <float.h>

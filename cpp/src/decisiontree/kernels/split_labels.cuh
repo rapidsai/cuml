@@ -18,7 +18,7 @@
 #include <utils.h>
 #include "cub/cub.cuh"
 #include <algorithm>
-#include "gini.cuh"
+#include "metric.cuh"
 #include "../algo_helper.h"
 
 template<typename T>
