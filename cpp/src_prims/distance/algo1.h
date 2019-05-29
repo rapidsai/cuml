@@ -44,6 +44,7 @@ namespace Distance {
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FragmentMultiplyAdd_ cutlass-fragment-level multiply & add
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ index type
  * @param NormLambda the final L2 norm lambda
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
@@ -61,8 +62,8 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FragmentMultiplyAdd_,
-          typename FinalLambda, typename NormLambda>
-void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
+          typename FinalLambda, typename NormLambda, typename Index_ = int>
+void distanceAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
                    OutType *pD, bool enable_sqrt, AccType *workspace,
                    size_t worksize, FinalLambda fin_op, NormLambda norm_op,
                    cudaStream_t stream) {
@@ -92,7 +93,6 @@ void distanceAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
   typedef cutlass::gemm::ThreadMultiplyAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef int Index_;
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;

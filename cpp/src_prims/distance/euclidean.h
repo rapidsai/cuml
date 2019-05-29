@@ -37,6 +37,7 @@ namespace Distance {
  * @tparam OutType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda the final lambda called by FragmentMultiplyAdd_
+ * @tparam Index_ index type
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -51,15 +52,16 @@ namespace Distance {
  * @{
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
-void euclideanAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
                     OutType *pD, bool enable_sqrt, AccType *workspace,
                     size_t &worksize, FinalLambda fin_op,
                     cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(InType in) { return in; };
-  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_>(
+  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
+                FinalLambda, decltype(norm_op), Index_>(
     m, n, k, pA, pB, pD, enable_sqrt, workspace, worksize, fin_op, norm_op,
     stream);
 }
@@ -72,6 +74,7 @@ void euclideanAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
  * @tparam OutType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ index type
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -84,8 +87,8 @@ void euclideanAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
  * @{
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
-void euclideanAlgo2(int m, int n, int k, InType const *pA, InType const *pB,
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
                     OutType *pD, bool enable_sqrt, FinalLambda fin_op,
                     cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
@@ -96,7 +99,6 @@ void euclideanAlgo2(int m, int n, int k, InType const *pA, InType const *pB,
   typedef LinAlg::ThreadDiffSquaredAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef int Index_;
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
