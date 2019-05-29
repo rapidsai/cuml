@@ -26,7 +26,11 @@ extern "C" {
 
 typedef int cumlHandle_t;
 
-enum cumlError_t { CUML_SUCCESS, CUML_ERROR_UNKNOWN, CUML_INVALID_HANDLE };
+typedef enum {
+    CUML_SUCCESS,
+    CUML_ERROR_UNKNOWN,
+    CUML_INVALID_HANDLE
+} cumlError_t;
 
 typedef cudaError_t (*cuml_allocate)(void** p,size_t n, cudaStream_t stream);
 typedef cudaError_t (*cuml_deallocate)(void* p, size_t n, cudaStream_t stream);

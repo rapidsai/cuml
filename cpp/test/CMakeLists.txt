@@ -38,6 +38,7 @@ if(BUILD_CUML_TESTS)
         ${CUDA_nvgraph_LIBRARY}
         faisslib
         ${CUML_CPP_TARGET}
+        ${CUML_C_TARGET}
         pthread
         ${ZLIB_LIBRARIES}
     )
