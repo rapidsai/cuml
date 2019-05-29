@@ -76,9 +76,9 @@ class LabelEncoder(object):
     """
 
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
         self._cats: nvcategory.nvcategory = None
         self._dtype = None
+        self._fitted: bool = False
 
     def _check_is_fitted(self):
         if not self._fitted:
