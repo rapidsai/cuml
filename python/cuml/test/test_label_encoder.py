@@ -33,8 +33,6 @@ def test_labelencoder_fit_transform(length, cardinality):
     df = cudf.Series(np.random.choice(cardinality, (length,)))
     encoded = LabelEncoder().fit_transform(df)
 
-    # df_arr = utils.to_nparray(df)
-    # encoded_arr = utils.to_nparray(encoded)
     df_arr = _df_to_similarity_mat(df)
     encoded_arr = _df_to_similarity_mat(df)
     assert ((encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)).all()
