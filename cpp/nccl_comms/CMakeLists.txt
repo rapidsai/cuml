@@ -44,3 +44,5 @@ list(APPEND CUML_LINK_LIBRARIES ${NCCL_LIBRARIES})
 
 add_library(cumlcomms SHARED src/cuML_comms_nccl_impl.cpp)
 target_link_libraries(cumlcomms ${CUML_LINK_LIBRARIES})
+
+install(TARGETS cumlcomms DESTINATION lib)
