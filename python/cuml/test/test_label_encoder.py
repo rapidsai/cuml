@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from cuml.preprocessing.LabelEncoder import LabelEncoder
-from cudf.tests import utils as cudf_utils
 import cudf
 from cuml.test import utils
 import pytest
@@ -34,7 +33,7 @@ def test_labelencoder_fit_transform(length, cardinality):
     encoded = LabelEncoder().fit_transform(df)
 
     df_arr = _df_to_similarity_mat(df)
-    encoded_arr = _df_to_similarity_mat(df)
+    encoded_arr = _df_to_similarity_mat(encoded)
     assert ((encoded_arr == encoded_arr.T) == (df_arr == df_arr.T)).all()
 
 
@@ -47,7 +46,7 @@ def test_labelencoder_transform(length, cardinality):
     le = LabelEncoder().fit(df)
     assert le._fitted
 
-    subset = df.iloc[0 : df.shape[0] // 2]
+    subset = df.iloc[0:df.shape[0] // 2]
     encoded = le.transform(subset)
 
     subset_arr = _df_to_similarity_mat(subset)
