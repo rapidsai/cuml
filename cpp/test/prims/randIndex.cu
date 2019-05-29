@@ -44,7 +44,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
   void SetUp() override {
 
     //getting the parameters
-    params = ::testing::TestWithParam<randIndexParam>::GetParam();  
+    params = ::testing::TestWithParam<randIndexParam>::GetParam();
 
     size = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
