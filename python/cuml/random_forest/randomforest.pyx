@@ -128,8 +128,8 @@ class RandomForest():
 
         n_unique_labels = 10
 
-        cdef rfClassifier[float] rf_classifier32
-        cdef rfClassifier[double] rf_classifier64
+        cdef rfClassifier[float] *rf_classifier32
+        cdef rfClassifier[double] *rf_classifier64
 
         if self.gdf_datatype.type == np.float32:
             fit(handle_[0],
@@ -180,8 +180,8 @@ class RandomForest():
         cdef cumlHandle* handle_ = <cumlHandle*> <size_t> self.handle.getHandle()
 
 
-        cdef rfClassifier[float] rf_classifier_pred32
-        cdef rfClassifier[double] rf_classifier_pred64
+        cdef rfClassifier[float] *rf_classifier_pred32
+        cdef rfClassifier[double] *rf_classifier_pred64
 
         if self.gdf_datatype.type == np.float32:
             predict(handle_[0],
