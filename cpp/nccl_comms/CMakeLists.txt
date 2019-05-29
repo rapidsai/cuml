@@ -20,7 +20,7 @@ project(cuML-comms VERSION 0.8.0 LANGUAGES CXX CUDA)
 set(CUML_DIR ${PROJECT_SOURCE_DIR}/.. CACHE STRING "Path to the cuML repo")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CUML_DIR}/cmake")
 
-find_package(NCCL)
+find_package(NCCL REQUIRED)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -38,11 +38,9 @@ include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_DI
 
 set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 
-if (NCCL_FOUND)
-    add_definitions(-DHAVE_NCCL)
-    include_directories( ${NCCL_INCLUDE_DIRS} )
-    list(APPEND CUML_LINK_LIBRARIES ${NCCL_LIBRARIES})
-endif()
+add_definitions(-DHAVE_NCCL)
+include_directories( ${NCCL_INCLUDE_DIRS} )
+list(APPEND CUML_LINK_LIBRARIES ${NCCL_LIBRARIES})
 
 add_library(cumlcomms SHARED src/cuML_comms_nccl_impl.cpp)
 target_link_libraries(cumlcomms ${CUML_LINK_LIBRARIES})

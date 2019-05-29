@@ -60,7 +60,7 @@ public:
     virtual void reducescatter(const void* sendbuff, void* recvbuff, int recvcount, datatype_t datatype, op_t op, cudaStream_t stream) const;
 
 private:
-    ncclComm_t                                            _nccl_comm;
+    ncclComm_t                                          _nccl_comm;
     int                                                 _size;
     int                                                 _rank;
 };
