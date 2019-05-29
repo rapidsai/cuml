@@ -26,10 +26,9 @@ using namespace Dbscan;
 // Default max mem set to a reasonable value for a 16gb card.
 static const size_t DEFAULT_MAX_MEM_BYTES = 13e9;
 
-template<typename T>
-int computeBatchCount(int n_rows, size_t max_bytes_per_batch) {
-
-    int n_batches = 1;
+template<typename T, typename Index_ = int>
+Index_ computeBatchCount(Index_ n_rows, size_t max_bytes_per_batch) {
+    Index_ n_batches = 1;
     // There seems to be a weird overflow bug with cutlass gemm kernels
     // hence, artifically limiting to a smaller batchsize!
     ///TODO: in future, when we bump up the underlying cutlass version, this should go away
@@ -43,9 +42,9 @@ int computeBatchCount(int n_rows, size_t max_bytes_per_batch) {
     return n_batches;
 }
 
-template<typename T>
+template<typename T, typename Index_ = int>
 void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input,
-        int n_rows, int n_cols,
+        Index_ n_rows, Index_ n_cols,
         T eps, int min_pts,
         int *labels,
         size_t max_bytes_per_batch,
@@ -59,7 +58,7 @@ void dbscanFitImpl(const ML::cumlHandle_impl& handle, T *input,
         // @todo: Query device for remaining memory
         max_bytes_per_batch = DEFAULT_MAX_MEM_BYTES;
 
-    int n_batches = computeBatchCount<T>(n_rows, max_bytes_per_batch);
+    Index_ n_batches = computeBatchCount<T, Index_>(n_rows, max_bytes_per_batch);
 
     if(verbose) {
         size_t batchSize = ceildiv<size_t>(n_rows, n_batches);
