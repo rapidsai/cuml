@@ -41,6 +41,8 @@ endif()
 
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml++ shared library" ON)
 
+option(BUILD_CUML_C_LIBRARY "Build libcuml shared library" ON)
+
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" ON)
@@ -68,6 +70,7 @@ set(CMAKE_IGNORE_PATH "${CMAKE_INSTALL_DIR}/lib" CACHE STRING
 
 # Disabling libcuml++ disables buidling algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
+  set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
@@ -263,14 +266,13 @@ set(PRIMS_TEST_UTILS
     src_prims/utils.h)
 
 ###################################################################################################
-# - build libcuml++ shared library ------------------------------------------------------------------
+# - build libcuml++ shared library ----------------------------------------------------------------
 
 if(BUILD_CUML_CPP_LIBRARY)
 
   set(CUML_CPP_TARGET "cuml++")
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
-    src/common/cuml_api.cpp
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
@@ -304,6 +306,17 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET} ${CUML_LINK_LIBRARIES})
 
 endif(BUILD_CUML_CPP_LIBRARY)
+
+###################################################################################################
+# - build libcuml shared library ------------------------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+  set(CUML_C_TARGET "cuml")
+  add_library(${CUML_C_TARGET} SHARED
+    src/common/cuml_api.cpp
+    src/dbscan/dbscan_api.cpp)
+  target_link_libraries(${CUML_C_TARGET} ${CUML_CPP_TARGET})
+endif(BUILD_CUML_C_LIBRARY)
 
 ###################################################################################################
 # - build test executables ------------------------------------------------------------------------
