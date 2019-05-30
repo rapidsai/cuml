@@ -16,7 +16,6 @@
 import pytest
 import cudf
 from cuml.preprocessing.utils import train_test_split
-import numpy as np
 
 
 @pytest.mark.parametrize("n_rows", [100, 1000, 10000, 100000])
@@ -79,6 +78,7 @@ def test_split_size_mismatch():
 
     with pytest.raises(ValueError):
         train_test_split(X, y)
+
 
 def test_split_invalid_proportion():
     X = cudf.DataFrame({'x': range(10)})
