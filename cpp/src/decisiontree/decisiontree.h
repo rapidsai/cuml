@@ -96,7 +96,7 @@ struct DecisionTreeParams {
 };
 
 template<class T, class L>
-class dt {
+class DecisionTreeBase {
 	protected:
 		int split_algo;
 		TreeNode<T, L> *root = nullptr;
@@ -133,10 +133,10 @@ class dt {
 		void predict_all(const T * rows, const int n_rows, const int n_cols, L * preds, bool verbose=false) const;
 		L predict_one(const T * row, const TreeNode<T, L> * const node, bool verbose=false) const;
 
-}; // End dt Class
+}; // End DecisionTreeBase Class
 
 template<class T>
-class DecisionTreeClassifier : public dt<T, int> {
+class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
 public:
 	// Expects column major T dataset, integer labels
 	// data, labels are both device ptr.
@@ -157,7 +157,7 @@ private:
 }; // End DecisionTreeClassifier Class
 
 template<class T>
-class DecisionTreeRegressor : public dt<T, T> {
+class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
 public:
 	void fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels, unsigned int *rowids,
 			const int n_sampled_rows, DecisionTreeParams tree_params);

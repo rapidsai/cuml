@@ -89,7 +89,7 @@ class rf {
 	protected:
 		RF_params rf_params;
 		int rf_type;
-		virtual const DecisionTree::dt<T, L> * get_trees_ptr() const = 0;
+		virtual const DecisionTree::DecisionTreeBase<T, L> * get_trees_ptr() const = 0;
 		~rf() = default;
 
 	public:

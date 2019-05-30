@@ -95,7 +95,7 @@ void DecisionTreeParams::print() const {
  * @tparam L: data type for labels (int type for classification, T type for regression).
  */
 template<typename T, typename L>
-void dt<T, L>::print_tree_summary() const {
+void DecisionTreeBase<T, L>::print_tree_summary() const {
 	std::cout << " Decision Tree depth --> " << depth_counter << " and n_leaves --> " << leaf_counter << std::endl;
 	std::cout << " Total temporary memory usage--> "<< ((double)total_temp_mem / (1024*1024)) << "  MB" << std::endl;
 	std::cout << " Tree growing time --> " << construct_time << " seconds" << std::endl;
@@ -108,14 +108,14 @@ void dt<T, L>::print_tree_summary() const {
  * @tparam L: data type for labels (int type for classification, T type for regression).
  */
 template<typename T, typename L>
-void dt<T, L>::print() const {
+void DecisionTreeBase<T, L>::print() const {
 	print_tree_summary();
 	print_node("", this->root, false);
 }
 
 
 template<typename T, typename L>
-void dt<T, L>::print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const {
+void DecisionTreeBase<T, L>::print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const {
 
 	if (node != nullptr) {
 		std::cout << prefix;
@@ -132,7 +132,7 @@ void dt<T, L>::print_node(const std::string& prefix, const TreeNode<T, L>* const
 }
 
 template<typename T, typename L>
-void dt<T, L>::split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft,
+void DecisionTreeBase<T, L>::split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft,
 											int& nrowsright, unsigned int* rowids) {
 
 	T *temp_data = this->tempmem[0]->temp_data->data();
@@ -153,7 +153,7 @@ void dt<T, L>::split_branch(T *data, MetricQuestion<T> & ques, const int n_sampl
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T, typename L>
-void dt<T, L>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, L* predictions, bool verbose) const {
+void DecisionTreeBase<T, L>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, L* predictions, bool verbose) const {
 	ASSERT(root, "Cannot predict w/ empty tree!");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
@@ -161,14 +161,14 @@ void dt<T, L>::predict(const ML::cumlHandle& handle, const T * rows, const int n
 }
 
 template<typename T, typename L>
-void dt<T, L>::predict_all(const T * rows, const int n_rows, const int n_cols, L * preds, bool verbose) const {
+void DecisionTreeBase<T, L>::predict_all(const T * rows, const int n_rows, const int n_cols, L * preds, bool verbose) const {
 	for (int row_id = 0; row_id < n_rows; row_id++) {
 		preds[row_id] = predict_one(&rows[row_id * n_cols], this->root, verbose);
 	}
 }
 
 template<typename T, typename L>
-L dt<T, L>::predict_one(const T * row, const TreeNode<T, L>* const node, bool verbose) const {
+L DecisionTreeBase<T, L>::predict_one(const T * row, const TreeNode<T, L>* const node, bool verbose) const {
 
 	Question<T> q = node->question;
 	if (node->left && (row[q.column] <= q.value)) {
@@ -547,10 +547,10 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 }
 
 //Class specializations
-template class dt<float, int>;
-template class dt<float, float>;
-template class dt<double, int>;
-template class dt<double, double>;
+template class DecisionTreeBase<float, int>;
+template class DecisionTreeBase<float, float>;
+template class DecisionTreeBase<double, int>;
+template class DecisionTreeBase<double, double>;
 
 template class DecisionTreeClassifier<float>;
 template class DecisionTreeClassifier<double>;
