@@ -29,7 +29,7 @@ namespace Metrics{
 //parameter structure definition
 struct randIndexParam{
 
-  int64_t nElements;
+  uint64_t nElements;
   int lowerLabelRange;
   int upperLabelRange;
   float tolerance;
@@ -72,21 +72,21 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
             }
         }
     }
-    int64_t nChooseTwo = size*(size-1)/2;
+    uint64_t nChooseTwo = (size*(size-1))/2;
     truthRandIndex = (float)(((float)(a_truth + b_truth))/(float)nChooseTwo);
     
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(firstClusterArray,size);
-    MLCommon::allocate(secondClusterArray,size);
+    MLCommon::allocate(firstClusterArray,size,true);
+    MLCommon::allocate(secondClusterArray,size,true);
 
-        MLCommon::updateDevice(firstClusterArray,&arr1[0],(int)size,stream);
-        MLCommon::updateDevice(secondClusterArray,&arr2[0],(int)size,stream);
-        std::shared_ptr<MLCommon::deviceAllocator> allocator(new defaultDeviceAllocator);
+    MLCommon::updateDevice(firstClusterArray,&arr1[0],(int)size,stream);
+    MLCommon::updateDevice(secondClusterArray,&arr2[0],(int)size,stream);
+    std::shared_ptr<MLCommon::deviceAllocator> allocator(new defaultDeviceAllocator);
 
 
-        //calling the randIndex CUDA implementation
-        computedRandIndex = MLCommon::Metrics::computeRandIndex(firstClusterArray,secondClusterArray,size,allocator,stream);
+    //calling the randIndex CUDA implementation
+    computedRandIndex = MLCommon::Metrics::computeRandIndex(firstClusterArray,secondClusterArray,size,allocator,stream);
 
     }
 
@@ -106,7 +106,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
     int lowerLabelRange=0,upperLabelRange=2;
     T* firstClusterArray=nullptr;
     T* secondClusterArray = nullptr;
-    int64_t size=5;
+    uint64_t size=0;
     float truthRandIndex=0;
     float computedRandIndex = 0;
     cudaStream_t stream;
@@ -119,7 +119,9 @@ const std::vector<randIndexParam> inputs = {
     {200, 1, 100, 0.000001},
     {10, 1, 1200, 0.000001},
     {100, 1, 10000, 0.000001},
-    {198, 1, 100, 0.000001}
+    {198, 1, 100, 0.000001},
+    {300, 3, 99, 0.000001},
+    {2, 0, 0, 0.00001}
 };
 
 

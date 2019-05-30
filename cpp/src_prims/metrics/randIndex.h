@@ -111,6 +111,9 @@ template <typename T>
 float computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t size,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
 
+  //rand index for size less than 2 is not defined
+  ASSERT(size>=2,"Rand Index for size less than 2 not defined!");
+
   //allocating and initializing memory for a and b in the GPU
   MLCommon::device_buffer<uint64_t> arr_buf (allocator, stream, 2);
   CUDA_CHECK(cudaMemsetAsync(arr_buf.data(),0,2*sizeof(uint64_t),stream));
