@@ -1,1 +1,1 @@
-from cuml.preprocessing.utils import train_test_split
+from cuml.preprocessing.model_selection import train_test_split
