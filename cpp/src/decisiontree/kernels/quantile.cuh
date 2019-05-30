@@ -42,12 +42,15 @@ __global__ void get_all_quantiles(const T* __restrict__ data, T* quantile, const
 template<typename T, typename L>
 void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
 
+	/*
 	// Dynamically determine batch_cols (number of columns processed per loop iteration) from the available device memory.
 	size_t free_mem, total_mem;
 	CUDA_CHECK(cudaMemGetInfo(&free_mem, &total_mem));
 	int max_ncols = free_mem / (2 * n_sampled_rows * sizeof(T));
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
+	*/
+	int batch_cols = 1; // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
 
 	int threads = 128;
 	MLCommon::device_buffer<int> *d_offsets;

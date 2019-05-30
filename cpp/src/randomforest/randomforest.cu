@@ -167,7 +167,7 @@ int rf<T, L>::get_ntrees() {
  */
 template<typename T, typename L>
 void rf<T, L>::print_rf_summary() {
-	const DecisionTree::dt<T, L> * trees = get_trees_ptr();
+	const DecisionTree::DecisionTreeBase<T, L> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -189,7 +189,7 @@ void rf<T, L>::print_rf_summary() {
 template<typename T, typename L>
 void rf<T, L>::print_rf_detailed() {
 
-	const DecisionTree::dt<T, L> * trees = get_trees_ptr();
+	const DecisionTree::DecisionTreeBase<T, L> * trees = get_trees_ptr();
 	if (!trees) {
 		std::cout << "Empty forest" << std::endl;
 	} else {
@@ -259,10 +259,21 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
+		MLCommon::device_buffer<unsigned int> sorted_selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
+
+		// Will sort selected_rows (row IDs), prior to fit, to improve access patterns
+		MLCommon::device_buffer<char> * rows_temp_storage = nullptr;
+		size_t   temp_storage_bytes = 0;
+		CUDA_CHECK(cub::DeviceRadixSort::SortKeys(rows_temp_storage, temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
+			n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
+		// Allocate temporary storage
+		rows_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, temp_storage_bytes);
 
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
+			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
 		} else { // Sampling w/o replacement
 			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
 			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
@@ -270,7 +281,8 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			int *perms = nullptr;
 			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
 			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
-			MLCommon::copyAsync(selected_rows.data(), outkeys->data(), n_sampled_rows, stream);
+			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, outkeys->data(), sorted_selected_rows.data(),
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
 			inkeys->release(stream);
 			outkeys->release(stream);
 			delete inkeys;
@@ -280,13 +292,16 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
 		   - n_sampled_rows: # rows sampled for tree's bootstrap sample.
-		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
+		   - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
+		trees[i].fit(user_handle, input, n_cols, n_rows, labels, sorted_selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
 
 		//Cleanup
+		rows_temp_storage->release(stream);
 		selected_rows.release(stream);
+		sorted_selected_rows.release(stream);
+		delete rows_temp_storage;
 	}
 }
 
@@ -431,10 +446,21 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
-		
+		MLCommon::device_buffer<unsigned int> sorted_selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
+
+		// Will sort selected_rows (row IDs), prior to fit, to improve access patterns
+		MLCommon::device_buffer<char> *rows_temp_storage = nullptr;
+		size_t   temp_storage_bytes = 0;
+		CUDA_CHECK(cub::DeviceRadixSort::SortKeys(rows_temp_storage, temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
+			n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
+		// Allocate temporary storage
+		rows_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, temp_storage_bytes);
+
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
 			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
+			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
 		} else { // Sampling w/o replacement
 			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
 			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
@@ -442,7 +468,8 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 			int *perms = nullptr;
 			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
 			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
-			MLCommon::copyAsync(selected_rows.data(), outkeys->data(), n_sampled_rows, stream);
+			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, outkeys->data(), sorted_selected_rows.data(),
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
 			inkeys->release(stream);
 			outkeys->release(stream);
 			delete inkeys;
@@ -452,13 +479,16 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
 		   - n_sampled_rows: # rows sampled for tree's bootstrap sample.
-		   - selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
+		   - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
-		trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, this->rf_params.tree_params);
+		trees[i].fit(user_handle, input, n_cols, n_rows, labels, sorted_selected_rows.data(), n_sampled_rows, this->rf_params.tree_params);
 
 		//Cleanup
+		rows_temp_storage->release(stream);
 		selected_rows.release(stream);
+		sorted_selected_rows.release(stream);
+		delete rows_temp_storage;
 	}
 }
 
