@@ -31,6 +31,7 @@ def train_test_split(
     y: Union[str, cudf.Series],
     train_size: float = 0.8,
     shuffle: bool = True,
+    seed: int = None
 ) -> Tuple[cudf.DataFrame, cudf.DataFrame, cudf.DataFrame, cudf.DataFrame]:
     """
     Partitions the data into four collated dataframes, mimicing sklearn's
@@ -47,6 +48,8 @@ def train_test_split(
         Proportion [0, 1] of the data to be assigned to the training set
     shuffle : bool, optional
         Whether or not to shuffle inputs before splitting
+    seed : int, optional
+        If shuffle is true, seeds the generator. Unseeded by default
 
     Returns
     -------
@@ -60,6 +63,9 @@ def train_test_split(
                 train_size
             )
         )
+
+    if seed is not None:
+        np.random.seed(seed)
 
     if isinstance(y, str):
         # Use the column with name `str` as y
