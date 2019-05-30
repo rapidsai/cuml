@@ -107,6 +107,9 @@ def gpu_zeros(size, out):
 
 
 def zeros(size, dtype):
+    """
+    Return device array of zeros generated on device,
+    """
     out = rmm.device_array(size, dtype=dtype)
     if size > 0:
         gpu_zeros.forall(size)(size, out)
