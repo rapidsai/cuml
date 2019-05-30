@@ -113,7 +113,7 @@ float computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t si
 
   //allocating and initializing memory for a and b in the GPU
   MLCommon::device_buffer<uint64_t> arr_buf (allocator, stream, 2);
-  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(),0,2,stream));
+  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(),0,2*sizeof(uint64_t),stream));
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
