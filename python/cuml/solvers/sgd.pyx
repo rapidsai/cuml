@@ -314,7 +314,7 @@ class SGD(Base):
         cdef double c_intercept2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             sgdFit(handle_[0],
                    <float*>X_ptr,
                    <int>n_rows,
@@ -392,7 +392,7 @@ class SGD(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             sgdPredict(handle_[0],
                        <float*>X_ptr,
                        <int>n_rows,

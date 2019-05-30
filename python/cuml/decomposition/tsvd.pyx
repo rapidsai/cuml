@@ -311,7 +311,7 @@ class TruncatedSVD(Base):
             raise ValueError(' n_components must be < n_features')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
                              <float*> t_input_ptr,

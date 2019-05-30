@@ -260,7 +260,7 @@ class LinearRegression(Base):
         cdef double c_intercept2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
 
             olsFit(handle_[0],
                    <float*>X_ptr,

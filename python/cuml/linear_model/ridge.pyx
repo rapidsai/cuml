@@ -283,7 +283,7 @@ class Ridge(Base, RegressorMixin):
         cdef double c_alpha2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             c_alpha1 = self.alpha
             ridgeFit(handle_[0],
                      <float*>X_ptr,
