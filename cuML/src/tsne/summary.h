@@ -25,7 +25,7 @@ void summarizationKernel(const int N_NODES,
 
     bottom = bottomd;
     inc = blockDim.x * gridDim.x;
-    k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;        // align to warp size
+    k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;
     if (k < bottom) k += inc;
 
     int restart = k;

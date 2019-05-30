@@ -11,19 +11,18 @@ namespace Repulsion_ {
 
 __global__
 __launch_bounds__(THREADS5, FACTOR5)
-void repulsionKernel(int nnodesd, 
-                    int nbodiesd, 
-                    volatile int * __restrict errd, 
+void repulsionKernel(int nnodesd,  int nbodiesd, 
+                    volatile int * __restrict__ errd, 
                     float theta, 
                     float epssqd, // correction for zero distance
-                    volatile int * __restrict sortd, 
-                    volatile int * __restrict childd, 
-                    volatile float * __restrict massd, 
-                    volatile float * __restrict posxd, 
-                    volatile float * __restrict posyd, 
-                    volatile float * __restrict velxd, 
-                    volatile float * __restrict velyd,
-                    volatile float * __restrict normd) 
+                    volatile int * __restrict__ sortd, 
+                    volatile int * __restrict__ childd, 
+                    volatile float * __restrict__ massd, 
+                    volatile float * __restrict__ posxd, 
+                    volatile float * __restrict__ posyd, 
+                    volatile float * __restrict__ velxd, 
+                    volatile float * __restrict__ velyd,
+                    volatile float * __restrict__ normd) 
 {
     int i, j, k, n, depth, base, sbase, diff, pd, nd;
     float px, py, vx, vy, dx, dy, normsum, tmp, mult;
@@ -33,8 +32,8 @@ void repulsionKernel(int nnodesd,
     if (0 == threadIdx.x) {
         dq[0] = (radiusd * radiusd) / (theta * theta); 
         for (i = 1; i < maxdepthd; i++) {
-                dq[i] = dq[i - 1] * 0.25f; // radius is halved every level of tree so squared radius is quartered
-                dq[i - 1] += epssqd;
+            dq[i] = dq[i - 1] * 0.25f; // radius is halved every level of tree so squared radius is quartered
+            dq[i - 1] += epssqd;
         }
         dq[i - 1] += epssqd;
 
@@ -95,7 +94,7 @@ void repulsionKernel(int nnodesd,
                             if ((n < nbodiesd) || __all(tmp >= dq[depth])) {    // check if all threads agree that cell is far enough away (or is a body)
                         #endif
                             // from bhtsne - sptree.cpp
-                            tmp = 1 / (1 + tmp);
+                            tmp = 1.0f / (1.0f + tmp);
                             mult = massd[n] * tmp;
                             normsum += mult;
                             mult *= tmp;

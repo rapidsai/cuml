@@ -134,8 +134,8 @@ void searchPerplexity(  float * __restrict__ Pij,
 
     // To find minimum in found array
     // From UMAP
-    thrust::device_ptr<const bool> found_begin = thrust::device_pointer_cast(found);
-    thrust::device_ptr<const bool> found_end = found_begin + n;
+    thrust::device_ptr<bool> found_begin = thrust::device_pointer_cast(found);
+    thrust::device_ptr<bool> found_end = found_begin + n;
 
 
     // Find best kernel bandwidth for each row

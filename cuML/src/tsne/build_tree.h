@@ -18,7 +18,7 @@ void clearKernel1(  const int N_NODES,
     int top = 4 * N_NODES;
     int bottom = 4 * nbodiesd;
     int inc = blockDim.x * gridDim.x;
-    int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;        // align to warp size
+    int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;
     if (k < bottom) k += inc;
 
     // iterate over all cells assigned to thread
@@ -94,7 +94,7 @@ void treeBuildingKernel(const int N_NODES,
         if (ch != -2) {    // skip if child pointer is locked and try again later
             locked = n*4 + j;
             if (ch == -1) {
-                if (-1 == atomicCAS((int *)&childd[locked], -1, i)) {    // if null, just insert the new body
+                if (-1 == atomicCAS((int *) &childd[locked], -1, i)) {    // if null, just insert the new body
                     localmaxdepth = MAX(depth, localmaxdepth);
                     i += inc;    // move on to next body
                     skip = 1;
@@ -160,7 +160,7 @@ void clearKernel2(  const int N_NODES,
 {   
     int bottom = bottomd;
     int inc = blockDim.x * gridDim.x;
-    int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;    // align to warp size
+    int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;
     if (k < bottom) k += inc;
 
     // iterate over all cells assigned to thread

@@ -3,104 +3,128 @@ using namespace ML;
 #include "utils.h"
 #include "cuda_utils.h"
 
+
 #pragma once
 
 //
 namespace Attraction_ {
 
 
+// Maps i to j for CSR to COO matrices
 __global__
-void PQ_kernel(int N, int nnz, int nnodes,
-                volatile int   * indices,
-                volatile float * __restrict__ P,
-                volatile float * __restrict__ Force,
+void map_i_to_j(int n, int NNZ, 
+                volatile int * __restrict__ ROW,
+                volatile int * __restrict__ COL,
+                volatile int * __restrict__ mapping_i_to_j)
+{
+    int TID = threadIdx.x + blockIdx.x * blockDim.x;
+    if (TID >= NNZ) return;
+
+    int start = 0;
+    int end = n + 1;
+    int i = (n + 1) >> 1;
+    int j;
+    while (end - start > 1) {
+        j = ROW[i];
+        end = (j <= TID) ? end : i;
+        start = (j > TID) ? start : i;
+        i = (start + end) >> 1;
+    }
+    mapping_i_to_j[2*TID] = i;
+    mapping_i_to_j[2*TID + 1] = COL[TID]; // = j
+}
+
+
+
+// P * Q
+__global__
+void PQ_Kernel(const int NNZ, const int N_NODES,
+                volatile int * __restrict__ mapping_i_to_j,
+                volatile float * __restrict__ P,            // Also is VAL in CSR matrix
+                volatile float * __restrict__ PQ,           // force product
                 volatile float * __restrict__ embedding)
 {
-    int TID, i, j;
     float ix, iy, jx, jy, dx, dy;
-    TID = threadIdx.x + blockIdx.x * blockDim.x;
-    if (TID >= nnz) return;
 
-    i = indices[2*TID];
-    j = indices[2*TID + 1];
-    ix = embedding[i]; iy = embedding[nnodes + 1 + i];
-    jx = embedding[j]; jy = embedding[nnodes + 1 + j];
+    int TID = threadIdx.x + blockIdx.x * blockDim.x;
+    if (TID >= NNZ) return;
+
+    int i = mapping_i_to_j[2*TID];
+    int j = mapping_i_to_j[2*TID + 1];
+    ix = embedding[i]; iy = embedding[N_NODES + 1 + i];
+    jx = embedding[j]; jy = embedding[N_NODES + 1 + j];
     dx = ix - jx;
     dy = iy - jy;
-    Force[TID] = P[TID] * 1 / (1 + dx*dx + dy*dy);
+    PQ[TID] = P[TID] / (1.0f + dx*dx + dy*dy);
 }
 
 
 
-// computes unnormalized attractive forces
-void computeAttrForce(  const int N,
-                        const int nnz,
-                        const int nnodes,
-                        const int threads,
-                        const int blocks,
-                        const cusparseHandle_t &handle,
-                        const cusparseMatDescr_t &descr,
-                        const float * __restrict__ VAL,
-                        const int * __restrict__ COL,
-                        const int * __restrict__ ROW,
-                        float * __restrict__ PQ,
-                        const float * __restrict__ embedding,
-                        
+// Computes Attractive Forces with cuSPARSE
+void attractionForces(
+    const int n, const int NNZ, const int N_NODES,
+    const int ATTRACT_GRIDSIZE, const int ATTRACT_BLOCKSIZE,
 
+    cudaStream_t stream,
+    Sparse_handle_t Sparse_Handle,
 
-                        thrust::device_vector<float> &sparsePij,
-                        thrust::device_vector<int>   &pijRowPtr, // (N + 1)-D vector, should be constant L
-                        thrust::device_vector<int>   &pijColInd, // NxL matrix (same shape as sparsePij)
-                        thrust::device_vector<float> &forceProd, // NxL matrix
-                        thrust::device_vector<float> &pts,       // (nnodes + 1) x 2 matrix
-                        thrust::device_vector<float> &forces,    // N x 2 matrix
-                        thrust::device_vector<float> &ones,
-                        thrust::device_vector<int> &indices)      // N x 2 matrix of ones
+    const float * __restrict__ VAL,             // also is P
+    const int * __restrict__ mapping_i_to_j,
+
+    float * __restrict__ PQ,                    // force product
+    const float * __restrict__ embedding,
+    float * __restrict__ attraction,            // attraction forces
+
+    CSR_t CSR_Matrix,
+    Dense_t Ones_Matrix,
+    Dense_t Embedding_Matrix,
+    Dense_t Output_Matrix,
+    void * __restrict__ buffer                  // For spMM usage
+    )
 {
-    // // Computes pij*qij for each i,j
-    // PQ_kernel<<<threads, blocks>>>(
-    //     N, nnz, nnodes,
-    //     indices, thrust::raw_pointer_cast(indices.data()),
-    //                                     thrust::raw_pointer_cast(sparsePij.data()),
-    //                                     thrust::raw_pointer_cast(forceProd.data()),
-    //                                     thrust::raw_pointer_cast(pts.data()));
-    // // ComputePijxQijKernel<<<blocks*FACTOR7,THREADS7>>>(N, nnz, nnodes,
-    // //                                     thrust::raw_pointer_cast(indices.data()),
-    // //                                     thrust::raw_pointer_cast(sparsePij.data()),
-    // //                                     thrust::raw_pointer_cast(forceProd.data()),
-    // //                                     thrust::raw_pointer_cast(pts.data()));
-    // GpuErrorCheck(cudaDeviceSynchronize());
+    // Pij * Qij
+    Attraction_::PQ_Kernel<<<ATTRACT_GRIDSIZE, ATTRACT_BLOCKSIZE>>>(
+        n, NNZ, N_NODES,
+        mapping_i_to_j, VAL, PQ, embedding);
+    cuda_synchronize();
 
-    // // compute forces_i = sum_j pij*qij*normalization*yi
-    // float alpha = 1.0f;
-    // float beta = 0.0f;
-    // CusparseSafeCall(cusparseScsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-    //                         N, 2, N, nnz, &alpha, descr,
-    //                         thrust::raw_pointer_cast(forceProd.data()),
-    //                         thrust::raw_pointer_cast(pijRowPtr.data()),
-    //                         thrust::raw_pointer_cast(pijColInd.data()),
-    //                         thrust::raw_pointer_cast(ones.data()),
-    //                         N, &beta, thrust::raw_pointer_cast(forces.data()),
-    //                         N));
-    // GpuErrorCheck(cudaDeviceSynchronize());
-    // thrust::transform(forces.begin(), forces.begin() + N, pts.begin(), forces.begin(), thrust::multiplies<float>());
-    // thrust::transform(forces.begin() + N, forces.end(), pts.begin() + nnodes + 1, forces.begin() + N, thrust::multiplies<float>());
 
-    // // compute forces_i = forces_i - sum_j pij*qij*normalization*yj
-    // alpha = -1.0f;
-    // beta = 1.0f;
-    // CusparseSafeCall(cusparseScsrmm(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
-    //                         N, 2, N, nnz, &alpha, descr,
-    //                         thrust::raw_pointer_cast(forceProd.data()),
-    //                         thrust::raw_pointer_cast(pijRowPtr.data()),
-    //                         thrust::raw_pointer_cast(pijColInd.data()),
-    //                         thrust::raw_pointer_cast(pts.data()),
-    //                         nnodes + 1, &beta, thrust::raw_pointer_cast(forces.data()),
-    //                         N));
-    // GpuErrorCheck(cudaDeviceSynchronize());
-    
+    // Z = sum (Qij)
+    // Forces = sum ( Pij * Qij * Z * Yi)
+    Utils_::spMM(Sparse_Handle,
+        CSR_Matrix,
+        Ones_Matrix,
+        1.0f, 0.0f,
+        Output_Matrix,
+        buffer);
+    cuda_synchronize();
 
+
+    // Do some vector multiplications
+    thrust::device_ptr<float> attraction_begin = thrust::device_pointer_cast(attraction);
+    thrust::device_ptr<float> embedding_begin = thrust::device_pointer_cast(embedding);
+
+    thrust::transform(
+        thrust::cuda::par.on(stream),
+        attraction_begin, attraction_begin + n,
+        embedding_begin, attraction_begin, thrust::multiplies<float>());
+
+    thrust::transform(
+        thrust::cuda::par.on(stream),
+        attraction_begin + n, attraction_begin + 2*n,
+        embedding_begin + N_NODES + 1, attraction_begin + n, thrust::multiplies<float>());
+
+
+    // Remove mean (Yi - Yj) So Forces -= sum ( Pij * Qij * Z * Yj)
+    Utils_::spMM(Sparse_Handle,
+        CSR_Matrix,
+        Embedding_Matrix,
+        -1.0f, 1.0f,
+        Output_Matrix,
+        buffer);
+    cuda_synchronize();
 }
+
 
 // end namespace
 }

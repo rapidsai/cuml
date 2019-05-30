@@ -20,7 +20,7 @@ using namespace MLCommon::Sparse;
 
 
 template <typename Type>
-void runTsne(   const Type * __restrict__ X,
+float *runTsne( const Type * __restrict__ X,
                 const int n,
                 const int p,
                 const int n_components = 2,
@@ -118,13 +118,26 @@ void runTsne(   const Type * __restrict__ X,
     int *COL = P_PT.cols;
     int *ROW;       cuda_malloc(ROW, n+1);
     MLCommon::Sparse::sorted_coo_to_csr(&P_PT, ROW, stream);
-    
+
+
+    // Create indices array
+    int *mapping_i_to_j;    cuda_malloc(mapping_i_to_j, NNZ);
+    Attraction_::map_i_to_j\
+        <<<Utils_::ceildiv(NNZ, 1024), 1024>>>(n, NNZ, ROW, COL, mapping_i_to_j);
+    //
 
     // Allocate space
+    const int SIZE_EMBEDDING = (N_NODES + 1)*2;
+
     float *PQ;              cuda_malloc(PQ, NNZ);
-    float *repulsion;       cuda_calloc(repulsion, (N_NODES+1)*2, 0.0f, stream);
+    float *repulsion;       cuda_calloc(repulsion, SIZE_EMBEDDING, 0.0f, stream);
     float *attraction;      cuda_calloc(attraction, n*2, 0.0f, stream);
+
     float *normalization;   cuda_malloc(normalization, N_NODES+1);
+    thrust::device_ptr<float> normalization_begin = thrust::device_pointer_cast(normalization);
+    thrust::device_ptr<float> normalization_end = normalization_begin + N_NODES+1;
+    float norm;
+
 
     float *gains;           cuda_calloc(gains, n*2, 1.0f, stream);
     float *old_forces;      cuda_calloc(prev_forces, n*2, 0.0f, stream);
@@ -139,20 +152,54 @@ void runTsne(   const Type * __restrict__ X,
     float *y_max;           cuda_malloc(y_max, BLOCKS*FACTOR1);
     float *x_min;           cuda_malloc(x_min, BLOCKS*FACTOR1);
     float *y_min;           cuda_malloc(y_min, BLOCKS*FACTOR1);
+    float *ones;            cuda_calloc(ones, n*2, 1.0f, stream);
 
 
     // Intialize embedding
-    float *embedding = Intialization_::randomVector(-100, 100, (N_NODES+1)*2, seed, stream);
+    float *embedding = Intialization_::randomVector(-100, 100, SIZE_EMBEDDING, seed, stream);
+    thrust::device_ptr<float> embedding_begin = thrust::device_pointer_cast(embedding);
 
     // Make a random vector to add noise to the embeddings
-    float *noise = Intialization_::randomVector(-0.05, 0.05, (N_NODES+1)*2, seed, stream);
-
+    float *noise = Intialization_::randomVector(-0.05, 0.05, SIZE_EMBEDDING, seed, stream);
+    thrust::device_ptr<float> noise_begin = thrust::device_pointer_cast(noise);
 
 
     // Gradient updates
     float exaggeration = early_exaggeration;
     float momentum = pre_momentum;
 
+    // Component locations
+    float * __restrict__ embedding_x = embedding;
+    float * __restrict__ embedding_y = embedding + N_NODES + 1;
+    float * __restrict__ repulsion_x = repulsion;
+    float * __restrict__ repulsion_y = repulsion + N_NODES + 1;
+
+
+    // Calculate attraction force grid / block size
+    int ATTRACT_BLOCKSIZE;
+    int ATTRACT_MIN_GRID;
+    cudaOccupancyMaxPotentialBlockSize(
+        &ATTRACT_MIN_GRID, &ATTRACT_BLOCKSIZE, Attraction_::PQ_Kernel, 0, 0);
+    const int ATTRACT_GRIDSIZE = (NNZ + ATTRACT_BLOCKSIZE - 1) / ATTRACT_BLOCKSIZE;
+    //
+
+
+
+    // Convert to cuSPARSE layout
+    CSR_t CSR_Matrix;
+    Dense_t Ones_Matrix, Embedding_Matrix, Output_Matrix;
+    Sparse_handle_t Sparse_Handle; createHandle(&Sparse_Handle);
+
+    Utils_::createCSR(&CSR_Matrix, n, n, NNZ, PQ, COL, ROW);
+    Utils_::createDense(&Ones_Matrix, n, 2, ones);
+    Utils_::createDense(&Embedding_Matrix, N_NODES+1, 2, embedding);
+    Utils_::createDense(&Output_Matrix, n, 2, attraction);
+
+    void *buffer = Utils_::createBuffer(Sparse_Handle, CSR_Matrix, Ones_Matrix, Output_Matrix);
+    //
+
+
+    // Gradient Loop
     for (size_t i = 0; i < max_iter; i++) {
         if (i == exaggeration_iter) {
             exaggeration = 1.0f;
@@ -161,7 +208,7 @@ void runTsne(   const Type * __restrict__ X,
 
         // Zero out repulsion and attraction
         cuda_memset(attraction, n*2);
-        cuda_memset(repulsion, (N_NODES+1)*2);
+        cuda_memset(repulsion, SIZE_EMBEDDING);
         //
 
 
@@ -171,8 +218,8 @@ void runTsne(   const Type * __restrict__ X,
             cell_starts,
             children,
             cell_mass,
-            embedding,
-            embedding + N_NODES + 1,
+            embedding_x,
+            embedding_y,
             x_max,
             y_max,
             x_min,
@@ -187,8 +234,8 @@ void runTsne(   const Type * __restrict__ X,
         BuildTree_::treeBuildingKernel<<<BLOCKS*FACTOR2, THREADS2>>>(
             N_NODES, n, errd,
             children,
-            embedding,
-            embedding + N_NODES + 1);
+            embedding_x,
+            embedding_y);
         
         BuildTree_::clearKernel2<<<BLOCKS, 1024>>>(N_NODES, cell_starts, cell_mass);
         cuda_synchronize();
@@ -201,8 +248,8 @@ void runTsne(   const Type * __restrict__ X,
             cell_counts,
             children,
             cell_mass,
-            embedding,
-            embedding + N_NODES + 1);
+            embedding_x,
+            embedding_y);
         cuda_synchronize();
 
         Summary_::sortKernel<<<BLOCKS*FACTOR4, THREADS4>>>(
@@ -222,24 +269,74 @@ void runTsne(   const Type * __restrict__ X,
             cell_sorted,
             children,
             cell_mass,
-            embedding,
-            embedding + N_NODES + 1,
-            repulsion,
-            repulsion + N_NODES + 1,
+            embedding_x,
+            embedding_y,
+            repulsion_x,
+            repulsion_y,
             normalization);
         cuda_synchronize();
 
+        // Calculate normalization
+        norm = Utils_::sum_array(normalization_begin, normalization_end);
+
+
+        // Attractive forces
+        Attraction_::attractionForces(
+            n, NNZ, N_NODES,
+            ATTRACT_GRIDSIZE, ATTRACT_BLOCKSIZE,
+            stream, Sparse_Handle,
+            VAL,
+            mapping_i_to_j,
+            PQ,
+            embedding,
+            attraction,
+            CSR_Matrix,
+            Ones_Matrix,
+            Embedding_Matrix,
+            Output_Matrix,
+            buffer);
+        cuda_synchronize();
+
+
+        // Apply all forces
+        ApplyForces_::applyForcesKernell<<<BLOCKS*FACTOR6, THREADS6>>>(
+            n, N_NODES,
+            learning_rate,
+            norm,
+            momentum,
+            exaggeration,
+            embedding,
+            attraction,
+            repulsion,
+            gains,
+            old_forces);
+        cuda_synchronize();
+
+
+        // Add random noise to embedding so points don't overlap
+        // embedding[:n] = embedding + noise
+        thrust::transform(embedding_begin, embedding_begin + n, 
+            noise_begin, embedding_begin, thrust::plus<float>());
+
+        //
+        thrust::transform(embedding_begin + N_NODES+1, embedding_begin + N_NODES+1+n,
+            noise_begin + n, embedding_begin + N_NODES+1, thrust::plus<float>());
     }
     //
-
 
     // Free everything
     P_PT.destroy();
     cuda_free(ROW);
 
+    destroyCSR(CSR_Matrix);
+    destroyDense(Ones_Matrix);
+    destroyDense(Embedding_Matrix);
+    destroyDense(Output_Matrix);
+
     cuda_free(noise);
     cuda_free(embedding);
 
+    cuda_free(ones);
     cuda_free(y_min);
     cuda_free(x_min);
     cuda_free(y_max);
@@ -258,8 +355,24 @@ void runTsne(   const Type * __restrict__ X,
     cuda_free(repulsion);
     cuda_free(PQ);
 
+    cuda_free(mapping_i_to_j);
+
+
     cuda_free(errd);
 
     // Destory CUDA stream
     CUDA_CHECK(cudaStreamDestroy(stream));
+
+
+    // Return data
+    float *return_data;         cuda_malloc(return_data, 2*n);
+    thrust::device_ptr<float> return_data_begin = thrust::device_pointer_cast(return_data);
+
+    thrust::copy(embedding_begin, embedding_begin + n, 
+        return_data_begin + 2*n);
+
+    thrust::copy(embedding_begin + N_NODES+1, embedding_begin + N_NODES+1+n, 
+        return_data_begin + n);
+
+    return return_data;
 }
