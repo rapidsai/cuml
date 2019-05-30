@@ -219,7 +219,7 @@ class CD(Base):
         cdef double c_intercept2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             cdFit(handle_[0],
                   <float*>X_ptr,
                   <int>n_rows,
@@ -283,7 +283,7 @@ class CD(Base):
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             cdPredict(handle_[0],
                       <float*>X_ptr,
                       <int>n_rows,

@@ -97,3 +97,17 @@ def row_matrix(df):
         shared_kernel[blocks, threads](col_major, row_major)
 
     return row_major
+
+
+@cuda.jit
+def gpu_zeros(size, out):
+    i = cuda.grid(1)
+    if i < size:
+        out[i] = 0
+
+
+def zeros(size, dtype):
+    out = rmm.device_array(size, dtype=dtype)
+    if size > 0:
+        gpu_zeros.forall(size)(size, out)
+    return out

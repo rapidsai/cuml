@@ -51,6 +51,9 @@ test_num_cols = [1, 10, 8000]
 def test_input_to_dev_array(dtype, input_type, num_rows, num_cols):
     input_data, real_data = get_input(input_type, num_rows, num_cols, dtype)
 
+    if input_data is None:
+        pytest.skip('cupy not installed')
+
     X, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(input_data)
 
     np.testing.assert_equal(X.copy_to_host(), real_data)
@@ -75,6 +78,9 @@ def test_convert_inputs(from_dtype, to_dtype, input_type, num_rows, num_cols):
 
     input_data, real_data = get_input(input_type, num_rows, num_cols,
                                       from_dtype, out_dtype=to_dtype)
+
+    if input_data is None:
+        pytest.skip('cupy not installed')
 
     converted_data = convert_dtype(input_data, to_dtype=to_dtype)
 

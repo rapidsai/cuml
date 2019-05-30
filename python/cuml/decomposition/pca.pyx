@@ -389,7 +389,7 @@ class PCA(Base):
         cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             pcaFitTransform(handle_[0],
                             <float*> input_ptr,
                             <float*> t_input_ptr,

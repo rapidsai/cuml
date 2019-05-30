@@ -356,7 +356,7 @@ class KMeans(Base):
         c_c = self.cluster_centers_
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(c_c)
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,         # n_clusters
@@ -371,7 +371,7 @@ class KMeans(Base):
                 <float*> cluster_centers_ptr,  # pred_centroids);
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
-        elif self.dtype.type == np.float64:
+        elif self.dtype == np.float64:
             fit_predict(
                 handle_[0],
                 <int> self.n_clusters,          # n_clusters
@@ -388,7 +388,7 @@ class KMeans(Base):
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.dtype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
@@ -441,7 +441,7 @@ class KMeans(Base):
         self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             predict(
                 handle_[0],
                 <float*> cluster_centers_ptr,  # pred_centroids
@@ -452,7 +452,7 @@ class KMeans(Base):
                 <int> 0,                       # distance metric as squared L2: @todo - support other metrics # noqa: E501
                 <int*> labels_ptr,             # pred_labels
                 <int> self.verbose)
-        elif self.dtype.type == np.float64:
+        elif self.dtype == np.float64:
             predict(
                 handle_[0],
                 <double*> cluster_centers_ptr,  # pred_centroids
@@ -465,7 +465,7 @@ class KMeans(Base):
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.dtype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()
@@ -495,11 +495,11 @@ class KMeans(Base):
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
         preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
-                                    dtype=self.dtype.type))
+                                    dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             transform(
                 handle_[0],
                 <float*> cluster_centers_ptr,  # centroids
@@ -510,7 +510,7 @@ class KMeans(Base):
                 <int> 1,                       # distance metric as L2-norm/euclidean distance: @todo - support other metrics # noqa: E501
                 <float*> preds_ptr,            # transformed output
                 <int> self.verbose)
-        elif self.dtype.type == np.float64:
+        elif self.dtype == np.float64:
             transform(
                 handle_[0],
                 <double*> cluster_centers_ptr,  # centroids
@@ -523,7 +523,7 @@ class KMeans(Base):
                 <int> self.verbose)
         else:
             raise TypeError('KMeans supports only float32 and float64 input,'
-                            'but input type ' + str(self.dtype.type) +
+                            'but input type ' + str(self.dtype) +
                             ' passed.')
 
         self.handle.sync()

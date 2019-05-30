@@ -188,7 +188,7 @@ class DBSCAN(Base):
         self.labels_ = cudf.Series(np.zeros(n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
-        if self.dtype.type == np.float32:
+        if self.dtype == np.float32:
             dbscanFit(handle_[0],
                       <float*>input_ptr,
                       <int> n_rows,
