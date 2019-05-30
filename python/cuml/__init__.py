@@ -44,6 +44,8 @@ from cuml.manifold.umap import UMAP
 
 from cuml.random_projection.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
+from cuml.preprocessing.utils import train_test_split
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
