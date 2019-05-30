@@ -15,7 +15,7 @@
 
 import pytest
 import cudf
-from cuml.preprocessing.utils import train_test_split
+from cuml.preprocessing.model_selection import train_test_split
 
 
 @pytest.mark.parametrize("n_rows", [100, 1000, 10000, 100000])
