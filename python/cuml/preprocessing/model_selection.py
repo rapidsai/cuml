@@ -23,7 +23,7 @@ import numpy as np
 def _shuffle_idx(df: cudf.DataFrame) -> np.ndarray:
     """ Return indices which represent a randomly shuffled version of `df`
     """
-    return np.random.permutation(df.index.to_array())
+    return np.random.permutation(len(df))
 
 
 def train_test_split(
