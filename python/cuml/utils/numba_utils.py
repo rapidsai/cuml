@@ -100,17 +100,32 @@ def row_matrix(df):
 
 
 @cuda.jit
-def gpu_zeros(size, out):
+def gpu_zeros_1d(out):
     i = cuda.grid(1)
-    if i < size:
+    if i < out.shape[0]:
         out[i] = 0
 
 
-def zeros(size, dtype):
+@cuda.jit
+def gpu_zeros_2d(out):
+    i, j = cuda.grid(2)
+    if i < out.shape[0] and j < out.shape[1]:
+        out[i][j] = 0
+
+
+def zeros(size, dtype, order='F'):
     """
-    Return device array of zeros generated on device,
+    Return device array of zeros generated on device.
     """
-    out = rmm.device_array(size, dtype=dtype)
-    if size > 0:
-        gpu_zeros.forall(size)(size, out)
+    out = rmm.device_array(size, dtype=dtype, order=order)
+    if isinstance(size, tuple):
+        tpb = driver.get_device().MAX_THREADS_PER_BLOCK
+        nrows = size[0]
+        bpg = (nrows + tpb - 1) // tpb
+
+        gpu_zeros_2d[bpg, tpb](out)
+
+    elif size > 0:
+        gpu_zeros_1d.forall(size)(out)
+
     return out
