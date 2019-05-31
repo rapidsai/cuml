@@ -101,6 +101,7 @@ void computeTheNumerator(const T* firstClusterArray, const T* secondClusterArray
 
 /**
 * @brief Function to calculate RandIndex
+* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a> 
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
 * @param size: the size of the data points of type uint64_t
@@ -108,7 +109,7 @@ void computeTheNumerator(const T* firstClusterArray, const T* secondClusterArray
 * @param stream: the cudaStream object
 */
 template <typename T>
-float computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t size,
+double computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t size,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
 
   //rand index for size less than 2 is not defined
@@ -138,7 +139,7 @@ float computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t si
   uint64_t nChooseTwo = size*(size-1)/2;
 
   //calculating the randIndex
-  return (float)(((float)(ab_host[0] + ab_host[1]))/(float)nChooseTwo);
+  return (double)(((double)(ab_host[0] + ab_host[1]))/(double)nChooseTwo);
 }
 
 
