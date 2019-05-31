@@ -80,9 +80,10 @@ def test_split_size_mismatch():
         train_test_split(X, y)
 
 
-def test_split_invalid_proportion():
+@pytest.mark.parametrize('train_size', [1.2, 100])
+def test_split_invalid_proportion(train_size):
     X = cudf.DataFrame({'x': range(10)})
     y = cudf.Series([0] * 10)
 
     with pytest.raises(ValueError):
-        train_test_split(X, y, train_size=10)
+        train_test_split(X, y, train_size=train_size)
