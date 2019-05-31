@@ -59,6 +59,48 @@ def test_arima():
         
     return ys_df
 
+def test_ll_batches():
+    num_samples = 20
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    num_batches = 5
+
+
+    ys_df = np.zeros((num_samples, num_batches), order="F")
+    for ib in range(num_batches):
+        noise = np.random.normal(scale=0.1, size=num_samples)
+        ys = noise + 0.5*xs
+        ys_df[:,ib] = ys[:]
+    
+    # ys_df = pd.DataFrame([ys for i in range(num_batches)]).transpose()
+    # ys_df = np.reshape
+    # ys_df = np.reshape(np.tile(np.reshape(ys, (num_samples, 1)), num_batches), (num_samples, num_batches), order="F")
+    order = (1, 1, 1)
+    mu = 0.2
+    arparams = np.array([-0.04])
+    maparams = np.array([-0.9])
+    b_model_all = batched_arima.BatchedARIMAModel(num_batches*[order], np.tile(mu, num_batches),
+                                                  num_batches*[arparams],
+                                                  num_batches*[maparams], ys_df)
+
+    ll_all, vs_all = batched_arima.BatchedARIMAModel.run_kalman(b_model_all)
+    b_model_fit_all = batched_arima.BatchedARIMAModel.fit(ys_df, order, mu, arparams, maparams, opt_disp=50)
+
+    vs_all_2 = np.zeros(vs_all.shape)
+    ll_all_2 = np.zeros(num_batches)
+
+    for ib in range(num_batches):        
+        ysi = np.reshape(ys_df[:,ib], (num_samples, 1), order="F")
+        b_model_i = batched_arima.BatchedARIMAModel(1*[order], np.tile(mu, num_batches),
+                                                    1*[arparams],
+                                                    1*[maparams], ysi)
+        ll_i, vs_i = batched_arima.BatchedARIMAModel.run_kalman(b_model_i)
+        vs_all_2[:, ib] = vs_i[:, 0]
+        ll_all_2[ib] = ll_i[0]
+        b_model_fit_i = batched_arima.BatchedARIMAModel.fit(ysi, order, mu, arparams, maparams, opt_disp=50)
+
+    np.testing.assert_array_equal(ll_all, ll_all_2)
+    np.testing.assert_array_equal(vs_all, vs_all_2)
 def test_cpu_vs_gpu():
     """test CPU vs GPU implementation"""
     num_samples = 10
