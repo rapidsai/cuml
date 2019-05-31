@@ -32,7 +32,7 @@ struct randIndexParam{
   uint64_t nElements;
   int lowerLabelRange;
   int upperLabelRange;
-  float tolerance;
+  double tolerance;
 
 };
 
@@ -73,7 +73,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
         }
     }
     uint64_t nChooseTwo = (size*(size-1))/2;
-    truthRandIndex = (float)(((float)(a_truth + b_truth))/(float)nChooseTwo);
+    truthRandIndex = (double)(((double)(a_truth + b_truth))/(double)nChooseTwo);
     
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -107,8 +107,8 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam>{
     T* firstClusterArray=nullptr;
     T* secondClusterArray = nullptr;
     uint64_t size=0;
-    float truthRandIndex=0;
-    float computedRandIndex = 0;
+    double truthRandIndex=0;
+    double computedRandIndex = 0;
     cudaStream_t stream;
 
     };
