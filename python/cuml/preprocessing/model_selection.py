@@ -29,9 +29,9 @@ def _shuffle_idx(df: cudf.DataFrame) -> np.ndarray:
 def train_test_split(
     X: cudf.DataFrame,
     y: Union[str, cudf.Series],
-    train_size: float = 0.8,
+    train_size: Union[float, int] = 0.8,
     shuffle: bool = True,
-    seed: int = None
+    seed: int = None,
 ) -> Tuple[cudf.DataFrame, cudf.DataFrame, cudf.DataFrame, cudf.DataFrame]:
     """
     Partitions the data into four collated dataframes, mimicing sklearn's
@@ -44,8 +44,10 @@ def train_test_split(
     y : str or cudf.Series
         Set of labels for the data, either a series of shape (n_samples) or
         the string label of a column in X containing the labels
-    train_size : float, optional
-        Proportion [0, 1] of the data to be assigned to the training set
+    train_size : float or int, optional
+        If float, represents the proportion [0, 1] of the data
+        to be assigned to the training set. If an int, represents the number
+        of instances to be assigned to the training set. Defaults to 0.8
     shuffle : bool, optional
         Whether or not to shuffle inputs before splitting
     seed : int, optional
@@ -57,16 +59,6 @@ def train_test_split(
         Partitioned dataframes. If `y` was provided as a column name, the
         column was dropped from the `X`s
     """
-    if not 0 <= train_size <= 1:
-        raise ValueError(
-            "train_size should be between 0 and 1 (found {})".format(
-                train_size
-            )
-        )
-
-    if seed is not None:
-        np.random.seed(seed)
-
     if isinstance(y, str):
         # Use the column with name `str` as y
         name = y
@@ -78,6 +70,25 @@ def train_test_split(
             "X and y must have the same first dimension"
             "(found {} and {})".format(X.shape[0], y.shape[0])
         )
+
+    if isinstance(train_size, float):
+        if not 0 <= train_size <= 1:
+            raise ValueError(
+                "if a float, train_size should be between"
+                "0 and 1 (found {})".format(train_size)
+            )
+        split_idx = int(X.shape[0] * train_size)
+
+    if isinstance(train_size, int):
+        if not 0 <= train_size <= X.shape[0]:
+            raise ValueError(
+                "If an int, train_size should be between 0 and the"
+                "first dimension of X (found {})".format(train_size)
+            )
+        split_idx = train_size
+
+    if seed is not None:
+        np.random.seed(seed)
 
     if shuffle:
         idxs = _shuffle_idx(X)
