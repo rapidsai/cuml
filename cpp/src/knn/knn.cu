@@ -84,9 +84,9 @@ namespace ML {
 
 	    reset();
 
-      for(int i = 0; i < N; i++) {
+	    this->indices = N;
 
-        this->indices++;
+      for(int i = 0; i < N; i++) {
         this->knn_params.emplace_back(input[i]);
       }
 	}
@@ -130,4 +130,38 @@ namespace ML {
 
         fit(params, n_chunks);
    }
-}; // end namespace MLMy
+}; // end namespace
+
+
+extern "C" cumlError_t knn_search(
+    const cumlHandle_t handle,
+    const MLCommon::ArrayPtr *input, int n_params, int D,
+    const float *search_items, int n,
+    long *res_I, float *res_D, int k) {
+
+    cumlError_t status;
+
+    ML::cumlHandle *handle_ptr;
+    std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+    if (status == CUML_SUCCESS) {
+        try
+        {
+            MLCommon::Selection::brute_force_knn(input, n_params, D, search_items, n, res_I, res_D, k,
+            handle_ptr->getImpl().getStream()
+            );
+        }
+        //TODO: Implement this
+        //catch (const MLCommon::Exception& e)
+        //{
+        //    //log e.what()?
+        //    status =  e.getErrorCode();
+        //}
+        catch (...)
+        {
+            status = CUML_ERROR_UNKNOWN;
+        }
+    }
+    return status;
+
+}
+
