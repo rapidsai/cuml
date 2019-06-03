@@ -176,12 +176,13 @@ namespace ML {
             MLCommon::allocate(knn_indices, m*n_neighbors);
             MLCommon::allocate(knn_dists, m*n_neighbors);
 
-            MLCommon::ArrayPtr params[1];
-            params[0].N = m;
-            params[0].ptr = X;
+            float **ptrs = new float*[1];
+            int *sizes = new int[1];
+            ptrs[0] = X;
+            sizes[0] = m;
 
 
-            knn.fit(params, 1);
+            knn.fit(ptrs, sizes, 1);
             knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
             fit_clusters(handle, knn_indices, knn_dists, m, n_neighbors,
@@ -189,6 +190,9 @@ namespace ML {
 
             CUDA_CHECK(cudaFree(knn_indices));
             CUDA_CHECK(cudaFree(knn_dists));
+
+            delete ptrs;
+            delete sizes;
         }
 
         /***
@@ -331,11 +335,12 @@ namespace ML {
             MLCommon::allocate(knn_indices, m*n_neighbors);
             MLCommon::allocate(knn_dists, m*n_neighbors);
 
-            MLCommon::ArrayPtr params[1];
-            params[0].N = m;
-            params[0].ptr = X;
+            float **ptrs = new float*[1];
+            int *sizes = new int[1];
+            ptrs[0] = X;
+            sizes[0] = m;
 
-            knn.fit(*&params, 1);
+            knn.fit(ptrs, sizes, 1);
             knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
             fit_embedding(handle, knn_indices, knn_dists, m, n_neighbors,
@@ -343,6 +348,9 @@ namespace ML {
 
             CUDA_CHECK(cudaFree(knn_indices));
             CUDA_CHECK(cudaFree(knn_dists));
+
+            delete ptrs;
+            delete sizes;
         }
     }
 }

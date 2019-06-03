@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include "common/array_ptr.h"
 #include <stdint.h>
 #include "math_constants.h"
 #include <iomanip>
@@ -150,9 +149,9 @@ void ASSERT_MEM(T *ptr, std::string name) {
  * @param n_chunks  number of elements in gpus
  * @param out       host pointer (size n) to store output
  */
-template<typename T = size_t>
-void chunk_to_device(const float *ptr, int n, int D,
-    int* devices, ArrayPtr *output, int n_chunks,
+template<typename OutType, typename T = size_t>
+void chunk_to_device(const OutType *ptr, int n, int D,
+    int* devices, OutType **output, T *sizes, int n_chunks,
     cudaStream_t stream) {
 
     size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
@@ -186,8 +185,8 @@ void chunk_to_device(const float *ptr, int n, int D,
         MLCommon::updateDevice(ptr_d, ptr+(T(chunk_size)*i),
                 T(length)*T(D), stream);
 
-        output[i].N = length;
-        output[i].ptr = ptr_d;
+        output[i] = ptr_d;
+        sizes[i] = length;
     }
 };
 

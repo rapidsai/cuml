@@ -18,7 +18,6 @@
 
 #include "knn.hpp"
 
-#include "common/array_ptr.h"
 #include "selection/knn.h"
 
 #include "cuda_utils.h"
@@ -37,6 +36,17 @@
 
 namespace ML {
 
+  void brute_force_knn(
+        const cumlHandle &handle,
+        float **input, int *sizes, int n_params, int D,
+        float *search_items, int n,
+        long *res_I, float *res_D, int k) {
+
+    MLCommon::Selection::brute_force_knn(input, sizes, n_params, D,
+        search_items, n, res_I, res_D, k, handle.getImpl().getStream());
+  }
+
+
 	/**
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
@@ -44,6 +54,8 @@ namespace ML {
 	kNN::kNN(const cumlHandle &handle, int D, bool verbose):
 	        D(D), total_n(0), indices(0), verbose(verbose), owner(false) {
 	    this->handle = const_cast<cumlHandle*>(&handle);
+	    sizes = nullptr;
+	    ptrs = nullptr;
 	}
 
 	kNN::~kNN() {
@@ -52,17 +64,19 @@ namespace ML {
 	        if(this->owner) {
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
-	            for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	            for(int i = 0; i < this->indices; i++) { CUDA_CHECK(cudaFree(this->ptrs[i])); }
 	        }
 
 	    } catch(const std::exception &e) {
 	        std::cout << "An exception occurred releasing kNN memory: " << e.what() << std::endl;
 	    }
+
+	    delete ptrs;
+	    delete sizes;
 	}
 
 	void kNN::reset() {
-        if(knn_params.size() > 0) {
-            knn_params.clear();
+        if(this->indices > 0) {
             this->indices = 0;
             this->total_n = 0;
         }
@@ -74,21 +88,25 @@ namespace ML {
 	 * @param input  an array of pointers to data on (possibly different) devices
 	 * @param N 	 number of items in input array.
 	 */
-	void kNN::fit(MLCommon::ArrayPtr *input, int N) {
+	void kNN::fit(float **input, int *sizes, int N) {
 
       if(this->owner)
-          for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+        for(int i = 0; i < this->indices; i++) { CUDA_CHECK(cudaFree(this->ptrs[i])); }
 
 	    if(this->verbose)
 	        std::cout << "N=" << N << std::endl;
 
 	    reset();
 
+	    // TODO: Copy pointers!
 	    this->indices = N;
+	    this->ptrs = (float**)malloc(N*sizeof(float*));
+	    this->sizes = (int*)malloc(N*sizeof(int));
 
-      for(int i = 0; i < N; i++) {
-        this->knn_params.emplace_back(input[i]);
-      }
+	    for(int i = 0; i < N; i++) {
+	      this->ptrs[i] = input[i];
+	      this->sizes[i] = sizes[i];
+	    }
 	}
 
 	/**
@@ -99,9 +117,10 @@ namespace ML {
 	 * @param res_D		   pointer to device memory for returning k nearest distances
 	 * @param k			   number of neighbors to query
 	 */
-	void kNN::search(const float *search_items, int n,
+	void kNN::search(float *search_items, int n,
 			long *res_I, float *res_D, int k) {
-	  MLCommon::Selection::brute_force_knn(this->knn_params.data(), this->indices, D,
+
+	  MLCommon::Selection::brute_force_knn(ptrs, sizes, indices, D,
 	      search_items, n, res_I, res_D, k, handle->getImpl().getStream());
 	}
 
@@ -118,25 +137,26 @@ namespace ML {
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
         if(this->owner)
-            for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+          for(int i = 0; i < this->indices; i++) { CUDA_CHECK(cudaFree(this->ptrs[i])); }
 
         reset();
 
         this->owner = true;
 
-        MLCommon::ArrayPtr *params = new MLCommon::ArrayPtr[n_chunks];
+        float **params = new float*[n_chunks];
+        int *sizes = new int[n_chunks];
 
-        MLCommon::chunk_to_device(ptr, n, D, devices, params, n_chunks, handle->getImpl().getStream());
+        MLCommon::chunk_to_device<float>(ptr, n, D, devices, params, sizes, n_chunks, handle->getImpl().getStream());
 
-        fit(params, n_chunks);
+        fit(params, sizes, n_chunks);
    }
 }; // end namespace
 
 
 extern "C" cumlError_t knn_search(
     const cumlHandle_t handle,
-    const MLCommon::ArrayPtr *input, int n_params, int D,
-    const float *search_items, int n,
+    float **input, int *sizes, int n_params, int D,
+    float *search_items, int n,
     long *res_I, float *res_D, int k) {
 
     cumlError_t status;
@@ -144,20 +164,13 @@ extern "C" cumlError_t knn_search(
     ML::cumlHandle *handle_ptr;
     std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
     if (status == CUML_SUCCESS) {
-        try
-        {
-            MLCommon::Selection::brute_force_knn(input, n_params, D, search_items, n, res_I, res_D, k,
-            handle_ptr->getImpl().getStream()
-            );
+        try {
+            MLCommon::Selection::brute_force_knn(input, sizes, n_params, D,
+                search_items, n,
+                res_I, res_D, k,
+                handle_ptr->getImpl().getStream());
         }
-        //TODO: Implement this
-        //catch (const MLCommon::Exception& e)
-        //{
-        //    //log e.what()?
-        //    status =  e.getErrorCode();
-        //}
-        catch (...)
-        {
+        catch (...) {
             status = CUML_ERROR_UNKNOWN;
         }
     }

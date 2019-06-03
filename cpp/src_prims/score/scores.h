@@ -89,9 +89,13 @@ namespace MLCommon {
           long* d_pred_I = (long*)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
           math_t* d_pred_D = (math_t*)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
-          ArrayPtr params = {input, n};
+          float **ptrs = new float*[1];
+          ptrs[0] = input;
 
-          MLCommon::Selection::brute_force_knn(&params, 1, d,
+          int *sizes = new int[1];
+          sizes[0] = n;
+
+          MLCommon::Selection::brute_force_knn(ptrs, sizes, 1, d,
               input, n, d_pred_I, d_pred_D, n_neighbors, stream);
 
           d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
