@@ -56,8 +56,9 @@ class BaseCrossValidator(metaclass=ABCMeta):
         indices = cp.arange(n_samples)
         for test_index in self._iter_test_masks(X, y, groups):
             train_index = indices[cp.logical_not(test_index)]
-            train_index = cudf.from_dlpack(train_index.toDlpack())  # convert to cudf Series
             test_index = indices[test_index]
+            ####### can skip the following conversion if cudf support cupy indexing in the future
+            train_index = cudf.from_dlpack(train_index.toDlpack())  # convert to cudf Series
             test_index = cudf.from_dlpack(test_index.toDlpack())    # convert to cudf Series
             yield train_index, test_index
 
@@ -648,6 +649,106 @@ class StratifiedKFold(_BaseKFold):
 
 
 
+class TimeSeriesSplit(_BaseKFold):
+    """Time Series cross-validator
+    Provides train/test indices to split time series data samples
+    that are observed at fixed time intervals, in train/test sets.
+    In each split, test indices must be higher than before, and thus shuffling
+    in cross validator is inappropriate.
+    This cross-validation object is a variation of :class:`KFold`.
+    In the kth split, it returns first k folds as train set and the
+    (k+1)th fold as test set.
+    Note that unlike standard cross-validation methods, successive
+    training sets are supersets of those that come before them.
+    Read more in the :ref:`User Guide <cross_validation>`.
+    Parameters
+    ----------
+    n_splits : int, default=3
+        Number of splits. Must be at least 2.
+        .. versionchanged:: 0.20
+            ``n_splits`` default value will change from 3 to 5 in v0.22.
+    max_train_size : int, optional
+        Maximum size for a single training set.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import TimeSeriesSplit
+    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = np.array([1, 2, 3, 4, 5, 6])
+    >>> tscv = TimeSeriesSplit(n_splits=5)
+    >>> print(tscv)  # doctest: +NORMALIZE_WHITESPACE
+    TimeSeriesSplit(max_train_size=None, n_splits=5)
+    >>> for train_index, test_index in tscv.split(X):
+    ...    print("TRAIN:", train_index, "TEST:", test_index)
+    ...    X_train, X_test = X[train_index], X[test_index]
+    ...    y_train, y_test = y[train_index], y[test_index]
+    TRAIN: [0] TEST: [1]
+    TRAIN: [0 1] TEST: [2]
+    TRAIN: [0 1 2] TEST: [3]
+    TRAIN: [0 1 2 3] TEST: [4]
+    TRAIN: [0 1 2 3 4] TEST: [5]
+    Notes
+    -----
+    The training set has size ``i * n_samples // (n_splits + 1)
+    + n_samples % (n_splits + 1)`` in the ``i``th split,
+    with a test set of size ``n_samples//(n_splits + 1)``,
+    where ``n_samples`` is the number of samples.
+    """
+    def __init__(self, n_splits='warn', max_train_size=None):
+        if n_splits == 'warn':
+            warnings.warn(NSPLIT_WARNING, FutureWarning)
+            n_splits = 3
+        super().__init__(n_splits, shuffle=False, random_state=None)
+        self.max_train_size = max_train_size
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training data, where n_samples is the number of samples
+            and n_features is the number of features.
+        y : array-like, shape (n_samples,)
+            Always ignored, exists for compatibility.
+        groups : array-like, with shape (n_samples,)
+            Always ignored, exists for compatibility.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        #####################################
+        # X, y, groups = indexable(X, y, groups)
+        n_samples = utils._num_samples(X)
+        n_splits = self.n_splits
+        n_folds = n_splits + 1
+        if n_folds > n_samples:
+            raise ValueError(
+                ("Cannot have number of folds ={0} greater"
+                 " than the number of samples: {1}.").format(n_folds,
+                                                             n_samples))
+        indices = cp.arange(n_samples)
+        test_size = (n_samples // n_folds)
+        test_starts = range(test_size + n_samples % n_folds,
+                            n_samples, test_size)
+        for test_start in test_starts:
+            if self.max_train_size and self.max_train_size < test_start:
+                # can get rid of this conversion if cudf support cupy indexing in the future
+                train = indices[test_start - self.max_train_size:test_start]
+                train = cudf.from_dlpack(train.toDlpack())
+                test = indices[test_start:test_start + test_size]
+                test = cudf.from_dlpack(test.toDlpack())
+                yield (train, test)
+            else:
+                train = indices[:test_start]
+                train = cudf.from_dlpack(train.toDlpack())
+                test = indices[test_start:test_start + test_size]
+                test = cudf.from_dlpack(test.toDlpack())
+                yield (train, test)
+
+
 
 class LeaveOneGroupOut(BaseCrossValidator):
     """Leave One Group Out cross-validator
@@ -1127,6 +1228,572 @@ class RepeatedStratifiedKFold(_RepeatedSplits):
     def __init__(self, n_splits=5, n_repeats=10, random_state=None):
         super().__init__(
             StratifiedKFold, n_repeats, random_state, n_splits=n_splits)
+
+
+class BaseShuffleSplit(metaclass=ABCMeta):
+    """Base class for ShuffleSplit and StratifiedShuffleSplit"""
+
+    def __init__(self, n_splits=10, test_size=None, train_size=None,
+                 random_state=None):
+        self.n_splits = n_splits
+        self.test_size = test_size
+        self.train_size = train_size
+        self.random_state = random_state
+        self._default_test_size = 0.1
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training data, where n_samples is the number of samples
+            and n_features is the number of features.
+        y : array-like, shape (n_samples,)
+            The target variable for supervised learning problems.
+        groups : array-like, with shape (n_samples,), optional
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        Notes
+        -----
+        Randomized CV splitters may return different results for each call of
+        split. You can make the results identical by setting ``random_state``
+        to an integer.
+        """
+        ##########################################
+        # X, y, groups = indexable(X, y, groups)
+        for train, test in self._iter_indices(X, y, groups):
+            ###### can skip the following conversion if cudf support cupy indexing in the future
+            train = cudf.from_dlpack(train.toDlpack())  # convert to cudf Series
+            test = cudf.from_dlpack(test.toDlpack())    # convert to cudf Series
+            yield train, test
+
+    @abstractmethod
+    def _iter_indices(self, X, y=None, groups=None):
+        """Generate (train, test) indices"""
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        """Returns the number of splitting iterations in the cross-validator
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return self.n_splits
+
+    def __repr__(self):
+        return _build_repr(self)
+
+
+class ShuffleSplit(BaseShuffleSplit):
+    """Random permutation cross-validator
+    Yields indices to split data into training and test sets.
+    Note: contrary to other cross-validation strategies, random splits
+    do not guarantee that all folds will be different, although this is
+    still very likely for sizeable datasets.
+    Read more in the :ref:`User Guide <cross_validation>`.
+    Parameters
+    ----------
+    n_splits : int, default 10
+        Number of re-shuffling & splitting iterations.
+    test_size : float, int, None, default=None
+        If float, should be between 0.0 and 1.0 and represent the proportion
+        of the dataset to include in the test split. If int, represents the
+        absolute number of test samples. If None, the value is set to the
+        complement of the train size. If ``train_size`` is also None, it will
+        be set to 0.1.
+    train_size : float, int, or None, default=None
+        If float, should be between 0.0 and 1.0 and represent the
+        proportion of the dataset to include in the train split. If
+        int, represents the absolute number of train samples. If None,
+        the value is automatically set to the complement of the test size.
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import ShuffleSplit
+    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8], [3, 4], [5, 6]])
+    >>> y = np.array([1, 2, 1, 2, 1, 2])
+    >>> rs = ShuffleSplit(n_splits=5, test_size=.25, random_state=0)
+    >>> rs.get_n_splits(X)
+    5
+    >>> print(rs)
+    ShuffleSplit(n_splits=5, random_state=0, test_size=0.25, train_size=None)
+    >>> for train_index, test_index in rs.split(X):
+    ...    print("TRAIN:", train_index, "TEST:", test_index)
+    ...  # doctest: +ELLIPSIS
+    TRAIN: [1 3 0 4] TEST: [5 2]
+    TRAIN: [4 0 2 5] TEST: [1 3]
+    TRAIN: [1 2 4 0] TEST: [3 5]
+    TRAIN: [3 4 1 0] TEST: [5 2]
+    TRAIN: [3 5 1 0] TEST: [2 4]
+    >>> rs = ShuffleSplit(n_splits=5, train_size=0.5, test_size=.25,
+    ...                   random_state=0)
+    >>> for train_index, test_index in rs.split(X):
+    ...    print("TRAIN:", train_index, "TEST:", test_index)
+    ...  # doctest: +ELLIPSIS
+    TRAIN: [1 3 0] TEST: [5 2]
+    TRAIN: [4 0 2] TEST: [1 3]
+    TRAIN: [1 2 4] TEST: [3 5]
+    TRAIN: [3 4 1] TEST: [5 2]
+    TRAIN: [3 5 1] TEST: [2 4]
+    """
+    def __init__(self, n_splits=10, test_size=None, train_size=None,
+                 random_state=None):
+        super().__init__(
+            n_splits=n_splits,
+            test_size=test_size,
+            train_size=train_size,
+            random_state=random_state)
+        self._default_test_size = 0.1
+
+    def _iter_indices(self, X, y=None, groups=None):
+        n_samples = utils._num_samples(X)
+        n_train, n_test = _validate_shuffle_split(
+            n_samples, self.test_size, self.train_size,
+            default_test_size=self._default_test_size)
+
+        rng = utils.check_random_state(self.random_state)
+        for i in range(self.n_splits):
+            # random partition
+            permutation = rng.permutation(n_samples)
+            ind_test = permutation[:n_test]
+            ind_train = permutation[n_test:(n_test + n_train)]
+            yield ind_train, ind_test
+
+
+class GroupShuffleSplit(ShuffleSplit):
+    '''Shuffle-Group(s)-Out cross-validation iterator
+    Provides randomized train/test indices to split data according to a
+    third-party provided group. This group information can be used to encode
+    arbitrary domain specific stratifications of the samples as integers.
+    For instance the groups could be the year of collection of the samples
+    and thus allow for cross-validation against time-based splits.
+    The difference between LeavePGroupsOut and GroupShuffleSplit is that
+    the former generates splits using all subsets of size ``p`` unique groups,
+    whereas GroupShuffleSplit generates a user-determined number of random
+    test splits, each with a user-determined fraction of unique groups.
+    For example, a less computationally intensive alternative to
+    ``LeavePGroupsOut(p=10)`` would be
+    ``GroupShuffleSplit(test_size=10, n_splits=100)``.
+    Note: The parameters ``test_size`` and ``train_size`` refer to groups, and
+    not to samples, as in ShuffleSplit.
+    Parameters
+    ----------
+    n_splits : int (default 5)
+        Number of re-shuffling & splitting iterations.
+    test_size : float, int, None, optional (default=None)
+        If float, should be between 0.0 and 1.0 and represent the proportion
+        of the dataset to include in the test split. If int, represents the
+        absolute number of test groups. If None, the value is set to the
+        complement of the train size. If ``train_size`` is also None, it will
+        be set to 0.2.
+    train_size : float, int, or None, default is None
+        If float, should be between 0.0 and 1.0 and represent the
+        proportion of the groups to include in the train split. If
+        int, represents the absolute number of train groups. If None,
+        the value is automatically set to the complement of the test size.
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `cp.random`.
+    '''
+
+    def __init__(self, n_splits=5, test_size=None, train_size=None,
+                 random_state=None):
+        super().__init__(
+            n_splits=n_splits,
+            test_size=test_size,
+            train_size=train_size,
+            random_state=random_state)
+        self._default_test_size = 0.2
+
+    def _iter_indices(self, X, y, groups):
+        if groups is None:
+            raise ValueError("The 'groups' parameter should not be None.")
+        #############################
+        # groups = check_array(groups, ensure_2d=False, dtype=None)
+        classes, group_indices = cp.unique(groups, return_inverse=True)
+        for group_train, group_test in super()._iter_indices(X=classes):
+            # these are the indices of classes in the partition
+            # invert them into data indices
+            train = cp.flatnonzero(utils.in1d(group_indices, group_train))
+            test = cp.flatnonzero(utils.in1d(group_indices, group_test))
+
+            yield train, test
+
+    def split(self, X, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training data, where n_samples is the number of samples
+            and n_features is the number of features.
+        y : array-like, shape (n_samples,), optional
+            The target variable for supervised learning problems.
+        groups : array-like, with shape (n_samples,)
+            Group labels for the samples used while splitting the dataset into
+            train/test set.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        Notes
+        -----
+        Randomized CV splitters may return different results for each call of
+        split. You can make the results identical by setting ``random_state``
+        to an integer.
+        """
+        return super().split(X, y, groups)
+
+
+class StratifiedShuffleSplit(BaseShuffleSplit):
+    """Stratified ShuffleSplit cross-validator
+    Provides train/test indices to split data in train/test sets.
+    This cross-validation object is a merge of StratifiedKFold and
+    ShuffleSplit, which returns stratified randomized folds. The folds
+    are made by preserving the percentage of samples for each class.
+    Note: like the ShuffleSplit strategy, stratified random splits
+    do not guarantee that all folds will be different, although this is
+    still very likely for sizeable datasets.
+    Read more in the :ref:`User Guide <cross_validation>`.
+    Parameters
+    ----------
+    n_splits : int, default 10
+        Number of re-shuffling & splitting iterations.
+    test_size : float, int, None, optional (default=None)
+        If float, should be between 0.0 and 1.0 and represent the proportion
+        of the dataset to include in the test split. If int, represents the
+        absolute number of test samples. If None, the value is set to the
+        complement of the train size. If ``train_size`` is also None, it will
+        be set to 0.1.
+    train_size : float, int, or None, default is None
+        If float, should be between 0.0 and 1.0 and represent the
+        proportion of the dataset to include in the train split. If
+        int, represents the absolute number of train samples. If None,
+        the value is automatically set to the complement of the test size.
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `cp.random`.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import StratifiedShuffleSplit
+    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = np.array([0, 0, 0, 1, 1, 1])
+    >>> sss = StratifiedShuffleSplit(n_splits=5, test_size=0.5, random_state=0)
+    >>> sss.get_n_splits(X, y)
+    5
+    >>> print(sss)       # doctest: +ELLIPSIS
+    StratifiedShuffleSplit(n_splits=5, random_state=0, ...)
+    >>> for train_index, test_index in sss.split(X, y):
+    ...    print("TRAIN:", train_index, "TEST:", test_index)
+    ...    X_train, X_test = X[train_index], X[test_index]
+    ...    y_train, y_test = y[train_index], y[test_index]
+    TRAIN: [5 2 3] TEST: [4 1 0]
+    TRAIN: [5 1 4] TEST: [0 2 3]
+    TRAIN: [5 0 2] TEST: [4 3 1]
+    TRAIN: [4 1 0] TEST: [2 3 5]
+    TRAIN: [0 5 1] TEST: [3 4 2]
+    """
+
+    def __init__(self, n_splits=10, test_size=None, train_size=None,
+                 random_state=None):
+        super().__init__(
+            n_splits=n_splits,
+            test_size=test_size,
+            train_size=train_size,
+            random_state=random_state)
+        self._default_test_size = 0.1
+
+    def _iter_indices(self, X, y, groups=None):
+        n_samples = utils._num_samples(X)
+        ###############################################
+        # y = check_array(y, ensure_2d=False, dtype=None)
+        n_train, n_test = _validate_shuffle_split(
+            n_samples, self.test_size, self.train_size,
+            default_test_size=self._default_test_size)
+
+        if y.ndim == 2:
+            # for multi-label y, map each distinct row to a string repr
+            # using join because str(row) uses an ellipsis if len(row) > 1000
+            y = cp.array([' '.join(row.astype('str')) for row in y])
+
+        classes, y_indices = cp.unique(y, return_inverse=True)
+        n_classes = classes.shape[0]
+
+        class_counts = cp.bincount(y_indices)
+        if cp.min(class_counts) < 2:
+            raise ValueError("The least populated class in y has only 1"
+                             " member, which is too few. The minimum"
+                             " number of groups for any class cannot"
+                             " be less than 2.")
+
+        if n_train < n_classes:
+            raise ValueError('The train_size = %d should be greater or '
+                             'equal to the number of classes = %d' %
+                             (n_train, n_classes))
+        if n_test < n_classes:
+            raise ValueError('The test_size = %d should be greater or '
+                             'equal to the number of classes = %d' %
+                             (n_test, n_classes))
+
+        # Find the sorted list of instances for each class:
+        # (cp.unique above performs a sort, so code is O(n logn) already)
+        class_indices = cp.split(cp.argsort(y_indices),
+                                 cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
+
+        rng = utils.check_random_state(self.random_state)
+        #########################################
+        # have to get a nprng as cp.RandomState.permutation does not accept
+        # cp.ndarray as input yet. Get rid of this once cp.RS.perm support cp array  
+        nprng = utils.np_check_random_state(self.random_state)
+        for _ in range(self.n_splits):
+            # if there are ties in the class-counts, we want
+            # to make sure to break them anew in each iteration
+            n_i = utils._approximate_mode(class_counts, n_train, rng)
+            class_counts_remaining = class_counts - n_i
+            t_i = utils._approximate_mode(class_counts_remaining, n_test, rng)
+
+            train = []
+            test = []
+
+            for i in range(n_classes):
+                permutation = rng.permutation(int(class_counts[i]))
+                perm_indices_class_i = class_indices[i].take(permutation)
+                ###################### cupy.take does not support mode yet!!
+                #                                             mode='clip')
+            
+
+                train.extend(perm_indices_class_i[:n_i[i]])
+                test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
+
+            #########################################
+            # have to go through the indirect approach below
+            # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
+            # Get rid of this once cp.RS.perm support cp array  
+            train = nprng.permutation(cp.asnumpy(train))
+            train = cp.asarray([int(i) for i in train])
+            test = nprng.permutation(cp.asnumpy(test))
+            test = cp.asarray([int(i) for i in test])
+
+            #train = rng.permutation(train)
+            #test = rng.permutation(test)
+
+            yield train, test
+
+    def split(self, X, y, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Training data, where n_samples is the number of samples
+            and n_features is the number of features.
+            Note that providing ``y`` is sufficient to generate the splits and
+            hence ``np.zeros(n_samples)`` may be used as a placeholder for
+            ``X`` instead of actual training data.
+        y : array-like, shape (n_samples,)
+            The target variable for supervised learning problems.
+            Stratification is done based on the y labels.
+        groups : object
+            Always ignored, exists for compatibility.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        Notes
+        -----
+        Randomized CV splitters may return different results for each call of
+        split. You can make the results identical by setting ``random_state``
+        to an integer.
+        """
+        ########################
+        # y = check_array(y, ensure_2d=False, dtype=None)
+        return super().split(X, y, groups)
+
+
+def _validate_shuffle_split(n_samples, test_size, train_size,
+                            default_test_size=None):
+    """
+    Validation helper to check if the test/test sizes are meaningful wrt to the
+    size of the data (n_samples)
+    """
+    if test_size is None and train_size is None:
+        test_size = default_test_size
+
+    test_size_type = cp.asarray(test_size).dtype.kind if test_size else None
+    train_size_type = cp.asarray(train_size).dtype.kind if train_size else None
+
+    if (test_size_type == 'i' and (test_size >= n_samples or test_size <= 0)
+       or test_size_type == 'f' and (test_size <= 0 or test_size >= 1)):
+        raise ValueError('test_size={0} should be either positive and smaller'
+                         ' than the number of samples {1} or a float in the '
+                         '(0, 1) range'.format(test_size, n_samples))
+
+    if (train_size_type == 'i' and (train_size >= n_samples or train_size <= 0)
+       or train_size_type == 'f' and (train_size <= 0 or train_size >= 1)):
+        raise ValueError('train_size={0} should be either positive and smaller'
+                         ' than the number of samples {1} or a float in the '
+                         '(0, 1) range'.format(train_size, n_samples))
+
+    if train_size is not None and train_size_type not in ('i', 'f'):
+        raise ValueError("Invalid value for train_size: {}".format(train_size))
+    if test_size is not None and test_size_type not in ('i', 'f'):
+        raise ValueError("Invalid value for test_size: {}".format(test_size))
+
+    if (train_size_type == 'f' and test_size_type == 'f' and
+            train_size + test_size > 1):
+        raise ValueError(
+            'The sum of test_size and train_size = {}, should be in the (0, 1)'
+            ' range. Reduce test_size and/or train_size.'
+            .format(train_size + test_size))
+
+    if test_size_type == 'f':
+        n_test = ceil(test_size * n_samples)
+    elif test_size_type == 'i':
+        n_test = float(test_size)
+
+    if train_size_type == 'f':
+        n_train = floor(train_size * n_samples)
+    elif train_size_type == 'i':
+        n_train = float(train_size)
+
+    if train_size is None:
+        n_train = n_samples - n_test
+    elif test_size is None:
+        n_test = n_samples - n_train
+
+    if n_train + n_test > n_samples:
+        raise ValueError('The sum of train_size and test_size = %d, '
+                         'should be smaller than the number of '
+                         'samples %d. Reduce test_size and/or '
+                         'train_size.' % (n_train + n_test, n_samples))
+
+    n_train, n_test = int(n_train), int(n_test)
+
+    if n_train == 0:
+        raise ValueError(
+            'With n_samples={}, test_size={} and train_size={}, the '
+            'resulting train set will be empty. Adjust any of the '
+            'aforementioned parameters.'.format(n_samples, test_size,
+                                                train_size)
+        )
+
+    return n_train, n_test
+
+
+class PredefinedSplit(BaseCrossValidator):
+    """Predefined split cross-validator
+    Provides train/test indices to split data into train/test sets using a
+    predefined scheme specified by the user with the ``test_fold`` parameter.
+    Read more in the :ref:`User Guide <cross_validation>`.
+    Parameters
+    ----------
+    test_fold : array-like, shape (n_samples,)
+        The entry ``test_fold[i]`` represents the index of the test set that
+        sample ``i`` belongs to. It is possible to exclude sample ``i`` from
+        any test set (i.e. include sample ``i`` in every training set) by
+        setting ``test_fold[i]`` equal to -1.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import PredefinedSplit
+    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> y = np.array([0, 0, 1, 1])
+    >>> test_fold = [0, 1, -1, 1]
+    >>> ps = PredefinedSplit(test_fold)
+    >>> ps.get_n_splits()
+    2
+    >>> print(ps)       # doctest: +NORMALIZE_WHITESPACE +ELLIPSIS
+    PredefinedSplit(test_fold=array([ 0,  1, -1,  1]))
+    >>> for train_index, test_index in ps.split():
+    ...    print("TRAIN:", train_index, "TEST:", test_index)
+    ...    X_train, X_test = X[train_index], X[test_index]
+    ...    y_train, y_test = y[train_index], y[test_index]
+    TRAIN: [1 2 3] TEST: [0]
+    TRAIN: [0 2] TEST: [1 3]
+    """
+
+    def __init__(self, test_fold):
+        self.test_fold = cp.array(test_fold, dtype=cp.int)
+        self.test_fold = utils.column_or_1d(self.test_fold)
+        self.unique_folds = cp.unique(self.test_fold)
+        self.unique_folds = self.unique_folds[self.unique_folds != -1]
+
+    def split(self, X=None, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        ind = cp.arange(len(self.test_fold))
+        for test_index in self._iter_test_masks():
+            train_index = ind[cp.logical_not(test_index)]
+            test_index = ind[test_index]
+            ####### can skip the following conversion if cudf support cupy indexing in the future
+            train_index = cudf.from_dlpack(train_index.toDlpack())  # convert to cudf Series
+            test_index = cudf.from_dlpack(test_index.toDlpack())    # convert to cudf Series
+            yield train_index, test_index
+
+    def _iter_test_masks(self):
+        """Generates boolean masks corresponding to test sets."""
+        for f in self.unique_folds:
+            test_index = cp.where(self.test_fold == f)[0]
+            test_mask = cp.zeros(len(self.test_fold), dtype=cp.bool)
+            test_mask[test_index] = True
+            yield test_mask
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        """Returns the number of splitting iterations in the cross-validator
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return len(self.unique_folds)
 
 
 

@@ -11,12 +11,63 @@ import numpy as np
 import cupy as cp
 import cudf
 
+
 try:  # SciPy >= 0.19
     from scipy.special import comb, logsumexp
 except ImportError:
     from scipy.misc import comb, logsumexp  # noqa
     
 
+
+def in1d(ar1, ar2, assume_unique=False, invert=False):
+    # Ravel both arrays, behavior for the first array could be different
+    ar1 = cp.asarray(ar1).ravel()
+    ar2 = cp.asarray(ar2).ravel()
+
+    # Check if one of the arrays may contain arbitrary objects
+    contains_object = ar1.dtype.hasobject or ar2.dtype.hasobject
+
+    # This code is run when
+    # a) the first condition is true, making the code significantly faster
+    # b) the second condition is true (i.e. `ar1` or `ar2` may contain
+    #    arbitrary objects), since then sorting is not guaranteed to work
+    if len(ar2) < 10 * len(ar1) ** 0.145 or contains_object:
+        if invert:
+            mask = cp.ones(len(ar1), dtype=bool)
+            for a in ar2:
+                mask &= (ar1 != a)
+        else:
+            mask = cp.zeros(len(ar1), dtype=bool)
+            for a in ar2:
+                mask |= (ar1 == a)
+        return mask
+
+    # Otherwise use sorting
+    if not assume_unique:
+        ar1, rev_idx = cp.unique(ar1, return_inverse=True)
+        ar2 = cp.unique(ar2)
+
+    ar = cp.concatenate((ar1, ar2))
+    # We need this to be a stable sort, so always use 'mergesort'
+    # here. The values from the first array should always come before
+    # the values from the second array.
+    order = ar.argsort(kind='mergesort')
+    sar = ar[order]
+    if invert:
+        bool_ar = (sar[1:] != sar[:-1])
+    else:
+        bool_ar = (sar[1:] == sar[:-1])
+    flag = cp.concatenate((bool_ar, [invert]))
+    ret = cp.empty(ar.shape, dtype=bool)
+    ret[order] = flag
+
+    if assume_unique:
+        return ret[:len(ar1)]
+    else:
+        return ret[rev_idx]
+
+
+##########################################
 def check_array(array, accept_sparse=False, accept_large_sparse=True,
                 dtype="numeric", order=None, copy=False, force_all_finite=True,
                 ensure_2d=True, allow_nd=False, ensure_min_samples=1,
@@ -193,6 +244,93 @@ def check_random_state(seed):
         return seed
     raise ValueError('%r cannot be used to seed a cupy.random.generator.RandomState'
                      ' instance' % seed)
+
+
+def np_check_random_state(seed):
+    """Turn seed into a np.random.RandomState instance
+    Parameters
+    ----------
+    seed : None | int | instance of RandomState
+        If seed is None, return the RandomState singleton used by np.random.
+        If seed is an int, return a new RandomState instance seeded with seed.
+        If seed is already a RandomState instance, return it.
+        Otherwise raise ValueError.
+    """
+    if isinstance(seed, cp.random.generator.RandomState):
+        raise ValueError('StratifiedShuffleSplit does not take cp.random.generator.RandomState as random_state yet!'
+            , 'The problem should be fixed once cp RandomState can permutation on cp.ndarra!y')
+    if seed is None or seed is np.random:
+        return np.random.mtrand._rand
+    if isinstance(seed, (numbers.Integral, np.integer)):
+        return np.random.RandomState(seed)
+    if isinstance(seed, np.random.RandomState):
+        return seed
+    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
+                     ' instance' % seed)
+
+
+def _approximate_mode(class_counts, n_draws, rng):
+    """Computes approximate mode of multivariate hypergeometric.
+    This is an approximation to the mode of the multivariate
+    hypergeometric given by class_counts and n_draws.
+    It shouldn't be off by more than one.
+    It is the mostly likely outcome of drawing n_draws many
+    samples from the population given by class_counts.
+    Parameters
+    ----------
+    class_counts : ndarray of int
+        Population per class.
+    n_draws : int
+        Number of draws (samples to draw) from the overall population.
+    rng : random state
+        Used to break ties.
+    Returns
+    -------
+    sampled_classes : ndarray of int
+        Number of samples drawn from each class.
+        np.sum(sampled_classes) == n_draws
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.utils import _approximate_mode
+    >>> _approximate_mode(class_counts=np.array([4, 2]), n_draws=3, rng=0)
+    array([2, 1])
+    >>> _approximate_mode(class_counts=np.array([5, 2]), n_draws=4, rng=0)
+    array([3, 1])
+    >>> _approximate_mode(class_counts=np.array([2, 2, 2, 1]),
+    ...                   n_draws=2, rng=0)
+    array([0, 1, 1, 0])
+    >>> _approximate_mode(class_counts=np.array([2, 2, 2, 1]),
+    ...                   n_draws=2, rng=42)
+    array([1, 1, 0, 0])
+    """
+    rng = check_random_state(rng)
+    # this computes a bad approximation to the mode of the
+    # multivariate hypergeometric given by class_counts and n_draws
+    continuous = n_draws * class_counts / class_counts.sum()
+    # floored means we don't overshoot n_samples, but probably undershoot
+    floored = cp.floor(continuous)
+    # we add samples according to how much "left over" probability
+    # they had, until we arrive at n_samples
+    need_to_add = int(n_draws - floored.sum())
+    if need_to_add > 0:
+        remainder = continuous - floored
+        values = cp.sort(cp.unique(remainder))[::-1]
+        # add according to remainder, but break ties
+        # randomly to avoid biases
+        for value in values:
+            inds, = cp.where(remainder == value)
+            # if we need_to_add less than what's in inds
+            # we draw randomly from them.
+            # if we need to add more, we add them all and
+            # go to the next value
+            add_now = min(len(inds), need_to_add)
+            inds = rng.choice(inds, size=add_now, replace=False)
+            floored[inds] += 1
+            need_to_add -= add_now
+            if need_to_add == 0:
+                break
+    return floored.astype(cp.int)
 
 
 def column_or_1d(y, warn=False):
