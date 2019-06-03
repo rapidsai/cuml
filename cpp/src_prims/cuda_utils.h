@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "common/array_ptr.h"
 #include <stdint.h>
 #include "math_constants.h"
 #include <iomanip>
@@ -107,6 +108,88 @@ std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t strea
 
     return ss.str();
 }
+
+
+template<typename T = size_t>
+bool verify_size(T size, int device) {
+      size_t free, total;
+      cudaMemGetInfo(&free, &total);
+
+      if(size > free) {
+          std::cout << "Not enough free memory on device "
+                  << device
+                  << ". needed="
+                  << size
+                  << ", free=" << free << std::endl;
+          return false;
+      }
+
+      return true;
+};
+
+
+
+template<typename T>
+void ASSERT_MEM(T *ptr, std::string name) {
+      cudaPointerAttributes s_att;
+      cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
+
+      if(s_err != 0 || s_att.device == -1)
+          std::cout << "Invalid device pointer encountered in " << name <<
+                    ". device=" << s_att.device << ", err=" << s_err << std::endl;
+};
+
+
+/**
+ * Chunk a single host array up into one or many GPUs (determined by the provided
+ * list of gpu ids) and fit a knn model.
+ *
+ * @param ptr       an array in host memory to chunk over devices
+ * @param n         number of elements in ptr
+ * @param devices   array of device ids for chunking the ptr
+ * @param n_chunks  number of elements in gpus
+ * @param out       host pointer (size n) to store output
+ */
+template<typename T = size_t>
+void chunk_to_device(const float *ptr, int n, int D,
+    int* devices, ArrayPtr *output, int n_chunks,
+    cudaStream_t stream) {
+
+    size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
+
+    /**
+     * Initial verification of memory
+     */
+    for(int i = 0; i < n_chunks; i++) {
+
+        int device = devices[i];
+        T length = chunk_size;
+        if(length * i >= n)
+            length = (chunk_size*i)-T(n);
+        CUDA_CHECK(cudaSetDevice(device));
+        if(!verify_size(T(length)*T(D), device))
+            return;
+    }
+
+    #pragma omp parallel for
+    for(int i = 0; i < n_chunks; i++) {
+
+        int device = devices[i];
+        CUDA_CHECK(cudaSetDevice(device));
+
+        T length = chunk_size;
+        if(length * i >= n)
+            length = (T(chunk_size)*i)-T(n);
+
+        float *ptr_d;
+        MLCommon::allocate(ptr_d, T(length)*size_t(D));
+        MLCommon::updateDevice(ptr_d, ptr+(T(chunk_size)*i),
+                T(length)*T(D), stream);
+
+        output[i].N = length;
+        output[i].ptr = ptr_d;
+    }
+};
 
 
 

@@ -19,9 +19,6 @@
 #include <distance/distance.h>
 #include <common/cumlHandle.hpp>
 
-#define MAX_BATCH_SIZE 512
-#define N_THREADS 512
-
 using namespace MLCommon::Distance;
 
 namespace ML {

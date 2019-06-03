@@ -20,7 +20,7 @@
 
 #include "umap/umapparams.h"
 #include "umap/runner.h"
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 
 #include <cuda_utils.h>
 

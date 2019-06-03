@@ -22,34 +22,6 @@
 
 namespace ML {
 
-template<typename T = size_t>
-bool verify_size(T size, int device) {
-      size_t free, total;
-      cudaMemGetInfo(&free, &total);
-
-      if(size > free) {
-          std::cout << "Not enough free memory on device "
-                  << device
-                  << ". needed="
-                  << size
-                  << ", free=" << free << std::endl;
-          return false;
-      }
-
-      return true;
-};
-
-
-
-template<typename T>
-void ASSERT_MEM(T *ptr, std::string name) {
-      cudaPointerAttributes s_att;
-      cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
-
-      if(s_err != 0 || s_att.device == -1)
-          std::cout << "Invalid device pointer encountered in " << name <<
-                    ". device=" << s_att.device << ", err=" << s_err << std::endl;
-};
 
 
 int get_device(const void *ptr) {

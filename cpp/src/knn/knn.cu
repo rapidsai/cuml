@@ -16,9 +16,12 @@
 
 #include "common/cumlHandle.hpp"
 
-#include "ml_cuda_utils.h"
-#include "cuda_utils.h"
 #include "knn.hpp"
+
+#include "common/array_ptr.h"
+#include "selection/knn.h"
+
+#include "cuda_utils.h"
 #include <cuda_runtime.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -49,7 +52,7 @@ namespace ML {
 	        if(this->owner) {
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
-	            for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	            for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 	        }
 
 	    } catch(const std::exception &e) {
@@ -71,18 +74,21 @@ namespace ML {
 	 * @param input  an array of pointers to data on (possibly different) devices
 	 * @param N 	 number of items in input array.
 	 */
-	void kNN::fit(ArrayPtr<float> *input, int N) {
+	void kNN::fit(MLCommon::ArrayPtr *input, int N) {
 
       if(this->owner)
-          for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+          for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 
 	    if(this->verbose)
 	        std::cout << "N=" << N << std::endl;
 
 	    reset();
 
-      for(int i = 0; i < N; i++)
-          this->knn_params.emplace_back(input[i]);
+      for(int i = 0; i < N; i++) {
+
+        this->indices++;
+        this->knn_params.emplace_back(input[i]);
+      }
 	}
 
 	/**
@@ -95,9 +101,8 @@ namespace ML {
 	 */
 	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
-
-	  kneighbors(*handle, this->knn_params.data(), this->indices, D,
-	      search_items, n, res_I, res_D, k);
+	  MLCommon::Selection::brute_force_knn(this->knn_params.data(), this->indices, D,
+	      search_items, n, res_I, res_D, k, handle->getImpl().getStream());
 	}
 
     /**
@@ -113,15 +118,15 @@ namespace ML {
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
         if(this->owner)
-            for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+            for(MLCommon::ArrayPtr p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 
         reset();
 
         this->owner = true;
 
-        ArrayPtr<float> *params = new ArrayPtr<float>[n_chunks];
+        MLCommon::ArrayPtr *params = new MLCommon::ArrayPtr[n_chunks];
 
-        chunk_to_device(ptr, n, D, devices, params, n_chunks, handle->getImpl().getStream());
+        MLCommon::chunk_to_device(ptr, n, D, devices, params, n_chunks, handle->getImpl().getStream());
 
         fit(params, n_chunks);
    }
