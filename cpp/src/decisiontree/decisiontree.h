@@ -15,47 +15,9 @@
  */
 
 #pragma once
-#include "algo_helper.h"
-#include "kernels/gini_def.h"
-#include "memory.cuh"
-#include <common/Timer.h>
-#include <vector>
-#include <algorithm>
-#include <numeric>
-#include <map>
-#include <climits>
-#include <common/cumlHandle.hpp>
 #include "decisiontree_rf_params.h"
 
 namespace ML {
-namespace DecisionTree {
-
-template<class T>
-struct Question {
-	int column;
-	T value;
-	void update(const GiniQuestion<T> & ques);
-};
-
-template<class T>
-struct TreeNode {
-	TreeNode *left = nullptr;
-	TreeNode *right = nullptr;
-	int class_predict;
-	Question<T> question;
-	T gini_val;
-
-	void print(std::ostream& os) const;
-};
-
-struct DataInfo {
-	unsigned int NLocalrows;
-	unsigned int NGlobalrows;
-	unsigned int Ncols;
-};
-
-} //End namespace DecisionTree
-
 
 // Stateless API functions
 void fit(const ML::cumlHandle& handle, DecisionTree::DecisionTreeClassifier<float> * dt_classifier, float *data, const int ncols, const int nrows, int *labels,
