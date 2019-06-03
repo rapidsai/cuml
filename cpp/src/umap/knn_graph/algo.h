@@ -15,7 +15,8 @@
  */
 
 #include "umap/umapparams.h"
-#include "knn/knn.h"
+#include "ml_cuda_utils.h"
+#include "knn/knn.hpp"
 #include "linalg/unary_op.h"
 #include <iostream>
 #include <cuda_utils.h>
@@ -36,13 +37,13 @@ namespace kNNGraph {
 		 */
 		template<typename T>
 		void launcher(
-		              float *X, int x_n, int d,
+		        float *X, int x_n, int d,
 					  long *knn_indices, T *knn_dists,
 					  kNN *knn,
 					  int n_neighbors,
 					  UMAPParams *params, cudaStream_t stream) {
 
-		    kNNParams *p = new kNNParams[1];
+		    ArrayPtr<float> *p = new ArrayPtr<float>[1];
 			p[0].ptr = X;
 			p[0].N = x_n;
 

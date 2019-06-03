@@ -36,7 +36,7 @@
 #include "sparse/csr.h"
 #include "sparse/coo.h"
 
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 
 #include "cuda_utils.h"
 

@@ -19,7 +19,7 @@
 #include "distance/distance.h"
 #include <selection/columnWiseSort.h>
 #include <common/cumlHandle.hpp>
-#include <knn/knn.h>
+#include <knn/knn.hpp>
 
 using namespace MLCommon;
 using namespace MLCommon::Distance;
@@ -45,7 +45,7 @@ namespace ML {
         long* d_pred_I = (long*)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
         math_t* d_pred_D = (math_t*)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
 
-        kNNParams params = {input, n};
+        ArrayPtr<float> params = {input, n};
         kNN knn(h, d);
         knn.fit(&params, 1);
         knn.search(input, n, d_pred_I, d_pred_D, n_neighbors);

@@ -19,7 +19,7 @@
 #include "common/cumlHandle.hpp"
 
 #include "umapparams.h"
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 
 
 namespace ML {
