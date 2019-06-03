@@ -21,6 +21,16 @@
 #include "kernels/col_condenser.cuh"
 #include "kernels/evaluate.cuh"
 #include "kernels/quantile.cuh"
+#include "algo_helper.h"
+#include "kernels/gini_def.h"
+#include "memory.h"
+#include <common/Timer.h>
+#include <vector>
+#include <algorithm>
+#include <numeric>
+#include <map>
+#include <climits>
+#include <common/cumlHandle.hpp>
 
 namespace ML {
 namespace DecisionTree {
