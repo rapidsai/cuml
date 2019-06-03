@@ -1,3 +1,4 @@
+#pragma once
 #include "decisiontree/decisiontree_rf_params.h"
 
 namespace ML {
@@ -59,4 +60,5 @@ class rf {
 		void print_rf_summary();
 		void print_rf_detailed();
 };
+
 };
