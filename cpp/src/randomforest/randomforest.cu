@@ -23,6 +23,8 @@
 #include <map>
 #include <common/cumlHandle.hpp>
 #include <common/device_buffer.hpp>
+#include <numeric>
+#include <algorithm>  
 
 namespace ML {
 
