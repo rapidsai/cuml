@@ -23,7 +23,7 @@
 #include "sparse/nvgraph_wrappers.h"
 
 #include "sparse/coo.h"
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 
 #include "cuda_utils.h"
 
@@ -176,7 +176,7 @@ namespace ML {
             MLCommon::allocate(knn_indices, m*n_neighbors);
             MLCommon::allocate(knn_dists, m*n_neighbors);
 
-            kNNParams params[1];
+            ArrayPtr<float> params[1];
             params[0].N = m;
             params[0].ptr = X;
 
@@ -331,7 +331,7 @@ namespace ML {
             MLCommon::allocate(knn_indices, m*n_neighbors);
             MLCommon::allocate(knn_dists, m*n_neighbors);
 
-            kNNParams params[1];
+            ArrayPtr<float> params[1];
             params[0].N = m;
             params[0].ptr = X;
 

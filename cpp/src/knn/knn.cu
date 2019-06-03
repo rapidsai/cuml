@@ -16,8 +16,9 @@
 
 #include "common/cumlHandle.hpp"
 
+#include "ml_cuda_utils.h"
 #include "cuda_utils.h"
-#include "knn.h"
+#include "knn.hpp"
 #include <cuda_runtime.h>
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -33,14 +34,13 @@
 
 namespace ML {
 
-
 	/**
 	 * Build a kNN object for training and querying a k-nearest neighbors model.
 	 * @param D 	number of features in each vector
 	 */
 	kNN::kNN(const cumlHandle &handle, int D, bool verbose):
 	        D(D), total_n(0), indices(0), verbose(verbose), owner(false) {
-	    this->handle = const_cast<cumlHandle_impl*>(&handle.getImpl());
+	    this->handle = const_cast<cumlHandle*>(&handle);
 	}
 
 	kNN::~kNN() {
@@ -49,7 +49,7 @@ namespace ML {
 	        if(this->owner) {
 	            if(this->verbose)
 	                std::cout << "Freeing kNN memory" << std::endl;
-	            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+	            for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 	        }
 
 	    } catch(const std::exception &e) {
@@ -60,27 +60,9 @@ namespace ML {
 	void kNN::reset() {
         if(knn_params.size() > 0) {
             knn_params.clear();
-            this->id_ranges.clear();
             this->indices = 0;
             this->total_n = 0;
         }
-	}
-
-	bool kNN::verify_size(size_t size, int device) {
-        size_t free, total;
-        cudaMemGetInfo(&free, &total);
-
-        if(size > free) {
-            std::cout << "Not enough free memory on device "
-                    << device
-                    << " to run kneighbors. "
-                    << "needed="
-                    << size
-                    << ", free=" << free << std::endl;
-            return false;
-        }
-
-        return true;
 	}
 
 	/**
@@ -89,37 +71,18 @@ namespace ML {
 	 * @param input  an array of pointers to data on (possibly different) devices
 	 * @param N 	 number of items in input array.
 	 */
-	void kNN::fit(kNNParams *input, int N) {
+	void kNN::fit(ArrayPtr<float> *input, int N) {
 
-        if(this->owner)
-            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
+      if(this->owner)
+          for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 
 	    if(this->verbose)
 	        std::cout << "N=" << N << std::endl;
 
 	    reset();
 
-        for(int i = 0; i < N; i++) {
-
-            kNNParams params = input[i];
-            this->indices++;
-            this->knn_params.emplace_back(params);
-            if(i < params.N) {
-                id_ranges.push_back(total_n);
-            }
-
-            this->total_n += params.N;
-        }
-	}
-
-	template<typename T>
-	void ASSERT_MEM(T *ptr, std::string name) {
-        cudaPointerAttributes s_att;
-        cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
-
-        if(s_err != 0 || s_att.device == -1)
-            std::cout << "Invalid device pointer encountered in " << name <<
-                      ". device=" << s_att.device << ", err=" << s_err << std::endl;
+      for(int i = 0; i < N; i++)
+          this->knn_params.emplace_back(input[i]);
 	}
 
 	/**
@@ -133,82 +96,8 @@ namespace ML {
 	void kNN::search(const float *search_items, int n,
 			long *res_I, float *res_D, int k) {
 
-		float *result_D = new float[k*size_t(n)];
-		long*result_I = new long[k*size_t(n)];
-
-		float *all_D = new float[indices*k*size_t(n)];
-		long *all_I = new long[indices*k*size_t(n)];
-
-		ASSERT_MEM(search_items, "search items");
-		ASSERT_MEM(res_I, "output index array");
-        ASSERT_MEM(res_D, "output distance array");
-
-        #pragma omp parallel
-		{
-            #pragma omp for
-            for(int i = 0; i < indices; i++) {
-
-                kNNParams params = knn_params[i];
-
-                cudaPointerAttributes att;
-                cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
-
-                if(err == 0 && att.device > -1) {
-
-                    CUDA_CHECK(cudaSetDevice(att.device));
-                    CUDA_CHECK(cudaPeekAtLastError());
-
-                    try {
-
-                        faiss::gpu::StandardGpuResources gpu_res;
-
-                        cudaStream_t stream;
-                        CUDA_CHECK(cudaStreamCreate(&stream));
-
-                        gpu_res.noTempMemory();
-                        gpu_res.setCudaMallocWarning(false);
-                        gpu_res.setDefaultStream(att.device, stream);
-
-                        bruteForceKnn(&gpu_res,
-                                    faiss::METRIC_L2,
-                                    params.ptr,
-                                    params.N,
-                                    search_items,
-                                    n,
-                                    this->D,
-                                    k,
-                                    all_D+(long(i)*k*long(n)),
-                                    all_I+(long(i)*k*long(n)));
-
-                        CUDA_CHECK(cudaPeekAtLastError());
-                        CUDA_CHECK(cudaStreamSynchronize(stream));
-
-                        CUDA_CHECK(cudaStreamDestroy(stream));
-
-
-                    } catch(const std::exception &e) {
-                       std::cout << "Exception occurred: " << e.what() << std::endl;
-                    }
-
-                } else {
-                    std::stringstream ss;
-                    ss << "Input memory for " << &params << " failed. isDevice?=" << att.devicePointer << ", N=" << params.N;
-                    std::cout << "Exception: " << ss.str() << std::endl;
-                }
-            }
-		}
-
-		merge_tables<faiss::CMin<float, int>>(long(n), k, indices,
-				result_D, result_I, all_D, all_I, id_ranges.data());
-
-		MLCommon::updateDevice(res_D, result_D, k*size_t(n), handle->getStream());
-		MLCommon::updateDevice(res_I, result_I, k*size_t(n), handle->getStream());
-
-		delete all_D;
-		delete all_I;
-
-		delete result_D;
-		delete result_I;
+	  kneighbors(*handle, this->knn_params.data(), this->indices, D,
+	      search_items, n, res_I, res_D, k);
 	}
 
     /**
@@ -223,120 +112,17 @@ namespace ML {
      */
     void kNN::fit_from_host(float *ptr, int n, int* devices, int n_chunks) {
 
-        if(this->owner) {
-            for(kNNParams p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
-        }
+        if(this->owner)
+            for(ArrayPtr<float> p : knn_params) { CUDA_CHECK(cudaFree(p.ptr)); }
 
         reset();
 
-        size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
-        kNNParams params[n_chunks];
-
         this->owner = true;
 
-        /**
-         * Initial verification of memory
-         */
-        for(int i = 0; i < n_chunks; i++) {
+        ArrayPtr<float> *params = new ArrayPtr<float>[n_chunks];
 
-            int device = devices[i];
-            size_t length = chunk_size;
-            if(length * i >= n)
-                length = (chunk_size*i)-size_t(n);
-            CUDA_CHECK(cudaSetDevice(device));
-            if(!verify_size(size_t(length)*size_t(D), device))
-                return;
-        }
-
-        #pragma omp parallel for
-        for(int i = 0; i < n_chunks; i++) {
-
-            int device = devices[i];
-            CUDA_CHECK(cudaSetDevice(device));
-
-            size_t length = chunk_size;
-            if(length * i >= n)
-                length = (size_t(chunk_size)*i)-size_t(n);
-
-            float *ptr_d;
-            MLCommon::allocate(ptr_d, size_t(length)*size_t(D));
-            MLCommon::updateDevice(ptr_d, ptr+(size_t(chunk_size)*i),
-                    size_t(length)*size_t(D), handle->getStream());
-
-            kNNParams p;
-            p.N = length;
-            p.ptr = ptr_d;
-
-            params[i] = p;
-        }
+        chunk_to_device(ptr, n, D, devices, params, n_chunks, handle->getImpl().getStream());
 
         fit(params, n_chunks);
    }
-
-	/** Merge results from several shards into a single result set.
-	 * @param all_distances  size nshard * n * k
-	 * @param all_labels     idem
-	 * @param translartions  label translations to apply, size nshard
-	 */
-	template <class C>
-	void kNN::merge_tables (long n, long k, long nshard,
-					   float *distances, long *labels,
-					   float *all_distances,
-					   long *all_labels,
-					   long *translations) {
-		if(k == 0) {
-			return;
-		}
-
-		size_t stride = n * k;
-		#pragma omp parallel
-		{
-			std::vector<int> buf (2 * nshard);
-			int * pointer = buf.data();
-			int * shard_ids = pointer + nshard;
-			std::vector<float> buf2 (nshard);
-			float * heap_vals = buf2.data();
-			#pragma omp for
-			for (long i = 0; i < n; i++) {
-				// the heap maps values to the shard where they are
-				// produced.
-				const float *D_in = all_distances + i * k;
-				const long *I_in = all_labels + i * k;
-				int heap_size = 0;
-
-				for (long s = 0; s < nshard; s++) {
-					pointer[s] = 0;
-					if (I_in[stride * s] >= 0)
-						heap_push<C> (++heap_size, heap_vals, shard_ids,
-									 D_in[stride * s], s);
-				}
-
-				float *D = distances + i * k;
-				long *I = labels + i * k;
-
-				for (int j = 0; j < k; j++) {
-					if (heap_size == 0) {
-						I[j] = -1;
-						D[j] = C::neutral();
-					} else {
-						// pop best element
-						int s = shard_ids[0];
-						int & p = pointer[s];
-						D[j] = heap_vals[0];
-						I[j] = I_in[stride * s + p] + translations[s];
-
-						heap_pop<C> (heap_size--, heap_vals, shard_ids);
-						p++;
-						if (p < k && I_in[stride * s + p] >= 0)
-							heap_push<C> (++heap_size, heap_vals, shard_ids,
-										 D_in[stride * s + p], s);
-					}
-				}
-			}
-		}
-	};
-
-};
-
-
-// end namespace ML
+}; // end namespace MLMy
