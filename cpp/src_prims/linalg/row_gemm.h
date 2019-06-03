@@ -74,9 +74,9 @@ template <
     GemmConfig_, EpilogueFunctor_, Index_>,
   typename GemmEpilogue_ = CustomGemmEpilogue<GemmEpilogueTraits_>,
   typename Lambda, typename FinalLambda>
-void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
-              int k, OType alpha, IType const *A, int lda, IType const *B,
-              int ldb, OType beta, OType const *C, int ldc, OType *D, Lambda op,
+void row_gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m, Index_ n,
+              Index_ k, OType alpha, IType const *A, Index_ lda, IType const *B,
+              Index_ ldb, OType beta, OType const *C, Index_ ldc, OType *D, Lambda op,
               FinalLambda fin_op, cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
        MainLoopFunctor_, Index_, GemmConfig_, EpilogueFunctor_,
@@ -94,6 +94,7 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @tparam OType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam AccumulatorsPerThread_ number of accumulators per thread
+ * @tparam Index_ index type
  * @tparam EpilogueFunctor_ custom epilogue functor
  * @param transA cublas transpose op for A
  * @param transB cublas transpose op for B
@@ -116,13 +117,14 @@ template <
   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
   typename EpilogueFunctor_ = LinearScaling<OType>>
-void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
-              int k, OType alpha, IType const *A, int lda, IType const *B,
-              int ldb, OType beta, OType const *C, int ldc, OType *D,
+void row_gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m, Index_ n,
+              Index_ k, OType alpha, IType const *A, Index_ lda, IType const *B,
+              Index_ ldb, OType beta, OType const *C, Index_ ldc, OType *D,
               cudaStream_t stream) {
   gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
-       MainLoopFunctor_, EpilogueFunctor_>(
+       MainLoopFunctor_, Index_, EpilogueFunctor_>(
     transB, transA, n, m, k, alpha, B, ldb, A, lda, beta, C, ldc, D, stream);
 }
 
@@ -135,6 +137,7 @@ void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
  * @tparam OType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam AccumulatorsPerThread_ number of accumulators per thread
+ * @tparam Index_ index type
  * @tparam EpilogueFunctor_ custom epilogue functor
  * @param transA cublas transpose op for A
  * @param transB cublas transpose op for B
@@ -154,13 +157,14 @@ template <
   typename AccumulatorsPerThread_ = cutlass::Shape<8, 8, 8>,
   typename MainLoopFunctor_ = cutlass::gemm::ThreadMultiplyAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, IType, IType, AccType>,
+  typename Index_ = int,
   typename EpilogueFunctor_ = cutlass::gemm::LinearScaling<OType>>
-void row_gemm(cublasOperation_t transA, cublasOperation_t transB, int m, int n,
-              int k, OType alpha, IType const *A, IType const *B, OType beta,
+void row_gemm(cublasOperation_t transA, cublasOperation_t transB, Index_ m, Index_ n,
+              Index_ k, OType alpha, IType const *A, IType const *B, OType beta,
               OType const *C, OType *D, cudaStream_t stream) {
-  int lda = (transA == CUBLAS_OP_N) ? k : m;
-  int ldb = (transB == CUBLAS_OP_N) ? n : k;
-  int ldc = n; // output is always row-major!
+  Index_ lda = (transA == CUBLAS_OP_N) ? k : m;
+  Index_ ldb = (transB == CUBLAS_OP_N) ? n : k;
+  Index_ ldc = n; // output is always row-major!
   row_gemm<IType, AccType, OType, OutputTile_, AccumulatorsPerThread_,
            MainLoopFunctor_, EpilogueFunctor_>(
     transA, transB, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc, D, stream);

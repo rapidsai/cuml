@@ -495,3 +495,6 @@ class NearestNeighbors(Base):
         :return:
         """
         return self._impl._fit_mg(n_dims, alloc_info)
+
+    def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
+        self._impl._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
