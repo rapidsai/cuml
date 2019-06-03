@@ -1,5 +1,5 @@
 import pytest
-from cuml import Randomforest as curfc
+from cuml import RandomForest as curfc
 from cuml.test.utils import get_handle
 from sklearn.ensemble import RandomForestClassifier as skrfc
 import numpy as np
@@ -21,10 +21,10 @@ def test_rf_predict_numpy(datatype, name, use_handle):
     X = StandardScaler().fit_transform(X)
     print("Calling fit_predict")
     handle, stream = get_handle(use_handle)
-    cuml_model = curfc(handle=handle, n_estimators=3, max_depth=2)
-    cu_labels = cuml_model.fit_predict(X)
+    cuml_model = curfc(n_estimators=3, max_depth=2,handle=handle)
+    cu_labels = cuml_model.fit(X,y)
     sk_model = skrfc(eps=3, min_samples=2)
-    sk_labels = sk_model.fit_predict(X)
+    sk_labels = sk_model.fit(X,y)
     print(X.shape[0])
     cuml_model.handle.sync()
     pdb.set_trace()
