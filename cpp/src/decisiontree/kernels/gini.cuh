@@ -17,7 +17,7 @@
 #pragma once
 #include <utils.h>
 #include "cub/cub.cuh"
-#include "../memory.cuh"
+#include "../memory.h"
 #include <vector>
 #include "gini_def.h"
 #include "cuda_utils.h"
@@ -80,4 +80,3 @@ void gini(int *labels_in, const int nrows, const std::shared_ptr<TemporaryMemory
 
 	return;
 }
-
