@@ -1,9 +1,11 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
+- PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
 - PR #624: Internals API & Graph Based Dimensionality Reductions Callback
+- PR #631: Add nvcategory based ordinal label encoder
 
 ## Improvements
 
@@ -17,10 +19,14 @@
 - PR #604: Adding cumlHandle to kNN, spectral methods, and UMAP
 - PR #618: CI: Enable copyright header checks
 - PR #622: Updated to use 0.8 dependencies
+- PR #626: Added build.sh script, updated CI scripts and documentation
+- PR #633: build: Auto-detection of GPU_ARCHS during cmake
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 - PR #620: C++: Removed old unit-test files in ml-prims
+- PR #627: C++: Fixed dbscan crash issue filed in 613
+- PR #640: Remove setuptools from conda run dependency
 
 
 # cuML 0.7.0 (10 May 2019)
@@ -188,6 +194,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
 
 # cuML 0.5.1 (05 Feb 2019)
 

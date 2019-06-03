@@ -34,7 +34,6 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
   run:
     - python x.x
-    - setuptools
     - cudf 0.8*
     - libcuml={{ version }}
     - libcumlMG
