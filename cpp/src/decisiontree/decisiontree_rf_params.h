@@ -1,9 +1,37 @@
 #pragma once
 #include "algo_helper.h"
-
+#include <common/cumlHandle.hpp>
+#include "kernels/gini_def.h"
+#include "memory.h"
 
 namespace ML {
 namespace DecisionTree {
+
+template<class T>
+struct Question {
+	int column;
+	T value;
+	void update(const GiniQuestion<T> & ques);
+};
+
+template<class T>
+struct TreeNode {
+	TreeNode *left = nullptr;
+	TreeNode *right = nullptr;
+	int class_predict;
+	Question<T> question;
+	T gini_val;
+
+	void print(std::ostream& os) const;
+};
+
+struct DataInfo {
+	unsigned int NLocalrows;
+	unsigned int NGlobalrows;
+	unsigned int Ncols;
+};
+
+
 struct DecisionTreeParams {
 	/**
 	 * Maximum tree depth. Unlimited (e.g., until leaves are pure), if -1.
@@ -95,5 +123,6 @@ private:
 	int classify(const T * row, const TreeNode<T> * const node, bool verbose=false) const;
 	void print_node(const std::string& prefix, const TreeNode<T>* const node, bool isLeft) const;
 }; // End DecisionTree Class
-};
-};
+
+} //End namespace DecisionTree
+}
