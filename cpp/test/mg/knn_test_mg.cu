@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "knn/knn.cu"
+#include "knn/knn.hpp"
 #include <vector>
 #include <gtest/gtest.h>
 #include <cuda_utils.h>
@@ -94,7 +94,7 @@ protected:
 	T* d_train_inputs_dev1;
 	T* d_train_inputs_dev2;
 
-    kNNParams *params = new kNNParams[2];
+    ArrayPtr *params = new ArrayPtr[2];
 
 	int n = 3;
 	int d = 1;

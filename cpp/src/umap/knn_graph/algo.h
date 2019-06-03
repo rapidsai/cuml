@@ -15,8 +15,8 @@
  */
 
 #include "umap/umapparams.h"
-#include "ml_cuda_utils.h"
 #include "knn/knn.hpp"
+#include "common/array_ptr.h"
 #include "linalg/unary_op.h"
 #include <iostream>
 #include <cuda_utils.h>
@@ -43,7 +43,7 @@ namespace kNNGraph {
 					  int n_neighbors,
 					  UMAPParams *params, cudaStream_t stream) {
 
-		    ArrayPtr<float> *p = new ArrayPtr<float>[1];
+		  MLCommon::ArrayPtr *p = new MLCommon::ArrayPtr[1];
 			p[0].ptr = X;
 			p[0].N = x_n;
 
