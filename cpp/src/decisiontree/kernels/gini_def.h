@@ -16,8 +16,6 @@
 
 #pragma once
 #include <utils.h>
-#include "cub/cub.cuh"
-#include "../memory.cuh"
 #include <vector>
 
 template<class T>
