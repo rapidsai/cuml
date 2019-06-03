@@ -1,6 +1,5 @@
 #pragma once
 
-#include "common/array_ptr.h"
 #include "cuda_utils.h"
 
 #include <faiss/gpu/GpuResources.h>
@@ -81,7 +80,6 @@ namespace Selection {
     }
   };
 
-
   /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
    * @param search_items set of vectors to query for neighbors
@@ -92,8 +90,8 @@ namespace Selection {
    */
   template<typename IntType = int>
   void brute_force_knn(
-      const ArrayPtr *input, int n_params, IntType D,
-      const float *search_items, IntType n,
+      float **input, int *sizes, int n_params, IntType D,
+      float *search_items, IntType n,
       long *res_I, float *res_D, IntType k,
       cudaStream_t s) {
 
@@ -102,10 +100,9 @@ namespace Selection {
     IntType total_n = 0;
 
     for(int i = 0; i < n_params; i++) {
-      ArrayPtr params = input[i];
-      if(i < params.N)
+      if(i < n_params) // if i < sizes[i]
           id_ranges->push_back(total_n);
-      total_n += params.N;
+      total_n += sizes[i];
     }
 
     float *result_D = new float[k*size_t(n)];
@@ -124,10 +121,11 @@ namespace Selection {
         #pragma omp for
         for(int i = 0; i < n_params; i++) {
 
-          ArrayPtr params = input[i];
+          const float *ptr = input[i];
+          IntType size = sizes[i];
 
           cudaPointerAttributes att;
-          cudaError_t err = cudaPointerGetAttributes(&att, params.ptr);
+          cudaError_t err = cudaPointerGetAttributes(&att, ptr);
 
           if(err == 0 && att.device > -1) {
 
@@ -147,8 +145,8 @@ namespace Selection {
 
                   faiss::gpu::bruteForceKnn(&gpu_res,
                               faiss::METRIC_L2,
-                              params.ptr,
-                              params.N,
+                              ptr,
+                              size,
                               search_items,
                               n,
                               D,
@@ -167,8 +165,8 @@ namespace Selection {
 
           } else {
               std::stringstream ss;
-              ss << "Input memory for " << &params << " failed. isDevice?=" <<
-                  att.devicePointer << ", N=" << params.N;
+              ss << "Input memory for " << ptr << " failed. isDevice?=" <<
+                  att.devicePointer << ", N=" << sizes[i];
               std::cout << "Exception: " << ss.str() << std::endl;
           }
       }

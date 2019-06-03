@@ -67,13 +67,21 @@ protected:
         h_res_I.resize(n*n);
         updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
 
-        params[0] = { d_train_inputs_dev1, n };
-        params[1] = { d_train_inputs_dev2, n };
+        float **ptrs = new float*[2];
+        int *sizes = new int[2];
+        ptrs[0] = d_train_inputs_dev1;
+        sizes[0] = n;
+
+        ptrs[1] = d_train_inputs_dev2;
+        sizes[1] = n;
 
         cudaSetDevice(0);
 
-        knn->fit(params, 2);
+        knn->fit(ptrs, sizes, 2);
         knn->search(d_train_inputs_dev1, n, d_pred_I, d_pred_D, n);
+
+        delete ptrs;
+        delete sizes;
     }
 
  	void SetUp() override {
@@ -93,8 +101,6 @@ protected:
 
 	T* d_train_inputs_dev1;
 	T* d_train_inputs_dev2;
-
-    ArrayPtr *params = new ArrayPtr[2];
 
 	int n = 3;
 	int d = 1;

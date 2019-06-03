@@ -16,7 +16,6 @@
 
 #include "umap/umapparams.h"
 #include "knn/knn.hpp"
-#include "common/array_ptr.h"
 #include "linalg/unary_op.h"
 #include <iostream>
 #include <cuda_utils.h>
@@ -43,11 +42,12 @@ namespace kNNGraph {
 					  int n_neighbors,
 					  UMAPParams *params, cudaStream_t stream) {
 
-		  MLCommon::ArrayPtr *p = new MLCommon::ArrayPtr[1];
-			p[0].ptr = X;
-			p[0].N = x_n;
+		  float **p = new float*[1];
+		  int *sizes = new int[1];
+			p[0] = X;
+			sizes[0] = x_n;
 
-			knn->fit(p, 1);
+			knn->fit(p, sizes, 1);
 			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
 
 			CUDA_CHECK(cudaDeviceSynchronize());

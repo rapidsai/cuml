@@ -61,10 +61,13 @@ protected:
       h_res_I.resize(n*n);
       updateDevice<long>(d_ref_I, h_res_I.data(), n*n, 0);
 
-      ArrayPtr params[1];
-      params[0] = { d_train_inputs, n };
 
-      knn->fit(params, 1);
+      float **ptrs = new float*[1];
+      int *sizes = new int[1];
+      ptrs[0] = d_train_inputs;
+      sizes[0] = n;
+
+      knn->fit(ptrs, sizes, 1);
       knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
   }
 

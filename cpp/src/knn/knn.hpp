@@ -20,7 +20,6 @@
 
 #include "cuda_utils.h"
 
-#include "common/array_ptr.h"
 #include "selection/knn.h"
 
 #include <faiss/gpu/StandardGpuResources.h>
@@ -35,11 +34,18 @@
 
 namespace ML {
 
-	using namespace faiss;
+
+  void brute_force_knn(
+         const cumlHandle &handle,
+         const float **input, int*sizes, int n_params, int D,
+         const float *search_items, int n,
+         long *res_I, float *res_D, int k);
+
 
 	class kNN {
 
-		std::vector<MLCommon::ArrayPtr> knn_params;
+		float **ptrs;
+		int *sizes;
 
 		int total_n;
 		int indices;
@@ -68,7 +74,7 @@ namespace ML {
      * @param res_D        pointer to device memory for returning k nearest distances
      * @param k            number of neighbors to query
      */
-		void search(const float *search_items, int search_items_size,
+		void search(float *search_items, int search_items_size,
 		        long *res_I, float *res_D, int k);
 
     /**
@@ -77,7 +83,7 @@ namespace ML {
      * @param input  an array of pointers to data on (possibly different) devices
      * @param N      number of items in input array.
      */
-		void fit(MLCommon::ArrayPtr *input, int N);
+		void fit(float **input, int *sizes, int N);
 
 		/**
 		 * Chunk a host array up into one or many GPUs (determined by the provided

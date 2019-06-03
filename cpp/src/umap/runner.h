@@ -285,7 +285,7 @@ namespace UMAPAlgo {
 	 */
 	template<typename T, int TPB_X>
 	size_t _transform(const cumlHandle &handle,
-                      const float *X,
+                    float *X,
 	                  int n,
 	                  int d,
 	                  T *embedding,
