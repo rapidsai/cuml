@@ -114,8 +114,6 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<AdjustedRandIndexP
     if(maxIndex - expectedIndex)
         truthAdjustedRandIndex = (index - expectedIndex)/(maxIndex - expectedIndex);
     else truthAdjustedRandIndex = 0;
-    printf("truth ARI: %f\n", truthAdjustedRandIndex);
-
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -129,7 +127,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<AdjustedRandIndexP
 
     //calling the adjustedRandIndex CUDA implementation
     computedAdjustedRandIndex = MLCommon::Metrics::computeAdjustedRandIndex(firstClusterArray,secondClusterArray,nElements, numUniqueClasses, lowerLabelRange, upperLabelRange, allocator,stream);
-    printf("calculated ARI: %f\n", computedAdjustedRandIndex);
+
     }
 
     //the destructor
@@ -169,7 +167,6 @@ const std::vector<AdjustedRandIndexParam> inputs = {
     {10, 1, 10, true, 0.000001},
    {198, 1, 100, true, 0.000001},
     {300, 3, 99, true, 0.000001}
-    //{2, 0, 0, 0.00001}
 };
 
 
