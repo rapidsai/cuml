@@ -1,6 +1,6 @@
 import numpy as np
 
-from cuml.ts.batched_lbfgs import batched_fmin_bfgs
+from cuml.ts.batched_bfgs import batched_fmin_bfgs
 
 import scipy.optimize as optimize
 
@@ -98,6 +98,7 @@ def test_batched_bfgs():
     # print("batched res_xk:", res_xk)
     # print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
     np.testing.assert_almost_equal(np.max(np.abs(res_xk-res_true)), 0.0)
+    
 
 if __name__ == "__main__":
     test_batched_bfgs()
