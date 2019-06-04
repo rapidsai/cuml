@@ -59,5 +59,19 @@ namespace ML {
          */
         double r2_score_py(const cumlHandle& handle, double *y, double *y_hat, int n);
 
+
+        /**
+         * Calculates the "rand index"
+         *
+         * This metric is a measure of similarity between two data clusterings.
+         *
+         * @param handle: cumlHandle
+         * @param y: Array of response variables of the first clustering classifications
+         * @param y_hat: Array of response variables of the second clustering classifications
+         * @param n: Number of elements in y and y_hat
+         * @return: The rand index value
+         */
+        double randIndex(const cumlHandle& handle, double *y, double *y_hat, int n);
+
     }
 }
