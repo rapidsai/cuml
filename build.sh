@@ -22,7 +22,8 @@ VALIDARGS="clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
-   libcuml       - build the cuml C++ code only
+   libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
+                   around the C++ code.
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
  and <flag> is:
@@ -130,7 +131,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
 
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} cuml++ ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    make -j${PARALLEL_LEVEL} cuml++ cuml ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
 # Build and (optionally) install the cuml Python package
