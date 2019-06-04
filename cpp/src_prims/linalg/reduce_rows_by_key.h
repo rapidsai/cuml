@@ -285,13 +285,13 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT 
   int end_row = start_row + rows_per_partition;
   end_row = end_row > nrows ? nrows : end_row;
 
-  KeyType this_key = blockIdx.y;
-  if (this_key >= nkeys) return;
+  KeyType local_key = blockIdx.y;
+  if (local_key >= nkeys) return;
   int this_col = threadIdx.x + blockIdx.x*blockDim.x;
   if (this_col >= ncols) return;
         
   DataType sum = 0.0;
-
+  KeyType global_key = key_offset + local_key;
 #ifdef RRBK_SHMEM
   int sh_key_inx = 0;
 #endif
@@ -302,18 +302,18 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT 
 	sh_keys[x] = d_keys[r+x];
       __syncthreads();
     }
-    if (sh_keys[sh_key_inx] != this_key) continue; //No divergence since this_key is the
+    if (sh_keys[sh_key_inx] != global_key) continue; //No divergence since global_key is the
     // same for the whole block
     sh_key_inx++;
 #else
-    if (d_keys[r] != this_key) continue; //No divergence since this_key is the
+    if (d_keys[r] != global_key) continue; //No divergence since global_key is the
     // same for the whole block
 #endif
-    //if ((end_row-start_row) / (r-start_row) != this_key) continue;
+    //if ((end_row-start_row) / (r-start_row) != global_key) continue;
     sum += __ldcg(&d_A[r*lda+this_col]);
   }
         
-  if (sum != 0.0) myAtomicAdd(&d_sums[this_key*ncols+this_col], sum);
+  if (sum != 0.0) myAtomicAdd(&d_sums[global_key*ncols+this_col], sum);
 }
 
 template <typename DataIteratorT,
@@ -342,7 +342,6 @@ void sum_rows_by_key_large_nkeys_rowmajor( const DataIteratorT d_A,
   grid.z = std::min(grid.z, MAX_BLOCKS);
   //std::cout << "block = " << block.x << ", " << block.y << std::endl;
   //std::cout << "grid = " << grid.x << ", " << grid.y << ", " << grid.z << std::endl;
-  cudaMemsetAsync(d_sums, 0, sizeof(DataType)*nkeys*ncols, st);
   sum_rows_by_key_large_nkeys_kernel_rowmajor<<<grid,block,0,st>>>(d_A, lda, d_keys, nrows, ncols, key_offset, nkeys, d_sums);   
 }
 
