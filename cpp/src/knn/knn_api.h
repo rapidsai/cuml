@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuML_api.h>
-#include "common/array_ptr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,7 +24,7 @@ extern "C" {
 
 cumlError_t knn_search(
       const cumlHandle_t handle,
-      const MLCommon::ArrayPtr *input, int n_params, int D,
+      float **input, int *size, int n_params, int D,
       const float *search_items, int n,
       long *res_I, float *res_D, int k);
 

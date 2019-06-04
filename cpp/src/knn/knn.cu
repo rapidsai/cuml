@@ -29,7 +29,6 @@
 #include <faiss/gpu/GpuDistance.h>
 
 
-#include <omp.h>
 #include <vector>
 #include <sstream>
 
@@ -37,7 +36,7 @@
 namespace ML {
 
   void brute_force_knn(
-        const cumlHandle &handle,
+        cumlHandle &handle,
         float **input, int *sizes, int n_params, int D,
         float *search_items, int n,
         long *res_I, float *res_D, int k) {
