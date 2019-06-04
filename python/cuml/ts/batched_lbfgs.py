@@ -113,14 +113,19 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             alpha_b = np.zeros(num_batches)
             xkp1 = np.zeros(len(xk))
             for ib in range(num_batches):
-                alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
-                                                                 xk[ib*r:(ib+1)*r],
-                                                                 pk[ib*r:(ib+1)*r],
-                                                                 args=(ib,))
-                alpha_b[ib] = alpha
-                if fkp1 is None:
-                    raise ValueError("Line search failed to converge")
-
+                # When we are too close to minimum, line search fails. Don't
+                # search if we are more than satisfying the stopping criterion.
+                if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > 1e-2*pgtol):
+                    alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
+                                                                     xk[ib*r:(ib+1)*r],
+                                                                     pk[ib*r:(ib+1)*r],
+                                                                     args=(ib,))
+                    alpha_b[ib] = alpha
+                    if fkp1 is None:
+                        print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
+                                                   np.linalg.norm(pk[ib*r:(ib+1)*r])))
+                        raise ValueError("Line search failed to converge")
+                
                 xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
 
         else:
@@ -180,11 +185,13 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         num_steps = 5
         if k>num_steps:
             if np.mean(np.abs(fkp1 - fk[k-num_steps:k])) < factr*1e-22:
-                print("Stopping criterion true: Last {} steps almost no change in f(x)".format(num_steps))
+                if disp > 0:
+                    print("Stopping criterion true: Last {} steps almost no change in f(x)".format(num_steps))
                 break
 
         if k==max_steps-1:
-            print("Stopping criterion: Maximum number of iterations!")
+            if disp > 0:
+                print("Stopping criterion: Maximum number of iterations!")
 
     if disp > 0:
         print("Final result: f(xk)={}, |\/f(xk)|={}, n_iter={}".format(fk[-1],
