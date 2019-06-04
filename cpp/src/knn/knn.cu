@@ -40,10 +40,20 @@ namespace ML {
         float **input, int *sizes, int n_params, int D,
         float *search_items, int n,
         long *res_I, float *res_D, int k) {
-
     MLCommon::Selection::brute_force_knn(input, sizes, n_params, D,
         search_items, n, res_I, res_D, k, handle.getImpl().getStream());
   }
+
+
+  void chunk_host_array(
+    cumlHandle &handle,
+    const float *ptr, int n, int D,
+    int* devices, float **output, int *sizes, int n_chunks) {
+    MLCommon::chunk_to_device<float, int>(ptr, n, D,
+        devices, output, sizes, n_chunks, handle.getImpl().getStream());
+  }
+
+
 
 
 	/**
@@ -168,12 +178,31 @@ extern "C" cumlError_t knn_search(
                 search_items, n,
                 res_I, res_D, k,
                 handle_ptr->getImpl().getStream());
-        }
-        catch (...) {
+        } catch (...) {
             status = CUML_ERROR_UNKNOWN;
         }
     }
     return status;
-
 }
+
+extern "C" cumlError_t chunk_host_array(
+    const cumlHandle_t handle,
+    const float *ptr, int n, int D,
+    int* devices, float **output, int *sizes, int n_chunks) {
+
+  cumlError_t status;
+  ML::cumlHandle *handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  if(status == CUML_SUCCESS) {
+    try {
+      MLCommon::chunk_to_device<float, int>(ptr, n, D,
+          devices, output, sizes, n_chunks, handle_ptr->getImpl().getStream());
+    } catch (...) {
+        status = CUML_ERROR_UNKNOWN;
+    }
+  }
+  return status;
+}
+
+
 

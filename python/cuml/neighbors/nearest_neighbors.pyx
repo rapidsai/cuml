@@ -53,8 +53,35 @@ cdef extern from "knn/knn.hpp" namespace "ML" nogil:
         int n,
         long * res_I,
         float * res_D,
-        int k) except +
+        int k
+    ) except +
 
+    void chunk_host_array(
+        cumlHandle &handle,
+        const float *ptr,
+        int n,
+        int D,
+        int* devices,
+        float **output,
+        int *sizes,
+        int n_chunks
+    ) except +
+
+
+cdef class MGAllocations:
+
+    cdef uintptr_t inputs
+    cdef uintptr_t sizes
+    cdef n_allocs
+
+    def __cinit__(self, inputs, sizes, n_allocs):
+
+        cdef uintptr_t inp = inputs
+        cdef uintptr_t si = sizes
+
+        self.inputs = inp
+        self.sizes = si
+        self.n_allocs = n_allocs
 
 class NearestNeighbors(Base):
     """
@@ -181,6 +208,7 @@ class NearestNeighbors(Base):
         self._should_downcast = should_downcast
         self.handle = handle
         self.D = 0
+        self.mg_allocations = None
 
     def __dealloc__(self):
         del self.input
@@ -261,6 +289,8 @@ class NearestNeighbors(Base):
 
         cdef uintptr_t X_ctype = -1
         cdef uintptr_t dev_ptr = -1
+        cdef cumlHandle * handle
+
         if isinstance(X, np.ndarray):
 
             if X.dtype != np.float32:
@@ -292,16 +322,25 @@ class NearestNeighbors(Base):
             final_devices = np.ascontiguousarray(np.array(final_devices),
                                                  np.int32)
 
-            # X_ctype = X.ctypes.data
-            # dev_ptr = final_devices.ctypes.data
-            #
-            # # TODO: Call chunk from host here.
-            # self.k.fit_from_host(
-            #     <float*>X_ctype,
-            #     <int>X.shape[0],
-            #     <int*>dev_ptr,
-            #     <int>len(final_devices)
-            # )
+            X_ctype = X.ctypes.data
+            dev_ptr = final_devices.ctypes.data
+
+            input = < float ** > malloc(sizeof(float *))
+            sizes = < int * > malloc(sizeof(int))
+
+            self.mg_allocations = MGAllocations(inpu, sizes, len(final_devices))
+
+            handle_ = < cumlHandle * > < size_t > self.handle.getHandle()
+
+            chunk_host_array(
+                handle_[0],
+                <float*>X_ctype,
+                <int>X.shape[0],
+                <int*>dev_ptr,
+                <float**>input,
+                <int*>sizes,
+                <int>len(final_devices)
+            )
 
         else:
             self.X_m = self._downcast(X)
@@ -330,6 +369,10 @@ class NearestNeighbors(Base):
 
             input_ptr = alloc_info[i]["data"][0]
             inp[i] = < float * > input_ptr
+
+        cdef uintptr_t inpu = inp
+
+        self.mg_allocations = MGAllocations(inpu, sizes, n_indices)
 
 
     def kneighbors(self, X, k=None):
@@ -368,13 +411,23 @@ class NearestNeighbors(Base):
 
         X_m = self._downcast(X)
 
-        cdef uintptr_t input_X_ctype = self.X_m.device_ctypes_pointer.value
+        cdef float** input
+        cdef int* sizes
+        cdef uintptr_t input_X_ctype
 
-        cdef float** input = <float**> malloc(sizeof(float*))
-        cdef int* sizes = <int*>malloc(sizeof(int))
+        if self.mg_allocations is not None:
+            input = self.mg_allocations.inputs
+            sizes = self.mg_allocations.sizes
+            n_allocs = self.mg_allocations.n_allocs
+        else:
+            input = <float**> malloc(sizeof(float*))
+            sizes = <int*>malloc(sizeof(int))
 
-        input[0] = < float * > input_X_ctype
-        sizes[0] = < int > len(self.X_m)
+            input_X_ctype = self.X_m.device_ctypes_pointer.value
+            input[0] = < float * > input_X_ctype
+            sizes[0] = < int > len(self.X_m)
+            n_allocs = 1
+
 
         cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
 
@@ -393,7 +446,7 @@ class NearestNeighbors(Base):
         brute_force_knn(handle_[0],
                         <float**>input,
                         <int*>sizes,
-                        <int>1,
+                        <int>n_allocs,
                         <int>self.D,
                         <float*>X_ctype,
                         <int> N,
@@ -427,13 +480,12 @@ class NearestNeighbors(Base):
 
     def _kneighbors(self, inp, sizes, n_indices, X_ctype, N, k, I_ptr, D_ptr):
 
-
         cdef uintptr_t inds = I_ptr
         cdef uintptr_t dists = D_ptr
         cdef uintptr_t x = X_ctype
 
-        cdef uintptr_t inp_ptr = inp
-        cdef uintptr_t sizes_ptr = sizes
+        cdef float** inp_ptr = inp
+        cdef int* sizes_ptr = sizes
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 

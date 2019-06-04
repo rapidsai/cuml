@@ -38,6 +38,12 @@ namespace ML {
          long *res_I, float *res_D, int k);
 
 
+  void chunk_host_array(
+    cumlHandle &handle,
+    const float *ptr, int n, int D,
+    int* devices, float **output, int *sizes, int n_chunks);
+
+
 	class kNN {
 
 		float **ptrs;
