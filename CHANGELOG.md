@@ -1,9 +1,11 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
+- PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
+- PR #631: Add nvcategory based ordinal label encoder
 
 ## Improvements
 
@@ -24,7 +26,9 @@
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 - PR #620: C++: Removed old unit-test files in ml-prims
 - PR #627: C++: Fixed dbscan crash issue filed in 613
-
+- PR #640: Remove setuptools from conda run dependency
+- PR #646: Update link in contributing.md
+- PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 
 # cuML 0.7.0 (10 May 2019)
 
