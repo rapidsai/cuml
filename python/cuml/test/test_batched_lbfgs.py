@@ -74,8 +74,8 @@ def test_batched_bfgs():
     x0[1] = 0.9
     
     # global optimizer
-    options = {"disp": 10}
-    res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
+    # options = {"disp": 10}
+    # res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
 
     # problem-at-a-time optimizer
     # for ib in range(num_batches):
@@ -93,7 +93,11 @@ def test_batched_bfgs():
     # print("|res_diff_ref|_max", np.max(res_ref.x-res_true))
 
     # our new batch-aware bfgs optimizer
-    res_xk, _ = batched_fmin_bfgs(f, x0, num_batches, g=gf, disp=1, max_steps=100)
+    res_xk, _ = batched_fmin_bfgs(f, x0, num_batches, g=gf, disp=0, max_steps=100)
     
-    print("batched res_xk:", res_xk)
-    print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
+    # print("batched res_xk:", res_xk)
+    # print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
+    np.testing.assert_almost_equal(np.max(np.abs(res_xk-res_true)), 0.0)
+
+if __name__ == "__main__":
+    test_batched_bfgs()
