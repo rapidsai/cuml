@@ -401,8 +401,6 @@ class NearestNeighbors(Base):
                         <float*>D_ptr,
                         <int> k)
 
-        # self._kneighbors(input, sizes, 1, X_ctype, N, k, I_ptr, D_ptr)
-
         I_ndarr = I_ndarr.reshape((N, k))
         D_ndarr = D_ndarr.reshape((N, k))
 
