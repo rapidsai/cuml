@@ -177,6 +177,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sum.cu
       prims/svd.cu
       prims/transpose.cu
+      prims/trustworthiness.cu
       prims/unary_op.cu
       prims/weighted_mean.cu
       )

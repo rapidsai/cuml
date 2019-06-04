@@ -21,6 +21,8 @@
 #include "linalg/subtract.h"
 #include "linalg/power.h"
 
+#include <memory>
+
 #include "common/cuml_allocator.hpp"
 
 #include "selection/knn.h"
@@ -83,7 +85,7 @@ namespace MLCommon {
       template<typename math_t>
       long* get_knn_indexes(math_t* input, int n,
                             int d, int n_neighbors,
-                            deviceAllocator *d_alloc,
+                            std::shared_ptr<deviceAllocator> d_alloc,
                             cudaStream_t stream)
       {
           long* d_pred_I = (long*)d_alloc->allocate(n * n_neighbors * sizeof(long), stream);
@@ -117,7 +119,7 @@ namespace MLCommon {
       double trustworthiness_score(math_t* X,
                           math_t* X_embedded, int n, int m, int d,
                           int n_neighbors,
-                          deviceAllocator *d_alloc,
+                          std::shared_ptr<deviceAllocator> d_alloc,
                           cudaStream_t stream)
       {
           const int TMP_SIZE = MAX_BATCH_SIZE * n;

@@ -39,7 +39,7 @@ namespace Metrics {
                             math_t* X_embedded, int n, int m, int d,
                             int n_neighbors) {
             cudaStream_t stream = h.getStream();
-            auto d_alloc = h.getDeviceAllocator().get();
+            auto d_alloc = h.getDeviceAllocator();
 
             return MLCommon::Score::trustworthiness_score<math_t, distance_type>(X, X_embedded,
                 n, m, d, n_neighbors,
