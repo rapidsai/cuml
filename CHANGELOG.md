@@ -26,7 +26,7 @@
 - PR #620: C++: Removed old unit-test files in ml-prims
 - PR #627: C++: Fixed dbscan crash issue filed in 613
 - PR #640: Remove setuptools from conda run dependency
-
+- PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 
 # cuML 0.7.0 (10 May 2019)
 
