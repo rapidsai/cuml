@@ -143,7 +143,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<AdjustedRandIndexP
 
     //declaring the data values
     AdjustedRandIndexParam params;
-    int lowerLabelRange=0,upperLabelRange=2;
+    T lowerLabelRange,upperLabelRange;
     T* firstClusterArray=nullptr;
     T* secondClusterArray = nullptr;
     int nElements=0;
