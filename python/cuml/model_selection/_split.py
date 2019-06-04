@@ -14,20 +14,19 @@
 # limitations under the License.
 #
 
-from collections.abc import Iterable
 import warnings
-from itertools import chain, combinations
+from itertools import combinations
 from math import ceil, floor
 import numbers
 from abc import ABCMeta, abstractmethod
 from inspect import signature
 
-import scipy.sparse as sp
 import numpy as np
 import cupy as cp
 import cudf
 
 import utils
+from utils import DataC
 
 
 NSPLIT_WARNING = (
@@ -44,7 +43,8 @@ class BaseCrossValidator(metaclass=ABCMeta):
         """Generate indices to split data into training and test set.
         Parameters
         ----------
-        X : cudf.DataFrame, cudf.Series or a cupy.ndarray, shape (n_samples, n_features)
+        X : cudf.DataFrame, cudf.Series or a cupy.ndarray, 
+            shape (n_samples, n_features)
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
         y : cudf dataframe, of length n_samples
@@ -71,9 +71,9 @@ class BaseCrossValidator(metaclass=ABCMeta):
         for test_index in self._iter_test_masks(X, y, groups):
             train_index = indices[cp.logical_not(test_index)]
             test_index = indices[test_index]
-            ####### can skip the following conversion if cudf support cupy indexing in the future
-            train_index = cudf.from_dlpack(train_index.toDlpack())  # convert to cudf Series
-            test_index = cudf.from_dlpack(test_index.toDlpack())    # convert to cudf Series
+            # convert to cudf Series
+            train_index = cudf.from_dlpack(train_index.toDlpack())
+            test_index = cudf.from_dlpack(test_index.toDlpack())
             yield train_index, test_index
 
     # Since subclasses must implement either _iter_test_masks or
@@ -244,7 +244,6 @@ class LeavePOut(BaseCrossValidator):
         return int(utils.comb(utils._num_samples(X), self.p, exact=True))
 
 
-
 class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
     """Base class for KFold, GroupKFold, and StratifiedKFold"""
 
@@ -322,7 +321,6 @@ class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
         return self.n_splits
 
 
-
 class KFold(_BaseKFold):
     """K-Folds cross-validator
     Provides train/test indices to split data in train/test sets. Split
@@ -392,7 +390,7 @@ class KFold(_BaseKFold):
             n_samples = len(X.index)
 
         indices = cp.arange(n_samples)
-        
+
         if self.shuffle:
             utils.check_random_state(self.random_state).shuffle(indices)
 
@@ -404,7 +402,6 @@ class KFold(_BaseKFold):
             start, stop = current, current + fold_size
             yield indices[start:stop]
             current = stop
-
 
 
 class GroupKFold(_BaseKFold):
@@ -460,9 +457,8 @@ class GroupKFold(_BaseKFold):
     def _iter_test_indices(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        ##########################
-        #groups = check_array(groups, ensure_2d=False, dtype=None)
-
+        # !!!!!!!!!!!!!!
+        # groups = check_array(groups, ensure_2d=False, dtype=None)
         unique_groups, groups = cp.unique(groups, return_inverse=True)
         n_groups = len(unique_groups)
 
@@ -515,7 +511,6 @@ class GroupKFold(_BaseKFold):
             The testing set indices for that split.
         """
         return super().split(X, y, groups)
-
 
 
 class StratifiedKFold(_BaseKFold):
@@ -604,15 +599,13 @@ class StratifiedKFold(_BaseKFold):
         # So we pass cp.zeroes(max(c, n_splits)) as data to the KFold
         per_cls_cvs = [
             KFold(self.n_splits, shuffle=self.shuffle,
-                  random_state=rng).split(cp.zeros(max(int(count), self.n_splits)))
+                random_state=rng).split(cp.zeros(max(int(count),
+                self.n_splits)))
             for count in y_counts]
         test_folds = cp.zeros(n_samples, dtype=cp.int)
         for test_fold_indices, per_cls_splits in enumerate(zip(*per_cls_cvs)):
             for cls, (_, test_split) in zip(unique_y, per_cls_splits):
-                #############################################
-                # In the future, delete the following conversion code after cudf supports cupy indexing
                 test_split = cp.asarray(test_split)
-
                 cls_test_folds = test_folds[y == cls]
                 # the test split can be too big because we used
                 # KFold(...).split(X[:max(c, n_splits)]) when data is not 100%
@@ -657,9 +650,9 @@ class StratifiedKFold(_BaseKFold):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        #y = check_array(y, ensure_2d=False, dtype=None)
+        # !!!!!!!!!!!!!!!!! In progress
+        # y = check_array(y, ensure_2d=False, dtype=None)
         return super().split(X, y, groups)
-
 
 
 class TimeSeriesSplit(_BaseKFold):
@@ -747,7 +740,7 @@ class TimeSeriesSplit(_BaseKFold):
                             n_samples, test_size)
         for test_start in test_starts:
             if self.max_train_size and self.max_train_size < test_start:
-                # can get rid of this conversion if cudf support cupy indexing in the future
+                # get rid of this conversion once cudf support cupy indexing
                 train = indices[test_start - self.max_train_size:test_start]
                 train = cudf.from_dlpack(train.toDlpack())
                 test = indices[test_start:test_start + test_size]
@@ -759,7 +752,6 @@ class TimeSeriesSplit(_BaseKFold):
                 test = indices[test_start:test_start + test_size]
                 test = cudf.from_dlpack(test.toDlpack())
                 yield (train, test)
-
 
 
 class LeaveOneGroupOut(BaseCrossValidator):
@@ -803,7 +795,7 @@ class LeaveOneGroupOut(BaseCrossValidator):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
         # We make a copy of groups to avoid side-effects during iteration
-        ############################################3
+        # !!!!!!!!!!!!!!!!!!! In progress
         # groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
         unique_groups = cp.unique(groups)
         if len(unique_groups) <= 1:
@@ -833,7 +825,7 @@ class LeaveOneGroupOut(BaseCrossValidator):
         """
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        ################################################
+        # !!!!!!!!!!!!!!!!!!!!! In progress
         # groups = check_array(groups, ensure_2d=False, dtype=None)
         return len(cp.unique(groups))
 
@@ -857,7 +849,6 @@ class LeaveOneGroupOut(BaseCrossValidator):
             The testing set indices for that split.
         """
         return super().split(X, y, groups)
-
 
 
 class LeavePGroupsOut(BaseCrossValidator):
@@ -915,7 +906,7 @@ class LeavePGroupsOut(BaseCrossValidator):
     def _iter_test_masks(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        #######################################
+        # !!!!!!!!!!!!!!!!!!! In progress
         # groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
         unique_groups = cp.unique(groups)
         if self.n_groups >= len(unique_groups):
@@ -952,7 +943,8 @@ class LeavePGroupsOut(BaseCrossValidator):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
         # groups = check_array(groups, ensure_2d=False, dtype=None)
-        return int(utils.comb(len(cp.unique(groups)), self.n_groups, exact=True))
+        return int(utils.comb(len(cp.unique(groups)),
+            self.n_groups, exact=True))
 
     def split(self, X, y=None, groups=None):
         """Generate indices to split data into training and test set.
@@ -996,95 +988,8 @@ class _RepeatedSplits(metaclass=ABCMeta):
         and shuffle.
     """
     def __init__(self, cv, n_repeats=10, random_state=None, **cvargs):
-        if not isinstance(n_repeats, (np.integer, numbers.Integral)):
-            raise ValueError("Number of repetitions must be of Integral type.")
-
-        if n_repeats <= 0:
-            raise ValueError("Number of repetitions must be greater than 0.")
-
-        if any(key in cvargs for key in ('random_state', 'shuffle')):
-            raise ValueError(
-                "cvargs must not contain random_state or shuffle.")
-
-        self.cv = cv
-        self.n_repeats = n_repeats
-        self.random_state = random_state
-        self.cvargs = cvargs
-
-    def split(self, X, y=None, groups=None):
-        """Generates indices to split data into training and test set.
-        Parameters
-        ----------
-        X : array-like, shape (n_samples, n_features)
-            Training data, where n_samples is the number of samples
-            and n_features is the number of features.
-        y : array-like, of length n_samples
-            The target variable for supervised learning problems.
-        groups : array-like, with shape (n_samples,), optional
-            Group labels for the samples used while splitting the dataset into
-            train/test set.
-        Yields
-        ------
-        train : ndarray
-            The training set indices for that split.
-        test : ndarray
-            The testing set indices for that split.
-        """
-        n_repeats = self.n_repeats
-        rng = check_random_state(self.random_state)
-
-        for idx in range(n_repeats):
-            cv = self.cv(random_state=rng, shuffle=True,
-                         **self.cvargs)
-            for train_index, test_index in cv.split(X, y, groups):
-                yield train_index, test_index
-
-    def get_n_splits(self, X=None, y=None, groups=None):
-        """Returns the number of splitting iterations in the cross-validator
-        Parameters
-        ----------
-        X : object
-            Always ignored, exists for compatibility.
-            ``np.zeros(n_samples)`` may be used as a placeholder.
-        y : object
-            Always ignored, exists for compatibility.
-            ``np.zeros(n_samples)`` may be used as a placeholder.
-        groups : array-like, with shape (n_samples,), optional
-            Group labels for the samples used while splitting the dataset into
-            train/test set.
-        Returns
-        -------
-        n_splits : int
-            Returns the number of splitting iterations in the cross-validator.
-        """
-        rng = check_random_state(self.random_state)
-        cv = self.cv(random_state=rng, shuffle=True,
-                     **self.cvargs)
-        return cv.get_n_splits(X, y, groups) * self.n_repeats
-
-
-
-class _RepeatedSplits(metaclass=ABCMeta):
-    """Repeated splits for an arbitrary randomized CV splitter.
-    Repeats splits for cross-validators n times with different randomization
-    in each repetition.
-    Parameters
-    ----------
-    cv : callable
-        Cross-validator class.
-    n_repeats : int, default=10
-        Number of times cross-validator needs to be repeated.
-    random_state : int, RandomState instance or None, optional, default=None
-        If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
-        If None, the random number generator is the RandomState instance used
-        by `np.random`.
-    **cvargs : additional params
-        Constructor parameters for cv. Must not contain random_state
-        and shuffle.
-    """
-    def __init__(self, cv, n_repeats=10, random_state=None, **cvargs):
-        if not isinstance(n_repeats, (cp.integer, np.integer, numbers.Integral)):
+        if not isinstance(n_repeats, 
+                (cp.integer, np.integer, numbers.Integral)):
             raise ValueError("Number of repetitions must be of Integral type.")
 
         if n_repeats <= 0:
@@ -1196,7 +1101,6 @@ class RepeatedKFold(_RepeatedSplits):
             KFold, n_repeats, random_state, n_splits=n_splits)
 
 
-
 class RepeatedStratifiedKFold(_RepeatedSplits):
     """Repeated Stratified K-Fold cross validator.
     Repeats Stratified K-Fold n times with different randomization in each
@@ -1279,9 +1183,10 @@ class BaseShuffleSplit(metaclass=ABCMeta):
         """
         X, y, groups = utils.indexable(X, y, groups)
         for train, test in self._iter_indices(X, y, groups):
-            ###### can skip the following conversion if cudf support cupy indexing in the future
-            train = cudf.from_dlpack(train.toDlpack())  # convert to cudf Series
-            test = cudf.from_dlpack(test.toDlpack())    # convert to cudf Series
+            # skip the following conversion once cudf support cupy indexing
+            # convert to cudf Series
+            train = cudf.from_dlpack(train.toDlpack())
+            test = cudf.from_dlpack(test.toDlpack())
             yield train, test
 
     @abstractmethod
@@ -1440,7 +1345,7 @@ class GroupShuffleSplit(ShuffleSplit):
     def _iter_indices(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        #############################
+        # !!!!!!!!!!!!!!!!!!!! In progress
         # groups = check_array(groups, ensure_2d=False, dtype=None)
         classes, group_indices = cp.unique(groups, return_inverse=True)
         for group_train, group_test in super()._iter_indices(X=classes):
@@ -1541,7 +1446,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
 
     def _iter_indices(self, X, y, groups=None):
         n_samples = utils._num_samples(X)
-        ###############################################
+        # !!!!!!!!!!!!!!!!!! In progresss
         # y = check_array(y, ensure_2d=False, dtype=None)
         n_train, n_test = _validate_shuffle_split(
             n_samples, self.test_size, self.train_size,
@@ -1573,13 +1478,13 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
 
         # Find the sorted list of instances for each class:
         # (cp.unique above performs a sort, so code is O(n logn) already)
-        class_indices = cp.split(cp.argsort(y_indices),
-                                 cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
+        class_indices = cp.split(cp.argsort(y_indices), 
+            cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
 
         rng = utils.check_random_state(self.random_state)
-        #########################################
-        # have to get a nprng as cp.RandomState.permutation does not accept
-        # cp.ndarray as input yet. Get rid of this once cp.RS.perm support cp array  
+        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # have to get a nprng since cp.RandomState.permutation does not accept
+        # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array  
         nprng = utils.np_check_random_state(self.random_state)
         for _ in range(self.n_splits):
             # if there are ties in the class-counts, we want
@@ -1593,15 +1498,12 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
 
             for i in range(n_classes):
                 permutation = rng.permutation(int(class_counts[i]))
+                # cupy.take does not support mode yet
                 perm_indices_class_i = class_indices[i].take(permutation)
-                ###################### cupy.take does not support mode yet!!
-                #                                             mode='clip')
-            
-
                 train.extend(perm_indices_class_i[:n_i[i]])
                 test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
 
-            #########################################
+            # !!!!!!!!!!!!!!!!!!!!!!!!!
             # have to go through the indirect approach below
             # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
             # Get rid of this once cp.RS.perm support cp array  
@@ -1642,7 +1544,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        ########################
+        # !!!!!!!!!!!!!!!!!!! In progress
         # y = check_array(y, ensure_2d=False, dtype=None)
         return super().split(X, y, groups)
 
@@ -1776,9 +1678,10 @@ class PredefinedSplit(BaseCrossValidator):
         for test_index in self._iter_test_masks():
             train_index = ind[cp.logical_not(test_index)]
             test_index = ind[test_index]
-            ####### can skip the following conversion if cudf support cupy indexing in the future
-            train_index = cudf.from_dlpack(train_index.toDlpack())  # convert to cudf Series
-            test_index = cudf.from_dlpack(test_index.toDlpack())    # convert to cudf Series
+            # skip the following conversion once cudf support cupy indexing
+            # convert to cudf Series
+            train_index = cudf.from_dlpack(train_index.toDlpack())
+            test_index = cudf.from_dlpack(test_index.toDlpack())
             yield train_index, test_index
 
     def _iter_test_masks(self):
@@ -1805,7 +1708,6 @@ class PredefinedSplit(BaseCrossValidator):
             Returns the number of splitting iterations in the cross-validator.
         """
         return len(self.unique_folds)
-
 
 
 def _build_repr(self):
@@ -1838,4 +1740,5 @@ def _build_repr(self):
             warnings.filters.pop(0)
         params[key] = value
 
-    return '%s(%s)' % (class_name, _pprint(params, offset=len(class_name)))
+    return '%s(%s)' % (class_name, utils._pprint(params, 
+        offset=len(class_name)))

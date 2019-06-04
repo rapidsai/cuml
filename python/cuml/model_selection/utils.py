@@ -14,24 +14,18 @@
 # limitations under the License.
 #
 
-from collections.abc import Iterable
 import warnings
-from itertools import chain, combinations
-from math import ceil, floor
 import numbers
-from abc import ABCMeta, abstractmethod
 
 import scipy.sparse as sp
 import numpy as np
 import cupy as cp
-import cudf
 
 
 try:  # SciPy >= 0.19
     from scipy.special import comb, logsumexp
 except ImportError:
     from scipy.misc import comb, logsumexp  # noqa
-    
 
 
 def in1d(ar1, ar2, assume_unique=False, invert=False):
@@ -82,167 +76,6 @@ def in1d(ar1, ar2, assume_unique=False, invert=False):
         return ret[rev_idx]
 
 
-##########################################
-def check_array(array, accept_sparse=False, accept_large_sparse=True,
-                dtype="numeric", order=None, copy=False, force_all_finite=True,
-                ensure_2d=True, allow_nd=False, ensure_min_samples=1,
-                ensure_min_features=1, warn_on_dtype=None, estimator=None):
-
-    """Input validation on an array, list, sparse matrix or similar.
-    By default, the input is checked to be a non-empty 2D array containing
-    only finite values. If the dtype of the array is object, attempt
-    converting to float, raising on failure.
-    Parameters
-    """
-
-    # store reference to original array to check if copy is needed when
-    # function returns
-    array_orig = array
-
-    # store whether originally we wanted numeric dtype
-    dtype_numeric = isinstance(dtype, str) and dtype == "numeric"
-
-    dtype_orig = getattr(array, "dtype", None)
-    if not hasattr(dtype_orig, 'kind'):
-        # not a data type (e.g. a column named dtype in a pandas DataFrame)
-        dtype_orig = None
-
-    # check if the object contains several dtypes (typically a pandas
-    # DataFrame), and store them. If not, store None.
-    dtypes_orig = None
-    if hasattr(array, "dtypes") and hasattr(array.dtypes, '__array__'):
-        dtypes_orig = cp.array(array.dtypes)
-
-    if dtype_numeric:
-        if dtype_orig is not None and dtype_orig.kind == "O":
-            # if input is object, convert to float.
-            dtype = cp.float64
-        else:
-            dtype = None
-
-    if isinstance(dtype, (list, tuple)):
-        if dtype_orig is not None and dtype_orig in dtype:
-            # no dtype conversion required
-            dtype = None
-        else:
-            # dtype conversion required. Let's select the first element of the
-            # list of accepted types.
-            dtype = dtype[0]
-
-    if force_all_finite not in (True, False, 'allow-nan'):
-        raise ValueError('force_all_finite should be a bool or "allow-nan"'
-                         '. Got {!r} instead'.format(force_all_finite))
-
-    if estimator is not None:
-        if isinstance(estimator, str):
-            estimator_name = estimator
-        else:
-            estimator_name = estimator.__class__.__name__
-    else:
-        estimator_name = "Estimator"
-    context = " by %s" % estimator_name if estimator is not None else ""
-
-    if sp.issparse(array):
-        _ensure_no_complex_data(array)
-        array = _ensure_sparse_format(array, accept_sparse=accept_sparse,
-                                      dtype=dtype, copy=copy,
-                                      force_all_finite=force_all_finite,
-                                      accept_large_sparse=accept_large_sparse)
-    else:
-        # If cp.array(..) gives ComplexWarning, then we convert the warning
-        # to an error. This is needed because specifying a non complex
-        # dtype to the function converts complex to real dtype,
-        # thereby passing the test made in the lines following the scope
-        # of warnings context manager.
-        with warnings.catch_warnings():
-            try:
-                warnings.simplefilter('error', ComplexWarning)
-                array = cp.asarray(array, dtype=dtype, order=order)
-            except ComplexWarning:
-                raise ValueError("Complex data not supported\n"
-                                 "{}\n".format(array))
-
-        # It is possible that the cp.array(..) gave no warning. This happens
-        # when no dtype conversion happened, for example dtype = None. The
-        # result is that cp.array(..) produces an array of complex dtype
-        # and we need to catch and raise exception for such cases.
-        _ensure_no_complex_data(array)
-
-        if ensure_2d:
-            # If input is scalar raise error
-            if array.ndim == 0:
-                raise ValueError(
-                    "Expected 2D array, got scalar array instead:\narray={}.\n"
-                    "Reshape your data either using array.reshape(-1, 1) if "
-                    "your data has a single feature or array.reshape(1, -1) "
-                    "if it contains a single sample.".format(array))
-            # If input is 1D raise error
-            if array.ndim == 1:
-                raise ValueError(
-                    "Expected 2D array, got 1D array instead:\narray={}.\n"
-                    "Reshape your data either using array.reshape(-1, 1) if "
-                    "your data has a single feature or array.reshape(1, -1) "
-                    "if it contains a single sample.".format(array))
-
-        ###############################################
-        # in the future cp.flexible dtypes will be handled like object dtypes
-        if dtype_numeric and cp.issubdtype(array.dtype, cp.flexible):
-            warnings.warn(
-                "Beginning in version 0.22, arrays of bytes/strings will be "
-                "converted to decimal numbers if dtype='numeric'. "
-                "It is recommended that you convert the array to "
-                "a float dtype before using it in scikit-learn, "
-                "for example by using "
-                "your_array = your_array.astype(cp.float64).",
-                FutureWarning)
-
-        # make sure we actually converted to numeric:
-        if dtype_numeric and array.dtype.kind == "O":
-            array = array.astype(cp.float64)
-        if not allow_nd and array.ndim >= 3:
-            raise ValueError("Found array with dim %d. %s expected <= 2."
-                             % (array.ndim, estimator_name))
-        if force_all_finite:
-            _assert_all_finite(array,
-                               allow_nan=force_all_finite == 'allow-nan')
-
-    if ensure_min_samples > 0:
-        n_samples = _num_samples(array)
-        if n_samples < ensure_min_samples:
-            raise ValueError("Found array with %d sample(s) (shape=%s) while a"
-                             " minimum of %d is required%s."
-                             % (n_samples, array.shape, ensure_min_samples,
-                                context))
-
-    if ensure_min_features > 0 and array.ndim == 2:
-        n_features = array.shape[1]
-        if n_features < ensure_min_features:
-            raise ValueError("Found array with %d feature(s) (shape=%s) while"
-                             " a minimum of %d is required%s."
-                             % (n_features, array.shape, ensure_min_features,
-                                context))
-
-    if warn_on_dtype and dtype_orig is not None and array.dtype != dtype_orig:
-        msg = ("Data with input dtype %s was converted to %s%s."
-               % (dtype_orig, array.dtype, context))
-        warnings.warn(msg, DataConversionWarning)
-
-    if copy and cp.may_share_memory(array, array_orig):
-        array = cp.array(array, dtype=dtype, order=order)
-
-    if (warn_on_dtype and dtypes_orig is not None and
-            {array.dtype} != set(dtypes_orig)):
-        # if there was at the beginning some other types than the final one
-        # (for instance in a DataFrame that can contain several dtypes) then
-        # some data must have been converted
-        msg = ("Data with input dtype %s were all converted to %s%s."
-               % (', '.join(map(str, sorted(set(dtypes_orig)))), array.dtype,
-                  context))
-        warnings.warn(msg, DataConversionWarning, stacklevel=3)
-
-    return array
-
-
 def check_random_state(seed):
     """Turn seed into a cp.random.generator.RandomState instance
     Parameters
@@ -253,11 +86,12 @@ def check_random_state(seed):
         If seed is already a RandomState instance, return it.
         Otherwise raise ValueError.
     """
-    if seed is None or isinstance(seed, (numbers.Integral, np.integer, cp.integer)):
+    if seed is None or isinstance(seed, 
+                (numbers.Integral, np.integer, cp.integer)):
         return cp.random.generator.RandomState(seed=seed)
     if isinstance(seed, cp.random.generator.RandomState):
         return seed
-    raise ValueError('%r cannot be used to seed a cupy.random.generator.RandomState'
+    raise ValueError('%r cannot be used to seed a cupy RandomState'
                      ' instance' % seed)
 
 
@@ -272,8 +106,10 @@ def np_check_random_state(seed):
         Otherwise raise ValueError.
     """
     if isinstance(seed, cp.random.generator.RandomState):
-        raise ValueError('StratifiedShuffleSplit does not take cp.random.generator.RandomState as random_state yet!'
-            , 'The problem should be fixed once cp RandomState can permutation on cp.ndarra!y')
+        raise ValueError('StratifiedShuffleSplit does not take \
+            cp.random.generator.RandomState as random_state yet! \
+            The problem should be fixed once cp RandomState \
+            can permutation on cp.ndarra!y')
     if seed is None or seed is np.random:
         return np.random.mtrand._rand
     if isinstance(seed, (numbers.Integral, np.integer)):
@@ -348,6 +184,21 @@ def _approximate_mode(class_counts, n_draws, rng):
     return floored.astype(cp.int)
 
 
+class DataConversionWarning(UserWarning):
+    """Warning used to notify implicit data conversions happening in the code.
+    This warning occurs when some input data needs to be converted or
+    interpreted in a way that may not match the user's expectations.
+    For example, this warning may occur when the user
+        - passes an integer array to a function which expects float input and
+          will convert the input
+        - requests a non-copying operation, but a copy is required to meet the
+          implementation's data-type expectations;
+        - passes an input whose shape can be interpreted ambiguously.
+    .. versionchanged:: 0.18
+       Moved from sklearn.utils.validation.
+    """
+
+
 def column_or_1d(y, warn=False):
     """ Ravel column or 1d numpy array, else raises an error
     Parameters
@@ -371,6 +222,7 @@ def column_or_1d(y, warn=False):
         return cp.ravel(y)
 
     raise ValueError("bad input shape {0}".format(shape))
+
 
 def _num_samples(x):
     """Return number of samples in array-like x."""
@@ -436,3 +288,49 @@ def indexable(*iterables):
             result.append(cp.array(X))
     check_consistent_length(*result)
     return result
+
+
+def _pprint(params, offset=0, printer=repr):
+    """Pretty print the dictionary 'params'
+    Parameters
+    ----------
+    params : dict
+        The dictionary to pretty print
+    offset : int
+        The offset in characters to add at the begin of each line.
+    printer : callable
+        The function to convert entries to strings, typically
+        the builtin str or repr
+    """
+    # Do a multi-line justified repr:
+    options = np.get_printoptions()
+    np.set_printoptions(precision=5, threshold=64, edgeitems=2)
+    params_list = list()
+    this_line_length = offset
+    line_sep = ',\n' + (1 + offset // 2) * ' '
+    for i, (k, v) in enumerate(sorted(params.items())):
+        if type(v) is float:
+            # use str for representing floating point numbers
+            # this way we get consistent representation across
+            # architectures and versions.
+            this_repr = '%s=%s' % (k, str(v))
+        else:
+            # use repr of the rest
+            this_repr = '%s=%s' % (k, printer(v))
+        if len(this_repr) > 500:
+            this_repr = this_repr[:300] + '...' + this_repr[-100:]
+        if i > 0:
+            if (this_line_length + len(this_repr) >= 75 or '\n' in this_repr):
+                params_list.append(line_sep)
+                this_line_length = len(line_sep)
+            else:
+                params_list.append(', ')
+                this_line_length += 2
+        params_list.append(this_repr)
+        this_line_length += len(this_repr)
+
+    np.set_printoptions(**options)
+    lines = ''.join(params_list)
+    # Strip trailing space to avoid nightmare in doctests
+    lines = '\n'.join(l.rstrip(' ') for l in lines.split('\n'))
+    return lines
