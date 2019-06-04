@@ -28,8 +28,6 @@ import cuml
 from cuml import numba_utils
 from cuml.common.base import Base
 
-from cython.operator cimport dereference as deref
-
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
@@ -41,291 +39,21 @@ from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
-cimport cuml.common.handle
-cimport cuml.common.cuda
-
-cdef extern from "cuML.hpp" namespace "ML" nogil:
-    cdef cppclass deviceAllocator:
-        pass
-
-    cdef cppclass cumlHandle:
-        cumlHandle() except +
-        void setStream(cuml.common.cuda._Stream s)
-        void setDeviceAllocator(shared_ptr[deviceAllocator] a)
-        cuml.common.cuda._Stream getStream()
-
-cdef extern from "knn/knn.h" namespace "ML":
-
-    cdef cppclass kNNParams:
-        float *ptr,
-        int N
-
-    cdef cppclass kNN:
-        kNN(cumlHandle &handle, int D, bool verbose) except +
-        void search(float *search_items,
-                    int search_items_size,
-                    long *res_I,
-                    float *res_D,
-                    int k)
-        void fit(kNNParams *input,
-                 int N)
-
-        void fit_from_host(
-            float *ptr,
-            int n,
-            int *devices,
-            int n_chunks,
-        )
-
-
-cdef class NearestNeighborsImpl:
-
-    cpdef kNN *k
-    cdef int num_gpus
-    cdef uintptr_t X_ctype
-    cdef uintptr_t I_ptr
-    cdef uintptr_t D_ptr
-    cdef object X_m
-    cdef bool _should_downcast
-    cdef object n_gpus
-    cdef object devices
-    cdef bool _verbose
-    cdef object n_neighbors
-    cpdef kNNParams *input
-    cpdef object handle
-
-    def __cinit__(self, n_neighbors=5, n_gpus=1, devices=None,
-                  verbose=False, should_downcast=True, handle=None):
-        """
-        Construct the NearestNeighbors object for training and querying.
-
-        Parameters
-        ----------
-        should_downcast: bool (default = False)
-            Currently only single precision is supported in the underlying
-            index. Setting this to true will allow single-precision input
-            arrays to be automatically downcasted to single precision.
-        """
-        self._verbose = verbose
-        self.n_gpus = n_gpus
-        self.devices = devices
-        self.n_neighbors = n_neighbors
-        self._should_downcast = should_downcast
-        self.input = <kNNParams*> malloc(sizeof(kNNParams))
-        self.k = NULL
-        self.handle = handle
-
-    def __dealloc__(self):
-        del self.k
-        del self.input
-
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
-    def _downcast(self, X):
-
-        if isinstance(X, cudf.DataFrame):
-            dtype = np.dtype(X[X.columns[0]]._column.dtype)
-
-            if dtype != np.float32:
-                if self._should_downcast:
-
-                    new_cols = [(col, X._cols[col].astype(np.float32))
-                                for col in X._cols]
-                    overflowed = sum([len(colval[colval >= np.inf])
-                                      for colname, colval in new_cols])
-
-                    if overflowed > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        "in data loss.")
-
-                    X = cudf.DataFrame(new_cols)
-
-                else:
-                    raise Exception("Input is double precision. Use"
-                                    " 'should_downcast=True' "
-                                    "if you'd like it to be automatically"
-                                    " casted to single precision.")
-
-            X_m = numba_utils.row_matrix(X)
-
-        elif isinstance(X, np.ndarray):
-            dtype = X.dtype
-
-            if dtype != np.float32:
-                if self._should_downcast:
-                    X = np.ascontiguousarray(X.astype(np.float32))
-                    if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
-                else:
-                    raise Exception("Input is double precision. Use"
-                                    " 'should_downcast=True' "
-                                    "if you'd like it to be automatically"
-                                    " casted to single precision.")
-
-            X_m = cuda.to_device(X)
-        else:
-            raise Exception("Received unsupported input type " % type(X))
-
-        return X_m
-
-    def fit(self, X):
-        assert len(X.shape) == 2, 'data should be two dimensional'
-
-        if self.k != NULL:
-            del self.k
-
-        n_dims = X.shape[1]
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.k = new kNN(handle_[0], n_dims, verbose=self._verbose)
-
-        cdef uintptr_t X_ctype = -1
-        cdef uintptr_t dev_ptr = -1
-        if isinstance(X, np.ndarray):
-
-            if X.dtype != np.float32:
-                if self._should_downcast:
-                    X = np.ascontiguousarray(X, np.float32)
-                    if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
-                else:
-                    raise Exception("Only single precision floating point is"
-                                    " supported for this algorithm. Use "
-                                    "'should_downcast=True' if you'd like it "
-                                    "to be automatically casted to single "
-                                    "precision.")
-
-            sys_devices = set([d.id for d in cuda.gpus])
-
-            if self.devices is not None:
-                for d in self.devices:
-                    if d not in sys_devices:
-                        raise Exception("Device %d is not available" % d)
-
-                final_devices = self.devices
-
-            else:
-                n_gpus = min(self.n_gpus, len(sys_devices))
-                final_devices = list(sys_devices)[:n_gpus]
-
-            final_devices = np.ascontiguousarray(np.array(final_devices),
-                                                 np.int32)
-
-            X_ctype = X.ctypes.data
-            dev_ptr = final_devices.ctypes.data
-
-            self.k.fit_from_host(
-                <float*>X_ctype,
-                <int>X.shape[0],
-                <int*>dev_ptr,
-                <int>len(final_devices)
-            )
-
-        else:
-            self.X_m = self._downcast(X)
-
-            X_ctype = self.X_m.device_ctypes_pointer.value
-
-            params = new kNNParams()
-            params.N = <int>len(X)
-            params.ptr = <float*>X_ctype
-
-            self.input[0] = deref(params)
-
-            self.k.fit(<kNNParams*> self.input,
-                       <int> 1)
-
-    def _fit_mg(self, n_dims, alloc_info):
-
-        if self.k != NULL:
-            del self.k
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        self.k = new kNN(handle_[0], n_dims, verbose=self._verbose)
-
-        del self.input
-        self.input = <kNNParams*> malloc(len(alloc_info) * sizeof(kNNParams))
-
-        cdef uintptr_t input_ptr
-        for i in range(len(alloc_info)):
-            params = new kNNParams()
-            params.N = < int > alloc_info[i]["shape"][0]
-
-            input_ptr = alloc_info[i]["data"][0]
-            params.ptr = < float * > input_ptr
-
-            self.input[i] = deref(params)
-
-        self.k.fit(<kNNParams*> self.input,
-                   <int> len(alloc_info))
-
-    def kneighbors(self, X, k=None):
-
-        if k is None:
-            k = self.n_neighbors
-
-        X_m = self._downcast(X)
-
-        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
-        N = len(X)
-
-        # Need to establish result matrices for indices (Nxk)
-        # and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
-
-        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
-        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
-
-        self._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
-
-        I_ndarr = I_ndarr.reshape((N, k))
-        D_ndarr = D_ndarr.reshape((N, k))
-
-        if isinstance(X, cudf.DataFrame):
-            inds = cudf.DataFrame()
-            for i in range(0, I_ndarr.shape[1]):
-                inds[str(i)] = I_ndarr[:, i]
-
-            dists = cudf.DataFrame()
-            for i in range(0, D_ndarr.shape[1]):
-                dists[str(i)] = D_ndarr[:, i]
-
-            return dists, inds
-
-        elif isinstance(X, np.ndarray):
-            inds = np.asarray(I_ndarr)
-            dists = np.asarray(D_ndarr)
-
-        del I_ndarr
-        del D_ndarr
-        del X_m
-
-        return dists, inds
-
-    def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
-
-        cdef uintptr_t inds = I_ptr
-        cdef uintptr_t dists = D_ptr
-        cdef uintptr_t x = X_ctype
-
-        self.k.search(<float*>x,
-                      <int> N,
-                      <long*>inds,
-                      <float*>dists,
-                      <int> k)
+from cuml.common.base import Base
+from cuml.common.handle cimport cumlHandle
+
+cdef extern from "knn/knn.hpp" namespace "ML" nogil:
+    void brute_force_knn(
+        cumlHandle &handle,
+        float ** input,
+        int *sizes,
+        int n_params,
+        int D,
+        float * search_items,
+        int n,
+        long * res_I,
+        float * res_D,
+        int k) except +
 
 
 class NearestNeighbors(Base):
@@ -431,12 +159,92 @@ class NearestNeighbors(Base):
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
 
-    def __init__(self, n_neighbors=5, n_gpus=1, devices=None, verbose=False,
-                 should_downcast=True, handle=None):
-        super(NearestNeighbors, self).__init__(handle, verbose)
-        self._impl = NearestNeighborsImpl(n_neighbors, n_gpus, devices,
-                                          verbose, should_downcast,
-                                          self.handle)
+
+    def __init__(self, n_neighbors=5, n_gpus=1, devices=None,
+                  verbose=False, should_downcast=True, handle=None):
+
+        super(NearestNeighbors, self).__init__(handle=handle, verbose=False)
+        """
+        Construct the NearestNeighbors object for training and querying.
+
+        Parameters
+        ----------
+        should_downcast: bool (default = False)
+            Currently only single precision is supported in the underlying
+            index. Setting this to true will allow single-precision input
+            arrays to be automatically downcasted to single precision.
+        """
+        self._verbose = verbose
+        self.n_gpus = n_gpus
+        self.devices = devices
+        self.n_neighbors = n_neighbors
+        self._should_downcast = should_downcast
+        self.handle = handle
+        self.D = 0
+
+    def __dealloc__(self):
+        del self.input
+        del self.sizes
+
+    def _get_ctype_ptr(self, obj):
+        # The manner to access the pointers in the gdf's might change, so
+        # encapsulating access in the following 3 methods. They might also be
+        # part of future gdf versions.
+        return obj.device_ctypes_pointer.value
+
+    def _get_column_ptr(self, obj):
+        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
+
+    def _get_gdf_as_matrix_ptr(self, gdf):
+        return self._get_ctype_ptr(gdf.as_gpu_matrix())
+
+    def _downcast(self, X):
+
+        if isinstance(X, cudf.DataFrame):
+            dtype = np.dtype(X[X.columns[0]]._column.dtype)
+
+            if dtype != np.float32:
+                if self._should_downcast:
+
+                    new_cols = [(col, X._cols[col].astype(np.float32))
+                                for col in X._cols]
+                    overflowed = sum([len(colval[colval >= np.inf])
+                                      for colname, colval in new_cols])
+
+                    if overflowed > 0:
+                        raise Exception("Downcast to single-precision resulted"
+                                        "in data loss.")
+
+                    X = cudf.DataFrame(new_cols)
+
+                else:
+                    raise Exception("Input is double precision. Use"
+                                    " 'should_downcast=True' "
+                                    "if you'd like it to be automatically"
+                                    " casted to single precision.")
+
+            X_m = numba_utils.row_matrix(X)
+
+        elif isinstance(X, np.ndarray):
+            dtype = X.dtype
+
+            if dtype != np.float32:
+                if self._should_downcast:
+                    X = np.ascontiguousarray(X.astype(np.float32))
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
+                else:
+                    raise Exception("Input is double precision. Use"
+                                    " 'should_downcast=True' "
+                                    "if you'd like it to be automatically"
+                                    " casted to single precision.")
+
+            X_m = cuda.to_device(X)
+        else:
+            raise Exception("Received unsupported input type " % type(X))
+
+        return X_m
 
     def fit(self, X):
         """
@@ -447,10 +255,84 @@ class NearestNeighbors(Base):
         X : cuDF DataFrame or numpy ndarray
             Dense matrix (floats or doubles) of shape (n_samples, n_features)
         """
-        return self._impl.fit(X)
+        assert len(X.shape) == 2, 'data should be two dimensional'
+
+        self.D = X.shape[1]
+
+        cdef uintptr_t X_ctype = -1
+        cdef uintptr_t dev_ptr = -1
+        if isinstance(X, np.ndarray):
+
+            if X.dtype != np.float32:
+                if self._should_downcast:
+                    X = np.ascontiguousarray(X, np.float32)
+                    if len(X[X == np.inf]) > 0:
+                        raise Exception("Downcast to single-precision resulted"
+                                        " in data loss.")
+                else:
+                    raise Exception("Only single precision floating point is"
+                                    " supported for this algorithm. Use "
+                                    "'should_downcast=True' if you'd like it "
+                                    "to be automatically casted to single "
+                                    "precision.")
+
+            sys_devices = set([d.id for d in cuda.gpus])
+
+            if self.devices is not None:
+                for d in self.devices:
+                    if d not in sys_devices:
+                        raise Exception("Device %d is not available" % d)
+
+                final_devices = self.devices
+
+            else:
+                n_gpus = min(self.n_gpus, len(sys_devices))
+                final_devices = list(sys_devices)[:n_gpus]
+
+            final_devices = np.ascontiguousarray(np.array(final_devices),
+                                                 np.int32)
+
+            # X_ctype = X.ctypes.data
+            # dev_ptr = final_devices.ctypes.data
+            #
+            # # TODO: Call chunk from host here.
+            # self.k.fit_from_host(
+            #     <float*>X_ctype,
+            #     <int>X.shape[0],
+            #     <int*>dev_ptr,
+            #     <int>len(final_devices)
+            # )
+
+        else:
+            self.X_m = self._downcast(X)
+
+    def _fit_mg(self, n_dims, alloc_info):
+        """
+        Fits a model using multiple GPUs. This method takes in a list of dict
+        objects representing the distribution of the underlying device
+        pointers. The device information can be extracted from the pointers.
+
+        :param n_dims
+            the number of features for each vector
+        :param alloc_info
+            a list of __cuda_array_interface__ dicts
+        :return:
+        """
+
+        cdef float** inp = <float**> malloc(len(alloc_info) * sizeof(float*))
+        cdef int* sizes = <int*>malloc(len(alloc_info) * sizeof(int))
+        n_indices = len(alloc_info)
+
+        cdef uintptr_t input_ptr
+        for i in range(len(alloc_info)):
+
+            sizes[i] = < int > alloc_info[i]["shape"][0]
+
+            input_ptr = alloc_info[i]["data"][0]
+            inp[i] = < float * > input_ptr
+
 
     def kneighbors(self, X, k=None):
-
         """
         Query the GPU index for the k nearest neighbors of column vectors in X.
 
@@ -480,21 +362,90 @@ class NearestNeighbors(Base):
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
-        return self._impl.kneighbors(X, k)
 
-    def _fit_mg(self, n_dims, alloc_info):
-        """
-        Fits a model using multiple GPUs. This method takes in a list of dict
-        objects representing the distribution of the underlying device
-        pointers. The device information can be extracted from the pointers.
+        if k is None:
+            k = self.n_neighbors
 
-        :param n_dims
-            the number of features for each vector
-        :param alloc_info
-            a list of __cuda_array_interface__ dicts
-        :return:
-        """
-        return self._impl._fit_mg(n_dims, alloc_info)
+        X_m = self._downcast(X)
 
-    def _kneighbors(self, X_ctype, N, k, I_ptr, D_ptr):
-        self._impl._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
+        cdef uintptr_t input_X_ctype = self.X_m.device_ctypes_pointer.value
+
+        cdef float** input = <float**> malloc(sizeof(float*))
+        cdef int* sizes = <int*>malloc(sizeof(int))
+
+        input[0] = < float * > input_X_ctype
+        sizes[0] = < int > len(self.X_m)
+
+        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
+
+        N = len(X)
+
+        # Need to establish result matrices for indices (Nxk)
+        # and for distances (Nxk)
+        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
+
+        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        brute_force_knn(handle_[0],
+                        <float**>input,
+                        <int*>sizes,
+                        <int>1,
+                        <int>self.D,
+                        <float*>X_ctype,
+                        <int> N,
+                        <long*>I_ptr,
+                        <float*>D_ptr,
+                        <int> k)
+
+        # self._kneighbors(input, sizes, 1, X_ctype, N, k, I_ptr, D_ptr)
+
+        I_ndarr = I_ndarr.reshape((N, k))
+        D_ndarr = D_ndarr.reshape((N, k))
+
+        if isinstance(X, cudf.DataFrame):
+            inds = cudf.DataFrame()
+            for i in range(0, I_ndarr.shape[1]):
+                inds[str(i)] = I_ndarr[:, i]
+
+            dists = cudf.DataFrame()
+            for i in range(0, D_ndarr.shape[1]):
+                dists[str(i)] = D_ndarr[:, i]
+
+            return dists, inds
+
+        elif isinstance(X, np.ndarray):
+            inds = np.asarray(I_ndarr)
+            dists = np.asarray(D_ndarr)
+
+        del I_ndarr
+        del D_ndarr
+        del X_m
+
+        return dists, inds
+
+    def _kneighbors(self, inp, sizes, n_indices, X_ctype, N, k, I_ptr, D_ptr):
+
+
+        cdef uintptr_t inds = I_ptr
+        cdef uintptr_t dists = D_ptr
+        cdef uintptr_t x = X_ctype
+
+        cdef uintptr_t inp_ptr = inp
+        cdef uintptr_t sizes_ptr = sizes
+
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
+        brute_force_knn(handle_[0],
+                        <float**>inp_ptr,
+                        <int*>sizes_ptr,
+                        <int>n_indices,
+                        <int>self.D,
+                        <float*>x,
+                        <int> N,
+                        <long*>inds,
+                        <float*>dists,
+                        <int> k)

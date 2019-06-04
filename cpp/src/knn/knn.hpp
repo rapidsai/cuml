@@ -18,10 +18,6 @@
 
 #include "common/cumlHandle.hpp"
 
-#include "cuda_utils.h"
-
-#include "selection/knn.h"
-
 #include <faiss/gpu/StandardGpuResources.h>
 #include <faiss/gpu/IndexProxy.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -36,9 +32,9 @@ namespace ML {
 
 
   void brute_force_knn(
-         const cumlHandle &handle,
-         const float **input, int*sizes, int n_params, int D,
-         const float *search_items, int n,
+         cumlHandle &handle,
+         float **input, int*sizes, int n_params, int D,
+         float *search_items, int n,
          long *res_I, float *res_D, int k);
 
 

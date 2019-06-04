@@ -15,7 +15,6 @@
  */
 
 #include <cuda_runtime.h>
-#include "cuda_utils.h"
 #include "utils.h"
 
 #pragma once
