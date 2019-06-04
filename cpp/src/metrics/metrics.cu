@@ -20,6 +20,7 @@
 
 #include "metrics/randIndex.h"
 #include "score/scores.h"
+#include "metrics/adjustedRandIndex.h"
 
 
 namespace ML {
@@ -38,7 +39,7 @@ namespace ML {
             return MLCommon::Metrics::computeRandIndex(y, y_hat, (uint64_t)n, handle.getDeviceAllocator(), handle.getStream());
         }
 
-        double adjustedRandIndex(const cumlHandle& handle, const double *y, const double *y_hat, int n, int lower_class_range, int upper_class_range){
+        double adjustedRandIndex(const cumlHandle& handle, double *y, double *y_hat, int n, double lower_class_range, double upper_class_range){
             return MLCommon::Metrics::computeAdjustedRandIndex(y, y_hat, n, lower_class_range, upper_class_range, handle.getDeviceAllocator(), handle.getStream());
         }
 
