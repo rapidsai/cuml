@@ -144,6 +144,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/knn.cu
       prims/kselection.cu
       prims/linearReg.cu
       prims/log.cu
