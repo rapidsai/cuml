@@ -45,8 +45,7 @@ class BaseCrossValidator(metaclass=ABCMeta):
             The testing set indices for that split.
         """
 
-        ############## do we need to do this for cudf, CHECK LATER
-        #X, y, groups = indexable(X, y, groups)
+        X, y, groups = utils.indexable(X, y, groups)
 
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
@@ -275,8 +274,7 @@ class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
         test : ndarray
             The testing set indices for that split.
         """
-        ######## CHECK LATER
-        #X, y, groups = indexable(X, y, groups)
+        X, y, groups = utils.indexable(X, y, groups)
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
         if isinstance(X, (cudf.DataFrame, cudf.Series)):
@@ -719,8 +717,7 @@ class TimeSeriesSplit(_BaseKFold):
         test : ndarray
             The testing set indices for that split.
         """
-        #####################################
-        # X, y, groups = indexable(X, y, groups)
+        X, y, groups = utils.indexable(X, y, groups)
         n_samples = utils._num_samples(X)
         n_splits = self.n_splits
         n_folds = n_splits + 1
@@ -1265,8 +1262,7 @@ class BaseShuffleSplit(metaclass=ABCMeta):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        ##########################################
-        # X, y, groups = indexable(X, y, groups)
+        X, y, groups = utils.indexable(X, y, groups)
         for train, test in self._iter_indices(X, y, groups):
             ###### can skip the following conversion if cudf support cupy indexing in the future
             train = cudf.from_dlpack(train.toDlpack())  # convert to cudf Series

@@ -381,3 +381,43 @@ def _num_samples(x):
             return len(x)
     else:
         return len(x)
+
+
+def check_consistent_length(*arrays):
+    """Check that all arrays have consistent first dimensions.
+    Checks whether all objects in arrays have the same shape or length.
+    Parameters
+    ----------
+    *arrays : list or tuple of input objects.
+        Objects that will be checked for consistent length.
+    """
+
+    lengths = [_num_samples(X) for X in arrays if X is not None]
+    uniques = cp.unique(lengths)
+    if len(uniques) > 1:
+        raise ValueError("Found input variables with inconsistent numbers of"
+                         " samples: %r" % [int(l) for l in lengths])
+
+
+def indexable(*iterables):
+    """Make arrays indexable for cross-validation.
+    Checks consistent length, passes through None, and ensures that everything
+    can be indexed by converting sparse matrices to csr and converting
+    non-interable objects to arrays.
+    Parameters
+    ----------
+    *iterables : lists, dataframes, arrays, sparse matrices
+        List of objects to ensure sliceability.
+    """
+    result = []
+    for X in iterables:
+        if sp.issparse(X):
+            result.append(X.tocsr())
+        elif hasattr(X, "__getitem__") or hasattr(X, "iloc"):
+            result.append(X)
+        elif X is None:
+            result.append(X)
+        else:
+            result.append(cp.array(X))
+    check_consistent_length(*result)
+    return result
