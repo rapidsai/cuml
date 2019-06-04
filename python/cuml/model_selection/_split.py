@@ -26,7 +26,6 @@ import cupy as cp
 import cudf
 
 import utils
-from utils import DataC
 
 
 NSPLIT_WARNING = (
@@ -43,7 +42,7 @@ class BaseCrossValidator(metaclass=ABCMeta):
         """Generate indices to split data into training and test set.
         Parameters
         ----------
-        X : cudf.DataFrame, cudf.Series or a cupy.ndarray, 
+        X : cudf.DataFrame, cudf.Series or a cupy.ndarray,
             shape (n_samples, n_features)
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
@@ -599,8 +598,8 @@ class StratifiedKFold(_BaseKFold):
         # So we pass cp.zeroes(max(c, n_splits)) as data to the KFold
         per_cls_cvs = [
             KFold(self.n_splits, shuffle=self.shuffle,
-                random_state=rng).split(cp.zeros(max(int(count),
-                self.n_splits)))
+                  random_state=rng).split(cp.zeros(max(int(count),
+                                                   self.n_splits)))
             for count in y_counts]
         test_folds = cp.zeros(n_samples, dtype=cp.int)
         for test_fold_indices, per_cls_splits in enumerate(zip(*per_cls_cvs)):
@@ -944,7 +943,7 @@ class LeavePGroupsOut(BaseCrossValidator):
             raise ValueError("The 'groups' parameter should not be None.")
         # groups = check_array(groups, ensure_2d=False, dtype=None)
         return int(utils.comb(len(cp.unique(groups)),
-            self.n_groups, exact=True))
+                   self.n_groups, exact=True))
 
     def split(self, X, y=None, groups=None):
         """Generate indices to split data into training and test set.
@@ -988,8 +987,8 @@ class _RepeatedSplits(metaclass=ABCMeta):
         and shuffle.
     """
     def __init__(self, cv, n_repeats=10, random_state=None, **cvargs):
-        if not isinstance(n_repeats, 
-                (cp.integer, np.integer, numbers.Integral)):
+        if not isinstance(n_repeats,
+                          (cp.integer, np.integer, numbers.Integral)):
             raise ValueError("Number of repetitions must be of Integral type.")
 
         if n_repeats <= 0:
@@ -1478,13 +1477,14 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
 
         # Find the sorted list of instances for each class:
         # (cp.unique above performs a sort, so code is O(n logn) already)
-        class_indices = cp.split(cp.argsort(y_indices), 
+        class_indices = cp.split(
+            cp.argsort(y_indices), 
             cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
 
         rng = utils.check_random_state(self.random_state)
         # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # have to get a nprng since cp.RandomState.permutation does not accept
-        # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array  
+        # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array
         nprng = utils.np_check_random_state(self.random_state)
         for _ in range(self.n_splits):
             # if there are ties in the class-counts, we want
@@ -1506,15 +1506,13 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
             # !!!!!!!!!!!!!!!!!!!!!!!!!
             # have to go through the indirect approach below
             # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
-            # Get rid of this once cp.RS.perm support cp array  
+            # Get rid of this once cp.RS.perm support cp array
             train = nprng.permutation(cp.asnumpy(train))
             train = cp.asarray([int(i) for i in train])
             test = nprng.permutation(cp.asnumpy(test))
             test = cp.asarray([int(i) for i in test])
-
-            #train = rng.permutation(train)
-            #test = rng.permutation(test)
-
+            # train = rng.permutation(train)
+            # test = rng.permutation(test)
             yield train, test
 
     def split(self, X, y, groups=None):
@@ -1740,5 +1738,5 @@ def _build_repr(self):
             warnings.filters.pop(0)
         params[key] = value
 
-    return '%s(%s)' % (class_name, utils._pprint(params, 
-        offset=len(class_name)))
+    return '%s(%s)' % (class_name, utils._pprint(params,
+                       offset=len(class_name)))
