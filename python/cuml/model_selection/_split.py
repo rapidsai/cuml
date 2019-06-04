@@ -1478,7 +1478,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         # Find the sorted list of instances for each class:
         # (cp.unique above performs a sort, so code is O(n logn) already)
         class_indices = cp.split(
-            cp.argsort(y_indices), 
+            cp.argsort(y_indices),
             cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
 
         rng = utils.check_random_state(self.random_state)

@@ -87,7 +87,7 @@ def check_random_state(seed):
         Otherwise raise ValueError.
     """
     if (seed is None or
-        isinstance(seed, (numbers.Integral, np.integer, cp.integer))):
+            isinstance(seed, (numbers.Integral, np.integer, cp.integer))):
         return cp.random.generator.RandomState(seed=seed)
     if isinstance(seed, cp.random.generator.RandomState):
         return seed
