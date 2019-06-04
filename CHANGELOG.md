@@ -25,7 +25,7 @@
 - PR #620: C++: Removed old unit-test files in ml-prims
 - PR #627: C++: Fixed dbscan crash issue filed in 613
 - PR #640: Remove setuptools from conda run dependency
-
+- PR #646: Update link in contributing.md
 
 # cuML 0.7.0 (10 May 2019)
 
