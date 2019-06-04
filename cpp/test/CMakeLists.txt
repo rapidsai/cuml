@@ -159,6 +159,7 @@ if(BUILD_PRIMS_TESTS)
       prims/penalty.cu
       prims/permute.cu
       prims/power.cu
+      prims/randIndex.cu
       prims/reduce.cu
       prims/reduce_rows_by_key.cu
       prims/reverse.cu
