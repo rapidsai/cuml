@@ -23,10 +23,17 @@ extern "C" {
 #endif
 
 cumlError_t knn_search(
-      const cumlHandle_t handle,
-      float **input, int *size, int n_params, int D,
-      const float *search_items, int n,
-      long *res_I, float *res_D, int k);
+  const cumlHandle_t handle,
+  float **input, int *size, int n_params, int D,
+  const float *search_items, int n,
+  long *res_I, float *res_D, int k
+);
+
+cumlError_t chunk_host_array(
+  const cumlHandle_t handle,
+  const float *ptr, int n, int D,
+  int* devices, float **output, int *sizes, int n_chunks,
+);
 
 #ifdef __cplusplus
 }
