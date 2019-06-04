@@ -19,7 +19,7 @@
 namespace Dbscan {
 namespace VertexDeg {
 
-template <typename Type>
+template <typename Type, typename Index_>
 struct Pack {
     /**
      * vertex degree array
@@ -34,15 +34,15 @@ struct Pack {
     /** epsilon neighborhood thresholding param */
     Type eps;
     /** number of points in the dataset */
-    int N;
+    Index_ N;
     /** dataset dimensionality */
-    int D;
+    Index_ D;
 
     /**
      * @brief reset the output array before calling the actual kernel
      * @param stream cuda stream where to perform this operation
      */
-    void resetArray(cudaStream_t stream, int vdlen) {
+    void resetArray(cudaStream_t stream, Index_ vdlen) {
         CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int)*vdlen, stream));
     }
 };

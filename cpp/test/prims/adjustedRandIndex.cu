@@ -126,7 +126,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<AdjustedRandIndexP
 
 
     //calling the adjustedRandIndex CUDA implementation
-    computedAdjustedRandIndex = MLCommon::Metrics::computeAdjustedRandIndex(firstClusterArray,secondClusterArray,nElements, numUniqueClasses, lowerLabelRange, upperLabelRange, allocator,stream);
+    computedAdjustedRandIndex = MLCommon::Metrics::computeAdjustedRandIndex(firstClusterArray,secondClusterArray,nElements, lowerLabelRange, upperLabelRange, allocator,stream);
 
     }
 

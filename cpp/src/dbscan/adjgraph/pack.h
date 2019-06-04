@@ -19,7 +19,7 @@
 namespace Dbscan {
 namespace AdjGraph {
 
-template <typename Type>
+template <typename Type, typename Index_ = int>
 struct Pack {
     /**
      * vertex degree array
@@ -39,7 +39,7 @@ struct Pack {
     /** array to store whether a vertex is core poType or not */
     bool *core_pts;
     /** number of poTypes in the dataset */
-    Type N;
+    Index_ N;
     /** Minpts for classifying core pts */
     Type minPts;
 };

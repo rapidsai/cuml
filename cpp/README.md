@@ -36,7 +36,7 @@ Current cmake offers the following configuration options:
 | BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
 | CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
-| GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
+| GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compiles only for that.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 

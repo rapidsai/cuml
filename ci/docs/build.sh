@@ -14,8 +14,8 @@ function logger() {
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 export PARALLEL_LEVEL=4
 export CUDA_REL=${CUDA_VERSION%.*}
-export CUDF_VERSION=0.7.*
-export RMM_VERSION=0.7.*
+export CUDF_VERSION=0.8.*
+export RMM_VERSION=0.8.*
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
@@ -60,25 +60,7 @@ cd $WORKSPACE
 git submodule update --init --recursive
 
 logger "Build libcuml..."
-mkdir -p $WORKSPACE/cuML/build
-cd $WORKSPACE/cuML/build
-logger "Run cmake libcuml..."
-cmake -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DCMAKE_CXX11_ABI=ON ..
-
-logger "Clean up make..."
-make clean
-
-logger "Make libcuml..."
-make -j${PARALLEL_LEVEL}
-
-logger "Install libcuml..."
-make -j${PARALLEL_LEVEL} install
-
-
-logger "Build cuML..."
-cd $WORKSPACE/python
-python setup.py build_ext --inplace
-python setup.py install
+$WORKSPACE/build.sh clean libcuml cuml
 
 ################################################################################
 # BUILD - Build docs
