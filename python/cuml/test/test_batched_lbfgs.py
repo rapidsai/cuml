@@ -42,31 +42,58 @@ def g_batched_rosenbrock(x: np.ndarray,
 
 def test_batched_bfgs():
 
-    num_batches = 200
+    num_batches = 100
     np.random.seed(42)
     a = np.random.normal(1, scale=0.1, size=num_batches)
     b = np.random.normal(100, scale=1, size=num_batches)
 
-    def f(x):
+    def f(x, n=None):
         nonlocal a
         nonlocal b
         nonlocal num_batches
+
+        if n is not None:
+            return rosenbrock(x, a[n], b[n])
+
         fb = batched_rosenbrock(x, num_batches, a, b)
         return fb.sum()/num_batches
 
-    def gf(x):
+    def gf(x, n=None):
         nonlocal a
         nonlocal b
         nonlocal num_batches
-        return g_batched_rosenbrock(x, num_batches, a, b)
+
+        if n is not None:
+            return g_rosenbrock(x, a[n], b[n])
+        
+        g = g_batched_rosenbrock(x, num_batches, a, b)
+        return g
 
     x0 = np.zeros(2*num_batches)
-    # for i in range(num_batches)
-    res_ref = optimize.fmin_bfgs(f, x0, gf, disp=101)
+    x0[0] = 0.9
+    x0[1] = 0.9
+    
+    # global optimizer
+    options = {"disp": 10}
+    res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
 
-    print("res_ref=", res_ref)
+    # problem-at-a-time optimizer
+    # for ib in range(num_batches):
+    #     res_ref_batch = optimize.minimize(f, x0[2*ib:2*(ib+1)],
+    #                                       jac=gf,
+    #                                       method="BFGS",
+    #                                       options=options, args=(ib,))
+
+    # print("res_ref=", res_ref)
+
     res_true = np.zeros(num_batches*2)
     for i in range(num_batches):
         res_true[i*2:(i+1)*2] = np.array([a[i], a[i]**2])
 
-    print("|res_diff|_abs", np.abs(res_ref-res_true))
+    # print("|res_diff_ref|_max", np.max(res_ref.x-res_true))
+
+    # our new batch-aware bfgs optimizer
+    res_xk, _ = batched_fmin_bfgs(f, x0, num_batches, g=gf, disp=1, max_steps=100)
+    
+    print("batched res_xk:", res_xk)
+    print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
