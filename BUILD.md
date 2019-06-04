@@ -4,7 +4,7 @@
 
 To install cuML from source, ensure the dependencies are met:
 
-1. [cuDF](https://github.com/rapidsai/cudf) (>=0.7)
+1. [cuDF](https://github.com/rapidsai/cudf) (>=0.8)
 2. zlib
 3. cmake (>= 3.12.4)
 4. CUDA (>= 9.2)
@@ -106,6 +106,32 @@ $ pytest cuML/test --collect-only
 $ python setup.py install
 ```
 
+#### `build.sh`
+
+As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+```bash
+$ ./build.sh                           # build the cuML libraries, tests, and python package, then
+                                       # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
+```
+
+To build individual components, specify them as arguments to `build.sh`
+```bash
+$ ./build.sh libcuml                   # build and install the cuML C++ library
+$ ./build.sh cuml                      # build and install the cuML python package
+$ ./build.sh prims                     # build the ML prims tests
+```
+
+Other `build.sh` options:
+```bash
+$ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
+$ ./build.sh libcuml -v                # build and install libcuml with verbose output
+$ ./build.sh libcuml -g                # build and install libcuml for debug
+$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
+$ ./build.sh libcuml -n                # build libcuml but do not install
+$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
+$ ./build.sh cuml --multigpu           # build the cuml python package with multi-GPU support (requires libcumlMG and CUDA >= 10.0)
+```
+
 ### Custom Build Options
 
 cuML's cmake has the following configurable flags available:
@@ -123,6 +149,3 @@ cuML's cmake has the following configurable flags available:
 | GPU_ARCHS |  List of GPU architectures, semicolon-separated | 60;70;75  | List of GPU architectures that all artifacts are compiled for.  |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
-
-
-

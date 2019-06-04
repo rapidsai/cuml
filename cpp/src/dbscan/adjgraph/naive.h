@@ -26,8 +26,9 @@ namespace Dbscan {
 namespace AdjGraph { 
 namespace Naive {
 
-template <typename Type> 
-void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize, cudaStream_t stream) {
+template <typename Type, typename Index_ = int> 
+void launcher(const ML::cumlHandle_impl& handle, Pack<Type, Index_> data,
+              Index_ batchSize, cudaStream_t stream) {
     int k = 0;
     int N = data.N;
     MLCommon::host_buffer<int> host_vd(handle.getHostAllocator(), stream, batchSize+1);
@@ -39,18 +40,18 @@ void launcher(const ML::cumlHandle_impl& handle, Pack<Type> data, int batchSize,
     CUDA_CHECK(cudaStreamSynchronize(stream));
     size_t adjgraph_size = size_t(host_vd[batchSize]);
     MLCommon::host_buffer<Type> host_adj_graph(handle.getHostAllocator(), stream, adjgraph_size);
-    for(int i=0; i<batchSize; i++) {
-        for(int j=0; j<N; j++) {
+    for(Index_ i=0; i<batchSize; i++) {
+        for(Index_ j=0; j<N; j++) {
             if(host_adj[i*N + j]) {
                 host_adj_graph[k] = j;
                 k = k + 1;
             }
         }
     }
-    for(int i=0; i<batchSize; i++)
+    for(Index_ i=0; i<batchSize; i++)
         host_core_pts[i] = (host_vd[i] >= data.minPts);
     host_ex_scan[0] = Type(0);
-    for(int i=1; i<batchSize; i++) 
+    for(Index_ i=1; i<batchSize; i++) 
         host_ex_scan[i] = host_ex_scan[i-1] + host_vd[i-1];
     MLCommon::updateDevice(data.adj_graph, host_adj_graph.data(), adjgraph_size, stream);
     MLCommon::updateDevice(data.core_pts, host_core_pts.data(), batchSize, stream);

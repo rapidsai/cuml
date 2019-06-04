@@ -63,11 +63,13 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double computeAdjustedRandIndex (T* firstClusterArray, T* secondClusterArray, int size, int numUniqueClasses, int lowerLabelRange, int upperLabelRange,
+double computeAdjustedRandIndex (T* firstClusterArray, T* secondClusterArray, int size, int lowerLabelRange, int upperLabelRange,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
 
   //rand index for size less than 2 is not defined
   ASSERT(size>=2,"Rand Index for size less than 2 not defined!");
+
+  int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix
   MLCommon::device_buffer<int> dContingencyMatrix (allocator, stream, numUniqueClasses*numUniqueClasses);

@@ -30,6 +30,7 @@ namespace Distance {
  * @tparam OType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ Index type
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -44,14 +45,15 @@ namespace Distance {
  * @{
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
-void cosineAlgo1(int m, int n, int k, InType const *pA, InType const *pB,
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
+void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
                  OutType *pD, AccType *workspace, size_t worksize,
                  FinalLambda fin_op, cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
-  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_>(
+  distanceAlgo1<InType, AccType, OutType, OutputTile_, FragmentMultiplyAdd_,
+                FinalLambda, decltype(norm_op), Index_>(
     m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
 }
 
