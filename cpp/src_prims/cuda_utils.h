@@ -139,59 +139,6 @@ void ASSERT_MEM(T *ptr, std::string name) {
 };
 
 
-/**
- * Chunk a single host array up into one or many GPUs (determined by the provided
- * list of gpu ids) and fit a knn model.
- *
- * @param ptr       an array in host memory to chunk over devices
- * @param n         number of elements in ptr
- * @param devices   array of device ids for chunking the ptr
- * @param n_chunks  number of elements in gpus
- * @param out       host pointer (size n) to store output
- */
-template<typename OutType, typename T = size_t>
-void chunk_to_device(const OutType *ptr, int n, int D,
-    int* devices, OutType **output, T *sizes, int n_chunks,
-    cudaStream_t stream) {
-
-    size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
-
-    /**
-     * Initial verification of memory
-     */
-    for(int i = 0; i < n_chunks; i++) {
-
-        int device = devices[i];
-        T length = chunk_size;
-        if(length * i >= n)
-            length = (chunk_size*i)-T(n);
-        CUDA_CHECK(cudaSetDevice(device));
-        if(!verify_size(T(length)*T(D), device))
-            return;
-    }
-
-    #pragma omp parallel for
-    for(int i = 0; i < n_chunks; i++) {
-
-        int device = devices[i];
-        CUDA_CHECK(cudaSetDevice(device));
-
-        T length = chunk_size;
-        if(length * i >= n)
-            length = (T(chunk_size)*i)-T(n);
-
-        float *ptr_d;
-        MLCommon::allocate(ptr_d, T(length)*size_t(D));
-        MLCommon::updateDevice(ptr_d, ptr+(T(chunk_size)*i),
-                T(length)*T(D), stream);
-
-        output[i] = ptr_d;
-        sizes[i] = length;
-    }
-};
-
-
-
 /** number of threads per warp */
 static const int WarpSize = 32;
 

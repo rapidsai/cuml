@@ -18,6 +18,8 @@
 
 #include "knn.hpp"
 
+#include "knn/util.h"
+
 #include "selection/knn.h"
 
 #include "cuda_utils.h"
@@ -49,7 +51,7 @@ namespace ML {
     cumlHandle &handle,
     const float *ptr, int n, int D,
     int* devices, float **output, int *sizes, int n_chunks) {
-    MLCommon::chunk_to_device<float, int>(ptr, n, D,
+    chunk_to_device<float, int>(ptr, n, D,
         devices, output, sizes, n_chunks, handle.getImpl().getStream());
   }
 
@@ -155,7 +157,7 @@ namespace ML {
         float **params = new float*[n_chunks];
         int *sizes = new int[n_chunks];
 
-        MLCommon::chunk_to_device<float>(ptr, n, D, devices, params, sizes, n_chunks, handle->getImpl().getStream());
+        chunk_to_device<float>(ptr, n, D, devices, params, sizes, n_chunks, handle->getImpl().getStream());
 
         fit(params, sizes, n_chunks);
    }
@@ -195,7 +197,7 @@ extern "C" cumlError_t chunk_host_array(
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if(status == CUML_SUCCESS) {
     try {
-      MLCommon::chunk_to_device<float, int>(ptr, n, D,
+      ML::chunk_to_device<float, int>(ptr, n, D,
           devices, output, sizes, n_chunks, handle_ptr->getImpl().getStream());
     } catch (...) {
         status = CUML_ERROR_UNKNOWN;
