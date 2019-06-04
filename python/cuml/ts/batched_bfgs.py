@@ -112,6 +112,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             # compute alpha per batch
             alpha_b = np.zeros(num_batches)
             xkp1 = np.zeros(len(xk))
+
             for ib in range(num_batches):
                 # When we are too close to minimum, line search fails. Don't
                 # search if we are more than satisfying the stopping criterion.
