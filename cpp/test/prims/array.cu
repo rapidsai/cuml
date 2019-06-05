@@ -20,6 +20,7 @@
 #include "array/classlabels.h"
 
 #include <cuda_utils.h>
+#include "common/cuml_allocator.hpp"
 #include "test_utils.h"
 
 #include <iostream>
@@ -71,10 +72,9 @@ TEST_F(MakeMonotonicTest, Result) {
 }
 
 TEST(Arraytest, ClassLabels) {
-  cumlHandle handle;
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  handle.setStream(stream);
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
   int n_rows = 6;
   float *y_d;
@@ -85,14 +85,13 @@ TEST(Arraytest, ClassLabels) {
 
   int n_classes;
   float *y_unique_d;
-  getUniqueLabels(handle.getImpl(), y_d, n_rows, &y_unique_d, &n_classes,
-    stream);
+  getUniqueLabels(y_d, n_rows, &y_unique_d, &n_classes, stream, allocator);
 
   ASSERT_EQ(n_classes, 3);
 
-  float y_unique_exp[] = { -1, 1, 2 };
-  EXPECT_TRUE(devArrMatchHost(y_unique_exp, y_unique_d, n_clasess,
-    Compare<float>(), stream));
+  float y_unique_exp[] = {-1, 1, 2};
+  EXPECT_TRUE(devArrMatchHost(y_unique_exp, y_unique_d, n_classes,
+                              Compare<float>(), stream));
 
   float *y_relabeled_d;
   allocate(y_relabeled_d, n_rows);
@@ -101,7 +100,7 @@ TEST(Arraytest, ClassLabels) {
 
   float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
   EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,
-    Compare<float>(), stream));
+                              Compare<float>(), stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
   CUDA_CHECK(cudaFree(y_d));
