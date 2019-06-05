@@ -28,7 +28,7 @@ import pandas as pd
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+    input_to_dev_array, zeros
 
 from numba import cuda
 
@@ -205,7 +205,7 @@ cdef class UMAPImpl:
         self.n_dims = n_cols
         self.raw_data = X_ctype
 
-        self.arr_embed = cuda.to_device(np.zeros((X_m.shape[0],
+        self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
                                         self.umap_params.n_components),
                                         order="C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
@@ -269,7 +269,7 @@ cdef class UMAPImpl:
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        embedding = cuda.to_device(np.zeros((X_m.shape[0],
+        embedding = cuda.to_device(zeros((X_m.shape[0],
                                              self.umap_params.n_components),
                                             order="C", dtype=np.float32))
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value

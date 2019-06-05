@@ -25,7 +25,6 @@ import numpy as np
 import warnings
 
 from numba import cuda
-from cuml.utils import numba_utils
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -34,7 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+    input_to_dev_array, zeros, numba_utils
 
 cdef extern from "kmeans/kmeans.hpp" namespace "ML::kmeans":
 
@@ -315,7 +314,7 @@ class KMeans(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if (isinstance(self.init, cudf.DataFrame)):
@@ -340,13 +339,13 @@ class KMeans(Base):
 
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             init_value = KMeansPlusPlus
-            clust_cent = np.zeros(self.n_clusters * self.n_cols,
+            clust_cent = zeros(self.n_clusters * self.n_cols,
                                   dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
         elif (self.init == 'random'):
             init_value = Random
-            clust_cent = np.zeros(self.n_clusters * self.n_cols,
+            clust_cent = zeros(self.n_clusters * self.n_cols,
                                   dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
@@ -438,7 +437,7 @@ class KMeans(Base):
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        self.labels_ = cudf.Series(np.zeros(self.n_rows, dtype=np.int32))
+        self.labels_ = cudf.Series(zeros(self.n_rows, dtype=np.int32))
         cdef uintptr_t labels_ptr = get_cudf_column_ptr(self.labels_)
 
         if self.dtype == np.float32:
@@ -494,7 +493,7 @@ class KMeans(Base):
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)
         cdef uintptr_t cluster_centers_ptr = get_dev_array_ptr(clust_mat)
 
-        preds_data = cuda.to_device(np.zeros(self.n_clusters*self.n_rows,
+        preds_data = cuda.to_device(zeros(self.n_clusters*self.n_rows,
                                     dtype=self.dtype))
 
         cdef uintptr_t preds_ptr = get_dev_array_ptr(preds_data)

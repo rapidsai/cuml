@@ -60,14 +60,14 @@ def row_matrix(df):
         dev_dtype = numba.float64
 
     @cuda.jit
-    def general_kernel(_col_major, _row_major):
+    def general_kernel(input, output):
         tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
         if tid >= nrows:
             return
         _col_offset = 0
-        while _col_offset < _col_major.shape[1]:
+        while _col_offset < input.shape[1]:
             col_idx = _col_offset
-            _row_major[tid, col_idx] = _col_major[tid, col_idx]
+            output[tid, col_idx] = input[tid, col_idx]
             _col_offset += 1
 
     @cuda.jit

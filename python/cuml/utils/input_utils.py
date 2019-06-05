@@ -97,10 +97,11 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
-        X_m = rmm.to_device(np.array(X, order=order, copy=deepcopy))
+        X_m = rmm.to_device(np.array(X, order=order, copy=False))
 
     elif cuda.is_cuda_array(X):
         # Use cuda array interface to create a device array by reference
+        # todo: check order!!!!
         X_m = cuda.as_cuda_array(X)
         if deepcopy:
             out_dev_array = rmm.device_array_like(X_m)
@@ -190,3 +191,10 @@ def convert_dtype(X, to_dtype=np.float32):
         raise TypeError("Received unsupported input type " % type(X))
 
     return X
+
+
+def check_numba_order(dev_ary, order):
+    if order == 'F':
+        return dev_ary.is_f_contiguous()
+    elif order == 'C':
+        return dev_ary.is_c_contiguous()
