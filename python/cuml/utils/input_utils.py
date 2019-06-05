@@ -18,6 +18,7 @@ import cuml.utils.numba_utils
 
 import cudf
 import numpy as np
+import warnings
 
 from collections import namedtuple
 from numba import cuda
@@ -61,7 +62,8 @@ def get_dtype(X):
 
 def input_to_dev_array(X, order='F', deepcopy=False,
                        check_dtype=False, convert_to_dtype=False,
-                       check_cols=False, check_rows=False):
+                       check_cols=False, check_rows=False,
+                       fail_on_order=False):
     """
     Convert input X to device array suitable for C++ methods
     Acceptable input formats:
@@ -108,6 +110,7 @@ def input_to_dev_array(X, order='F', deepcopy=False,
         # Use cuda array interface to create a device array by reference
         # todo: check order!!!!
         X_m = cuda.as_cuda_array(X)
+
         if deepcopy:
             out_dev_array = rmm.device_array_like(X_m)
             out_dev_array.copy_to_device(X_m)
@@ -146,6 +149,17 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     if check_rows:
         if n_rows != check_rows:
             raise ValueError("ba")
+
+    if not check_numba_order(X_m, order):
+        if fail_on_order:
+            raise ValueError("Expected " + order_to_str(order) +
+                             " major order, but got the opposite.")
+        else:
+            warnings.warn("Expected " + order_to_str(order) + " major order, "
+                          "but got the opposite. Converting data, this will "
+                          "result in additional memory utilization.")
+            cuml.utils.numba_utils.gpu_major_converter(X_m, n_rows, n_cols,
+                                                       dtype, to_order=order)
 
     X_ptr = get_dev_array_ptr(X_m)
 
@@ -204,3 +218,10 @@ def check_numba_order(dev_ary, order):
         return dev_ary.is_f_contiguous()
     elif order == 'C':
         return dev_ary.is_c_contiguous()
+
+
+def order_to_str(order):
+    if order == 'F':
+        return 'column'
+    elif order == 'C':
+        return 'row'

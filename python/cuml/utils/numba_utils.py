@@ -36,7 +36,15 @@ def row_matrix(df):
     dtype = cols[0].dtype
 
     col_major = df.as_gpu_matrix(order='F')
-    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order='C')
+
+    row_major = gpu_major_converter(col_major, nrows, ncols, dtype,
+                                    to_order='C')
+
+    return row_major
+
+
+def gpu_major_converter(original, nrows, ncols, dtype, to_order='C'):
+    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order=to_order)
 
     tpb = driver.get_device().MAX_THREADS_PER_BLOCK
 
@@ -47,7 +55,9 @@ def row_matrix(df):
 
     # blocks and threads for the shared memory/tiled algorithm
     # see http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/ # noqa
-    blocks = int((row_major.shape[1]) / tile_height + 1), int((row_major.shape[0]) / tile_width + 1) # noqa
+    blocks = int((row_major.shape[1]) / tile_height + 1), \
+        int((row_major.shape[0]) / tile_width + 1)
+
     threads = tile_height, tile_width
 
     # blocks per gpu for the general kernel
@@ -91,10 +101,10 @@ def row_matrix(df):
     # check if we cannot call the shared memory kernel
     # block limits: 2**31-1 for x, 65535 for y dim of blocks
     if blocks[0] > 2147483647 or blocks[1] > 65535:
-        general_kernel[bpg, tpb](col_major, row_major)
+        general_kernel[bpg, tpb](original, row_major)
 
     else:
-        shared_kernel[blocks, threads](col_major, row_major)
+        shared_kernel[blocks, threads](original, row_major)
 
     return row_major
 
