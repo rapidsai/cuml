@@ -55,12 +55,12 @@ struct TemporaryMemory
 	//For quantiles
 	MLCommon::device_buffer<T> *d_quantile = nullptr;
 	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
-
+	
 	const ML::cumlHandle_impl& ml_handle;
-
-           TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle){};
-
+	
+	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo);
+	
 	void print_info();
-	~TemporaryMemory(){};
+	~TemporaryMemory();
 
 };
