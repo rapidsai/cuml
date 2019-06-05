@@ -24,6 +24,7 @@
 #include "algo_helper.h"
 #include "kernels/gini_def.h"
 #include "memory.h"
+#include "memory.cu"
 #include <common/Timer.h>
 #include <vector>
 #include <algorithm>
