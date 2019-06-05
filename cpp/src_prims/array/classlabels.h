@@ -24,7 +24,7 @@
 #include "linalg/unary_op.h"
 #include "ml_utils.h"
 
-namespace ML {
+namespace MLCommon {
 namespace Array {
 
 using namespace MLCommon;
@@ -44,38 +44,37 @@ using namespace MLCommon;
  * \param [out] n_unique number of unique labels
  * \param stream
  */
-template<typename math_t>
-void getUniqueLabels(const cumlHandle_impl& handle, math_t *y, int n,
-  math_t **y_unique, int *n_unique, cudaStream_t stream)
-{
-  auto allocator = handle.getDeviceAllocator();
+template <typename math_t>
+void getUniqueLabels(math_t *y, int n, math_t **y_unique, int *n_unique,
+                     cudaStream_t stream,
+                     std::shared_ptr<deviceAllocator> allocator) {
   device_buffer<math_t> y2(allocator, stream, n);
   device_buffer<math_t> y3(allocator, stream, n);
   size_t bytes = 0;
   size_t bytes2 = 0;
-  int  *d_num_selected_out;
-  d_num_selected_out = (int*) allocator->allocate(1*sizeof(int), stream);
+  int *d_num_selected_out;
+  d_num_selected_out = (int *)allocator->allocate(1 * sizeof(int), stream);
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
   cub::DeviceRadixSort::SortKeys(NULL, bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(NULL, bytes2, y2.data(), y3.data(),
-    d_num_selected_out, n);
+                            d_num_selected_out, n);
   bytes = max(bytes, bytes2);
   device_buffer<char> cub_storage(allocator, stream, bytes);
 
   // Select Unique classes
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
-    d_num_selected_out, n);
+                            d_num_selected_out, n);
   updateHost(n_unique, d_num_selected_out, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
-  *y_unique = (math_t*) allocator->allocate(*n_unique*sizeof(math_t), stream);
+  *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
   copy(*y_unique, y3.data(), *n_unique, stream);
 
-  allocator->deallocate(d_num_selected_out, 1*sizeof(int), stream);
+  allocator->deallocate(d_num_selected_out, 1 * sizeof(int), stream);
 }
 
 /**
@@ -95,22 +94,23 @@ void getUniqueLabels(const cumlHandle_impl& handle, math_t *y, int n,
  * \param [out] y_out device array of output labels
  * \param [in] idx index of unique label that should be labeled as 1
  */
-template<typename math_t>
+template <typename math_t>
 void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
-  math_t* y_out, int idx, cudaStream_t stream) {
-  ASSERT(idx < n_classes, "Parameter idx should not be larger than the number "
-    "of classes");
-  // unary op could be used if that would allow different input and output types
-  LinAlg::unaryOp(y_out, y, n,
-    [idx, y_unique]__device__(math_t y){
+                  math_t *y_out, int idx, cudaStream_t stream) {
+  ASSERT(idx < n_classes,
+         "Parameter idx should not be larger than the number "
+         "of classes");
+  LinAlg::unaryOp(
+    y_out, y, n,
+    [idx, y_unique] __device__(math_t y) {
       return y == y_unique[idx] ? +1 : -1;
-    }, stream
-  );
+    },
+    stream);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 // TODO: add one-versus-one selection: select two classes, relabel them to
 // +/-1, return array with the new class labels and corresponding indices.
 
-}; // end namespace SVM
-}; // end namespace ML
+};  // namespace Array
+};  // end namespace MLCommon
