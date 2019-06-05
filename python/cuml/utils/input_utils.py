@@ -53,6 +53,8 @@ def get_dtype(X):
         dtype = X.dtype
     elif cuda.devicearray.is_cuda_ndarray(X):
         dtype = X.dtype
+    else:
+        raise TypeError("Input object not understood for dtype detection.")
 
     return dtype
 
@@ -93,7 +95,10 @@ def input_to_dev_array(X, order='F', deepcopy=False,
         if deepcopy:
             X_m = X.to_gpu_array()
         else:
-            X_m = X._column._data.mem
+            if X.null_count == 0:
+                X_m = X._column._data.mem
+            else:
+                raise ValueError("Error: cuDF Series has missing/null values")
 
     elif isinstance(X, np.ndarray):
         dtype = X.dtype
