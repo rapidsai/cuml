@@ -118,13 +118,13 @@ class DecisionTreeBase {
 		CRITERION split_criterion;
 		std::vector<unsigned int> feature_selector;
 
-	    void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
+		void print_node(const std::string& prefix, const TreeNode<T, L>* const node, bool isLeft) const;
 		void split_branch(T *data, MetricQuestion<T> & ques, const int n_sampled_rows, int& nrowsleft, int& nrowsright, unsigned int* rowids);
 
 		void plant(const cumlHandle_impl& handle, T *data, const int ncols, const int nrows, L *labels, unsigned int *rowids, const int n_sampled_rows, int unique_labels, 
 			int maxdepth = -1, int max_leaf_nodes = -1, const float colper = 1.0, int n_bins = 8, int split_algo_flag = SPLIT_ALGO::HIST, int cfg_min_rows_per_node=2,
 			bool cfg_bootstrap_features=false, CRITERION cfg_split_criterion=CRITERION::CRITERION_END);
-
+		void init_depth_zero(const L* labels, std::vector<unsigned int>& colselector, const unsigned int* rowids, const int n_sampled_rows, const std::shared_ptr<TemporaryMemory<T,L>> tempmem);
 		TreeNode<T, L> * grow_tree(T *data, const float colper, L *labels, int depth, unsigned int* rowids, const int n_sampled_rows, MetricInfo<T> prev_split_info);
 		virtual void find_best_fruit_all(T *data, L *labels, const float colper, MetricQuestion<T> & ques, float& gain, unsigned int* rowids,
 							const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) = 0;
