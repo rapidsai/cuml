@@ -255,6 +255,22 @@ TreeNode<T, L>* DecisionTreeBase<T, L>::grow_tree(T *data, const float colper, L
 	}
 	return node;
 }
+	
+template<typename T, typename L>
+void DecisionTreeBase<T, L>::init_depth_zero(const L* labels, std::vector<unsigned int>& colselector, const unsigned int* rowids, const int n_sampled_rows, const std::shared_ptr<TemporaryMemory<T,L>> tempmem) {
+	
+	CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(unsigned int) * colselector.size(), cudaHostRegisterDefault));
+	// Copy sampled column IDs to device memory
+	MLCommon::updateDevice(tempmem->d_colids->data(), colselector.data(), colselector.size(), tempmem->stream);
+	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+	
+	L *labelptr = tempmem->sampledlabels->data();
+	get_sampled_labels<L>(labels, labelptr, rowids, n_sampled_rows, tempmem->stream);
+
+	//Unregister
+	CUDA_CHECK(cudaHostUnregister(colselector.data()));
+	
+}
 
 /**
  * @brief Predict target feature for input data; n-ary classification or regression for single feature supported. Inference of trees is CPU only for now.
@@ -350,22 +366,14 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 
 	// Optimize ginibefore; no need to compute except for root.
 	if (depth == 0) {
-		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(unsigned int) * colselector.size(), cudaHostRegisterDefault));
-		// Copy sampled column IDs to device memory
-		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
-		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
-		
+		this->init_depth_zero(labels, colselector, rowids, n_sampled_rows, this->tempmem[0]);
 		int *labelptr = this->tempmem[0]->sampledlabels->data();
-		get_sampled_labels<int>(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
-
 		if (this->split_criterion == CRITERION::GINI) {
 			gini<T, GiniFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0], this->n_unique_labels);
 		} else {
 			gini<T, EntropyFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0], this->n_unique_labels);
 		}
-		
-		//Unregister
-		CUDA_CHECK(cudaHostUnregister(colselector.data()));
+
 	}
 
 	// Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
@@ -419,20 +427,14 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 	std::vector<unsigned int>& colselector = this->feature_selector;
 	
 	if (depth == 0) {
-		CUDA_CHECK(cudaHostRegister(colselector.data(), sizeof(unsigned int) * colselector.size(), cudaHostRegisterDefault));
-		// Copy sampled column IDs to device memory
-		MLCommon::updateDevice(this->tempmem[0]->d_colids->data(), colselector.data(), colselector.size(), this->tempmem[0]->stream);
-		CUDA_CHECK(cudaStreamSynchronize(this->tempmem[0]->stream));
-
+		this->init_depth_zero(labels, colselector, rowids, n_sampled_rows, this->tempmem[0]);
 		T *labelptr = this->tempmem[0]->sampledlabels->data();
-		get_sampled_labels<T>(labels, labelptr, rowids, n_sampled_rows, this->tempmem[0]->stream);
 		if (this->split_criterion == CRITERION::MSE) {
 			mse<T, SquareFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
 		} else {
 			mse<T, AbsFunctor>(labelptr, n_sampled_rows, this->tempmem[0], split_info[0]);
 		}
-		//Unregister
-		CUDA_CHECK(cudaHostUnregister(colselector.data()));
+
 	}
 
 	// Do not update bin count for the GLOBAL_QUANTILE split algorithm, as all potential split points were precomputed.
