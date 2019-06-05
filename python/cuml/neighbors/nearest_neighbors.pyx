@@ -27,7 +27,7 @@ import cuml
 
 from cuml.common.base import Base
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+    input_to_dev_array, zeros
 
 from cython.operator cimport dereference as deref
 
@@ -230,8 +230,8 @@ cdef class NearestNeighborsImpl:
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
+        I_ndarr = cuda.to_device(zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = cuda.to_device(zeros(N*k, dtype=np.float32, order="C"))
 
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)

@@ -33,7 +33,7 @@ from cuml.metrics.base import RegressorMixin
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+    input_to_dev_array, zeros
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
@@ -273,7 +273,7 @@ class Ridge(Base, RegressorMixin):
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(np.zeros(self.n_cols,
+        self.coef_ = cudf.Series(zeros(self.n_cols,
                                           dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
 
@@ -345,7 +345,7 @@ class Ridge(Base, RegressorMixin):
         X_m, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(X)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
-        preds = cudf.Series(np.zeros(n_rows, dtype=dtype))
+        preds = cudf.Series(zeros(n_rows, dtype=dtype))
         cdef uintptr_t preds_ptr = get_cudf_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 

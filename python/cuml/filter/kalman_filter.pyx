@@ -29,6 +29,7 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.base import Base
+from cuml.utils import zeros
 
 
 cdef extern from "kalman_filter/kf_variables.h" namespace "kf::linear":
@@ -205,12 +206,12 @@ class KalmanFilter(Base):
         self.dtype = self._get_dtype(precision)
 
         Phi = np.ones((dim_x, dim_x), dtype=self.dtype)
-        x_up = np.zeros((dim_x, 1), dtype=self.dtype)
-        x_est = np.zeros((dim_x, 1), dtype=self.dtype)
+        x_up = zeros((dim_x, 1), dtype=self.dtype)
+        x_est = zeros((dim_x, 1), dtype=self.dtype)
         P_up = np.eye(dim_x, dtype=self.dtype)
         P_est = np.eye(dim_x, dtype=self.dtype)
         Q = np.eye(dim_x, dtype=self.dtype)
-        H = np.zeros((dim_z, dim_x), dtype=self.dtype)
+        H = zeros((dim_z, dim_x), dtype=self.dtype)
         R = np.eye(dim_z, dtype=self.dtype)
         z = np.array([[0]*dim_z], dtype=self.dtype).T
 
@@ -260,7 +261,7 @@ class KalmanFilter(Base):
                                                     <float*> _R_ptr,
                                                     <float*> _H_ptr)
 
-        self.workspace = cuda.to_device(np.zeros(workspace_size,
+        self.workspace = cuda.to_device(zeros(workspace_size,
                                                  dtype=self.dtype))
         self._workspace_size = workspace_size
 

@@ -217,7 +217,7 @@ class TruncatedSVDSPMG:
                                                    self.gdf_datatype))
 
         self.explained_variance_ratio_ = \
-            cudf.Series(np.zeros(n_components, self.gdf_datatype))
+            cudf.Series(zeros(n_components, self.gdf_datatype))
 
         self.mean_ = cudf.Series(cudf.utils.cudautils.zeros(n_cols,
                                                             self.gdf_datatype))
@@ -226,7 +226,7 @@ class TruncatedSVDSPMG:
             cudf.Series(cudf.utils.cudautils.zeros(n_components,
                                                    self.gdf_datatype))
 
-        self.noise_variance_ = cudf.Series(np.zeros(1,
+        self.noise_variance_ = cudf.Series(zeros(1,
                                                     dtype=self.gdf_datatype))
 
     def _get_ctype_ptr(self, obj):
@@ -280,15 +280,15 @@ class TruncatedSVDSPMG:
 
         self.gdf_datatype = X.dtype
 
-        self.components_ = np.zeros((n_cols, self.params.n_components),
+        self.components_ = zeros((n_cols, self.params.n_components),
                                     dtype=X.dtype, order='F')
-        self.explained_variance_ = np.zeros(self.params.n_components,
+        self.explained_variance_ = zeros(self.params.n_components,
                                             dtype=X.dtype, order='F')
-        self.explained_variance_ratio_ = np.zeros(self.params.n_components,
+        self.explained_variance_ratio_ = zeros(self.params.n_components,
                                                   dtype=X.dtype, order='F')
-        self.singular_values_ = np.zeros(self.params.n_components,
+        self.singular_values_ = zeros(self.params.n_components,
                                          dtype=X.dtype, order='F')
-        self.trans_input_ = np.zeros((n_rows, self.params.n_components),
+        self.trans_input_ = zeros((n_rows, self.params.n_components),
                                      dtype=X.dtype, order='F')
 
         X_ptr = X.ctypes.data
@@ -374,7 +374,7 @@ class TruncatedSVDSPMG:
         params.n_rows = n_rows
         params.n_cols = self.params.n_cols
 
-        original_X = np.zeros((n_rows, self.params.n_cols), dtype=X.dtype,
+        original_X = zeros((n_rows, self.params.n_cols), dtype=X.dtype,
                               order='F')
 
         cdef uintptr_t X_ptr, original_X_ptr, gpu_ids_ptr, components_ptr
@@ -433,7 +433,7 @@ class TruncatedSVDSPMG:
         params.n_rows = n_rows
         params.n_cols = self.params.n_cols
 
-        trans_X = np.zeros((n_rows, self.params.n_components), dtype=X.dtype,
+        trans_X = zeros((n_rows, self.params.n_components), dtype=X.dtype,
                            order='F')
 
         cdef uintptr_t X_ptr, trans_X_ptr, gpu_ids_ptr, components_ptr

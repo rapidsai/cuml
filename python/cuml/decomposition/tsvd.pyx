@@ -32,7 +32,7 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
 from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array
+    input_to_dev_array, zeros
 
 cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
@@ -255,18 +255,18 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
+        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
                                                     dtype=self.dtype))
-        self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
+        self.components_ = cuda.to_device(zeros(n_components*n_cols,
                                                    dtype=self.dtype))
-        self.explained_variance_ = cudf.Series(np.zeros(n_components,
+        self.explained_variance_ = cudf.Series(zeros(n_components,
                                                dtype=self.dtype))
-        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
+        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.dtype))
-        self.singular_values_ = cudf.Series(np.zeros(n_components,
+        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+        self.singular_values_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
-        self.noise_variance_ = cudf.Series(np.zeros(1,
+        self.noise_variance_ = cudf.Series(zeros(1,
                                                     dtype=self.dtype))
 
     def fit(self, X, _transform=True):
@@ -406,7 +406,7 @@ class TruncatedSVD(Base):
         params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
+        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
                                              dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
@@ -464,7 +464,7 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         t_input_data = \
-            cuda.to_device(np.zeros(params.n_rows*params.n_components,
+            cuda.to_device(zeros(params.n_rows*params.n_components,
                                     dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
