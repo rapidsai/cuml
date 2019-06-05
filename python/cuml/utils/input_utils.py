@@ -125,7 +125,8 @@ def input_to_dev_array(X, order='F', deepcopy=False,
     if check_dtype:
         if dtype != check_dtype:
             del X_m
-            raise TypeError("ba")
+            raise TypeError("Expected " + str(check_dtype) + "input but got "
+                            + str(dtype) + " instead.")
 
     n_rows = X_m.shape[0]
     if len(X_m.shape) > 1:

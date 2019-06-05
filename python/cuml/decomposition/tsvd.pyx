@@ -398,7 +398,8 @@ class TruncatedSVD(Base):
         """
 
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = input_to_dev_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         # todo: check for dtype
         cpdef paramsTSVD params
