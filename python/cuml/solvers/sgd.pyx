@@ -384,7 +384,8 @@ class SGD(Base):
         """
 
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, self.dtype = input_to_dev_array(X)
+        X_m, X_ptr, n_rows, n_cols, self.dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=self.dtype))
@@ -433,7 +434,8 @@ class SGD(Base):
         """
 
         cdef uintptr_t X_ptr
-        X_m, X_ptr, n_rows, n_cols, dtype = input_to_dev_array(X)
+        X_m, X_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
         preds = cudf.Series(zeros(n_rows, dtype=dtype))

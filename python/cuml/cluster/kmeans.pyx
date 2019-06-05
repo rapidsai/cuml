@@ -487,7 +487,7 @@ class KMeans(Base):
 
         cdef uintptr_t input_ptr
         X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
-            input_to_dev_array(X, order='C')
+            input_to_dev_array(X, order='C', check_dtype=self.dtype)
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         clust_mat = numba_utils.row_matrix(self.cluster_centers_)

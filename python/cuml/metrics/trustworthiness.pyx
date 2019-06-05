@@ -113,25 +113,3 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     if handle is None:
         del handle_
     return res
-
-
-def to_single_precision(X):
-    if isinstance(X, cudf.DataFrame):
-        new_cols = [(col, X._cols[col].astype(np.float32)) for col in X._cols]
-        overflowed = sum([len(colval[colval >= np.inf]) for colname, colval
-                         in new_cols])
-
-        if overflowed > 0:
-            raise Exception("Downcast to single-precision resulted in data"
-                            " loss.")
-
-        X = cudf.DataFrame(new_cols)
-    else:
-        X = X.astype(np.float32)
-        overflowed = len(X[X >= np.inf])
-
-        if overflowed > 0:
-            raise Exception("Downcast to single-precision resulted in data"
-                            " loss.")
-
-    return X

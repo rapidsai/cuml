@@ -484,7 +484,8 @@ class PCA(Base):
 
         """
         cdef uintptr_t trans_input_ptr
-        X_m, trans_input_ptr, n_rows, _, dtype = input_to_dev_array(X)
+        X_m, trans_input_ptr, n_rows, _, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
@@ -555,7 +556,8 @@ class PCA(Base):
         """
 
         cdef uintptr_t input_ptr
-        X_m, input_ptr, n_rows, n_cols, dtype = input_to_dev_array(X)
+        X_m, input_ptr, n_rows, n_cols, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
         # todo: check dtype
         cpdef paramsPCA params
