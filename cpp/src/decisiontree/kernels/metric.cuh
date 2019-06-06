@@ -16,8 +16,7 @@
 
 #pragma once
 #include <utils.h>
-#include "cub/cub.cuh"
-#include "../memory.cuh"
+#include "../memory.h"
 #include <vector>
 #include "metric_def.h"
 #include "cuda_utils.h"

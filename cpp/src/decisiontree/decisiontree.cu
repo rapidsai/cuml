@@ -16,6 +16,7 @@
 
 #include <utils.h>
 #include "decisiontree.h"
+#include "memory.cuh"
 #include "kernels/metric.cuh"
 #include "kernels/split_labels.cuh"
 #include "kernels/col_condenser.cuh"
@@ -320,6 +321,31 @@ L DecisionTreeBase<T, L>::predict_one(const T * row, const TreeNode<T, L>* const
 	}
 }
 
+template<typename T, typename L>
+void DecisionTreeBase<T, L>::base_fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, L *labels,
+									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams& tree_params,
+									ML::CRITERION default_criterion, ML::CRITERION other_criterion, const std::string & dt_name) {
+
+	const char * CRITERION_NAME[]={"GINI", "ENTROPY", "MSE", "MAE", "END"};
+
+	tree_params.validity_check();
+	if (tree_params.n_bins > n_sampled_rows) {
+		std::cout << "Warning! Calling with number of bins > number of rows! ";
+		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
+		tree_params.n_bins = n_sampled_rows;
+	}
+
+	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to GINI (classification) or MSE (regression)
+		tree_params.split_criterion = default_criterion;
+	}
+	ASSERT((tree_params.split_criterion == default_criterion || tree_params.split_criterion == other_criterion),
+			"Decision Tree %s split criteria should be %s or %s\n", dt_name.c_str(), CRITERION_NAME[default_criterion], CRITERION_NAME[other_criterion]);
+
+	plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
+			tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
+			tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
+
+}
 
 /**
  * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
@@ -341,22 +367,7 @@ template<typename T>
 void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
 									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
 
-	tree_params.validity_check();
-	if (tree_params.n_bins > n_sampled_rows) {
-		std::cout << "Warning! Calling with number of bins > number of rows! ";
-		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
-		tree_params.n_bins = n_sampled_rows;
-	}
-	
-	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to GINI
-		tree_params.split_criterion = CRITERION::GINI;
-	}
-	ASSERT((tree_params.split_criterion == CRITERION::GINI || tree_params.split_criterion == CRITERION::ENTROPY ),
-			" Decision Tree Classifer split criteria, should be GINI or ENTROPY\n");
-
-	this->plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
-			tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
-			tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
+	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params, CRITERION::GINI, CRITERION::ENTROPY, "Classifier");
 }
 
 template<typename T>
@@ -404,20 +415,7 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 template<typename T>
 void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels,
 									unsigned int *rowids, const int n_sampled_rows, DecisionTreeParams tree_params) {
-	tree_params.validity_check();
-	if (tree_params.n_bins > n_sampled_rows) {
-		std::cout << "Warning! Calling with number of bins > number of rows! ";
-		std::cout << "Resetting n_bins to " << n_sampled_rows << "." << std::endl;
-		tree_params.n_bins = n_sampled_rows;
-	}
-	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to MSE
-		tree_params.split_criterion = CRITERION::MSE;
-	}
-	ASSERT((tree_params.split_criterion == CRITERION::MSE || tree_params.split_criterion == CRITERION::MAE),
-			"Decision Tree Regressor split criteria should be MSE or MAE\n");
-	this->plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params.max_depth,
-			tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
-			tree_params.min_rows_per_node, tree_params.bootstrap_features, tree_params.split_criterion);
+	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params, CRITERION::MSE, CRITERION::MAE, "Regressor");
 }
 
 template<typename T>
