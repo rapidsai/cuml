@@ -185,5 +185,19 @@ TEST_P(ReduceRowTestManyObs, Result){
 INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestManyObs,
                         ::testing::ValuesIn(inputsf_many_obs));
 
+// ReduceRowTestManyClusters
+// 100000 Obs, 37 cols, 2048 clusters
+const std::vector<ReduceRowsInputs<float> > inputsf_many_cluster = {
+    {0.00001f, 100000, 37, 2048, 1234ULL}
+};
+typedef ReduceRowTest<float> ReduceRowTestManyClusters;
+TEST_P(ReduceRowTestManyClusters, Result){
+    ASSERT_TRUE(devArrMatch(out_ref, out, params.cols*params.nkeys,
+                            CompareApprox<float>(params.tolerance)));
+
+}
+INSTANTIATE_TEST_CASE_P(ReduceRowTests, ReduceRowTestManyClusters,
+                        ::testing::ValuesIn(inputsf_many_cluster));
+
 } // end namespace LinAlg
 } // end namespace MLCommon
