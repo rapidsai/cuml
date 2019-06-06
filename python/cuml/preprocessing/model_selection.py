@@ -23,6 +23,8 @@ import numpy as np
 def _shuffle_idx(df: cudf.DataFrame) -> np.ndarray:
     """ Return indices which represent a randomly shuffled version of `df`
     """
+    # TODO this is the bottleneck and should be a gpu operation,
+    # when possible replace with the mlprim mentioned in cuml #659
     return np.random.permutation(len(df))
 
 
@@ -59,6 +61,7 @@ def train_test_split(
         Partitioned dataframes. If `y` was provided as a column name, the
         column was dropped from the `X`s
     """
+    # TODO Use cupy indexing to support non cudf input types for X, y
     if isinstance(y, str):
         # Use the column with name `str` as y
         name = y
