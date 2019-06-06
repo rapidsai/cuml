@@ -29,6 +29,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cuml.decomposition.utils cimport *
+from cuml.utils import zeros
 
 cdef extern from "tsvd/tsvd_spmg.h" namespace "ML":
 
@@ -206,27 +207,22 @@ class TruncatedSVDSPMG:
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cudf.utils.cudautils.zeros(n_rows*n_components,
-                                                       self.gdf_datatype)
+        self.trans_input_ = zeros(n_rows*n_components, self.dtype)
 
-        self.components_ = cudf.utils.cudautils.zeros(n_cols*n_components,
-                                                      self.gdf_datatype)
+        self.components_ = zeros(n_cols*n_components, self.dtype)
 
         self.explained_variance_ = \
-            cudf.Series(cudf.utils.cudautils.zeros(n_components,
-                                                   self.gdf_datatype))
+            cudf.Series(zeros(n_components, self.dtype))
 
         self.explained_variance_ratio_ = \
-            cudf.Series(zeros(n_components, self.gdf_datatype))
+            cudf.Series(zeros(n_components, self.dtype))
 
-        self.mean_ = cudf.Series(cudf.utils.cudautils.zeros(n_cols,
-                                                            self.gdf_datatype))
+        self.mean_ = cudf.Series(zeros(n_cols, self.dtype))
 
         self.singular_values_ = \
-            cudf.Series(cudf.utils.cudautils.zeros(n_components,
-                                                   self.gdf_datatype))
+            cudf.Series(zeros(n_components, self.dtype))
 
-        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.gdf_datatype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -277,7 +273,7 @@ class TruncatedSVDSPMG:
         cdef uintptr_t explained_variance_ratio_ptr, singular_values_ptr,
         cdef uintptr_t trans_input_ptr, gpu_ids_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
         self.components_ = zeros((n_cols, self.params.n_components),
                                  dtype=X.dtype, order='F')
@@ -301,7 +297,7 @@ class TruncatedSVDSPMG:
         gpu_ids_ptr = gpu_ids_32.ctypes.data
 
         if not _transform:
-            if self.gdf_datatype.type == np.float32:
+            if self.dtype == np.float32:
                 tsvdFitSPMG(<float*>X_ptr,
                             <float*>components_ptr,
                             <float*>singular_values_ptr,
@@ -317,7 +313,7 @@ class TruncatedSVDSPMG:
                             <int*>gpu_ids_ptr,
                             <int>n_gpus)
         else:
-            if self.gdf_datatype.type == np.float32:
+            if self.dtype == np.float32:
                 tsvdFitTransformSPMG(<float*>X_ptr,
                                      <float*>trans_input_ptr,
                                      <float*>components_ptr,
@@ -378,7 +374,7 @@ class TruncatedSVDSPMG:
 
         cdef uintptr_t X_ptr, original_X_ptr, gpu_ids_ptr, components_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
         X_ptr = X.ctypes.data
         original_X_ptr = original_X.ctypes.data
@@ -386,7 +382,7 @@ class TruncatedSVDSPMG:
         gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdInverseTransformSPMG(<float*>X_ptr,
                                      <float*>components_ptr,
                                      <bool>False,
@@ -437,7 +433,7 @@ class TruncatedSVDSPMG:
 
         cdef uintptr_t X_ptr, trans_X_ptr, gpu_ids_ptr, components_ptr
 
-        self.gdf_datatype = X.dtype
+        self.dtype = X.dtype
 
         X_ptr = X.ctypes.data
         trans_X_ptr = trans_X.ctypes.data
@@ -445,7 +441,7 @@ class TruncatedSVDSPMG:
         gpu_ids_ptr = gpu_ids_32.ctypes.data
         components_ptr = self.components_.ctypes.data
 
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdTransformSPMG(<float*>X_ptr,
                               <float*>components_ptr,
                               <bool>True,
