@@ -18,11 +18,11 @@ import cudf
 from cuml.preprocessing.model_selection import train_test_split
 
 
-@pytest.mark.parametrize("n_rows", [100, 1000, 10000, 100000])
-def test_split(n_rows):
+@pytest.mark.parametrize("n_rows", [100, 100000])
+@pytest.mark.parametrize("train_size", [0.1, 0.5, 0.8])
+def test_split(n_rows, train_size):
     X = cudf.DataFrame({"x": range(n_rows)})
     y = cudf.Series(([0] * (n_rows // 2)) + ([1] * (n_rows // 2)))
-    train_size = 0.8
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, train_size=train_size
