@@ -18,7 +18,7 @@
 #include <utils.h>
 #include <limits>
 #include "metric.cuh"
-#include "../memory.cuh"
+#include "../memory.h"
 #include "col_condenser.cuh"
 #include <float.h>
 #include "../algo_helper.h"
