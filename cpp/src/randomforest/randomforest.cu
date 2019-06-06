@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-
 #include "randomforest.h"
+#include "score/scores.h"
 
 namespace ML {
 
@@ -202,6 +202,45 @@ void rf<T, L>::print_rf_detailed() {
 	}
 }
 
+/**
+ * @brief Sample row IDs for tree fitting and bootstrap if requested.
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] handle: cumlHandle
+ * @param[in] tree_id: unique tree ID
+ * @param[in] n_rows: total number of data samples.
+ * @param[in] n_sampled_rows: number of rows used for training
+ * @param[in, out] selected_rows: already allocated array w/ row IDs
+ * @param[in, out] sorted_selected_rows: already allocated array. Will contain sorted row IDs.
+ * @param[in, out] rows_temp_storage: temp. storage used for sorting (previously allocated).
+ * @param[in] temp_storage_bytes: size in bytes of rows_temp_storage.
+ */
+template<typename T, typename L>
+void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle, int tree_id, int n_rows, int n_sampled_rows, unsigned int * selected_rows,
+	unsigned int * sorted_selected_rows, char * rows_temp_storage, size_t temp_storage_bytes) {
+
+	cudaStream_t stream = handle.getStream();
+
+	if (rf_params.bootstrap) {
+		MLCommon::Random::Rng r(tree_id * 1000); // Ensure the seed for each tree is different and meaningful.
+		r.uniformInt(selected_rows, n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
+		CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage, temp_storage_bytes, selected_rows, sorted_selected_rows,
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
+	} else { // Sampling w/o replacement
+		MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
+		MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
+		thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(), inkeys->data() + n_rows);
+		int *perms = nullptr;
+		MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
+		// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
+		CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage, temp_storage_bytes, outkeys->data(), sorted_selected_rows,
+				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
+		inkeys->release(stream);
+		outkeys->release(stream);
+		delete inkeys;
+		delete outkeys;
+	}
+}
 
 /**
  * @brief Construct rfClassifier object.
@@ -250,6 +289,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
 	trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
+
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
 	const cumlHandle_impl& handle = user_handle.getImpl();
@@ -262,32 +302,15 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		MLCommon::device_buffer<unsigned int> sorted_selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
 
 		// Will sort selected_rows (row IDs), prior to fit, to improve access patterns
-		MLCommon::device_buffer<char> * rows_temp_storage = nullptr;
+		MLCommon::device_buffer<char> *rows_temp_storage = nullptr;
 		size_t   temp_storage_bytes = 0;
 		CUDA_CHECK(cub::DeviceRadixSort::SortKeys(rows_temp_storage, temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
 			n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
 		// Allocate temporary storage
 		rows_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, temp_storage_bytes);
 
-		if (this->rf_params.bootstrap) {
-			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
-			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
-			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
-				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
-		} else { // Sampling w/o replacement
-			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
-			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
-			thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(), inkeys->data() + n_rows);
-			int *perms = nullptr;
-			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
-			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
-			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, outkeys->data(), sorted_selected_rows.data(),
-				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
-			inkeys->release(stream);
-			outkeys->release(stream);
-			delete inkeys;
-			delete outkeys;
-		}
+		this->prepare_fit_per_tree(handle, i, n_rows, n_sampled_rows, selected_rows.data(),
+			sorted_selected_rows.data(), rows_temp_storage->data(), temp_storage_bytes);
 
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -295,6 +318,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 		   - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
+
 		trees[i].fit(user_handle, input, n_cols, n_rows, labels, sorted_selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
 
 		//Cleanup
@@ -305,15 +329,14 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 	}
 }
 
-
 /**
  * @brief Predict target feature for input data; n-ary classification for single feature supported.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
@@ -323,6 +346,10 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
+
+	std::vector<int> h_predictions(n_rows);
+	const cumlHandle_impl& handle = user_handle.getImpl();
+	cudaStream_t stream = user_handle.getStream();
 
 	int row_size = n_cols;
 
@@ -358,20 +385,23 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 			}
 		}
 
-		predictions[row_id] = majority_prediction;
+		h_predictions[row_id] = majority_prediction;
 	}
+
+	MLCommon::updateDevice(predictions, h_predictions.data(), n_rows, stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
@@ -379,12 +409,9 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 
 	predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
-	unsigned long long correctly_predicted = 0ULL;
-	for (int i = 0; i < n_rows; i++) {
-		correctly_predicted += (predictions[i] == ref_labels[i]);
-	}
-
-	float accuracy = correctly_predicted * 1.0f/n_rows;
+	cudaStream_t stream = user_handle.getImpl().getStream();
+	auto d_alloc = user_handle.getDeviceAllocator();
+	float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, d_alloc, stream);
 	RF_metrics stats(accuracy);
 	if (verbose) stats.print();
 
@@ -437,6 +464,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
 	trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
+
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
 	const cumlHandle_impl& handle = user_handle.getImpl();
@@ -456,25 +484,8 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		// Allocate temporary storage
 		rows_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, temp_storage_bytes);
 
-		if (this->rf_params.bootstrap) {
-			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
-			r.uniformInt(selected_rows.data(), n_sampled_rows, (unsigned int) 0, (unsigned int) n_rows, stream);
-			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, selected_rows.data(), sorted_selected_rows.data(),
-				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
-		} else { // Sampling w/o replacement
-			MLCommon::device_buffer<unsigned int> *inkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
-			MLCommon::device_buffer<unsigned int> *outkeys = new MLCommon::device_buffer<unsigned int>(handle.getDeviceAllocator(), stream, n_rows);
-			thrust::sequence(thrust::cuda::par.on(stream), inkeys->data(), inkeys->data() + n_rows);
-			int *perms = nullptr;
-			MLCommon::Random::permute(perms, outkeys->data(), inkeys->data(), 1, n_rows, false, stream);
-			// outkeys has more rows than selected_rows; doing the shuffling before the resize to differentiate the per-tree rows sample.
-			CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void *)rows_temp_storage->data(), temp_storage_bytes, outkeys->data(), sorted_selected_rows.data(),
-				n_sampled_rows, 0, 8*sizeof(unsigned int), stream));
-			inkeys->release(stream);
-			outkeys->release(stream);
-			delete inkeys;
-			delete outkeys;
-		}
+		this->prepare_fit_per_tree(handle, i, n_rows, n_sampled_rows, selected_rows.data(),
+			sorted_selected_rows.data(), rows_temp_storage->data(), temp_storage_bytes);
 
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -482,6 +493,7 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 		   - sorted_selected_rows: points to a list of row #s (w/ n_sampled_rows elements) used to build the bootstrapped sample.
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
+
 		trees[i].fit(user_handle, input, n_cols, n_rows, labels, sorted_selected_rows.data(), n_sampled_rows, this->rf_params.tree_params);
 
 		//Cleanup
@@ -492,14 +504,15 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 	}
 }
 
+
 /**
  * @brief Predict target feature for input data; regression for single feature supported.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
@@ -509,6 +522,10 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
+
+	std::vector<T> h_predictions(n_rows);
+	const cumlHandle_impl& handle = user_handle.getImpl();
+	cudaStream_t stream = user_handle.getStream();
 
 	int row_size = n_cols;
 
@@ -534,19 +551,22 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 			sum_predictions += prediction;
 		}
 		// Random forest's prediction is the arithmetic mean of all its decision tree predictions.
-		predictions[row_id] = sum_predictions / this->rf_params.n_trees;
+		h_predictions[row_id] = sum_predictions / this->rf_params.n_trees;
 	}
+
+	MLCommon::updateDevice(predictions, h_predictions.data(), n_rows, stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
 /**
  * @brief Predict target feature for input data and validate against ref_labels.
  * @tparam T: data type for input data (float or double).
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
- * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
+ * @param[in] ref_labels: label values for cross validation (n_rows elements); GPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T>
@@ -554,29 +574,11 @@ RF_metrics rfRegressor<T>::cross_validate(const cumlHandle& user_handle, const T
 
 	predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
-	double abs_difference_sum = 0;
-	double mse_sum = 0;
-	std::vector<double> abs_diffs;
+	cudaStream_t stream = user_handle.getImpl().getStream();
+	auto d_alloc = user_handle.getDeviceAllocator();
 
-	for (int i = 0; i < n_rows; i++) {
-		double abs_diff = abs(predictions[i] - ref_labels[i]);
-		abs_difference_sum += abs_diff;
-		mse_sum += pow(predictions[i] - ref_labels[i], 2);
-		abs_diffs.push_back(abs_diff);
-	}
-
-	double mean_abs_error = abs_difference_sum / n_rows;
-	double mean_squared_error = mse_sum / n_rows;
-
-	std::sort(abs_diffs.begin(), abs_diffs.end());
-	double median_abs_error = 0;
-	int middle = n_rows / 2;
-	if (n_rows % 2 == 1) {
-		median_abs_error = abs_diffs[middle];	
-	} else {
-		median_abs_error = (abs_diffs[middle] + abs_diffs[middle - 1]) / 2;
-	}
-
+	double mean_abs_error, mean_squared_error, median_abs_error;
+	MLCommon::Score::regression_metrics(predictions, ref_labels, n_rows, d_alloc, stream, mean_abs_error, mean_squared_error, median_abs_error);
 	RF_metrics stats(mean_abs_error, mean_squared_error, median_abs_error);
 	if (verbose) stats.print();
 
@@ -632,12 +634,12 @@ void fit(const cumlHandle& user_handle, rfClassifier<double> * rf_classifier, do
 
 /**
  * @brief Predict target feature for input data of type float; n-ary classification for single feature supported.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 void predict(const cumlHandle& user_handle, const rfClassifier<float> * rf_classifier, const float * input, int n_rows, int n_cols, int * predictions, bool verbose) {
@@ -646,12 +648,12 @@ void predict(const cumlHandle& user_handle, const rfClassifier<float> * rf_class
 
 /**
  * @brief Predict target feature for input data of type double; n-ary classification for single feature supported.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 void predict(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, int n_rows, int n_cols, int * predictions, bool verbose) {
@@ -660,13 +662,13 @@ void predict(const cumlHandle& user_handle, const rfClassifier<double> * rf_clas
 
 /**
  * @brief Predict target feature for input data of type float and validate against ref_labels.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<float> * rf_classifier, const float * input, const int * ref_labels,
@@ -676,13 +678,13 @@ RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<floa
 
 /**
  * @brief Predict target feature for input data of type double and validate against ref_labels.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_classifier: pointer to the rfClassifier object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<double> * rf_classifier, const double * input, const int * ref_labels,
@@ -720,12 +722,12 @@ void fit(const cumlHandle& user_handle, rfRegressor<double> * rf_regressor, doub
 
 /**
  * @brief Predict target feature for input data of type float; regression for single feature supported.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 void predict(const cumlHandle& user_handle, const rfRegressor<float> * rf_regressor, const float * input, int n_rows, int n_cols, float * predictions, bool verbose) {
@@ -734,12 +736,12 @@ void predict(const cumlHandle& user_handle, const rfRegressor<float> * rf_regres
 
 /**
  * @brief Predict target feature for input data of type double; regression for single feature supported.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 void predict(const cumlHandle& user_handle, const rfRegressor<double> * rf_regressor, const double * input, int n_rows, int n_cols, double * predictions, bool verbose) {
@@ -748,13 +750,13 @@ void predict(const cumlHandle& user_handle, const rfRegressor<double> * rf_regre
 
 /**
  * @brief Predict target feature for input data of type float and validate against ref_labels.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfRegressor<float> * rf_regressor, const float * input, const float * ref_labels,
@@ -764,13 +766,13 @@ RF_metrics cross_validate(const cumlHandle& user_handle, const rfRegressor<float
 
 /**
  * @brief Predict target feature for input data of type double and validate against ref_labels.
- * @param[in] user_handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] user_handle: cumlHandle.
  * @param[in] rf_regressor: pointer to the rfRegressor object. The user should have previously called fit to build the random forest.
  * @param[in] input: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
  * @param[in] ref_labels: label values for cross validation (n_rows elements); CPU pointer.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
  * @param[in] verbose: flag for debugging purposes.
  */
 RF_metrics cross_validate(const cumlHandle& user_handle, const rfRegressor<double> * rf_regressor, const double * input, const double * ref_labels,

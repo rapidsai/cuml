@@ -67,8 +67,10 @@ protected:
 		int data_len = params.n_rows * params.n_cols;
 		allocate(data, data_len);
 		allocate(labels, params.n_rows);
-                cudaStream_t stream;
-                CUDA_CHECK(cudaStreamCreate(&stream) );
+		allocate(predicted_labels, params.n_inference_rows);
+
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream) );
 
 		// Populate data (assume Col major)
 		std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
@@ -89,19 +91,19 @@ protected:
 		fit(handle, rf_classifier, data, params.n_rows, params.n_cols, labels, labels_map.size());
 
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 
 		// Inference data: same as train, but row major
 		int inference_data_len = params.n_inference_rows * params.n_cols;
 		inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
 		inference_data_h.resize(inference_data_len);
-
 		
 		// Predict and compare against known labels
-		predicted_labels.resize(params.n_inference_rows);
-		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels_h.data(),
-										params.n_inference_rows, params.n_cols, predicted_labels.data(), false);
+		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels,
+										params.n_inference_rows, params.n_cols, predicted_labels, false);
 		accuracy = tmp.accuracy;
+
+		CUDA_CHECK(cudaStreamSynchronize(stream));
+		CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
  	void SetUp() override {
@@ -114,9 +116,9 @@ protected:
 		inference_data_h.clear();
 		labels_h.clear();
 		labels_map.clear();
-		predicted_labels.clear();
 
 		CUDA_CHECK(cudaFree(labels));
+		CUDA_CHECK(cudaFree(predicted_labels));
 		CUDA_CHECK(cudaFree(data));
 		delete rf_classifier;
 	}
@@ -133,7 +135,7 @@ protected:
     rfClassifier<T> * rf_classifier;
 	float accuracy = -1.0f; // overriden in each test SetUp and TearDown
 
-	std::vector<int> predicted_labels;
+	int * predicted_labels;
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------
@@ -157,8 +159,9 @@ protected:
 		int data_len = params.n_rows * params.n_cols;
 		allocate(data, data_len);
 		allocate(labels, params.n_rows);
-                cudaStream_t stream;
-                CUDA_CHECK(cudaStreamCreate(&stream) );
+		allocate(predicted_labels, params.n_inference_rows);
+		cudaStream_t stream;
+		CUDA_CHECK(cudaStreamCreate(&stream) );
 
 		// Populate data (assume Col major)
 		std::vector<T> data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
@@ -173,24 +176,26 @@ protected:
 		rf_regressor = new typename rfRegressor<T>::rfRegressor(rf_params);
 
 		cumlHandle handle;
-                handle.setStream(stream);
+		handle.setStream(stream);
 
 		fit(handle, rf_regressor, data, params.n_rows, params.n_cols, labels);
 
 		CUDA_CHECK(cudaStreamSynchronize(stream));
-		CUDA_CHECK(cudaStreamDestroy(stream));
 
 		// Inference data: same as train, but row major
 		int inference_data_len = params.n_inference_rows * params.n_cols;
 		inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
 		inference_data_h.resize(inference_data_len);
 
+		//TODO FIXME stream
 		
 		// Predict and compare against known labels
-		predicted_labels.resize(params.n_inference_rows);
-		RF_metrics tmp = cross_validate(handle, rf_regressor, inference_data_h.data(), labels_h.data(),
-										params.n_inference_rows, params.n_cols, predicted_labels.data(), false);
+		RF_metrics tmp = cross_validate(handle, rf_regressor, inference_data_h.data(), labels,
+										params.n_inference_rows, params.n_cols, predicted_labels, false);
 		mse = tmp.mean_squared_error;
+
+		CUDA_CHECK(cudaStreamSynchronize(stream));
+		CUDA_CHECK(cudaStreamDestroy(stream));
     }
 
  	void SetUp() override {
@@ -201,9 +206,9 @@ protected:
 		mse = -1.0f; // reset mse
 		inference_data_h.clear();
 		labels_h.clear();
-		predicted_labels.clear();
 
 		CUDA_CHECK(cudaFree(labels));
+		CUDA_CHECK(cudaFree(predicted_labels));
 		CUDA_CHECK(cudaFree(data));
 		delete rf_regressor;
 	}
@@ -219,7 +224,7 @@ protected:
     rfRegressor<T> * rf_regressor;
 	float mse = -1.0f; // overriden in each test SetUp and TearDown
 
-	std::vector<T> predicted_labels;
+	T * predicted_labels;
 };
 //-------------------------------------------------------------------------------------------------------------------------------------
 
