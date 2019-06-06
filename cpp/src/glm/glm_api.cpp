@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "glm.hpp"
 #include "glm/glm_api.h"
 #include "common/cumlHandle.hpp"
+#include "glm.hpp"
 
 extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
                                    int N, int D, int C, bool fit_intercept,
@@ -47,12 +47,11 @@ extern "C" cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y,
   return status;
 }
 
-extern "C" cumlError_t
-cumlDpQnFit(cumlHandle_t cuml_handle, double *X, double *y, int N, int D, int C,
-            bool fit_intercept, double l1, double l2, int max_iter,
-            double grad_tol, int linesearch_max_iter, int lbfgs_memory,
-            int verbosity, double *w0, double *f, int *num_iters,
-            bool X_col_major, int loss_type) {
+extern "C" cumlError_t cumlDpQnFit(
+  cumlHandle_t cuml_handle, double *X, double *y, int N, int D, int C,
+  bool fit_intercept, double l1, double l2, int max_iter, double grad_tol,
+  int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
+  double *f, int *num_iters, bool X_col_major, int loss_type) {
   cumlError_t status;
   ML::cumlHandle *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);

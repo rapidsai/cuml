@@ -36,15 +36,13 @@ __global__ void En_KF_accumulate(const int nPoints, const int dim, const T *X,
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
-  if (col < dim && row < nPoints)
-    myAtomicAdd(x + col, X[idx]);
+  if (col < dim && row < nPoints) myAtomicAdd(x + col, X[idx]);
 }
 
 template <typename T>
 __global__ void En_KF_normalize(const int divider, const int dim, T *x) {
   int xi = threadIdx.x + blockDim.x * blockIdx.x;
-  if (xi < dim)
-    x[xi] = x[xi] / divider;
+  if (xi < dim) x[xi] = x[xi] / divider;
 }
 
 template <typename T>
@@ -53,13 +51,12 @@ __global__ void En_KF_dif(const int nPoints, const int dim, const T *X,
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
-  if (col < dim && row < nPoints)
-    X_diff[idx] = X[idx] - x[col];
+  if (col < dim && row < nPoints) X_diff[idx] = X[idx] - x[col];
 }
 
 // for specialising tests
 enum Correlation : unsigned char {
-  CORRELATED, // = 0
+  CORRELATED,  // = 0
   UNCORRELATED
 };
 
@@ -79,7 +76,7 @@ template <typename T>
 
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     // getting params
     params = ::testing::TestWithParam<MVGInputs<T>>::GetParam();
@@ -105,8 +102,7 @@ protected:
 
     // generating random mean and cov.
     srand(params.seed);
-    for (int j = 0; j < dim; j++)
-      x[j] = rand() % 100 + 5.0f;
+    for (int j = 0; j < dim; j++) x[j] = rand() % 100 + 5.0f;
 
     // for random Cov. martix
     std::default_random_engine generator(params.seed);
@@ -116,12 +112,10 @@ protected:
     for (int j = 0; j < dim; j++) {
       for (int i = 0; i < j + 1; i++) {
         T k = distribution(generator);
-        if (corr == UNCORRELATED)
-          k = 0.0;
+        if (corr == UNCORRELATED) k = 0.0;
         P[IDX2C(i, j, dim)] = k;
         P[IDX2C(j, i, dim)] = k;
-        if (i == j)
-          P[IDX2C(i, j, dim)] += dim;
+        if (i == j) P[IDX2C(i, j, dim)] += dim;
       }
     }
 
@@ -186,7 +180,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   MVGInputs<T> params;
   T *P, *x, *X, *workspace_d, *P_d, *x_d, *X_d;
   int dim, nPoints;
@@ -197,7 +191,7 @@ protected:
   cublasHandle_t cublasH;
   cusolverDnHandle_t cusolverH;
   cudaStream_t stream;
-}; // end of MVGTest class
+};  // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)
 // Declare your inputs
@@ -257,5 +251,5 @@ TEST_P(MVGTestD, CovIsCorrectD) {
 INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestF, ::testing::ValuesIn(inputsf));
 INSTANTIATE_TEST_CASE_P(MVGTests, MVGTestD, ::testing::ValuesIn(inputsd));
 
-}; // end of namespace Random
-}; // end of namespace MLCommon
+};  // end of namespace Random
+};  // end of namespace MLCommon

@@ -28,8 +28,7 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
                               Lambda op) {
   typedef TxN_t<math_t, veclen_> VecType;
   int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
-  if (idx >= len)
-    return;
+  if (idx >= len) return;
   int srcIdx, dstIdx;
   if (!rowMajor && !alongRows) {
     int srcRow = idx % nrows;
@@ -38,7 +37,7 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
     int dstCol = ncols - srcCol - 1;
     srcIdx = idx;
     dstIdx = dstCol * nrows + dstRow;
-  } else if(!rowMajor && alongRows) {
+  } else if (!rowMajor && alongRows) {
     int mod = ceildiv(nrows, 2);
     int srcRow = idx % mod;
     int srcCol = idx / mod;
@@ -46,7 +45,7 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
     int dstCol = srcCol;
     srcIdx = srcCol * nrows + srcRow;
     dstIdx = dstCol * nrows + dstRow;
-  } else if(rowMajor && !alongRows) {
+  } else if (rowMajor && !alongRows) {
     int mod = ceildiv(ncols, 2);
     int srcRow = idx / mod;
     int srcCol = idx % mod;
@@ -86,7 +85,7 @@ template <typename math_t, int veclen_, typename Lambda, int TPB>
 void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
                  bool rowMajor, bool alongRows, Lambda op,
                  cudaStream_t stream) {
-  int len = alongRows? ceildiv(nrows, 2) * ncols : nrows * ceildiv(ncols, 2);
+  int len = alongRows ? ceildiv(nrows, 2) * ncols : nrows * ceildiv(ncols, 2);
   const int nblks = ceildiv(veclen_ ? len / veclen_ : len, TPB);
   reverseKernel<math_t, veclen_, Lambda><<<nblks, TPB, 0, stream>>>(
     out, in, nrows, ncols, rowMajor, alongRows, len, op);
@@ -109,10 +108,9 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
  *  each element after the reverse
  */
 template <typename math_t, typename Lambda = Nop<math_t>, int TPB = 256>
-void reverse(math_t *out, const math_t *in, int nrows, int ncols,
-             bool rowMajor, bool alongRows, cudaStream_t stream,
-             Lambda op = Nop<math_t>()) {
-  size_t bytes = (rowMajor? ncols : nrows) * sizeof(math_t);
+void reverse(math_t *out, const math_t *in, int nrows, int ncols, bool rowMajor,
+             bool alongRows, cudaStream_t stream, Lambda op = Nop<math_t>()) {
+  size_t bytes = (rowMajor ? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
     reverseImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(
       out, in, nrows, ncols, rowMajor, alongRows, op, stream);
@@ -129,10 +127,10 @@ void reverse(math_t *out, const math_t *in, int nrows, int ncols,
     reverseImpl<math_t, 1 / sizeof(math_t), Lambda, TPB>(
       out, in, nrows, ncols, rowMajor, alongRows, op, stream);
   } else {
-    reverseImpl<math_t, 1, Lambda, TPB>(
-      out, in, nrows, ncols, rowMajor, alongRows, op, stream);
+    reverseImpl<math_t, 1, Lambda, TPB>(out, in, nrows, ncols, rowMajor,
+                                        alongRows, op, stream);
   }
 }
 
-}; // end namespace Matrix
-}; // end namespace MLCommon
+};  // end namespace Matrix
+};  // end namespace MLCommon

@@ -21,7 +21,6 @@
 #include "linalg/gemm.h"
 #include "mean_center.h"
 
-
 namespace MLCommon {
 namespace Stats {
 
@@ -47,7 +46,8 @@ namespace Stats {
  */
 template <typename Type>
 void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
-         bool rowMajor, bool stable, cublasHandle_t handle, cudaStream_t stream) {
+         bool rowMajor, bool stable, cublasHandle_t handle,
+         cudaStream_t stream) {
   if (stable) {
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
@@ -56,8 +56,8 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
     Type beta = Type(0);
     if (rowMajor) {
       CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
-                                      &alpha, data, D, data, D, &beta, covar,
-                                      D, stream));
+                                      &alpha, data, D, data, D, &beta, covar, D,
+                                      stream));
     } else {
       LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
                    alpha, beta, handle, stream);
@@ -69,5 +69,5 @@ void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}; // end namespace Stats
-}; // end namespace MLCommon
+};  // end namespace Stats
+};  // end namespace MLCommon

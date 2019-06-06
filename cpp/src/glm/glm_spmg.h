@@ -17,23 +17,26 @@
 namespace ML {
 namespace GLM {
 
-
-void olsFitSPMG(float *h_input, int n_rows, int n_cols, float *h_labels, float *h_coef,
-        float *intercept, bool fit_intercept, bool normalize, int *gpu_ids, int n_gpus);
-void olsFitSPMG(double *h_input, int n_rows, int n_cols, double *h_labels, double *h_coef,
-        double *intercept, bool fit_intercept, bool normalize, int *gpu_ids, int n_gpus);
+void olsFitSPMG(float *h_input, int n_rows, int n_cols, float *h_labels,
+                float *h_coef, float *intercept, bool fit_intercept,
+                bool normalize, int *gpu_ids, int n_gpus);
+void olsFitSPMG(double *h_input, int n_rows, int n_cols, double *h_labels,
+                double *h_coef, double *intercept, bool fit_intercept,
+                bool normalize, int *gpu_ids, int n_gpus);
 void olsPredictSPMG(float *input, int n_rows, int n_cols, float *h_coef,
-        float intercept, float *preds, int *gpu_ids, int n_gpus);
+                    float intercept, float *preds, int *gpu_ids, int n_gpus);
 void olsPredictSPMG(double *input, int n_rows, int n_cols, double *h_coef,
-        double intercept, double *preds, int *gpu_ids, int n_gpus);
+                    double intercept, double *preds, int *gpu_ids, int n_gpus);
 
 void spmgOlsFit(float **input, int *input_cols, int n_rows, int n_cols,
                 float **labels, int *label_rows, float **coef, int *coef_cols,
-                float *intercept, bool fit_intercept, bool normalize, int n_gpus);
+                float *intercept, bool fit_intercept, bool normalize,
+                int n_gpus);
 
 void spmgOlsFit(double **input, int *input_cols, int n_rows, int n_cols,
                 double **labels, int *label_rows, double **coef, int *coef_cols,
-                double *intercept, bool fit_intercept, bool normalize, int n_gpus);
+                double *intercept, bool fit_intercept, bool normalize,
+                int n_gpus);
 
 void spmgOlsPredict(float **input, int *input_cols, int n_rows, int n_cols,
                     float **coef, int *coef_cols, float intercept,
@@ -43,5 +46,5 @@ void spmgOlsPredict(double **input, int *input_cols, int n_rows, int n_cols,
                     double **coef, int *coef_cols, double intercept,
                     double **preds, int *pred_cols, int n_gpus);
 
-}
-}
+}  // namespace GLM
+}  // namespace ML

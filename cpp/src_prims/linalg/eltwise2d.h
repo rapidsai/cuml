@@ -21,8 +21,8 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type, typename Lambda>
-__global__ void eltwise2DKernel(int rows, // m
-                                int cols, // n
+__global__ void eltwise2DKernel(int rows,  // m
+                                int cols,  // n
                                 const Type *dotA, const Type *dotB,
                                 const Type *pC, Type *pD, Type alpha, Type beta,
                                 Lambda op) {
@@ -43,8 +43,8 @@ __global__ void eltwise2DKernel(int rows, // m
 }
 
 template <typename Type, typename Lambda>
-void eltwise2D(int rows, // m
-               int cols, // n
+void eltwise2D(int rows,  // m
+               int cols,  // n
                const Type *dotA, const Type *dotB, const Type *pC, Type *pD,
                Type alpha, Type beta, Lambda op, cudaStream_t stream) {
   size_t threads = 256;
@@ -54,5 +54,5 @@ void eltwise2D(int rows, // m
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-} // namespace LinAlg
-} // namespace MLCommon
+}  // namespace LinAlg
+}  // namespace MLCommon
