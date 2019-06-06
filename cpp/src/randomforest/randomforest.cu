@@ -25,6 +25,7 @@
 #include <common/device_buffer.hpp>
 #include <numeric>
 #include <algorithm>  
+#include <fstream>
 
 namespace ML {
 
@@ -74,7 +75,6 @@ void preprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int>
  * @param[in] verbose: debugging flag.
  */
 void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int> & labels_map, bool verbose) {
-
 	if (verbose) std::cout << "Postrocessing labels\n";
 	std::map<int, int>::iterator it;
 	int n_unique_cnt = labels_map.size();
@@ -221,21 +221,37 @@ rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params,
  */
 template <typename T>
 void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
-
+	std::cout << " !!!!!!!!!!!!!!!!!!!!!!!!!! \n ############################### \n %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% \n" << std::flush;
+	std::cout << input << std::flush;
+	std::cout << n_rows << std::flush;
+	std::cout << n_cols << std::flush;
+	std::cout << labels << std::flush;
+	std::cout << input << std::flush;
+	std::cout << n_unique_labels << std::flush;
 	ASSERT(!this->trees, "Cannot fit an existing forest.");
+	std::cout << " After the assert statements \n" << std::flush;
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+	std::cout << " After the assert statements \n" << std::flush;
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
-	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
+
+	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
+
+	std::cout << " Call the decision trees classifier to obtain the trees \n" << std::flush;
+
+	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 	const cumlHandle_impl& handle = user_handle.getImpl();
 	cudaStream_t stream = user_handle.getStream();
 
+	std::cout << " After the cuml handle and stream variables \n" << std::flush;
+	std::cout << " The rf_params.n_tress value : %d " << this->rf_params.n_trees << "\n" << std::flush;
 	for (int i = 0; i < this->rf_params.n_trees; i++) {
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
+
+		std::cout << " Inside the for loop, after MLCommon \n" << std::flush;
 
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
@@ -248,6 +264,8 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows, stream);
 		}
 
+		std::cout << " After the if else loop \n" << std::flush;
+		
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
 		   - n_sampled_rows: # rows sampled for tree's bootstrap sample.
@@ -255,7 +273,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
 		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
-
+		std::cout << " After the trees are fit and built and before the clean up \n" << std::flush;
 		//Cleanup
 		selected_rows.release(stream);
 	}
@@ -349,13 +367,11 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 	return stats;
 }
 
+template class rf<float>;
+template class rf<double>;
 
 template class rfClassifier<float>;
 template class rfClassifier<double>;
-
-
-template class rf<float>;
-template class rf<double>;
 
 // Stateless API functions: fit, predict and cross_validate
 
@@ -372,6 +388,7 @@ template class rf<double>;
  * @param[in] n_unique_labels: #unique label values (known during preprocessing)
  */
 void fit(const cumlHandle& user_handle, rfClassifier<float> * rf_classifier, float * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
+
 	rf_classifier->fit(user_handle, input, n_rows, n_cols, labels, n_unique_labels);
 }
 
@@ -451,5 +468,12 @@ RF_metrics cross_validate(const cumlHandle& user_handle, const rfClassifier<doub
 	return rf_classifier->cross_validate(user_handle, input, ref_labels, n_rows, n_cols, predictions, verbose);
 }
 
+
+RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features, int n_bins, int split_algo, int min_rows_per_node, bool bootstrap_features, bool bootstrap, int n_trees, int rows_sample) {
+	DecisionTree::DecisionTreeParams tree_params(max_depth, max_leaves, max_features, n_bins,
+							     split_algo, min_rows_per_node, bootstrap_features);
+	RF_params rf_params(bootstrap, bootstrap_features, n_trees, rows_sample, tree_params);
+	return rf_params;
+	}
 };
 // end namespace ML
