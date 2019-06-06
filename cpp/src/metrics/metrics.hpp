@@ -86,7 +86,7 @@ namespace ML {
          * @param upper_class_range: the highest value in the range of classes
          * @return: The adjusted rand index value
          */
-        double adjustedRandIndex(const cumlHandle& handle, double *y, double *y_hat, int n, double lower_class_range, double upper_class_range);
+        double adjustedRandIndex(const cumlHandle& handle, int *y,  int *y_hat,  int n, int lower_class_range, int upper_class_range);
 
     }
 }

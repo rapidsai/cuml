@@ -63,7 +63,7 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double computeAdjustedRandIndex ( T* firstClusterArray, T* secondClusterArray, int size, T lowerLabelRange, T upperLabelRange,
+double computeAdjustedRandIndex (  T* firstClusterArray,  T* secondClusterArray, int size, T lowerLabelRange, T upperLabelRange,
                        std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
 
   //rand index for size less than 2 is not defined
