@@ -9,8 +9,8 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr
-
+#from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr
+import pdb
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
     cdef struct RF_metrics:
@@ -21,19 +21,16 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         REGRESSION
 
     cdef struct RF_params:
-        bool bootstrap,
-        bool bootstrap_features,
-        int n_trees,
-        float rows_sample
+        pass
 
     cdef cppclass rf:
         pass
 
     cdef cppclass rfClassifier[T]:
-        pass
+        rfClassifier(RF_params ) except +
 
     cdef void fit(cumlHandle & handle,
-                  rfClassifier[float] *,
+                  rfClassifier [float] *,
                   float *,
                   int,
                   int,
@@ -71,16 +68,29 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                                    rfClassifier[double] *, double *, int *,
                                    int, int, int *, bool)
 
+    cdef RF_params set_rf_class_obj(int, int, float, int, int, int, bool, bool, int, int)
 
-class RandomForest():
+class RandomForest(Base):
     """
     Description and example code
-
     """
+    def set_rf_class_obj(self, max_depth, max_leaves, float max_features, n_bins, split_algo, min_rows_per_node, bool bootstrap_features, bool bootstrap, n_trees, row_sample):
 
-    def __init__(self, n_estimators=10, max_depth=None,
-                 max_features=None, min_samples_split=None,
-                 bootstrap=True, type="classifier"):
+        rf_param = set_rf_class_obj(<int> max_depth, <int> max_leaves, <float> max_features, <int> n_bins, <int> split_algo, <int> min_rows_per_node, <bool> bootstrap_features, <bool> bootstrap, <int> n_trees, <int> row_sample)
+        return rf_param
+
+    def __init__(self, n_estimators=10, max_depth=None,handle=None,
+                 max_features=None, min_samples_split=None, n_bins=4,
+                 split_algo=0, min_rows_per_node=2,
+                 bootstrap=True, bootstrap_features=False, type="classifier", verbose=False, rows_sample=1.0, max_leaves=-1):
+        self.handle = handle
+        self.n_bins = n_bins
+        self.split_algo = split_algo
+        self.min_rows_per_node = min_rows_per_node
+        self.bootstrap_features = bootstrap_features
+        self.rows_sample = rows_sample
+        self.max_leaves = max_leaves
+        #super(RandomForest, self).__init__(handle, verose=False)
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_features = max_features
@@ -110,6 +120,7 @@ class RandomForest():
             X_m = cuda.to_device(np.array(X, order='F'))
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
+
         '''
         X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
         #y_m, y_ptr, _, _, _ = input_to_array(y)
@@ -128,19 +139,21 @@ class RandomForest():
         cdef cumlHandle * handle_ =\
             < cumlHandle * > < size_t > self.handle.getHandle()
 
-        n_unique_labels = 10
-
-        cdef rfClassifier[float] * rf_classifier32
-        cdef rfClassifier[double] * rf_classifier64
+        n_unique_labels = 2
+        rf_param_obj = set_rf_class_obj(self.max_depth, self.max_leaves, self.max_features, self.n_bins, self.split_algo, self.min_rows_per_node, self.bootstrap_features, self.bootstrap, self.n_estimators, self.row_sample)
+        cdef rfClassifier [float] *rf_classifier32 = new rfClassifier[float](rf_param_obj)
+        cdef rfClassifier [double] *rf_classifier64 = new rfClassifier[double](rf_param_obj)
+        pdb.set_trace()
+        print("just before calling the fit function")
 
         if self.gdf_datatype.type == np.float32:
             fit(handle_[0],
                 rf_classifier32,
-                < float * > X_ptr,
-                < int > self.n_rows,
-                < int > self.n_cols,
-                < int * > y_ptr,
-                < int > n_unique_labels)
+                <float*> X_ptr,
+                <int> self.n_rows,
+                <int> self.n_cols,
+                <int*> y_ptr,
+                <int> n_unique_labels)
         else:
             fit(handle_[0],
                 rf_classifier64,
@@ -149,6 +162,9 @@ class RandomForest():
                 < int > self.n_cols,
                 < int * > y_ptr,
                 < int > n_unique_labels)
+
+        pdb.set_trace()
+        print("just after calling the fit function")
 
         # make sure that the `fit` is complete before the following delete
         # call happens
@@ -211,3 +227,4 @@ class RandomForest():
         self.handle.sync()
         del(X_m)
         return preds
+
