@@ -256,18 +256,17 @@ class TruncatedSVD(Base):
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
         self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
-                                                    dtype=self.dtype))
+                                                 dtype=self.dtype))
         self.components_ = cuda.to_device(zeros(n_components*n_cols,
-                                                   dtype=self.dtype))
+                                                dtype=self.dtype))
         self.explained_variance_ = cudf.Series(zeros(n_components,
                                                dtype=self.dtype))
         self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
                                                      dtype=self.dtype))
         self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
         self.singular_values_ = cudf.Series(zeros(n_components,
-                                                     dtype=self.dtype))
-        self.noise_variance_ = cudf.Series(zeros(1,
-                                                    dtype=self.dtype))
+                                                  dtype=self.dtype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
 
     def fit(self, X, _transform=True):
         """
@@ -408,7 +407,7 @@ class TruncatedSVD(Base):
         params.n_cols = self.n_cols
 
         input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
-                                             dtype=dtype.type))
+                                          dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
@@ -466,7 +465,7 @@ class TruncatedSVD(Base):
 
         t_input_data = \
             cuda.to_device(zeros(params.n_rows*params.n_components,
-                                    dtype=dtype.type))
+                                 dtype=dtype.type))
 
         cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr

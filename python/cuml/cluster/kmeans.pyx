@@ -340,13 +340,13 @@ class KMeans(Base):
         elif (self.init in ['scalable-k-means++', 'k-means||']):
             init_value = KMeansPlusPlus
             clust_cent = zeros(self.n_clusters * self.n_cols,
-                                  dtype=self.dtype)
+                               dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
         elif (self.init == 'random'):
             init_value = Random
             clust_cent = zeros(self.n_clusters * self.n_cols,
-                                  dtype=self.dtype)
+                               dtype=self.dtype)
             self.cluster_centers_ = cuda.to_device(clust_cent)
 
         else:
