@@ -144,11 +144,15 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     if check_cols:
         if n_cols != check_cols:
-            raise ValueError("ba")
+            raise ValueError("Expected " + str(check_cols) +
+                             " columns but got " + str(n_cols) +
+                             " columns.")
 
     if check_rows:
         if n_rows != check_rows:
-            raise ValueError("ba")
+            raise ValueError("Expected " + str(check_rows) +
+                             " rows but got " + str(n_rows) +
+                             " rows.")
 
     if not check_numba_order(X_m, order):
         if fail_on_order:
