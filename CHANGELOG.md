@@ -22,6 +22,7 @@
 - PR #622: Updated to use 0.8 dependencies
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
+- PR #662: C++: Bulk clang-format updates
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
