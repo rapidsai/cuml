@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include "linalg/gemm.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -25,8 +24,7 @@ template <typename T>
 __global__ void fillKernel(T *arr, T val, int N) {
   const int stride = blockDim.x * gridDim.x;
   int tid = threadIdx.x + (blockIdx.x * blockDim.x);
-  for (int i = tid; i < N; i += stride)
-    arr[i] = val;
+  for (int i = tid; i < N; i += stride) arr[i] = val;
 }
 
 template <typename T, int NTHREADS = 256, int NITEMS = 4>
@@ -65,5 +63,5 @@ TEST(Gemm, Gemm_128x128x8) {
   CUDA_CHECK(cudaFree(D));
 }
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

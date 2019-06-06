@@ -17,7 +17,6 @@
 #include "cuda_utils.h"
 #include "linalg/matrix_vector_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -48,8 +47,8 @@ void naiveMatVec(Type *out, const Type *mat, const Type *vec, IdxType D,
   static const IdxType TPB = 64;
   IdxType len = N * D;
   IdxType nblks = ceildiv(len, TPB);
-  naiveMatVecKernel<Type><<<nblks, TPB>>>(out, mat, vec, D, N, rowMajor,
-                                          bcastAlongRows, scalar);
+  naiveMatVecKernel<Type>
+    <<<nblks, TPB>>>(out, mat, vec, D, N, rowMajor, bcastAlongRows, scalar);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -87,5 +86,5 @@ void naiveMatVec(Type *out, const Type *mat, const Type *vec1, const Type *vec2,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

@@ -34,18 +34,18 @@ namespace Stats {
  * @param stream cuda stream to launch work on
  */
 template <typename Type>
-void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int N,
-        cudaStream_t stream) {
-    //sum the weights & copy back to CPU
-    Type WS = 0;
-    LinAlg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
-    updateHost(&WS, mu, 1, stream);
+void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
+                     int N, cudaStream_t stream) {
+  //sum the weights & copy back to CPU
+  Type WS = 0;
+  LinAlg::coalescedReduction(mu, weights, D, 1, (Type)0, stream, false);
+  updateHost(&WS, mu, 1, stream);
 
-    LinAlg::coalescedReduction(mu, data, D, N, (Type)0,
-            stream, false,
-            [weights]__device__(Type v, int i){ return v*weights[i]; },
-            []__device__(Type a, Type b){ return a+b; },
-            [WS]__device__(Type v){ return v/WS; });
+  LinAlg::coalescedReduction(
+    mu, data, D, N, (Type)0, stream, false,
+    [weights] __device__(Type v, int i) { return v * weights[i]; },
+    [] __device__(Type a, Type b) { return a + b; },
+    [WS] __device__(Type v) { return v / WS; });
 }
 
 /**
@@ -60,19 +60,19 @@ void rowWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int
  * @param stream cuda stream to launch work on
  */
 template <typename Type>
-void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D, int N,
-        cudaStream_t stream) {
-    //sum the weights & copy back to CPU
-    Type WS = 0;
-    LinAlg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
-    updateHost(&WS, mu, 1, stream);
+void colWeightedMean(Type *mu, const Type *data, const Type *weights, int D,
+                     int N, cudaStream_t stream) {
+  //sum the weights & copy back to CPU
+  Type WS = 0;
+  LinAlg::stridedReduction(mu, weights, 1, N, (Type)0, stream, false);
+  updateHost(&WS, mu, 1, stream);
 
-    LinAlg::stridedReduction(mu, data, D, N, (Type)0,
-            stream, false,
-            [weights]__device__(Type v, int i){ return v*weights[i]; },
-            []__device__(Type a, Type b){ return a+b; },
-            [WS]__device__(Type v){ return v/WS; });
+  LinAlg::stridedReduction(
+    mu, data, D, N, (Type)0, stream, false,
+    [weights] __device__(Type v, int i) { return v * weights[i]; },
+    [] __device__(Type a, Type b) { return a + b; },
+    [WS] __device__(Type v) { return v / WS; });
 }
 
-}; // end namespace Stats
-}; // end namespace MLCommon
+};  // end namespace Stats
+};  // end namespace MLCommon
