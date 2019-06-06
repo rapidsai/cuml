@@ -86,6 +86,8 @@ def test_convert_inputs(from_dtype, to_dtype, input_type, num_rows, num_cols):
 
     if input_type == 'numpy':
         np.testing.assert_equal(converted_data, real_data)
+    elif input_type != 'dataframe':
+        np.testing.assert_equal(converted_data.copy_to_host(), real_data)
     else:
         np.testing.assert_equal(converted_data.as_matrix(), real_data)
 

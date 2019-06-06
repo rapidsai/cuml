@@ -17,6 +17,7 @@
 import cuml.utils.numba_utils
 
 import cudf
+import cupy as cp
 import numpy as np
 import warnings
 
@@ -108,7 +109,6 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 
     elif cuda.is_cuda_array(X):
         # Use cuda array interface to create a device array by reference
-        # todo: check order!!!!
         X_m = cuda.as_cuda_array(X)
 
         if deepcopy:
@@ -176,19 +176,28 @@ def input_to_dev_array(X, order='F', deepcopy=False,
 def convert_dtype(X, to_dtype=np.float32):
     """
     Convert X to be of dtype `dtype`
+
+    Supported float dtypes for overflow checking.
+    Todo: support other dtypes if needed.
     """
 
     # Using cuDF for converting numba and device array interface inputs
 
-    if cuda.devicearray.is_cuda_ndarray(X):
-        X_df = cudf.DataFrame()
-        X = X_df.from_gpu_matrix(X)
+    if isinstance(X, np.ndarray):
+        dtype = X.dtype
+        if dtype != to_dtype:
+            X_m = X.astype(to_dtype)
+            if len(X[X == np.inf]) > 0:
+                raise TypeError("Data type conversion resulted"
+                                "in data loss.")
+            return X_m
 
-    if cuda.is_cuda_array(X):
-        X_df = cudf.DataFrame()
-        X = X_df.from_gpu_matrix(cuda.as_cuda_array(X))
+    elif cuda.is_cuda_array(X):
+        X_m = cp.asarray(X)
+        X_m = X_m.astype(to_dtype)
+        return cuda.as_cuda_array(X_m)
 
-    if isinstance(X, cudf.DataFrame):
+    elif isinstance(X, cudf.DataFrame):
         dtype = np.dtype(X[X.columns[0]]._column.dtype)
         if dtype != to_dtype:
             new_cols = [(col, X._cols[col].astype(to_dtype))
@@ -201,15 +210,6 @@ def convert_dtype(X, to_dtype=np.float32):
                                 "in data loss.")
 
             return cudf.DataFrame(new_cols)
-
-    elif isinstance(X, np.ndarray):
-        dtype = X.dtype
-        if dtype != to_dtype:
-            X_m = X.astype(to_dtype)
-            if len(X[X == np.inf]) > 0:
-                raise TypeError("Data type conversion resulted"
-                                "in data loss.")
-            return X_m
 
     else:
         raise TypeError("Received unsupported input type " % type(X))
