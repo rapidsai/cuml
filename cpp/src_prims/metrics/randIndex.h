@@ -38,11 +38,11 @@
   * as the O(nElements*nElements) increase beyond the floating point limit, floating point inaccuracies occur, and hence the above floor(...) !=  ceil(...)
  * </pre>
  */
+#include <math.h>
+#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-#include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include <math.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -56,48 +56,50 @@ namespace Metrics {
  * @param b: number of pairs of points that both the clusters have classified differently
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ 
-void computeTheNumerator(const T* firstClusterArray, const T* secondClusterArray, uint64_t size, uint64_t *a, uint64_t *b) {
-
+__global__ void computeTheNumerator(const T* firstClusterArray,
+                                    const T* secondClusterArray, uint64_t size,
+                                    uint64_t* a, uint64_t* b) {
   //calculating the indices of pairs of datapoints compared by the current thread
-  uint64_t j = threadIdx.x + blockIdx.x*blockDim.x;
-  uint64_t i = threadIdx.y + blockIdx.y*blockDim.y;
+  uint64_t j = threadIdx.x + blockIdx.x * blockDim.x;
+  uint64_t i = threadIdx.y + blockIdx.y * blockDim.y;
 
   //thread-local variables to count a and b
   uint64_t myA = 0, myB = 0;
 
-  if(i < size && j < size && j<i) {
+  if (i < size && j < size && j < i) {
+    //checking if the pair have been classified the same by both the clusters
+    if (firstClusterArray[i] == firstClusterArray[j] &&
+        secondClusterArray[i] == secondClusterArray[j]) {
+      ++myA;
+    }
 
-  //checking if the pair have been classified the same by both the clusters
-  if(firstClusterArray[i]==firstClusterArray[j]&&secondClusterArray[i]==secondClusterArray[j]){
-    ++myA;
-  }
-
-  //checking if the pair have been classified differently by both the clusters
-  else if(firstClusterArray[i]!=firstClusterArray[j]&&secondClusterArray[i]!=secondClusterArray[j]){
-    ++myB;
+    //checking if the pair have been classified differently by both the clusters
+    else if (firstClusterArray[i] != firstClusterArray[j] &&
+             secondClusterArray[i] != secondClusterArray[j]) {
+      ++myB;
     }
   }
 
   //specialize blockReduce for a 2D block of 1024 threads of type uint64_t
-  typedef cub::BlockReduce <uint64_t, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y> BlockReduce;
+  typedef cub::BlockReduce<uint64_t, BLOCK_DIM_X,
+                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
+    BlockReduce;
 
   //Allocate shared memory for blockReduce
   __shared__ typename BlockReduce::TempStorage temp_storage;
-  
+
   //summing up thread-local counts specific to a block
   myA = BlockReduce(temp_storage).Sum(myA);
   __syncthreads();
   myB = BlockReduce(temp_storage).Sum(myB);
   __syncthreads();
-  
+
   //executed once per block
   if (threadIdx.x == 0 && threadIdx.y == 0) {
     atomicAdd((unsigned long long int*)a, myA);
     atomicAdd((unsigned long long int*)b, myB);
   }
 }
-
 
 /**
 * @brief Function to calculate RandIndex
@@ -109,23 +111,28 @@ void computeTheNumerator(const T* firstClusterArray, const T* secondClusterArray
 * @param stream: the cudaStream object
 */
 template <typename T>
-double computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t size,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-
+double computeRandIndex(T* firstClusterArray, T* secondClusterArray,
+                        uint64_t size,
+                        std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                        cudaStream_t stream) {
   //rand index for size less than 2 is not defined
-  ASSERT(size>=2,"Rand Index for size less than 2 not defined!");
+  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   //allocating and initializing memory for a and b in the GPU
-  MLCommon::device_buffer<uint64_t> arr_buf (allocator, stream, 2);
-  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(),0,2*sizeof(uint64_t),stream));
+  MLCommon::device_buffer<uint64_t> arr_buf(allocator, stream, 2);
+  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(size,numThreadsPerBlock.x),ceildiv<int>(size,numThreadsPerBlock.y));
+  dim3 numBlocks(ceildiv<int>(size, numThreadsPerBlock.x),
+                 ceildiv<int>(size, numThreadsPerBlock.y));
 
   //calling the kernel
-  computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y><<<numBlocks,numThreadsPerBlock,0,stream>>>(firstClusterArray,secondClusterArray,size,arr_buf.data(),arr_buf.data()+1);
+  computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y>
+    <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+      firstClusterArray, secondClusterArray, size, arr_buf.data(),
+      arr_buf.data() + 1);
 
   //synchronizing and updating the calculated values of a and b from device to host
   uint64_t ab_host[2] = {0};
@@ -136,13 +143,11 @@ double computeRandIndex (T* firstClusterArray, T* secondClusterArray, uint64_t s
   CUDA_CHECK(cudaGetLastError());
 
   //denominator
-  uint64_t nChooseTwo = size*(size-1)/2;
+  uint64_t nChooseTwo = size * (size - 1) / 2;
 
   //calculating the randIndex
-  return (double)(((double)(ab_host[0] + ab_host[1]))/(double)nChooseTwo);
+  return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
 }
 
-
-};//end namespace Metrics
-};//end namespace MLCommon
-
+};  //end namespace Metrics
+};  //end namespace MLCommon

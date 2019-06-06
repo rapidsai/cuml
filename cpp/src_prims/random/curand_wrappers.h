@@ -18,16 +18,15 @@
 
 #include <curand.h>
 
-
 namespace MLCommon {
 namespace Random {
 
 /** check for curand runtime API errors and assert accordingly */
-#define CURAND_CHECK(call)                                                     \
-  do {                                                                         \
-    curandStatus_t status = call;                                              \
-    ASSERT(status == CURAND_STATUS_SUCCESS,                                    \
-           "FAIL: curand-call='%s'. Reason:%d\n", #call, status);              \
+#define CURAND_CHECK(call)                                        \
+  do {                                                            \
+    curandStatus_t status = call;                                 \
+    ASSERT(status == CURAND_STATUS_SUCCESS,                       \
+           "FAIL: curand-call='%s'. Reason:%d\n", #call, status); \
   } while (0)
 
 /**
@@ -53,5 +52,5 @@ inline curandStatus_t curandGenerateNormal(curandGenerator_t generator,
 }
 /** @} */
 
-}; // end namespace Random
-}; // end namespace MLCommon
+};  // end namespace Random
+};  // end namespace MLCommon

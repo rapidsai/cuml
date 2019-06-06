@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include "umap/umapparams.h"
+#include <cuda_utils.h>
+#include <iostream>
 #include "knn/knn.h"
 #include "linalg/unary_op.h"
-#include <iostream>
-#include <cuda_utils.h>
+#include "umap/umapparams.h"
 
 #pragma once
 
@@ -26,41 +26,34 @@ namespace UMAPAlgo {
 
 namespace kNNGraph {
 
-	namespace Algo {
+namespace Algo {
 
-		using namespace ML;
+using namespace ML;
 
-		/**
+/**
 		 * Initial implementation calls out to FAISS to do its work.
 		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
-		template<typename T>
-		void launcher(
-		              float *X, int x_n, int d,
-					  long *knn_indices, T *knn_dists,
-					  kNN *knn,
-					  int n_neighbors,
-					  UMAPParams *params, cudaStream_t stream) {
+template <typename T>
+void launcher(float *X, int x_n, int d, long *knn_indices, T *knn_dists,
+              kNN *knn, int n_neighbors, UMAPParams *params,
+              cudaStream_t stream) {
+  kNNParams *p = new kNNParams[1];
+  p[0].ptr = X;
+  p[0].N = x_n;
 
-		    kNNParams *p = new kNNParams[1];
-			p[0].ptr = X;
-			p[0].N = x_n;
+  knn->fit(p, 1);
+  knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
 
-			knn->fit(p, 1);
-			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+  CUDA_CHECK(cudaDeviceSynchronize());
 
-			CUDA_CHECK(cudaDeviceSynchronize());
+  auto adjust_vals_op = [] __device__(T input) { return sqrt(input); };
 
-            auto adjust_vals_op = [] __device__(T input) {
-                return sqrt(input);
-            };
+  MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n * n_neighbors,
+                               adjust_vals_op, stream);
 
-            MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n*n_neighbors,
-                                          adjust_vals_op, stream);
-
-			delete p;
-		}
-	}
+  delete p;
 }
-};
-
+}  // namespace Algo
+}  // namespace kNNGraph
+};  // namespace UMAPAlgo

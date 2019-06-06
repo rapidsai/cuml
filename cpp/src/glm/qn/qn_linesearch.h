@@ -24,7 +24,8 @@
 namespace ML {
 namespace GLM {
 
-template <typename T> struct LSProjectedStep {
+template <typename T>
+struct LSProjectedStep {
   typedef SimpleVec<T> Vector;
   struct op_pstep {
     T step;
@@ -53,16 +54,14 @@ inline bool ls_success(const LBFGSParam<T> &param, const T fx_init,
     *width = param.ls_dec;
   } else {
     // Armijo condition is met
-    if (param.linesearch == LBFGS_LS_BT_ARMIJO)
-      return true;
+    if (param.linesearch == LBFGS_LS_BT_ARMIJO) return true;
 
     const T dg = dot(grad, drt, dev_scalar, stream);
     if (dg < param.wolfe * dg_init) {
       *width = param.ls_inc;
     } else {
       // Regular Wolfe condition is met
-      if (param.linesearch == LBFGS_LS_BT_WOLFE)
-        return true;
+      if (param.linesearch == LBFGS_LS_BT_WOLFE) return true;
 
       if (dg > -param.wolfe * dg_init) {
         *width = param.ls_dec;
@@ -92,21 +91,20 @@ inline bool ls_success(const LBFGSParam<T> &param, const T fx_init,
  * Device pointer to workspace of at least 1
  */
 template <typename T, typename Function>
-LINE_SEARCH_RETCODE
-ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
-             SimpleVec<T> &grad, T &step, const SimpleVec<T> &drt,
-             const SimpleVec<T> &xp, T *dev_scalar, cudaStream_t stream) {
+LINE_SEARCH_RETCODE ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx,
+                                 SimpleVec<T> &x, SimpleVec<T> &grad, T &step,
+                                 const SimpleVec<T> &drt,
+                                 const SimpleVec<T> &xp, T *dev_scalar,
+                                 cudaStream_t stream) {
   // Check the value of step
-  if (step <= T(0))
-    return LS_INVALID_STEP;
+  if (step <= T(0)) return LS_INVALID_STEP;
 
   // Save the function value at the current x
   const T fx_init = fx;
   // Projection of gradient on the search direction
   const T dg_init = dot(grad, drt, dev_scalar, stream);
   // Make sure d points to a descent direction
-  if (dg_init > 0)
-    return LS_INVALID_DIR;
+  if (dg_init > 0) return LS_INVALID_DIR;
 
   const T dg_test = param.ftol * dg_init;
   T width;
@@ -123,11 +121,9 @@ ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
                    &width, dev_scalar, stream))
       return LS_SUCCESS;
 
-    if (step < param.min_step)
-      return LS_INVALID_STEP_MIN;
+    if (step < param.min_step) return LS_INVALID_STEP_MIN;
 
-    if (step > param.max_step)
-      return LS_INVALID_STEP_MAX;
+    if (step > param.max_step) return LS_INVALID_STEP_MAX;
 
     step *= width;
   }
@@ -135,25 +131,24 @@ ls_backtrack(const LBFGSParam<T> &param, Function &f, T &fx, SimpleVec<T> &x,
 }
 
 template <typename T, typename Function>
-LINE_SEARCH_RETCODE
-ls_backtrack_projected(const LBFGSParam<T> &param, Function &f, T &fx,
-                       SimpleVec<T> &x, SimpleVec<T> &grad,
-                       const SimpleVec<T> &pseudo_grad, T &step,
-                       const SimpleVec<T> &drt, const SimpleVec<T> &xp,
-                       T l1_penalty, T *dev_scalar, cudaStream_t stream) {
+LINE_SEARCH_RETCODE ls_backtrack_projected(const LBFGSParam<T> &param,
+                                           Function &f, T &fx, SimpleVec<T> &x,
+                                           SimpleVec<T> &grad,
+                                           const SimpleVec<T> &pseudo_grad,
+                                           T &step, const SimpleVec<T> &drt,
+                                           const SimpleVec<T> &xp, T l1_penalty,
+                                           T *dev_scalar, cudaStream_t stream) {
   LSProjectedStep<T> lsstep;
 
   // Check the value of step
-  if (step <= T(0))
-    return LS_INVALID_STEP;
+  if (step <= T(0)) return LS_INVALID_STEP;
 
   // Save the function value at the current x
   const T fx_init = fx;
   // Projection of gradient on the search direction
   const T dg_init = dot(pseudo_grad, drt, dev_scalar, stream);
   // Make sure d points to a descent direction
-  if (dg_init > 0)
-    return LS_INVALID_DIR;
+  if (dg_init > 0) return LS_INVALID_DIR;
 
   const T dg_test = param.ftol * dg_init;
   T width;
@@ -171,16 +166,14 @@ ls_backtrack_projected(const LBFGSParam<T> &param, Function &f, T &fx,
                    &width, dev_scalar, stream))
       return LS_SUCCESS;
 
-    if (step < param.min_step)
-      return LS_INVALID_STEP_MIN;
+    if (step < param.min_step) return LS_INVALID_STEP_MIN;
 
-    if (step > param.max_step)
-      return LS_INVALID_STEP_MAX;
+    if (step > param.max_step) return LS_INVALID_STEP_MAX;
 
     step *= width;
   }
   return LS_MAX_ITERS_REACHED;
 }
 
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML

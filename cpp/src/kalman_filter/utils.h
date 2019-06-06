@@ -15,11 +15,10 @@
  */
 
 #pragma once
-#include <cmath>
 #include <stdio.h>
+#include <cmath>
 #include "cuda_utils.h"
-#define IDX2C(i,j,ld) (j*ld + i)
-
+#define IDX2C(i, j, ld) (j * ld + i)
 
 namespace kf {
 
@@ -27,43 +26,38 @@ using namespace MLCommon;
 // helper kernels
 // (lkf)
 template <typename T>
-__global__ void Linear_KF_ID_kernel (T *w, int dim) {
-    int j = threadIdx.x + blockDim.x * blockIdx.x;
-    int i = threadIdx.y + blockDim.y * blockIdx.y;
-    if (i < dim && j < dim)
-    {
-        if (i == j)
-            w[IDX2C(i, j, dim)] = 1.0;
-        else
-            w[IDX2C(i, j, dim)] = 0.0;
-    }
+__global__ void Linear_KF_ID_kernel(T *w, int dim) {
+  int j = threadIdx.x + blockDim.x * blockIdx.x;
+  int i = threadIdx.y + blockDim.y * blockIdx.y;
+  if (i < dim && j < dim) {
+    if (i == j)
+      w[IDX2C(i, j, dim)] = 1.0;
+    else
+      w[IDX2C(i, j, dim)] = 0.0;
+  }
 }
 // (enkf)
-template<typename T>
+template <typename T>
 __global__ void vctwiseAccumulate_kernel(const int nPoints, const int dim,
                                          const T scalar, const T *X, T *x) {
-    int idx = threadIdx.x + blockDim.x * blockIdx.x;
-    int col = idx % dim;
-    int row = idx / dim;
-    if(col < dim && row < nPoints)
-        myAtomicAdd(x+col, scalar * X[idx]);
+  int idx = threadIdx.x + blockDim.x * blockIdx.x;
+  int col = idx % dim;
+  int row = idx / dim;
+  if (col < dim && row < nPoints) myAtomicAdd(x + col, scalar * X[idx]);
 }
 
-template<typename T>
+template <typename T>
 __global__ void En_KF_normalize(const int divider, const int n, T *x) {
-    int xi = threadIdx.x + blockDim.x * blockIdx.x;
-    if (xi < n)
-        x[xi] = x[xi]/divider;
+  int xi = threadIdx.x + blockDim.x * blockIdx.x;
+  if (xi < n) x[xi] = x[xi] / divider;
 }
 
-template<typename T>
-__global__ void vctwiseAdd_kernel(const int col, const int row,
-                                  T scalar, const T *in_m,
-                                  const T *v, T *out_m) {
-    int m_i = threadIdx.x + blockDim.x * blockIdx.x;
-    int v_i = m_i % row;
-    if (m_i < row * col)
-        out_m[m_i] = in_m[m_i] + scalar * v[v_i];
+template <typename T>
+__global__ void vctwiseAdd_kernel(const int col, const int row, T scalar,
+                                  const T *in_m, const T *v, T *out_m) {
+  int m_i = threadIdx.x + blockDim.x * blockIdx.x;
+  int v_i = m_i % row;
+  if (m_i < row * col) out_m[m_i] = in_m[m_i] + scalar * v[v_i];
 }
 
 /**
@@ -74,10 +68,10 @@ __global__ void vctwiseAdd_kernel(const int col, const int row,
  */
 template <typename T>
 void make_ID_matrix(T *I, int dim) {
-    dim3 block(32,32);
-    dim3 grid(ceildiv(dim, (int)block.x), ceildiv(dim, (int)block.y));
-    Linear_KF_ID_kernel<T> <<< grid, block >>>(I, dim);
-    CUDA_CHECK(cudaPeekAtLastError());
+  dim3 block(32, 32);
+  dim3 grid(ceildiv(dim, (int)block.x), ceildiv(dim, (int)block.y));
+  Linear_KF_ID_kernel<T><<<grid, block>>>(I, dim);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
@@ -94,13 +88,12 @@ void make_ID_matrix(T *I, int dim) {
  * x = x + scalar * (X[0th col] + ... + X[nPoint'th col])
  */
 template <typename T>
-void vctwiseAccumulate(const int nPoints, const int dim,
-                       const T scalar, const T *X, T *x) {
-    dim3 block(64);
-    dim3 grid(ceildiv(nPoints * dim, (int)block.x));
-    vctwiseAccumulate_kernel <<< grid, block >>> (nPoints, dim,
-                                                  scalar, X, x);
-    CUDA_CHECK(cudaPeekAtLastError());
+void vctwiseAccumulate(const int nPoints, const int dim, const T scalar,
+                       const T *X, T *x) {
+  dim3 block(64);
+  dim3 grid(ceildiv(nPoints * dim, (int)block.x));
+  vctwiseAccumulate_kernel<<<grid, block>>>(nPoints, dim, scalar, X, x);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
@@ -119,14 +112,12 @@ void vctwiseAccumulate(const int nPoints, const int dim,
  * vectors are added as if adding a column vector
  */
 template <typename T>
-void vctwiseAdd(const int col, const int row, const T scalar,
-                const T *in_m, const T *v, T *out_m) {
-    dim3 block(64);
-    dim3 grid(ceildiv(row * col, (int)block.x));
-    vctwiseAdd_kernel<T> <<< grid, block >>>(col, row, scalar,
-                                             in_m, v, out_m);
-    CUDA_CHECK(cudaPeekAtLastError());
+void vctwiseAdd(const int col, const int row, const T scalar, const T *in_m,
+                const T *v, T *out_m) {
+  dim3 block(64);
+  dim3 grid(ceildiv(row * col, (int)block.x));
+  vctwiseAdd_kernel<T><<<grid, block>>>(col, row, scalar, in_m, v, out_m);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-}; // end of namespace kf
+};  // end of namespace kf

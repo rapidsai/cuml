@@ -17,10 +17,10 @@
 #pragma once
 
 #include "../matrix/matrix.h"
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
+#include "cublas_wrappers.h"
+#include "cusolver_wrappers.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -53,17 +53,19 @@ void qrGetQ(math_t *M, math_t *Q, int n_rows, int n_cols,
 
   CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, m, n, Q, m, &Lwork));
   device_buffer<math_t> workspace(allocator, stream, Lwork);
-  CUSOLVER_CHECK(
-      cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, Q, m, tau.data(),
+                                 workspace.data(), Lwork, devInfo.data(),
+                                 stream));
   /// @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
   CUDA_CHECK(cudaDeviceSynchronize());
 #endif
   CUSOLVER_CHECK(
-      cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
+    cusolverDnorgqr_bufferSize(cusolverH, m, n, k, Q, m, tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(
-      cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, m, n, k, Q, m, tau.data(),
+                                 workspace.data(), Lwork, devInfo.data(),
+                                 stream));
 }
 
 /**
@@ -85,7 +87,8 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   int m = n_rows, n = n_cols;
   device_buffer<math_t> R_full(allocator, stream, m * n);
   device_buffer<math_t> tau(allocator, stream, min(m, n));
-  CUDA_CHECK(cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(tau.data(), 0, sizeof(math_t) * min(m, n), stream));
   int R_full_nrows = m, R_full_ncols = n;
   CUDA_CHECK(cudaMemcpyAsync(R_full.data(), M, sizeof(math_t) * m * n,
                              cudaMemcpyDeviceToDevice, stream));
@@ -93,11 +96,13 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
   int Lwork;
   device_buffer<int> devInfo(allocator, stream, 1);
 
-  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(
-    cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows, &Lwork));
+  CUSOLVER_CHECK(cusolverDngeqrf_bufferSize(cusolverH, R_full_nrows,
+                                            R_full_ncols, R_full.data(),
+                                            R_full_nrows, &Lwork));
   device_buffer<math_t> workspace(allocator, stream, Lwork);
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, R_full_nrows, R_full_ncols, R_full.data(),
-                                 R_full_nrows, tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
+  CUSOLVER_CHECK(cusolverDngeqrf(
+    cusolverH, R_full_nrows, R_full_ncols, R_full.data(), R_full_nrows,
+    tau.data(), workspace.data(), Lwork, devInfo.data(), stream));
   // @note in v9.2, without deviceSynchronize *SquareMatrixNorm* ml-prims unit-tests fail.
 #if defined(CUDART_VERSION) && CUDART_VERSION <= 9020
   CUDA_CHECK(cudaDeviceSynchronize());
@@ -113,10 +118,10 @@ void qrGetQR(math_t *M, math_t *Q, math_t *R, int n_rows, int n_cols,
                                             min(Q_ncols, Q_nrows), Q, Q_nrows,
                                             tau.data(), &Lwork));
   workspace.resize(Lwork, stream);
-  CUSOLVER_CHECK(cusolverDnorgqr(cusolverH, Q_nrows, Q_ncols,
-                                 min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
-                                 workspace.data(), Lwork, devInfo.data(), stream));
+  CUSOLVER_CHECK(cusolverDnorgqr(
+    cusolverH, Q_nrows, Q_ncols, min(Q_ncols, Q_nrows), Q, Q_nrows, tau.data(),
+    workspace.data(), Lwork, devInfo.data(), stream));
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon
