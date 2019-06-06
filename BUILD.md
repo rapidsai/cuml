@@ -11,6 +11,7 @@ To install cuML from source, ensure the dependencies are met:
 5. Cython (>= 0.29)
 6. gcc (>=5.4.0)
 7. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.12/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
+8. clang-format (= 8.0.0) - enforces uniform C++ coding style; required to build cuML from source. The RAPIDS conda channel provides a package. If not using conda, install using your OS package manager.
 
 ## Installing from Source:
 
@@ -60,7 +61,7 @@ $ cmake .. -DCMAKE_INSTALL_PREFIX=$CONDA_PREFIX -DGPU_ARCHS="70"
 
 There are many options to configure the build process, see the [customizing build section](#custom-build-options).
 
-3. Build `libcuml++`:
+3. Build `libcuml++` and `libcuml`:
 
 ```bash
 $ make -j
@@ -106,6 +107,32 @@ $ pytest cuML/test --collect-only
 $ python setup.py install
 ```
 
+#### `build.sh`
+
+As a convenience, a `build.sh` script is provided which can be used to execute the same build commands above.  Note that the libraries will be installed to the location set in `$INSTALL_PREFIX` if set (i.e. `export INSTALL_PREFIX=/install/path`), otherwise to `$CONDA_PREFIX`.
+```bash
+$ ./build.sh                           # build the cuML libraries, tests, and python package, then
+                                       # install them to $INSTALL_PREFIX if set, otherwise $CONDA_PREFIX
+```
+
+To build individual components, specify them as arguments to `build.sh`
+```bash
+$ ./build.sh libcuml                   # build and install the cuML C++ and C-wrapper libraries
+$ ./build.sh cuml                      # build and install the cuML python package
+$ ./build.sh prims                     # build the ML prims tests
+```
+
+Other `build.sh` options:
+```bash
+$ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
+$ ./build.sh libcuml -v                # build and install libcuml with verbose output
+$ ./build.sh libcuml -g                # build and install libcuml for debug
+$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
+$ ./build.sh libcuml -n                # build libcuml but do not install
+$ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
+$ ./build.sh cuml --multigpu           # build the cuml python package with multi-GPU support (requires libcumlMG and CUDA >= 10.0)
+```
+
 ### Custom Build Options
 
 cuML's cmake has the following configurable flags available:
@@ -113,7 +140,8 @@ cuML's cmake has the following configurable flags available:
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
 | BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. |
-| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_C_LIBRARY, BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml shared library. Setting this variable to `ON` will set the variable BUILD_CUML_CPP_LIBRARY to `ON` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
 | BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
