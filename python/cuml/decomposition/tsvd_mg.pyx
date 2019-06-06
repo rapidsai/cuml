@@ -226,8 +226,7 @@ class TruncatedSVDSPMG:
             cudf.Series(cudf.utils.cudautils.zeros(n_components,
                                                    self.gdf_datatype))
 
-        self.noise_variance_ = cudf.Series(zeros(1,
-                                                    dtype=self.gdf_datatype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.gdf_datatype))
 
     def _get_ctype_ptr(self, obj):
         # The manner to access the pointers in the gdf's might change, so
@@ -281,15 +280,15 @@ class TruncatedSVDSPMG:
         self.gdf_datatype = X.dtype
 
         self.components_ = zeros((n_cols, self.params.n_components),
-                                    dtype=X.dtype, order='F')
+                                 dtype=X.dtype, order='F')
         self.explained_variance_ = zeros(self.params.n_components,
-                                            dtype=X.dtype, order='F')
-        self.explained_variance_ratio_ = zeros(self.params.n_components,
-                                                  dtype=X.dtype, order='F')
-        self.singular_values_ = zeros(self.params.n_components,
                                          dtype=X.dtype, order='F')
+        self.explained_variance_ratio_ = zeros(self.params.n_components,
+                                               dtype=X.dtype, order='F')
+        self.singular_values_ = zeros(self.params.n_components,
+                                      dtype=X.dtype, order='F')
         self.trans_input_ = zeros((n_rows, self.params.n_components),
-                                     dtype=X.dtype, order='F')
+                                  dtype=X.dtype, order='F')
 
         X_ptr = X.ctypes.data
         components_ptr = self.components_.ctypes.data
@@ -375,7 +374,7 @@ class TruncatedSVDSPMG:
         params.n_cols = self.params.n_cols
 
         original_X = zeros((n_rows, self.params.n_cols), dtype=X.dtype,
-                              order='F')
+                           order='F')
 
         cdef uintptr_t X_ptr, original_X_ptr, gpu_ids_ptr, components_ptr
 
@@ -434,7 +433,7 @@ class TruncatedSVDSPMG:
         params.n_cols = self.params.n_cols
 
         trans_X = zeros((n_rows, self.params.n_components), dtype=X.dtype,
-                           order='F')
+                        order='F')
 
         cdef uintptr_t X_ptr, trans_X_ptr, gpu_ids_ptr, components_ptr
 

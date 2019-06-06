@@ -262,7 +262,7 @@ class KalmanFilter(Base):
                                                     <float*> _H_ptr)
 
         self.workspace = cuda.to_device(zeros(workspace_size,
-                                                 dtype=self.dtype))
+                                              dtype=self.dtype))
         self._workspace_size = workspace_size
 
     def _get_algorithm_c_name(self, algorithm):

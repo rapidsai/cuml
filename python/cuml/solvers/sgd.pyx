@@ -307,7 +307,7 @@ class SGD(Base):
         self.n_alpha = 1
 
         self.coef_ = cudf.Series(zeros(self.n_cols,
-                                          dtype=self.dtype))
+                                       dtype=self.dtype))
         cdef uintptr_t coef_ptr = get_cudf_column_ptr(self.coef_)
 
         cdef float c_intercept1

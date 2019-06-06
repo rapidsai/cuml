@@ -270,8 +270,8 @@ cdef class UMAPImpl:
                              "training data")
 
         embedding = cuda.to_device(zeros((X_m.shape[0],
-                                             self.umap_params.n_components),
-                                            order="C", dtype=np.float32))
+                                          self.umap_params.n_components),
+                                         order="C", dtype=np.float32))
         cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
