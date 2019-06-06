@@ -46,6 +46,8 @@ from cuml.random_projection.random_projection import GaussianRandomProjection, S
 
 from cuml.preprocessing.model_selection import train_test_split
 
+from cuml.preprocessing.LabelEncoder import LabelEncoder
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
