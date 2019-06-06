@@ -40,7 +40,7 @@ def backtracking_line_search(f, g, xk, pk, gfk=None):
 
 def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                       pgtol=1e-5, factr=1e7, max_steps=100, disp=0,
-                      alpha_per_batch=True):
+                      alpha_per_batch=False, alpha_max=100):
     """
     Batched minimizer using BFGS algorithm.
     batchsize: Assume that f, g, and x0 are already batched, and `x` and `g` can be grouped by batches.
@@ -73,10 +73,16 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
     # BFGS from Algorithm 6.1, pg.140 of "Numerical Optimization" by Nocedal and Wright.
 
     # 0. Init H_0 with Identity
-    Hk = np.zeros((r, r * num_batches))
-    for ib in range(num_batches):
-        for ir in range(r):
-            Hk[ir, ib*r + ir] = 1.0
+    
+    def Batched_I():
+        """Utility to build batched Identity Matrix (r x r) x num_batches: H = | I I I ... I |"""
+        H = np.zeros((r, r * num_batches))
+        for ib in range(num_batches):
+            for ir in range(r):
+                H[ir, ib*r + ir] = 1.0
+        return H
+
+    Hk = Batched_I()
 
     pk = np.zeros(len(x0))
     sk = np.zeros(len(x0))
@@ -90,7 +96,13 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
     if disp > 0:
         print("step   f(xk)     | alpha  | \/f(xk)")
 
-    for k in range(max_steps):
+    k = 0
+    k_ls_reset = 0
+    while True:
+        if k >= max_steps:
+            if disp > 0:
+                print("Stopping criterion: Maximum number of iterations!")
+            break
 
         gk = g(xk)
         if np.linalg.norm(gk) < pgtol:
@@ -105,7 +117,8 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
 
         if np.isnan(pk).any():
-            raise ValueError("pk NaN")
+            raise FloatingPointError("pk NaN")
+
 
         # 2. set next step via linesearch
         if alpha_per_batch:
@@ -118,9 +131,10 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                 # search if we are more than satisfying the stopping criterion.
                 if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > 1e-2*pgtol):
                     alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
-                                                                     xk[ib*r:(ib+1)*r],
-                                                                     pk[ib*r:(ib+1)*r],
-                                                                     args=(ib,))
+                                                                     xk, pk,
+                                                                     # xk[ib*r:(ib+1)*r],
+                                                                     # pk[ib*r:(ib+1)*r],
+                                                                     args=(ib,), c2=0.9)
                     alpha_b[ib] = alpha
                     if fkp1 is None:
                         print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
@@ -130,14 +144,40 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                 xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
 
         else:
-            # compute alpha for the global optimization problem
-            alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
-                                                             xk,
-                                                             pk)
+            ls_option = 1
             
-            if fkp1 is None:
-                    raise ValueError("Line search failed to converge")
+            # compute alpha for the global optimization problem
+            if ls_option == 1:
+                # set_trace()
+                alpha, fc, gc, fkp1, fkm1, _ = optimize.line_search(f, g,
+                                                                    xk,
+                                                                    pk, amax=alpha_max)
+                if fkp1 is None or alpha is None:
+                    # set_trace()
+                    if disp > 0:
+                        print("INFO: Line search failed to converge. Resetting H=I")
+                    k_ls_reset += 1
+                    if k_ls_reset > 3:
+                        print("WARNING: Line search reset failed.")
+                        break
+
+                    # Reset H to identity to force pk to be gradient descent
+                    Hk = Batched_I()
+                    
+                    continue
+
+            if ls_option == 2:
+                try:
+                    alpha, fc, gc, fkp1, fkm1, _ = optimize.optimize._line_search_wolfe12(f, g, xk, pk, gk,
+                                                                                          fk[k], fkm1, amax=alpha_max)
+                except optimize.optimize._LineSearchError:
+                    if disp > 0:
+                        print("Warning: Line search failed to converge")
+                    break
+
+            # take step along search direction with line-search-computed alpha stepsize
             xkp1 = xk + alpha*pk
+            k_ls_reset = 0
 
         gkp1 = g(xkp1)
 
@@ -155,13 +195,15 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             # eq. (6.14)
             sk_dot_yk = np.dot(yk[ib*r:(ib+1)*r], sk[ib*r:(ib+1)*r])
             if sk_dot_yk == 0:
+                if disp > 100:
+                    print("batch({}) converged: sk_dot_yk==0".format(ib))
                 continue
             rhok = 1/sk_dot_yk
             if np.isnan(rhok) or np.isinf(rhok):
                 raise ValueError("NaN or Inf rho_k")
             Ib = np.eye(r)
-            A1 = Ib - rhok * np.outer(sk[ib*r:(ib+1)*r], yk[ib*r:(ib+1)*r])
-            A2 = Ib - rhok * np.outer(yk[ib*r:(ib+1)*r], sk[ib*r:(ib+1)*r])
+            A1 = Ib - np.outer(sk[ib*r:(ib+1)*r], yk[ib*r:(ib+1)*r]) * rhok
+            A2 = Ib - np.outer(yk[ib*r:(ib+1)*r], sk[ib*r:(ib+1)*r]) * rhok
             Hk_batch = Hk[:, ib*r:(ib+1)*r]
             rho_s_sT = rhok * np.outer(sk[ib*r:(ib+1)*r], sk[ib*r:(ib+1)*r])
             Hkp1_batch = A1@ Hk_batch @ A2 + rho_s_sT
@@ -171,7 +213,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         if disp > 0 and disp < 100:
             if k % disp == 0:
                 disp_amt = min(r, 4)
-                print("k={:03d}: {:0.7f} | {:0.4f} | {}".format(k, f(xk), alpha,
+                print("k={:03d}: {:0.7f} | {:0.4e} | {}".format(k, f(xk), alpha,
                                                                 g(xkp1)[:disp_amt]))
         if disp > 100:
             print("k={:03d}: {:0.7f} | {:0.4f} | {}".format(k, f(xk), alpha, g(xk)))
@@ -190,9 +232,9 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
                     print("Stopping criterion true: Last {} steps almost no change in f(x)".format(num_steps))
                 break
 
-        if k==max_steps-1:
-            if disp > 0:
-                print("Stopping criterion: Maximum number of iterations!")
+        
+        k += 1
+        # end while
 
     if disp > 0:
         print("Final result: f(xk)={}, |\/f(xk)|={}, n_iter={}".format(fk[-1],
