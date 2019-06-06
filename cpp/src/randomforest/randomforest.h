@@ -91,6 +91,8 @@ class rf {
 		int rf_type;
 		virtual const DecisionTree::DecisionTreeBase<T, L> * get_trees_ptr() const = 0;
 		~rf() = default;
+		void prepare_fit_per_tree(const ML::cumlHandle_impl& handle, int tree_id, int n_rows, int n_sampled_rows, 
+			unsigned int * selected_rows, unsigned int * sorted_selected_rows, char * rows_temp_storage, size_t temp_storage_bytes);
 
 	public:
 		rf(RF_params cfg_rf_params, int cfg_rf_type=RF_type::CLASSIFICATION);
