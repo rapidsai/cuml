@@ -16,10 +16,14 @@
 
 import warnings
 import numbers
+from collections.abc import Sequence
 
-import scipy.sparse as sp
+from cupyx.scipy.sparse import issparse
+from cupyx.scipy.sparse import spmatrix
+
 import numpy as np
 import cupy as cp
+import cudf
 
 
 try:  # SciPy >= 0.19
@@ -278,7 +282,7 @@ def indexable(*iterables):
     """
     result = []
     for X in iterables:
-        if sp.issparse(X):
+        if issparse(X):
             result.append(X.tocsr())
         elif hasattr(X, "__getitem__") or hasattr(X, "iloc"):
             result.append(X)
@@ -334,3 +338,226 @@ def _pprint(params, offset=0, printer=repr):
     # Strip trailing space to avoid nightmare in doctests
     lines = '\n'.join(l.rstrip(' ') for l in lines.split('\n'))
     return lines
+
+
+def _is_integral_float(y):
+    return y.dtype.kind == 'f' and cp.all(y.astype(int) == y)
+
+
+def is_multilabel(y):
+    """ Check if ``y`` is in a multilabel format.
+    Parameters
+    ----------
+    y : numpy array of shape [n_samples]
+        Target values.
+    Returns
+    -------
+    out : bool,
+        Return ``True``, if ``y`` is in a multilabel format, else ```False``.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.utils.multiclass import is_multilabel
+    >>> is_multilabel([0, 1, 0, 1])
+    False
+    >>> is_multilabel([[1], [0, 2], []])
+    False
+    >>> is_multilabel(np.array([[1, 0], [0, 0]]))
+    True
+    >>> is_multilabel(np.array([[1], [0], [0]]))
+    False
+    >>> is_multilabel(np.array([[1, 0, 0]]))
+    True
+    """
+    if hasattr(y, '__array__'):
+        y = cp.asarray(y)
+    if not (hasattr(y, "shape") and y.ndim == 2 and y.shape[1] > 1):
+        return False
+
+    if issparse(y):
+        return (len(y.data) == 0 or cp.unique(y.data).size == 1 and
+                (y.dtype.kind in 'biu' or  # bool, int, uint
+                 _is_integral_float(cp.unique(y.data))))
+    else:
+        labels = cp.unique(y)
+
+        return len(labels) < 3 and (y.dtype.kind in 'biu' or  # bool, int, uint
+                                    _is_integral_float(labels))
+
+######################################
+def _assert_all_finite(X, allow_nan=False):
+    """Like assert_all_finite, but only for ndarray."""
+    # validation is also imported in extmath
+    from .extmath import _safe_accumulator_op
+
+    if _get_config()['assume_finite']:
+        return
+    X = np.asanyarray(X)
+    # First try an O(n) time, O(1) space solution for the common case that
+    # everything is finite; fall back to O(n) space np.isfinite to prevent
+    # false positives from overflow in sum method. The sum is also calculated
+    # safely to reduce dtype induced overflows.
+    is_float = X.dtype.kind in 'fc'
+    if is_float and (np.isfinite(_safe_accumulator_op(np.sum, X))):
+        pass
+    elif is_float:
+        msg_err = "Input contains {} or a value too large for {!r}."
+        if (allow_nan and np.isinf(X).any() or
+                not allow_nan and not np.isfinite(X).all()):
+            type_err = 'infinity' if allow_nan else 'NaN, infinity'
+            raise ValueError(msg_err.format(type_err, X.dtype))
+
+
+def type_of_target(y):
+    """Determine the type of data indicated by the target.
+    Note that this type is the most specific type that can be inferred.
+    For example:
+        * ``binary`` is more specific but compatible with ``multiclass``.
+        * ``multiclass`` of integers is more specific but compatible with
+          ``continuous``.
+        * ``multilabel-indicator`` is more specific but compatible with
+          ``multiclass-multioutput``.
+    Parameters
+    ----------
+    y : array-like
+    Returns
+    -------
+    target_type : string
+        One of:
+        * 'continuous': `y` is an array-like of floats that are not all
+          integers, and is 1d or a column vector.
+        * 'continuous-multioutput': `y` is a 2d array of floats that are
+          not all integers, and both dimensions are of size > 1.
+        * 'binary': `y` contains <= 2 discrete values and is 1d or a column
+          vector.
+        * 'multiclass': `y` contains more than two discrete values, is not a
+          sequence of sequences, and is 1d or a column vector.
+        * 'multiclass-multioutput': `y` is a 2d array that contains more
+          than two discrete values, is not a sequence of sequences, and both
+          dimensions are of size > 1.
+        * 'multilabel-indicator': `y` is a label indicator matrix, an array
+          of two dimensions with at least two columns, and at most 2 unique
+          values.
+        * 'unknown': `y` is array-like but none of the above, such as a 3d
+          array, sequence of sequences, or an array of non-sequence objects.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> type_of_target([0.1, 0.6])
+    'continuous'
+    >>> type_of_target([1, -1, -1, 1])
+    'binary'
+    >>> type_of_target(['a', 'b', 'a'])
+    'binary'
+    >>> type_of_target([1.0, 2.0])
+    'binary'
+    >>> type_of_target([1, 0, 2])
+    'multiclass'
+    >>> type_of_target([1.0, 0.0, 3.0])
+    'multiclass'
+    >>> type_of_target(['a', 'b', 'c'])
+    'multiclass'
+    >>> type_of_target(np.array([[1, 2], [3, 1]]))
+    'multiclass-multioutput'
+    >>> type_of_target([[1, 2]])
+    'multiclass-multioutput'
+    >>> type_of_target(np.array([[1.5, 2.0], [3.0, 1.6]]))
+    'continuous-multioutput'
+    >>> type_of_target(np.array([[0, 1], [1, 1]]))
+    'multilabel-indicator'
+    """
+    valid = ((isinstance(y, (Sequence, spmatrix)) or hasattr(y, '__array__'))
+             and not isinstance(y, str))
+
+    if not valid:
+        raise ValueError('Expected array-like (array or non-string sequence), '
+                         'got %r' % y)
+
+    sparseseries = (y.__class__.__name__ == 'SparseSeries')
+    if sparseseries:
+        raise ValueError("y cannot be class 'SparseSeries'.")
+
+    if is_multilabel(y):
+        return 'multilabel-indicator'
+
+    try:
+        y = cp.asarray(y)
+    except ValueError:
+        return 'unknown'
+
+    # The old sequence of sequences format
+    try:
+        if (not hasattr(y[0], '__array__') and isinstance(y[0], Sequence)
+                and not isinstance(y[0], str)):
+            raise ValueError('You appear to be using a legacy multi-label data'
+                             ' representation. Sequence of sequences are no'
+                             ' longer supported; use a binary array or sparse'
+                             ' matrix instead - the MultiLabelBinarizer'
+                             ' transformer can convert to this format.')
+    except IndexError:
+        pass
+
+    # Invalid inputs
+    if y.ndim > 2 or (y.dtype == object and len(y) and
+                      not isinstance(y.flat[0], str)):
+        return 'unknown'  # [[[1, 2]]] or [obj_1] and not ["label_1"]
+
+    if y.ndim == 2 and y.shape[1] == 0:
+        return 'unknown'  # [[]]
+
+    if y.ndim == 2 and y.shape[1] > 1:
+        suffix = "-multioutput"  # [[1, 2], [1, 2]]
+    else:
+        suffix = ""  # [1, 2, 3] or [[1], [2], [3]]
+
+    # check float and contains non-integer float values
+    if y.dtype.kind == 'f' and cp.any(y != y.astype(int)):
+        # [.1, .2, 3] or [[.1, .2, 3]] or [[1., .2]] and not [1., 2., 3.]
+        _assert_all_finite(y)
+        return 'continuous' + suffix
+
+    if (len(cp.unique(y)) > 2) or (y.ndim >= 2 and len(y[0]) > 1):
+        return 'multiclass' + suffix  # [1, 2, 3] or [[1., 2., 3]] or [[1, 2]]
+    else:
+        return 'binary'  # [1, 2] or [["a"], ["b"]]
+
+
+def safe_indexing(X, indices):
+    """Return items or rows from X using indices.
+    Allows simple indexing of lists or arrays.
+    Parameters
+    ----------
+    X : array-like, sparse-matrix, list, cudf.DataFrame, cudf.Series.
+        Data from which to sample rows or items.
+    indices : array-like of int
+        Indices according to which X will be subsampled.
+    Returns
+    -------
+    subset
+        Subset of X on first axis
+    Notes
+    -----
+    CSR, CSC, and LIL sparse matrices are supported. COO sparse matrices are
+    not supported.
+    """
+    if hasattr(X, "iloc"):
+        # # Work-around for indexing with read-only indices in pandas
+        # indices = indices if indices.flags.writeable else indices.copy()
+        # cudf Dataframes and Series
+        try:
+            return X.iloc[indices]
+        except ValueError:
+            # Cython typed memoryviews internally used in pandas do not support
+            # readonly buffers.
+            warnings.warn("Copying input dataframe for slicing.",
+                          DataConversionWarning)
+            return X.copy().iloc[indices]
+    elif hasattr(X, "shape"):
+        if hasattr(X, 'take') and (hasattr(indices, 'dtype') and
+                                   indices.dtype.kind == 'i'):
+            # This is often substantially faster than X[indices]
+            return X.take(indices, axis=0)
+        else:
+            return X[indices]
+    else:
+        return [X[idx] for idx in indices]

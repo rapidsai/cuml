@@ -15,7 +15,7 @@
 #
 
 import warnings
-from itertools import combinations
+from itertools import chain, combinations
 from math import ceil, floor
 import numbers
 from abc import ABCMeta, abstractmethod
@@ -26,6 +26,7 @@ import cupy as cp
 import cudf
 
 import utils
+from utils import safe_indexing
 
 
 NSPLIT_WARNING = (
@@ -1706,6 +1707,213 @@ class PredefinedSplit(BaseCrossValidator):
             Returns the number of splitting iterations in the cross-validator.
         """
         return len(self.unique_folds)
+
+
+class _CVIterableWrapper(BaseCrossValidator):
+    """Wrapper class for old style cv objects and iterables."""
+    def __init__(self, cv):
+        self.cv = list(cv)
+
+    def get_n_splits(self, X=None, y=None, groups=None):
+        """Returns the number of splitting iterations in the cross-validator
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Returns
+        -------
+        n_splits : int
+            Returns the number of splitting iterations in the cross-validator.
+        """
+        return len(self.cv)
+
+    def split(self, X=None, y=None, groups=None):
+        """Generate indices to split data into training and test set.
+        Parameters
+        ----------
+        X : object
+            Always ignored, exists for compatibility.
+        y : object
+            Always ignored, exists for compatibility.
+        groups : object
+            Always ignored, exists for compatibility.
+        Yields
+        ------
+        train : ndarray
+            The training set indices for that split.
+        test : ndarray
+            The testing set indices for that split.
+        """
+        for train, test in self.cv:
+            yield train, test
+
+
+def check_cv(cv=None, y=None, classifier=False):
+    """Input checker utility for building a cross-validator
+    Parameters
+    ----------
+    cv : int, cross-validation generator or an iterable, optional
+        Determines the cross-validation splitting strategy.
+        Possible inputs for cv are:
+        - None, to use the default 3-fold cross-validation,
+        - integer, to specify the number of folds.
+        - :term:`CV splitter`,
+        - An iterable yielding (train, test) splits as arrays of indices.
+        For integer/None inputs, if classifier is True and ``y`` is either
+        binary or multiclass, :class:`StratifiedKFold` is used. In all other
+        cases, :class:`KFold` is used.
+        Refer :ref:`User Guide <cross_validation>` for the various
+        cross-validation strategies that can be used here.
+        .. versionchanged:: 0.20
+            ``cv`` default value will change from 3-fold to 5-fold in v0.22.
+    y : array-like, optional
+        The target variable for supervised learning problems.
+    classifier : boolean, optional, default False
+        Whether the task is a classification task, in which case
+        stratified KFold will be used.
+    Returns
+    -------
+    checked_cv : a cross-validator instance.
+        The return value is a cross-validator which generates the train/test
+        splits via the ``split`` method.
+    """
+    if cv is None:
+        cv = 3
+
+    if isinstance(cv, numbers.Integral):
+        if (classifier and (y is not None) and
+                (utils.type_of_target(y) in ('binary', 'multiclass'))):
+            return StratifiedKFold(cv)
+        else:
+            return KFold(cv)
+
+    if not hasattr(cv, 'split') or isinstance(cv, str):
+        if not isinstance(cv, Iterable) or isinstance(cv, str):
+            raise ValueError("Expected cv as an integer, cross-validation "
+                             "object (from sklearn.model_selection) "
+                             "or an iterable. Got %s." % cv)
+        return _CVIterableWrapper(cv)
+
+    return cv  # New style cv objects are passed without any modification
+
+
+def train_test_split(*arrays, **options):
+    """Split arrays or matrices into random train and test subsets
+    Quick utility that wraps input validation and
+    ``next(ShuffleSplit().split(X, y))`` and application to input data
+    into a single call for splitting (and optionally subsampling) data in a
+    oneliner.
+    Read more in the :ref:`User Guide <cross_validation>`.
+    Parameters
+    ----------
+    *arrays : sequence of indexables with same length / shape[0]
+        Allowed inputs are lists, numpy arrays, scipy-sparse
+        matrices or pandas dataframes.
+    test_size : float, int or None, optional (default=None)
+        If float, should be between 0.0 and 1.0 and represent the proportion
+        of the dataset to include in the test split. If int, represents the
+        absolute number of test samples. If None, the value is set to the
+        complement of the train size. If ``train_size`` is also None, it will
+        be set to 0.25.
+    train_size : float, int, or None, (default=None)
+        If float, should be between 0.0 and 1.0 and represent the
+        proportion of the dataset to include in the train split. If
+        int, represents the absolute number of train samples. If None,
+        the value is automatically set to the complement of the test size.
+    random_state : int, RandomState instance or None, optional (default=None)
+        If int, random_state is the seed used by the random number generator;
+        If RandomState instance, random_state is the random number generator;
+        If None, the random number generator is the RandomState instance used
+        by `np.random`.
+    shuffle : boolean, optional (default=True)
+        Whether or not to shuffle the data before splitting. If shuffle=False
+        then stratify must be None.
+    stratify : array-like or None (default=None)
+        If not None, data is split in a stratified fashion, using this as
+        the class labels.
+    Returns
+    -------
+    splitting : list, length=2 * len(arrays)
+        List containing train-test split of inputs.
+        .. versionadded:: 0.16
+            If the input is sparse, the output will be a
+            ``scipy.sparse.csr_matrix``. Else, output type is the same as the
+            input type.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.model_selection import train_test_split
+    >>> X, y = np.arange(10).reshape((5, 2)), range(5)
+    >>> X
+    array([[0, 1],
+           [2, 3],
+           [4, 5],
+           [6, 7],
+           [8, 9]])
+    >>> list(y)
+    [0, 1, 2, 3, 4]
+    >>> X_train, X_test, y_train, y_test = train_test_split(
+    ...     X, y, test_size=0.33, random_state=42)
+    ...
+    >>> X_train
+    array([[4, 5],
+           [0, 1],
+           [6, 7]])
+    >>> y_train
+    [2, 0, 3]
+    >>> X_test
+    array([[2, 3],
+           [8, 9]])
+    >>> y_test
+    [1, 4]
+    >>> train_test_split(y, shuffle=False)
+    [[0, 1, 2], [3, 4]]
+    """
+    n_arrays = len(arrays)
+    if n_arrays == 0:
+        raise ValueError("At least one array required as input")
+    test_size = options.pop('test_size', None)
+    train_size = options.pop('train_size', None)
+    random_state = options.pop('random_state', None)
+    stratify = options.pop('stratify', None)
+    shuffle = options.pop('shuffle', True)
+
+    if options:
+        raise TypeError("Invalid parameters passed: %s" % str(options))
+
+    arrays = utils.indexable(*arrays)
+
+    n_samples = utils._num_samples(arrays[0])
+    n_train, n_test = _validate_shuffle_split(n_samples, test_size, train_size,
+                                              default_test_size=0.25)
+
+    if shuffle is False:
+        if stratify is not None:
+            raise ValueError(
+                "Stratified train/test split is not implemented for "
+                "shuffle=False")
+
+        train = cp.arange(n_train)
+        test = cp.arange(n_train, n_train + n_test)
+
+    else:
+        if stratify is not None:
+            CVClass = StratifiedShuffleSplit
+        else:
+            CVClass = ShuffleSplit
+
+        cv = CVClass(test_size=n_test,
+                     train_size=n_train,
+                     random_state=random_state)
+
+        train, test = next(cv.split(X=arrays[0], y=stratify))
+
+    return list(chain.from_iterable((safe_indexing(a, train),
+                                     safe_indexing(a, test)) for a in arrays))
 
 
 def _build_repr(self):
