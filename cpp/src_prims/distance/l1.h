@@ -32,6 +32,7 @@ namespace Distance {
  * @tparam OutType output data-type (for C and D matrices)
  * @tparam OutputTile_ output tile size for the thread block
  * @tparam FinalLambda user-defined epilogue lamba
+ * @tparam Index_ Index type
  * @param m number of rows of A and C/D
  * @param n number of columns of B and C/D
  * @param k number of cols of A and rows of B
@@ -43,7 +44,7 @@ namespace Distance {
  * @{
  */
 template <typename InType, typename AccType, typename OutType,
-          typename OutputTile_, typename FinalLambda>
+          typename OutputTile_, typename FinalLambda, typename Index_ = int>
 void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
             OutType *pD, FinalLambda fin_op, cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
@@ -54,7 +55,6 @@ void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
   typedef LinAlg::ThreadL1NormAdd<
     AccumulatorsPerThread_, cutlass::Shape<1, 4, 8>, InType, InType, AccType>
     MainLoopFunctor_;
-  typedef int Index_;
   typedef LinAlg::CustomGemmConfig<InType, AccType, EffOutType, OutputTile_,
                                    AccumulatorsPerThread_, MainLoopFunctor_>
     GemmConfig_;
