@@ -11,6 +11,8 @@ import statsmodels.tsa.arima_model as sm_arima
 # import cudf
 import pandas as pd
 
+from .batched_bfgs import batched_fmin_bfgs
+
 # import torch.cuda.nvtx as nvtx
 
 class BatchedARIMAModel:
@@ -131,8 +133,10 @@ class BatchedARIMAModel:
 
             ll_b_ph = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x+fdph, gpu=gpu, trans=trans)
             ll_b_mh = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x-fdph, gpu=gpu, trans=trans)
+            # ll_b0 = BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=trans)
 
             grad_i_b = (ll_b_ph - ll_b_mh)/(2*h)
+            # grad_i_b = (ll_b_ph - ll_b0)/(h)
 
             if num_batches == 1:
                 grad[i] = grad_i_b
@@ -148,10 +152,10 @@ class BatchedARIMAModel:
     @staticmethod
     def fit(y: np.ndarray,
             order: Tuple[int, int, int],
-            mu0: float,
-            ar_params0: np.ndarray,
-            ma_params0: np.ndarray,
-            opt_disp=-1, h=1e-8, gpu=True):
+            mu0: np.ndarray,
+            ar_params0: [np.ndarray],
+            ma_params0: [np.ndarray],
+            opt_disp=-1, h=1e-8, gpu=True, alpha_max=1000):
         """
         Fits the ARIMA model to each time-series (batched together in a dense numpy matrix)
         with the given initial parameters. `y` is (num_samples, num_batches)
@@ -164,41 +168,68 @@ class BatchedARIMAModel:
         num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         num_batches = y.shape[1]
 
-        def f(x):
+        def f(x, n=None):
             # Maximimize LL means minimize negative
+            if n is not None:
+                n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
+                return n_llf[n]
+
             n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
             return n_llf_sum/(num_samples-1)/num_batches
 
         # optimized finite differencing gradient for batches
-        def gf(x):
+        def gf(x, n=None):
             # Recall: We maximize LL by minimizing -LL
             n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
+            if n is not None:
+                n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
+                n_gllf_n = np.zeros(len(n_gllf))
+                n_gllf_n[n*num_parameters:(n+1)*num_parameters] = n_gllf[n*num_parameters:(n+1)*num_parameters]
+                return n_gllf_n
+
             return n_gllf/(num_samples-1)/num_batches
 
+        if not isinstance(mu0, np.ndarray):
+            ar0_2 = sm_tools._ar_invtransparams(np.copy(ar_params0))
+            ma0_2 = sm_tools._ma_invtransparams(np.copy(ma_params0))
+            
+            x0 = np.r_[mu0, ar0_2, ma0_2]
+            x0 = np.tile(x0, num_batches)
 
-        ar0_2 = sm_tools._ar_invtransparams(np.copy(ar_params0))
-        ma0_2 = sm_tools._ma_invtransparams(np.copy(ma_params0))
+        else:
+            x0 = pack(p, q, num_batches, mu0, ar_params0, ma_params0)
+            x0 = batch_invtrans(p, q, num_batches, x0)
+            
 
-        x0 = np.r_[mu0, ar0_2, ma0_2]
-        x0 = np.tile(x0, num_batches)
+        # SciPy l-bfgs (non-batched)
+        # x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf,
+        #                                     approx_grad=False,
+        #                                     iprint=opt_disp,
+        #                                     factr=10000,
+        #                                     m=1,
+        #                                     pgtol=1e-7,
+        #                                     epsilon=h)
+        # if res['warnflag'] > 0:
+        #     raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
 
-        x, f_final, res = opt.fmin_l_bfgs_b(f, x0, fprime=gf,
-                                            approx_grad=False,
-                                            iprint=opt_disp,
-                                            factr=100,
-                                            m=12,
-                                            pgtol=1e-8,
-                                            epsilon=1e-8)
+        # our batch-aware bfgs solver
 
-        print("xf=", x)
-        if res['warnflag'] > 0:
-            raise ValueError("ERROR: In `fit()`, the optimizer failed to converge with warning: {}. Check the initial conditions (particularly `mu`) or change the finite-difference stepsize `h` (lower or raise..)".format(res))
+        if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
+            raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
+
+        x, fk = batched_fmin_bfgs(f, x0, num_batches, gf, alpha_per_batch=False, disp=opt_disp, alpha_max=alpha_max)
+        # print("our results: ", x)
+        # scipy again
+        # options = {"disp": 1}
+        # res = opt.minimize(f, x0, jac=gf, method="BFGS", options=options)
+        # x = res.x
+        # print("their results: ", x)
 
         Tx = batch_trans(p, q, num_batches, x)
         mu, ar, ma = unpack(p, q, num_batches, Tx)
         
         fit_model = BatchedARIMAModel(num_batches*[order], mu, ar, ma, y)
-        
+
         return fit_model
 
 
@@ -393,8 +424,11 @@ def batch_invtrans(p, q, nb, x):
     ar2 = []
     ma2 = []
     for ib in range(nb):
+        print("invT: {},{}".format(ar[ib], ma[ib]))
         ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
         mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
+        assert ((not np.isinf(ari)) and (not np.isinf(mai)))
+        assert ((not np.isnan(ari)) and (not np.isnan(mai)))
         ar2.append(ari)
         ma2.append(mai)
     Tx = pack(p, q, nb, mu, ar2, ma2)
@@ -418,7 +452,19 @@ def init_x0(order, y):
         yd = np.copy(y)
     arma = sm_arima.ARMA(yd, order)
     arma.exog = np.ones((len(yd),1))
-    return arma._fit_start_params_hr((p,q,d))
+    arma.transparams = True
+    arma.k_trend = 1
+    arma.nobs = len(yd)
+    x0 = arma._fit_start_params((p,q,d), "css-mle")
+
+    mu, ar, ma = unpack(p, q, 1, x0)
+    # fix ma to avoid bad values in inverse invertibility transform
+    for i in range(len(ma[0])):
+        mai = ma[0][i]
+        # if ma >= 1, then we get "inf" results from inverse transform
+        ma[0][i] = np.sign(mai)*min(np.abs(mai), 1-1e-14)
+    x0 = pack(p, q, 1, mu, ar, ma)
+    return x0
 
 
 def init_batched_kalman_matrices(b_ar_params, b_ma_params):
@@ -483,3 +529,37 @@ def grid_search(y_b: np.ndarray, d=1, max_p=3, max_q=3, method="aic"):
                     best_ic[i] = ic_i
 
     return (best_model, best_ic)
+
+
+# # copied from internets just in case i need it
+# def gradient_descent(x0, f, f_prime, hessian=None, adaptative=True, gtol=1e-6, ftol=1e-12):
+
+#     all_f_i = []
+#     xk = x0
+#     for i in range(1, 100):
+
+#         all_f_i.append(f(xk))
+#         dx_i = f_prime(xk)
+
+#         if np.linalg.norm(xk) < gtol:
+#             print("Gradient tolerance reached: ", gtol)
+#             break
+#         if i > 1 and np.abs(all_f_i[-1] - all_f_i[-2]) < ftol:
+#             print("tolerance for change in function values reached: ", ftol)
+#             break
+
+#         if adaptative:
+#             # Compute a step size using a line_search to satisfy the Wolf
+#             # conditions
+#             step = opt.line_search(f, f_prime,
+#                                    xk, -dx_i,
+#                                    dx_i)
+#             step = step[0]
+#             if step is None:
+#                 step = 0
+#         else:
+#             step = 1
+#         xk = xk - step*dx_i
+
+
+#     return xk, all_f_i
