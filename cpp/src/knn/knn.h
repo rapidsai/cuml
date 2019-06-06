@@ -16,60 +16,54 @@
 
 #include "common/cumlHandle.hpp"
 
-#include <faiss/gpu/StandardGpuResources.h>
-#include <faiss/gpu/IndexProxy.h>
 #include <faiss/gpu/GpuIndexFlat.h>
+#include <faiss/gpu/IndexProxy.h>
+#include <faiss/gpu/StandardGpuResources.h>
 
 #include <iostream>
-
-
 
 #pragma once
 
 namespace ML {
 
-	using namespace faiss;
+using namespace faiss;
 
-	class kNNParams {
-	public:
-		float *ptr;
-		int N;
-		friend std::ostream & operator<<(std::ostream &str, kNNParams &v) {
-			str << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
-			return str;
-		}
-	};
+class kNNParams {
+ public:
+  float *ptr;
+  int N;
+  friend std::ostream &operator<<(std::ostream &str, kNNParams &v) {
+    str << "kNNParams {ptr=" << v.ptr << ", N=" << v.N << "}";
+    return str;
+  }
+};
 
+class kNN {
+  std::vector<long> id_ranges;
 
-    class kNN {
+  std::vector<kNNParams> knn_params;
 
-		std::vector<long> id_ranges;
+  int total_n;
+  int indices;
+  int D;
+  bool verbose;
+  bool owner;
 
-		std::vector<kNNParams> knn_params;
+  cumlHandle_impl *handle;
 
-		int total_n;
-		int indices;
-		int D;
-		bool verbose;
-		bool owner;
-
-		cumlHandle_impl *handle;
-
-
-    public:
-	    /**
+ public:
+  /**
 	     * Build a kNN object for training and querying a k-nearest neighbors model.
 	     * @param D     number of features in each vector
 	     */
-		kNN(const cumlHandle &handle, int D, bool verbose = false);
-		~kNN();
+  kNN(const cumlHandle &handle, int D, bool verbose = false);
+  ~kNN();
 
-        void reset();
+  void reset();
 
-        bool verify_size(size_t size, int device);
+  bool verify_size(size_t size, int device);
 
-
-        /**
+  /**
          * Search the kNN for the k-nearest neighbors of a set of query vectors
          * @param search_items set of vectors to query for neighbors
          * @param n            number of items in search_items
@@ -77,18 +71,18 @@ namespace ML {
          * @param res_D        pointer to device memory for returning k nearest distances
          * @param k            number of neighbors to query
          */
-		void search(const float *search_items, int search_items_size,
-		        long *res_I, float *res_D, int k);
+  void search(const float *search_items, int search_items_size, long *res_I,
+              float *res_D, int k);
 
-        /**
+  /**
          * Fit a kNN model by creating separate indices for multiple given
          * instances of kNNParams.
          * @param input  an array of pointers to data on (possibly different) devices
          * @param N      number of items in input array.
          */
-		void fit(kNNParams *input, int N);
+  void fit(kNNParams *input, int N);
 
-		/**
+  /**
 		 * Chunk a host array up into one or many GPUs (determined by the provided
 		 * list of gpu ids) and fit a knn model.
 		 *
@@ -98,14 +92,10 @@ namespace ML {
 		 * @param n_chunks  number of elements in gpus
 		 * @param out       host pointer to copy output
 		 */
-		void fit_from_host(float *ptr, int n, int* devices, int n_chunks);
+  void fit_from_host(float *ptr, int n, int *devices, int n_chunks);
 
-		template <class C>
-		void merge_tables(long n, long k, long nshard,
-							   float *distances, long *labels,
-							   float *all_distances,
-							   long *all_labels,
-							   long *translations);
-    };
-}
-
+  template <class C>
+  void merge_tables(long n, long k, long nshard, float *distances, long *labels,
+                    float *all_distances, long *all_labels, long *translations);
+};
+}  // namespace ML
