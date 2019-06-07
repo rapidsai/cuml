@@ -44,9 +44,8 @@ def uncommittedFiles():
     Returns a list of all changed files that are not yet committed. This
     means both untracked/unstaged as well as uncommitted files too.
     """
-    files = __gitdiff("--name-only", "--cached", "--ignore-submodules")
-    ret = files.splitlines()
     files = __git("status", "-u", "-s")
+    ret = []
     for f in files.splitlines():
         f = f.decode(encoding='UTF-8')
         f = f.strip(" ")
@@ -54,7 +53,7 @@ def uncommittedFiles():
         # only consider staged files or uncommitted files
         # in other words, ignore untracked files
         if tmp[0] == "M" or tmp[0] == "A":
-            ret.append(tmp[1])
+            ret.append(tmp[1].strip(" "))
     return ret
 
 
