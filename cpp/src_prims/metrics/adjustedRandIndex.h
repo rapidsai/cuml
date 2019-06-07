@@ -62,9 +62,9 @@ namespace Metrics {
 */
 template <typename T>
 double computeAdjustedRandIndex(
-  T* firstClusterArray, T* secondClusterArray, int size, T lowerLabelRange,
-  T upperLabelRange, std::shared_ptr<MLCommon::deviceAllocator> allocator,
-  cudaStream_t stream) {
+  const T* firstClusterArray, const T* secondClusterArray, const int size,
+  const T lowerLabelRange, const T upperLabelRange,
+  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 

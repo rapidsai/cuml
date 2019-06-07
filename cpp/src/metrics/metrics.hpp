@@ -85,8 +85,10 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
          * @param upper_class_range: the highest value in the range of classes
          * @return: The adjusted rand index value
          */
-double adjustedRandIndex(const cumlHandle &handle, int *y, int *y_hat, int n,
-                         int lower_class_range, int upper_class_range);
+double adjustedRandIndex(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range);
 
 }  // namespace Metrics
 }  // namespace ML
