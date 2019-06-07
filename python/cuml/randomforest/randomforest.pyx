@@ -28,10 +28,10 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         pass
 
     cdef cppclass rfClassifier[T]:
-        rfClassifier (RF_params ) except +
+        rfClassifier (RF_params) except +
 
     cdef void fit(cumlHandle & handle,
-                  rfClassifier [float] *,
+                  rfClassifier[float] *,
                   float *,
                   int,
                   int,
@@ -39,7 +39,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                   int)
 
     cdef void fit(cumlHandle& handle,
-                  rfClassifier [double] *,
+                  rfClassifier[double] *,
                   double *,
                   int,
                   int,
@@ -47,7 +47,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                   int)
 
     cdef void predict(cumlHandle& handle,
-                      rfClassifier [float] *,
+                      rfClassifier[float] *,
                       float *,
                       int,
                       int,
@@ -55,7 +55,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                       bool)
 
     cdef void predict(cumlHandle& handle,
-                      rfClassifier [double] *,
+                      rfClassifier[double] *,
                       double *,
                       int,
                       int,
@@ -78,7 +78,8 @@ class RandomForest(Base):
     Description and example code
     """
     def set_rf_class_obj(self, max_depth, max_leaves, max_features,
-                         n_bins, split_algo, min_rows_per_node, bootstrap_features,
+                         n_bins, split_algo, min_rows_per_node,
+                         bootstrap_features,
                          bootstrap, n_trees, row_sample):
 
         rf_param = set_rf_class_obj(<int> max_depth, <int> max_leaves,
@@ -161,9 +162,9 @@ class RandomForest(Base):
                                         self.bootstrap, self.n_estimators,
                                         self.rows_sample)
 
-        cdef rfClassifier [float] *rf_classifier32 = new \
+        cdef rfClassifier[float] *rf_classifier32 = new \
             rfClassifier[float](rf_param_obj)
-        cdef rfClassifier [double] *rf_classifier64 = new \
+        cdef rfClassifier[double] *rf_classifier64 = new \
             rfClassifier[double](rf_param_obj)
         pdb.set_trace()
         print("just before calling the fit function")
@@ -227,9 +228,9 @@ class RandomForest(Base):
                                         self.bootstrap_features,
                                         self.bootstrap,
                                         self.n_estimators, self.rows_sample)
-        cdef rfClassifier [float] *rf_classifier_pred32 = new \
+        cdef rfClassifier[float] *rf_classifier_pred32 = new \
             rfClassifier[float](rf_param_obj)
-        cdef rfClassifier [double] *rf_classifier_pred64 = new \
+        cdef rfClassifier[double] *rf_classifier_pred64 = new \
             rfClassifier[double](rf_param_obj)
 
         if self.gdf_datatype.type == np.float32:
