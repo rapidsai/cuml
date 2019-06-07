@@ -18,13 +18,11 @@
 
 #include "linalg/reduce.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
 /** different types of norms supported on the input buffers */
 enum NormType { L1Norm = 0, L2Norm };
-
 
 /**
  * @brief Compute row-wise norm of the input matrix and perform fin_op lambda
@@ -65,7 +63,6 @@ void rowNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
   };
 }
 
-
 /**
  * @brief Compute column-wise norm of the input matrix and perform fin_op
  * @tparam Type the data type
@@ -99,5 +96,5 @@ void colNorm(Type *dots, const Type *data, IdxType D, IdxType N, NormType type,
   };
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

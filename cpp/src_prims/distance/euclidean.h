@@ -53,9 +53,9 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
-                    OutType *pD, bool enable_sqrt, AccType *workspace,
-                    size_t &worksize, FinalLambda fin_op,
+void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
+                    InType const *pB, OutType *pD, bool enable_sqrt,
+                    AccType *workspace, size_t &worksize, FinalLambda fin_op,
                     cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<L2FusedDistance>
     FragmentMultiplyAdd_;
@@ -88,12 +88,14 @@ void euclideanAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
-                    OutType *pD, bool enable_sqrt, FinalLambda fin_op,
-                    cudaStream_t stream) {
+void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA,
+                    InType const *pB, OutType *pD, bool enable_sqrt,
+                    FinalLambda fin_op, cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
-  EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
+  typedef typename std::conditional<is_bool::value, AccType, OutType>::type
+    EffOutType;
+  EffOutType *pDCast =
+    reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef LinAlg::ThreadDiffSquaredAdd<
@@ -109,10 +111,11 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
                                             FragmentMultiplyAdd_>
     EpilogueFunctor_;
 
-  typedef typename std::conditional<is_bool::value,
+  typedef typename std::conditional<
+    is_bool::value,
     BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-    cutlass::gemm::GemmEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>>::type
-    EpilogueTraitsHelper_;
+    cutlass::gemm::GemmEpilogueTraitsHelper<
+      GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
 
   typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
@@ -124,14 +127,14 @@ void euclideanAlgo2(Index_ m, Index_ n, Index_ k, InType const *pA, InType const
                    AccumulatorsPerThread_, MainLoopFunctor_, Index_,
                    GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
                    GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k, (EffOutType)0,
-    nullptr, n, pDCast,
-    [enable_sqrt] HD (EpiParams & p) {
+    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
+    (EffOutType)0, nullptr, n, pDCast,
+    [enable_sqrt] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, enable_sqrt);
       return err;
     },
     fin_op, stream);
 }
 
-}; // end namespace Distance
-}; // end namespace MLCommon
+};  // end namespace Distance
+};  // end namespace MLCommon

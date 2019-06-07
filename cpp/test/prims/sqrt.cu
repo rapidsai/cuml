@@ -23,8 +23,7 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type>
-__global__ void naiveSqrtElemKernel(Type *out, const Type *in1,
-                                    int len) {
+__global__ void naiveSqrtElemKernel(Type *out, const Type *in1, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
     out[idx] = mySqrt(in1[idx]);
@@ -53,7 +52,7 @@ template <typename T>
 
 template <typename T>
 class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -78,7 +77,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   SqrtInputs<T> params;
   T *in1, *out_ref, *out;
   int device_count = 0;
@@ -97,7 +96,6 @@ TEST_P(SqrtTestF, Result) {
 
   ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
                           CompareApprox<float>(params.tolerance)));
-
 }
 
 typedef SqrtTest<double> SqrtTestD;
@@ -109,11 +107,9 @@ TEST_P(SqrtTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 
-INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF,
-                        ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestD,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestD, ::testing::ValuesIn(inputsd2));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

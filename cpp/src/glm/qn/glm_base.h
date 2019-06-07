@@ -16,16 +16,16 @@
 
 #pragma once
 
+#include <glm/qn/simple_mat.h>
+#include <linalg/matrix_vector_op.h>
+#include <vector>
 #include "cuda_utils.h"
-#include "utils.h"
 #include "linalg/add.h"
 #include "linalg/binary_op.h"
 #include "linalg/cublas_wrappers.h"
 #include "linalg/map_then_reduce.h"
 #include "stats/mean.h"
-#include <glm/qn/simple_mat.h>
-#include <linalg/matrix_vector_op.h>
-#include <vector>
+#include "utils.h"
 
 namespace ML {
 namespace GLM {
@@ -81,25 +81,24 @@ inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
 }
 
 struct GLMDims {
-
   bool fit_intercept;
   int C, D, dims, n_param;
   GLMDims(int C, int D, bool fit_intercept)
-      : C(C), D(D), fit_intercept(fit_intercept) {
+    : C(C), D(D), fit_intercept(fit_intercept) {
     dims = D + fit_intercept;
     n_param = dims * C;
   }
 };
 
-template <typename T, class Loss> struct GLMBase : GLMDims {
-
+template <typename T, class Loss>
+struct GLMBase : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
   const cumlHandle_impl &handle;
 
   GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
-      : GLMDims(C, D, fit_intercept), handle(handle) {}
+    : GLMDims(C, D, fit_intercept), handle(handle) {}
 
   /*
    * Computes the following:
@@ -110,7 +109,6 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
    */
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
                            cudaStream_t stream) {
-
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
     T invN = 1.0 / y.len;
@@ -134,16 +132,17 @@ template <typename T, class Loss> struct GLMBase : GLMDims {
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
                         const SimpleMat<T> &Xb, const Vec &yb, Mat &Zb,
                         cudaStream_t stream, bool initGradZero = true) {
-    Loss *loss = static_cast<Loss *>(this); // static polymorphism
+    Loss *loss = static_cast<Loss *>(this);  // static polymorphism
 
-    linearFwd(handle, Zb, Xb, W, stream);         // linear part: forward pass
-    loss->getLossAndDZ(loss_val, Zb, yb, stream); // loss specific part
+    linearFwd(handle, Zb, Xb, W, stream);          // linear part: forward pass
+    loss->getLossAndDZ(loss_val, Zb, yb, stream);  // loss specific part
     linearBwd(handle, G, Xb, Zb, initGradZero,
-              stream); // linear part: backward pass
+              stream);  // linear part: backward pass
   }
 };
 
-template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
+template <typename T, class GLMObjective>
+struct GLMWithData : GLMDims {
   typedef SimpleMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
@@ -155,8 +154,11 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
 
   GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N,
               STORAGE_ORDER ordX)
-      : objective(obj), X(Xptr, N, obj->D, ordX), y(yptr, N),
-        Z(Zptr, obj->C, N), GLMDims(obj->C, obj->D, obj->fit_intercept) {}
+    : objective(obj),
+      X(Xptr, N, obj->D, ordX),
+      y(yptr, N),
+      Z(Zptr, obj->C, N),
+      GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 
   // interface exposed to typical non-linear optimizers
   inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
@@ -172,5 +174,5 @@ template <typename T, class GLMObjective> struct GLMWithData : GLMDims {
   }
 };
 
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML
