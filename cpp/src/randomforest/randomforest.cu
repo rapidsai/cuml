@@ -242,6 +242,26 @@ void rf<T, L>::prepare_fit_per_tree(const ML::cumlHandle_impl& handle, int tree_
 	}
 }
 
+template<typename T, typename L>
+void rf<T, L>::error_checking(const T * input, L * predictions, int n_rows, int n_cols, bool predict) const {
+
+	if (predict) {
+		ASSERT(get_trees_ptr(), "Cannot predict! No trees in the forest.");
+		ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
+	} else {
+		ASSERT(!get_trees_ptr(), "Cannot fit an existing forest.");
+	}
+	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
+	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+
+	bool input_is_dev_ptr  = is_dev_ptr(input);
+	bool preds_is_dev_ptr = is_dev_ptr(predictions);
+
+	if (!input_is_dev_ptr || (input_is_dev_ptr != preds_is_dev_ptr)) {
+		ASSERT(false, "RF Error: Expected both input and labels/predictions to be GPU pointers");
+	}
+}
+
 /**
  * @brief Construct rfClassifier object.
  * @tparam T: data type for input data (float or double).
@@ -284,9 +304,7 @@ const DecisionTree::DecisionTreeClassifier<T> * rfClassifier<T>::get_trees_ptr()
 template <typename T>
 void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
 
-	ASSERT(!trees, "Cannot fit an existing forest.");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+	this->error_checking(input, labels, n_rows, n_cols, false);
 
 	trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
 
@@ -344,14 +362,16 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 template<typename T>
 void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, int * predictions, bool verbose) const {
 
-	ASSERT(trees, "Cannot predict! No trees in the forest.");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
+	this->error_checking(input, predictions, n_rows, n_cols, true);
 
 	std::vector<int> h_predictions(n_rows);
 	const cumlHandle_impl& handle = user_handle.getImpl();
 	cudaStream_t stream = user_handle.getStream();
+
+	std::vector<T> h_input(n_rows * n_cols);
+	MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
+
 
 	int row_size = n_cols;
 
@@ -360,7 +380,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 		if (verbose) {
 			std::cout << "\n\n";
 			std::cout << "Predict for sample: ";
-			for (int i = 0; i < n_cols; i++) std::cout << input[row_id*row_size + i] << ", ";
+			for (int i = 0; i < n_cols; i++) std::cout << h_input[row_id*row_size + i] << ", ";
 			std::cout << std::endl;
 		}
 
@@ -376,7 +396,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 				trees[i].print();
 			}
 			int prediction;
-			trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
+			trees[i].predict(user_handle, &h_input[row_id * row_size], 1, n_cols, &prediction, verbose);
 			ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
 			if (!(ret.second)) {
 				ret.first->second += 1;
@@ -461,9 +481,7 @@ const DecisionTree::DecisionTreeRegressor<T> * rfRegressor<T>::get_trees_ptr() c
 template <typename T>
 void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, T * labels) {
 
-	ASSERT(!trees, "Cannot fit an existing forest.");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+	this->error_checking(input, labels, n_rows, n_cols, false);
 
 	trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
 
@@ -521,14 +539,15 @@ void rfRegressor<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, i
 template<typename T>
 void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int n_rows, int n_cols, T * predictions, bool verbose) const {
 
-	ASSERT(trees, "Cannot predict! No trees in the forest.");
-	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
-	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
+	this->error_checking(input, predictions, n_rows, n_cols, true);
 
 	std::vector<T> h_predictions(n_rows);
 	const cumlHandle_impl& handle = user_handle.getImpl();
 	cudaStream_t stream = user_handle.getStream();
+
+	std::vector<T> h_input(n_rows * n_cols);
+	MLCommon::updateHost(h_input.data(), input, n_rows * n_cols, stream);
+	CUDA_CHECK(cudaStreamSynchronize(stream));
 
 	int row_size = n_cols;
 
@@ -537,7 +556,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 		if (verbose) {
 			std::cout << "\n\n";
 			std::cout << "Predict for sample: ";
-			for (int i = 0; i < n_cols; i++) std::cout << input[row_id*row_size + i] << ", ";
+			for (int i = 0; i < n_cols; i++) std::cout << h_input[row_id*row_size + i] << ", ";
 			std::cout << std::endl;
 		}
 
@@ -550,7 +569,7 @@ void rfRegressor<T>::predict(const cumlHandle& user_handle, const T * input, int
 				trees[i].print();
 			}
 			T prediction;
-			trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
+			trees[i].predict(user_handle, &h_input[row_id * row_size], 1, n_cols, &prediction, verbose);
 			sum_predictions += prediction;
 		}
 		// Random forest's prediction is the arithmetic mean of all its decision tree predictions.
