@@ -140,7 +140,7 @@ class RandomForest(Base):
             < cumlHandle * > < size_t > self.handle.getHandle()
 
         n_unique_labels = 2
-        rf_param_obj = set_rf_class_obj(self.max_depth, self.max_leaves, self.max_features, self.n_bins, self.split_algo, self.min_rows_per_node, self.bootstrap_features, self.bootstrap, self.n_estimators, self.row_sample)
+        rf_param_obj = set_rf_class_obj(self.max_depth, self.max_leaves, self.max_features, self.n_bins, self.split_algo, self.min_rows_per_node, self.bootstrap_features, self.bootstrap, self.n_estimators, self.rows_sample)
         cdef rfClassifier [float] *rf_classifier32 = new rfClassifier[float](rf_param_obj)
         cdef rfClassifier [double] *rf_classifier64 = new rfClassifier[double](rf_param_obj)
         pdb.set_trace()
