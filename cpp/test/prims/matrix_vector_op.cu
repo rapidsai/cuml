@@ -19,7 +19,6 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -43,20 +42,23 @@ template <typename T, typename IdxType>
 template <typename T, typename IdxType>
 void matrixVectorOpLaunch(T *out, const T *in, const T *vec1, const T *vec2,
                           IdxType D, IdxType N, bool rowMajor,
-                          bool bcastAlongRows, bool useTwoVectors, cudaStream_t stream) {
-  if(useTwoVectors) {
-    matrixVectorOp(out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
-                   [] __device__(T a, T b, T c) { return a + b + c; }, stream);
+                          bool bcastAlongRows, bool useTwoVectors,
+                          cudaStream_t stream) {
+  if (useTwoVectors) {
+    matrixVectorOp(
+      out, in, vec1, vec2, D, N, rowMajor, bcastAlongRows,
+      [] __device__(T a, T b, T c) { return a + b + c; }, stream);
   } else {
-    matrixVectorOp(out, in, vec1, D, N, rowMajor, bcastAlongRows,
-                   [] __device__(T a, T b) { return a + b; }, stream);
+    matrixVectorOp(
+      out, in, vec1, D, N, rowMajor, bcastAlongRows,
+      [] __device__(T a, T b) { return a + b; }, stream);
   }
 }
 
 template <typename T, typename IdxType>
-class MatVecOpTest :
-  public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
-protected:
+class MatVecOpTest
+  : public ::testing::TestWithParam<MatVecOpInputs<T, IdxType>> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MatVecOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
@@ -73,7 +75,7 @@ protected:
     r.uniform(in, len, (T)-1.0, (T)1.0, stream);
     r.uniform(vec1, vecLen, (T)-1.0, (T)1.0, stream);
     r.uniform(vec2, vecLen, (T)-1.0, (T)1.0, stream);
-    if(params.useTwoVectors) {
+    if (params.useTwoVectors) {
       naiveMatVec(out_ref, in, vec1, vec2, D, N, params.rowMajor,
                   params.bcastAlongRows, (T)1.0);
     } else {
@@ -93,11 +95,10 @@ protected:
     CUDA_CHECK(cudaFree(in));
   }
 
-protected:
+ protected:
   MatVecOpInputs<T, IdxType> params;
   T *in, *out, *out_ref, *vec1, *vec2;
 };
-
 
 const std::vector<MatVecOpInputs<float, int>> inputsf_i32 = {
   {0.00001f, 1024, 32, true, true, false, 1234ULL},
@@ -125,7 +126,6 @@ TEST_P(MatVecOpTestF_i32, Result) {
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
 
-
 const std::vector<MatVecOpInputs<float, size_t>> inputsf_i64 = {
   {0.00001f, 2500, 250, false, false, false, 1234ULL},
   {0.00001f, 2500, 250, false, false, true, 1234ULL}};
@@ -136,7 +136,6 @@ TEST_P(MatVecOpTestF_i64, Result) {
 }
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
-
 
 const std::vector<MatVecOpInputs<double, int>> inputsd_i32 = {
   {0.0000001, 1024, 32, true, true, false, 1234ULL},
@@ -164,7 +163,6 @@ TEST_P(MatVecOpTestD_i32, Result) {
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
 
-
 const std::vector<MatVecOpInputs<double, size_t>> inputsd_i64 = {
   {0.0000001, 2500, 250, false, false, false, 1234ULL},
   {0.0000001, 2500, 250, false, false, true, 1234ULL}};
@@ -176,5 +174,5 @@ TEST_P(MatVecOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MatVecOpTests, MatVecOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

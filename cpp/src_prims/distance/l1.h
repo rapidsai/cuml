@@ -48,8 +48,10 @@ template <typename InType, typename AccType, typename OutType,
 void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
             OutType *pD, FinalLambda fin_op, cudaStream_t stream) {
   typedef std::is_same<OutType, bool> is_bool;
-  typedef typename std::conditional<is_bool::value, AccType, OutType>::type EffOutType;
-  EffOutType* pDCast = reinterpret_cast<EffOutType*>(pD); // Pretend to be EffOutType;
+  typedef typename std::conditional<is_bool::value, AccType, OutType>::type
+    EffOutType;
+  EffOutType *pDCast =
+    reinterpret_cast<EffOutType *>(pD);  // Pretend to be EffOutType;
 
   typedef cutlass::Shape<8, 8, 8> AccumulatorsPerThread_;
   typedef LinAlg::ThreadL1NormAdd<
@@ -65,10 +67,11 @@ void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
                                             FragmentMultiplyAdd_>
     EpilogueFunctor_;
 
-  typedef typename std::conditional<is_bool::value,
+  typedef typename std::conditional<
+    is_bool::value,
     BoolEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>,
-    cutlass::gemm::GemmEpilogueTraitsHelper<GemmConfig_, EpilogueFunctor_, Index_>>::type
-    EpilogueTraitsHelper_;
+    cutlass::gemm::GemmEpilogueTraitsHelper<
+      GemmConfig_, EpilogueFunctor_, Index_>>::type EpilogueTraitsHelper_;
 
   typedef typename cutlass::gemm::SimplifiedGemmEpilogueTraits<
     GemmConfig_, EpilogueFunctor_, Index_, EpilogueTraitsHelper_>
@@ -80,13 +83,13 @@ void l1Impl(int m, int n, int k, InType const *pA, InType const *pB,
                    AccumulatorsPerThread_, MainLoopFunctor_, Index_,
                    GemmConfig_, EpilogueFunctor_, GemmEpilogueTraits_,
                    GemmEpilogue_>(
-    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k, (EffOutType)0,
-    nullptr, n, pDCast,
-    [] HD (EpiParams & p) {
+    CUBLAS_OP_N, CUBLAS_OP_T, m, n, k, (EffOutType)1, pA, k, pB, k,
+    (EffOutType)0, nullptr, n, pDCast,
+    [] HD(EpiParams & p) {
       int err = p.initializeExtra(nullptr, nullptr, false);
       return err;
     },
     fin_op, stream);
 }
-}
-}
+}  // namespace Distance
+}  // namespace MLCommon

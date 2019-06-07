@@ -15,150 +15,166 @@
  */
 
 #pragma once
-#include <utils.h>
-#include "cub/cub.cuh"
 #include <thrust/extrema.h>
-#include "common/cumlHandle.hpp"
+#include <utils.h>
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include "common/cumlHandle.hpp"
+#include "cub/cub.cuh"
 
-template<class T>
-struct TemporaryMemory
-{
-	// Labels after boostrapping
-	MLCommon::device_buffer<int> *sampledlabels;
+template <class T>
+struct TemporaryMemory {
+  // Labels after boostrapping
+  MLCommon::device_buffer<int> *sampledlabels;
 
-	// Used for gini histograms (root tree node)
-	MLCommon::device_buffer<int> *d_hist;
-	MLCommon::host_buffer<int> *h_hist;
+  // Used for gini histograms (root tree node)
+  MLCommon::device_buffer<int> *d_hist;
+  MLCommon::host_buffer<int> *h_hist;
 
-	//Host/Device histograms and device minmaxs
-	MLCommon::device_buffer<T> *d_globalminmax;
-	MLCommon::device_buffer<int> *d_histout, *d_colids;
-	MLCommon::host_buffer<int> *h_histout;
+  //Host/Device histograms and device minmaxs
+  MLCommon::device_buffer<T> *d_globalminmax;
+  MLCommon::device_buffer<int> *d_histout, *d_colids;
+  MLCommon::host_buffer<int> *h_histout;
 
-	//Below pointers are shared for split functions
-	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
-	MLCommon::host_buffer<int> *nrowsleftright;
-	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
-	size_t split_temp_storage_bytes = 0;
+  //Below pointers are shared for split functions
+  MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
+  MLCommon::host_buffer<int> *nrowsleftright;
+  MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
+  size_t split_temp_storage_bytes = 0;
 
-	MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
-	MLCommon::device_buffer<T> *question_value, *temp_data;
+  MLCommon::device_buffer<int> *d_num_selected_out, *temprowids;
+  MLCommon::device_buffer<T> *question_value, *temp_data;
 
-	//Total temp mem
-	size_t totalmem = 0;
+  //Total temp mem
+  size_t totalmem = 0;
 
-	//CUDA stream
-	cudaStream_t stream;
+  //CUDA stream
+  cudaStream_t stream;
 
-	//For quantiles
-	MLCommon::device_buffer<T> *d_quantile = nullptr;
-	MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
+  //For quantiles
+  MLCommon::device_buffer<T> *d_quantile = nullptr;
+  MLCommon::device_buffer<T> *d_temp_sampledcolumn = nullptr;
 
-	const ML::cumlHandle_impl& ml_handle;
+  const ML::cumlHandle_impl &ml_handle;
 
-	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
-	{
-		
-		//Assign Stream from cumlHandle
-		stream = ml_handle.getStream();
-		
-		int n_hist_elements = n_unique * n_bins;
+  TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
+                  int maxstr, int n_unique, int n_bins, const int split_algo)
+    : ml_handle(handle) {
+    //Assign Stream from cumlHandle
+    stream = ml_handle.getStream();
 
-		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
-		d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements);
-		nrowsleftright = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, 2);
-		
-		int extra_elements = Ncols;
-		int quantile_elements = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
+    int n_hist_elements = n_unique * n_bins;
 
-		temp_data = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, N * extra_elements);
-		totalmem += n_hist_elements * sizeof(int) + N * extra_elements * sizeof(T);
+    h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream,
+                                            n_hist_elements);
+    d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(),
+                                              stream, n_hist_elements);
+    nrowsleftright =
+      new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, 2);
 
-		if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-			d_quantile = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, n_bins * quantile_elements);
-			d_temp_sampledcolumn = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, N * extra_elements);
-			totalmem += (n_bins + N) * extra_elements * sizeof(T);
-		}
+    int extra_elements = Ncols;
+    int quantile_elements =
+      (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
 
-		sampledlabels = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
-		totalmem += N*sizeof(int);
+    temp_data = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(),
+                                               stream, N * extra_elements);
+    totalmem += n_hist_elements * sizeof(int) + N * extra_elements * sizeof(T);
 
-		//Allocate Temporary for split functions
-		d_num_selected_out = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, 1);
-		d_flags_left = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
-		d_flags_right = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
-		temprowids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
-		question_value = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
+    if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
+      d_quantile = new MLCommon::device_buffer<T>(
+        handle.getDeviceAllocator(), stream, n_bins * quantile_elements);
+      d_temp_sampledcolumn = new MLCommon::device_buffer<T>(
+        handle.getDeviceAllocator(), stream, N * extra_elements);
+      totalmem += (n_bins + N) * extra_elements * sizeof(T);
+    }
 
-		cub::DeviceSelect::Flagged(d_split_temp_storage, split_temp_storage_bytes, temprowids->data(), d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
-		d_split_temp_storage = new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, split_temp_storage_bytes);
+    sampledlabels =
+      new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
+    totalmem += N * sizeof(int);
 
-		totalmem += split_temp_storage_bytes + (N + 1)*sizeof(int) + 2*N*sizeof(char) + sizeof(T);
+    //Allocate Temporary for split functions
+    d_num_selected_out =
+      new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, 1);
+    d_flags_left =
+      new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
+    d_flags_right =
+      new MLCommon::device_buffer<char>(handle.getDeviceAllocator(), stream, N);
+    temprowids =
+      new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, N);
+    question_value =
+      new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, 1);
 
-		h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements * Ncols);
+    cub::DeviceSelect::Flagged(
+      d_split_temp_storage, split_temp_storage_bytes, temprowids->data(),
+      d_flags_left->data(), temprowids->data(), d_num_selected_out->data(), N);
+    d_split_temp_storage = new MLCommon::device_buffer<char>(
+      handle.getDeviceAllocator(), stream, split_temp_storage_bytes);
 
-		d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(), stream, Ncols * 2);
-		d_histout = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
-		d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, Ncols);
-		totalmem += (n_hist_elements * sizeof(int) + sizeof(int) + 2*sizeof(T))* Ncols;
+    totalmem += split_temp_storage_bytes + (N + 1) * sizeof(int) +
+                2 * N * sizeof(char) + sizeof(T);
 
-	}
+    h_histout = new MLCommon::host_buffer<int>(handle.getHostAllocator(),
+                                               stream, n_hist_elements * Ncols);
 
-	void print_info()
-	{
-		std::cout << " Total temporary memory usage--> "<< ((double)totalmem/ (1024*1024)) << "  MB" << std::endl;
-		return;
-	}
+    d_globalminmax = new MLCommon::device_buffer<T>(handle.getDeviceAllocator(),
+                                                    stream, Ncols * 2);
+    d_histout = new MLCommon::device_buffer<int>(
+      handle.getDeviceAllocator(), stream, n_hist_elements * Ncols);
+    d_colids = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(),
+                                                stream, Ncols);
+    totalmem +=
+      (n_hist_elements * sizeof(int) + sizeof(int) + 2 * sizeof(T)) * Ncols;
+  }
 
-	~TemporaryMemory()
-	{
+  void print_info() {
+    std::cout << " Total temporary memory usage--> "
+              << ((double)totalmem / (1024 * 1024)) << "  MB" << std::endl;
+    return;
+  }
 
-		h_hist->release(stream);
-		d_hist->release(stream);
-		nrowsleftright->release(stream);
-		temp_data->release(stream);
+  ~TemporaryMemory() {
+    h_hist->release(stream);
+    d_hist->release(stream);
+    nrowsleftright->release(stream);
+    temp_data->release(stream);
 
-		delete h_hist;
-		delete d_hist;
-		delete temp_data;
+    delete h_hist;
+    delete d_hist;
+    delete temp_data;
 
-		if (d_quantile != nullptr) {
-			d_quantile->release(stream);
-			delete d_quantile;
-		}
-		if (d_temp_sampledcolumn != nullptr) {
-			d_temp_sampledcolumn->release(stream);
-			delete d_temp_sampledcolumn;
-		}
+    if (d_quantile != nullptr) {
+      d_quantile->release(stream);
+      delete d_quantile;
+    }
+    if (d_temp_sampledcolumn != nullptr) {
+      d_temp_sampledcolumn->release(stream);
+      delete d_temp_sampledcolumn;
+    }
 
-		sampledlabels->release(stream);
-		d_split_temp_storage->release(stream);
-		d_num_selected_out->release(stream);
-		d_flags_left->release(stream);
-		d_flags_right->release(stream);
-		temprowids->release(stream);
-		question_value->release(stream);
-		h_histout->release(stream);
+    sampledlabels->release(stream);
+    d_split_temp_storage->release(stream);
+    d_num_selected_out->release(stream);
+    d_flags_left->release(stream);
+    d_flags_right->release(stream);
+    temprowids->release(stream);
+    question_value->release(stream);
+    h_histout->release(stream);
 
-		delete sampledlabels;
-		delete d_split_temp_storage;
-		delete d_num_selected_out;
-		delete d_flags_left;
-		delete d_flags_right;
-		delete temprowids;
-		delete question_value;
-		delete h_histout;
+    delete sampledlabels;
+    delete d_split_temp_storage;
+    delete d_num_selected_out;
+    delete d_flags_left;
+    delete d_flags_right;
+    delete temprowids;
+    delete question_value;
+    delete h_histout;
 
-		d_globalminmax->release(stream);
-		d_histout->release(stream);
-		d_colids->release(stream);
+    d_globalminmax->release(stream);
+    d_histout->release(stream);
+    d_colids->release(stream);
 
-		delete d_globalminmax;
-		delete d_histout;
-		delete d_colids;
-
-	}
-
+    delete d_globalminmax;
+    delete d_histout;
+    delete d_colids;
+  }
 };

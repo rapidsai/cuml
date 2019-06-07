@@ -16,11 +16,10 @@
 
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
-#include "reduce.h"
 #include "linalg/reduce.h"
 #include "random/rng.h"
+#include "reduce.h"
 #include "test_utils.h"
-
 
 namespace MLCommon {
 namespace LinAlg {
@@ -50,29 +49,29 @@ void reduceLaunch(T *dots, const T *data, int cols, int rows, bool rowMajor,
 
 template <typename T>
 class ReduceTest : public ::testing::TestWithParam<ReduceInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReduceInputs<T>>::GetParam();
     Random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
-    outlen = params.alongRows? rows : cols;
+    outlen = params.alongRows ? rows : cols;
     allocate(data, len);
     allocate(dots_exp, outlen);
     allocate(dots_act, outlen);
     r.uniform(data, len, T(-1.0), T(1.0), stream);
-    naiveReduction(dots_exp, data, cols, rows, params.rowMajor, params.alongRows,
-                   stream);
+    naiveReduction(dots_exp, data, cols, rows, params.rowMajor,
+                   params.alongRows, stream);
 
     // Perform reduction with default inplace = false first
     reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,
                  false, stream);
     // Add to result with inplace = true next, which shouldn't affect
     // in the case of coalescedReduction!
-    if(!(params.rowMajor ^ params.alongRows)) {
-      reduceLaunch(dots_act, data, cols, rows, params.rowMajor, params.alongRows,
-                   true, stream);
+    if (!(params.rowMajor ^ params.alongRows)) {
+      reduceLaunch(dots_act, data, cols, rows, params.rowMajor,
+                   params.alongRows, true, stream);
     }
   }
 
@@ -83,7 +82,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   ReduceInputs<T> params;
   T *data, *dots_exp, *dots_act;
   int outlen;
@@ -91,38 +90,38 @@ protected:
 };
 
 const std::vector<ReduceInputs<float>> inputsf = {
-  {0.000002f, 1024,  32, true, true, 1234ULL},
-  {0.000002f, 1024,  64, true, true, 1234ULL},
+  {0.000002f, 1024, 32, true, true, 1234ULL},
+  {0.000002f, 1024, 64, true, true, 1234ULL},
   {0.000002f, 1024, 128, true, true, 1234ULL},
   {0.000002f, 1024, 256, true, true, 1234ULL},
-  {0.000002f, 1024,  32, true, false, 1234ULL},
-  {0.000002f, 1024,  64, true, false, 1234ULL},
+  {0.000002f, 1024, 32, true, false, 1234ULL},
+  {0.000002f, 1024, 64, true, false, 1234ULL},
   {0.000002f, 1024, 128, true, false, 1234ULL},
   {0.000002f, 1024, 256, true, false, 1234ULL},
-  {0.000002f, 1024,  32, false, true, 1234ULL},
-  {0.000002f, 1024,  64, false, true, 1234ULL},
+  {0.000002f, 1024, 32, false, true, 1234ULL},
+  {0.000002f, 1024, 64, false, true, 1234ULL},
   {0.000002f, 1024, 128, false, true, 1234ULL},
   {0.000002f, 1024, 256, false, true, 1234ULL},
-  {0.000002f, 1024,  32, false, false, 1234ULL},
-  {0.000002f, 1024,  64, false, false, 1234ULL},
+  {0.000002f, 1024, 32, false, false, 1234ULL},
+  {0.000002f, 1024, 64, false, false, 1234ULL},
   {0.000002f, 1024, 128, false, false, 1234ULL},
   {0.000002f, 1024, 256, false, false, 1234ULL}};
 
 const std::vector<ReduceInputs<double>> inputsd = {
-  {0.000000001, 1024,  32, true, true, 1234ULL},
-  {0.000000001, 1024,  64, true, true, 1234ULL},
+  {0.000000001, 1024, 32, true, true, 1234ULL},
+  {0.000000001, 1024, 64, true, true, 1234ULL},
   {0.000000001, 1024, 128, true, true, 1234ULL},
   {0.000000001, 1024, 256, true, true, 1234ULL},
-  {0.000000001, 1024,  32, true, false, 1234ULL},
-  {0.000000001, 1024,  64, true, false, 1234ULL},
+  {0.000000001, 1024, 32, true, false, 1234ULL},
+  {0.000000001, 1024, 64, true, false, 1234ULL},
   {0.000000001, 1024, 128, true, false, 1234ULL},
   {0.000000001, 1024, 256, true, false, 1234ULL},
-  {0.000000001, 1024,  32, false, true, 1234ULL},
-  {0.000000001, 1024,  64, false, true, 1234ULL},
+  {0.000000001, 1024, 32, false, true, 1234ULL},
+  {0.000000001, 1024, 64, false, true, 1234ULL},
   {0.000000001, 1024, 128, false, true, 1234ULL},
   {0.000000001, 1024, 256, false, true, 1234ULL},
-  {0.000000001, 1024,  32, false, false, 1234ULL},
-  {0.000000001, 1024,  64, false, false, 1234ULL},
+  {0.000000001, 1024, 32, false, false, 1234ULL},
+  {0.000000001, 1024, 64, false, false, 1234ULL},
   {0.000000001, 1024, 128, false, false, 1234ULL},
   {0.000000001, 1024, 256, false, false, 1234ULL}};
 
@@ -142,5 +141,5 @@ INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(ReduceTests, ReduceTestD, ::testing::ValuesIn(inputsd));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon
