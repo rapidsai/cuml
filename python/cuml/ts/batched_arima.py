@@ -408,11 +408,16 @@ def batch_trans(p, q, nb, x):
     mu, ar, ma = unpack(p, q, nb, x)
     ar2 = []
     ma2 = []
+    np.seterr(all='raise')
+
     for ib in range(nb):
         ari = sm_tools._ar_transparams(np.copy(ar[ib]))
         mai = sm_tools._ma_transparams(np.copy(ma[ib]))
         ar2.append(ari)
         ma2.append(mai)
+
+    np.seterr(all='warn')
+
     Tx = pack(p, q, nb, mu, ar2, ma2)
     return Tx
 

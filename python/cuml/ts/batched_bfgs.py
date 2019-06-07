@@ -149,9 +149,17 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             # compute alpha for the global optimization problem
             if ls_option == 1:
                 # set_trace()
-                alpha, fc, gc, fkp1, fkm1, _ = optimize.line_search(f, g,
-                                                                    xk,
-                                                                    pk, amax=alpha_max)
+                try:
+                    alpha, fc, gc, fkp1, fkm1, _ = optimize.line_search(f, g,
+                                                                        xk,
+                                                                        pk, amax=alpha_max)
+                except FloatingPointError as fpe:
+                    # Reset H to identity to force pk to be gradient descent
+                    print("INFO: Caught invalid step (FloatingPointError={}), resetting H=I".format(fpe))
+                    Hk = Batched_I()
+                    
+                    continue
+
                 if fkp1 is None or alpha is None:
                     # set_trace()
                     if disp > 0:
