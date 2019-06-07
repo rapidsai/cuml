@@ -40,8 +40,10 @@ double randIndex(const cumlHandle &handle, const double *y, const double *y_hat,
     y, y_hat, (uint64_t)n, handle.getDeviceAllocator(), handle.getStream());
 }
 
-double adjustedRandIndex(const cumlHandle &handle, int *y, int *y_hat, int n,
-                         int lower_class_range, int upper_class_range) {
+double adjustedRandIndex(const cumlHandle &handle, const int *y,
+                         const int *y_hat, const int n,
+                         const int lower_class_range,
+                         const int upper_class_range) {
   return MLCommon::Metrics::computeAdjustedRandIndex(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.getDeviceAllocator(), handle.getStream());
