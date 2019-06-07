@@ -28,7 +28,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
         pass
 
     cdef cppclass rfClassifier[T]:
-        rfClassifier (RF_params) except +
+        rfClassifier(RF_params) except +
 
     cdef void fit(cumlHandle & handle,
                   rfClassifier[float] *,
@@ -72,6 +72,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
                                     bool, bool, int, int)
+
 
 class RandomForest(Base):
     """
