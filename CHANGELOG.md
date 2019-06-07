@@ -31,6 +31,7 @@
 - PR #640: Remove setuptools from conda run dependency
 - PR #646: Update link in contributing.md
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
+- PR #664: Fix clang-format handling of changes staged for commit
 
 # cuML 0.7.0 (10 May 2019)
 
