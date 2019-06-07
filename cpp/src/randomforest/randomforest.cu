@@ -16,7 +16,6 @@
 
 
 #include "randomforest.h"
-#include "rf_basic.h"
 #include <iostream>
 #include <utils.h>
 #include "random/rng.h"
@@ -91,6 +90,10 @@ void postprocess_labels(int n_rows, std::vector<int> & labels, std::map<int, int
 	if (verbose) std::cout << "Finished postrocessing labels\n";
 }
 
+/**
+ * @brief Random forest default constructor.
+ */
+RF_params::RF_params():n_trees(1) {}
 /**
  * @brief Random forest hyper-parameter object constructor to set n_trees member.
  */
