@@ -110,17 +110,17 @@ namespace {
     }
 }
 
-void initialize_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank, ncclUniqueId id)
+void initialize_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
-         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, size, rank, id) ) );
+         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, size, rank) ) );
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank, ncclUniqueId id)
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank)
     : _nccl_comm(comm), _size(size), _rank(rank) {
     //initializing NCCL
-    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, id, _rank));
+//    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
 }
 
 cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl()

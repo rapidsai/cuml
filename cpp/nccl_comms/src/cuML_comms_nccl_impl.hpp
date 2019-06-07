@@ -30,7 +30,7 @@ class cumlNCCLCommunicator_impl : public MLCommon::cumlCommunicator_iface {
 public:
     cumlNCCLCommunicator_impl() =delete;
 
-    cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank, ncclUniqueId id);
+    cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank);
 
     virtual ~cumlNCCLCommunicator_impl();
 
