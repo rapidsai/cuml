@@ -24,7 +24,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-import cuml
+from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 
 cdef extern from "solver/solver.hpp" namespace "ML::Solver":
@@ -50,7 +50,6 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                      float tol,
                      int n_iter_no_change) except +
 
-    
     cdef void sgdFit(cumlHandle& handle,
                      double *input,
                      int n_rows,
@@ -71,50 +70,55 @@ cdef extern from "solver/solver.hpp" namespace "ML::Solver":
                      bool shuffle,
                      double tol,
                      int n_iter_no_change) except +
-                     
+
     cdef void sgdPredict(cumlHandle& handle,
-                         const float *input, 
-                         int n_rows, 
-                         int n_cols, 
+                         const float *input,
+                         int n_rows,
+                         int n_cols,
                          const float *coef,
-                         float intercept, 
+                         float intercept,
                          float *preds,
                          int loss) except +
 
     cdef void sgdPredict(cumlHandle& handle,
-                         const double *input, 
-                         int n_rows, 
+                         const double *input,
+                         int n_rows,
                          int n_cols,
-                         const double *coef, 
-                         double intercept, 
-                         double *preds,
-                         int loss) except +
-                         
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
-                         const float *input, 
-                         int n_rows, 
-                         int n_cols, 
-                         const float *coef,
-                         float intercept, 
-                         float *preds,
-                         int loss) except +
-
-    cdef void sgdPredictBinaryClass(cumlHandle& handle,
-                         const double *input, 
-                         int n_rows, 
-                         int n_cols,
-                         const double *coef, 
-                         double intercept, 
+                         const double *coef,
+                         double intercept,
                          double *preds,
                          int loss) except +
 
-class SGD(cuml.Base):
+    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+                                    const float *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const float *coef,
+                                    float intercept,
+                                    float *preds,
+                                    int loss) except +
+
+    cdef void sgdPredictBinaryClass(cumlHandle& handle,
+                                    const double *input,
+                                    int n_rows,
+                                    int n_cols,
+                                    const double *coef,
+                                    double intercept,
+                                    double *preds,
+                                    int loss) except +
+
+
+class SGD(Base):
     """
-    Stochastic Gradient Descent is a very common machine learning algorithm where one optimizes
-    some cost function via gradient steps. This makes SGD very attractive for large problems
-    when the exact solution is hard or even impossible to find.
-    cuML's SGD algorithm accepts a numpy matrix or a cuDF DataFrame as the input dataset.
-    The SGD algorithm currently works with linear regression, ridge regression and SVM models.
+    Stochastic Gradient Descent is a very common machine learning algorithm
+    where one optimizes some cost function via gradient steps. This makes SGD
+    very attractive for large problems when the exact solution is hard or even
+    impossible to find.
+
+    cuML's SGD algorithm accepts a numpy matrix or a cuDF DataFrame as the
+    input dataset. The SGD algorithm currently works with linear regression,
+    ridge regression and SVM models.
+
     Examples
     ---------
     .. code-block:: python
@@ -138,34 +142,38 @@ class SGD(cuml.Base):
         print("cuML predictions : ", cu_pred)
     Output:
     .. code-block:: python
-            
+
         cuML intercept :  0.004561662673950195
         cuML coef :  0      0.9834546
                     1    0.010128272
                    dtype: float32
         cuML predictions :  [3.0055666 2.0221121]
-            
-           
+
+
     Parameters
     -----------
     loss : 'hinge', 'log', 'squared_loss' (default = 'squared_loss')
-       'hinge' uses linear SVM   
+       'hinge' uses linear SVM
        'log' uses logistic regression
        'squared_loss' uses linear regression
     penalty: 'none', 'l1', 'l2', 'elasticnet' (default = 'none')
        'none' does not perform any regularization
-       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value of coefficients
-       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of the coefficients
-       'elasticnet' performs Elastic Net regularization which is a weighted average of L1 and L2 norms
+       'l1' performs L1 norm (Lasso) which minimizes the sum of the abs value
+       of coefficients
+       'l2' performs L2 norm (Ridge) which minimizes the sum of the square of
+       the coefficients
+       'elasticnet' performs Elastic Net regularization which is a weighted
+       average of L1 and L2 norms
     alpha: float (default = 0.0001)
         The constant value which decides the degree of regularization
     fit_intercept : boolean (default = True)
        If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.        
+       If False, the model expects that you have centered the data.
     epochs : int (default = 1000)
-        The number of times the model should iterate through the entire dataset during training (default = 1000)
+        The number of times the model should iterate through the entire dataset
+        during training (default = 1000)
     tol : float (default = 1e-3)
-       The training process will stop if current_loss > previous_loss - tol 
+       The training process will stop if current_loss > previous_loss - tol
     shuffle : boolean (default = True)
        True, shuffles the training data after each epoch
        False, does not shuffle the training data after each epoch
@@ -173,22 +181,26 @@ class SGD(cuml.Base):
         Initial learning rate
     power_t : float (default = 0.5)
         The exponent used for calculating the invscaling learning rate
-    learning_rate : 'optimal', 'constant', 'invscaling', 'adaptive' (default = 'constant')
+    learning_rate : 'optimal', 'constant', 'invscaling',
+                    'adaptive' (default = 'constant')
         optimal option supported in the next version
         constant keeps the learning rate constant
-        adaptive changes the learning rate if the training loss or the validation accuracy does not improve for n_iter_no_change epochs.
+        adaptive changes the learning rate if the training loss or the
+        validation accuracy does not improve for n_iter_no_change epochs.
         The old learning rate is generally divide by 5
     n_iter_no_change : int (default = 5)
         the number of epochs to train without any imporvement in the model
     Notes
     ------
-    For additional docs, see `scikitlearn's OLS <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
+    For additional docs, see `scikitlearn's OLS
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>
     """
-    
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001, l1_ratio=0.15, 
-        fit_intercept=True, epochs=1000, tol=1e-3, shuffle=True, learning_rate='constant', eta0=0.0, 
-        power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None):
-        
+
+    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
+                 l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
+                 shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
+                 batch_size=32, n_iter_no_change=5, handle=None):
+
         if loss in ['hinge', 'log', 'squared_loss']:
             self.loss = self._get_loss_int(loss)
         else:
@@ -210,7 +222,7 @@ class SGD(cuml.Base):
         self.shuffle = shuffle
         self.eta0 = eta0
         self.power_t = power_t
-  
+
         if learning_rate in ['optimal', 'constant', 'invscaling', 'adaptive']:
             self.learning_rate = learning_rate
 
@@ -221,13 +233,14 @@ class SGD(cuml.Base):
             if learning_rate == 'optimal':
                 self.lr_type = 0
 
-                raise TypeError("This option will be supported in the coming versions")
+                raise TypeError("This option will be supported in the future")
 
                 if self.alpha == 0:
                     raise ValueError("alpha must be > 0 since "
-                                     "learning_rate is 'optimal'. alpha is used "
-                                     "to compute the optimal learning rate.")
-  
+                                     "learning_rate is 'optimal'. alpha is "
+                                     "used to compute the optimal learning "
+                                     " rate.")
+
             elif learning_rate == 'constant':
                 self.lr_type = 1
                 self.lr = eta0
@@ -317,29 +330,30 @@ class SGD(cuml.Base):
 
         self.n_alpha = 1
 
-        self.coef_ = cudf.Series(np.zeros(self.n_cols, dtype=self.gdf_datatype))
-        cdef uintptr_t coef_ptr = self._get_column_ptr(self.coef_)
+        self.coef_ = cudf.Series(np.zeros(self.n_cols,
+                                          dtype=self.gdf_datatype))
+        cdef uintptr_t coef_ptr = self._get_cudf_column_ptr(self.coef_)
 
-        cdef float c_intercept1 
+        cdef float c_intercept1
         cdef double c_intercept2
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        
+
         if self.gdf_datatype.type == np.float32:
             sgdFit(handle_[0],
-                   <float*>X_ptr, 
-                   <int>self.n_rows, 
-                   <int>self.n_cols, 
-                   <float*>y_ptr, 
+                   <float*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <float*>y_ptr,
                    <float*>coef_ptr,
-                   <float*>&c_intercept1, 
-                   <bool>self.fit_intercept, 
-                   <int>self.batch_size, 
+                   <float*>&c_intercept1,
+                   <bool>self.fit_intercept,
+                   <int>self.batch_size,
                    <int>self.epochs,
-                   <int>self.lr_type, 
+                   <int>self.lr_type,
                    <float>self.eta0,
                    <float>self.power_t,
-                   <int>self.loss, 
-                   <int>self.penalty,   
+                   <int>self.loss,
+                   <int>self.penalty,
                    <float>self.alpha,
                    <float>self.l1_ratio,
                    <bool>self.shuffle,
@@ -349,26 +363,26 @@ class SGD(cuml.Base):
             self.intercept_ = c_intercept1
         else:
             sgdFit(handle_[0],
-                   <double*>X_ptr, 
-                   <int>self.n_rows, 
-                   <int>self.n_cols, 
-                   <double*>y_ptr, 
+                   <double*>X_ptr,
+                   <int>self.n_rows,
+                   <int>self.n_cols,
+                   <double*>y_ptr,
                    <double*>coef_ptr,
-                   <double*>&c_intercept2, 
-                   <bool>self.fit_intercept, 
-                   <int>self.batch_size, 
+                   <double*>&c_intercept2,
+                   <bool>self.fit_intercept,
+                   <int>self.batch_size,
                    <int>self.epochs,
-                   <int>self.lr_type, 
+                   <int>self.lr_type,
                    <double>self.eta0,
                    <double>self.power_t,
-                   <int>self.loss, 
-                   <int>self.penalty,   
+                   <int>self.loss,
+                   <int>self.penalty,
                    <double>self.alpha,
                    <double>self.l1_ratio,
                    <bool>self.shuffle,
                    <double>self.tol,
                    <int>self.n_iter_no_change)
-            
+
             self.intercept_ = c_intercept2
 
         self.handle.sync()
@@ -474,25 +488,25 @@ class SGD(cuml.Base):
         preds = cudf.Series(np.zeros(n_rows, dtype=pred_datatype))
         cdef uintptr_t preds_ptr = self._get_column_ptr(preds)
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-       
+
         if pred_datatype.type == np.float32:
             sgdPredictBinaryClass(handle_[0],
-                           <float*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <float*>coef_ptr,
-                           <float>self.intercept_,
-                           <float*>preds_ptr,
-                           <int>self.loss)
+                                  <float*>X_ptr,
+                                  <int>n_rows,
+                                  <int>n_cols,
+                                  <float*>coef_ptr,
+                                  <float>self.intercept_,
+                                  <float*>preds_ptr,
+                                  <int>self.loss)
         else:
             sgdPredictBinaryClass(handle_[0],
-                           <double*>X_ptr,
-                           <int>n_rows,
-                           <int>n_cols,
-                           <double*>coef_ptr,
-                           <double>self.intercept_,
-                           <double*>preds_ptr,
-                           <int>self.loss)
+                                  <double*>X_ptr,
+                                  <int>n_rows,
+                                  <int>n_cols,
+                                  <double*>coef_ptr,
+                                  <double>self.intercept_,
+                                  <double*>preds_ptr,
+                                  <int>self.loss)
 
         self.handle.sync()
 
