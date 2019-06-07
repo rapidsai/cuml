@@ -1,3 +1,5 @@
+
+
 /*
  * Copyright (c) 2019, NVIDIA CORPORATION.
  *
@@ -20,13 +22,13 @@
 * of all pair-wise comparisons between clusterings specified by a random model.
 */
 
+#include <math.h>
+#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-#include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include <math.h>
-#include "linalg/reduce.h"
 #include "linalg/map_then_reduce.h"
+#include "linalg/reduce.h"
 #include "metrics/contingencyMatrix.h"
 
 namespace MLCommon {
@@ -41,14 +43,10 @@ namespace MLCommon {
 */
 template <typename Type, typename IdxType = int>
 struct nCTwo {
-  HDI Type operator()(Type in, IdxType i = 0) { return ((in)*(in-1))/2; }
+  HDI Type operator()(Type in, IdxType i = 0) { return ((in) * (in - 1)) / 2; }
 };
 
-
-
 namespace Metrics {
-
-
 
 /**
 * @brief Function to calculate Adjusted RandIndex
@@ -63,28 +61,33 @@ namespace Metrics {
 * @param stream: the cudaStream object
 */
 template <typename T>
-double computeAdjustedRandIndex (  T* firstClusterArray,  T* secondClusterArray, int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-
+double computeAdjustedRandIndex(
+  T* firstClusterArray, T* secondClusterArray, int size, T lowerLabelRange,
+  T upperLabelRange, std::shared_ptr<MLCommon::deviceAllocator> allocator,
+  cudaStream_t stream) {
   //rand index for size less than 2 is not defined
-  ASSERT(size>=2,"Rand Index for size less than 2 not defined!");
+  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix
-  MLCommon::device_buffer<int> dContingencyMatrix (allocator, stream, numUniqueClasses*numUniqueClasses);
-  CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0, numUniqueClasses*numUniqueClasses*sizeof(int), stream));
+  MLCommon::device_buffer<int> dContingencyMatrix(
+    allocator, stream, numUniqueClasses * numUniqueClasses);
+  CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
+                             numUniqueClasses * numUniqueClasses * sizeof(int),
+                             stream));
 
   //workspace allocation
-  char *pWorkspace = nullptr;
-  size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(size, firstClusterArray,
-                                                      stream, lowerLabelRange, upperLabelRange);    
-  if (workspaceSz != 0)
-      MLCommon::allocate(pWorkspace, workspaceSz);
+  char* pWorkspace = nullptr;
+  size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(
+    size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
+  if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
   //calculating the contingency matrix
-  MLCommon::Metrics::contingencyMatrix(firstClusterArray, secondClusterArray, (int)size, (int*)dContingencyMatrix.data(),
-                                        stream, (void*)pWorkspace, workspaceSz, lowerLabelRange, upperLabelRange);
+  MLCommon::Metrics::contingencyMatrix(
+    firstClusterArray, secondClusterArray, (int)size,
+    (int*)dContingencyMatrix.data(), stream, (void*)pWorkspace, workspaceSz,
+    lowerLabelRange, upperLabelRange);
 
   //creating device buffers for all the parameters involved in ARI calculation
   //device variables
@@ -98,29 +101,39 @@ double computeAdjustedRandIndex (  T* firstClusterArray,  T* secondClusterArray,
   int h_bCTwoSum;
   int h_nChooseTwoSum;
 
-
   //initializing device memory
-  CUDA_CHECK(cudaMemsetAsync(a.data(), 0, numUniqueClasses*sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(b.data(), 0, numUniqueClasses*sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(a.data(), 0, numUniqueClasses * sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(b.data(), 0, numUniqueClasses * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_aCTwoSum.data(), 0, sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_bCTwoSum.data(), 0, sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_nChooseTwoSum.data(), 0, sizeof(int), stream));
 
-
   //calculating the sum of NijC2
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int> >(d_nChooseTwoSum.data(), numUniqueClasses*numUniqueClasses, nCTwo< int >(), stream, dContingencyMatrix.data(), dContingencyMatrix.data());
+  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(
+    d_nChooseTwoSum.data(), numUniqueClasses * numUniqueClasses, nCTwo<int>(),
+    stream, dContingencyMatrix.data(), dContingencyMatrix.data());
 
   //calculating the row-wise sums
-  MLCommon::LinAlg::reduce<int,int, int>(a.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, true, true, stream);
+  MLCommon::LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
+                                          numUniqueClasses, numUniqueClasses, 0,
+                                          true, true, stream);
 
   //calculating the column-wise sums
-  MLCommon::LinAlg::reduce<int,int, int>(b.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, true, false, stream);
+  MLCommon::LinAlg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
+                                          numUniqueClasses, numUniqueClasses, 0,
+                                          true, false, stream);
 
   //calculating the sum of number of unordered pairs for every element in a
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(d_aCTwoSum.data(), numUniqueClasses, nCTwo< int >(), stream, a.data(), a.data());
+  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(
+    d_aCTwoSum.data(), numUniqueClasses, nCTwo<int>(), stream, a.data(),
+    a.data());
 
   //calculating the sum of number of unordered pairs for every element of b
-  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(d_bCTwoSum.data(), numUniqueClasses, nCTwo< int >(), stream, b.data(), b.data());
+  MLCommon::LinAlg::mapThenSumReduce<int, nCTwo<int>>(
+    d_bCTwoSum.data(), numUniqueClasses, nCTwo<int>(), stream, b.data(),
+    b.data());
 
   //updating in the host memory
   MLCommon::updateHost(&h_nChooseTwoSum, d_nChooseTwoSum.data(), 1, stream);
@@ -128,23 +141,21 @@ double computeAdjustedRandIndex (  T* firstClusterArray,  T* secondClusterArray,
   MLCommon::updateHost(&h_bCTwoSum, d_bCTwoSum.data(), 1, stream);
 
   //freeing the memories in the device
-  if (pWorkspace)
-    CUDA_CHECK(cudaFree(pWorkspace));
+  if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
 
   //calculating the ARI
-  int nChooseTwo = ((size)*(size-1))/2;
-  double expectedIndex = ( (double)( (h_aCTwoSum)*(h_bCTwoSum) ) )/( (double)(nChooseTwo) );
-  double maxIndex = ((double)(h_bCTwoSum+h_aCTwoSum))/2.0;
+  int nChooseTwo = ((size) * (size - 1)) / 2;
+  double expectedIndex =
+    ((double)((h_aCTwoSum) * (h_bCTwoSum))) / ((double)(nChooseTwo));
+  double maxIndex = ((double)(h_bCTwoSum + h_aCTwoSum)) / 2.0;
   double index = (double)h_nChooseTwoSum;
 
   //checking if the denominator is zero
-  if(maxIndex - expectedIndex)
-    return (index - expectedIndex)/(maxIndex - expectedIndex);
-  else return 0;
-
+  if (maxIndex - expectedIndex)
+    return (index - expectedIndex) / (maxIndex - expectedIndex);
+  else
+    return 0;
 }
 
-
-};//end namespace Metrics
-};//end namespace MLCommon
-
+};  //end namespace Metrics
+};  //end namespace MLCommon
