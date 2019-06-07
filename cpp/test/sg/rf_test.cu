@@ -96,9 +96,11 @@ protected:
 		int inference_data_len = params.n_inference_rows * params.n_cols;
 		inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
 		inference_data_h.resize(inference_data_len);
+		allocate(inference_data_d, inference_data_len);
+	    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 		
 		// Predict and compare against known labels
-		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_h.data(), labels,
+		RF_metrics tmp = cross_validate(handle, rf_classifier, inference_data_d, labels,
 										params.n_inference_rows, params.n_cols, predicted_labels, false);
 		accuracy = tmp.accuracy;
 
@@ -120,13 +122,14 @@ protected:
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(predicted_labels));
 		CUDA_CHECK(cudaFree(data));
+		CUDA_CHECK(cudaFree(inference_data_d));
 		delete rf_classifier;
 	}
 
 protected:
 
 	RfInputs<T> params;
-	T * data;
+	T * data, * inference_data_d;
     int * labels;
 	std::vector<T> inference_data_h;
 	std::vector<int> labels_h;
@@ -186,11 +189,11 @@ protected:
 		int inference_data_len = params.n_inference_rows * params.n_cols;
 		inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
 		inference_data_h.resize(inference_data_len);
+		allocate(inference_data_d, inference_data_len);
+	    updateDevice(inference_data_d, inference_data_h.data(), data_len, stream);
 
-		//TODO FIXME stream
-		
 		// Predict and compare against known labels
-		RF_metrics tmp = cross_validate(handle, rf_regressor, inference_data_h.data(), labels,
+		RF_metrics tmp = cross_validate(handle, rf_regressor, inference_data_d, labels,
 										params.n_inference_rows, params.n_cols, predicted_labels, false);
 		mse = tmp.mean_squared_error;
 
@@ -210,13 +213,14 @@ protected:
 		CUDA_CHECK(cudaFree(labels));
 		CUDA_CHECK(cudaFree(predicted_labels));
 		CUDA_CHECK(cudaFree(data));
+		CUDA_CHECK(cudaFree(inference_data_d));
 		delete rf_regressor;
 	}
 
 protected:
 
 	RfInputs<T> params;
-	T * data;
+	T * data, * inference_data_d;
     T * labels;
 	std::vector<T> inference_data_h;
 	std::vector<T> labels_h;

@@ -25,6 +25,18 @@
 #include "kernels/quantile.cuh"
 
 namespace ML {
+
+bool is_dev_ptr(const void *p) {
+	cudaPointerAttributes pointer_attr;
+	cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
+	if (err == cudaSuccess) {
+		return pointer_attr.devicePointer;
+	} else {
+        err = cudaGetLastError();
+		return false;
+	}
+}
+
 namespace DecisionTree {
 
 template<class T>
@@ -278,17 +290,21 @@ void DecisionTreeBase<T, L>::init_depth_zero(const L* labels, std::vector<unsign
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] handle: cumlHandle (currently unused; API placeholder)
- * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. CPU pointer.
+ * @param[in] rows: test data (n_rows samples, n_cols features) in row major format. Current impl. expects a CPU pointer. TODO future API change.
  * @param[in] n_rows: number of  data samples.
  * @param[in] n_cols: number of features (excluding target feature).
- * @param[in,out] predictions: n_rows predicted labels. CPU pointer, user allocated.
+ * @param[in,out] predictions: n_rows predicted labels. Current impl. expects a CPU pointer, user allocated. TODO future API change.
  * @param[in] verbose: flag for debugging purposes.
  */
 template<typename T, typename L>
 void DecisionTreeBase<T, L>::predict(const ML::cumlHandle& handle, const T * rows, const int n_rows, const int n_cols, L* predictions, bool verbose) const {
+
+	ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions), "DT Error: Current impl. expects both input and predictions to be CPU pointers.\n");
+
 	ASSERT(root, "Cannot predict w/ empty tree!");
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
+
 	predict_all(rows, n_rows, n_cols, predictions, verbose);
 }
 
@@ -324,9 +340,11 @@ L DecisionTreeBase<T, L>::predict_one(const T * row, const TreeNode<T, L>* const
 template<typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, L *labels,
 									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams& tree_params,
-									ML::CRITERION default_criterion, ML::CRITERION other_criterion, const std::string & dt_name) {
+									bool is_classifier) {
 
 	const char * CRITERION_NAME[]={"GINI", "ENTROPY", "MSE", "MAE", "END"};
+	CRITERION default_criterion = (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
+	CRITERION last_criterion = (is_classifier) ? CRITERION::ENTROPY : CRITERION::MAE;
 
 	tree_params.validity_check();
 	if (tree_params.n_bins > n_sampled_rows) {
@@ -338,8 +356,8 @@ void DecisionTreeBase<T, L>::base_fit(const ML::cumlHandle& handle, T *data, con
 	if (tree_params.split_criterion == CRITERION::CRITERION_END) { // Set default to GINI (classification) or MSE (regression)
 		tree_params.split_criterion = default_criterion;
 	}
-	ASSERT((tree_params.split_criterion == default_criterion || tree_params.split_criterion == other_criterion),
-			"Decision Tree %s split criteria should be %s or %s\n", dt_name.c_str(), CRITERION_NAME[default_criterion], CRITERION_NAME[other_criterion]);
+	ASSERT((tree_params.split_criterion >= default_criterion) && (tree_params.split_criterion <= last_criterion),
+			"Unsupported criterion %s\n", CRITERION_NAME[tree_params.split_criterion]);
 
 	plant(handle.getImpl(), data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params.max_depth,
 			tree_params.max_leaves, tree_params.max_features, tree_params.n_bins, tree_params.split_algo,
@@ -367,7 +385,7 @@ template<typename T>
 void DecisionTreeClassifier<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, int *labels,
 									unsigned int *rowids, const int n_sampled_rows, int unique_labels, DecisionTreeParams tree_params) {
 
-	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params, CRITERION::GINI, CRITERION::ENTROPY, "Classifier");
+	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, unique_labels, tree_params, true);
 }
 
 template<typename T>
@@ -415,7 +433,7 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 template<typename T>
 void DecisionTreeRegressor<T>::fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, T *labels,
 									unsigned int *rowids, const int n_sampled_rows, DecisionTreeParams tree_params) {
-	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params, CRITERION::MSE, CRITERION::MAE, "Regressor");
+	this->base_fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows, 1, tree_params, false);
 }
 
 template<typename T>

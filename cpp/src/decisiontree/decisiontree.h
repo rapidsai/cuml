@@ -26,6 +26,9 @@
 #include <common/cumlHandle.hpp>
 
 namespace ML {
+
+bool is_dev_ptr(const void *p);
+
 namespace DecisionTree {
 
 template<class T>
@@ -128,7 +131,7 @@ class DecisionTreeBase {
 		virtual void find_best_fruit_all(T *data, L *labels, const float colper, MetricQuestion<T> & ques, float& gain, unsigned int* rowids,
 							const int n_sampled_rows, MetricInfo<T> split_info[3], int depth) = 0;
 		void base_fit(const ML::cumlHandle& handle, T *data, const int ncols, const int nrows, L *labels, unsigned int *rowids,
-			const int n_sampled_rows, int unique_labels, DecisionTreeParams & tree_params, CRITERION default_criterion, CRITERION other_criterion, const std::string & name);
+			const int n_sampled_rows, int unique_labels, DecisionTreeParams & tree_params, bool is_classifier);
 
 	public:
 		// Printing utility for high level tree info.
