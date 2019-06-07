@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-cd python
-$PYTHON setup.py build_ext --inplace
-$PYTHON setup.py install
+
+# This assumes the script is executed from the root of the repo directory
+./build.sh cuml
 $PYTHON -c 'import cuml'

@@ -42,7 +42,7 @@ cdef extern from "ml_utils.h" namespace "ML":
     cdef cppclass paramsTSVD(paramsSolver):
         int n_components
         int max_sweeps
-        solver algorithm #= solver::COV_EIG_DQ
+        solver algorithm  # = solver::COV_EIG_DQ
         bool trans_input
 
     cdef cppclass paramsPCA(paramsTSVD):

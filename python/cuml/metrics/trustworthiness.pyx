@@ -34,12 +34,23 @@ cdef extern from "metrics/trustworthiness_c.h" namespace "MLCommon::Distance":
 
 cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
 
-    cdef double trustworthiness_score[T, DistanceType](const cumlHandle& h, T* X,
-                        T* X_embedded, int n, int m, int d,
-                        int n_neighbors)
+    cdef double trustworthiness_score[T, DistanceType](const cumlHandle& h,
+                                                       T* X,
+                                                       T* X_embedded,
+                                                       int n, int m,
+                                                       int d,
+                                                       int n_neighbors)
 
 
-def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean', should_downcast=True):
+def _get_array_ptr(obj):
+    """
+    Get ctype pointer of a numba style device array
+    """
+    return obj.device_ctypes_pointer.value
+
+
+def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
+                    metric='euclidean', should_downcast=True):
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -60,7 +71,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
         trustworthiness score : double
             Trustworthiness of the low-dimensional embedding
     """
-    if isinstance(X, cudf.DataFrame) and isinstance(X_embedded, cudf.DataFrame):
+    if (isinstance(X, cudf.DataFrame) and
+            isinstance(X_embedded, cudf.DataFrame)):
         datatype1 = np.dtype(X[X.columns[0]]._column.dtype)
         datatype2 = np.dtype(X_embedded[X_embedded.columns[0]]._column.dtype)
         n_samples = len(X)
@@ -72,15 +84,18 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
         n_samples, n_features = X.shape
         n_components = X_embedded.shape[1]
     else:
-        raise TypeError("X and X_embedded parameters must both be cuDF Dataframes or Numpy ndarray")
+        raise TypeError("X and X_embedded parameters must both be cuDF"
+                        " Dataframes or Numpy ndarray")
 
     if datatype1 != np.float32 or datatype2 != np.float32:
         if should_downcast:
             X = to_single_precision(X)
             X_embedded = to_single_precision(X_embedded)
         else:
-            raise Exception("Input is double precision. Use 'should_downcast=True' "
-                "if you'd like it to be automatically casted to single precision.")
+            raise Exception("Input is double precision. Use "
+                            "'should_downcast=True' "
+                            "if you'd like it to be automatically "
+                            "casted to single precision.")
 
     if isinstance(X, cudf.DataFrame):
         d_X = X.as_gpu_matrix(order='C')
@@ -88,9 +103,9 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
     elif isinstance(X, np.ndarray):
         d_X = cuda.to_device(X)
         d_X_embedded = cuda.to_device(X_embedded)
-    
-    cdef uintptr_t d_X_ptr = get_ctype_ptr(d_X)
-    cdef uintptr_t d_X_embedded_ptr = get_ctype_ptr(d_X_embedded)
+
+    cdef uintptr_t d_X_ptr = _get_array_ptr(d_X)
+    cdef uintptr_t d_X_embedded_ptr = _get_array_ptr(d_X_embedded)
 
     cdef cumlHandle* handle_ = <cumlHandle*>0
     if handle is None:
@@ -99,9 +114,13 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
         handle_ = <cumlHandle*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
-        res = trustworthiness_score[float, euclidean](handle_[0], <float*>d_X_ptr,
-                                <float*>d_X_embedded_ptr, n_samples, n_features,
-                                n_components, n_neighbors)
+        res = trustworthiness_score[float, euclidean](handle_[0],
+                                                      <float*>d_X_ptr,
+                                                      <float*>d_X_embedded_ptr,
+                                                      n_samples,
+                                                      n_features,
+                                                      n_components,
+                                                      n_neighbors)
     else:
         raise Exception("Unknown metric")
 
@@ -110,27 +129,23 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5, metric='euclidean
     return res
 
 
-def get_ctype_ptr(obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-
 def to_single_precision(X):
     if isinstance(X, cudf.DataFrame):
-        new_cols = [(col,X._cols[col].astype(np.float32)) for col in X._cols]
-        overflowed = sum([len(colval[colval >= np.inf])  for colname, colval in new_cols])
+        new_cols = [(col, X._cols[col].astype(np.float32)) for col in X._cols]
+        overflowed = sum([len(colval[colval >= np.inf]) for colname, colval
+                         in new_cols])
 
         if overflowed > 0:
-            raise Exception("Downcast to single-precision resulted in data loss.")
-        
+            raise Exception("Downcast to single-precision resulted in data"
+                            " loss.")
+
         X = cudf.DataFrame(new_cols)
     else:
         X = X.astype(np.float32)
         overflowed = len(X[X >= np.inf])
 
         if overflowed > 0:
-            raise Exception("Downcast to single-precision resulted in data loss.")
+            raise Exception("Downcast to single-precision resulted in data"
+                            " loss.")
 
     return X
