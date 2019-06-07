@@ -69,6 +69,7 @@ double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
          * @param n: Number of elements in y and y_hat
          * @return: The rand index value
          */
+
 double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 
 /**
@@ -84,7 +85,8 @@ double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
          * @param upper_class_range: the highest value in the range of classes
          * @return: The adjusted rand index value
          */
-double adjustedRandIndex(const cumlHandle& handle, int *y, int *y_hat, int n, int lower_class_range, int upper_class_range);
+double adjustedRandIndex(const cumlHandle &handle, int *y, int *y_hat, int n,
+                         int lower_class_range, int upper_class_range);
 
 }  // namespace Metrics
 }  // namespace ML
