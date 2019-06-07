@@ -1,10 +1,7 @@
 
-using namespace ML;
-#include "utils.h"
-#include "cuda_utils.h"
-
-
 #pragma once
+#include "utils.h"
+#include "sparse.h"
 
 //
 namespace Attraction_ {
@@ -44,18 +41,18 @@ void PQ_Kernel(const int NNZ, const int N_NODES,
                 volatile float * __restrict__ PQ,           // force product
                 volatile float * __restrict__ embedding)
 {
-    float ix, iy, jx, jy, dx, dy;
-
     int TID = threadIdx.x + blockIdx.x * blockDim.x;
     if (TID >= NNZ) return;
 
-    int i = mapping_i_to_j[2*TID];
-    int j = mapping_i_to_j[2*TID + 1];
-    ix = embedding[i]; iy = embedding[N_NODES + 1 + i];
-    jx = embedding[j]; jy = embedding[N_NODES + 1 + j];
-    dx = ix - jx;
-    dy = iy - jy;
-    PQ[TID] = P[TID] / (1.0f + dx*dx + dy*dy);
+    const int i = mapping_i_to_j[2*TID];
+    const int j = mapping_i_to_j[2*TID + 1];
+    const float ix = embedding[i];
+    const float iy = embedding[N_NODES + 1 + i];
+    const float jx = embedding[j];
+    const float jy = embedding[N_NODES + 1 + j];
+    const float dx = ix - jx;
+    const float dy = iy - jy;
+    PQ[TID] = P[TID] / (1.0f + dx*dx + dy*dy);   // P * Q
 }
 
 
@@ -91,7 +88,7 @@ void attractionForces(
 
     // Z = sum (Qij)
     // Forces = sum ( Pij * Qij * Z * Yi)
-    Utils_::spMM(Sparse_Handle,
+    Sparse_::spMM(Sparse_Handle,
         CSR_Matrix,
         Ones_Matrix,
         1.0f, 0.0f,
@@ -116,7 +113,7 @@ void attractionForces(
 
 
     // Remove mean (Yi - Yj) So Forces -= sum ( Pij * Qij * Z * Yj)
-    Utils_::spMM(Sparse_Handle,
+    Sparse_::spMM(Sparse_Handle,
         CSR_Matrix,
         Embedding_Matrix,
         -1.0f, 1.0f,

@@ -1,13 +1,9 @@
 
-using namespace ML;
-#include "utils.h"
-#include "cuda_utils.h"
-
 #pragma once
+#include "utils.h"
 
 //
 namespace BoundingBox_ {
-
 
 __global__
 __launch_bounds__(THREADS1, FACTOR1)
@@ -35,12 +31,14 @@ void boundingBoxKernel(const int N_NODES,
     i = threadIdx.x;
     inc = THREADS1 * gridDim.x;
     for (j = i + blockIdx.x * THREADS1; j < n; j += inc) {
+
         val = posxd[j];
-        minx = MIN(minx, val);
-        maxx = MAX(maxx, val);
+        if (minx > val) minx = val; //minx = MIN(minx, val);
+        if (maxx < val) maxx = val; //maxx = MAX(maxx, val);
+        
         val = posyd[j];
-        miny = MIN(miny, val);
-        maxy = MAX(maxy, val);
+        if (miny > val) miny = val; //miny = MIN(miny, val);
+        if (maxy < val) maxy = val; //maxy = MAX(maxy, val);
     }
 
     // reduction in shared memory
@@ -58,6 +56,7 @@ void boundingBoxKernel(const int N_NODES,
             sminy[i] = miny = MIN(miny, sminy[k]);
             smaxy[i] = maxy = MAX(maxy, smaxy[k]);
         }
+        else break;
     }
 
     // write block result to global memory

@@ -1,13 +1,9 @@
 
 // From UMAP/knn_graph/algo.h
-
-using namespace ML;
+#pragma once
 #include "utils.h"
-
 #include "knn/knn.h"
 #include "linalg/eltwise.h"
-
-#pragma once
 
 
 namespace Distances_ {
@@ -26,7 +22,7 @@ void getDistances(  const Type * __restrict__ X,
     kNNParams *params = new kNNParams[1];
     params[0].ptr = X;
     params[1].N = n;
-    knn = new KNN(p);
+    kNN *knn = new kNN(p);
 
     knn->fit(params, 1);
     knn->search(X, n, indices, distances, n_neighbors);

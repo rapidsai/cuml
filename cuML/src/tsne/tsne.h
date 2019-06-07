@@ -1,6 +1,6 @@
 
+#pragma once
 #include "utils.h"
-
 using namespace ML;
 using namespace MLCommon::Sparse;
 
@@ -16,16 +16,14 @@ using namespace MLCommon::Sparse;
 #include "repulsion.h"
 #include "attraction.h"
 
-#pragma once
-
 
 template <typename Type>
 float *runTsne( const Type * __restrict__ X,
                 const int n,
                 const int p,
                 const int n_components = 2,
-                const float perplexity = 50f,
-                const float perplexity_epsilon = 1e-3,
+                const float perplexity = 50.0f,
+                const float perplexity_epsilon = 1e-3f,
                 const float early_exaggeration = 2.0f,
                 int n_neighbors = 100,
 
@@ -49,22 +47,23 @@ float *runTsne( const Type * __restrict__ X,
     // Currently only allows n_components = 2
     assert(n_components == 2);
     if (n_neighbors > n) n_neighbors = n;
+    int *errd = Intialization_::Initialize();
 
 
-    // Intialize cache levels and errors
-    int *errd;       cuda_malloc(errd, 1);
-    Intialization_::Initialize(errd);
-    //
-
-
-    // Get GPU information
-    cudaDeviceProp GPU_info;
-    cudaGetDeviceProperties(&GPU_info, 0);
-
-    if (GPU_info.warpSize != WARPSIZE) {
-        fprintf(stderr, "Warp size must be %d\n", GPU_info.warpSize);
-        exit(-1);
-    }
+    // Setup CUDA cache
+    cuda_setcache(BoundingBox_::boundingBoxKernel, cudaFuncCachePreferShared);
+    cuda_setcache(BuildTree_::treeBuildingKernel, cudaFuncCachePreferL1);
+    cuda_setcache(BuildTree_::clearKernel1, cudaFuncCachePreferL1);
+    cuda_setcache(BuildTree_::clearKernel2, cudaFuncCachePreferL1);
+    cuda_setcache(Summary_::summarizationKernel, cudaFuncCachePreferShared);
+    cuda_setcache(Summary_::sortKernel, cudaFuncCachePreferL1);
+    #ifdef __KEPLER__
+    cuda_setcache(Repulsion_::repulsionKernel, cudaFuncCachePreferEqual);
+    #else
+    cuda_setcache(Repulsion_::repulsionKernel, cudaFuncCachePreferL1);
+    #endif
+    cuda_setcache(Attraction_::PQ_Kernel, cudaFuncCachePreferShared);
+    cuda_setcache(ApplyForces_::applyForcesKernel, cudaFuncCachePreferL1);
     //
 
 
@@ -178,11 +177,9 @@ float *runTsne( const Type * __restrict__ X,
     // Calculate attraction force grid / block size
     int ATTRACT_BLOCKSIZE;
     int ATTRACT_MIN_GRID;
-    cudaOccupancyMaxPotentialBlockSize(
-        &ATTRACT_MIN_GRID, &ATTRACT_BLOCKSIZE, Attraction_::PQ_Kernel, 0, 0);
+    cuda_maxblock(&ATTRACT_MIN_GRID, &ATTRACT_BLOCKSIZE, Attraction_::PQ_Kernel, 0, 0);
     const int ATTRACT_GRIDSIZE = (NNZ + ATTRACT_BLOCKSIZE - 1) / ATTRACT_BLOCKSIZE;
     //
-
 
 
     // Convert to cuSPARSE layout
@@ -190,12 +187,12 @@ float *runTsne( const Type * __restrict__ X,
     Dense_t Ones_Matrix, Embedding_Matrix, Output_Matrix;
     Sparse_handle_t Sparse_Handle; createHandle(&Sparse_Handle);
 
-    Utils_::createCSR(&CSR_Matrix, n, n, NNZ, PQ, COL, ROW);
-    Utils_::createDense(&Ones_Matrix, n, 2, ones);
-    Utils_::createDense(&Embedding_Matrix, N_NODES+1, 2, embedding);
-    Utils_::createDense(&Output_Matrix, n, 2, attraction);
+    Sparse_::createCSR(&CSR_Matrix, n, n, NNZ, PQ, COL, ROW);
+    Sparse_::createDense(&Ones_Matrix, n, 2, ones);
+    Sparse_::createDense(&Embedding_Matrix, N_NODES+1, 2, embedding);
+    Sparse_::createDense(&Output_Matrix, n, 2, attraction);
 
-    void *buffer = Utils_::createBuffer(Sparse_Handle, CSR_Matrix, Ones_Matrix, Output_Matrix);
+    void *buffer = Sparse_::createBuffer(Sparse_Handle, CSR_Matrix, Ones_Matrix, Output_Matrix);
     //
 
 
@@ -299,7 +296,7 @@ float *runTsne( const Type * __restrict__ X,
 
 
         // Apply all forces
-        ApplyForces_::applyForcesKernell<<<BLOCKS*FACTOR6, THREADS6>>>(
+        ApplyForces_::applyForcesKernel<<<BLOCKS*FACTOR6, THREADS6>>>(
             n, N_NODES,
             learning_rate,
             norm,

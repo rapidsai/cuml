@@ -1,10 +1,6 @@
 
-using namespace ML;
-#include "utils.h"
-#include "cuda_utils.h"
-
-
 #pragma once
+#include "utils.h"
 
 //
 namespace ApplyForces_ {
@@ -38,10 +34,13 @@ void applyForcesKernel(int N,
         dy = exaggeration*attraction[i + N] - (repulsion[nnodes + 1 + i] / norm);
 
         // Add gains
-        gx = (signbit(dx) != signbit(ux)) ? gx + 0.2 : gx * 0.8;
-        gy = (signbit(dy) != signbit(uy)) ? gy + 0.2 : gy * 0.8;
-        gx = (gx < 0.01) ? 0.01 : gx;
-        gy = (gy < 0.01) ? 0.01 : gy;
+        if (signbit(dx) != signbit(ux))     gx += 0.2f;
+        else                                gx *= 0.8f;
+        if (signbit(dy) != signbit(uy))     gy += 0.2f;
+        else                                gy *= 0.8f;
+
+        if (gx < 0.01f) gx = 0.01f;
+        if (gy < 0.01f) gy = 0.01f;
 
         // Add momentum
         ux = momentum * ux - eta * gx * dx;

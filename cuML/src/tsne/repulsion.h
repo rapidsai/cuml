@@ -1,9 +1,6 @@
 
-using namespace ML;
-#include "utils.h"
-#include "cuda_utils.h"
-
 #pragma once
+#include "utils.h"
 
 //
 namespace Repulsion_ {

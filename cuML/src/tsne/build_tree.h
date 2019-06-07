@@ -1,9 +1,6 @@
 
-using namespace ML;
-#include "utils.h"
-#include "cuda_utils.h"
-
 #pragma once
+#include "utils.h"
 
 //
 namespace BuildTree_ {
@@ -15,9 +12,9 @@ void clearKernel1(  const int N_NODES,
                     const int nbodiesd,
                     volatile int * __restrict__ childd)
 {
-    int top = 4 * N_NODES;
-    int bottom = 4 * nbodiesd;
-    int inc = blockDim.x * gridDim.x;
+    const int top = 4 * N_NODES;
+    const int bottom = 4 * nbodiesd;
+    const int inc = blockDim.x * gridDim.x;
     int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;
     if (k < bottom) k += inc;
 
@@ -39,22 +36,21 @@ void treeBuildingKernel(const int N_NODES,
                         volatile float * __restrict__ posxd, 
                         volatile float * __restrict__ posyd) 
 {
-    int i, j, depth, localmaxdepth, skip, inc;
     float x, y, r;
     float px, py;
     float dx, dy;
     int ch, n, cell, locked, patch;
-    float radius, rootx, rooty;
 
     // cache root data
-    radius = radiusd;
-    rootx = posxd[N_NODES];
-    rooty = posyd[N_NODES];
+    float radius = radiusd;
+    float rootx = posxd[N_NODES];
+    float rooty = posyd[N_NODES];
 
-    localmaxdepth = 1;
-    skip = 1;
-    inc = blockDim.x * gridDim.x;
-    i = threadIdx.x + blockIdx.x * blockDim.x;
+    int localmaxdepth = 1;
+    int skip = 1;
+    int inc = blockDim.x * gridDim.x;
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    int j;
 
     // iterate over all bodies assigned to thread
     while (i < nbodiesd) {
@@ -158,8 +154,8 @@ void clearKernel2(  const int N_NODES,
                     volatile int * __restrict__ startd,
                     volatile float * __restrict__ massd)
 {   
-    int bottom = bottomd;
-    int inc = blockDim.x * gridDim.x;
+    const int bottom = bottomd;
+    const int inc = blockDim.x * gridDim.x;
     int k = (bottom & (-WARPSIZE)) + threadIdx.x + blockIdx.x * blockDim.x;
     if (k < bottom) k += inc;
 

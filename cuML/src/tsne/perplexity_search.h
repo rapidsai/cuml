@@ -1,10 +1,8 @@
 
-using namespace ML;
+#pragma once
 #include "utils.h"
 #include <float.h>
 #include <limits.h>
-
-#pragma once
 
 
 //
