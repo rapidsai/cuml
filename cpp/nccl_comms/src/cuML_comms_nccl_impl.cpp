@@ -121,15 +121,15 @@ namespace {
  * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
  * in Python as well, before being used to construct a cuML comms instance.
  */
-void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h *eps, int size, int rank)
+void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
          std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank) ) );
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h *eps, int size, int rank)
-    : _nccl_comm(comm), _size(size), _rank(rank) {
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank)
+    : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank) {
     //initializing NCCL
 //    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
 }
