@@ -110,7 +110,17 @@ namespace {
     }
 }
 
-void initialize_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank)
+/**
+ * Underlying comms, like NCCL and UCX, should be initialized and ready for use
+ * outside of the cuML Comms lifecycle. This allows us to decouple the ownership
+ * of the actual comms from cuml so that they can also be used directly, outside of
+ * cuml.
+ *
+ * For instance, nccl-py can be used to bootstrap a ncclComm_t before it is
+ * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
+ * in Python as well, before being used to construct a cuML comms instance.
+ */
+void inject_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
          std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, size, rank) ) );
