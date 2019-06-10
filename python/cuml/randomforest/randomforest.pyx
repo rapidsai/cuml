@@ -2,6 +2,7 @@ import ctypes
 import cudf
 import numpy as np
 import warnings
+import pdb
 from numba import cuda
 from cuml import numba_utils
 from libcpp cimport bool
@@ -12,7 +13,7 @@ from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
 # from cuml.utils.input_utils import get_cudf_column_ptr, get_dev_array_ptr
-import pdb
+
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -106,10 +107,12 @@ cdef class RandomForest_impl():
     cdef object preds
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, min_samples_split=2, n_bins=8,
-                 split_algo=0, min_rows_per_node=2,
-                 bootstrap=True, bootstrap_features=False, type="classifier",
-                 verbose=False, rows_sample=1.0, max_leaves=-1, gdf_datatype=None):
+                  max_features=1.0, min_samples_split=2, n_bins=8,
+                  split_algo=0, min_rows_per_node=2,
+                  bootstrap=True, bootstrap_features=False,
+		  type="classifier", verbose=False,
+		  rows_sample=1.0,max_leaves=-1,
+		  gdf_datatype=None):
 
         self.handle = handle
         self.split_algo = split_algo
@@ -153,6 +156,12 @@ cdef class RandomForest_impl():
 
         cdef uintptr_t X_ptr, y_ptr
 
+        if self.rf_classifier32 != NULL:
+            del self.rf_classifier32
+
+        if self.rf_classifier64 != NULL:
+            del self.rf_classifier64
+
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix(order='F')
@@ -184,7 +193,6 @@ cdef class RandomForest_impl():
             < cumlHandle * > < size_t > self.handle.getHandle()
 
         n_unique_labels = 2
-        # pdb.set_trace()
         print("THIS CODE WORKS ONLY TILL HERE")
         rf_param = set_rf_class_obj(<int> self.max_depth,
                                     <int> self.max_leaves,
@@ -267,13 +275,14 @@ cdef class RandomForest_impl():
 
         X_ptr = self._get_dev_array_ptr(X_m)
 
-        self.preds = cudf.Series(np.zeros(self.n_rows, dtype=self.gdf_datatype))
+        self.preds = cudf.Series(np.zeros(self.n_rows, 
+                                          dtype=self.gdf_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
 
         cdef cumlHandle * handle_ =\
             < cumlHandle * > < size_t > self.handle.getHandle()
 
-        # pdb.set_trace()
+        pdb.set_trace()
         print(" Just before calling th predict function from C++")
         if self.gdf_datatype.type == np.float32:
             predict(handle_[0],
@@ -302,14 +311,87 @@ cdef class RandomForest_impl():
         del(X_m)
         return self.preds
 
-	
+    def cross_validate(self, X, y):
+
+        cdef uintptr_t X_ptr, y_ptr
+
+        if (isinstance(X, cudf.DataFrame)):
+            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
+            X_m = X.as_gpu_matrix(order='F')
+            self.n_rows = len(X)
+            self.n_cols = len(X._cols)
+
+        elif (isinstance(X, np.ndarray)):
+            self.gdf_datatype = X.dtype
+            X_m = cuda.to_device(np.array(X, order='F'))
+            self.n_rows = X.shape[0]
+            self.n_cols = X.shape[1]
+
+        '''
+        X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
+        y_m, y_ptr, _, _, _ = input_to_array(y)
+        '''
+        X_ptr = self._get_dev_array_ptr(X_m)
+
+        if (isinstance(y, cudf.Series)):
+            y_ptr = self._get_cudf_column_ptr(y)
+        elif (isinstance(y, np.ndarray)):
+            y_m = cuda.to_device(y)
+            y_ptr = self._get_dev_array_ptr(y_m)
+        else:
+            msg = "y vector must be a cuDF series or Numpy ndarray"
+            raise TypeError(msg)
+
+        self.preds = cudf.Series(np.zeros(self.n_rows, 
+                                          dtype=self.gdf_datatype))
+        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
+
+        cdef cumlHandle * handle_ =\
+            < cumlHandle * > < size_t > self.handle.getHandle()
+
+        print(" Just before calling th crossvalidate function from C++")
+        pdb.set_trace()
+
+        if self.gdf_datatype.type == np.float32:
+            self.stats = cross_validate(handle_[0],
+                                        self.rf_classifier32,
+                                        <float *> X_ptr,
+                                        <int *> y_ptr,
+                                        <int> self.n_rows,
+                                        <int> self.n_cols,
+                                        <int *> preds_ptr,
+                                        <bool> self.verbose)
+
+        elif self.gdf_datatype.type == np.float64:
+            self.stats = cross_validate(handle_[0],
+                                        self.rf_classifier64,
+                                        <double *> X_ptr,
+                                        <int *> y_ptr,
+                                        <int> self.n_rows,
+                                        <int> self.n_cols,
+                                        <int *> preds_ptr,
+                                        <bool> self.verbose)
+
+        self.handle.sync()
+        print("just after calling the handle.sync function")
+
+        del(X_m)
+        print("just after calling the del X function")
+
+        del(y_m)
+        print("just after calling the del y function")
+
+        return self.stats
+
 class RandomForest(Base):
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, min_samples_split=2, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
-                 bootstrap=True, bootstrap_features=False, type="classifier",
-                 verbose=False, rows_sample=1.0, max_leaves=-1, gdf_datatype=None):
+                 bootstrap=True, bootstrap_features=False,
+		 type="classifier", verbose=False,
+		 rows_sample=1.0, max_leaves=-1,
+		 gdf_datatype=None):
 
         super(RandomForest, self).__init__(handle, verbose)
         print(n_bins)
@@ -317,7 +399,8 @@ class RandomForest(Base):
                                        max_features, min_samples_split, n_bins,
                                        split_algo, min_rows_per_node,
                                        bootstrap, bootstrap_features, type,
-                                       verbose, rows_sample, max_leaves, gdf_datatype)
+                                       verbose, rows_sample, max_leaves,
+                                       gdf_datatype)
 
     def fit(self, X, y):
 
@@ -326,4 +409,7 @@ class RandomForest(Base):
     def predict(self, X):
 
         return self._impl.predict(X)
-    
+
+    def cross_validate(self, X, y):
+
+       return self._impl.cross_validate(X, y)
