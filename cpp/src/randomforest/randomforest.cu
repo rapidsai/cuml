@@ -356,7 +356,7 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 
 	predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
-	unsigned long long correctly_predicted = 0ULL;
+	unsigned long long correctly_predicted = NULL;
 	for (int i = 0; i < n_rows; i++) {
 		correctly_predicted += (predictions[i] == ref_labels[i]);
 	}
