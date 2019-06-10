@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include "knn/knn.hpp"
-#include "knn/util.h"
-#include <vector>
-#include <gtest/gtest.h>
 #include <cuda_utils.h>
+#include <gtest/gtest.h>
 #include <test_utils.h>
 #include <iostream>
+#include <vector>
+#include "knn/knn.hpp"
+#include "knn/util.h"
 
 namespace ML {
 
 using namespace MLCommon;
-
 
 /**
  *
@@ -73,10 +72,6 @@ protected:
     knn->search(d_search, n, d_pred_I, d_pred_D, n);
   }
 
- 	void SetUp() override {
-		basicTest();
-	}
-
 	void TearDown() override {
 		CUDA_CHECK(cudaFree(d_search));
 		CUDA_CHECK(cudaFree(d_pred_I));
@@ -85,31 +80,25 @@ protected:
 		CUDA_CHECK(cudaFree(d_ref_D));
 	}
 
-protected:
-
 	T* d_search;
 
-	int n = 3;
-	int d = 1;
+  int n = 3;
+  int d = 1;
 
-    long *d_pred_I;
-    T* d_pred_D;
+  long* d_pred_I;
+  T* d_pred_D;
 
-    long *d_ref_I;
-    T* d_ref_D;
+  long* d_ref_I;
+  T* d_ref_D;
 
-    cumlHandle handle;
-    kNN *knn = new kNN(handle, d);
+  cumlHandle handle;
+  kNN* knn = new kNN(handle, d);
 };
-
 
 typedef KNN_MGTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
-
-	ASSERT_TRUE(
-			devArrMatch(d_ref_D, d_pred_D, n*n, Compare<float>()));
-	ASSERT_TRUE(
-			devArrMatch(d_ref_I, d_pred_I, n*n, Compare<long>()));
+  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
+  ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
 }
 
-} // end namespace ML
+}  // end namespace ML

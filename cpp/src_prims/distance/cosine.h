@@ -46,9 +46,9 @@ namespace Distance {
  */
 template <typename InType, typename AccType, typename OutType,
           typename OutputTile_, typename FinalLambda, typename Index_ = int>
-void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *pB,
-                 OutType *pD, AccType *workspace, size_t worksize,
-                 FinalLambda fin_op, cudaStream_t stream) {
+void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA,
+                 InType const *pB, OutType *pD, AccType *workspace,
+                 size_t worksize, FinalLambda fin_op, cudaStream_t stream) {
   typedef ExpandedDistanceFragmentMultiplyAdd<CosFusedDistance>
     FragmentMultiplyAdd_;
   auto norm_op = [] __device__(AccType in) { return mySqrt(in); };
@@ -57,5 +57,5 @@ void cosineAlgo1(Index_ m, Index_ n, Index_ k, InType const *pA, InType const *p
     m, n, k, pA, pB, pD, false, workspace, worksize, fin_op, norm_op, stream);
 }
 
-}; // end namespace Distance
-}; // end namespace MLCommon
+};  // end namespace Distance
+};  // end namespace MLCommon

@@ -21,55 +21,52 @@
 #include <cuda_utils.h>
 #include "test_utils.h"
 
-#include <vector>
 #include <iostream>
-
+#include <vector>
 
 namespace MLCommon {
 namespace Array {
 
-
-class ArrayTest: public ::testing::Test {
-
-protected:
-    void SetUp() override {}
-    void TearDown() override {}
+class ArrayTest : public ::testing::Test {
+ protected:
+  void SetUp() override {}
+  void TearDown() override {}
 };
-
 
 typedef ArrayTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result) {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
 
-    cudaStream_t stream;
-    CUDA_CHECK( cudaStreamCreate(&stream) );
+  int m = 12;
 
-    int m = 12;
+  float *data, *actual, *expected;
 
-    float *data, *actual, *expected;
+  allocate(data, m, true);
+  allocate(actual, m, true);
+  allocate(expected, m, true);
 
-    allocate(data, m, true);
-    allocate(actual, m, true);
-    allocate(expected, m, true);
+  float *data_h =
+    new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
 
-    float* data_h = new float[m]{ 1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0 };
+  float *expected_h =
+    new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
-    float *expected_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0 };
+  updateDevice(data, data_h, m, stream);
+  updateDevice(expected, expected_h, m, stream);
 
-    updateDevice(data, data_h, m, stream);
-    updateDevice(expected, expected_h, m, stream);
+  make_monotonic(actual, data, m, stream);
 
-    make_monotonic(actual, data, m, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUDA_CHECK( cudaStreamSynchronize(stream) );
+  ASSERT_TRUE(devArrMatch(actual, expected, m, Compare<bool>(), stream));
 
-    ASSERT_TRUE(devArrMatch(actual, expected, m, Compare<bool>(), stream));
+  CUDA_CHECK(cudaStreamDestroy(stream));
+  CUDA_CHECK(cudaFree(data));
+  CUDA_CHECK(cudaFree(actual));
 
-    CUDA_CHECK( cudaStreamDestroy(stream) );
-    CUDA_CHECK( cudaFree(data) );
-    CUDA_CHECK( cudaFree(actual) );
-
-    delete data_h;
-    delete expected_h;
+  delete data_h;
+  delete expected_h;
 }
-};
-};
+};  // namespace Array
+};  // namespace MLCommon
