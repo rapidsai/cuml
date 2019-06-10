@@ -17,6 +17,7 @@
 #include "cuML_comms_nccl_impl.hpp"
 
 #include <nccl.h>
+#include <ucp/api/ucp.h>
 
 #include <memory>
 #include <cstdio>
@@ -120,14 +121,14 @@ namespace {
  * used to construct a cuml comms instance. UCX endpoints can be bootstrapped
  * in Python as well, before being used to construct a cuML comms instance.
  */
-void inject_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank)
+void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h *eps, int size, int rank)
 {
     auto communicator = std::make_shared<MLCommon::cumlCommunicator>(
-         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, size, rank) ) );
+         std::unique_ptr<MLCommon::cumlCommunicator_iface>( new cumlNCCLCommunicator_impl(comm, ucp_worker, eps, size, rank) ) );
     handle.getImpl().setCommunicator( communicator );
 }
 
-cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, int size, int rank)
+cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h *eps, int size, int rank)
     : _nccl_comm(comm), _size(size), _rank(rank) {
     //initializing NCCL
 //    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
@@ -161,12 +162,37 @@ void cumlNCCLCommunicator_impl::barrier() const
 
 void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
+
+  /**
+   * UCP function `ucp_tag_send_nb` used here with the relevant ucp_ep_h object from our
+   * array of ep objects (based on the destination rank).
+   *
+   * Other arguments needed:
+   *   const void * buffer
+   *   size_t count
+   *   ucp_datatype_t datatype -> will require wrapping
+   *   ucp_tag_t tag -> will require helper to convert int to this tag
+   *   ucp_send_callback_t cb -> will need to populate this relevant to our request object
+   */
+
     // Will investigate supporting UCX for this
     printf("isend called but not supported in NCCL implementation.\n");
 }
 
 void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
+  /**
+   * UCP function `ucp_tag_recv_nb` used here with the relevant ucp_worker_h object from our
+   * array of ep objects (based on the destination rank).
+   *
+   * Other arguments needed:
+   *   void *buffer
+   *   size_t count
+   *   ucp_datatype_t datatype -> will require wrapping
+   *   ucp_tag_t tag -> will require helper to convert int to this tag
+   *   ucp_tag_t tag_mask
+   *   ucp_tag_recv_callback_t cb -> will need to populate this relevant to our request object
+   */
     // Will investigate supporting UCX for this
     printf("irecv called but not supported in NCCL implementation.\n");
 }

@@ -29,12 +29,12 @@ set(_CUML_LIBRARY_HINTS ${CUML_DIR})
 if (CUML_INSTALL_DIR)
     list(APPEND _CUML_LIBRARY_HINTS ${CUML_INSTALL_DIR})
 endif()
-find_library(_CUML_LIBRARY NAMES libcuml++ cuml++ HINTS ${_CUML_LIBRARY_HINTS} PATH_SUFFIXES lib build)
+find_library(_CUML_LIBRARY NAMES libcuml++ cuml++ HINTS ${_CUML_LIBRARY_HINTS} libucp PATH_SUFFIXES lib build)
 set(CUML_LIBRARY ${_CUML_LIBRARY} CACHE STRING "Path to the cuML lib")
 unset(_CUML_LIBRARY)
 unset(_CUML_LIBRARY_HINTS)
 
-include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_DIR}/src ${CUML_DIR}/src_prims )
+include_directories( include ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES} ${CUML_DIR}/src ${CUML_DIR}/src_prims ${UCX_PATH}/include )
 
 set(CUML_LINK_LIBRARIES ${CUML_LIBRARY})
 
