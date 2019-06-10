@@ -14,14 +14,9 @@
  * limitations under the License.
  */
 
-<<<<<<< HEAD
-#include "umap/umapparams.h"
-#include "knn/knn.hpp"
-=======
 #include <cuda_utils.h>
 #include <iostream>
-#include "knn/knn.h"
->>>>>>> branch-0.8
+#include "knn/knn.hpp"
 #include "linalg/unary_op.h"
 #include "umap/umapparams.h"
 
@@ -39,21 +34,17 @@ using namespace ML;
 		 * Initial implementation calls out to FAISS to do its work.
 		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
-		template<typename T>
-		void launcher(
-		        float *X, int x_n, int d,
-					  long *knn_indices, T *knn_dists,
-					  kNN *knn,
-					  int n_neighbors,
-					  UMAPParams *params, cudaStream_t stream) {
+template <typename T>
+void launcher(float *X, int x_n, int d, long *knn_indices, T *knn_dists,
+              kNN *knn, int n_neighbors, UMAPParams *params,
+              cudaStream_t stream) {
+  float **p = new float *[1];
+  int *sizes = new int[1];
+  p[0] = X;
+  sizes[0] = x_n;
 
-		  float **p = new float*[1];
-		  int *sizes = new int[1];
-			p[0] = X;
-			sizes[0] = x_n;
-
-			knn->fit(p, sizes, 1);
-			knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+  knn->fit(p, sizes, 1);
+  knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
 
   auto adjust_vals_op = [] __device__(T input) { return sqrt(input); };
 
