@@ -111,7 +111,7 @@ cdef class RandomForest_impl():
                   split_algo=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   type="classifier", verbose=False,
-                  rows_sample=1.0,max_leaves=-1,
+                  rows_sample=1.0, max_leaves=-1,
                   gdf_datatype=None):
 
         self.handle = handle
