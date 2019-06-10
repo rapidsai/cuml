@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+from collections.abc import Iterable
 import warnings
 from itertools import chain, combinations
 from math import ceil, floor
@@ -25,8 +26,10 @@ import numpy as np
 import cupy as cp
 import cudf
 
-import utils
-from utils import safe_indexing
+# import utils
+from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
+    check_random_state, np_check_random_state, column_or_1d, in1d,
+    _approximate_mode, _np_approximate_mode, type_of_target, check_array)
 
 
 NSPLIT_WARNING = (
@@ -60,12 +63,15 @@ class BaseCrossValidator(metaclass=ABCMeta):
             The testing set indices for that split.
         """
 
-        X, y, groups = utils.indexable(X, y, groups)
+        X, y, groups = indexable(X, y, groups)
 
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
-        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        elif isinstance(X, (cudf.DataFrame, cudf.Series)):
             n_samples = len(X.index)
+        else:
+            raise ValueError('The input X must be cudf.DataFrame, type{} is \
+                not supported'.format(type(X)))
 
         indices = cp.arange(n_samples)
         for test_index in self._iter_test_masks(X, y, groups):
@@ -84,8 +90,11 @@ class BaseCrossValidator(metaclass=ABCMeta):
         """
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
-        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        elif isinstance(X, (cudf.DataFrame, cudf.Series)):
             n_samples = len(X.index)
+        else:
+            raise ValueError('The input X must be cudf.DataFrame, type{} is \
+                not supported'.format(type(X)))
 
         for test_index in self._iter_test_indices(X, y, groups):
             test_mask = cp.zeros(n_samples, dtype=cp.bool_)
@@ -145,7 +154,7 @@ class LeaveOneOut(BaseCrossValidator):
     """
 
     def _iter_test_indices(self, X, y=None, groups=None):
-        n_samples = utils._num_samples(X)
+        n_samples = _num_samples(X)
         if n_samples <= 1:
             raise ValueError(
                 'Cannot perform LeaveOneOut with n_samples={}.'.format(
@@ -171,7 +180,7 @@ class LeaveOneOut(BaseCrossValidator):
         """
         if X is None:
             raise ValueError("The 'X' parameter should not be None.")
-        return utils._num_samples(X)
+        return _num_samples(X)
 
 
 class LeavePOut(BaseCrossValidator):
@@ -218,7 +227,7 @@ class LeavePOut(BaseCrossValidator):
         self.p = p
 
     def _iter_test_indices(self, X, y=None, groups=None):
-        n_samples = utils._num_samples(X)
+        n_samples = _num_samples(X)
         if n_samples <= self.p:
             raise ValueError(
                 'p={} must be strictly less than the number of '
@@ -241,7 +250,7 @@ class LeavePOut(BaseCrossValidator):
         """
         if X is None:
             raise ValueError("The 'X' parameter should not be None.")
-        return int(utils.comb(utils._num_samples(X), self.p, exact=True))
+        return int(comb(_num_samples(X), self.p, exact=True))
 
 
 class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
@@ -288,11 +297,14 @@ class _BaseKFold(BaseCrossValidator, metaclass=ABCMeta):
         test : ndarray
             The testing set indices for that split.
         """
-        X, y, groups = utils.indexable(X, y, groups)
+        X, y, groups = indexable(X, y, groups)
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
-        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        elif isinstance(X, (cudf.DataFrame, cudf.Series)):
             n_samples = len(X.index)
+        else:
+            raise ValueError('The input X must be cudf.DataFrame, type{} is \
+                not supported'.format(type(X)))
 
         if self.n_splits > n_samples:
             raise ValueError(
@@ -386,13 +398,16 @@ class KFold(_BaseKFold):
     def _iter_test_indices(self, X, y=None, groups=None):
         if isinstance(X, cp.ndarray):
             n_samples = len(X)
-        if isinstance(X, (cudf.DataFrame, cudf.Series)):
+        elif isinstance(X, (cudf.DataFrame, cudf.Series)):
             n_samples = len(X.index)
+        else:
+            raise ValueError('The input X must be cudf.DataFrame, type{} is \
+                not supported'.format(type(X)))
 
         indices = cp.arange(n_samples)
 
         if self.shuffle:
-            utils.check_random_state(self.random_state).shuffle(indices)
+            check_random_state(self.random_state).shuffle(indices)
 
         n_splits = self.n_splits
         fold_sizes = cp.full(n_splits, n_samples // n_splits, dtype=cp.int)
@@ -457,8 +472,7 @@ class GroupKFold(_BaseKFold):
     def _iter_test_indices(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        # !!!!!!!!!!!!!!
-        # groups = check_array(groups, ensure_2d=False, dtype=None)
+        groups = check_array(groups, ensure_2d=False, dtype=None)
         unique_groups, groups = cp.unique(groups, return_inverse=True)
         n_groups = len(unique_groups)
 
@@ -566,16 +580,16 @@ class StratifiedKFold(_BaseKFold):
         super().__init__(n_splits, shuffle, random_state)
 
     def _make_test_folds(self, X, y=None):
-        rng = utils.check_random_state(self.random_state)
+        rng = check_random_state(self.random_state)
         y = cp.asarray(y)
-        # type_of_target_y = type_of_target(y)
-        # allowed_target_types = ('binary', 'multiclass')
-        # if type_of_target_y not in allowed_target_types:
-        #     raise ValueError(
-        #         'Supported target types are: {}. Got {!r} instead.'.format(
-        #             allowed_target_types, type_of_target_y))
+        type_of_target_y = type_of_target(y)
+        allowed_target_types = ('binary', 'multiclass')
+        if type_of_target_y not in allowed_target_types:
+            raise ValueError(
+                'Supported target types are: {}. Got {!r} instead.'.format(
+                    allowed_target_types, type_of_target_y))
 
-        y = utils.column_or_1d(y)
+        y = column_or_1d(y)
         n_samples = y.shape[0]
         unique_y, y_inversed = cp.unique(y, return_inverse=True)
         y_counts = cp.bincount(y_inversed)
@@ -650,8 +664,7 @@ class StratifiedKFold(_BaseKFold):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        # !!!!!!!!!!!!!!!!! In progress
-        # y = check_array(y, ensure_2d=False, dtype=None)
+        y = check_array(y, ensure_2d=False, dtype=None)
         return super().split(X, y, groups)
 
 
@@ -725,8 +738,8 @@ class TimeSeriesSplit(_BaseKFold):
         test : ndarray
             The testing set indices for that split.
         """
-        X, y, groups = utils.indexable(X, y, groups)
-        n_samples = utils._num_samples(X)
+        X, y, groups = indexable(X, y, groups)
+        n_samples = _num_samples(X)
         n_splits = self.n_splits
         n_folds = n_splits + 1
         if n_folds > n_samples:
@@ -795,8 +808,7 @@ class LeaveOneGroupOut(BaseCrossValidator):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
         # We make a copy of groups to avoid side-effects during iteration
-        # !!!!!!!!!!!!!!!!!!! In progress
-        # groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
+        groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
         unique_groups = cp.unique(groups)
         if len(unique_groups) <= 1:
             raise ValueError(
@@ -825,8 +837,7 @@ class LeaveOneGroupOut(BaseCrossValidator):
         """
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        # !!!!!!!!!!!!!!!!!!!!! In progress
-        # groups = check_array(groups, ensure_2d=False, dtype=None)
+        groups = check_array(groups, ensure_2d=False, dtype=None)
         return len(cp.unique(groups))
 
     def split(self, X, y=None, groups=None):
@@ -906,8 +917,7 @@ class LeavePGroupsOut(BaseCrossValidator):
     def _iter_test_masks(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        # !!!!!!!!!!!!!!!!!!! In progress
-        # groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
+        groups = check_array(groups, copy=True, ensure_2d=False, dtype=None)
         unique_groups = cp.unique(groups)
         if self.n_groups >= len(unique_groups):
             raise ValueError(
@@ -917,7 +927,7 @@ class LeavePGroupsOut(BaseCrossValidator):
                 "present" % (self.n_groups, unique_groups, self.n_groups + 1))
         combi = combinations(range(len(unique_groups)), self.n_groups)
         for indices in combi:
-            test_index = cp.zeros(utils._num_samples(X), dtype=cp.bool)
+            test_index = cp.zeros(_num_samples(X), dtype=cp.bool)
             for l in unique_groups[cp.array(indices)]:
                 test_index[groups == l] = True
             yield test_index
@@ -942,8 +952,8 @@ class LeavePGroupsOut(BaseCrossValidator):
         """
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        # groups = check_array(groups, ensure_2d=False, dtype=None)
-        return int(utils.comb(len(cp.unique(groups)),
+        groups = check_array(groups, ensure_2d=False, dtype=None)
+        return int(comb(len(cp.unique(groups)),
                    self.n_groups, exact=True))
 
     def split(self, X, y=None, groups=None):
@@ -1024,7 +1034,7 @@ class _RepeatedSplits(metaclass=ABCMeta):
             The testing set indices for that split.
         """
         n_repeats = self.n_repeats
-        rng = utils.check_random_state(self.random_state)
+        rng = check_random_state(self.random_state)
 
         for idx in range(n_repeats):
             cv = self.cv(random_state=rng, shuffle=True,
@@ -1050,7 +1060,7 @@ class _RepeatedSplits(metaclass=ABCMeta):
         n_splits : int
             Returns the number of splitting iterations in the cross-validator.
         """
-        rng = utils.check_random_state(self.random_state)
+        rng = check_random_state(self.random_state)
         cv = self.cv(random_state=rng, shuffle=True,
                      **self.cvargs)
         return cv.get_n_splits(X, y, groups) * self.n_repeats
@@ -1181,7 +1191,7 @@ class BaseShuffleSplit(metaclass=ABCMeta):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        X, y, groups = utils.indexable(X, y, groups)
+        X, y, groups = indexable(X, y, groups)
         for train, test in self._iter_indices(X, y, groups):
             # skip the following conversion once cudf support cupy indexing
             # convert to cudf Series
@@ -1281,12 +1291,12 @@ class ShuffleSplit(BaseShuffleSplit):
         self._default_test_size = 0.1
 
     def _iter_indices(self, X, y=None, groups=None):
-        n_samples = utils._num_samples(X)
+        n_samples = _num_samples(X)
         n_train, n_test = _validate_shuffle_split(
             n_samples, self.test_size, self.train_size,
             default_test_size=self._default_test_size)
 
-        rng = utils.check_random_state(self.random_state)
+        rng = check_random_state(self.random_state)
         for i in range(self.n_splits):
             # random partition
             permutation = rng.permutation(n_samples)
@@ -1345,14 +1355,13 @@ class GroupShuffleSplit(ShuffleSplit):
     def _iter_indices(self, X, y, groups):
         if groups is None:
             raise ValueError("The 'groups' parameter should not be None.")
-        # !!!!!!!!!!!!!!!!!!!! In progress
-        # groups = check_array(groups, ensure_2d=False, dtype=None)
+        groups = check_array(groups, ensure_2d=False, dtype=None)
         classes, group_indices = cp.unique(groups, return_inverse=True)
         for group_train, group_test in super()._iter_indices(X=classes):
             # these are the indices of classes in the partition
             # invert them into data indices
-            train = cp.flatnonzero(utils.in1d(group_indices, group_train))
-            test = cp.flatnonzero(utils.in1d(group_indices, group_test))
+            train = cp.flatnonzero(in1d(group_indices, group_train))
+            test = cp.flatnonzero(in1d(group_indices, group_test))
 
             yield train, test
 
@@ -1445,9 +1454,8 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         self._default_test_size = 0.1
 
     def _iter_indices(self, X, y, groups=None):
-        n_samples = utils._num_samples(X)
-        # !!!!!!!!!!!!!!!!!! In progresss
-        # y = check_array(y, ensure_2d=False, dtype=None)
+        n_samples = _num_samples(X)
+        y = check_array(y, ensure_2d=False, dtype=None)
         n_train, n_test = _validate_shuffle_split(
             n_samples, self.test_size, self.train_size,
             default_test_size=self._default_test_size)
@@ -1455,66 +1463,121 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         if y.ndim == 2:
             # for multi-label y, map each distinct row to a string repr
             # using join because str(row) uses an ellipsis if len(row) > 1000
-            y = cp.array([' '.join(row.astype('str')) for row in y])
+            y = cp.asnumpy(y)
+            y = np.array([' '.join(row.astype('str')) for row in y])
+            classes, y_indices = np.unique(y, return_inverse=True)
+            n_classes = classes.shape[0]
 
-        classes, y_indices = cp.unique(y, return_inverse=True)
-        n_classes = classes.shape[0]
+            class_counts = np.bincount(y_indices)
+            if np.min(class_counts) < 2:
+                raise ValueError("The least populated class in y has only 1"
+                                 " member, which is too few. The minimum"
+                                 " number of groups for any class cannot"
+                                 " be less than 2.")
 
-        class_counts = cp.bincount(y_indices)
-        if cp.min(class_counts) < 2:
-            raise ValueError("The least populated class in y has only 1"
-                             " member, which is too few. The minimum"
-                             " number of groups for any class cannot"
-                             " be less than 2.")
+            if n_train < n_classes:
+                raise ValueError('The train_size = %d should be greater or '
+                                 'equal to the number of classes = %d' %
+                                 (n_train, n_classes))
+            if n_test < n_classes:
+                raise ValueError('The test_size = %d should be greater or '
+                                 'equal to the number of classes = %d' %
+                                 (n_test, n_classes))
 
-        if n_train < n_classes:
-            raise ValueError('The train_size = %d should be greater or '
-                             'equal to the number of classes = %d' %
-                             (n_train, n_classes))
-        if n_test < n_classes:
-            raise ValueError('The test_size = %d should be greater or '
-                             'equal to the number of classes = %d' %
-                             (n_test, n_classes))
+            # Find the sorted list of instances for each class:
+            # (cp.unique above performs a sort, so code is O(n logn) already)
+            class_indices = np.split(
+                np.argsort(y_indices),
+                np.ndarray.tolist(np.cumsum(class_counts)[:-1]))
 
-        # Find the sorted list of instances for each class:
-        # (cp.unique above performs a sort, so code is O(n logn) already)
-        class_indices = cp.split(
-            cp.argsort(y_indices),
-            cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
+            
+            nprng = np_check_random_state(self.random_state)
+            for _ in range(self.n_splits):
+                # if there are ties in the class-counts, we want
+                # to make sure to break them anew in each iteration
+                n_i = _np_approximate_mode(class_counts, n_train, nprng)
+                class_counts_remaining = class_counts - n_i
+                t_i = _np_approximate_mode(class_counts_remaining, n_test, nprng)
 
-        rng = utils.check_random_state(self.random_state)
-        # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # have to get a nprng since cp.RandomState.permutation does not accept
-        # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array
-        nprng = utils.np_check_random_state(self.random_state)
-        for _ in range(self.n_splits):
-            # if there are ties in the class-counts, we want
-            # to make sure to break them anew in each iteration
-            n_i = utils._approximate_mode(class_counts, n_train, rng)
-            class_counts_remaining = class_counts - n_i
-            t_i = utils._approximate_mode(class_counts_remaining, n_test, rng)
+                train = []
+                test = []
 
-            train = []
-            test = []
+                for i in range(n_classes):
+                    permutation = nprng.permutation(int(class_counts[i]))
+                    # cupy.take does not support mode yet
+                    perm_indices_class_i = class_indices[i].take(permutation)
+                    train.extend(perm_indices_class_i[:n_i[i]])
+                    test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
 
-            for i in range(n_classes):
-                permutation = rng.permutation(int(class_counts[i]))
-                # cupy.take does not support mode yet
-                perm_indices_class_i = class_indices[i].take(permutation)
-                train.extend(perm_indices_class_i[:n_i[i]])
-                test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
+                # !!!!!!!!!!!!!!!!!!!!!!!!!
+                # have to go through the indirect approach below
+                # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
+                # Get rid of this once cp.RS.perm support cp array
+                train = nprng.permutation(train)
+                train = cp.asarray([int(i) for i in train])
+                test = nprng.permutation(test)
+                test = cp.asarray([int(i) for i in test])
+                yield train, test
+        else:
 
-            # !!!!!!!!!!!!!!!!!!!!!!!!!
-            # have to go through the indirect approach below
-            # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
-            # Get rid of this once cp.RS.perm support cp array
-            train = nprng.permutation(cp.asnumpy(train))
-            train = cp.asarray([int(i) for i in train])
-            test = nprng.permutation(cp.asnumpy(test))
-            test = cp.asarray([int(i) for i in test])
-            # train = rng.permutation(train)
-            # test = rng.permutation(test)
-            yield train, test
+            classes, y_indices = cp.unique(y, return_inverse=True)
+            n_classes = classes.shape[0]
+
+            class_counts = cp.bincount(y_indices)
+            if cp.min(class_counts) < 2:
+                raise ValueError("The least populated class in y has only 1"
+                                 " member, which is too few. The minimum"
+                                 " number of groups for any class cannot"
+                                 " be less than 2.")
+
+            if n_train < n_classes:
+                raise ValueError('The train_size = %d should be greater or '
+                                 'equal to the number of classes = %d' %
+                                 (n_train, n_classes))
+            if n_test < n_classes:
+                raise ValueError('The test_size = %d should be greater or '
+                                 'equal to the number of classes = %d' %
+                                 (n_test, n_classes))
+
+            # Find the sorted list of instances for each class:
+            # (cp.unique above performs a sort, so code is O(n logn) already)
+            class_indices = cp.split(
+                cp.argsort(y_indices),
+                cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
+
+            rng = check_random_state(self.random_state)
+            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # have to get a nprng since cp.RandomState.permutation does not accept
+            # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array
+            nprng = np_check_random_state(self.random_state)
+            for _ in range(self.n_splits):
+                # if there are ties in the class-counts, we want
+                # to make sure to break them anew in each iteration
+                n_i = _approximate_mode(class_counts, n_train, rng)
+                class_counts_remaining = class_counts - n_i
+                t_i = _approximate_mode(class_counts_remaining, n_test, rng)
+
+                train = []
+                test = []
+
+                for i in range(n_classes):
+                    permutation = rng.permutation(int(class_counts[i]))
+                    # cupy.take does not support mode yet
+                    perm_indices_class_i = class_indices[i].take(permutation)
+                    train.extend(perm_indices_class_i[:n_i[i]])
+                    test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
+
+                # !!!!!!!!!!!!!!!!!!!!!!!!!
+                # have to go through the indirect approach below
+                # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
+                # Get rid of this once cp.RS.perm support cp array
+                train = nprng.permutation(cp.asnumpy(train))
+                train = cp.asarray([int(i) for i in train])
+                test = nprng.permutation(cp.asnumpy(test))
+                test = cp.asarray([int(i) for i in test])
+                # train = rng.permutation(train)
+                # test = rng.permutation(test)
+                yield train, test
 
     def split(self, X, y, groups=None):
         """Generate indices to split data into training and test set.
@@ -1543,8 +1606,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         split. You can make the results identical by setting ``random_state``
         to an integer.
         """
-        # !!!!!!!!!!!!!!!!!!! In progress
-        # y = check_array(y, ensure_2d=False, dtype=None)
+        y = check_array(y, ensure_2d=False, dtype=None)
         return super().split(X, y, groups)
 
 
@@ -1652,7 +1714,7 @@ class PredefinedSplit(BaseCrossValidator):
 
     def __init__(self, test_fold):
         self.test_fold = cp.array(test_fold, dtype=cp.int)
-        self.test_fold = utils.column_or_1d(self.test_fold)
+        self.test_fold = column_or_1d(self.test_fold)
         self.unique_folds = cp.unique(self.test_fold)
         self.unique_folds = self.unique_folds[self.unique_folds != -1]
 
@@ -1786,7 +1848,7 @@ def check_cv(cv=None, y=None, classifier=False):
 
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
-                (utils.type_of_target(y) in ('binary', 'multiclass'))):
+                (type_of_target(y) in ('binary', 'multiclass'))):
             return StratifiedKFold(cv)
         else:
             return KFold(cv)
@@ -1885,9 +1947,9 @@ def train_test_split(*arrays, **options):
     if options:
         raise TypeError("Invalid parameters passed: %s" % str(options))
 
-    arrays = utils.indexable(*arrays)
+    arrays = indexable(*arrays)
 
-    n_samples = utils._num_samples(arrays[0])
+    n_samples = _num_samples(arrays[0])
     n_train, n_test = _validate_shuffle_split(n_samples, test_size, train_size,
                                               default_test_size=0.25)
 
@@ -1946,5 +2008,5 @@ def _build_repr(self):
             warnings.filters.pop(0)
         params[key] = value
 
-    return '%s(%s)' % (class_name, utils._pprint(params,
+    return '%s(%s)' % (class_name, _pprint(params,
                        offset=len(class_name)))

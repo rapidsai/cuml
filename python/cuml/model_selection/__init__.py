@@ -63,7 +63,7 @@ __all__ = ('BaseCrossValidator',
            # 'RandomizedSearchCV',
            'ShuffleSplit',
            'StratifiedKFold',
-           'StratifiedShuffleSplit')
+           'StratifiedShuffleSplit',
            'check_cv',
            # 'cross_val_predict',
            # 'cross_val_score',
@@ -71,5 +71,5 @@ __all__ = ('BaseCrossValidator',
            # 'fit_grid_point',
            # 'learning_curve',
            # 'permutation_test_score',
-           'train_test_split',
+           'train_test_split')
            # 'validation_curve')
