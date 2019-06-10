@@ -18,15 +18,19 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs', 'noisy_circles',
 def test_rf_predict_numpy(datatype, name, use_handle):
     pat = get_pattern(name, 100)
     X, y = pat[0]
-    X = StandardScaler().fit_transform(X)
     print("Calling fit_predict")
     handle, stream = get_handle(use_handle)
-    cuml_model = curfc(n_estimators=3, max_depth=2, handle=handle)
-    cu_labels = cuml_model.fit(X, y)
-    sk_model = skrfc(eps=3, min_samples=2)
-    sk_labels = sk_model.fit(X, y)
+    cuml_model = curfc(max_depth=2, max_leaves=2, max_features=1.0, n_bins=4, split_algo=0, min_rows_per_node=2, n_estimators=1, handle=handle)
+    cuml_model.fit(X,y)
+    pdb.set_trace()
+    cu_labels = cuml_model.cross_validate(X,y) 
+    
+    sk_model = skrfc(n_estimators=1, max_depth=2, min_samples_split=2, max_features=1.0)
+    sk_model.fit(X,y)
+    sk_labels = sk_model.predict(X)
     print(X.shape[0])
     cuml_model.handle.sync()
     pdb.set_trace()
     if sk_labels == cu_labels:
         assert 1
+
