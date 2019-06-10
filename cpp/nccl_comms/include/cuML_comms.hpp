@@ -21,6 +21,6 @@
 
 namespace ML {
 
-void initialize_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank);
+void inject_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank);
 
 } // end namespace ML
