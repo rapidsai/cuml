@@ -61,10 +61,12 @@ class KNNTest : public ::testing::Test {
     h_res_I.resize(n * n);
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
-    kNNParams params[1];
-    params[0] = {d_train_inputs, n};
+    float **ptrs = new float *[1];
+    int *sizes = new int[1];
+    ptrs[0] = d_train_inputs;
+    sizes[0] = n;
 
-    knn->fit(params, 1);
+    knn->fit(ptrs, sizes, 1);
     knn->search(d_train_inputs, n, d_pred_I, d_pred_D, n);
   }
 
@@ -79,19 +81,19 @@ class KNNTest : public ::testing::Test {
   }
 
  protected:
-  T* d_train_inputs;
+  T *d_train_inputs;
 
   int n = 3;
   int d = 1;
 
-  long* d_pred_I;
-  T* d_pred_D;
+  long *d_pred_I;
+  T *d_pred_D;
 
-  long* d_ref_I;
-  T* d_ref_D;
+  long *d_ref_I;
+  T *d_ref_D;
 
   cumlHandle handle;
-  kNN* knn = new kNN(handle, d);
+  kNN *knn = new kNN(handle, d);
 };
 
 typedef KNNTest<float> KNNTestF;
