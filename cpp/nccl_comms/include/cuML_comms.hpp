@@ -17,10 +17,15 @@
 #pragma once
 
 #include <nccl.h>
+#include <ucp/api/ucp.h>
+
 #include <cuML.hpp>
 
 namespace ML {
 
-void inject_comms(cumlHandle& handle, ncclComm_t comm, int size, int rank);
+/**
+ *
+ */
+void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h *eps, int size, int rank);
 
 } // end namespace ML
