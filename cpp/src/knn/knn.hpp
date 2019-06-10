@@ -70,7 +70,6 @@ namespace ML {
     const float *ptr, int n, int D,
     int* devices, float **output, int *sizes, int n_chunks);
 
-
 	class kNN {
 
 		float **ptrs;

@@ -29,9 +29,12 @@ namespace ML {
    *
    * @param ptr       an array in host memory to chunk over devices
    * @param n         number of elements in ptr
+   * @param D         number of cols in ptr
    * @param devices   array of device ids for chunking the ptr
+   * @param output    host array of device array pointers for output chunks
+   * @param sizes     host array of output sizes for output array
    * @param n_chunks  number of elements in gpus
-   * @param out       host pointer (size n) to store output
+   * @param stream    cuda stream to use
    */
   template<typename OutType, typename T = size_t>
   void chunk_to_device(const OutType *ptr, T n, int D,
@@ -39,20 +42,6 @@ namespace ML {
       cudaStream_t stream) {
 
       size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
-
-      /**
-       * Initial verification of memory
-       */
-      for(int i = 0; i < n_chunks; i++) {
-
-          int device = devices[i];
-          T length = chunk_size;
-          if(length * i >= n)
-              length = (chunk_size*i)-n;
-          CUDA_CHECK(cudaSetDevice(device));
-          if(!MLCommon::verify_size(length*D, device))
-              return;
-      }
 
       #pragma omp parallel for
       for(int i = 0; i < n_chunks; i++) {

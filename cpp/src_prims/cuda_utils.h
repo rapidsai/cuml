@@ -109,27 +109,8 @@ std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t strea
 }
 
 
-template<typename T = size_t>
-bool verify_size(T size, int device) {
-      size_t free, total;
-      cudaMemGetInfo(&free, &total);
-
-      if(size > free) {
-          std::cout << "Not enough free memory on device "
-                  << device
-                  << ". needed="
-                  << size
-                  << ", free=" << free << std::endl;
-          return false;
-      }
-
-      return true;
-};
-
-
-
 template<typename T>
-void ASSERT_MEM(T *ptr, std::string name) {
+void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
       cudaPointerAttributes s_att;
       cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 

@@ -34,9 +34,13 @@ namespace Selection {
 
 
   /** Merge results from several shards into a single result set.
-   * @param all_distances  size nshard * n * k
-   * @param all_labels     idem
-   * @param translartions  label translations to apply, size nshard
+   * @param n number of elements in search array
+   * @param k number of neighbors returned
+   * @param distances output distance array
+   * @param labels output index array
+   * @param all_distances  row-wise stacked array of intermediary knn output distances size nshard * n * k
+   * @param all_labels     row-wise stacked array of intermediary knn output indices size nshard * n * k
+   * @param translations  label translations to apply, size nshard
    */
   template <class C>
   void merge_tables (long n, long k, long nshard,
@@ -98,11 +102,16 @@ namespace Selection {
 
   /**
    * Search the kNN for the k-nearest neighbors of a set of query vectors
+   * @param input device memory to search as an array of device pointers
+   * @param sizes array of memory sizes
+   * @param n_params size of input and sizes arrays
+   * @param D number of cols in input and search_items
    * @param search_items set of vectors to query for neighbors
    * @param n        number of items in search_items
    * @param res_I      pointer to device memory for returning k nearest indices
    * @param res_D      pointer to device memory for returning k nearest distances
    * @param k        number of neighbors to query
+   * @param s the cuda stream to use
    */
   template<typename IntType = int>
   void brute_force_knn(
@@ -127,9 +136,9 @@ namespace Selection {
     float *all_D = new float[n_params*k*size_t(n)];
     long *all_I = new long[n_params*k*size_t(n)];
 
-    ASSERT_MEM(search_items, "search items");
-    ASSERT_MEM(res_I, "output index array");
-    ASSERT_MEM(res_D, "output distance array");
+    ASSERT_DEVICE_MEM(search_items, "search items");
+    ASSERT_DEVICE_MEM(res_I, "output index array");
+    ASSERT_DEVICE_MEM(res_D, "output distance array");
 
 
     #pragma omp parallel
