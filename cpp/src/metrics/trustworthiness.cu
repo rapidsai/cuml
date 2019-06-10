@@ -31,7 +31,7 @@ namespace Metrics {
         * @input param m: Number of features in high/original dimension
         * @input param d: Number of features in low/embedded dimension
         * @input param n_neighbors: Number of neighbors considered by trustworthiness score
-        * @input param distance_type: Distance type to consider
+        * @input tparam distance_type: Distance type to consider
         * @return Trustworthiness score
         */
         template<typename math_t, DistanceType distance_type>

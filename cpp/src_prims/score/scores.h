@@ -49,8 +49,8 @@ namespace MLCommon {
       * @input param work: Batch to consider (to do it at once use n * n_neighbors)
       * @output param rank: Resulting rank
       */
-      template<typename math_t>
-      __global__ void compute_rank(math_t *ind_X, long *ind_X_embedded,
+      template<typename math_t, typename knn_index_t>
+      __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded,
                       int n, int n_neighbors, int work, double * rank)
       {
           int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -60,7 +60,7 @@ namespace MLCommon {
           int n_idx = i / n_neighbors;
           int nn_idx = (i % n_neighbors) + 1;
 
-          int idx = ind_X_embedded[n_idx * (n_neighbors+1) + nn_idx];
+          knn_index_t idx = ind_X_embedded[n_idx * (n_neighbors+1) + nn_idx];
           math_t* sample_i = &ind_X[n_idx * n];
           for (int r = 1; r < n; r++)
           {
@@ -77,9 +77,11 @@ namespace MLCommon {
 
       /**
       * @brief Compute a kNN and returns the indexes of the nearest neighbors
-      * @input param input: Input matrix holding the dataset
-      * @input param n: Number of samples
-      * @input param d: Number of features
+      * @param input Input matrix holding the dataset
+      * @param n Number of samples
+      * @param d Number of features
+      * @param d_alloc the device allocator to use for temp device memory
+      * @param stream cuda stream to use
       * @return Matrix holding the indexes of the nearest neighbors
       */
       template<typename math_t>
@@ -106,13 +108,15 @@ namespace MLCommon {
 
       /**
       * @brief Compute the trustworthiness score
-      * @input param X: Data in original dimension
-      * @input param X_embedded: Data in target dimension (embedding)
-      * @input param n: Number of samples
-      * @input param m: Number of features in high/original dimension
-      * @input param d: Number of features in low/embedded dimension
-      * @input param n_neighbors: Number of neighbors considered by trustworthiness score
-      * @input param distance_type: Distance type to consider
+      * @tparam distance_type: Distance type to consider
+      * @param X: Data in original dimension
+      * @param X_embedde: Data in target dimension (embedding)
+      * @param n: Number of samples
+      * @param m: Number of features in high/original dimension
+      * @param d: Number of features in low/embedded dimension
+      * @param n_neighbors Number of neighbors considered by trustworthiness score
+      * @param d_alloc device allocator to use for temp device memory
+      * @param stream the cuda stream to use
       * @return Trustworthiness score
       */
       template<typename math_t, Distance::DistanceType distance_type>
@@ -124,7 +128,7 @@ namespace MLCommon {
       {
           const int TMP_SIZE = MAX_BATCH_SIZE * n;
 
-          size_t workspaceSize = 0; // EucUnexpandedL2Sqrt does not reauire workspace (may need change for other distances)
+          size_t workspaceSize = 0; // EucUnexpandedL2Sqrt does not require workspace (may need change for other distances)
           typedef cutlass::Shape<8, 128, 128> OutputTile_t;
           bool bAllocWorkspace = false;
 
