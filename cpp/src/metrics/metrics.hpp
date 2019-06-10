@@ -20,9 +20,9 @@
 
 namespace ML {
 
-    namespace Metrics {
+namespace Metrics {
 
-        /**
+/**
          * Calculates the "Coefficient of Determination" (R-Squared) score
          * normalizing the sum of squared errors by the total sum of squares
          * with single precision.
@@ -38,10 +38,9 @@ namespace ML {
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        float r2_score_py(const cumlHandle& handle, float *y, float *y_hat, int n);
+float r2_score_py(const cumlHandle &handle, float *y, float *y_hat, int n);
 
-
-        /**
+/**
          * Calculates the "Coefficient of Determination" (R-Squared) score
          * normalizing the sum of squared errors by the total sum of squares
          * with double precision.
@@ -57,10 +56,9 @@ namespace ML {
          * @param n: Number of elements in y and y_hat
          * @return: The R-squared value.
          */
-        double r2_score_py(const cumlHandle& handle, double *y, double *y_hat, int n);
+double r2_score_py(const cumlHandle &handle, double *y, double *y_hat, int n);
 
-
-        /**
+/**
          * Calculates the "rand index"
          *
          * This metric is a measure of similarity between two data clusterings.
@@ -71,7 +69,7 @@ namespace ML {
          * @param n: Number of elements in y and y_hat
          * @return: The rand index value
          */
-        double randIndex(const cumlHandle& handle, double *y, double *y_hat, int n);
+double randIndex(const cumlHandle &handle, double *y, double *y_hat, int n);
 
-    }
-}
+}  // namespace Metrics
+}  // namespace ML

@@ -20,7 +20,6 @@
 #include "stats/mean.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace Stats {
 
@@ -39,7 +38,7 @@ template <typename T>
 
 template <typename T>
 class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -84,7 +83,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   CovInputs<T> params;
   T *data, *mean_act, *cov_act;
   cublasHandle_t handle;
@@ -164,5 +163,5 @@ INSTANTIATE_TEST_CASE_P(CovTests, CovTestSmallF, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(CovTests, CovTestSmallD, ::testing::ValuesIn(inputsd));
 
-} // end namespace Stats
-} // end namespace MLCommon
+}  // end namespace Stats
+}  // end namespace MLCommon

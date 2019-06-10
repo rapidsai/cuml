@@ -24,9 +24,9 @@ namespace ML {
 
 
 int get_device(const void *ptr) {
-    cudaPointerAttributes att;
-    cudaPointerGetAttributes(&att, ptr);
-    return att.device;
+  cudaPointerAttributes att;
+  cudaPointerGetAttributes(&att, ptr);
+  return att.device;
 }
 
 cudaMemoryType memory_type(const void *p) {

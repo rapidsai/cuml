@@ -20,7 +20,6 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -28,13 +27,16 @@ namespace LinAlg {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType>
-void binaryOpLaunch(T *out, const T *in1, const T *in2, IdxType len, cudaStream_t stream) {
-  binaryOp(out, in1, in2, len, [] __device__(T a, T b) { return a + b; }, stream);
+void binaryOpLaunch(T *out, const T *in1, const T *in2, IdxType len,
+                    cudaStream_t stream) {
+  binaryOp(
+    out, in1, in2, len, [] __device__(T a, T b) { return a + b; }, stream);
 }
 
 template <typename T, typename IdxType>
-class BinaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T, IdxType>> {
-protected:
+class BinaryOpTest
+  : public ::testing::TestWithParam<BinaryOpInputs<T, IdxType>> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BinaryOpInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
@@ -59,7 +61,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   BinaryOpInputs<T, IdxType> params;
   T *in1, *in2, *out_ref, *out;
 };
@@ -104,5 +106,5 @@ TEST_P(BinaryOpTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(BinaryOpTests, BinaryOpTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

@@ -98,8 +98,8 @@ template <typename TypeV, typename TypeK, bool Greater>
       //<<h_outk[j] <<std::endl<<std::endl;
 
       if (abs(h_outv[j] - topk[j].val) > tolerance) {
-        return ::testing::AssertionFailure() << "actual=" << topk[j].val
-                                             << " != expected=" << h_outv[j];
+        return ::testing::AssertionFailure()
+               << "actual=" << topk[j].val << " != expected=" << h_outv[j];
       }
     }
     // delete resource
@@ -111,15 +111,14 @@ template <typename TypeV, typename TypeK, bool Greater>
   return ::testing::AssertionSuccess();
 }
 
-
 // Structure  WarpTopKInputs
 template <typename T>
 struct WarpTopKInputs {
   T tolerance;
-  int rows;                    // batch size
-  int cols;                    // N the length of variables
-  int k;                       // the top-k value
-  unsigned long long int seed; // seed to generate data
+  int rows;                     // batch size
+  int cols;                     // N the length of variables
+  int k;                        // the top-k value
+  unsigned long long int seed;  // seed to generate data
 };
 template <typename T>
 ::std::ostream &operator<<(::std::ostream &os, const WarpTopKInputs<T> &dims) {
@@ -129,7 +128,7 @@ template <typename T>
 // Define functions WarpTopKTest
 template <typename T>
 class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -153,7 +152,7 @@ protected:
     CUDA_CHECK(cudaFree(arr));
   }
 
-protected:
+ protected:
   WarpTopKInputs<T> params;
   T *arr, *outv;
   int *outk;
@@ -174,7 +173,6 @@ const std::vector<WarpTopKInputs<float>> inputs2_2 = {
 // all the values
 // @TODO: Milestone 3: Support not sorted
 // @TODO: Milestone 4: Support multi-gpu
-
 
 // Define the function TEST_P
 typedef WarpTopKTest<float> TestD2_0;
@@ -204,6 +202,5 @@ INSTANTIATE_TEST_CASE_P(WarpTopKTests, TestD2_1,
 INSTANTIATE_TEST_CASE_P(WarpTopKTests, TestD2_2,
                         ::testing::ValuesIn(inputs2_2));
 
-
-} // end namespace Selection
-} // end namespace MLCommon
+}  // end namespace Selection
+}  // end namespace MLCommon

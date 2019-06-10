@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
 
 
@@ -39,4 +38,4 @@ TEST(Utils, log2) {
   ASSERT_EQ(9, log2Of1023);
 }
 
-} // end namespace MLCommon
+}  // end namespace MLCommon

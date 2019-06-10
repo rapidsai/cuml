@@ -15,35 +15,32 @@
  */
 #pragma once
 
-#include <thrust/execution_policy.h>
 #include <thrust/device_ptr.h>
-#include <thrust/unique.h>
+#include <thrust/execution_policy.h>
 #include <thrust/sort.h>
+#include <thrust/unique.h>
 #include <limits>
 
 #include "cuda_utils.h"
-
 
 namespace MLCommon {
 namespace Array {
 
 template <typename Type, int TPB_X, typename Lambda>
-__global__ void map_label_kernel(Type *map_ids, Type *in, Type *out,
-        size_t N, Lambda filter_op) {
-    int tid = threadIdx.x + blockIdx.x*TPB_X;
-    if(tid < N) {
-
-        if(!filter_op(in[tid])) {
-            for(size_t i=0; i < N; i++) {
-                if(in[tid] == map_ids[i]) {
-                    out[tid] = i + 1;
-                    break;
-                }
-            }
+__global__ void map_label_kernel(Type *map_ids, Type *in, Type *out, size_t N,
+                                 Lambda filter_op) {
+  int tid = threadIdx.x + blockIdx.x * TPB_X;
+  if (tid < N) {
+    if (!filter_op(in[tid])) {
+      for (size_t i = 0; i < N; i++) {
+        if (in[tid] == map_ids[i]) {
+          out[tid] = i + 1;
+          break;
         }
+      }
     }
+  }
 }
-
 
 /**
  * Maps an input array containing a series of numbers into a new array
@@ -62,38 +59,37 @@ __global__ void map_label_kernel(Type *map_ids, Type *in, Type *out,
  * @param filter_op an optional function for specifying which values
  * should have monotonically increasing labels applied to them.
  */
-template <typename Type, typename Lambda >
-void make_monotonic(Type *out, Type *in, size_t N,
-                    cudaStream_t stream,
+template <typename Type, typename Lambda>
+void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     Lambda filter_op) {
+  static const size_t TPB_X = 256;
 
-    static const size_t TPB_X = 256;
+  dim3 blocks(ceildiv(N, TPB_X));
+  dim3 threads(TPB_X);
 
-    dim3 blocks(ceildiv(N, TPB_X));
-    dim3 threads(TPB_X);
+  Type *map_ids;
+  allocate(map_ids, N, stream);
 
-    Type *map_ids;
-    allocate(map_ids, N, stream);
+  Type *host_in = (Type *)malloc(N * sizeof(Type));
+  Type *host_map_ids = (Type *)malloc(N * sizeof(Type));
 
-    Type *host_in = (Type*)malloc(N*sizeof(Type));
-    Type *host_map_ids = (Type*)malloc(N*sizeof(Type));
+  memset(host_map_ids, 0, N * sizeof(Type));
 
-    memset(host_map_ids, 0, N*sizeof(Type));
+  MLCommon::updateHost(host_in, in, N, stream);
 
-    MLCommon::updateHost(host_in, in, N, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+  thrust::sort(thrust::host, host_in, host_in + N);
 
-    thrust::sort(thrust::host, host_in, host_in + N);
+  Type *uid = thrust::unique(thrust::host, host_in, host_in + N,
+                             thrust::equal_to<Type>());
+  Type num_clusters = uid - host_in;
+  for (int i = 0; i < num_clusters; i++) host_map_ids[i] = host_in[i];
 
-    Type *uid = thrust::unique(thrust::host, host_in, host_in + N, thrust::equal_to<Type>());
-    Type num_clusters = uid - host_in;
-    for(int i=0; i<num_clusters; i++)
-        host_map_ids[i] = host_in[i];
+  MLCommon::updateDevice(map_ids, host_map_ids, N, stream);
 
-    MLCommon::updateDevice(map_ids, host_map_ids, N, stream);
-
-    map_label_kernel<Type,TPB_X><<<blocks, threads, 0, stream>>>(map_ids, in, out, N, filter_op);
+  map_label_kernel<Type, TPB_X>
+    <<<blocks, threads, 0, stream>>>(map_ids, in, out, N, filter_op);
 }
 
 /**
@@ -113,7 +109,8 @@ void make_monotonic(Type *out, Type *in, size_t N,
  */
 template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream) {
-    make_monotonic<Type>(out, in, N, stream, [] __device__ (Type val) {return false;});
+  make_monotonic<Type>(out, in, N, stream,
+                       [] __device__(Type val) { return false; });
 }
-};
-};
+};  // namespace Array
+};  // namespace MLCommon

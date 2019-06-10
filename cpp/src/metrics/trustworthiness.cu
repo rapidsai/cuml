@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include "trustworthiness.h"
 #include <cuda_utils.h>
 #include "score/scores.h"
 #include "distance/distance.h"
@@ -23,7 +22,7 @@
 namespace ML {
 namespace Metrics {
 
-        /**
+/**
         * @brief Compute the trustworthiness score
         * @input param X: Data in original dimension
         * @input param X_embedded: Data in target dimension (embedding)
