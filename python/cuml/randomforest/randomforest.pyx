@@ -110,9 +110,9 @@ cdef class RandomForest_impl():
                   max_features=1.0, min_samples_split=2, n_bins=8,
                   split_algo=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
-		  type="classifier", verbose=False,
-		  rows_sample=1.0,max_leaves=-1,
-		  gdf_datatype=None):
+                  type="classifier", verbose=False,
+                  rows_sample=1.0,max_leaves=-1,
+                  gdf_datatype=None):
 
         self.handle = handle
         self.split_algo = split_algo
@@ -275,7 +275,7 @@ cdef class RandomForest_impl():
 
         X_ptr = self._get_dev_array_ptr(X_m)
 
-        self.preds = cudf.Series(np.zeros(self.n_rows, 
+        self.preds = cudf.Series(np.zeros(self.n_rows,
                                           dtype=self.gdf_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
 
@@ -342,7 +342,7 @@ cdef class RandomForest_impl():
             msg = "y vector must be a cuDF series or Numpy ndarray"
             raise TypeError(msg)
 
-        self.preds = cudf.Series(np.zeros(self.n_rows, 
+        self.preds = cudf.Series(np.zeros(self.n_rows,
                                           dtype=self.gdf_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
 
@@ -383,15 +383,16 @@ cdef class RandomForest_impl():
 
         return self.stats
 
+
 class RandomForest(Base):
 
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, min_samples_split=2, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-		 type="classifier", verbose=False,
-		 rows_sample=1.0, max_leaves=-1,
-		 gdf_datatype=None):
+                 type="classifier", verbose=False,
+                 rows_sample=1.0, max_leaves=-1,
+                 gdf_datatype=None):
 
         super(RandomForest, self).__init__(handle, verbose)
         print(n_bins)
@@ -412,4 +413,4 @@ class RandomForest(Base):
 
     def cross_validate(self, X, y):
 
-       return self._impl.cross_validate(X, y)
+        return self._impl.cross_validate(X, y)
