@@ -24,7 +24,8 @@
 namespace ML {
 
 /**
- *
+ * Given initialized comms handles for NCCL and UCP, this function builds a cumlCommunicator
+ * object and injects it into the given cumlHandle instance.
  */
 void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank);
 
