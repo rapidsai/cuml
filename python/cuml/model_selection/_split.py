@@ -28,8 +28,9 @@ import cudf
 
 # import utils
 from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
-    check_random_state, np_check_random_state, column_or_1d, in1d,
-    _approximate_mode, _np_approximate_mode, type_of_target, check_array)
+                    check_random_state, np_check_random_state, column_or_1d,
+                    in1d, _approximate_mode, _np_approximate_mode,
+                    type_of_target, check_array)
 
 
 NSPLIT_WARNING = (
@@ -1490,14 +1491,14 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                 np.argsort(y_indices),
                 np.ndarray.tolist(np.cumsum(class_counts)[:-1]))
 
-            
             nprng = np_check_random_state(self.random_state)
             for _ in range(self.n_splits):
                 # if there are ties in the class-counts, we want
                 # to make sure to break them anew in each iteration
                 n_i = _np_approximate_mode(class_counts, n_train, nprng)
                 class_counts_remaining = class_counts - n_i
-                t_i = _np_approximate_mode(class_counts_remaining, n_test, nprng)
+                t_i = _np_approximate_mode(class_counts_remaining,
+                                           n_test, nprng)
 
                 train = []
                 test = []
@@ -1547,8 +1548,9 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
 
             rng = check_random_state(self.random_state)
             # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # have to get a nprng since cp.RandomState.permutation does not accept
-            # cp.ndarray as input. Get rid of this once cp.RS.perm support cp array
+            # have to get a nprng, since cp.RandomState.permutation
+            # does not accept cp.ndarray as input.
+            # Get rid of this once cp.RS.perm supports cp array
             nprng = np_check_random_state(self.random_state)
             for _ in range(self.n_splits):
                 # if there are ties in the class-counts, we want

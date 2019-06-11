@@ -23,13 +23,13 @@ from cupyx.scipy.sparse import spmatrix
 
 import numpy as np
 import cupy as cp
-import cudf
 
 
 try:  # SciPy >= 0.19
     from scipy.special import comb, logsumexp
 except ImportError:
     from scipy.misc import comb, logsumexp  # noqa
+
 
 def _safe_accumulator_op(op, x, *args, **kwargs):
     """
@@ -289,10 +289,6 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     array_converted : object
         The converted and validated array.
     """
-    
-    # store reference to original array to check if copy is needed when
-    # function returns
-    array_orig = array
 
     # store whether originally we wanted numeric dtype
     dtype_numeric = isinstance(dtype, str) and dtype == "numeric"
@@ -353,7 +349,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             try:
                 warnings.simplefilter('error', np.ComplexWarning)
                 array = cp.asarray(array, dtype=dtype, order=order)
-            except ComplexWarning:
+            except np.ComplexWarning:
                 raise ValueError("Complex data not supported\n"
                                  "{}\n".format(array))
 
@@ -593,7 +589,6 @@ def _approximate_mode(class_counts, n_draws, rng):
     return floored.astype(cp.int)
 
 
-
 def _np_approximate_mode(class_counts, n_draws, rng):
     rng = np_check_random_state(rng)
     # this computes a bad approximation to the mode of the
@@ -622,6 +617,7 @@ def _np_approximate_mode(class_counts, n_draws, rng):
             if need_to_add == 0:
                 break
     return floored.astype(np.int)
+
 
 class DataConversionWarning(UserWarning):
     """Warning used to notify implicit data conversions happening in the code.

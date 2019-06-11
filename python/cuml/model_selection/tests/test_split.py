@@ -4,16 +4,16 @@ import pytest
 import cudf
 import numpy as np
 import cupy as cp
-from cupyx.scipy.sparse import coo_matrix, csc_matrix, csr_matrix
+# from cupyx.scipy.sparse import coo_matrix, csc_matrix, csr_matrix
 from scipy import stats
 from itertools import combinations
-from itertools import combinations_with_replacement
+# from itertools import combinations_with_replacement
 
 from sklearn.utils.testing import assert_equal
 from sklearn.utils.testing import assert_almost_equal
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_raises_regexp
-from sklearn.utils.testing import assert_greater
+# from sklearn.utils.testing import assert_greater
 from sklearn.utils.testing import assert_greater_equal
 from sklearn.utils.testing import assert_not_equal
 from sklearn.utils.testing import assert_array_almost_equal
@@ -22,8 +22,7 @@ from sklearn.utils.testing import assert_warns_message
 from sklearn.utils.testing import assert_raise_message
 from sklearn.utils.testing import ignore_warnings
 from sklearn.utils.testing import assert_no_warnings
-from sklearn.utils.validation import _num_samples
-from sklearn.utils.mocking import MockDataFrame
+# from sklearn.utils.mocking import MockDataFrame
 
 # from cuml.model_selection import cross_val_score
 from cuml.model_selection import KFold
@@ -39,24 +38,21 @@ from cuml.model_selection import GroupShuffleSplit
 from cuml.model_selection import StratifiedShuffleSplit
 from cuml.model_selection import PredefinedSplit
 from cuml.model_selection import check_cv
-from cuml.model_selection import train_test_split
+# from cuml.model_selection import train_test_split
 # from cuml.model_selection import GridSearchCV
 from cuml.model_selection import RepeatedKFold
 from cuml.model_selection import RepeatedStratifiedKFold
 
-from sklearn.linear_model import Ridge
+# from sklearn.linear_model import Ridge
 
-from sklearn.model_selection._split import _validate_shuffle_split
+from cuml.model_selection._split import _validate_shuffle_split
 from cuml.model_selection._split import _build_repr
 from cuml.model_selection._split import NSPLIT_WARNING
 
 from sklearn.datasets import load_digits
-from sklearn.datasets import make_classification
+# from sklearn.datasets import make_classification
 
-from .utils import (safe_indexing, indexable, _num_samples, comb,
-    check_random_state, np_check_random_state, column_or_1d, in1d,
-    _approximate_mode, type_of_target, _pprint)
-from cuml.model_selection.utils import comb
+from .utils import _num_samples, comb, in1d
 
 X = cudf.DataFrame({'a': range(10)})
 y = cp.arange(10) // 2
@@ -78,7 +74,8 @@ def cp2np(tup):
 # Output: list of tuples (train idx, test idx (both are in numpy))
 def conv2np(cv, X, y=None):
     if y is not None:
-        return [(e[0].to_array(), e[1].to_array()) for e in list(cv.split(X, y))]
+        return [(e[0].to_array(),
+                 e[1].to_array()) for e in list(cv.split(X, y))]
     else:
         return [(e[0].to_array(), e[1].to_array()) for e in list(cv.split(X))]
 
@@ -531,7 +528,8 @@ def test_shuffle_kfold_stratifiedkfold_reproducibility():
     # Check that when the shuffle is True, multiple split calls often
     # (not always) produce different splits when random_state is
     # RandomState instance or None
-    kf = KFold(3, shuffle=True, random_state=cp.random.generator.RandomState(0))
+    kf = KFold(3, shuffle=True,
+               random_state=cp.random.generator.RandomState(0))
     skf = StratifiedKFold(3, shuffle=True,
                           random_state=cp.random.generator.RandomState(0))
 
@@ -675,9 +673,7 @@ def test_stratified_shuffle_split_iter():
           cp.array([1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4]),
           cp.array([-1] * 800 + [1] * 50),
           cp.array(np.concatenate([[i] * (100 + i) for i in range(11)])),
-          [1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3],
-          #['1', '1', '1', '1', '2', '2', '2', '3', '3', '3', '3', '3'],
-          ]
+          [1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3]]
 
     for y in ys:
         sss = StratifiedShuffleSplit(6, test_size=0.33,
@@ -689,7 +685,8 @@ def test_stratified_shuffle_split_iter():
         train_size = len(y) - test_size
         for train, test in sss:
             train, test = cp.array(train), cp.array(test)
-            assert_array_equal(cp.unique(y[train]).tolist(), cp.unique(y[test]).tolist())
+            assert_array_equal(cp.unique(y[train]).tolist(),
+                               cp.unique(y[test]).tolist())
             # Checks if folds keep classes proportions
             p_train = (cp.bincount(cp.unique(y[train],
                                    return_inverse=True)[1]) /
@@ -790,7 +787,8 @@ def test_stratified_shuffle_split_multilabel():
 
         # complete partition
         print(type(train), type(test))
-        assert_array_equal(np.unique(np.concatenate((train, test))), np.arange(len(y)))
+        assert_array_equal(np.unique(np.concatenate((train, test))), 
+                           np.arange(len(y)))
 
         # correct stratification of entire rows
         # (by design, here y[:, 0] uniquely determines the entire row of y)
@@ -860,21 +858,21 @@ def test_group_shuffle_split():
         assert_equal(slo.get_n_splits(X, y, groups=groups_i), n_splits)
 
         l_unique = cp.unique(groups_i)
-        l = cp.array(groups_i)
+        gps = cp.array(groups_i)
 
         for train, test in slo.split(X, y, groups=groups_i):
             # First test: no train group is in the test set and vice versa
             train, test = cp.array(train.to_array()), cp.array(test.to_array())
-            l_train_unique = cp.unique(l[train])
-            l_test_unique = cp.unique(l[test])
-            assert not cp.any(in1d(l[train], l_test_unique))
-            assert not cp.any(in1d(l[test], l_train_unique))
+            l_train_unique = cp.unique(gps[train])
+            l_test_unique = cp.unique(gps[test])
+            assert not cp.any(in1d(gps[train], l_test_unique))
+            assert not cp.any(in1d(gps[test], l_train_unique))
 
             # Second test: train and test add up to all the data
-            assert_equal(l[train].size + l[test].size, l.size)
+            assert_equal(gps[train].size + gps[test].size, gps.size)
 
             # Third test: train and test are disjoint
-            # !!!!!!!!!!!!!!! we have to transfer it back to numpy, since 
+            # !!!!!!!!!!!!!!! we have to transfer it back to numpy, since
             # cupy array's __array__() is intentionally blocked for now.....
             assert_array_equal(cp.asnumpy(intersect1d(train, test)), [])
 
@@ -919,7 +917,7 @@ def test_leave_one_p_group_out():
                 train = train.to_array()
                 test = test.to_array()
                 assert_array_equal(intersect1d(groups_arr[train],
-                                                  groups_arr[test]).tolist(),
+                                               groups_arr[test]).tolist(),
                                    [])
 
                 # Second test: train and test add up to all the data
@@ -1182,21 +1180,32 @@ def test_cv_iterable_wrapper():
     # Since the wrapped iterable is enlisted and stored,
     # split can be called any number of times to produce
     # consistent results.
-    one = [(e[0].to_array(), e[1].to_array()) for e in list(kf_iter_wrapped.split(X, y))]
-    two = [(e[0].to_array(), e[1].to_array()) for e in list(kf_iter_wrapped.split(X, y))]
+    one = [(e[0].to_array(),
+            e[1].to_array()) for e in list(kf_iter_wrapped.split(X, y))]
+    two = [(e[0].to_array(),
+            e[1].to_array()) for e in list(kf_iter_wrapped.split(X, y))]
     np.testing.assert_equal(one, two)
     # If the splits are randomized, successive calls to split yields different
     # results
     kf_randomized_iter = KFold(n_splits=5, shuffle=True).split(X, y)
     kf_randomized_iter_wrapped = check_cv(kf_randomized_iter)
     # numpy's assert_array_equal properly compares nested lists
-    rand1 = [(e[0].to_array(), e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(X, y))]
-    rand2 = [(e[0].to_array(), e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(X, y))]
+    rand1 = [(
+        e[0].to_array(),
+        e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(X, y))]
+    rand2 = [(
+        e[0].to_array(),
+        e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(X, y))]
     np.testing.assert_equal(rand1, rand2)
 
     try:
-        rand = [(e[0].to_array(), e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(X, y))]
-        nonrand = [(e[0].to_array(), e[1].to_array()) for e in list(kf_iter_wrapped.split(X, y))]
+        rand = [(
+            e[0].to_array(),
+            e[1].to_array()) for e in list(kf_randomized_iter_wrapped.split(
+                X, y))]
+        nonrand = [(e[0].to_array(),
+                    e[1].to_array()) for e in list(kf_iter_wrapped.split(X,
+                                                                         y))]
         np.testing.assert_equal(nonrand, rand)
         splits_are_equal = True
     except AssertionError:
@@ -1402,7 +1411,7 @@ def test_build_repr():
 def test_shuffle_split_empty_trainset(CVSplitter):
     cv = CVSplitter(test_size=.99)
     X = cudf.DataFrame([('a', list(range(1)))])
-    y = cp.array([0]) # 1 sample
+    y = cp.array([0])  # 1 sample
     with pytest.raises(
             ValueError,
             match='With n_samples=1, test_size=0.99 and train_size=None, '
@@ -1415,7 +1424,7 @@ def test_leave_one_out_empty_trainset():
     # LeaveOneGroup out expect at least 2 groups so no need to check
     cv = LeaveOneOut()
     X = cudf.DataFrame([('a', list(range(1)))])
-    y = cp.array([0]) # 1 sample
+    y = cp.array([0])  # 1 sample
     with pytest.raises(
             ValueError,
             match='Cannot perform LeaveOneOut with n_samples=1'):
