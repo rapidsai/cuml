@@ -7,6 +7,7 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #670 Add test skipping functionality to build.sh
 
 ## Improvements
 
