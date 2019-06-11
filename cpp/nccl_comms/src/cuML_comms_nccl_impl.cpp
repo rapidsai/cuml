@@ -18,6 +18,7 @@
 
 #include <nccl.h>
 #include <ucp/api/ucp.h>
+#include <ucp/api/ucp_def.h>
 
 #include <memory>
 #include <cstdio>
@@ -26,6 +27,7 @@
 #include <common/cumlHandle.hpp>
 
 #include <utils.h>
+
 
 #define NCCL_CHECK(call)                                                        \
   do {                                                                          \
@@ -49,6 +51,9 @@
 namespace ML {
 
 namespace {
+
+
+    static const ucp_tag_t default_tag_mask = -1;
     size_t getDatatypeSize( const cumlNCCLCommunicator_impl::datatype_t datatype )
     {
         switch ( datatype )
@@ -129,16 +134,12 @@ void inject_comms(cumlHandle& handle, ncclComm_t comm, ucp_worker_h *ucp_worker,
 }
 
 cumlNCCLCommunicator_impl::cumlNCCLCommunicator_impl(ncclComm_t comm, ucp_worker_h *ucp_worker, ucp_ep_h **eps, int size, int rank)
-    : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank) {
+    : _nccl_comm(comm), _ucp_worker(ucp_worker), _ucp_eps(eps), _size(size), _rank(rank), _next_request_id(0) {
     //initializing NCCL
 //    NCCL_CHECK(ncclCommInitRank(&_nccl_comm, _size, _rank));
 }
 
-cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl()
-{
-    //finalizing NCCL
-    NCCL_CHECK_NO_THROW( ncclCommDestroy(_nccl_comm) );
-}
+cumlNCCLCommunicator_impl::~cumlNCCLCommunicator_impl() {}
 
 int cumlNCCLCommunicator_impl::getSize() const {
     return _size;
@@ -156,50 +157,103 @@ std::unique_ptr<MLCommon::cumlCommunicator_iface> cumlNCCLCommunicator_impl::com
 
 void cumlNCCLCommunicator_impl::barrier() const
 {
-    // not supported by NCCL
+    // @TODO:
+    // 1. Have Rank 0 send out predetermined message and blocks until it gets a response from everyone.
+    // 2. All other ranks block until they see the message and reply with a predetermined response.
+    // 3. Upon getting responses from everyone, Rank 0 sends out a message for everyone to continue.
     printf("barrier called but not supported in NCCL implementation.\n");
 }
 
+static void send_handle(void *request, ucs_status_t status) {
+    struct ucx_context *context = (struct ucx_context *) request;
+    context->completed = 1;
+}
+
+static void recv_handle(void *request, ucs_status_t status,
+                        ucp_tag_recv_info_t *info) {
+    struct ucx_context *context = (struct ucx_context *) request;
+    context->completed = 1;
+}
+
+
+
+// @TODO: Really, the isend and irecv should be tied to a datatype, as they are in MPI/UCP.
+// This may not matter for p2p, though, if we are just always going to treat them as a contiguous sequence of bytes.
 void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int tag, request_t *request) const
 {
+  request_t req_id;
+  if ( _free_requests.empty() )
+      req_id = _next_request_id++;
+  else {
+      auto it = _free_requests.begin();
+      req_id = *it;
+      _free_requests.erase(it);
+  }
 
-  /**
-   * UCP function `ucp_tag_send_nb` used here with the relevant ucp_ep_h object from our
-   * array of ep objects (based on the destination rank).
-   *
-   * Other arguments needed:
-   *   const void * buffer
-   *   size_t count
-   *   ucp_datatype_t datatype -> will require wrapping
-   *   ucp_tag_t tag -> will require helper to convert int to this tag
-   *   ucp_send_callback_t cb -> will need to populate this relevant to our request object
-   */
-    // Will investigate supporting UCX for this
-    printf("isend called but not supported in NCCL implementation.\n");
+  struct ucx_context *ucp_request = 0;
+  ucp_tag_t ucp_tag = (ucp_tag_t)tag;
+  ucp_ep_h *ep_ptr = _ucp_eps[dest];
+
+   ucs_status_ptr_t result = ucp_tag_send_nb(*ep_ptr, buf, size,
+                              ucp_dt_make_contig(1), ucp_tag, send_handle);
+
+   if (UCS_PTR_IS_ERR(result)) {
+       fprintf(stderr, "unable to send UCX data message\n");
+       ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+       return;
+   } else if (UCS_PTR_STATUS(result) != UCS_OK) {
+
+    } else {
+        //request is complete so no need to wait on request
+    }
+
+    _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
+    *request = req_id;
 }
 
 void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, request_t *request) const
 {
-  /**
-   * UCP function `ucp_tag_recv_nb` used here with the relevant ucp_worker_h object from our
-   * array of ep objects (based on the destination rank).
-   *
-   * Other arguments needed:
-   *   void *buffer
-   *   size_t count
-   *   ucp_datatype_t datatype -> will require wrapping
-   *   ucp_tag_t tag -> will require helper to convert int to this tag
-   *   ucp_tag_t tag_mask
-   *   ucp_tag_recv_callback_t cb -> will need to populate this relevant to our request object
-   */
-    // Will investigate supporting UCX for this
-    printf("irecv called but not supported in NCCL implementation.\n");
+  request_t req_id;
+  if ( _free_requests.empty() )
+      req_id = _next_request_id++;
+  else {
+      auto it = _free_requests.begin();
+      req_id = *it;
+      _free_requests.erase(it);
+  }
+
+  struct ucx_context *ucp_request = 0;
+  ucp_ep_h *ep_ptr = _ucp_eps[source];
+  ucp_tag_t ucp_tag = (ucp_tag_t)tag;
+
+
+  ucs_status_ptr_t result = ucp_tag_recv_nb(*_ucp_worker, buf, size,
+                            ucp_dt_make_contig(1), ucp_tag, default_tag_mask,
+                            recv_handle);
+
+  if (UCS_PTR_IS_ERR(result)) {
+      fprintf(stderr, "unable to receive UCX data message (%u)\n",
+              UCS_PTR_STATUS(result));
+      ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+      return;
+  }
+
+  _requests_in_flight.insert( std::make_pair( req_id, ucp_request ) );
+  *request = req_id;
 }
 
 void cumlNCCLCommunicator_impl::waitall(int count, request_t array_of_requests[]) const
 {
-    // Not supported by NCCL
-    printf("waitall called but not supported in NCCL implementation.\n");
+  std::vector<ucx_context> requests;
+  for ( int i = 0; i < count; ++i ) {
+       auto req_it = _requests_in_flight.find( array_of_requests[i] );
+       ASSERT( _requests_in_flight.end() != req_it, "ERROR: waitall on invalid request: %d", array_of_requests[i] );
+       requests.push_back( *req_it->second );
+       _free_requests.insert( req_it->first );
+      _requests_in_flight.erase( req_it );
+  }
+
+  // @TODO: Use UCP progress functions here
 }
 
 void cumlNCCLCommunicator_impl::allreduce(const void* sendbuff, void* recvbuff, int count, datatype_t datatype, op_t op, cudaStream_t stream) const
