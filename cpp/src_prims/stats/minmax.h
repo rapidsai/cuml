@@ -17,10 +17,136 @@
 #pragma once
 
 #include <limits>
+#include <typeinfo>
 #include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Stats {
+
+//----------------------------------------------
+//modified code from Andy - begin
+
+__host__ __device__ int encode(float val) {
+  int i = *(int*)&val;
+  return (i >= 0) ? i : (1 << 31) | ~i;
+}
+
+__host__ __device__ long long encode(double val) {
+  long long i = *(long long*)&val;
+  return (i >= 0) ? i : (1ULL << 63) | ~i;
+}
+
+__host__ __device__ float decode(int val) {
+  if (val < 0) val = (1 << 31) | ~val;
+  return *(float*)&val;
+}
+
+__host__ __device__ double decode(long long val) {
+  if (val < 0) val = (1ULL << 63) | ~val;
+  return *(double*)&val;
+}
+
+template <typename T, typename E>
+__device__ T atomicMaxBits(T* address, T val) {
+  E old = atomicMax((E*)address, encode(val));
+  return decode(old);
+}
+
+template <typename T, typename E>
+__device__ T atomicMinBits(T* address, T val) {
+  E old = atomicMin((E*)address, encode(val));
+  return decode(old);
+}
+
+template <typename T, typename E>
+__global__ void decode_k(T* g_minmax, int ncols) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < 2 * ncols) {
+    g_minmax[tid] = decode(*(E*)&g_minmax[tid]);
+  }
+}
+
+template <typename T, typename E>
+__global__ void minmaxKernelBits(const T* data, const unsigned int* rowids,
+                                 const unsigned int* colids, int nrows,
+                                 int ncols, int row_stride, T* g_min, T* g_max,
+                                 T* sampledcols, T init_min_val) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  extern __shared__ char shmem[];
+  T* s_min = (T*)shmem;
+  T* s_max = (T*)(shmem + sizeof(T) * ncols);
+  for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
+    *(E*)&s_min[i] = encode(init_min_val);
+    *(E*)&s_max[i] = encode(-init_min_val);
+  }
+  __syncthreads();
+  for (int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
+    int col = i / nrows;
+    int row = i % nrows;
+    if (colids != nullptr) {
+      col = colids[col];
+    }
+    if (rowids != nullptr) {
+      row = rowids[row];
+    }
+    int index = row + col * row_stride;
+    T coldata = data[index];
+
+    //Min max values are saved in shared memory and global memory as per the shuffled colids.
+    //s_min and s_max store the encoded min, max versions.
+    atomicMinBits<T, E>(&s_min[(int)(i / nrows)], coldata);
+    atomicMaxBits<T, E>(&s_max[(int)(i / nrows)], coldata);
+    if (sampledcols != nullptr) {
+      sampledcols[i] = coldata;
+    }
+  }
+  __syncthreads();
+
+  // finally, perform global mem atomics
+  // g_min and g_max store the encoded min max versions. Need to run decode_k kernel before using them.
+  for (int j = threadIdx.x; j < ncols; j += blockDim.x) {
+    atomicMinBits<T, E>(&g_min[j], decode(*(E*)&s_min[j]));
+    atomicMaxBits<T, E>(&g_max[j], decode(*(E*)&s_max[j]));
+  }
+}
+
+template <typename T, typename E>
+__global__ void minmaxInitKernelBits(int ncols, T* globalmin, T* globalmax,
+                                     T init_val) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+
+  if (tid < ncols) {
+    *(E*)&globalmin[tid] = encode(init_val);
+    *(E*)&globalmax[tid] = encode(-init_val);
+  }
+}
+
+//typename E  is int when T is float, or long long when T is double
+template <typename T, int TPB = 512, typename E>
+void minmaxBits(const T* data, const unsigned int* rowids,
+                const unsigned int* colids, int nrows, int ncols,
+                int row_stride, T* globalmin, T* globalmax, T* sampledcols,
+                cudaStream_t stream) {
+  int nblks = ceildiv(ncols, TPB);
+  T init_val = std::numeric_limits<T>::max();
+  minmaxInitKernelBits<T, E>
+    <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
+  CUDA_CHECK(cudaPeekAtLastError());
+  nblks = ceildiv(nrows * ncols, TPB);
+  nblks = min(nblks, 65536);
+  size_t smemSize = sizeof(T) * 2 * ncols;
+  minmaxKernelBits<T, E><<<nblks, TPB, smemSize, stream>>>(
+    data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
+    sampledcols, init_val);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  nblks = ceildiv(2 * ncols, TPB);
+  decode_k<T, E><<<nblks, TPB, 0, stream>>>(globalmin, ncols);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+//modified code from Andy - end
+//----------------------------------------------
 
 ///@todo: implement a proper "fill" kernel
 template <typename T>
