@@ -174,7 +174,6 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
    *   ucp_tag_t tag -> will require helper to convert int to this tag
    *   ucp_send_callback_t cb -> will need to populate this relevant to our request object
    */
-
     // Will investigate supporting UCX for this
     printf("isend called but not supported in NCCL implementation.\n");
 }
