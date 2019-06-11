@@ -38,7 +38,7 @@ def stress_param(*args, **kwargs):
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
-@pytest.mark.parametrize('X_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('X_type', ['ndarray'])
 @pytest.mark.parametrize('y_type', ['series', 'ndarray'])
 @pytest.mark.parametrize('algorithm', ['eig', 'svd'])
 @pytest.mark.parametrize('nrows', [unit_param(20), quality_param(5000),

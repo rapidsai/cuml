@@ -24,7 +24,7 @@ from sklearn.metrics import mean_squared_error
 from cuml.test.utils import array_equal
 
 
-@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('selection', ['cyclic', 'random'])
 def test_elastic_net(input_type, selection):
     n_samples = 20
