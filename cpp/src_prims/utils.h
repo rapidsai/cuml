@@ -205,6 +205,24 @@ void myPrintHostVector(const char* variableName, const T* hostMem,
   out << "];\n";
 }
 
+template <class T, class OutStream>
+void myPrintHostMatrix(const char* variableName, const T* hostMem,
+                       size_t n_rows, size_t n_cols, bool row_major,
+                       OutStream& out) {
+  out << variableName << "=[";
+  for (size_t i = 0; i < n_rows; i++) {
+    for (size_t j = 0; j < n_cols; j++) {
+      if (row_major) {
+        out << hostMem[i * n_cols + j];
+      } else {
+        out << hostMem[j * n_rows + i];
+      }
+      out << ",  ";
+    }
+  }
+  out << "];\n";
+}
+
 template <class T>
 void myPrintHostVector(const char* variableName, const T* hostMem,
                        size_t componentsCount) {
