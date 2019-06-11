@@ -97,7 +97,7 @@ cdef class RandomForest_impl():
     cdef object min_rows_per_node
     cdef object bootstrap
     cdef object bootstrap_features
-    cdef object type
+    cdef object type_model
     cdef object verbose
     cdef object rows_sample
     cdef object max_leaves
@@ -105,14 +105,16 @@ cdef class RandomForest_impl():
     cdef object n_rows
     cdef object n_cols
     cdef object preds
+    cdef object n_unique_labels
+    cdef object stats
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
                   max_features=1.0, min_samples_split=2, n_bins=8,
                   split_algo=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
-                  type="classifier", verbose=False,
+                  type_model="classifier", verbose=False,
                   rows_sample=1.0, max_leaves=-1,
-                  gdf_datatype=None):
+                  gdf_datatype=None, n_unique_labels=2):
 
         self.handle = handle
         self.split_algo = split_algo
@@ -124,7 +126,7 @@ cdef class RandomForest_impl():
         self.max_depth = max_depth
         self.max_features = max_features
         self.min_samples_split = min_samples_split
-        self.type = self._get_type(type)
+        self.type_model = self._get_type(type_model)
         self.bootstrap = bootstrap
         self.verbose = False
         self.n_bins = n_bins
@@ -133,12 +135,13 @@ cdef class RandomForest_impl():
         self.n_rows = None
         self.n_cols = None
         self.preds = None
+        self.n_unique_labels = n_unique_labels
 
-    def _get_type(self, type):
-        if type == "classifier":
-            self.type = 1
+    def _get_type(self, type_model):
+        if type_model == "classifier":
+            self.type_model = 1
         else:
-            self.type = 0
+            self.type_model = 0
 
     def _get_dev_array_ptr(self, obj):
         """
@@ -192,8 +195,7 @@ cdef class RandomForest_impl():
         cdef cumlHandle * handle_ =\
             < cumlHandle * > < size_t > self.handle.getHandle()
 
-        n_unique_labels = 2
-        print("THIS CODE WORKS ONLY TILL HERE")
+        #n_unique_labels = 3
         rf_param = set_rf_class_obj(<int> self.max_depth,
                                     <int> self.max_leaves,
                                     <float> self.max_features,
@@ -205,14 +207,10 @@ cdef class RandomForest_impl():
                                     <int> self.n_estimators,
                                     <int> self.rows_sample)
 
-        # pdb.set_trace()
         self.rf_classifier32 = new \
             rfClassifier[float](rf_param)
         self.rf_classifier64 = new \
             rfClassifier[double](rf_param)
-
-        # pdb.set_trace()
-        print("just before calling the fit function")
 
         if self.gdf_datatype.type == np.float32:
             fit(handle_[0],
@@ -221,7 +219,7 @@ cdef class RandomForest_impl():
                 <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> n_unique_labels)
+                <int> self.n_unique_labels)
         else:
             fit(handle_[0],
                 self.rf_classifier64,
@@ -229,35 +227,20 @@ cdef class RandomForest_impl():
                 <int> self.n_rows,
                 <int> self.n_cols,
                 <int *> y_ptr,
-                <int> n_unique_labels)
-
-        # pdb.set_trace()
-        print("just after calling the fit function")
+                <int> self.n_unique_labels)
 
         # make sure that the `fit` is complete before the following delete
         # call happens
         self.handle.sync()
-        # pdb.set_trace()
-
-        print("just after calling the handle.sync function")
-
         del(X_m)
-        # pdb.set_trace()
-
-        print("just after calling the del X function")
-
         del(y_m)
-        # pdb.set_trace()
-
-        print("just after calling the del y function")
-
         return self
 
     def predict(self, X):
 
         cdef uintptr_t X_ptr
         # X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
-
+        """
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix(order='F')
@@ -269,21 +252,16 @@ cdef class RandomForest_impl():
             X_m = cuda.to_device(np.array(X, order='F'))
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
+        """
 
-        # pdb.set_trace()
-        print(" Set the X_ptr in predict \n")
+        X_ptr = X.ctypes.data
 
-        X_ptr = self._get_dev_array_ptr(X_m)
-
-        self.preds = cudf.Series(np.zeros(self.n_rows,
-                                          dtype=self.gdf_datatype))
-        cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
-
+        self.preds = np.zeros(self.n_rows,
+                              dtype=self.gdf_datatype)
+        cdef uintptr_t preds_ptr = (self.preds).ctypes.data
         cdef cumlHandle * handle_ =\
             < cumlHandle * > < size_t > self.handle.getHandle()
 
-        pdb.set_trace()
-        print(" Just before calling th predict function from C++")
         if self.gdf_datatype.type == np.float32:
             predict(handle_[0],
                     self.rf_classifier32,
@@ -308,13 +286,13 @@ cdef class RandomForest_impl():
                             % (str(self.gdf_datatype.type)))
 
         self.handle.sync()
-        del(X_m)
+        #del(X_m)
         return self.preds
 
     def cross_validate(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
-
+        """
         if (isinstance(X, cudf.DataFrame)):
             self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
             X_m = X.as_gpu_matrix(order='F')
@@ -327,10 +305,10 @@ cdef class RandomForest_impl():
             self.n_rows = X.shape[0]
             self.n_cols = X.shape[1]
 
-        '''
+        
         X_m, X_ptr, n_rows, n_cols, dtype = input_to_array(X)
         y_m, y_ptr, _, _, _ = input_to_array(y)
-        '''
+       
         X_ptr = self._get_dev_array_ptr(X_m)
 
         if (isinstance(y, cudf.Series)):
@@ -346,11 +324,15 @@ cdef class RandomForest_impl():
                                           dtype=self.gdf_datatype))
         cdef uintptr_t preds_ptr = self._get_cudf_column_ptr(self.preds)
 
+        """
+        X_ptr = X.ctypes.data
+        y_ptr = y.ctypes.data
+        self.preds = np.zeros(self.n_rows,
+                              dtype=self.gdf_datatype)
+        cdef uintptr_t preds_ptr = (self.preds).ctypes.data
+
         cdef cumlHandle * handle_ =\
             < cumlHandle * > < size_t > self.handle.getHandle()
-
-        print(" Just before calling th crossvalidate function from C++")
-        pdb.set_trace()
 
         if self.gdf_datatype.type == np.float32:
             self.stats = cross_validate(handle_[0],
@@ -373,13 +355,10 @@ cdef class RandomForest_impl():
                                         <bool> self.verbose)
 
         self.handle.sync()
-        print("just after calling the handle.sync function")
 
-        del(X_m)
-        print("just after calling the del X function")
+        #del(X_m)
 
-        del(y_m)
-        print("just after calling the del y function")
+        #del(y_m)
 
         return self.stats
 
@@ -390,18 +369,18 @@ class RandomForest(Base):
                  max_features=1.0, min_samples_split=2, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
-                 type="classifier", verbose=False,
+                 type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1,
-                 gdf_datatype=None):
+                 gdf_datatype=None, n_unique_labels=2):
 
         super(RandomForest, self).__init__(handle, verbose)
         print(n_bins)
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, min_samples_split, n_bins,
                                        split_algo, min_rows_per_node,
-                                       bootstrap, bootstrap_features, type,
+                                       bootstrap, bootstrap_features, type_model,
                                        verbose, rows_sample, max_leaves,
-                                       gdf_datatype)
+                                       gdf_datatype, n_unique_labels)
 
     def fit(self, X, y):
 
