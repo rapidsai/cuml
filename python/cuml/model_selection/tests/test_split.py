@@ -4,7 +4,8 @@ import pytest
 import cudf
 import numpy as np
 import cupy as cp
-# from cupyx.scipy.sparse import coo_matrix, csc_matrix, csr_matrix
+from scipy.sparse import coo_matrix
+from cupyx.scipy.sparse import coo_matrix as cu_coo_matrix
 from scipy import stats
 from itertools import combinations
 # from itertools import combinations_with_replacement
@@ -52,10 +53,11 @@ from cuml.model_selection._split import NSPLIT_WARNING
 from sklearn.datasets import load_digits
 # from sklearn.datasets import make_classification
 
-from .utils import _num_samples, comb, in1d
+from cuml.model_selection.utils import _num_samples, comb, in1d
 
 X = cudf.DataFrame({'a': range(10)})
 y = cp.arange(10) // 2
+P_sparse = cu_coo_matrix(coo_matrix(np.eye(5)))
 test_groups = (
     cp.array([1, 1, 1, 1, 2, 2, 2, 3, 3, 3, 3, 3]),
     cp.array([0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]),
@@ -787,7 +789,7 @@ def test_stratified_shuffle_split_multilabel():
 
         # complete partition
         print(type(train), type(test))
-        assert_array_equal(np.unique(np.concatenate((train, test))), 
+        assert_array_equal(np.unique(np.concatenate((train, test))),
                            np.arange(len(y)))
 
         # correct stratification of entire rows
