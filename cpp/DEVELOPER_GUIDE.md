@@ -46,8 +46,11 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
 
 One of the right ways to expose this interface from `libcuml++.so` is:
 ```cpp
+// NOTE: this example assumes that TreeNode and DTParams are the model/state that need to be stored
+// and passed between fit and predict methods
 template <typename T> struct TreeNode { /* nested tree-like data structure, but written as a POD! */ };
 struct DTParams { /* hyper-params for building DT */ };
+
 void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
                                const int *labels, TreeNode<float> *&root, unsigned int *rowids,
                                int n_sampled_rows, int unique_labels, DTParams params,
