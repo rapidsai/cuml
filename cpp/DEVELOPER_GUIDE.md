@@ -9,6 +9,44 @@ cuML is thread safe so its functions can be called from multiple host threads if
 
 The implementation of cuML is single threaded.
 
+## Managing state
+### Introduction
+Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
+
+### Inside `libcuml++.so` aka our C++ interface
+Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. Taking dbscan algo as an example, the right way to expose the interface from `libcuml++.so` is:
+```cpp
+void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+               float eps, int min_pts, int *labels, size_t max_bytes_per_batch=0,
+               bool verbose=false);
+```
+
+However, the following way of exposing dbscan API would be wrong. Because, the developer has exposed a C++ class with state along the interface of `libcuml++.so`.
+```cpp
+class DbscanClass {
+public:
+  DbscanClass(const cumlHandle& handle, float eps, int min_pts,
+              size_t max_bytes_per_batch=0, bool verbose=false);
+  void fit(const float *input, int n_rows, int n_cols, int *labels);
+};
+void dbscanFit(DbscanClass& dbscan, const float *input, int n_rows, int n_cols,
+               int *labels);
+```
+In other words, the stateful API should always be a wrapper around the stateless methods, NEVER the other way around.
+
+That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`. For example, one way to fix the above state-based interface could be to remove the `DbscanClass` declaration from the interface header and move it inside the internals of cuML. Then, create its object only inside the `dbscanFit` method.
+```cpp
+void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+               float eps, int min_pts, int *labels, size_t max_bytes_per_batch=0,
+               bool verbose=false) {
+  DbscanClass d(eps, min_pts, max_bytes_per_batch, verbose);
+  d.fit(input, n_rows, n_cols, labels);
+}
+```
+
+### scikit-learn-esq stateful API in C++
+We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
+
 ## Coding style
 
 ## Code format
