@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include "cuda_utils.h"
 #include <limits>
-
+#include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Stats {
@@ -27,11 +26,10 @@ namespace Stats {
 template <typename T>
 __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax,
                                  T init_val) {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    if(tid >= ncols)
-        return;
-    globalmin[tid] = init_val;
-    globalmax[tid] = -init_val;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= ncols) return;
+  globalmin[tid] = init_val;
+  globalmax[tid] = -init_val;
 }
 
 template <typename T>
@@ -39,38 +37,38 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
                              const int* colids, int nrows, int ncols,
                              int row_stride, T* g_min, T* g_max, T* sampledcols,
                              T init_min_val) {
-    int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    extern __shared__ char shmem[];
-    T *s_min = (T*)shmem;
-    T *s_max = (T*)(shmem + sizeof(T) * ncols);
-    for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-        s_min[i] = init_min_val;
-        s_max[i] = -init_min_val;
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  extern __shared__ char shmem[];
+  T* s_min = (T*)shmem;
+  T* s_max = (T*)(shmem + sizeof(T) * ncols);
+  for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
+    s_min[i] = init_min_val;
+    s_max[i] = -init_min_val;
+  }
+  __syncthreads();
+  for (int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
+    int col = i / nrows;
+    int row = i % nrows;
+    if (colids != nullptr) {
+      col = colids[col];
     }
-    __syncthreads();
-    for (int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-        int col = i / nrows;
-        int row = i % nrows;
-        if(colids != nullptr) {
-            col = colids[col];
-        }
-        if(rowids != nullptr) {
-            row = rowids[row];
-        }
-        int index = row + col * row_stride;
-        T coldata = data[index];
-        myAtomicMin(&s_min[col], coldata);
-        myAtomicMax(&s_max[col], coldata);
-        if(sampledcols != nullptr) {
-            sampledcols[i] = coldata;
-        }
+    if (rowids != nullptr) {
+      row = rowids[row];
     }
-    __syncthreads();
-    // finally, perform global mem atomics
-    for (int j = threadIdx.x; j < ncols; j+= blockDim.x) {
-        myAtomicMin(&g_min[j], s_min[j]);
-        myAtomicMax(&g_max[j], s_max[j]);
+    int index = row + col * row_stride;
+    T coldata = data[index];
+    myAtomicMin(&s_min[col], coldata);
+    myAtomicMax(&s_max[col], coldata);
+    if (sampledcols != nullptr) {
+      sampledcols[i] = coldata;
     }
+  }
+  __syncthreads();
+  // finally, perform global mem atomics
+  for (int j = threadIdx.x; j < ncols; j += blockDim.x) {
+    myAtomicMin(&g_min[j], s_min[j]);
+    myAtomicMax(&g_max[j], s_max[j]);
+  }
 }
 
 /**
@@ -103,19 +101,19 @@ template <typename T, int TPB = 512>
 void minmax(const T* data, const int* rowids, const int* colids, int nrows,
             int ncols, int row_stride, T* globalmin, T* globalmax,
             T* sampledcols, cudaStream_t stream) {
-    int nblks = ceildiv(ncols, TPB);
-    T init_val = std::numeric_limits<T>::max();
-    minmaxInitKernel<T><<<nblks, TPB, 0, stream>>>(ncols, globalmin,
-                                                   globalmax, init_val);
-    CUDA_CHECK(cudaPeekAtLastError());
-    nblks = ceildiv(nrows * ncols, TPB);
-    nblks = max(nblks, 65536);
-    size_t smemSize = sizeof(T) * 2 * ncols;
-    minmaxKernel<T><<<nblks, TPB, smemSize, stream>>>(
-        data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
-        sampledcols, init_val);
-    CUDA_CHECK(cudaPeekAtLastError());
+  int nblks = ceildiv(ncols, TPB);
+  T init_val = std::numeric_limits<T>::max();
+  minmaxInitKernel<T>
+    <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
+  CUDA_CHECK(cudaPeekAtLastError());
+  nblks = ceildiv(nrows * ncols, TPB);
+  nblks = max(nblks, 65536);
+  size_t smemSize = sizeof(T) * 2 * ncols;
+  minmaxKernel<T><<<nblks, TPB, smemSize, stream>>>(
+    data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
+    sampledcols, init_val);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
-}; // end namespace Stats
-}; // end namespace MLCommon
+};  // end namespace Stats
+};  // end namespace MLCommon

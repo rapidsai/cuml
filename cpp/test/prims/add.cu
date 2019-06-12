@@ -20,14 +20,12 @@
 #include "random/rng.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
-
 template <typename T>
 class AddTest : public ::testing::TestWithParam<AddInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<AddInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -54,11 +52,10 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   AddInputs<T> params;
   T *in1, *in2, *out_ref, *out;
 };
-
 
 const std::vector<AddInputs<float>> inputsf2 = {
   {0.000001f, 1024 * 1024, 1234ULL}};
@@ -69,7 +66,6 @@ TEST_P(AddTestF, Result) {
 }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestF, ::testing::ValuesIn(inputsf2));
 
-
 const std::vector<AddInputs<double>> inputsd2 = {
   {0.00000001, 1024 * 1024, 1234ULL}};
 typedef AddTest<double> AddTestD;
@@ -79,5 +75,5 @@ TEST_P(AddTestD, Result) {
 }
 INSTANTIATE_TEST_CASE_P(AddTests, AddTestD, ::testing::ValuesIn(inputsd2));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

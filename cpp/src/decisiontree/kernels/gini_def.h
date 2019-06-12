@@ -16,17 +16,17 @@
 
 #pragma once
 #include <utils.h>
-#include "cub/cub.cuh"
-#include "../memory.cuh"
 #include <vector>
+#include "../memory.cuh"
+#include "cub/cub.cuh"
 
-template<class T>
+template <class T>
 struct GiniQuestion {
-	int bootstrapped_column;
-	int original_column;
-	T value;
+  int bootstrapped_column;
+  int original_column;
+  T value;
 
-	/*
+  /*
 	   delta = (max - min) /nbins
 	   base_ques_val = min + delta
 	   value = base_ques_val + batch_id * delta.
@@ -37,15 +37,18 @@ struct GiniQuestion {
 	a data value close to the question that gets split differently in gini than in
 	flag_kernel.
 	*/
-	int batch_id;
-	T min, max;
-	int nbins;
-	int ncols;
+  int batch_id;
+  T min, max;
+  int nbins;
+  int ncols;
 
-	void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id, int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max, T cfg_value);
+  void set_question_fields(int cfg_bootcolumn, int cfg_column, int cfg_batch_id,
+                           int cfg_nbins, int cfg_ncols, T cfg_min, T cfg_max,
+                           T cfg_value);
 };
 
 struct GiniInfo {
-	float best_gini = -1.0f;
-	std::vector<int> hist; //Element hist[i] stores # labels with label i for a given node.
+  float best_gini = -1.0f;
+  std::vector<int>
+    hist;  //Element hist[i] stores # labels with label i for a given node.
 };
