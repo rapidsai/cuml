@@ -27,9 +27,6 @@
 template<class T>
 TemporaryMemory<T>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo):ml_handle(handle)
 	{
-
-		std::cout << "Inside the constructor \n" << std::flush;
-		std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! \n" << std::flush;
 		
 		//Assign Stream from cumlHandle
 		stream = ml_handle.getStream();
@@ -39,7 +36,6 @@ TemporaryMemory<T>::TemporaryMemory(const ML::cumlHandle_impl& handle, int N, in
 		h_hist = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, n_hist_elements);
 		d_hist = new MLCommon::device_buffer<int>(handle.getDeviceAllocator(), stream, n_hist_elements);
 		nrowsleftright = new MLCommon::host_buffer<int>(handle.getHostAllocator(), stream, 2);
-		std::cout << "after setting the h_dist and the d_hist \n" << std::flush;
 		int extra_elements = Ncols;
 		int quantile_elements = (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) ? extra_elements : 1;
 
@@ -88,7 +84,6 @@ template<class T>
 TemporaryMemory<T>::~TemporaryMemory()
 	{
 
-		std::cout <<" inside the distructor  \n" << std::flush;
 		h_hist->release(stream);
 		d_hist->release(stream);
 		nrowsleftright->release(stream);
