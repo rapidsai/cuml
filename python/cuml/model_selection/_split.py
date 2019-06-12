@@ -34,7 +34,7 @@ from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
 
 NSPLIT_WARNING = (
     "The default value of n_split will change from 3 to 5 "
-    "in version 0.8. Specify it explicitly to silence this warning.")
+    "in version 0.9. Specify it explicitly to silence this warning.")
 
 
 class BaseCrossValidator(metaclass=ABCMeta):
@@ -1424,9 +1424,11 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         the value is automatically set to the complement of the test size.
     random_state : int, RandomState instance or None, optional (default=None)
         If int, random_state is the seed used by the random number generator;
-        If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
-        by `cp.random`.
+        by `cp.random`
+        !! Be aware that cupy RandomState or numpy RandomStateis are not 
+        accepted for this class. They will be supported after cupy RandomState
+        starts supporting cupy array permutation 
     Examples
     --------
     >>> import cupy as cp

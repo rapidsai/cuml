@@ -568,7 +568,7 @@ def _approximate_mode(class_counts, n_draws, rng):
 
 def _np_approximate_mode(class_counts, n_draws, rng):
     """
-    Only needed in StratifiedShuffleSplit as 
+    Only needed in StratifiedShuffleSplit as
     cupy.random.generator.RandomInstance cannot do permutation on cupy.ndarray.
     We won't need this function after cp RandomInstance support above featuter.
     """
