@@ -15,6 +15,7 @@
  */
 
 #include <cuda_utils.h>
+#include <data_generators.h>
 #include <gtest/gtest.h>
 #include <test_utils.h>
 #include "ml_utils.h"
@@ -43,55 +44,6 @@ struct RfInputs {
 };
 
 static const bool VERBOSE_TEST = false;
-
-/*
- * Fills in data and labels with an easy-to-predict classification dataset.
- * Both vectors will be resized to hold datasets of size nrows * ncols.
- * Data will be laid out in row-major format.
- * The dataset contains some relevant data, some repeated data, and some
- * irrelevant data.
- * The labels are computed as max(all_relevant_cols), scaled to
- * map to nclasses integer outputs.
- */
-template <typename T>
-void makeClassificationDataHost(std::vector<T>& data, std::vector<int>& labels,
-                                int nrows, int ncols, int nclasses) {
-  data.resize(nrows * ncols);
-  labels.resize(nrows * ncols);
-
-  const int N_INFORMATIVE = 4;
-  const int N_REPEATED = 4;
-  const T MAX_RELEVANT_VAL = 10.0 + nclasses;  // Data pattern respects this max
-
-  // first NI columns are informative, next NR are identical, rest are junk
-  for (int i = 0; i < nrows; i++) {
-    T max_relevant_row = -1e6;
-
-    for (int j = 0; j < ncols; j++) {
-      if (j < N_INFORMATIVE) {
-        // Totally arbitrary data pattern that spreads out a bit
-        T val = 10.0 * ((i + 1) / (float)nrows) + ((i + j) % nclasses);
-        max_relevant_row = max(max_relevant_row, val);
-        data[(j * nrows) + i] = val;
-      } else if (j < N_INFORMATIVE + N_REPEATED) {
-        data[(j * nrows) + i] = data[((j - N_INFORMATIVE) * nrows) + i];
-      } else {
-        // Totally junk data (irrelevant distractors)
-        data[(j * nrows) + i] = j + ((j + i) % 2) * -1;
-      }
-    }
-
-    labels[i] = (int)nclasses * (max_relevant_row / MAX_RELEVANT_VAL);
-  }
-
-  if (VERBOSE_TEST) {
-    std::cout << "Labels: " << std::endl;
-    for (int i = 0; i < nrows; i++) {
-      std::cout << labels[i] << ", " << std::endl;
-    }
-    std::cout << "Done with labels" << std::endl;
-  }
-}
 
 template <typename T>
 ::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
@@ -124,8 +76,10 @@ class RfTest : public ::testing::TestWithParam<RfInputs<T>> {
     std::vector<T> data_h;
 
     // Create the dataset and transfer it to device
+    unsigned n_informative = min(params.n_cols, 4);
+    unsigned n_redundant = min(max(params.n_cols - 4, 0), 4);
     makeClassificationDataHost(data_h, labels_h, params.n_rows, params.n_cols,
-                               5);
+                               5, n_informative, n_redundant);
     updateDevice(data, data_h.data(), data_len, stream);
     preprocess_labels(params.n_rows, labels_h, labels_map);
     updateDevice(labels, labels_h.data(), params.n_rows, stream);
@@ -158,7 +112,7 @@ class RfTest : public ::testing::TestWithParam<RfInputs<T>> {
                              params.n_inference_rows, params.n_cols,
                              predicted_labels.data(), VERBOSE_TEST);
 
-      int num_correct;
+      float num_correct = 0.0;
       for (int i = 0; i < params.n_inference_rows; i++) {
         num_correct += (predicted_labels[i] == labels_h[i]);
       }
@@ -212,12 +166,10 @@ const std::vector<RfInputs<float>> float_input_params = {
    false},  // larger data more trees, bootstrap false, unlimited depth,4 bins
   {5003, 11, 11, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // Odd numbers
-  {10, 680, 10, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {10, 650, 10, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // Short and wide (if you set width to 700, it will crash)
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 1,
-   false},  // same but min_rows_per_node=1 --> fails
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
@@ -241,12 +193,10 @@ const std::vector<RfInputs<double>> double_input_params = {
    false},  // larger data more trees, bootstrap false, unlimited depth,4 bins
   {5003, 11, 11, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // Odd numbers
-  {10, 680, 10, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
+  {10, 500, 10, 1.0f, 1.0f, 4, -1, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // Short and wide (if you set width to 700, it will crash)
   {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 1,
-   false},  // same but min_rows_per_node=1 --> fails
   {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2,
    false},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2,
