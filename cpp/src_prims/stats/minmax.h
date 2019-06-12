@@ -123,8 +123,10 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
     int index = row + col * row_stride;
     T coldata = data[index];
     if (use_bits) {
-      atomicMinBits<T, E>(&s_min[col], coldata);
-      atomicMaxBits<T, E>(&s_max[col], coldata);
+      if (!isnan(coldata)) {
+        atomicMinBits<T, E>(&s_min[col], coldata);
+        atomicMaxBits<T, E>(&s_max[col], coldata);
+      }
     } else {
       myAtomicMin(&s_min[col], coldata);
       myAtomicMax(&s_max[col], coldata);
