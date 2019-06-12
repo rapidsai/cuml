@@ -525,7 +525,7 @@ def _approximate_mode(class_counts, n_draws, rng):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection.utils import _approximate_mode
+    >>> from cuml.model_selection._utils import _approximate_mode
     >>> _approximate_mode(class_counts=cp.array([4, 2]), n_draws=3, rng=0)
     array([2, 1])
     >>> _approximate_mode(class_counts=cp.array([5, 2]), n_draws=4, rng=0)
@@ -742,7 +742,7 @@ def is_multilabel(y):
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.model_selection.utils import is_multilabel
+    >>> from cuml.model_selection._utils import is_multilabel
     >>> is_multilabel([0, 1, 0, 1])
     False
     >>> is_multilabel([[1], [0, 2], []])

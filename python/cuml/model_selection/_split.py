@@ -26,10 +26,10 @@ import numpy as np
 import cupy as cp
 import cudf
 
-from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
-                    check_random_state, np_check_random_state, column_or_1d,
-                    in1d, _approximate_mode, _np_approximate_mode,
-                    type_of_target, check_array)
+from cuml.model_selection._utils import (
+    safe_indexing, indexable, _num_samples, comb, _pprint, check_random_state,
+    np_check_random_state, column_or_1d, type_of_target, check_array, in1d,
+    _approximate_mode, _np_approximate_mode)
 
 
 NSPLIT_WARNING = (
@@ -585,7 +585,7 @@ class StratifiedKFold(_BaseKFold):
 
     def _make_test_folds(self, X, y=None):
         rng = check_random_state(self.random_state)
-        y = check_array(y)
+        y = check_array(y, ensure_2d=False, dtype=None)
         type_of_target_y = type_of_target(y)
         allowed_target_types = ('binary', 'multiclass')
         if type_of_target_y not in allowed_target_types:
@@ -1994,8 +1994,6 @@ def _build_repr(self):
     for key in args:
         # We need deprecation warnings to always be on in order to
         # catch deprecated param values.
-        # This is set in utils/__init__.py but it gets overwritten
-        # when running under python3 somehow.
         warnings.simplefilter("always", DeprecationWarning)
         try:
             with warnings.catch_warnings(record=True) as w:
