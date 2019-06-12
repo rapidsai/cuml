@@ -1,6 +1,7 @@
 # cuML 0.8.0 (Date TBD)
 
 ## New Features
+- PR #674: KL Divergence metric ml-prim
 - PR #652: Adjusted Rand Index metric ml-prim
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
