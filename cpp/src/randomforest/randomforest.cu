@@ -224,37 +224,21 @@ rfClassifier<T>::rfClassifier(RF_params cfg_rf_params): rf<T>::rf(cfg_rf_params,
  */
 template <typename T>
 void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, int n_cols, int * labels, int n_unique_labels) {
-	std::cout << " !!!!!!!!!!!!!!!!!!!!!!!!!! \n ############################### \n %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% \n" << std::flush;
-	std::cout << input << std::flush;
-	std::cout << n_rows << std::flush;
-	std::cout << n_cols << std::flush;
-	std::cout << labels << std::flush;
-	std::cout << input << std::flush;
-	std::cout << n_unique_labels << std::flush;
+
 	ASSERT(!this->trees, "Cannot fit an existing forest.");
-	std::cout << " After the assert statements \n" << std::flush;
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-	std::cout << " After the assert statements \n" << std::flush;
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-
-
 	rfClassifier::trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
-
-	std::cout << " Call the decision trees classifier to obtain the trees \n" << std::flush;
 
 	int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 	const cumlHandle_impl& handle = user_handle.getImpl();
 	cudaStream_t stream = user_handle.getStream();
-
-	std::cout << " After the cuml handle and stream variables \n" << std::flush;
-	std::cout << " The rf_params.n_tress value : %d " << this->rf_params.n_trees << "\n" << std::flush;
 	for (int i = 0; i < this->rf_params.n_trees; i++) {
+
 		// Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
 		// selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
 		MLCommon::device_buffer<unsigned int> selected_rows(handle.getDeviceAllocator(), stream, n_sampled_rows);
-
-		std::cout << " Inside the for loop, after MLCommon \n" << std::flush;
 
 		if (this->rf_params.bootstrap) {
 			MLCommon::Random::Rng r(i * 1000); // Ensure the seed for each tree is different and meaningful.
@@ -266,8 +250,6 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			h_selected_rows.resize(n_sampled_rows);
 			MLCommon::updateDevice(selected_rows.data(), h_selected_rows.data(), n_sampled_rows, stream);
 		}
-
-		std::cout << " After the if else loop \n" << std::flush;
 		
 		/* Build individual tree in the forest.
 		   - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -276,7 +258,7 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T * input, int n_rows, 
 			Expectation: Each tree node will contain (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
 		*/
 		this->trees[i].fit(user_handle, input, n_cols, n_rows, labels, selected_rows.data(), n_sampled_rows, n_unique_labels, this->rf_params.tree_params);
-		std::cout << " After the trees are fit and built and before the clean up \n" << std::flush;
+
 		//Cleanup
 		selected_rows.release(stream);
 	}
@@ -300,7 +282,6 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 	ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
 	ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 	ASSERT(predictions != nullptr, "Error! User has not allocated memory for predictions.");
-
 	int row_size = n_cols;
 
 	for (int row_id = 0; row_id < n_rows; row_id++) {
@@ -321,7 +302,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T * input, in
 			//Return prediction for one sample.
 			if (verbose) {
 				std::cout << "Printing tree " << i << std::endl;
-				this->trees[i].print();
+				//this->trees[i].print();
 			}
 			int prediction;
 			this->trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols, &prediction, verbose);
@@ -356,7 +337,7 @@ RF_metrics rfClassifier<T>::cross_validate(const cumlHandle& user_handle, const 
 
 	predict(user_handle, input, n_rows, n_cols, predictions, verbose);
 
-	unsigned long long correctly_predicted = NULL;
+	unsigned long long correctly_predicted = 0ULL;
 	for (int i = 0; i < n_rows; i++) {
 		correctly_predicted += (predictions[i] == ref_labels[i]);
 	}
