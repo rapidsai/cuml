@@ -26,16 +26,18 @@ template <typename T>
 void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
                           uint32_t nrows, uint32_t ncols, uint32_t nkeys,
                           cudaStream_t stream) {
-  std::vector<uint32_t> h_keys(0, ncols);
+  std::vector<uint32_t> h_keys(ncols, 0u);
   copy(&(h_keys[0]), keys, ncols, stream);
+  std::vector<T> h_in(nrows * ncols);
+  copy(&(h_in[0]), in, nrows * ncols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  std::vector<T> out(T(0), nrows*nkeys);
-  for (uint32_t i=0; i<nrows; ++i) {
-    for (uint32_t j=0; j<ncols; ++j) {
-      out[i*nkeys+h_keys[j]] += in[i*ncols+j];
+  std::vector<T> out(nrows * nkeys, T(0));
+  for (uint32_t i = 0; i < nrows; ++i) {
+    for (uint32_t j = 0; j < ncols; ++j) {
+      out[i * nkeys + h_keys[j]] += h_in[i * ncols + j];
     }
   }
-  copy(out_ref, &(out[0]), nrows*nkeys, stream);
+  copy(out_ref, &(out[0]), nrows * nkeys, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -66,6 +68,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     auto nkeys = params.nkeys;
     allocate(in, nrows * ncols);
     allocate(keys, ncols);
+    allocate(out_ref, nrows * nkeys);
     allocate(out, nrows * nkeys);
     r.uniform(in, nrows * ncols, T(-1.0), T(1.0), stream);
     r.uniformInt(keys, ncols, 0u, params.nkeys, stream);
@@ -90,8 +93,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
 };
 
 const std::vector<ReduceColsInputs<float>> inputsf = {
-  {0.000001f, 128, 32, 6, 1234ULL},
-  {0.000001f, 121, 63, 10, 1234ULL}};
+  {0.00001f, 128, 32, 6, 1234ULL}, {0.00001f, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<float> ReduceColsTestF;
 TEST_P(ReduceColsTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
@@ -101,8 +103,7 @@ INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestF,
                         ::testing::ValuesIn(inputsf));
 
 const std::vector<ReduceColsInputs<double>> inputsd2 = {
-  {0.00000001, 128, 32, 6, 1234ULL},
-  {0.00000001, 121, 63, 10, 1234ULL}};
+  {0.00000001, 128, 32, 6, 1234ULL}, {0.00000001, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<double> ReduceColsTestD;
 TEST_P(ReduceColsTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
