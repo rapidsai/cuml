@@ -16,7 +16,7 @@
 
 
 #pragma once
-#include "decisiontree/decisiontree_rf_params.h"
+#include "decisiontree/decisiontree.h"
 # include <map>
 
 namespace ML {
