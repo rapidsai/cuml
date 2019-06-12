@@ -34,6 +34,7 @@
 - PR #646: Update link in contributing.md
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 - PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
+- PR #676: Fix template parameters in `bernoulli()` implementation.
 
 # cuML 0.7.0 (10 May 2019)
 
