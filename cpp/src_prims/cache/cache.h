@@ -16,14 +16,13 @@
 
 #pragma once
 
-#include "ml_utils.h"
-#include "cache_util.h"
 #include <cuda_utils.h>
 #include <cub/cub.cuh>
+#include "cache_util.h"
 #include "common/cumlHandle.hpp"
 #include "common/device_buffer.hpp"
 #include "cuML.hpp"
-#include "svm/print_vec.h"
+#include "ml_utils.h"
 
 namespace MLCommon {
 namespace Cache {
@@ -33,8 +32,10 @@ using namespace MLCommon;
 /**
 * @brief Associative cache with least recently used replacement policy.
 *
-* The two main functions of this class are the management of cache indices, and
-* methods to retreive/store data using the cache indices.
+* SW managed cache in device memory, for ML algos where we can trade memory
+* access for computation. The two main functions of this class are the
+* management of cache indices, and methods to retreive/store data using the
+* cache indices.
 *
 * The index management can be considered as a hash map<int, int>, where the int
 * keys are the original vector indices that we want to store, and the values are
@@ -50,9 +51,9 @@ using namespace MLCommon;
 * Note: we should have a look if the index management could be simplified using
 * concurrent_unordered_map.cuh from cudf.
 */
-template<typename math_t, int associativity = 32>
+template <typename math_t, int associativity = 32>
 class Cache {
-public:
+ public:
   /**
    * Construct a Cache object
    *
@@ -66,24 +67,24 @@ public:
    * @param cache_size in MiB
    */
   Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-    int n_vec, float cache_size = 200)
-      : allocator(allocator), n_vec(n_vec),
-        cache_size(cache_size),
-        cache(allocator, stream),
-        vec_idx(allocator, stream),
-        cache_time(allocator, stream),
-        is_cached(allocator, stream),
-        ws_tmp(allocator, stream),
-        idx_tmp(allocator, stream),
-        d_num_selected_out(allocator, stream, 1),
-        d_temp_storage(allocator, stream)
-  {
+        int n_vec, float cache_size = 200)
+    : allocator(allocator),
+      n_vec(n_vec),
+      cache_size(cache_size),
+      cache(allocator, stream),
+      vec_idx(allocator, stream),
+      cache_time(allocator, stream),
+      is_cached(allocator, stream),
+      ws_tmp(allocator, stream),
+      idx_tmp(allocator, stream),
+      d_num_selected_out(allocator, stream, 1),
+      d_temp_storage(allocator, stream) {
     ASSERT(n_vec > 0, "Parameter n_vec: shall be larger than zero");
     ASSERT(associativity > 0, "Associativity shall be larger than zero");
-    ASSERT(cache_size >=0, "Cache size should not be negative");
+    ASSERT(cache_size >= 0, "Cache size should not be negative");
 
     // Calculate how many vectors would fit the cache
-    int n_cache_vecs = (cache_size * 1024*1024)/ (sizeof(math_t) * n_vec);
+    int n_cache_vecs = (cache_size * 1024 * 1024) / (sizeof(math_t) * n_vec);
 
     // The available memory shall be enough for at least one cache set
     if (n_cache_vecs >= associativity) {
@@ -92,14 +93,14 @@ public:
       cache.resize(n_cache_vecs * n_vec, stream);
       vec_idx.resize(n_cache_vecs, stream);
       cache_time.resize(n_cache_vecs, stream);
-      CUDA_CHECK(cudaMemsetAsync(vec_idx.data(), 0, vec_idx.size()*sizeof(int),
-        stream));
-      CUDA_CHECK(cudaMemsetAsync(cache_time.data(), 0, cache_time.size() *
-        sizeof(int), stream));
+      CUDA_CHECK(cudaMemsetAsync(vec_idx.data(), 0,
+                                 vec_idx.size() * sizeof(int), stream));
+      CUDA_CHECK(cudaMemsetAsync(cache_time.data(), 0,
+                                 cache_time.size() * sizeof(int), stream));
     } else {
-      if (cache_size>0) {
-        std::cout<<"Warning: not enough memory to cache a single set of "
-          "rows, not using cache\n";
+      if (cache_size > 0) {
+        std::cout << "Warning: not enough memory to cache a single set of "
+                     "rows, not using cache\n";
       }
       n_cache_sets = 0;
       cache_size = 0;
@@ -108,9 +109,9 @@ public:
     //  n_cache_vecs<< " vectors, in "<<n_cache_sets<<" sets with associativity "<<associativity<<"\n";
   }
 
-  Cache(const Cache& other) = delete;
+  Cache(const Cache &other) = delete;
 
-  Cache& operator=(const Cache& other) = delete;
+  Cache &operator=(const Cache &other) = delete;
 
   /** @brief Collect cached data into columns of contiguous memory space (using
    * column major memory layout.
@@ -125,13 +126,12 @@ public:
    *  size [n_vec*n]
    */
   void GetCols(const int *idx, int n, math_t *out, cudaStream_t stream) {
-    if (n>0) {
+    if (n > 0) {
       get_cols<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec,
-       idx, n, out);
+                                                            idx, n, out);
       CUDA_CHECK(cudaPeekAtLastError());
     }
-   }
-
+  }
 
  /** Store column major data into the cache.
  * Roughly the opposite of GetCols, but the input columns can be scattered
@@ -145,14 +145,18 @@ public:
  * @param [in] tile stores the data to be cashed cached in column major format,
  *   size [n_vec x n_tile]
  * @param [in] n_tile number of columns in tile (at least n)
- * @param [in] vec_idx cache column indices size [n]
- * @param [in] n the number of elements that need to be cached
+ * @param [in] n number of vectors that need to be stored in the cache (a subset
+     of all the vectors in the tile)
+ * @param [in] cache_idx cache indices for storing the vectors (negative values
+ *   are ignored), size [n]
+ * @param [in] tile_idx indices of vectors that need to be stored
  */
   void StoreCols(const math_t *tile, int n_tile, int n, int *cache_idx,
-    cudaStream_t stream, const int *tile_idx=nullptr) {
-    if ( n > 0) {
-      store_cols<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(tile, n_tile,
-         n_vec, tile_idx, n, cache_idx, cache.data(), cache.size()/n_vec);
+                 cudaStream_t stream, const int *tile_idx = nullptr) {
+    if (n > 0) {
+      store_cols<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        tile, n_tile, n_vec, tile_idx, n, cache_idx, cache.data(),
+        cache.size() / n_vec);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -179,13 +183,13 @@ public:
    *   cache size [n]
    * @param [in] stream
    */
-  void GetCacheIdx(int *in_idx, int n, int *out_idx, bool* is_cached,
-    cudaStream_t stream) {
-    n_iter++; // we increase the iteration counter, that is used to time stamp
+  void GetCacheIdx(int *in_idx, int n, int *out_idx, bool *is_cached,
+                   cudaStream_t stream) {
+    n_iter++;  // we increase the iteration counter, that is used to time stamp
     // accessing entries from the cache
-    get_cache_idx<<<ceildiv(n, TPB), TPB, 0, stream>>>(in_idx, n, vec_idx.data(),
-      n_cache_sets, associativity, cache_time.data(), out_idx, is_cached,
-      n_iter);
+    get_cache_idx<<<ceildiv(n, TPB), TPB, 0, stream>>>(
+      in_idx, n, vec_idx.data(), n_cache_sets, associativity, cache_time.data(),
+      out_idx, is_cached, n_iter);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -205,87 +209,83 @@ public:
    * @param [out] n_cached number of elements that are cached
    * @param [in] stream
    */
-  void GetCacheIdxPartitioned(int *in_idx, int n, int *out_idx,  int *n_cached,
-    cudaStream_t stream) {
+  void GetCacheIdxPartitioned(int *in_idx, int n, int *out_idx, int *n_cached,
+                              cudaStream_t stream) {
     ResizeTmpBuffers(n, stream);
 
     GetCacheIdx(in_idx, n, ws_tmp.data(), is_cached.data(), stream);
 
     // Group cache indices as [already cached, non_cached]
     cub::DevicePartition::Flagged(d_temp_storage.data(), d_temp_storage_size,
-      ws_tmp.data(), is_cached.data(), out_idx, d_num_selected_out.data(), n,
-      stream);
+                                  ws_tmp.data(), is_cached.data(), out_idx,
+                                  d_num_selected_out.data(), n, stream);
 
     updateHost(n_cached, d_num_selected_out.data(), 1, stream);
 
     // Similarily re-group the input indices
     copy(ws_tmp.data(), in_idx, n, stream);
     cub::DevicePartition::Flagged(d_temp_storage.data(), d_temp_storage_size,
-      ws_tmp.data(), is_cached.data(), in_idx, d_num_selected_out.data(), n,
-      stream);
+                                  ws_tmp.data(), is_cached.data(), in_idx,
+                                  d_num_selected_out.data(), n, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   /**
+   * Assign cache location to a set of indices.
+   *
+   * Note: calle GetCacheIdx first, to get the cache_set assigned to the input
+   * vectors.
+   *
    * @param [inout] idx  device array of vector indices size [n]
    * @param [in] n number of elements that we want to cache
    * @param [inout] cidx on entry: cache_set, on exit: assigned cache_idx, or -1
    *   size[n]
    */
   void AssignCacheIdx(int *idx, int n, int *cidx, cudaStream_t stream) {
-    if (n<=0) return;
+    if (n <= 0) return;
     cub::DeviceRadixSort::SortPairs(d_temp_storage.data(), d_temp_storage_size,
-        cidx, ws_tmp.data(), idx, idx_tmp.data(), n, 0, sizeof(int)*8, stream);
-    //print_vec(cidx, n, "cidx");
-    //print_vec(ws_tmp.data(), n, "ws_tmp");
-    //print_vec(idx, n, "idx");
-    //print_vec(idx_tmp.data(), n, "idx_tmp");
+                                    cidx, ws_tmp.data(), idx, idx_tmp.data(), n,
+                                    0, sizeof(int) * 8, stream);
+
     copy(idx, idx_tmp.data(), n, stream);
 
     // set it to -1
     CUDA_CHECK(cudaMemset(cidx, 255, n * sizeof(int)));
-    // TODO add a constexpr min
-    const int nthreads = associativity <= 32 ? associativity : 32; //min(32, associativity);
-    //print_vec(vec_idx.data(), vec_idx.size(), "b4FindSlots");
-    //print_vec(cidx, n, "cidx in ");
-    assign_cache_idx<nthreads, associativity><<<n_cache_sets, nthreads, 0,
-      stream>>>(idx, n, ws_tmp.data(), vec_idx.data(), n_cache_sets,
-      cache_time.data(), n_iter, cidx);
-    //print_vec(vec_idx.data(), vec_idx.size(), "arFindSlots");
-    //print_vec(cidx, n, "cidx out");
+    const int nthreads = associativity <= 32 ? associativity : 32;
+
+    assign_cache_idx<nthreads, associativity>
+      <<<n_cache_sets, nthreads, 0, stream>>>(idx, n, ws_tmp.data(),
+                                              vec_idx.data(), n_cache_sets,
+                                              cache_time.data(), n_iter, cidx);
 
     CUDA_CHECK(cudaPeekAtLastError());
     if (debug_mode) CUDA_CHECK(cudaDeviceSynchronize());
   }
 
   /** Return approximate cache size in MiB. */
-  float GetSizeInMiB() const {
-    return cache_size;
-  }
+  float GetSizeInMiB() const { return cache_size; }
 
   /**
    * Returns the number of vectors that can be cached.
    */
-  int GetSize() const {
-    return vec_idx.size();
-  }
+  int GetSize() const { return vec_idx.size(); }
 
-//private:
+ private:
   std::shared_ptr<deviceAllocator> allocator;
 
-  int n_vec;        //!< Number of elements in a cached vector
+  int n_vec;         //!< Number of elements in a cached vector
   float cache_size;  //!< in MiB
   int n_cache_sets;  //!< number of cache sets
 
-  const int TPB=256; //!< threads per block for kernel launch
-  int n_iter = 0;    //!< Counter for time stamping cache operation
+  const int TPB = 256;  //!< threads per block for kernel launch
+  int n_iter = 0;       //!< Counter for time stamping cache operation
 
   bool debug_mode = false;
 
-  MLCommon::device_buffer<math_t> cache;   //!< The value of cached vectors
-  MLCommon::device_buffer<int> vec_idx;    //!< Indices of vectors stored
-  MLCommon::device_buffer<int> cache_time; //!< Time stamp for LRU cache
+  MLCommon::device_buffer<math_t> cache;    //!< The value of cached vectors
+  MLCommon::device_buffer<int> vec_idx;     //!< Indices of vectors stored
+  MLCommon::device_buffer<int> cache_time;  //!< Time stamp for LRU cache
 
   // Helper arrays for GetCacheIdx
   MLCommon::device_buffer<bool> is_cached;
@@ -298,16 +298,17 @@ public:
   size_t d_temp_storage_size = 0;
 
   void ResizeTmpBuffers(int n, cudaStream_t stream) {
-    if (ws_tmp.size() < n ) {
+    if (ws_tmp.size() < n) {
       ws_tmp.resize(n, stream);
       is_cached.resize(n, stream);
       idx_tmp.resize(n, stream);
       cub::DevicePartition::Flagged(NULL, d_temp_storage_size, vec_idx.data(),
-         is_cached.data(), vec_idx.data(), d_num_selected_out.data(), n, stream);
+                                    is_cached.data(), vec_idx.data(),
+                                    d_num_selected_out.data(), n, stream);
       d_temp_storage.resize(d_temp_storage_size, stream);
     }
   }
 };
 
-}; // end namespace SVM
-}; // end namespace ML
+};  // namespace Cache
+};  // namespace MLCommon

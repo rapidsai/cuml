@@ -68,7 +68,7 @@ __global__ void get_cols(const math_t *cache, int n_vec,
  * we store
  * cache[i + cache_idx[k]*n_vec] = tile[i + k*n_vec], for i=0..n_vec-1, k=0..n-1
  *
- * If tile_idx!=nullptr, then there we permute the vectors from tile according
+ * If tile_idx != nullptr, then  we permute the vectors from tile according
  * to tile_idx:
  * cache[i + cache_idx[k]*n_vec] = tile[i + tile_idx[k]*n_vec],
  * for i=0..n_vec-1, k=0..n-1
@@ -111,7 +111,7 @@ int DI hash(int idx, int n_cache_sets, int associativity) {
 }
 
 /**
- * Logarithmic search to find the first element in the array which is greater
+ * Binary search to find the first element in the array which is greater
  * equal than a given value.
  * @param [in] array sorted array of n numbers
  * @param [in] n length of the array
@@ -168,13 +168,14 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
 }
 
 /**
- * Rank of elements in a cache set in the sorted time array.
+ * Rank the entries in a cache set according the time stamp, return the indices
+ * that would sort the time stamp in ascending order.
  *
  * Assume we have a single cache set with time stamps as:
  * key (threadIdx.x):   0   1   2   3
  * val (time stamp):    8   6   7   5
  *
- * The corresponding sorted:
+ * The corresponding sorted key-value pairs:
  * key:    3   1   2   0
  * val:    5   6   7   8
  * rank: 0th 1st 2nd 3rd
@@ -183,16 +184,16 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  * threadIdx.x: 0   1   2   3
  * rank:        3   1   2   0
  *
- * For multiple cache sets, launch one block per cache set, and it will be ranked
- * within the block.
+ * For multiple cache sets, launch one block per cache set.
  *
  * @tparam nthreads number of threads per block (nthreads <= associativity)
  * @tparam associativity number of items in a cache set
  *
- * @param [in] time time stamp of caching the data size [associativity * n_cache_sets]
+ * @param [in] time time stamp of caching the data,
+     size [associativity * n_cache_sets]
  * @param [in] n_cache_sets number of cache sets
- * @param [out] sorted_idx rank within the cache set size [nthreads * items_per_thread]
- * Each block should give a different pointer for sorted_idx.
+ * @param [out] rank within the cache set size [nthreads * items_per_thread]
+ *   Each block should give a different pointer for rank.
  */
 template<int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
@@ -219,9 +220,7 @@ DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
     if (val[j] < associativity) {
       rank[val[j]] = threadIdx.x * items_per_thread + j;
     }
-    //printf("bid tid j val rank %d %d %d %d %d\n", blockIdx.x, threadIdx.x, j, val[j],  threadIdx.x * items_per_thread + j);
   }
-
   __syncthreads();
 }
 
@@ -281,25 +280,18 @@ __global__ void assign_cache_idx(const int *in_idx, int n, const int *cache_set,
     // whether this slot is available for writing
     mask = mask && (cache_time[t_idx] != time);
 
-    //printf("bix, tix, tid: %d %d %d,  mask, avail ctime priority: %d %d %d %d\n", blockIdx.x, threadIdx.x, tid, mask, avail, cache_time[tid], rank[i]);
-
     // rank[i] tells which element to store by this thread
     // we look up where is the idx stored in the input array
     if (mask) {
       int k = find_nth_occurrence(cache_set, n, blockIdx.x, rank[i]);
-      //printf("bix, tix, i: %d %d %d,  mask k ctime: %d %d %d %d\n", blockIdx.x, threadIdx.x, i, mask, k, cache_time[t_idx]);
       mask = mask && k>-1;
       if ( k > -1) {
         int idx_val = in_idx[k];
         cache_idx[t_idx] = idx_val;
         out_idx[k] = t_idx;
         cache_time[t_idx] = time;
-        //printf("bix, tix, tidx rank: %d %d %d %d,  mask k ctime idx_val: %d %d %d %d\n", blockIdx.x, threadIdx.x, t_idx, rank[i],  mask, k, cache_time[t_idx], idx_val);
-      } else {
-        //  printf("bix, tix, tidx rank: %d %d %d %d,  mask k ctime: %d %d %d\n", blockIdx.x, threadIdx.x, t_idx, rank[i], mask, k, cache_time[t_idx]);
       }
     }
-    //printf("bix, tix, tid: %d %d %d,  k, idx_val: %d %d\n", blockIdx.x, threadIdx.x, block_offset +i, k, idx_val);
   }
 }
 
