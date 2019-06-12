@@ -199,7 +199,7 @@ void cumlNCCLCommunicator_impl::isend(const void *buf, int size, int dest, int t
 
    if (UCS_PTR_IS_ERR(result)) {
        fprintf(stderr, "unable to send UCX data message\n");
-       ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+       //ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
        return;
    } else if (UCS_PTR_STATUS(result) != UCS_OK) {
 
@@ -234,7 +234,7 @@ void cumlNCCLCommunicator_impl::irecv(void *buf, int size, int source, int tag, 
   if (UCS_PTR_IS_ERR(result)) {
       fprintf(stderr, "unable to receive UCX data message (%u)\n",
               UCS_PTR_STATUS(result));
-      ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
+      //ucp_ep_close_nb(*ep_ptr, UCP_EP_CLOSE_MODE_FLUSH);
       return;
   }
 
