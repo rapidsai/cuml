@@ -17,7 +17,6 @@
 #pragma once
 
 #include <limits>
-#include <typeinfo>
 #include "cuda_utils.h"
 
 namespace MLCommon {
