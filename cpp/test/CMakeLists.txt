@@ -38,6 +38,7 @@ if(BUILD_CUML_TESTS)
         ${CUDA_nvgraph_LIBRARY}
         faisslib
         ${CUML_CPP_TARGET}
+        ${CUML_C_TARGET}
         pthread
         ${ZLIB_LIBRARIES}
     )
@@ -60,6 +61,8 @@ if(BUILD_CUML_TESTS)
       sg/tsvd_test.cu
       sg/umap_test.cu
       )
+
+    add_dependencies(ml ${ClangFormat_TARGET})
 
     target_link_libraries(ml
       ${GTEST_LIBNAME}
@@ -92,6 +95,8 @@ if(BUILD_CUML_MG_TESTS)
     add_executable(ml_mg
       mg/knn_test_mg.cu
       )
+
+    add_dependencies(ml_mg ${ClangFormat_TARGET})
 
     target_link_libraries(ml_mg
       ${GTEST_LIBNAME}
@@ -159,6 +164,7 @@ if(BUILD_PRIMS_TESTS)
       prims/penalty.cu
       prims/permute.cu
       prims/power.cu
+      prims/randIndex.cu
       prims/reduce.cu
       prims/reduce_rows_by_key.cu
       prims/reverse.cu
@@ -177,6 +183,8 @@ if(BUILD_PRIMS_TESTS)
       prims/unary_op.cu
       prims/weighted_mean.cu
       )
+
+    add_dependencies(prims ${ClangFormat_TARGET})
 
     target_link_libraries(prims
       ${GTEST_LIBNAME}

@@ -15,9 +15,9 @@
  */
 
 #include <gtest/gtest.h>
-#include "test_utils.h"
 #include "matrix/reverse.h"
 #include "random/rng.h"
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Matrix {
@@ -30,9 +30,9 @@ struct ReverseInputs {
   unsigned long long seed;
 };
 
-template<typename T>
+template <typename T>
 class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
@@ -55,7 +55,7 @@ protected:
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-protected:
+ protected:
   ReverseInputs<T> params;
   T *in, *out;
   cudaStream_t stream;
@@ -95,7 +95,7 @@ TEST_P(ReverseTestD, Result) {
                           CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD,
-                    ::testing::ValuesIn(inputsd));
+                        ::testing::ValuesIn(inputsd));
 
-} // end namespace Matrix
-} // end namespace MLCommon
+}  // end namespace Matrix
+}  // end namespace MLCommon

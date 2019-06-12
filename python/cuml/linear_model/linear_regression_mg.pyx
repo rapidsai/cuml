@@ -29,6 +29,8 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml.utils import zeros
+
 
 cdef extern from "glm/glm_spmg.h" namespace "ML::GLM":
 
@@ -320,7 +322,7 @@ class LinearRegressionMG:
         cdef uintptr_t X_ptr, y_ptr, gpu_ids_ptr, coef_ptr
 
         self.gdf_datatype = X.dtype
-        self.coef_ = np.zeros(X.shape[1], dtype=X.dtype)
+        self.coef_ = zeros(X.shape[1], dtype=X.dtype)
 
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
@@ -379,7 +381,7 @@ class LinearRegressionMG:
             msg = "X must have a column."
             raise TypeError(msg)
 
-        pred = np.zeros(n_rows, dtype=X.dtype)
+        pred = zeros(n_rows, dtype=X.dtype)
 
         cdef uintptr_t X_ptr, pred_ptr, gpu_ids_ptr, coef_ptr
 

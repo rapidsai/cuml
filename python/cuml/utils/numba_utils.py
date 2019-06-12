@@ -36,7 +36,15 @@ def row_matrix(df):
     dtype = cols[0].dtype
 
     col_major = df.as_gpu_matrix(order='F')
-    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order='C')
+
+    row_major = gpu_major_converter(col_major, nrows, ncols, dtype,
+                                    to_order='C')
+
+    return row_major
+
+
+def gpu_major_converter(original, nrows, ncols, dtype, to_order='C'):
+    row_major = rmm.device_array((nrows, ncols), dtype=dtype, order=to_order)
 
     tpb = driver.get_device().MAX_THREADS_PER_BLOCK
 
@@ -47,7 +55,9 @@ def row_matrix(df):
 
     # blocks and threads for the shared memory/tiled algorithm
     # see http://devblogs.nvidia.com/parallelforall/efficient-matrix-transpose-cuda-cc/ # noqa
-    blocks = int((row_major.shape[1]) / tile_height + 1), int((row_major.shape[0]) / tile_width + 1) # noqa
+    blocks = int((row_major.shape[1]) / tile_height + 1), \
+        int((row_major.shape[0]) / tile_width + 1)
+
     threads = tile_height, tile_width
 
     # blocks per gpu for the general kernel
@@ -60,14 +70,14 @@ def row_matrix(df):
         dev_dtype = numba.float64
 
     @cuda.jit
-    def general_kernel(_col_major, _row_major):
+    def general_kernel(input, output):
         tid = cuda.blockIdx.x * cuda.blockDim.x + cuda.threadIdx.x
         if tid >= nrows:
             return
         _col_offset = 0
-        while _col_offset < _col_major.shape[1]:
+        while _col_offset < input.shape[1]:
             col_idx = _col_offset
-            _row_major[tid, col_idx] = _col_major[tid, col_idx]
+            output[tid, col_idx] = input[tid, col_idx]
             _col_offset += 1
 
     @cuda.jit
@@ -91,9 +101,41 @@ def row_matrix(df):
     # check if we cannot call the shared memory kernel
     # block limits: 2**31-1 for x, 65535 for y dim of blocks
     if blocks[0] > 2147483647 or blocks[1] > 65535:
-        general_kernel[bpg, tpb](col_major, row_major)
+        general_kernel[bpg, tpb](original, row_major)
 
     else:
-        shared_kernel[blocks, threads](col_major, row_major)
+        shared_kernel[blocks, threads](original, row_major)
 
     return row_major
+
+
+@cuda.jit
+def gpu_zeros_1d(out):
+    i = cuda.grid(1)
+    if i < out.shape[0]:
+        out[i] = 0
+
+
+@cuda.jit
+def gpu_zeros_2d(out):
+    i, j = cuda.grid(2)
+    if i < out.shape[0] and j < out.shape[1]:
+        out[i][j] = 0
+
+
+def zeros(size, dtype, order='F'):
+    """
+    Return device array of zeros generated on device.
+    """
+    out = rmm.device_array(size, dtype=dtype, order=order)
+    if isinstance(size, tuple):
+        tpb = driver.get_device().MAX_THREADS_PER_BLOCK
+        nrows = size[0]
+        bpg = (nrows + tpb - 1) // tpb
+
+        gpu_zeros_2d[bpg, tpb](out)
+
+    elif size > 0:
+        gpu_zeros_1d.forall(size)(out)
+
+    return out

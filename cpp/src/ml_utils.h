@@ -29,50 +29,55 @@ namespace ML {
  * @{
  */
 enum solver {
-	COV_EIG_DQ, COV_EIG_JACOBI, RANDOMIZED,
+  COV_EIG_DQ,
+  COV_EIG_JACOBI,
+  RANDOMIZED,
 };
 
 enum lr_type {
-	OPTIMAL, CONSTANT, INVSCALING, ADAPTIVE,
+  OPTIMAL,
+  CONSTANT,
+  INVSCALING,
+  ADAPTIVE,
 };
 
 enum loss_funct {
-	SQRD_LOSS, HINGE, LOG,
+  SQRD_LOSS,
+  HINGE,
+  LOG,
 };
 
-enum penalty {
-	NONE, L1, L2, ELASTICNET
-};
+enum penalty { NONE, L1, L2, ELASTICNET };
 
 //template<typename math_t>
 class params {
-public:
-	int n_rows;
-	int n_cols;
-	int gpu_id = 0;
+ public:
+  int n_rows;
+  int n_cols;
+  int gpu_id = 0;
 };
 
 //template<typename math_t>
 //class paramsSolver: public params<math_t> {
-class paramsSolver: public params{
-public:
-	int n_rows;
-	int n_cols;
-	//math_t tol = 0.0;
-	float tol = 0.0;
-    int n_iterations = 15;
-	int random_state;
-	int verbose = 0;
+class paramsSolver : public params {
+ public:
+  int n_rows;
+  int n_cols;
+  //math_t tol = 0.0;
+  float tol = 0.0;
+  int n_iterations = 15;
+  int random_state;
+  int verbose = 0;
 };
 
 //template<typename math_t>
 //class paramsTSVD: public paramsSolver<math_t> {
-class paramsTSVD: public paramsSolver {
-public:
-	int n_components = 1;
-	int max_sweeps = 15;
-	solver algorithm = solver::COV_EIG_DQ;
-	bool trans_input = false;
+class paramsTSVD : public paramsSolver {
+ public:
+  int n_components = 1;
+  int max_sweeps = 15;
+  solver algorithm = solver::COV_EIG_DQ;
+  bool trans_input = false;
 };
 
 /**
@@ -94,10 +99,10 @@ public:
 
 //template<typename math_t>
 //class paramsPCA: public paramsTSVD<math_t> {
-class paramsPCA: public paramsTSVD {
-public:
-	bool copy = true;
-	bool whiten = false;
+class paramsPCA : public paramsTSVD {
+ public:
+  bool copy = true;
+  bool whiten = false;
 };
 
-}; // end namespace ML
+};  // end namespace ML

@@ -14,370 +14,236 @@
  * limitations under the License.
  */
 
-#include "sgd.h"
 #include "cd.h"
-#include "solver.hpp"
 #include "ml_utils.h"
+#include "sgd.h"
+#include "solver.hpp"
 
 namespace ML {
 namespace Solver {
 
 using namespace ML;
 
-void sgdFit(cumlHandle& handle,
-		    float *input,
-	        int n_rows,
-	        int n_cols,
-	        float *labels,
-	        float *coef,
-	        float *intercept,
-	        bool fit_intercept,
-	        int batch_size,
-	        int epochs,
-	        int lr_type,
-	        float eta0,
-	        float power_t,
-	        int loss,
-	        int penalty,
-	        float alpha,
-	        float l1_ratio,
-	        bool shuffle,
-	        float tol,
-	        int n_iter_no_change) {
+void sgdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
+            float *labels, float *coef, float *intercept, bool fit_intercept,
+            int batch_size, int epochs, int lr_type, float eta0, float power_t,
+            int loss, int penalty, float alpha, float l1_ratio, bool shuffle,
+            float tol, int n_iter_no_change) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
+  MLCommon::Functions::penalty pen;
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-					"glm.cu: other functions are not supported yet.");
-	}
+  if (penalty == 0) {
+    pen = MLCommon::Functions::penalty::NONE;
+  } else if (penalty == 1) {
+    pen = MLCommon::Functions::penalty::L1;
+  } else if (penalty == 2) {
+    pen = MLCommon::Functions::penalty::L2;
+  } else if (penalty == 3) {
+    pen = MLCommon::Functions::penalty::ELASTICNET;
+  } else {
+    ASSERT(false, "glm.cu: penalty is not supported yet.");
+  }
 
-	MLCommon::Functions::penalty pen;
+  ML::lr_type learning_rate_type;
+  if (lr_type == 0) {
+    learning_rate_type = ML::lr_type::OPTIMAL;
+  } else if (lr_type == 1) {
+    learning_rate_type = ML::lr_type::CONSTANT;
+  } else if (lr_type == 2) {
+    learning_rate_type = ML::lr_type::INVSCALING;
+  } else if (lr_type == 3) {
+    learning_rate_type = ML::lr_type::ADAPTIVE;
+  } else {
+    ASSERT(false, "glm.cu: this learning rate type is not supported.");
+  }
 
-	if (penalty == 0) {
-	    pen = MLCommon::Functions::penalty::NONE;
-	} else if (penalty == 1) {
-		pen = MLCommon::Functions::penalty::L1;
-	} else if (penalty == 2) {
-		pen = MLCommon::Functions::penalty::L2;
-	} else if (penalty == 3) {
-		pen = MLCommon::Functions::penalty::ELASTICNET;
-	} else {
-		ASSERT(false,
-					"glm.cu: penalty is not supported yet.");
-	}
-
-	ML::lr_type learning_rate_type;
-	if (lr_type == 0) {
-		learning_rate_type = ML::lr_type::OPTIMAL;
-	} else if (lr_type == 1) {
-		learning_rate_type = ML::lr_type::CONSTANT;
-	} else if (lr_type == 2) {
-		learning_rate_type = ML::lr_type::INVSCALING;
-	} else if (lr_type == 3) {
-		learning_rate_type = ML::lr_type::ADAPTIVE;
-	} else {
-		ASSERT(false,
-				    "glm.cu: this learning rate type is not supported.");
-	}
-
-	sgdFit(handle.getImpl(),
-		   input,
-		   n_rows,
-		   n_cols,
-		   labels,
-		   coef,
-		   intercept,
-		   fit_intercept,
-		   batch_size,
-		   epochs,
-		   learning_rate_type,
-		   eta0,
-		   power_t,
-		   loss_funct,
-		   pen,
-		   alpha,
-		   l1_ratio,
-		   shuffle,
-		   tol,
-		   n_iter_no_change,
-		   handle.getStream());
-
+  sgdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
+         fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
+         loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
+         handle.getStream());
 }
 
-void sgdFit(cumlHandle& handle,
-		    double *input,
-	        int n_rows,
-	        int n_cols,
-	        double *labels,
-	        double *coef,
-	        double *intercept,
-	        bool fit_intercept,
-	        int batch_size,
-	        int epochs,
-	        int lr_type,
-	        double eta0,
-	        double power_t,
-	        int loss,
-	        int penalty,
-	        double alpha,
-	        double l1_ratio,
-	        bool shuffle,
-	        double tol,
-	        int n_iter_no_change) {
+void sgdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
+            double *labels, double *coef, double *intercept, bool fit_intercept,
+            int batch_size, int epochs, int lr_type, double eta0,
+            double power_t, int loss, int penalty, double alpha,
+            double l1_ratio, bool shuffle, double tol, int n_iter_no_change) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-				"glm.cu: other functions are not supported yet.");
-	}
+  MLCommon::Functions::penalty pen;
+  if (penalty == 0) {
+    pen = MLCommon::Functions::penalty::NONE;
+  } else if (penalty == 1) {
+    pen = MLCommon::Functions::penalty::L1;
+  } else if (penalty == 2) {
+    pen = MLCommon::Functions::penalty::L2;
+  } else if (penalty == 3) {
+    pen = MLCommon::Functions::penalty::ELASTICNET;
+  } else {
+    ASSERT(false, "glm.cu: penalty is not supported yet.");
+  }
 
-	MLCommon::Functions::penalty pen;
-	if (penalty == 0) {
-	    pen = MLCommon::Functions::penalty::NONE;
-	} else if (penalty == 1) {
-		pen = MLCommon::Functions::penalty::L1;
-	} else if (penalty == 2) {
-		pen = MLCommon::Functions::penalty::L2;
-	} else if (penalty == 3) {
-		pen = MLCommon::Functions::penalty::ELASTICNET;
-	} else {
-		ASSERT(false,
-					"glm.cu: penalty is not supported yet.");
-	}
+  ML::lr_type learning_rate_type;
+  if (lr_type == 0) {
+    learning_rate_type = ML::lr_type::OPTIMAL;
+  } else if (lr_type == 1) {
+    learning_rate_type = ML::lr_type::CONSTANT;
+  } else if (lr_type == 2) {
+    learning_rate_type = ML::lr_type::INVSCALING;
+  } else if (lr_type == 3) {
+    learning_rate_type = ML::lr_type::ADAPTIVE;
+  } else {
+    ASSERT(false, "glm.cu: this learning rate type is not supported.");
+  }
 
-	ML::lr_type learning_rate_type;
-	if (lr_type == 0) {
-		learning_rate_type = ML::lr_type::OPTIMAL;
-	} else if (lr_type == 1) {
-		learning_rate_type = ML::lr_type::CONSTANT;
-	} else if (lr_type == 2) {
-		learning_rate_type = ML::lr_type::INVSCALING;
-	} else if (lr_type == 3) {
-		learning_rate_type = ML::lr_type::ADAPTIVE;
-	} else {
-		ASSERT(false,
-				    "glm.cu: this learning rate type is not supported.");
-	}
-
-	sgdFit(handle.getImpl(),
-		   input,
-		   n_rows,
-		   n_cols,
-		   labels,
-		   coef,
-		   intercept,
-		   fit_intercept,
-		   batch_size,
-		   epochs,
-		   learning_rate_type,
-		   eta0,
-		   power_t,
-		   loss_funct,
-		   pen,
-		   alpha,
-		   l1_ratio,
-		   shuffle,
-		   tol,
-		   n_iter_no_change,
-		   handle.getStream());
-
+  sgdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
+         fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
+         loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
+         handle.getStream());
 }
 
-void sgdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
-		float intercept, float *preds, int loss) {
+void sgdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
+                const float *coef, float intercept, float *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
-
+  sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+             loss_funct, handle.getStream());
 }
 
-void sgdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
-		const double *coef, double intercept, double *preds, int loss) {
+void sgdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
+                const double *coef, double intercept, double *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
-
+  sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+             loss_funct, handle.getStream());
 }
 
-void sgdPredictBinaryClass(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
-		float intercept, float *preds, int loss) {
+void sgdPredictBinaryClass(cumlHandle &handle, const float *input, int n_rows,
+                           int n_cols, const float *coef, float intercept,
+                           float *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
-
+  sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef,
+                        intercept, preds, loss_funct, handle.getStream());
 }
 
-void sgdPredictBinaryClass(cumlHandle& handle, const double *input, int n_rows, int n_cols,
-		const double *coef, double intercept, double *preds, int loss) {
+void sgdPredictBinaryClass(cumlHandle &handle, const double *input, int n_rows,
+                           int n_cols, const double *coef, double intercept,
+                           double *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else if (loss == 1) {
+    loss_funct = ML::loss_funct::LOG;
+  } else if (loss == 2) {
+    loss_funct = ML::loss_funct::HINGE;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else if (loss == 1) {
-		loss_funct = ML::loss_funct::LOG;
-	} else if (loss == 2) {
-		loss_funct = ML::loss_funct::HINGE;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
-
+  sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef,
+                        intercept, preds, loss_funct, handle.getStream());
 }
 
-void cdFit(cumlHandle& handle,
-		   float *input,
-		   int n_rows,
-		   int n_cols,
-		   float *labels,
-		   float *coef,
-		   float *intercept,
-		   bool fit_intercept,
-		   bool normalize,
-		   int epochs,
-		   int loss,
-		   float alpha,
-		   float l1_ratio,
-		   bool shuffle,
-		   float tol) {
+void cdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
+           float *labels, float *coef, float *intercept, bool fit_intercept,
+           bool normalize, int epochs, int loss, float alpha, float l1_ratio,
+           bool shuffle, float tol) {
+  ASSERT(loss == 0,
+         "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	ASSERT(loss == 0,
-			"Parameter loss: Only SQRT_LOSS function is supported for now");
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-
-	cdFit(handle.getImpl(),
-		  input,
-		  n_rows,
-		  n_cols,
-		  labels,
-		  coef,
-		  intercept,
-		  fit_intercept,
-		  normalize,
-		  epochs,
-		  loss_funct,
-		  alpha,
-		  l1_ratio,
-		  shuffle,
-		  tol,
-		  handle.getStream());
+  cdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
+        fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
+        tol, handle.getStream());
 }
 
-void cdFit(cumlHandle& handle,
-		   double *input,
-		   int n_rows,
-		   int n_cols,
-		   double *labels,
-		   double *coef,
-		   double *intercept,
-		   bool fit_intercept,
-		   bool normalize,
-		   int epochs,
-		   int loss,
-		   double alpha,
-		   double l1_ratio,
-		   bool shuffle,
-		   double tol) {
+void cdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
+           double *labels, double *coef, double *intercept, bool fit_intercept,
+           bool normalize, int epochs, int loss, double alpha, double l1_ratio,
+           bool shuffle, double tol) {
+  ASSERT(loss == 0,
+         "Parameter loss: Only SQRT_LOSS function is supported for now");
 
-	ASSERT(loss == 0,
-				"Parameter loss: Only SQRT_LOSS function is supported for now");
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-
-	cdFit(handle.getImpl(),
-		  input,
-		  n_rows,
-		  n_cols,
-		  labels,
-		  coef,
-		  intercept,
-		  fit_intercept,
-		  normalize,
-		  epochs,
-		  loss_funct,
-		  alpha,
-		  l1_ratio,
-		  shuffle,
-		  tol,
-		  handle.getStream());
-
+  cdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
+        fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
+        tol, handle.getStream());
 }
 
-void cdPredict(cumlHandle& handle, const float *input, int n_rows, int n_cols, const float *coef,
-		float intercept, float *preds, int loss) {
+void cdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
+               const float *coef, float intercept, float *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
+  cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+            loss_funct, handle.getStream());
 }
 
-void cdPredict(cumlHandle& handle, const double *input, int n_rows, int n_cols,
-		const double *coef, double intercept, double *preds, int loss) {
+void cdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
+               const double *coef, double intercept, double *preds, int loss) {
+  ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
+  if (loss == 0) {
+    loss_funct = ML::loss_funct::SQRD_LOSS;
+  } else {
+    ASSERT(false, "glm.cu: other functions are not supported yet.");
+  }
 
-	ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
-	if (loss == 0) {
-		loss_funct = ML::loss_funct::SQRD_LOSS;
-	} else {
-		ASSERT(false,
-			"glm.cu: other functions are not supported yet.");
-	}
-
-	cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds, loss_funct, handle.getStream());
+  cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
+            loss_funct, handle.getStream());
 }
 
-}
-}
+}  // namespace Solver
+}  // namespace ML

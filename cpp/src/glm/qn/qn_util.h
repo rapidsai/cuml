@@ -16,14 +16,12 @@
 
 #pragma once
 
-namespace ML{
-namespace GLM{
-
-
+namespace ML {
+namespace GLM {
 
 enum LINE_SEARCH_ALGORITHM {
   LBFGS_LS_BT_ARMIJO = 1,
-  LBFGS_LS_BT = 2, // Default. Alias for Wolfe
+  LBFGS_LS_BT = 2,  // Default. Alias for Wolfe
   LBFGS_LS_BT_WOLFE = 2,
   LBFGS_LS_BT_STRONG_WOLFE = 3
 };
@@ -47,22 +45,22 @@ enum OPT_RETCODE {
 
 template <typename T = double>
 class LBFGSParam {
-public:
-  int m;     // lbfgs memory limit
-  T epsilon; // controls convergence
-  int past;  // lookback for function value based convergence test
-  T delta;   // controls fun val based conv test
+ public:
+  int m;      // lbfgs memory limit
+  T epsilon;  // controls convergence
+  int past;   // lookback for function value based convergence test
+  T delta;    // controls fun val based conv test
   int max_iterations;
-  int linesearch; // see enum above
+  int linesearch;  // see enum above
   int max_linesearch;
-  T min_step; // min. allowed step length
-  T max_step; // max. allowed step length
-  T ftol;     // line  search tolerance
-  T wolfe;    // wolfe parameter
-  T ls_dec; //line search decrease factor
-  T ls_inc; //line search increase factor
+  T min_step;  // min. allowed step length
+  T max_step;  // max. allowed step length
+  T ftol;      // line  search tolerance
+  T wolfe;     // wolfe parameter
+  T ls_dec;    //line search decrease factor
+  T ls_inc;    //line search increase factor
 
-public:
+ public:
   LBFGSParam() {
     m = 6;
     epsilon = T(1e-5);
@@ -79,41 +77,31 @@ public:
     ls_inc = T(2.1);
   }
 
-  inline int check_param() const { // TODO exceptions
+  inline int check_param() const {  // TODO exceptions
     int ret = 1;
-    if (m <= 0)
-      return ret; 
+    if (m <= 0) return ret;
     ret++;
-    if (epsilon <= 0)
-      return ret; 
+    if (epsilon <= 0) return ret;
     ret++;
-    if (past < 0)
-      return ret;
+    if (past < 0) return ret;
     ret++;
-    if (delta < 0)
-      return ret;
+    if (delta < 0) return ret;
     ret++;
-    if (max_iterations < 0)
-      return ret; 
+    if (max_iterations < 0) return ret;
     ret++;
     if (linesearch < LBFGS_LS_BT_ARMIJO ||
         linesearch > LBFGS_LS_BT_STRONG_WOLFE)
-      return ret; 
-    ret++;
-    if (max_linesearch <= 0)
       return ret;
     ret++;
-    if (min_step < 0)
-      return ret;
+    if (max_linesearch <= 0) return ret;
     ret++;
-    if (max_step < min_step)
-      return ret; 
+    if (min_step < 0) return ret;
     ret++;
-    if (ftol <= 0 || ftol >= 0.5)
-      return ret; 
+    if (max_step < min_step) return ret;
     ret++;
-    if (wolfe <= ftol || wolfe >= 1)
-      return ret;
+    if (ftol <= 0 || ftol >= 0.5) return ret;
+    ret++;
+    if (wolfe <= ftol || wolfe >= 1) return ret;
     ret++;
     return 0;
   }
@@ -125,9 +113,10 @@ HDI T project_orth(T x, T y) {
 }
 
 template <typename T>
-inline bool check_convergence(const LBFGSParam<T> &param, const int k, const T fx,
-                       SimpleVec<T> &x, SimpleVec<T> &grad, std::vector<T> & fx_hist, const int verbosity,
-                       T *dev_scalar, cudaStream_t stream) {
+inline bool check_convergence(const LBFGSParam<T> &param, const int k,
+                              const T fx, SimpleVec<T> &x, SimpleVec<T> &grad,
+                              std::vector<T> &fx_hist, const int verbosity,
+                              T *dev_scalar, cudaStream_t stream) {
   // New x norm and gradient norm
   T xnorm = nrm2(x, dev_scalar, stream);
   T gnorm = nrm2(grad, dev_scalar, stream);
@@ -146,8 +135,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k, const T f
   if (param.past > 0) {
     if (k >= param.past &&
         std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
-      if (verbosity > 0)
-        printf("Insufficient change in objective value\n");
+      if (verbosity > 0) printf("Insufficient change in objective value\n");
       return true;
     }
 
@@ -169,7 +157,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
                             SimpleVec<T> &drt, std::vector<T> &yhist,
                             std::vector<T> &alpha, T *dev_scalar,
                             cudaStream_t stream) {
-  SimpleVec<T> sj, yj; // mask vectors
+  SimpleVec<T> sj, yj;  // mask vectors
   int end = end_prev;
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
   T ys = dot(svec, yvec, dev_scalar, stream);
@@ -212,10 +200,8 @@ HDI T get_pseudo_grad(T x, T dlossx, T C) {
   }
   T dplus = dlossx + C;
   T dmins = dlossx - C;
-  if (dmins > T(0))
-    return dmins;
-  if (dplus < T(0))
-    return dplus;
+  if (dmins > T(0)) return dmins;
+  if (dplus < T(0)) return dplus;
   return T(0);
 }
 
@@ -239,7 +225,5 @@ struct op_pseudo_grad {
   }
 };
 
-
-
-}; // namespace GLM
-}; // namespace ML
+};  // namespace GLM
+};  // namespace ML
