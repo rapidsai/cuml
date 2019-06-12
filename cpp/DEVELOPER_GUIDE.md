@@ -44,6 +44,8 @@ void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_c
 }
 ```
 
+The exception to this is the `cumlHandle` itself, since it stores GPU-related state and has nothing to do with the model/algo state which is the topic of this section.
+
 ### scikit-learn-esq stateful API in C++
 We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
 
