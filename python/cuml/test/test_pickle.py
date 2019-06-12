@@ -14,12 +14,10 @@
 #
 
 import pytest
-import os
 import cuml
 from cuml.test.utils import array_equal, np_to_cudf
 import cudf
 import numpy as np
-import pandas as pd
 from sklearn.datasets import make_regression
 import pickle
 
@@ -62,39 +60,25 @@ def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
 
-def make_cudf_series(arr):
-    df = pd.DataFrame(
-                           {'fea0': arr[:, ]})
-    df = df.values
-    df = df[:, 0]
-    return cudf.Series(df)
+def pickle_save_load(tmpdir, model):
+    pickle_file = tmpdir.join('cu_model.pickle')
 
-
-def pickle_save_load(model):
-    os.mkdir('tmp')
-
-    pickle_file = 'tmp/cu_model'
     try:
         with open(pickle_file, 'wb') as pf:
             pickle.dump(model, pf)
     except (TypeError, ValueError) as e:
         pf.close()
-        os.remove(pickle_file)
-        os.rmdir('tmp')
         pytest.fail(e)
 
     with open(pickle_file, 'rb') as pf:
         cu_after_pickle_model = pickle.load(pf)
-
-    os.remove(pickle_file)
-    os.rmdir('tmp')
 
     return cu_after_pickle_model
 
 
 def make_dataset(datatype, input_type, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
-    X, y = make_regression(n_samples=(nrows), n_features=ncols,
+    X, y = make_regression(n_samples=nrows, n_features=ncols,
                            random_state=0)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     X_train = np.asarray(X[:train_rows, :]).astype(datatype)
@@ -102,7 +86,7 @@ def make_dataset(datatype, input_type, nrows, ncols):
 
     if input_type == 'dataframe':
         X_train = np_to_cudf(X_train)
-        y_train = make_cudf_series(y_train)
+        y_train = cudf.Series(y_train)
         X_test = np_to_cudf(X_test)
 
     return X_train, y_train, X_test
@@ -113,13 +97,13 @@ def make_dataset(datatype, input_type, nrows, ncols):
 @pytest.mark.parametrize('model', regression_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_regressor_pickle(datatype, input_type, model, nrows, ncols,):
+def test_regressor_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
     X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(model)
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -131,13 +115,13 @@ def test_regressor_pickle(datatype, input_type, model, nrows, ncols,):
 @pytest.mark.parametrize('model', solver_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_solver_pickle(datatype, input_type, model, nrows, ncols):
+def test_solver_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
     X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
     model.fit(X_train, y_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(model)
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -149,13 +133,13 @@ def test_solver_pickle(datatype, input_type, model, nrows, ncols):
 @pytest.mark.parametrize('model', cluster_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-def test_cluster_pickle(datatype, input_type, model, nrows, ncols):
+def test_cluster_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
     X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
     model.fit(X_train)
     cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    cu_after_pickle_model = pickle_save_load(model)
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
@@ -168,12 +152,13 @@ def test_cluster_pickle(datatype, input_type, model, nrows, ncols):
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.xfail
-def test_decomposition_pickle(datatype, input_type, model, nrows, ncols):
+def test_decomposition_pickle(tmpdir, datatype, input_type, model, nrows,
+                              ncols):
     X_train, _, _ = make_dataset(datatype, input_type, nrows, ncols)
 
     cu_before_pickle_transform = model.fit_transform(X_train)
 
-    cu_after_pickle_model = pickle_save_load(model)
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
@@ -187,13 +172,14 @@ def test_decomposition_pickle(datatype, input_type, model, nrows, ncols):
 @pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.parametrize('k', [unit_param(3)])
 @pytest.mark.xfail
-def test_neighbors_pickle(datatype, input_type, model, nrows, ncols, k):
+def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
+                          ncols, k):
     X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
     model.fit(X_train)
     D_before, I_before = model.kneighbors(X_test, k=k)
 
-    cu_after_pickle_model = pickle_save_load(model)
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
 
     D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
 
