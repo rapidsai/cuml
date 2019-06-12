@@ -148,6 +148,7 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/klDivergence.cu
       prims/kselection.cu
       prims/linearReg.cu
       prims/log.cu

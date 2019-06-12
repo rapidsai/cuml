@@ -19,6 +19,7 @@
 #include "metrics.hpp"
 
 #include "metrics/adjustedRandIndex.h"
+#include "metrics/klDivergence.h"
 #include "metrics/randIndex.h"
 #include "score/scores.h"
 
@@ -47,6 +48,12 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
   return MLCommon::Metrics::computeAdjustedRandIndex(
     y, y_hat, n, lower_class_range, upper_class_range,
     handle.getDeviceAllocator(), handle.getStream());
+}
+
+double klDivergence(const cumlHandle &handle, const double *y,
+                    const double *y_hat, int n) {
+  return MLCommon::Metrics::klDivergence(
+    y, y_hat, n, handle.getDeviceAllocator(), handle.getStream());
 }
 
 }  // namespace Metrics
