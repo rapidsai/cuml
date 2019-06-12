@@ -90,5 +90,19 @@ double adjustedRandIndex(const cumlHandle &handle, const int *y,
                          const int lower_class_range,
                          const int upper_class_range);
 
+/**
+         * Calculates the "Kullback-Leibler Divergence" 
+         * The KL divergence tells us how well the probability distribution Q
+         * approximates the probability distribution P.
+         * It is often also used as a 'distance metric' between two probablity ditributions (not symmetric)
+         *
+         * @param handle: cumlHandle
+         * @param y: Array of probabilities corresponding to distribution P
+         * @param y_hat: Array of probabilities corresponding to distribution Q
+         * @param n: Number of elements in y and y_hat
+         * @return: The KL Divergence value
+         */
+double klDivergence(const cumlHandle &handle, float *y, float *y_hat, int n);
+
 }  // namespace Metrics
 }  // namespace ML
