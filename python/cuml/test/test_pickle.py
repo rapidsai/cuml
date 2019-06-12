@@ -20,9 +20,8 @@ from cuml.test.utils import array_equal, np_to_cudf
 import cudf
 import numpy as np
 import pandas as pd
-from sklearn.datasets import make_regression, make_blobs
+from sklearn.datasets import make_regression
 import pickle
-import dill
 
 regression_models = dict(
     LinearRegression=cuml.LinearRegression(),
@@ -68,18 +67,13 @@ def make_cudf_series(arr):
     df = df[:, 0]
     return cudf.Series(df)
 
-def pickle_save_load(serializer_type, model):
+def pickle_save_load(model):
     os.mkdir('tmp')
-
-    if serializer_type == 'pickle':
-        serializer = pickle
-    else:
-        serializer = dill
 
     pickle_file = 'tmp/cu_model'
     try:
         with open(pickle_file, 'wb') as pf:
-            serializer.dump(model, pf)
+            pickle.dump(model, pf)
     except (TypeError, ValueError) as e:
         pf.close()
         os.remove(pickle_file)
@@ -87,197 +81,113 @@ def pickle_save_load(serializer_type, model):
         pytest.fail(e)
 
     with open(pickle_file, 'rb') as pf:
-        cu_after_pickle_model = serializer.load(pf)
+        cu_after_pickle_model = pickle.load(pf)
 
     os.remove(pickle_file)
     os.rmdir('tmp')
 
     return cu_after_pickle_model
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
-@pytest.mark.parametrize('model', ['LinearRegression', 'Lasso', 'Ridge', 'ElasticNet'])
-@pytest.mark.parametrize('model_objects', [regression_models])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('n_info', [unit_param(2)])
-@pytest.mark.parametrize('serializer_type', ['pickle', 'dill'])
-def test_regressor_pickle(datatype, input_type, model, model_objects, nrows, ncols, n_info,
-                          serializer_type):
+def make_dataset(datatype, input_type, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=(nrows), n_features=ncols,
-                           n_informative=n_info, random_state=0)
+                           random_state=0)
     X_test = np.asarray(X[train_rows:, :]).astype(datatype)
     X_train = np.asarray(X[:train_rows, :]).astype(datatype)
     y_train = np.asarray(y[:train_rows, ]).astype(datatype)
 
-    cu_before_pickle_model = model_objects[model]
-
     if input_type == 'dataframe':
-        X_cudf = np_to_cudf(X_train)
-        y_cudf = make_cudf_series(y_train)
-        X_cudf_test = np_to_cudf(X_test)
+        X_train = np_to_cudf(X_train)
+        y_train = make_cudf_series(y_train)
+        X_test = np_to_cudf(X_test)
 
-        cu_before_pickle_model.fit(X_cudf, y_cudf)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_cudf_test).to_array()
+    return X_train, y_train, X_test
 
-    else:
-        cu_before_pickle_model.fit(X_train, y_train)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_test).to_array()
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('model', regression_models.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_regressor_pickle(datatype, input_type, model, nrows, ncols,):
+    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
-    cu_after_pickle_model = pickle_save_load(serializer_type, cu_before_pickle_model)
+    model.fit(X_train, y_train)
+    cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    if input_type == 'dataframe':
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_cudf_test).to_array()
-    else:
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
+    cu_after_pickle_model = pickle_save_load(model)
+
+    cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
-@pytest.mark.parametrize('model', ['CD', 'SGD'])
-@pytest.mark.parametrize('model_objects', [solver_models])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('model', solver_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('n_info', [unit_param(2)])
-@pytest.mark.parametrize('serializer_type', ['pickle', 'dill'])
-def test_solver_pickle(datatype, input_type, model, model_objects, nrows, ncols, n_info,
-                          serializer_type):
-    train_rows = np.int32(nrows*0.8)
-    X, y = make_regression(n_samples=(nrows), n_features=ncols,
-                           n_informative=n_info, random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
-    y_train = np.asarray(y[:train_rows, ]).astype(datatype)
+def test_solver_pickle(datatype, input_type, model, nrows, ncols):
+    X_train, y_train, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
-    cu_before_pickle_model = model_objects[model]
+    model.fit(X_train, y_train)
+    cu_before_pickle_predict = model.predict(X_test).to_array()
 
-    if input_type == 'dataframe':
-        X_cudf = np_to_cudf(X_train)
-        y_cudf = make_cudf_series(y_train)
-        X_cudf_test = np_to_cudf(X_test)
+    cu_after_pickle_model = pickle_save_load(model)
 
-        cu_before_pickle_model.fit(X_cudf, y_cudf)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_cudf_test).to_array()
-
-    else:
-        cu_before_pickle_model.fit(X_train, y_train)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_test).to_array()
-
-    cu_after_pickle_model = pickle_save_load(serializer_type, cu_before_pickle_model)
-
-    if input_type == 'dataframe':
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_cudf_test).to_array()
-    else:
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
+    cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
     assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
 
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
-@pytest.mark.parametrize('model', ['KMeans'])
-@pytest.mark.parametrize('model_objects', [cluster_models])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('model', cluster_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('serializer_type', ['pickle', 'dill'])
+def test_cluster_pickle(datatype, input_type, model, nrows, ncols):
+    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+
+    model.fit(X_train)
+    cu_before_pickle_predict = model.predict(X_test).to_array()
+
+    cu_after_pickle_model = pickle_save_load(model)
+
+    cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('model', decomposition_models.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
 @pytest.mark.xfail
-def test_cluster_pickle(datatype, input_type, model, model_objects, nrows, ncols,
-                        serializer_type):
-    train_rows = np.int32(nrows*0.8)
-    X, _ = make_blobs(n_samples=(nrows), n_features=ncols, random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
+def test_decomposition_pickle(datatype, input_type, model, nrows, ncols):
+    X_train, _, _ = make_dataset(datatype, input_type, nrows, ncols)
 
-    cu_before_pickle_model = model_objects[model]
+    cu_before_pickle_transform = model.fit_transform(X_train)
 
-    if input_type == 'dataframe':
-        X_cudf = np_to_cudf(X_train)
-        X_cudf_test = np_to_cudf(X_test)
+    cu_after_pickle_model = pickle_save_load(model)
 
-        cu_before_pickle_model.fit(X_cudf)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_cudf_test).to_array()
+    cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
-    else:
-        cu_before_pickle_model.fit(X_train)
-        cu_before_pickle_predict = cu_before_pickle_model.predict(X_test).to_array()
-
-    cu_after_pickle_model = pickle_save_load(serializer_type, cu_before_pickle_model)
-
-    if input_type == 'dataframe':
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_cudf_test).to_array()
-    else:
-        cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
-
-    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
+    for col in cu_before_pickle_transform.columns:
+        assert array_equal(cu_before_pickle_transform[col].to_array(), cu_after_pickle_transform[col].to_array(), with_sign=True)
 
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('input_type', ['dataframe'])
-@pytest.mark.parametrize('model', ['PCA', 'TruncatedSVD', 'UMAP'])
-@pytest.mark.parametrize('model_objects', [decomposition_models])
+@pytest.mark.parametrize('model', neighbor_models.values())
 @pytest.mark.parametrize('nrows', [unit_param(20)])
 @pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('serializer_type', ['pickle', 'dill'])
-@pytest.mark.xfail
-def test_decomposition_pickle(datatype, input_type, model, model_objects, nrows, ncols,
-                        serializer_type):
-    train_rows = np.int32(nrows*0.8)
-    X, _ = make_blobs(n_samples=(nrows), n_features=ncols, random_state=0)
-
-    cu_before_pickle_model = model_objects[model]
-
-    if input_type == 'dataframe':
-        X_cudf = np_to_cudf(X)
-        cu_before_pickle_transform = cu_before_pickle_model.fit_transform(X_cudf)
-
-    else:
-        cu_before_pickle_transform = cu_before_pickle_model.fit_transform(X)
-
-    cu_after_pickle_model = pickle_save_load(serializer_type, cu_before_pickle_model)
-
-    if input_type == 'dataframe':
-        cu_after_pickle_transform = cu_after_pickle_model.transform(X_cudf)
-    else:
-        cu_after_pickle_transform = cu_after_pickle_model.transform(X)
-
-    for col_name in cu_before_pickle_transform.columns:
-        assert array_equal(cu_before_pickle_transform[col_name].to_array(), cu_after_pickle_transform[col_name].to_array(), with_sign=True)
-
-@pytest.mark.parametrize('datatype', [np.float32])
-@pytest.mark.parametrize('input_type', ['dataframe'])
-@pytest.mark.parametrize('model', ['NearestNeighbors'])
-@pytest.mark.parametrize('model_objects', [neighbor_models])
-@pytest.mark.parametrize('nrows', [unit_param(20)])
-@pytest.mark.parametrize('ncols', [unit_param(3)])
-@pytest.mark.parametrize('serializer_type', ['pickle', 'dill'])
 @pytest.mark.parametrize('k', [unit_param(3)])
 @pytest.mark.xfail
-def test_neighbors_pickle(datatype, input_type, model, model_objects, nrows, ncols,
-                        serializer_type, k):
-    train_rows = np.int32(nrows*0.8)
-    X, _ = make_blobs(n_samples=(nrows), n_features=ncols, random_state=0)
-    X_test = np.asarray(X[train_rows:, :]).astype(datatype)
-    X_train = np.asarray(X[:train_rows, :]).astype(datatype)
+def test_neighbors_pickle(datatype, input_type, model, nrows, ncols, k):
+    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
-    cu_before_pickle_model = model_objects[model]
+    model.fit(X_train)
+    cu_before_pickle_predict = cu_before_pickle_model.kneighbors(X_test, k=k)
 
-    if input_type == 'dataframe':
-        X_cudf = np_to_cudf(X_train)
-        X_cudf_test = np_to_cudf(X_test)
+    cu_after_pickle_model = pickle_save_load(model)
 
-        cu_before_pickle_model.fit(X_cudf)
-        cu_before_pickle_predict = cu_before_pickle_model.kneighbors(X_cudf_test, k=k)
+    cu_after_pickle_predict = cu_after_pickle_model.kneighbors(X_train)
 
-    else:
-        cu_before_pickle_model.fit(X_train)
-        cu_before_pickle_predict = cu_before_pickle_model.kneighbors(X_test, k=k)
-
-    cu_after_pickle_model = pickle_save_load(serializer_type, cu_before_pickle_model)
-
-    if input_type == 'dataframe':
-        cu_after_pickle_predict = cu_after_pickle_model.kneighbors(X_cudf_test, k=k)
-    else:
-        cu_after_pickle_predict = cu_after_pickle_model.kneighbors(X_test, k=k)
-
-    for col_name in cu_before_pickle_transform.columns:
-        assert array_equal(cu_before_pickle_transform[col_name].to_array(), cu_after_pickle_transform[col_name].to_array(), with_sign=True)
+    for col in cu_before_pickle_transform.columns:
+        assert array_equal(cu_before_pickle_predict[col].to_array(), cu_after_pickle_predict[col].to_array(), with_sign=True)
