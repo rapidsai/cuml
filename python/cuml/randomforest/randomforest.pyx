@@ -191,7 +191,7 @@ cdef class RandomForest_impl():
             raise TypeError(msg)
 
         cdef cumlHandle * handle_ =\
-            < cumlHandle * > < size_t > self.handle.getHandle()
+            <cumlHandle *> <size_t> self.handle.getHandle()
 
         unique_labels = np.shape(np.unique(y))[0]
 
@@ -241,10 +241,10 @@ cdef class RandomForest_impl():
         X_ptr = X.ctypes.data
 
         preds = np.zeros(self.n_rows,
-                        dtype=np.int32)
+                         dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle * handle_ =\
-            < cumlHandle * > < size_t > self.handle.getHandle()
+            <cumlHandle *> <size_t> self.handle.getHandle()
 
         if self.gdf_datatype.type == np.float32:
             predict(handle_[0],
@@ -278,11 +278,11 @@ cdef class RandomForest_impl():
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
         preds = np.zeros(self.n_rows,
-                              dtype=np.int32)
+                         dtype=np.int32)
         cdef uintptr_t preds_ptr = (preds).ctypes.data
 
         cdef cumlHandle * handle_ =\
-            < cumlHandle * > < size_t > self.handle.getHandle()
+            <cumlHandle *> <size_t> self.handle.getHandle()
 
         if self.gdf_datatype.type == np.float32:
             self.stats = cross_validate(handle_[0],
@@ -322,8 +322,9 @@ class RandomForest(Base):
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, min_samples_split, n_bins,
                                        split_algo, min_rows_per_node,
-                                       bootstrap, bootstrap_features, type_model,
-                                       verbose, rows_sample, max_leaves,
+                                       bootstrap, bootstrap_features,
+                                       type_model, verbose,
+                                       rows_sample, max_leaves,
                                        gdf_datatype)
 
     def fit(self, X, y):
