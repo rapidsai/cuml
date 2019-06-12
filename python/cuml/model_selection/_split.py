@@ -1426,9 +1426,9 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         If int, random_state is the seed used by the random number generator;
         If None, the random number generator is the RandomState instance used
         by `cp.random`
-        !! Be aware that cupy RandomState or numpy RandomStateis are not 
+        !! Be aware that cupy RandomState or numpy RandomStateis are not
         accepted for this class. They will be supported after cupy RandomState
-        starts supporting cupy array permutation 
+        starts supporting cupy array permutation
     Examples
     --------
     >>> import cupy as cp
