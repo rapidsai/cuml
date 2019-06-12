@@ -14,14 +14,14 @@ The implementation of cuML is single threaded.
 Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### Inside `libcuml++.so` aka our C++ interface
-Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. In other words, the stateful API should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
+Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only, which should meet the requirements listed below. In other words, the [stateful API](#scikit-learn-esq-stateful-api-in-c) should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
 
 Things which are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure).
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state.
 3. Pointers (explicitly putting it out, even though can be considered as a POD).
 
-Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, the we have exposed a C++ class with state along the interface of `libcuml++.so`.
+Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, this API exposes a non-POD C++ class object along the interface of `libcuml++.so`.
 ```cpp
 template <typename T>
 class DecisionTreeClassifier {
