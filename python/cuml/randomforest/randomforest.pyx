@@ -239,7 +239,7 @@ cdef class RandomForest_impl():
 
         cdef uintptr_t X_ptr
         X_ptr = X.ctypes.data
-        self.rows, self.cols = np.shape(X)
+        self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
                          dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ctypes.data
@@ -277,7 +277,7 @@ cdef class RandomForest_impl():
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
-        self.rows, self.cols = np.shape(X)
+        self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
                          dtype=np.int32)
         cdef uintptr_t preds_ptr = (preds).ctypes.data
