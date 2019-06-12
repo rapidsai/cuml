@@ -17,7 +17,7 @@ Every ML algo needs to store some state, eg: model and its related hyper-paramet
 Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only, which should meet the requirements listed below. In other words, the [stateful API](#scikit-learn-esq-stateful-api-in-c) should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
 
 Things which are OK to be exposed on the interface:
-1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure).
+1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state.
 3. Pointers (explicitly putting it out, even though can be considered as a POD).
 
