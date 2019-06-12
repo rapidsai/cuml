@@ -14,40 +14,49 @@ The implementation of cuML is single threaded.
 Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### Inside `libcuml++.so` aka our C++ interface
-Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. Things which are OK to be exposed on the interface:
+Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. In other words, the stateful API should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
+
+Things which are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure).
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state.
 3. Pointers (explicitly putting it out, even though can be considered as a POD).
 
-Taking dbscan algo as an example, the right way to expose the interface from `libcuml++.so` is:
+Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, the we have exposed a C++ class with state along the interface of `libcuml++.so`.
 ```cpp
-void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels, size_t max_bytes_per_batch=0,
-               bool verbose=false);
-```
-
-However, the following way of exposing dbscan API would be wrong. Because, the developer has exposed a C++ class with state along the interface of `libcuml++.so`.
-```cpp
-class DbscanClass {
+template <typename T>
+class DecisionTreeClassifier {
+  TreeNode<T>* root;
+  DTParams params;
+  const cumlHandle &handle;
 public:
-  DbscanClass(const cumlHandle& handle, float eps, int min_pts,
-              size_t max_bytes_per_batch=0, bool verbose=false);
-  void fit(const float *input, int n_rows, int n_cols, int *labels);
+  DecisionTreeClassifier(const cumlHandle &handle, DTParams& params, bool verbose=false);
+  void fit(const T *input, int n_rows, int n_cols, const int *labels, unsigned int *rowids,
+           int n_sampled_rows, int unique_labels);
+  void predict(const T *input, int n_rows, int n_cols, int *predictions);
 };
-void dbscanFit(DbscanClass& dbscan, const float *input, int n_rows, int n_cols,
-               int *labels);
-```
-In other words, the stateful API should always be a wrapper around the stateless methods, NEVER the other way around.
 
-That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`. For example, one way to fix the above state-based interface could be to remove the `DbscanClass` declaration from the interface header and move it inside the internals of cuML. Then, create its object only inside the `dbscanFit` method.
-```cpp
-void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
-               float eps, int min_pts, int *labels, size_t max_bytes_per_batch=0,
-               bool verbose=false) {
-  DbscanClass d(eps, min_pts, max_bytes_per_batch, verbose);
-  d.fit(input, n_rows, n_cols, labels);
-}
+void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+                               const int *labels, DecisionTreeClassifier<float> *model, unsigned int *rowids,
+                               int n_sampled_rows, int unique_labels, DTParams params,
+                               bool verbose=false);
+void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
+                                   DecisionTreeClassifier<float> *model, int n_rows,
+                                   int n_cols, int* predictions, bool verbose=false);
 ```
+
+One of the right ways to expose this interface from `libcuml++.so` is:
+```cpp
+template <typename T> struct TreeNode { /* nested tree-like data structure, but written as a POD! */ };
+struct DTParams { /* hyper-params for building DT */ };
+void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+                               const int *labels, TreeNode<float> *&root, unsigned int *rowids,
+                               int n_sampled_rows, int unique_labels, DTParams params,
+                               bool verbose=false);
+void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input, int n_rows,
+                                   int n_cols, const TreeNode<float> *root, int* predictions,
+                                   bool verbose=false);
+```
+The above example obviously under-plays the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
 ### scikit-learn-esq stateful API in C++
 We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
