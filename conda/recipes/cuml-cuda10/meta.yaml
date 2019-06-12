@@ -32,7 +32,7 @@ requirements:
     - libcuml={{ version }}
     - libcumlMG
     - cudatoolkit {{ cuda_version }}.*
-    - cupy 6.0.*    
+    - cupy 6.0.*
   run:
     - python x.x
     - cudf 0.8*

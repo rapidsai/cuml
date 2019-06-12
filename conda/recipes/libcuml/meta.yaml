@@ -30,9 +30,11 @@ requirements:
     - cudf 0.8*
     - cudatoolkit {{ cuda_version }}.*
     - lapack
+    - cupy 6.0.*
   run:
     - cudf 0.8*
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
+    - cupy 6.0.*
 
 about:
   home: http://rapids.ai/
