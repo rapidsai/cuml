@@ -30,14 +30,12 @@ class DecisionTreeClassifier {
   const cumlHandle &handle;
 public:
   DecisionTreeClassifier(const cumlHandle &handle, DTParams& params, bool verbose=false);
-  void fit(const T *input, int n_rows, int n_cols, const int *labels, unsigned int *rowids,
-           int n_sampled_rows, int unique_labels);
+  void fit(const T *input, int n_rows, int n_cols, const int *labels);
   void predict(const T *input, int n_rows, int n_cols, int *predictions);
 };
 
 void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
-                               const int *labels, DecisionTreeClassifier<float> *model, unsigned int *rowids,
-                               int n_sampled_rows, int unique_labels, DTParams params,
+                               const int *labels, DecisionTreeClassifier<float> *model, DTParams params,
                                bool verbose=false);
 void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
                                    DecisionTreeClassifier<float> *model, int n_rows,
@@ -52,8 +50,7 @@ template <typename T> struct TreeNode { /* nested tree-like data structure, but 
 struct DTParams { /* hyper-params for building DT */ };
 
 void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
-                               const int *labels, TreeNode<float> *&root, unsigned int *rowids,
-                               int n_sampled_rows, int unique_labels, DTParams params,
+                               const int *labels, TreeNode<float> *&root, DTParams params,
                                bool verbose=false);
 void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input, int n_rows,
                                    int n_cols, const TreeNode<float> *root, int* predictions,
