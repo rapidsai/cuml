@@ -49,6 +49,7 @@ neighbor_models = dict(
     NearestNeighbors=cuml.NearestNeighbors()
 )
 
+
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
 
@@ -60,12 +61,14 @@ def quality_param(*args, **kwargs):
 def stress_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.stress)
 
+
 def make_cudf_series(arr):
     df = pd.DataFrame(
                            {'fea0': arr[:, ]})
     df = df.values
     df = df[:, 0]
     return cudf.Series(df)
+
 
 def pickle_save_load(model):
     os.mkdir('tmp')
@@ -88,6 +91,7 @@ def pickle_save_load(model):
 
     return cu_after_pickle_model
 
+
 def make_dataset(datatype, input_type, nrows, ncols):
     train_rows = np.int32(nrows*0.8)
     X, y = make_regression(n_samples=(nrows), n_features=ncols,
@@ -102,6 +106,7 @@ def make_dataset(datatype, input_type, nrows, ncols):
         X_test = np_to_cudf(X_test)
 
     return X_train, y_train, X_test
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
@@ -118,7 +123,8 @@ def test_regressor_pickle(datatype, input_type, model, nrows, ncols,):
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
-    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
@@ -135,7 +141,8 @@ def test_solver_pickle(datatype, input_type, model, nrows, ncols):
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
-    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
@@ -152,7 +159,8 @@ def test_cluster_pickle(datatype, input_type, model, nrows, ncols):
 
     cu_after_pickle_predict = cu_after_pickle_model.predict(X_test).to_array()
 
-    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict, with_sign=True)
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
+
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
@@ -169,8 +177,8 @@ def test_decomposition_pickle(datatype, input_type, model, nrows, ncols):
 
     cu_after_pickle_transform = cu_after_pickle_model.transform(X_train)
 
-    for col in cu_before_pickle_transform.columns:
-        assert array_equal(cu_before_pickle_transform[col].to_array(), cu_after_pickle_transform[col].to_array(), with_sign=True)
+    assert array_equal(cu_before_pickle_transform, cu_after_pickle_transform)
+
 
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('input_type', ['dataframe'])
@@ -183,11 +191,11 @@ def test_neighbors_pickle(datatype, input_type, model, nrows, ncols, k):
     X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
 
     model.fit(X_train)
-    cu_before_pickle_predict = cu_before_pickle_model.kneighbors(X_test, k=k)
+    D_before, I_before = model.kneighbors(X_test, k=k)
 
     cu_after_pickle_model = pickle_save_load(model)
 
-    cu_after_pickle_predict = cu_after_pickle_model.kneighbors(X_train)
+    D_after, I_after = cu_after_pickle_model.kneighbors(X_test, k=k)
 
-    for col in cu_before_pickle_transform.columns:
-        assert array_equal(cu_before_pickle_predict[col].to_array(), cu_after_pickle_predict[col].to_array(), with_sign=True)
+    assert array_equal(D_before, D_after)
+    assert array_equal(I_before, I_after)
