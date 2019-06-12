@@ -5,8 +5,10 @@
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
+- PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #670 Add test skipping functionality to build.sh
 
 ## Improvements
 
@@ -32,6 +34,7 @@
 - PR #640: Remove setuptools from conda run dependency
 - PR #646: Update link in contributing.md
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
+- PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
 
 # cuML 0.7.0 (10 May 2019)
 
