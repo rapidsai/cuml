@@ -33,15 +33,15 @@ except ImportError:
 
 def _safe_accumulator_op(op, x, *args, **kwargs):
     """
-    This function provides numpy accumulator functions with a float64 dtype
+    This function provides cupy accumulator functions with a float64 dtype
     when used on a floating point input. This prevents accumulator overflow on
     smaller floating point dtypes.
     Parameters
     ----------
     op : function
         A numpy accumulator function such as np.mean or np.sum
-    x : numpy array
-        A numpy array to apply the accumulator function
+    x : cupy array
+        A cupy array to apply the accumulator function
     *args : positional arguments
         Positional arguments passed to the accumulator function after the
         input x
@@ -62,12 +62,9 @@ def _assert_all_finite(X, allow_nan=False):
     """Like assert_all_finite, but only for ndarray."""
     # validation is also imported in extmath
 
-    # Currently, cupy does not have a global config
-    # if _get_config()['assume_finite']:
-    #     return
     X = cp.asanyarray(X)
     # First try an O(n) time, O(1) space solution for the common case that
-    # everything is finite; fall back to O(n) space np.isfinite to prevent
+    # everything is finite; fall back to O(n) space cp.isfinite to prevent
     # false positives from overflow in sum method. The sum is also calculated
     # safely to reduce dtype induced overflows.
     is_float = X.dtype.kind in 'fc'
@@ -136,8 +133,8 @@ def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
         Input to validate and convert.
     accept_sparse : string, boolean or list/tuple of strings
         String[s] representing allowed sparse matrix formats ('csc',
-        'csr', 'coo', 'dok', 'bsr', 'lil', 'dia'). If the input is sparse but
-        not in the allowed format, it will be converted to the first listed
+        'csr', 'coo', 'dia'). If the input is sparse but not in the
+        allowed format, it will be converted to the first listed
         format. True allows the input to be any format. False means
         that a sparse matrix input will raise an error.
     dtype : string, type or None
@@ -146,17 +143,15 @@ def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
         Whether a forced copy will be triggered. If copy=False, a copy might
         be triggered by a conversion.
     force_all_finite : boolean or 'allow-nan', (default=True)
-        Whether to raise an error on np.inf and np.nan in X. The possibilities
+        Whether to raise an error on cp.inf and cp.nan in X. The possibilities
         are:
         - True: Force all values of X to be finite.
-        - False: accept both np.inf and np.nan in X.
-        - 'allow-nan': accept only np.nan values in X. Values cannot be
+        - False: accept both cp.inf and cp.nan in X.
+        - 'allow-nan': accept only cp.nan values in X. Values cannot be
           infinite.
-        .. versionadded:: 0.20
-           ``force_all_finite`` accepts the string ``'allow-nan'``.
     Returns
     -------
-    spmatrix_converted : scipy sparse matrix.
+    spmatrix_converted : cupyx scipy sparse matrix.
         Matrix that is ensured to have an allowed type.
     """
     if dtype is None:
@@ -234,15 +229,10 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         it will be converted to the first listed format. True allows the input
         to be any format. False means that a sparse matrix input will
         raise an error.
-        .. deprecated:: 0.19
-           Passing 'None' to parameter ``accept_sparse`` in methods is
-           deprecated in version 0.19 "and will be removed in 0.21. Use
-           ``accept_sparse=False`` instead.
     accept_large_sparse : bool (default=True)
-        If a CSR, CSC, COO or BSR sparse matrix is supplied and accepted by
+        If a CSR, CSC or COO sparse matrix is supplied and accepted by
         accept_sparse, accept_large_sparse=False will cause it to be accepted
         only if its indices are stored with a 32-bit dtype.
-        .. versionadded:: 0.20
     dtype : string, type, list of types or None (default="numeric")
         Data type of result. If None, the dtype of the input is preserved.
         If "numeric", dtype is preserved unless array.dtype is object.
@@ -258,14 +248,12 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
         Whether a forced copy will be triggered. If copy=False, a copy might
         be triggered by a conversion.
     force_all_finite : boolean or 'allow-nan', (default=True)
-        Whether to raise an error on np.inf and np.nan in array. The
+        Whether to raise an error on cp.inf and cp.nan in array. The
         possibilities are:
         - True: Force all values of array to be finite.
-        - False: accept both np.inf and np.nan in array.
-        - 'allow-nan': accept only np.nan values in array. Values cannot
+        - False: accept both cp.inf and cp.nan in array.
+        - 'allow-nan': accept only cp.nan values in array. Values cannot
           be infinite.
-        .. versionadded:: 0.20
-           ``force_all_finite`` accepts the string ``'allow-nan'``.
     ensure_2d : boolean (default=True)
         Whether to raise a value error if array is not 2D.
     allow_nd : boolean (default=False)
@@ -291,21 +279,21 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
     """
 
     # store whether originally we wanted numeric dtype
-    dtype_numeric = isinstance(dtype, str) and dtype == "numeric"
+    dtype_numeric = isinstance(dtype, str) and dtype == 'numeric'
 
-    dtype_orig = getattr(array, "dtype", None)
+    dtype_orig = getattr(array, 'dtype', None)
     if not hasattr(dtype_orig, 'kind'):
-        # not a data type (e.g. a column named dtype in a pandas DataFrame)
+        # not a data type (e.g. a column named dtype in a cudf DataFrame)
         dtype_orig = None
 
-    # check if the object contains several dtypes (typically a pandas
+    # check if the object contains several dtypes (typically a cudf
     # DataFrame), and store them. If not, store None.
     dtypes_orig = None
-    if hasattr(array, "dtypes") and hasattr(array.dtypes, '__array__'):
+    if hasattr(array, 'dtypes') and hasattr(array.dtypes, '__array__'):
         dtypes_orig = cp.array(array.dtypes)
 
     if dtype_numeric:
-        if dtype_orig is not None and dtype_orig.kind == "O":
+        if dtype_orig is not None and dtype_orig.kind == 'O':
             # if input is object, convert to float.
             dtype = cp.float64
         else:
@@ -340,7 +328,7 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
                                       force_all_finite=force_all_finite,
                                       accept_large_sparse=accept_large_sparse)
     else:
-        # If np.array(..) gives ComplexWarning, then we convert the warning
+        # If cp.array(..) gives ComplexWarning, then we convert the warning
         # to an error. This is needed because specifying a non complex
         # dtype to the function converts complex to real dtype,
         # thereby passing the test made in the lines following the scope
@@ -353,9 +341,9 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
                 raise ValueError("Complex data not supported\n"
                                  "{}\n".format(array))
 
-        # It is possible that the np.array(..) gave no warning. This happens
+        # It is possible that the cp.array(..) gave no warning. This happens
         # when no dtype conversion happened, for example dtype = None. The
-        # result is that np.array(..) produces an array of complex dtype
+        # result is that cp.array(..) produces an array of complex dtype
         # and we need to catch and raise exception for such cases.
         _ensure_no_complex_data(array)
 
@@ -374,17 +362,6 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
                     "Reshape your data either using array.reshape(-1, 1) if "
                     "your data has a single feature or array.reshape(1, -1) "
                     "if it contains a single sample.".format(array))
-
-        # # in the future np.flexible dtypes will be handled like object dtypes
-        # if dtype_numeric and cp.issubdtype(array.dtype, np.flexible):
-        #     warnings.warn(
-        #         "Beginning in version 0.22, arrays of bytes/strings will be "
-        #         "converted to decimal numbers if dtype='numeric'. "
-        #         "It is recommended that you convert the array to "
-        #         "a float dtype before using it in scikit-learn, "
-        #         "for example by using "
-        #         "your_array = your_array.astype(np.float64).",
-        #         FutureWarning)
 
         # make sure we actually converted to numeric:
         if dtype_numeric and array.dtype.kind == "O":
@@ -512,9 +489,9 @@ def np_check_random_state(seed):
     """
     if isinstance(seed, cp.random.generator.RandomState):
         raise ValueError('StratifiedShuffleSplit does not take \
-            cp.random.generator.RandomState as random_state yet! \
+            cupy.random.generator.RandomState as random_state yet! \
             The problem should be fixed once cp RandomState \
-            can permutation on cp.ndarra!y')
+            can do permutation on cp.ndarray!')
     if seed is None or seed is np.random:
         return np.random.mtrand._rand
     if isinstance(seed, (numbers.Integral, np.integer)):
@@ -544,19 +521,19 @@ def _approximate_mode(class_counts, n_draws, rng):
     -------
     sampled_classes : ndarray of int
         Number of samples drawn from each class.
-        np.sum(sampled_classes) == n_draws
+        cp.sum(sampled_classes) == n_draws
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.utils import _approximate_mode
-    >>> _approximate_mode(class_counts=np.array([4, 2]), n_draws=3, rng=0)
+    >>> import cupy as cp
+    >>> from cuml.model_selection.utils import _approximate_mode
+    >>> _approximate_mode(class_counts=cp.array([4, 2]), n_draws=3, rng=0)
     array([2, 1])
-    >>> _approximate_mode(class_counts=np.array([5, 2]), n_draws=4, rng=0)
+    >>> _approximate_mode(class_counts=cp.array([5, 2]), n_draws=4, rng=0)
     array([3, 1])
-    >>> _approximate_mode(class_counts=np.array([2, 2, 2, 1]),
+    >>> _approximate_mode(class_counts=cp.array([2, 2, 2, 1]),
     ...                   n_draws=2, rng=0)
     array([0, 1, 1, 0])
-    >>> _approximate_mode(class_counts=np.array([2, 2, 2, 1]),
+    >>> _approximate_mode(class_counts=cp.array([2, 2, 2, 1]),
     ...                   n_draws=2, rng=42)
     array([1, 1, 0, 0])
     """
@@ -590,6 +567,11 @@ def _approximate_mode(class_counts, n_draws, rng):
 
 
 def _np_approximate_mode(class_counts, n_draws, rng):
+    """
+    Only needed in StratifiedShuffleSplit as 
+    cupy.random.generator.RandomInstance cannot do permutation on cupy.ndarray.
+    We won't need this function after cp RandomInstance support above featuter.
+    """
     rng = np_check_random_state(rng)
     # this computes a bad approximation to the mode of the
     # multivariate hypergeometric given by class_counts and n_draws
@@ -629,8 +611,6 @@ class DataConversionWarning(UserWarning):
         - requests a non-copying operation, but a copy is required to meet the
           implementation's data-type expectations;
         - passes an input whose shape can be interpreted ambiguously.
-    .. versionchanged:: 0.18
-       Moved from sklearn.utils.validation.
     """
 
 
@@ -761,17 +741,17 @@ def is_multilabel(y):
         Return ``True``, if ``y`` is in a multilabel format, else ```False``.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.utils.multiclass import is_multilabel
+    >>> import cupy as cp
+    >>> from cuml.model_selection.utils import is_multilabel
     >>> is_multilabel([0, 1, 0, 1])
     False
     >>> is_multilabel([[1], [0, 2], []])
     False
-    >>> is_multilabel(np.array([[1, 0], [0, 0]]))
+    >>> is_multilabel(cp.array([[1, 0], [0, 0]]))
     True
-    >>> is_multilabel(np.array([[1], [0], [0]]))
+    >>> is_multilabel(cp.array([[1], [0], [0]]))
     False
-    >>> is_multilabel(np.array([[1, 0, 0]]))
+    >>> is_multilabel(cp.array([[1, 0, 0]]))
     True
     """
     if hasattr(y, '__array__'):
@@ -824,7 +804,7 @@ def type_of_target(y):
           array, sequence of sequences, or an array of non-sequence objects.
     Examples
     --------
-    >>> import numpy as np
+    >>> import cupy as cp
     >>> type_of_target([0.1, 0.6])
     'continuous'
     >>> type_of_target([1, -1, -1, 1])
@@ -839,13 +819,13 @@ def type_of_target(y):
     'multiclass'
     >>> type_of_target(['a', 'b', 'c'])
     'multiclass'
-    >>> type_of_target(np.array([[1, 2], [3, 1]]))
+    >>> type_of_target(cp.array([[1, 2], [3, 1]]))
     'multiclass-multioutput'
     >>> type_of_target([[1, 2]])
     'multiclass-multioutput'
-    >>> type_of_target(np.array([[1.5, 2.0], [3.0, 1.6]]))
+    >>> type_of_target(cp.array([[1.5, 2.0], [3.0, 1.6]]))
     'continuous-multioutput'
-    >>> type_of_target(np.array([[0, 1], [1, 1]]))
+    >>> type_of_target(cp.array([[0, 1], [1, 1]]))
     'multilabel-indicator'
     """
     valid = ((isinstance(y, (Sequence, spmatrix)) or hasattr(y, '__array__'))
@@ -919,7 +899,7 @@ def safe_indexing(X, indices):
         Subset of X on first axis
     Notes
     -----
-    CSR, CSC, and LIL sparse matrices are supported. COO sparse matrices are
+    CSR and CSC sparse matrices are supported. COO sparse matrices are
     not supported.
     """
     if hasattr(X, "iloc"):

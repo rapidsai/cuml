@@ -26,7 +26,6 @@ import numpy as np
 import cupy as cp
 import cudf
 
-# import utils
 from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
                     check_random_state, np_check_random_state, column_or_1d,
                     in1d, _approximate_mode, _np_approximate_mode,
@@ -35,7 +34,7 @@ from .utils import (safe_indexing, indexable, _num_samples, comb, _pprint,
 
 NSPLIT_WARNING = (
     "The default value of n_split will change from 3 to 5 "
-    "in version 0.22. Specify it explicitly to silence this warning.")
+    "in version 0.8. Specify it explicitly to silence this warning.")
 
 
 class BaseCrossValidator(metaclass=ABCMeta):
@@ -51,19 +50,23 @@ class BaseCrossValidator(metaclass=ABCMeta):
             shape (n_samples, n_features)
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
-        y : cudf dataframe, of length n_samples
+        y : cupy.ndarray, cudf.Series or numpy.ndarray, of length n_samples
             The target variable for supervised learning problems.
-        groups : cudf dataframe, with shape (n_samples,), optional
-            Group labels for the samples used while splitting the dataset into
-            train/test set.
+        groups : cupy.ndarray, cudf.Series or numpy.ndarray,
+            with shape (n_samples,), optional Group labels for
+            the samples used while splitting the dataset into train/test set.
         Yields
         ------
-        train : cudf Series
+        train : cudf.Series
             The training set indices for that split.
-        test : cudf Series
+        test : cudf.Series
             The testing set indices for that split.
         """
 
+        # sparse matrix will be converted to csr format
+        # DataFrame will stay the same
+        # (None will stay the same)
+        # all other things will be converted to cupy array
         X, y, groups = indexable(X, y, groups)
 
         if isinstance(X, cp.ndarray):
@@ -71,14 +74,15 @@ class BaseCrossValidator(metaclass=ABCMeta):
         elif isinstance(X, (cudf.DataFrame, cudf.Series)):
             n_samples = len(X.index)
         else:
-            raise ValueError('The input X must be cudf.DataFrame, type{} is \
-                not supported'.format(type(X)))
+            raise ValueError(
+                'The input X must be cudf.DataFrame, cudf.Serise or \
+                cupy.ndarray, type {} is not supported'.format(type(X)))
 
         indices = cp.arange(n_samples)
         for test_index in self._iter_test_masks(X, y, groups):
             train_index = indices[cp.logical_not(test_index)]
             test_index = indices[test_index]
-            # convert to cudf Series
+            # convert cupy array to cudf Series
             train_index = cudf.from_dlpack(train_index.toDlpack())
             test_index = cudf.from_dlpack(test_index.toDlpack())
             yield train_index, test_index
@@ -128,10 +132,11 @@ class LeaveOneOut(BaseCrossValidator):
     Read more in the :ref:`User Guide <cross_validation>`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import LeaveOneOut
-    >>> X = np.array([[1, 2], [3, 4]])
-    >>> y = np.array([1, 2])
+    >>> import cudf
+    >>> import cupy as cp
+    >>> from cuml.model_selection import LeaveOneOut
+    >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
+    >>> y = cudf.Series([1, 2])
     >>> loo = LeaveOneOut()
     >>> loo.get_n_splits(X)
     2
@@ -139,8 +144,8 @@ class LeaveOneOut(BaseCrossValidator):
     LeaveOneOut()
     >>> for train_index, test_index in loo.split(X):
     ...    print("TRAIN:", train_index, "TEST:", test_index)
-    ...    X_train, X_test = X[train_index], X[test_index]
-    ...    y_train, y_test = y[train_index], y[test_index]
+    ...    X_train, X_test = X.iloc[train_index], X.iloc[test_index]
+    ...    y_train, y_test = y.iloc[train_index], y.iloc[test_index]
     ...    print(X_train, X_test, y_train, y_test)
     TRAIN: [1] TEST: [0]
     [[3 4]] [[1 2]] [2] [1]
@@ -203,10 +208,11 @@ class LeavePOut(BaseCrossValidator):
         samples.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import LeavePOut
-    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> y = np.array([1, 2, 3, 4])
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.model_selection import LeavePOut
+    >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
+    >>> y = cp.array([1, 2, 3, 4])
     >>> lpo = LeavePOut(2)
     >>> lpo.get_n_splits(X)
     6
@@ -345,8 +351,6 @@ class KFold(_BaseKFold):
     ----------
     n_splits : int, default=3
         Number of folds. Must be at least 2.
-        .. versionchanged:: 0.20
-            ``n_splits`` default value will change from 3 to 5 in v0.22.
     shuffle : boolean, optional
         Whether to shuffle the data before splitting into batches.
     random_state : int, RandomState instance or None, optional, default=None
@@ -357,8 +361,9 @@ class KFold(_BaseKFold):
     Examples
     --------
     >>> import cupy as cp
-    >>> from sklearn.model_selection import KFold
-    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> import cudf
+    >>> from cuml.model_selection import KFold
+    >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 3, 4])
     >>> kf = KFold(n_splits=2)
     >>> kf.get_n_splits(X)
@@ -430,13 +435,12 @@ class GroupKFold(_BaseKFold):
     ----------
     n_splits : int, default=3
         Number of folds. Must be at least 2.
-        .. versionchanged:: 0.20
-            ``n_splits`` default value will change from 3 to 5 in v0.22.
     Examples
     --------
     >>> import cupy as cp
-    >>> from sklearn.model_selection import GroupKFold
-    >>> X = cp.array([[1, 2], [3, 4], [5, 6], [7, 8]])
+    >>> import cudf
+    >>> from cuml.model_selection import GroupKFold
+    >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
     >>> y = cp.array([1, 2, 3, 4])
     >>> groups = cp.array([0, 0, 2, 2])
     >>> group_kfold = GroupKFold(n_splits=2)
@@ -539,8 +543,6 @@ class StratifiedKFold(_BaseKFold):
     ----------
     n_splits : int, default=3
         Number of folds. Must be at least 2.
-        .. versionchanged:: 0.20
-            ``n_splits`` default value will change from 3 to 5 in v0.22.
     shuffle : boolean, optional
         Whether to shuffle each class's samples before splitting into batches.
     random_state : int, RandomState instance or None, optional, default=None
@@ -551,8 +553,9 @@ class StratifiedKFold(_BaseKFold):
     Examples
     --------
     >>> import cupy as cp
-    >>> from sklearn.model_selection import StratifiedKFold
-    >>> X = cp.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+    >>> import cudf
+    >>> from cuml.model_selection import StratifiedKFold
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
     >>> y = cp.array([0, 0, 1, 1])
     >>> skf = StratifiedKFold(n_splits=2)
     >>> skf.get_n_splits(X, y)
@@ -582,7 +585,7 @@ class StratifiedKFold(_BaseKFold):
 
     def _make_test_folds(self, X, y=None):
         rng = check_random_state(self.random_state)
-        y = cp.asarray(y)
+        y = check_array(y)
         type_of_target_y = type_of_target(y)
         allowed_target_types = ('binary', 'multiclass')
         if type_of_target_y not in allowed_target_types:
@@ -685,16 +688,15 @@ class TimeSeriesSplit(_BaseKFold):
     ----------
     n_splits : int, default=3
         Number of splits. Must be at least 2.
-        .. versionchanged:: 0.20
-            ``n_splits`` default value will change from 3 to 5 in v0.22.
     max_train_size : int, optional
         Maximum size for a single training set.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import TimeSeriesSplit
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([1, 2, 3, 4, 5, 6])
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.model_selection import TimeSeriesSplit
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3, 1, 3], 'b': [2, 4, 2, 4, 2, 4]})
+    >>> y = cp.array([1, 2, 3, 4, 5, 6])
     >>> tscv = TimeSeriesSplit(n_splits=5)
     >>> print(tscv)  # doctest: +NORMALIZE_WHITESPACE
     TimeSeriesSplit(max_train_size=None, n_splits=5)
@@ -778,11 +780,11 @@ class LeaveOneGroupOut(BaseCrossValidator):
     Read more in the :ref:`User Guide <cross_validation>`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import LeaveOneGroupOut
-    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8]])
-    >>> y = np.array([1, 2, 1, 2])
-    >>> groups = np.array([1, 1, 2, 2])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import LeaveOneGroupOut
+    >>> X = cudf.DataFrame({'a': [1, 3, 5, 7], 'b': [2, 4, 6, 8]})
+    >>> y = cp.array([1, 2, 1, 2])
+    >>> groups = cp.array([1, 1, 2, 2])
     >>> logo = LeaveOneGroupOut()
     >>> logo.get_n_splits(X, y, groups)
     2
@@ -881,11 +883,12 @@ class LeavePGroupsOut(BaseCrossValidator):
         Number of groups (``p``) to leave out in the test split.
     Examples
     --------
-    >>> import numpy as np
+    >>> import cupy as cp
+    >>> import cudf
     >>> from sklearn.model_selection import LeavePGroupsOut
-    >>> X = np.array([[1, 2], [3, 4], [5, 6]])
-    >>> y = np.array([1, 2, 1])
-    >>> groups = np.array([1, 2, 3])
+    >>> X = cudf.DataFrame({'a': [1, 3, 5], 'b': [2, 4, 6]})
+    >>> y = cp.array([1, 2, 1])
+    >>> groups = cp.array([1, 2, 3])
     >>> lpgo = LeavePGroupsOut(n_groups=2)
     >>> lpgo.get_n_splits(X, y, groups)
     3
@@ -993,7 +996,7 @@ class _RepeatedSplits(metaclass=ABCMeta):
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        by `cp.random`.
     **cvargs : additional params
         Constructor parameters for cv. Must not contain random_state
         and shuffle.
@@ -1084,10 +1087,11 @@ class RepeatedKFold(_RepeatedSplits):
         by `np.random`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import RepeatedKFold
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([0, 0, 1, 1])
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.model_selection import RepeatedKFold
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
+    >>> y = cp.array([0, 0, 1, 1])
     >>> rkf = RepeatedKFold(n_splits=2, n_repeats=2, random_state=2652124)
     >>> for train_index, test_index in rkf.split(X):
     ...     print("TRAIN:", train_index, "TEST:", test_index)
@@ -1128,10 +1132,10 @@ class RepeatedStratifiedKFold(_RepeatedSplits):
         repetition.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import RepeatedStratifiedKFold
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([0, 0, 1, 1])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import RepeatedStratifiedKFold
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
+    >>> y = cp.array([0, 0, 1, 1])
     >>> rskf = RepeatedStratifiedKFold(n_splits=2, n_repeats=2,
     ...     random_state=36851234)
     >>> for train_index, test_index in rskf.split(X, y):
@@ -1251,13 +1255,13 @@ class ShuffleSplit(BaseShuffleSplit):
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        by `cp.random`.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import ShuffleSplit
-    >>> X = np.array([[1, 2], [3, 4], [5, 6], [7, 8], [3, 4], [5, 6]])
-    >>> y = np.array([1, 2, 1, 2, 1, 2])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import ShuffleSplit
+    >>> X = X = cudf.DataFrame({'a':[1, 3, 5, 7, 3, 5],'b':[2, 4, 6, 8, 4, 6]})
+    >>> y = cp.array([1, 2, 1, 2, 1, 2])
     >>> rs = ShuffleSplit(n_splits=5, test_size=.25, random_state=0)
     >>> rs.get_n_splits(X)
     5
@@ -1425,10 +1429,11 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
         by `cp.random`.
     Examples
     --------
-    >>> import numpy as np
+    >>> import cupy as cp
+    >>> import cudf
     >>> from sklearn.model_selection import StratifiedShuffleSplit
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([0, 0, 0, 1, 1, 1])
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3, 1, 3], 'b': [2, 4, 2, 4, 2, 4]})
+    >>> y = cp.array([0, 0, 0, 1, 1, 1])
     >>> sss = StratifiedShuffleSplit(n_splits=5, test_size=0.5, random_state=0)
     >>> sss.get_n_splits(X, y)
     5
@@ -1547,8 +1552,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                 cp.ndarray.tolist(cp.cumsum(class_counts)[:-1]))
 
             rng = check_random_state(self.random_state)
-            # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            # have to get a nprng, since cp.RandomState.permutation
+            # !! have to get a np rng, since cp.RandomState.permutation
             # does not accept cp.ndarray as input.
             # Get rid of this once cp.RS.perm supports cp array
             nprng = np_check_random_state(self.random_state)
@@ -1569,8 +1573,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
                     train.extend(perm_indices_class_i[:n_i[i]])
                     test.extend(perm_indices_class_i[n_i[i]:n_i[i] + t_i[i]])
 
-                # !!!!!!!!!!!!!!!!!!!!!!!!!
-                # have to go through the indirect approach below
+                # !! have to go through the indirect approach below
                 # as cp.RandomState.permutation doesn't accept cupy.ndarray yet
                 # Get rid of this once cp.RS.perm support cp array
                 train = nprng.permutation(cp.asnumpy(train))
@@ -1589,7 +1592,7 @@ class StratifiedShuffleSplit(BaseShuffleSplit):
             Training data, where n_samples is the number of samples
             and n_features is the number of features.
             Note that providing ``y`` is sufficient to generate the splits and
-            hence ``np.zeros(n_samples)`` may be used as a placeholder for
+            hence ``cp.zeros(n_samples)`` may be used as a placeholder for
             ``X`` instead of actual training data.
         y : array-like, shape (n_samples,)
             The target variable for supervised learning problems.
@@ -1696,10 +1699,11 @@ class PredefinedSplit(BaseCrossValidator):
         setting ``test_fold[i]`` equal to -1.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import PredefinedSplit
-    >>> X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-    >>> y = np.array([0, 0, 1, 1])
+    >>> import cupy as cp
+    >>> import cudf
+    >>> from cuml.model_selection import PredefinedSplit
+    >>> X = cudf.DataFrame({'a': [1, 3, 1, 3], 'b': [2, 4, 2, 4]})
+    >>> y = cp.array([0, 0, 1, 1])
     >>> test_fold = [0, 1, -1, 1]
     >>> ps = PredefinedSplit(test_fold)
     >>> ps.get_n_splits()
@@ -1892,7 +1896,7 @@ def train_test_split(*arrays, **options):
         If int, random_state is the seed used by the random number generator;
         If RandomState instance, random_state is the random number generator;
         If None, the random number generator is the RandomState instance used
-        by `np.random`.
+        by `cp.random`.
     shuffle : boolean, optional (default=True)
         Whether or not to shuffle the data before splitting. If shuffle=False
         then stratify must be None.
@@ -1903,21 +1907,12 @@ def train_test_split(*arrays, **options):
     -------
     splitting : list, length=2 * len(arrays)
         List containing train-test split of inputs.
-        .. versionadded:: 0.16
-            If the input is sparse, the output will be a
-            ``scipy.sparse.csr_matrix``. Else, output type is the same as the
-            input type.
     Examples
     --------
-    >>> import numpy as np
-    >>> from sklearn.model_selection import train_test_split
-    >>> X, y = np.arange(10).reshape((5, 2)), range(5)
-    >>> X
-    array([[0, 1],
-           [2, 3],
-           [4, 5],
-           [6, 7],
-           [8, 9]])
+    >>> import cupy as cp
+    >>> from cuml.model_selection import train_test_split
+    >>> X = cudf.DataFrame({'a': [0, 2, 4, 6, 8], 'b': [1, 3, 5, 7, 9]})
+    >>> y = range(5)
     >>> list(y)
     [0, 1, 2, 3, 4]
     >>> X_train, X_test, y_train, y_test = train_test_split(
