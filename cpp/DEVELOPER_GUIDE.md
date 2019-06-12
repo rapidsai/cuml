@@ -14,7 +14,12 @@ The implementation of cuML is single threaded.
 Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### Inside `libcuml++.so` aka our C++ interface
-Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. Taking dbscan algo as an example, the right way to expose the interface from `libcuml++.so` is:
+Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only. Things which are OK to be exposed on the interface:
+1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure)
+2. `cumlHandle`
+3. Pointers (explicitly putting it out, even though can be considered as a POD)
+
+Taking dbscan algo as an example, the right way to expose the interface from `libcuml++.so` is:
 ```cpp
 void dbscanFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
                float eps, int min_pts, int *labels, size_t max_bytes_per_batch=0,
