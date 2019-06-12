@@ -85,7 +85,7 @@ void DecisionTreeParams::validity_check() const {
 	ASSERT((n_bins > 0), "Invalid n_bins %d", n_bins);
 	ASSERT((split_algo >= 0) && (split_algo < SPLIT_ALGO::SPLIT_ALGO_END), "split_algo value %d outside permitted [0, %d) range",
 			split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
-	ASSERT((min_rows_per_node > 0), "Invalid min # rows per node %d", min_rows_per_node);
+	ASSERT((min_rows_per_node >= 2), "Invalid min # rows per node value %d. Should be >= 2.", min_rows_per_node);
 }
 
 /**
