@@ -3,8 +3,9 @@ import cudf
 import numpy as np
 import warnings
 import cupy
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 from numba import cuda
-#from cuml import numba_utils
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -12,8 +13,6 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -153,7 +152,7 @@ cdef class RandomForest_impl():
             del self.rf_classifier64
 
         X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
-                    input_to_dev_array(X, order='F')
+            input_to_dev_array(X, order='F')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         cdef cumlHandle * handle_ =\
@@ -207,7 +206,7 @@ cdef class RandomForest_impl():
         X_ptr = X.ctypes.data
         self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
-                        dtype=np.int32)
+                         dtype=np.int32)
         cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle * handle_ =\
             <cumlHandle *> <size_t> self.handle.getHandle()
@@ -245,7 +244,7 @@ cdef class RandomForest_impl():
         y_ptr = y.ctypes.data
         self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
-                              dtype=np.int32)
+                         dtype=np.int32)
         cdef uintptr_t preds_ptr = (preds).ctypes.data
 
         cdef cumlHandle * handle_ =\
@@ -289,8 +288,9 @@ class RandomForestClassifier(Base):
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, min_samples_split, n_bins,
                                        split_algo, min_rows_per_node,
-                                       bootstrap, bootstrap_features, type_model,
-                                       verbose, rows_sample, max_leaves,
+                                       bootstrap, bootstrap_features,
+                                       type_model, verbose,
+                                       rows_sample, max_leaves,
                                        gdf_datatype)
 
     def fit(self, X, y):
