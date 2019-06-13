@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 
-#include "array/array.h"
-#include "array/classlabels.h"
+#include "label/array.h"
+#include "label/classlabels.h"
 
 #include <cuda_utils.h>
 #include "common/cuml_allocator.hpp"
@@ -27,7 +27,7 @@
 #include <vector>
 
 namespace MLCommon {
-namespace Array {
+namespace Label {
 
 class ArrayTest : public ::testing::Test {
  protected:
@@ -107,5 +107,5 @@ TEST(Arraytest, ClassLabels) {
   CUDA_CHECK(cudaFree(y_unique_d));
   CUDA_CHECK(cudaFree(y_relabeled_d));
 }
-};  // namespace Array
+};  // namespace Label
 };  // namespace MLCommon

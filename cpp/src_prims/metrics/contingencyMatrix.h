@@ -256,7 +256,7 @@ void contingencyMatrix(T *groundTruth, T *predictedLabel, int nSamples,
   // it is also assumed that true labels are monotically increasing with step count 1
   // if for some reason groundTruth completely skips some labels
   // eg: {0,1,2,5} instead of {0,1,2,3} . Output matrix will still have empty rows for label value {3,4}
-  // Users can use "make_monotonic" ML_prim located at ml-prims/src/array/array.h
+  // Users can use "make_monotonic" ML_prim located at ml-prims/src/label/array.h
   // to convert their discontinuous input label range to a monotonically increasing one
 
   // this also serves as way to measure co-occurence/joint counts for NLP tasks which

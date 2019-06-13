@@ -25,7 +25,7 @@
 #include "ml_utils.h"
 
 namespace MLCommon {
-namespace Array {
+namespace Label {
 
 using namespace MLCommon;
 
@@ -112,5 +112,5 @@ void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
 // TODO: add one-versus-one selection: select two classes, relabel them to
 // +/-1, return array with the new class labels and corresponding indices.
 
-};  // namespace Array
+};  // namespace Label
 };  // end namespace MLCommon
