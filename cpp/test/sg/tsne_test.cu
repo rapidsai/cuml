@@ -5,9 +5,16 @@
 #include <gtest/gtest.h>
 #include "tsne/tsne.h"
 #include "tsne/digits.h"
+//#include "tsne/Ground_Truth_TSNE.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
+#include <metrics/trustworthiness.h>
+#include <vector>
+
+using namespace MLCommon;
+using namespace ML::Metrics;
+
 
 using namespace ML;
 using namespace MLCommon;
@@ -37,6 +44,10 @@ protected:
 
         std::cout << "DONE!" << std::endl;
 
+        // Test trustworthiness
+        // euclidean test
+        score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d, n, p, 2, 90);
+
         CUDA_CHECK(cudaFree(Y_d));
         CUDA_CHECK(cudaFree(X_d));
 
@@ -55,8 +66,11 @@ protected:
 protected:
     int n = 1797;
     int p = 64;
+    double score;
 };
 
 
 typedef TSNETest TSNETestF;
-TEST_F(TSNETestF, Result) {}
+TEST_F(TSNETestF, Result) {
+    ASSERT_TRUE(0.9374 < score && score < 0.9376);
+}

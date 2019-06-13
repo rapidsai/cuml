@@ -13,7 +13,7 @@ using namespace MLCommon;
 void TSNE(const cumlHandle &handle, const float *X,
   float *Y, const int n, const int p,
 	const int n_components = 2,
-	const int n_neighbors = 90,
+	int n_neighbors = 90,
 	const float perplexity = 30.0f,
 	const int perplexity_epochs = 100,
 	const int perplexity_tol = 1e-5,
@@ -21,14 +21,18 @@ void TSNE(const cumlHandle &handle, const float *X,
 	const int exaggeration_iter = 250,
 	const float min_gain = 0.01f,
 	const float eta = 500.0f,
-	const int epochs = 150,
+	const int epochs = 500,
 	const float pre_momentum = 0.8,
 	const float post_momentum = 0.5,
-	const long long seed = -1)
+	const long long seed = -1,
+	const bool intialize_embeddings = true)
 {
   auto d_alloc = handle.getDeviceAllocator();
 
   cudaStream_t stream = handle.getStream();
+
+  	assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0);
+  	if (n_neighbors > n) n_neighbors = n;
 
 	// Some preliminary intializations for cuBLAS and cuML
 	DEBUG("[Info]	Create cuBLAS and cuML handles.\n");
@@ -61,7 +65,13 @@ void TSNE(const cumlHandle &handle, const float *X,
 
 	// Allocate data [NOTICE all Fortran Contiguous]
 	DEBUG("[Info]	Malloc data and space\n");
-	float *noise = (float*)d_alloc->allocate(sizeof(float)*n*n, stream);
+	float *noise = (float*)d_alloc->allocate(sizeof(float)*n, stream);
+	random_vector(noise, -0.003f, 0.003f, n, seed, stream);
+
+	if (intialize_embeddings) {
+		random_vector(Y, -0.1f, 0.1f, n*k, seed, stream);
+	}
+
 
 	float *Q = (float*) d_alloc->allocate(sizeof(float)*n*n, stream);
 	float *norm = (float*) d_alloc->allocate(sizeof(float)*n, stream);
@@ -144,14 +154,14 @@ void TSNE(const cumlHandle &handle, const float *X,
 		// Integrate forces with momentum
 		apply_forces(attract, repel, Y, iY, noise, gains, n, k, Z, min_gain, momentum, eta);
 
-		#if IF_DEBUG
-			break;
-		#endif
+		// #if IF_DEBUG
+		// 	break;
+		// #endif
 	}
 
 	P_PT.destroy();
 
-  d_alloc->deallocate(noise, sizeof(float)*n*n, stream);
+  d_alloc->deallocate(noise, sizeof(float)*n, stream);
 
   d_alloc->deallocate(Q, sizeof(float)*n*n, stream);
   d_alloc->deallocate(norm, sizeof(float)*n, stream);

@@ -152,9 +152,9 @@ __cuda_malloc_memset(const size_t n, cuda_stream_t stream,
 
 
 // ###################### Creates a random uniform vector ######################
-float * 
-random_vector(const float minimum, const float maximum, const int size, long long seed,
-    const bool garbage_collect = true, cuda_stream_t stream = 0)
+void
+random_vector(float *vector, const float minimum, const float maximum, const int size, 
+    long long seed, cuda_stream_t stream = 0)
 {
     if (seed < 0) {
         // Get random seed based on time of day
@@ -162,11 +162,8 @@ random_vector(const float minimum, const float maximum, const int size, long lon
         gettimeofday(&tp, NULL);
         seed = tp.tv_sec * 1000 + tp.tv_usec;
     }
-
-    float *vector = (float*) cmalloc(sizeof(float) * size, garbage_collect);
     Random::Rng random(seed);
     random.uniform<float>(vector, size, minimum, maximum, stream);
-    return vector;
 }
 
 
