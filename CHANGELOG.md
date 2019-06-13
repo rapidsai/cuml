@@ -26,6 +26,7 @@
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
 - PR #662: C++: Bulk clang-format updates
 - PR #671: Added pickle pytests and correct pickling of Base class
+- PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
