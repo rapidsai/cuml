@@ -25,8 +25,9 @@ import cudf
 import ctypes
 import cuml
 
-from cuml import numba_utils
 from cuml.common.base import Base
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 from cython.operator cimport dereference as deref
 
@@ -119,68 +120,9 @@ cdef class NearestNeighborsImpl:
         free(self.input)
         free(self.sizes)
 
-    def _get_ctype_ptr(self, obj):
-        # The manner to access the pointers in the gdf's might change, so
-        # encapsulating access in the following 3 methods. They might also be
-        # part of future gdf versions.
-        return obj.device_ctypes_pointer.value
-
-    def _get_column_ptr(self, obj):
-        return self._get_ctype_ptr(obj._column._data.to_gpu_array())
-
-    def _get_gdf_as_matrix_ptr(self, gdf):
-        return self._get_ctype_ptr(gdf.as_gpu_matrix())
-
-    def _downcast(self, X):
-
-        if isinstance(X, cudf.DataFrame):
-            dtype = np.dtype(X[X.columns[0]]._column.dtype)
-
-            if dtype != np.float32:
-                if self._should_downcast:
-
-                    new_cols = [(col, X._cols[col].astype(np.float32))
-                                for col in X._cols]
-                    overflowed = sum([len(colval[colval >= np.inf])
-                                      for colname, colval in new_cols])
-
-                    if overflowed > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        "in data loss.")
-
-                    X = cudf.DataFrame(new_cols)
-
-                else:
-                    raise Exception("Input is double precision. Use"
-                                    " 'should_downcast=True' "
-                                    "if you'd like it to be automatically"
-                                    " casted to single precision.")
-
-            X_m = numba_utils.row_matrix(X)
-
-        elif isinstance(X, np.ndarray):
-            dtype = X.dtype
-
-            if dtype != np.float32:
-                if self._should_downcast:
-                    X = np.ascontiguousarray(X.astype(np.float32))
-                    if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
-                else:
-                    raise Exception("Input is double precision. Use"
-                                    " 'should_downcast=True' "
-                                    "if you'd like it to be automatically"
-                                    " casted to single precision.")
-
-            X_m = cuda.to_device(X)
-        else:
-            raise Exception("Received unsupported input type " % type(X))
-
-        return X_m
-
     def fit(self, X):
-        assert len(X.shape) == 2, 'data should be two dimensional'
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
         if self.k != NULL:
             del self.k
@@ -198,10 +140,10 @@ cdef class NearestNeighborsImpl:
                 if self._should_downcast:
                     X = np.ascontiguousarray(X, np.float32)
                     if len(X[X == np.inf]) > 0:
-                        raise Exception("Downcast to single-precision resulted"
-                                        " in data loss.")
+                        raise ValueError("Downcast to single-precision "
+                                         "resulted in data loss.")
                 else:
-                    raise Exception("Only single precision floating point is"
+                    raise TypeError("Only single precision floating point is"
                                     " supported for this algorithm. Use "
                                     "'should_downcast=True' if you'd like it "
                                     "to be automatically casted to single "
@@ -212,7 +154,7 @@ cdef class NearestNeighborsImpl:
             if self.devices is not None:
                 for d in self.devices:
                     if d not in sys_devices:
-                        raise Exception("Device %d is not available" % d)
+                        raise RuntimeError("Device %d is not available" % d)
 
                 final_devices = self.devices
 
@@ -234,9 +176,13 @@ cdef class NearestNeighborsImpl:
             )
 
         else:
-            self.X_m = self._downcast(X)
-
-            X_ctype = self.X_m.device_ctypes_pointer.value
+            if self._should_downcast:
+                self.X_m, X_ctype, n_rows, _, dtype = \
+                    input_to_dev_array(X, order='C',
+                                       convert_to_dtype=np.float32)
+            else:
+                self.X_m, X_ctype, n_rows, _, dtype = \
+                    input_to_dev_array(X, order='C')
 
             self.sizes[0] = <int>len(X)
             self.input[0] = <float*>X_ctype
@@ -275,18 +221,19 @@ cdef class NearestNeighborsImpl:
         if k is None:
             k = self.n_neighbors
 
-        X_m = self._downcast(X)
-
-        cdef uintptr_t X_ctype = self._get_ctype_ptr(X_m)
-        N = len(X)
+        if self._should_downcast:
+            X_m, X_ctype, N, _, dtype = \
+                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
+        else:
+            X_m, X_ctype, N, _, dtype = input_to_dev_array(X, order='C')
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.int64, order="C"))
-        D_ndarr = cuda.to_device(np.zeros(N*k, dtype=np.float32, order="C"))
+        I_ndarr = cuda.to_device(zeros(N*k, dtype=np.int64, order="C"))
+        D_ndarr = cuda.to_device(zeros(N*k, dtype=np.float32, order="C"))
 
-        cdef uintptr_t I_ptr = self._get_ctype_ptr(I_ndarr)
-        cdef uintptr_t D_ptr = self._get_ctype_ptr(D_ndarr)
+        cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
+        cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
         self._kneighbors(X_ctype, N, k, I_ptr, D_ptr)
 
@@ -334,7 +281,7 @@ class NearestNeighbors(Base):
     "distance" between each and every point, and return the top K datapoints
     which have the smallest distance to it.
 
-    cuML's KNN expects a cuDF DataFrame or a Numpy Array (where automatic
+    cuML's KNN an array-like object or cuDF DataFrame (where automatic
     chunking will be done in to a Numpy Array in a future release), and fits a
     special data structure first to approximate the distance calculations,
     allowing our querying times to be O(plogn) and not the brute force O(np)
@@ -443,8 +390,10 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X : cuDF DataFrame or numpy ndarray
-            Dense matrix (floats or doubles) of shape (n_samples, n_features)
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
         """
         return self._impl.fit(X)
 
@@ -455,20 +404,13 @@ class NearestNeighbors(Base):
 
         Parameters
         ----------
-        X_ctype : Ctypes pointer (row-major)
-            Pointer to input data
-
-        N: Intetger
-            The number of rows in X
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
         k: Integer
             Number of neighbors to search
-
-        I_ptr: Ctypes pointer (row-major)
-            Pointer to N*k array for output indices
-
-        D_ptr: Ctypes pointer (row-major)
-            Pointer to N*k array for output distances
 
         Returns
         ----------
