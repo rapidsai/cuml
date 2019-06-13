@@ -18,7 +18,7 @@
 
 #include "cuML.hpp"
 
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 #include "umap/runner.h"
 #include "umap/umapparams.h"
 
