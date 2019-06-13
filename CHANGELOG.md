@@ -8,6 +8,7 @@
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
 - PR #670 Add test skipping functionality to build.sh
+- PR #681 Add wrappers MBSGDClassifier and MBSGDRegressor around SGD
 
 ## Improvements
 
