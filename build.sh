@@ -40,8 +40,6 @@ HELP="$0 [<target> ...] [<flag> ...]
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
 FAISS_DIR=${REPODIR}/thirdparty/faiss
-# TODO: consider adding the faiss build dir to clean, possibly only done with a
-# new "deep-clean" target.
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
