@@ -1,18 +1,41 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# cython: profile=False
+# distutils: language = c++
+# cython: embedsignature = True
+# cython: language_level = 3
+
 import ctypes
-import cudf
-import numpy as np
-import warnings
 import cupy
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
+import numpy as np
+
 from numba import cuda
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
+
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
+
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -38,7 +61,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                   int,
                   int,
                   int *,
-                  int)
+                  int) except +
 
     cdef void fit(cumlHandle& handle,
                   rfClassifier[double] *,
@@ -46,7 +69,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                   int,
                   int,
                   int *,
-                  int)
+                  int) except +
 
     cdef void predict(cumlHandle& handle,
                       rfClassifier[float] *,
@@ -54,7 +77,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                       int,
                       int,
                       int *,
-                      bool)
+                      bool) except +
 
     cdef void predict(cumlHandle& handle,
                       rfClassifier[double] *,
@@ -62,7 +85,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
                       int,
                       int,
                       int *,
-                      bool)
+                      bool) except +
 
     cdef RF_metrics cross_validate(cumlHandle& handle,
                                    rfClassifier[float] *, float *, int *,
@@ -73,7 +96,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
 
     cdef RF_params set_rf_class_obj(int, int, float,
                                     int, int, int,
-                                    bool, bool, int, int)
+                                    bool, bool, int, int) except +
 
 
 cdef class RandomForest_impl():
@@ -81,12 +104,10 @@ cdef class RandomForest_impl():
     Description and example code
     split_algo = 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
     """
-    cdef uintptr_t X_ptr, y_ptr
     cpdef object handle
     cdef rfClassifier[float] *rf_classifier32
     cdef rfClassifier[double] *rf_classifier64
     cdef uintptr_t preds_ptr
-    cdef object X_m
     cdef object n_estimators
     cdef object max_depth
     cdef object max_features
@@ -141,6 +162,12 @@ cdef class RandomForest_impl():
         else:
             self.type_model = 0
 
+    """
+    TBD:
+        Add the preprocess and postprocess functions
+        in the cython code to normalize the labels
+    """
+
     def fit(self, X, y):
 
         cdef uintptr_t X_ptr, y_ptr
@@ -151,6 +178,9 @@ cdef class RandomForest_impl():
         if self.rf_classifier64 != NULL:
             del self.rf_classifier64
 
+        if y.dtype != np.int32:
+            raise TypeError(" The labels need to have dtype = np.int32")
+
         X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
@@ -158,7 +188,12 @@ cdef class RandomForest_impl():
         cdef cumlHandle * handle_ =\
             <cumlHandle *> <size_t> self.handle.getHandle()
 
-        unique_labels = (cupy.unique(y)).__len__()
+        unique_labels = cupy.unique(y)
+        num_unique_labels = (unique_labels).__len__()
+        for i in range(num_unique_labels):
+            if i not in unique_labels:
+                raise ValueError(" The labels need "
+                                 "to be from 0 to num_unique_label values")
 
         rf_param = set_rf_class_obj(<int> self.max_depth,
                                     <int> self.max_leaves,
@@ -183,15 +218,15 @@ cdef class RandomForest_impl():
                 <int> self.n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
-                <int> unique_labels)
+                <int> num_unique_labels)
         else:
             fit(handle_[0],
                 self.rf_classifier64,
-                <double *> X_ptr,
+                <double*> X_ptr,
                 <int> self.n_rows,
                 <int> self.n_cols,
-                <int *> y_ptr,
-                <int> unique_labels)
+                <int*> y_ptr,
+                <int> num_unique_labels)
 
         # make sure that the `fit` is complete before the following delete
         # call happens
@@ -207,6 +242,7 @@ cdef class RandomForest_impl():
         self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
                          dtype=np.int32)
+
         cdef uintptr_t preds_ptr = preds.ctypes.data
         cdef cumlHandle * handle_ =\
             <cumlHandle *> <size_t> self.handle.getHandle()
@@ -214,19 +250,19 @@ cdef class RandomForest_impl():
         if self.dtype == np.float32:
             predict(handle_[0],
                     self.rf_classifier32,
-                    <float *> X_ptr,
+                    <float*> X_ptr,
                     <int> self.n_rows,
                     <int> self.n_cols,
-                    <int *> preds_ptr,
+                    <int*> preds_ptr,
                     <bool> self.verbose)
 
         elif self.dtype == np.float64:
             predict(handle_[0],
                     self.rf_classifier64,
-                    <double *> X_ptr,
+                    <double*> X_ptr,
                     <int> self.n_rows,
                     <int> self.n_cols,
-                    <int *> preds_ptr,
+                    <int*> preds_ptr,
                     <bool> self.verbose)
 
         else:
@@ -245,6 +281,7 @@ cdef class RandomForest_impl():
         self.n_rows, self.n_cols = np.shape(X)
         preds = np.zeros(self.n_rows,
                          dtype=np.int32)
+
         cdef uintptr_t preds_ptr = (preds).ctypes.data
 
         cdef cumlHandle * handle_ =\
@@ -253,21 +290,21 @@ cdef class RandomForest_impl():
         if self.dtype == np.float32:
             self.stats = cross_validate(handle_[0],
                                         self.rf_classifier32,
-                                        <float *> X_ptr,
-                                        <int *> y_ptr,
+                                        <float*> X_ptr,
+                                        <int*> y_ptr,
                                         <int> self.n_rows,
                                         <int> self.n_cols,
-                                        <int *> preds_ptr,
+                                        <int*> preds_ptr,
                                         <bool> self.verbose)
 
         elif self.dtype == np.float64:
             self.stats = cross_validate(handle_[0],
                                         self.rf_classifier64,
-                                        <double *> X_ptr,
-                                        <int *> y_ptr,
+                                        <double*> X_ptr,
+                                        <int*> y_ptr,
                                         <int> self.n_rows,
                                         <int> self.n_cols,
-                                        <int *> preds_ptr,
+                                        <int*> preds_ptr,
                                         <bool> self.verbose)
 
         self.handle.sync()
@@ -276,6 +313,44 @@ cdef class RandomForest_impl():
 
 class RandomForestClassifier(Base):
 
+    """
+    Implements a Random Forest classifier model
+    which fits multiple decision tree classifiers.
+    The user is responsible for setting the various
+    state variables to appropriate values.
+    The model at the moment uses only numpy arrays as inputs.
+
+
+    Examples
+    ---------
+    .. code-block:: python
+
+            import numpy as np
+            from cuml.test.utils import get_handle
+            from cuml.ensemble import RandomForestClassifier as curfc
+            from cuml.test.utils import get_handle
+
+            X = np.asarray([[1,2],[10,20],[4,8],[50,70]], dtype=np.float32)
+            y = np.asarray([0,1,0,1], dtype=np.int32)
+            handle, stream = get_handle(True)
+
+            cuml_model = curfc(max_features=1.0,
+                               n_bins=2, split_algo=0, min_rows_per_node=2,
+                               n_estimators=40, handle=handle)
+            cuml_model.fit(X,y)
+            cuml_predict = cuml_model.predict(X)
+
+            print("Predicted labels : ", cuml_predict)
+
+    Output:
+    .. code-block:: python
+
+            Predicted labels :  [0 1 0 1]
+
+    Parameters
+    -----------
+
+    """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
                  max_features=1.0, min_samples_split=2, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
