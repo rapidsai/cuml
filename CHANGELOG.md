@@ -28,8 +28,6 @@
 - PR #671: Added pickle pytests and correct pickling of Base class
 - PR #675: atomicMin/Max(float, double) with integer atomics and bit flipping
 
->>>>>>> branch-0.8
-
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
 - PR #620: C++: Removed old unit-test files in ml-prims
