@@ -23,6 +23,7 @@
 
 namespace ML {
 
+using namespace MLCommon;
 
 /**
  *
@@ -35,7 +36,6 @@ template <typename T>
 class ML_MG_UtilsTest : public ::testing::Test {
  protected:
   void basicTest() {
-
     // make test data on host
     std::vector<T> ptr_h = {1.0, 50.0, 51.0, 1.0, 50.0, 51.0, 1.0, 50.0, 51.0};
     ptr_h.resize(9);
@@ -46,16 +46,25 @@ class ML_MG_UtilsTest : public ::testing::Test {
     params = new float *[2];
     sizes = new int[2];
 
-    int *devices = new int[2]{ 0, 1};
+    expected_params = new float *[2];
+    expected_sizes = new int[2];
 
-    chunk_to_device<float>(ptr_h.data(), 3, 3, devices, params, sizes, 2,
+    MLCommon::allocate(expected_params[0], 5);
+    MLCommon::updateDevice(expected_params[0], ptr_h.data(), 5, stream);
+
+    expected_sizes[0] = 5;
+    expected_sizes[1] = 4;
+
+    MLCommon::allocate(expected_params[1], 4);
+    MLCommon::updateDevice(expected_params[1], ptr_h.data() + 5, 4, stream);
+
+    int *devices = new int[2]{0, 1};
+
+    chunk_to_device<float>(ptr_h.data(), 9, 1, devices, params, sizes, 2,
                            stream);
 
     cudaStreamDestroy(stream);
     delete devices;
-
-    std::cout << sizes[1] << std::endl;
-
   }
 
   void SetUp() override { basicTest(); }
@@ -69,13 +78,16 @@ class ML_MG_UtilsTest : public ::testing::Test {
   float **params;
   int *sizes;
 
+  float **expected_params;
+  int *expected_sizes;
 };
 
 typedef ML_MG_UtilsTest<float> ChunkToDeviceTest;
 TEST_F(ChunkToDeviceTest, Fit) {
-  ASSERT_TRUE(sizes[0] == 2);
-  ASSERT_TRUE(sizes[1] == 1);
-
+  ASSERT_TRUE(sizes[0] == 5);
+  ASSERT_TRUE(sizes[1] == 4);
+  ASSERT_TRUE(devArrMatch(expected_params[0], params[0], 5, Compare<float>()));
+  ASSERT_TRUE(devArrMatch(expected_params[1], params[1], 4, Compare<float>()));
 }
 
 }  // end namespace ML

@@ -42,21 +42,17 @@ void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
                      cudaStream_t stream) {
   size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
 
-  std::cout << "n=" << n << std::endl;
-
 #pragma omp parallel for
   for (int i = 0; i < n_chunks; i++) {
     int device = devices[i];
     CUDA_CHECK(cudaSetDevice(device));
 
     T length = chunk_size;
-    if (length * (i + 1) > n) length = (chunk_size * (i + 1)) - n;
-
-    std::cout << "LENGTH: " << length << std::endl;
+    if (length * (i + 1) > n) length = length - ((chunk_size * (i + 1)) - n);
 
     float *ptr_d;
     MLCommon::allocate(ptr_d, length * D);
-    MLCommon::updateDevice(ptr_d, ptr + length, length * D, stream);
+    MLCommon::updateDevice(ptr_d, ptr + (chunk_size * i), length * D, stream);
 
     output[i] = ptr_d;
     sizes[i] = length;
