@@ -1,12 +1,14 @@
 
 #pragma once
+
+#include "common/cumlHandle.hpp"
+
 #include "cublas_v2.h"
 #include "distances.h"
 #include "kernels.h"
 #include "utils.h"
 
 namespace ML {
-using namespace ML;
 using namespace MLCommon;
 
 void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
@@ -25,7 +27,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Some preliminary intializations for cuBLAS and cuML
   DEBUG("[Info]	Create cuBLAS and cuML handles.\n");
   const int k = n_components;
-  cublasHandle_t BLAS = handle.getImpl().getCublasHandle();
+
+  cublasHandle_t blas_handle = handle.getImpl().getCublasHandle();
 
   const float neg2 = -2.0f, beta = 0.0f, one = 1.0f;
 
@@ -92,8 +95,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #endif
 
     // Do -2 * (Y @ Y.T)
-    if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-                            &neg2, Y, n, &beta, Q, n)) {
+    if (error = cublasSsyrk(blas_handle, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n,
+                            k, &neg2, Y, n, &beta, Q, n)) {
       DEBUG("[ERROR]	Error from BLAS = %d", error);
       break;
     }
@@ -125,8 +128,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     postprocess_Q(Q, Q_sum, n);
 
     // Compute repel_1 = Q @ Y
-    if (error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
-                            k, &one, Q, n, Y, n, &beta, repel, n)) {
+    if (error =
+          cublasSsymm(blas_handle, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
+                      k, &one, Q, n, Y, n, &beta, repel, n)) {
       DEBUG("[ERROR]	Error from BLAS = %d", error);
       break;
     }

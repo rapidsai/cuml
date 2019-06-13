@@ -1,7 +1,9 @@
 
 #pragma once
-#include <knn/knn.h>
+
 #include <linalg/eltwise.h>
+#include <selection/knn.h>
+#include "cuML.hpp"
 #include "kernels.h"
 #include "utils.h"
 
@@ -12,15 +14,15 @@ void get_distances(const float *X, const int n, const int p, long *indices,
                    float *distances, const int n_neighbors,
                    cuda_stream_t stream) {
   cumlHandle handle;
-  kNNParams *params = new kNNParams[1];
-  params[0].ptr = (float *)X;
-  params[0].N = n;
-  kNN *knn = new kNN(handle, p, false);
 
-  // Fit KNN and find best approximate neighbors
-  knn->fit(params, 1);
-  knn->search(X, n, indices, distances, n_neighbors);
-  cudaDeviceSynchronize();
+  float **knn_input = new float *[1];
+  int *sizes = new int[1];
+  knn_input[0] = (float *)X;
+  sizes[0] = n;
+
+  MLCommon::Selection::brute_force_knn(knn_input, sizes, 1, p,
+                                       const_cast<float *>(X), n, indices,
+                                       distances, n_neighbors, stream);
 
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust_t<float> begin = to_thrust(distances);
@@ -36,7 +38,7 @@ void get_distances(const float *X, const int n, const int p, long *indices,
                          stream);
 
   // Remove temp variables
-  delete knn, params;
+  delete knn_input, sizes;
 }
 
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
