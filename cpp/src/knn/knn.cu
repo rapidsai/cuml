@@ -18,7 +18,7 @@
 
 #include "knn.hpp"
 
-#include "knn/util.h"
+#include "ml_mg_utils.h"
 
 #include "selection/knn.h"
 
