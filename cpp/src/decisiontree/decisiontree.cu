@@ -190,13 +190,13 @@ void DecisionTreeBase<T, L>::plant(const cumlHandle_impl& handle, T *data, const
 	max_shared_mem = prop.sharedMemPerBlock;
 
 	if (split_algo == SPLIT_ALGO::HIST) {
-		shmem_used += 2 * sizeof(T) * ncols;
+		shmem_used += 2 * sizeof(T);
 	}
 	if (typeid(L) == typeid(int)) { // Classification
-		shmem_used += nbins * n_unique_labels * sizeof(int) * ncols;
+		shmem_used += nbins * n_unique_labels * sizeof(int);
 	} else { // Regression
-		shmem_used += nbins * sizeof(T) * ncols * 3;
-		shmem_used += nbins * sizeof(int) * ncols;
+		shmem_used += nbins * sizeof(T) * 3;
+		shmem_used += nbins * sizeof(int);
 	}
 	ASSERT(shmem_used <= max_shared_mem, "Shared memory per block limit %zd , requested %zd \n", max_shared_mem, shmem_used);
 
@@ -410,10 +410,10 @@ void DecisionTreeClassifier<T>::find_best_fruit_all(T *data, int *labels, const 
 	
 	if (this->split_criterion == CRITERION::GINI) {			
 		best_split_all_cols_classifier<T, int, GiniFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->n_unique_labels, this->dinfo.NLocalrows, colselector,
-							       this->tempmem[0], &split_info[0], ques, gain, this->split_algo);
+								    this->tempmem[0], &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
 	} else {
 		best_split_all_cols_classifier<T, int, EntropyFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->n_unique_labels, this->dinfo.NLocalrows, colselector,
-								  this->tempmem[0], &split_info[0], ques, gain, this->split_algo);
+								       this->tempmem[0], &split_info[0], ques, gain, this->split_algo, this->max_shared_mem);
 	}
 }
 
