@@ -119,3 +119,14 @@ class Base:
             else:
                 setattr(self, key, value)
         return self
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable handle.
+        # todo: look into/enable pickling handle if necessary
+        del state['handle']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.handle = cuml.common.handle.Handle()

@@ -7,6 +7,7 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #670 Add test skipping functionality to build.sh
 
 ## Improvements
 
@@ -24,7 +25,10 @@
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
 - PR #662: C++: Bulk clang-format updates
+- PR #671: Added pickle pytests and correct pickling of Base class
 - PR #675: atomicMin/Max(float, double) with integer atomics and bit flipping
+
+>>>>>>> branch-0.8
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -34,6 +38,7 @@
 - PR #646: Update link in contributing.md
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 - PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
+- PR #676: Fix template parameters in `bernoulli()` implementation.
 
 # cuML 0.7.0 (10 May 2019)
 
@@ -200,7 +205,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy
 
 # cuML 0.5.1 (05 Feb 2019)
 
