@@ -41,7 +41,6 @@ using namespace thrust::placeholders;
 #define thrust_t thrust::device_ptr
 #define to_thrust thrust::device_pointer_cast
 #define __STREAM__ thrust::cuda::par.on(stream)
-#define cuda_stream_t cudaStream_t
 #define cuda_create_stream(x) CHECK(cudaStreamCreate(x))
 #define cuda_destroy_stream(x) CHECK(cudaStreamDestroy(x))
 #define cuda_synchronize() CHECK(cudaDeviceSynchronize())
@@ -85,7 +84,7 @@ void cuda_free_all(void) {
 // ###################### Set memory to some value ######################
 template <typename math_t>
 static void __cuda_memset(math_t *&ptr, const math_t val, const size_t n,
-                          cuda_stream_t stream) {
+                          cudaStream_t stream) {
   if (val == 0) CHECK(cudaMemset(ptr, 0, sizeof(math_t) * n));
   // else {
   //     thrust_t<math_t> begin = to_thrust(ptr);
@@ -111,7 +110,7 @@ static void *__cuda_malloc(const size_t n, bool garbage_collect = true) {
 
 // ###################### Malloc and memset some space ######################
 template <typename math_t = float>
-static math_t *__cuda_malloc_memset(const size_t n, cuda_stream_t stream,
+static math_t *__cuda_malloc_memset(const size_t n, cudaStream_t stream,
                                     bool garbage_collect, const math_t val) {
   math_t *data = (math_t *)__cuda_malloc(n, garbage_collect);
   __cuda_memset(data, val, n / sizeof(math_t), stream);
@@ -128,19 +127,16 @@ static math_t *__cuda_malloc_memset(const size_t n, cuda_stream_t stream,
 #define cmalloc cuda_malloc
 
 // ###################### Creates a random uniform vector ######################
-void
-random_vector(float *vector, const float minimum, const float maximum, const int size, 
-    long long seed, cuda_stream_t stream = 0)
-{
-    if (seed < 0) {
-        // Get random seed based on time of day
-        struct timeval tp;
-        gettimeofday(&tp, NULL);
-        seed = tp.tv_sec * 1000 + tp.tv_usec;
-    }
-    Random::Rng random(seed);
-    random.uniform<float>(vector, size, minimum, maximum, stream);
+void random_vector(float *vector, const float minimum, const float maximum,
+                   const int size, cudaStream_t stream, long long seed = -1) {
+  if (seed <= 0) {
+    // Get random seed based on time of day
+    struct timeval tp;
+    gettimeofday(&tp, NULL);
+    seed = tp.tv_sec * 1000 + tp.tv_usec;
+  }
+  Random::Rng random(seed);
+  random.uniform<float>(vector, size, minimum, maximum, stream);
 }
-
 // end namespace ML
 }  // namespace ML

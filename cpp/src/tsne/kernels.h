@@ -11,16 +11,22 @@ namespace ML {
 using namespace ML;
 using namespace MLCommon;
 
+template <int TPB_X = 32>
 __global__ void __inplace_multiply(float *__restrict__ X, const int n,
                                    const float mult) {
-  const int i = threadIdx.x;
+  int i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i < n) X[i] *= mult;
 }
 
+template <int TPB_X = 32>
 inline void inplace_multiply(float *__restrict__ X, const int n,
-                             const float mult) {
-  __inplace_multiply<<<1, n>>>(X, n, mult);
-  cudaDeviceSynchronize();
+                             const float mult, cudaStream_t stream) {
+  int blks = MLCommon::ceildiv(n, TPB_X);
+  dim3 grid(blks, 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  __inplace_multiply<TPB_X><<<grid, blk, 0, stream>>>(X, n, mult);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 __global__ void __determine_sigmas_row(const float *__restrict__ distances,
@@ -85,15 +91,14 @@ __global__ void __determine_sigmas_row(const float *__restrict__ distances,
 float determine_sigmas(const float *__restrict__ distances,
                        float *__restrict__ P, const float perplexity,
                        const int epochs, const float tol, const int n,
-                       const int k) {
+                       const int k, cudaStream_t stream) {
   const float desired_entropy = logf(perplexity);
   float *P_sum_, P_sum;
   cudaMalloc(&P_sum_, sizeof(float));
   cudaMemset(P_sum_, 0, sizeof(float));
 
-  __determine_sigmas_row<<<ceil(n, 1024), 1024>>>(
+  __determine_sigmas_row<<<ceil(n, 1024), 1024, 0, stream>>>(
     distances, P, perplexity, desired_entropy, P_sum_, epochs, tol, n, k);
-  cudaDeviceSynchronize();
 
   cudaMemcpy(&P_sum, P_sum_, sizeof(float), cudaMemcpyDeviceToHost);
   return P_sum;
@@ -108,18 +113,18 @@ __global__ void __get_norm(const float *__restrict__ Y,
     atomicAdd(&norm[i], Y[j * n + i] * Y[j * n + i]);
 }
 void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
-              const int n, const int K) {
+              const int n, const int K, cudaStream_t stream) {
   // Notice Y is F-Contiguous
   cudaMemset(norm, 0, sizeof(float) * n);
   static const dim3 threadsPerBlock(32, 32);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(K, threadsPerBlock.y));
-  __get_norm<<<numBlocks, threadsPerBlock>>>(Y, norm, n, K);
-  cudaDeviceSynchronize();
+  __get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, K);
 }
 
+template <int TPB_X = 32>
 __global__ void __sum_array(const float *__restrict__ X,
                             float *__restrict__ sum, const int n) {
-  const int i = threadIdx.x;
+  int i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i < n) atomicAdd(sum, X[i]);
 }
 
@@ -128,6 +133,7 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
                                       const int n, float *__restrict__ sum_Q) {
   const int j = blockIdx.x * blockDim.x + threadIdx.x;  // for every item in row
   const int i = blockIdx.y * blockDim.y + threadIdx.y;  // for every row
+
   if (i < n && j < n) {
     if (i == j)
       Q[i * n + j] = 0.0f;
@@ -140,18 +146,26 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
     }
   }
 }
+
+template <int TPB_X = 32>
 float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
                           const int n, float *__restrict__ sum_Q,
-                          float *__restrict__ sum) {
+                          float *__restrict__ sum, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
   cudaMemset(sum, 0, sizeof(float));
+
   static const dim3 threadsPerBlock(32, 32);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
-  __form_t_distribution<<<numBlocks, threadsPerBlock>>>(Q, norm, n, sum_Q);
-  cudaDeviceSynchronize();
-  __sum_array<<<1, n>>>(sum_Q, sum, n);
-  cudaDeviceSynchronize();
+  __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n,
+                                                                   sum_Q);
+
+  int blks = MLCommon::ceildiv(n, TPB_X);
+
+  dim3 grid(blks, 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  __sum_array<<<grid, blk, 0, stream>>>(sum_Q, sum, n);
 
   float Z;
   cudaMemcpy(&Z, sum, sizeof(float), cudaMemcpyDeviceToHost);
@@ -180,11 +194,10 @@ void attractive_forces(const float *__restrict__ VAL,
                        const int *__restrict__ COL, const int *__restrict__ ROW,
                        const float *__restrict__ Q, const float *__restrict__ Y,
                        float *__restrict__ attract, const int NNZ, const int n,
-                       const int K) {
+                       const int K, cudaStream_t stream) {
   cudaMemset(attract, 0, sizeof(float) * n * K);
-  __attractive_forces<<<ceil(NNZ, 1024), 1024>>>(VAL, COL, ROW, Q, Y, attract,
-                                                 NNZ, n, K);
-  cudaDeviceSynchronize();
+  __attractive_forces<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Q, Y,
+                                                            attract, NNZ, n, K);
 }
 
 __global__ void __postprocess_Q(float *__restrict__ Q,
@@ -197,16 +210,16 @@ __global__ void __postprocess_Q(float *__restrict__ Q,
   }
 }
 void postprocess_Q(float *__restrict__ Q, float *__restrict__ sum_Q,
-                   const int n) {
+                   const int n, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
   static const dim3 threadsPerBlock(32, 32);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
-  __postprocess_Q<<<numBlocks, threadsPerBlock>>>(Q, sum_Q, n);
-  cudaDeviceSynchronize();
+  __postprocess_Q<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, sum_Q, n);
 }
 
+template <int TPB_X = 32>
 __global__ void __negative_array(float *__restrict__ X, const int n) {
-  const int i = threadIdx.x;
+  int i = (blockIdx.x * TPB_X) + threadIdx.x;
   if (i < n) X[i] *= -1;
 }
 
@@ -222,13 +235,23 @@ __global__ void __repel_minus_QY(float *__restrict__ repel,
     atomicAdd(&repel[j * n + i],
               neg_sum_Q[i] * Y[j * n + i]);  // Y, repel is F-Contiguous
 }
+
+template <int TPB_X = 32>
 void repel_minus_QY(float *__restrict__ repel, float *__restrict__ sum_Q,
-                    const float *__restrict__ Y, const int n, const int K) {
+                    const float *__restrict__ Y, const int n, const int K,
+                    cudaStream_t stream) {
+  int blks = MLCommon::ceildiv(n, TPB_X);
+
+  dim3 grid(blks, 1, 1);
+  dim3 blk(TPB_X, 1, 1);
+
+  __negative_array<<<grid, blk, 0, stream>>>(sum_Q, n);
+
   static const dim3 threadsPerBlock(32, 32);
   const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
-  __negative_array<<<1, n>>>(sum_Q, n);
-  __repel_minus_QY<<<numBlocks, threadsPerBlock>>>(repel, sum_Q, Y, n, K);
-  cudaDeviceSynchronize();
+
+  __repel_minus_QY<<<numBlocks, threadsPerBlock, 0, stream>>>(repel, sum_Q, Y,
+                                                              n, K);
 }
 
 __global__ void __apply_forces(const float *__restrict__ attract,
@@ -268,12 +291,11 @@ void apply_forces(const float *__restrict__ attract,
                   float *__restrict__ iY, const float *__restrict__ noise,
                   float *__restrict__ gains, const int n, const int K,
                   const float Z, const float min_gain, const float momentum,
-                  const float eta) {
+                  const float eta, cudaStream_t stream) {
   static const dim3 threadsPerBlock(32, 32);
   const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
-  __apply_forces<<<numBlocks, threadsPerBlock>>>(
+  __apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
     attract, repel, Y, iY, noise, gains, n, K, Z, min_gain, momentum, eta);
-  cudaDeviceSynchronize();
 }
 
 }  // namespace ML

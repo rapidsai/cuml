@@ -12,7 +12,7 @@ using namespace MLCommon;
 
 void get_distances(const float *X, const int n, const int p, long *indices,
                    float *distances, const int n_neighbors,
-                   cuda_stream_t stream) {
+                   cudaStream_t stream) {
   cumlHandle handle;
 
   float **knn_input = new float *[1];
@@ -43,7 +43,7 @@ void get_distances(const float *X, const int n, const int p, long *indices,
 
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
                            const int n, const int k, const float P_sum,
-                           const float exaggeration, cuda_stream_t stream) {
+                           const float exaggeration, cudaStream_t stream) {
   // Convert to COO
   COO_t<float> P_COO;
   Sparse::from_knn(indices, P, n, k, &P_COO);
@@ -57,13 +57,12 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
       return val + trans;
     },
     stream);
-  cudaDeviceSynchronize();
 
   // Divide by P_sum
   // Notice P_sum is *2 since symmetric.
   const float div = exaggeration / (2.0f * P_sum);
 
-  inplace_multiply(P_PT->vals, P_PT->nnz, div);
+  inplace_multiply(P_PT->vals, P_PT->nnz, div, stream);
 
   P_COO.destroy();
 }

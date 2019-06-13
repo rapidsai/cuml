@@ -3,18 +3,16 @@
 #endif
 
 #include <gtest/gtest.h>
-#include "tsne/tsne.cu"
 #include "tsne/digits.h"
+#include "tsne/tsne.cu"
 //#include "tsne/Ground_Truth_TSNE.h"
-#include <stdlib.h>
+#include <metrics/trustworthiness.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
-#include <metrics/trustworthiness.h>
 #include <vector>
 
 #include "cuda_utils.h"
-
 
 using namespace MLCommon;
 using namespace ML::Metrics;
@@ -46,12 +44,14 @@ class TSNETest : public ::testing::Test {
 
     std::cout << "DONE!" << std::endl;
 
-    CUDA_CHECK(cudaFree(Y_d));
-    CUDA_CHECK(cudaFree(X_d));
+    CUDA_CHECK(cudaPeekAtLastError());
 
     // Test trustworthiness
     // euclidean test
-    score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d, n, p, 2, 90);
+    score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d,
+                                                              n, p, 2, 90);
+
+    std::cout << "SCORE: " << score << std::endl;
 
     CUDA_CHECK(cudaFree(Y_d));
     CUDA_CHECK(cudaFree(X_d));
@@ -63,13 +63,11 @@ class TSNETest : public ::testing::Test {
 
   void TearDown() override {}
 
-protected:
-    int n = 1797;
-    int p = 64;
-    double score;
+ protected:
+  int n = 1797;
+  int p = 64;
+  double score;
 };
 
 typedef TSNETest TSNETestF;
-TEST_F(TSNETestF, Result) {
-    ASSERT_TRUE(0.9374 < score && score < 0.9376);
-}
+TEST_F(TSNETestF, Result) { ASSERT_TRUE(0.9374 < score && score < 0.9376); }
