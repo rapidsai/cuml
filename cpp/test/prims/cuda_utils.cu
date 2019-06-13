@@ -19,6 +19,8 @@
 
 namespace MLCommon {
 
+
+
 TEST(Utils, Assert) {
   ASSERT_NO_THROW(ASSERT(1 == 1, "Should not assert!"));
   ASSERT_THROW(ASSERT(1 != 1, "Should assert!"), Exception);
