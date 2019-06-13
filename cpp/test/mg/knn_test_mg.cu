@@ -73,9 +73,6 @@ class KNN_MGTest : public ::testing::Test {
 
     knn->search(d_search, n, d_pred_I, d_pred_D, n);
 
-    std::cout << MLCommon::arr2Str(d_pred_D, n * n, "pred", stream)
-              << std::endl;
-
     cudaStreamDestroy(stream);
   }
 
