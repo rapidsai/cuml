@@ -259,7 +259,7 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	int batch_ncols;
 	size_t shmem_needed = ncols * n_unique_labels * nbins * sizeof(int);
 	if(split_algo == ML::SPLIT_ALGO::HIST)
-		shmem_needed = ncols * 2 * sizeof(T);
+		shmem_needed += ncols * 2 * sizeof(T);
 	
 	batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
 	
