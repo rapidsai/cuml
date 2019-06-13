@@ -15,13 +15,8 @@
  */
 
 #pragma once
-#include <utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <iostream>
 #include <map>
 #include "decisiontree/decisiontree.h"
-#include "random/rng.h"
 
 namespace ML {
 
@@ -59,7 +54,7 @@ struct RF_params {
 	 * Decision tree traingin hyper parameter struct.
 	 */
   DecisionTree::DecisionTreeParams tree_params;
-
+  RF_params();
   RF_params(int cfg_n_trees);
   RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees,
             float cfg_rows_sample);
@@ -69,16 +64,6 @@ struct RF_params {
   void validity_check() const;
   void print() const;
 };
-
-/* Update labels so they are unique from 0 to n_unique_vals.
-   		Create an old_label to new_label map per random forest.
-*/
-void preprocess_labels(int n_rows, std::vector<int>& labels,
-                       std::map<int, int>& labels_map, bool verbose = false);
-
-/* Revert preprocessing effect, if needed. */
-void postprocess_labels(int n_rows, std::vector<int>& labels,
-                        std::map<int, int>& labels_map, bool verbose = false);
 
 template <class T>
 class rf {
@@ -110,6 +95,16 @@ class rfClassifier : public rf<T> {
                             int* predictions, bool verbose = false) const;
 };
 
+/* Update labels so they are unique from 0 to n_unique_vals.
+   		Create an old_label to new_label map per random forest.
+*/
+void preprocess_labels(int n_rows, std::vector<int>& labels,
+                       std::map<int, int>& labels_map, bool verbose = false);
+
+/* Revert preprocessing effect, if needed. */
+void postprocess_labels(int n_rows, std::vector<int>& labels,
+                        std::map<int, int>& labels_map, bool verbose = false);
+
 // Stateless API functions: fit, predict and cross_validate.
 void fit(const cumlHandle& user_handle, rfClassifier<float>* rf_classifier,
          float* input, int n_rows, int n_cols, int* labels,
@@ -135,4 +130,8 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
                           int n_rows, int n_cols, int* predictions,
                           bool verbose = false);
 
+RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
+                           int n_bins, int split_algo, int min_rows_per_node,
+                           bool bootstrap_features, bool bootstrap, int n_trees,
+                           int rows_sample);
 };  // namespace ML
