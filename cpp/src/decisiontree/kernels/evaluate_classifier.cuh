@@ -18,6 +18,7 @@
 #include <utils.h>
 #include <limits>
 #include "metric.cuh"
+#include "batch_cal.cuh"
 #include "../memory.h"
 #include "col_condenser.cuh"
 #include <float.h>
@@ -29,82 +30,111 @@
    column order is as per colids (bootstrapped random cols) for each col there are nbins histograms
  */
 template<typename T>
-__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const int nbins, const int nrows, const int ncols, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
-
+__global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const int nbins, const int nrows, const int ncols, const int batch_ncols, const int n_unique_labels, const T* __restrict__ globalminmax, int* histout) {
+	
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
-	T *minmaxshared = (T*)shmem;
-	int *shmemhist = (int*)(shmem + 2*ncols*sizeof(T));
-
-	for (int i=threadIdx.x; i < 2*ncols; i += blockDim.x) {
-		minmaxshared[i] = globalminmax[i];
-	}
-
-	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
-		shmemhist[i] = 0;
-	}
-
-	__syncthreads();
-
-	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-		int mycolid = (int)( i / nrows);
-		int coloffset = mycolid*n_unique_labels*nbins;
-
-		T delta = (minmaxshared[mycolid + ncols] - minmaxshared[mycolid]) / (nbins);
-		T base_quesval = minmaxshared[mycolid] + delta;
-
-		T localdata = data[i];
-		int label = labels[ i % nrows ];
-		for (int j=0; j < nbins; j++) {
-			T quesval = base_quesval + j * delta;
-
-			if (localdata <= quesval) {
-				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
-			}
+	
+	int colstep = (int)(ncols/batch_ncols);
+	if((ncols % batch_ncols) != 0)
+		colstep++;
+		
+	int batchsz = batch_ncols;	
+	for(int k = 0; k < colstep; k++) {
+		
+		if(k == (colstep-1) && ( (ncols % batch_ncols) != 0) ) {
+			batchsz = ncols % batch_ncols;			
+		}
+		
+		T *minmaxshared = (T*)shmem;
+		int *shmemhist = (int*)(shmem + 2*batchsz*sizeof(T));
+		
+		for (int i=threadIdx.x; i < batchsz; i += blockDim.x) {
+			minmaxshared[i] = globalminmax[k*batch_ncols + i];
+			minmaxshared[i + batchsz] = globalminmax[k*batch_ncols + i + ncols];
+		}
+		
+		for (int i = threadIdx.x; i < n_unique_labels*nbins*batchsz; i += blockDim.x) {
+			shmemhist[i] = 0;
 		}
 
-	}
+		__syncthreads();
 
-	__syncthreads();
+		for (unsigned int i = tid; i < nrows*batchsz; i += blockDim.x*gridDim.x) {
+			int mycolid = (int)( i / nrows);
+			int coloffset = mycolid*n_unique_labels*nbins;
+			
+			T delta = (minmaxshared[mycolid + batchsz] - minmaxshared[mycolid]) / (nbins);
+			T base_quesval = minmaxshared[mycolid] + delta;
+			
+			T localdata = data[i + k*batch_ncols*nrows];
+			int label = labels[ i % nrows ];
+			for (int j=0; j < nbins; j++) {
+				T quesval = base_quesval + j * delta;
+				
+				if (localdata <= quesval) {
+					atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+				}
+			}
+			
+		}
 
-	for (int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x) {
-		atomicAdd(&histout[i], shmemhist[i]);
+		__syncthreads();
+		for (int i = threadIdx.x; i < batchsz*n_unique_labels*nbins; i += blockDim.x) {
+			atomicAdd(&histout[k*batch_ncols*n_unique_labels*nbins + i], shmemhist[i]);
+		}
+		
+		__syncthreads();
 	}
 }
 
 template<typename T>
-__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
+__global__ void all_cols_histograms_global_quantile_kernel_class(const T* __restrict__ data, const int* __restrict__ labels, const unsigned int* __restrict__ colids, const int nbins, const int nrows, const int ncols, const int batch_ncols, const int n_unique_labels, int* histout, const T* __restrict__ quantile) {
 
 	int tid = threadIdx.x + blockIdx.x * blockDim.x;
 	extern __shared__ char shmem[];
 	int *shmemhist = (int*)(shmem);
+	
+	int colstep = (int)(ncols/batch_ncols);
+	if((ncols % batch_ncols) != 0)
+		colstep++;
 
-	for (int i = threadIdx.x; i < n_unique_labels*nbins*ncols; i += blockDim.x) {
-		shmemhist[i] = 0;
-	}
-
-	__syncthreads();
-
-	for (unsigned int i = tid; i < nrows*ncols; i += blockDim.x*gridDim.x) {
-		int mycolid = (int)( i / nrows);
-		int coloffset = mycolid*n_unique_labels*nbins;
-
-		T localdata = data[i];
-		int label = labels[ i % nrows ];
-		for (int j=0; j < nbins; j++) {
-			int quantile_index = colids[mycolid] * nbins + j;
-			T quesval = quantile[quantile_index];
-			if (localdata <= quesval) {
-				atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
-			}
+	int batchsz = batch_ncols;	
+	for(int k = 0; k < colstep; k++) {
+		
+		if(k == (colstep-1) && ( (ncols % batch_ncols) != 0) ) {
+			batchsz = ncols % batch_ncols;			
 		}
-
-	}
-
-	__syncthreads();
-
-	for (int i = threadIdx.x; i < ncols*n_unique_labels*nbins; i += blockDim.x) {
-		atomicAdd(&histout[i], shmemhist[i]);
+		
+		for (int i = threadIdx.x; i < n_unique_labels*nbins*batchsz; i += blockDim.x) {
+			shmemhist[i] = 0;
+		}
+		
+		__syncthreads();
+		
+		for (unsigned int i = tid; i < nrows*batchsz; i += blockDim.x*gridDim.x) {
+			int mycolid = (int)( i / nrows);
+			int coloffset = mycolid*n_unique_labels*nbins;
+			
+			T localdata = data[k*batch_ncols*nrows + i];
+			int label = labels[ i % nrows ];
+			for (int j=0; j < nbins; j++) {
+				int quantile_index = colids[k*batch_ncols + mycolid] * nbins + j;
+				T quesval = quantile[quantile_index];
+				if (localdata <= quesval) {
+					atomicAdd(&shmemhist[label + n_unique_labels * j + coloffset], 1);
+				}
+			}
+			
+		}
+		
+		__syncthreads();
+		
+		for (int i = threadIdx.x; i < batchsz*n_unique_labels*nbins; i += blockDim.x) {
+			atomicAdd(&histout[k*batch_ncols*n_unique_labels*nbins + i], shmemhist[i]);
+		}
+		
+		__syncthreads();
 	}
 }
 
@@ -192,7 +222,7 @@ void find_best_split_classifier(const std::shared_ptr<TemporaryMemory<T, L>> tem
 
 
 template<typename T, typename L, typename F>
-void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<unsigned int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo)
+void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, const L *labels, const int nbins, const int nrows, const int n_unique_labels, const int rowoffset, const std::vector<unsigned int>& colselector, const std::shared_ptr<TemporaryMemory<T, L>> tempmem, MetricInfo<T> split_info[3], MetricQuestion<T> & ques, float & gain, const int split_algo, const size_t max_shared_mem)
 {
 	unsigned int* d_colids = tempmem->d_colids->data();
 	T* d_globalminmax = tempmem->d_globalminmax->data();
@@ -225,17 +255,25 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	CUDA_CHECK(cudaGetLastError());
 	L *labelptr = tempmem->sampledlabels->data();
 	get_sampled_labels<L>(labels, labelptr, rowids, nrows, tempmem->stream);
-
-	shmemsize = n_hist_bytes;
-
+	
+	int batch_ncols;
+	size_t shmem_needed = ncols * n_unique_labels * nbins * sizeof(int);
+	if(split_algo == ML::SPLIT_ALGO::HIST)
+		shmem_needed = ncols * 2 * sizeof(T);
+	
+	batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
+	
+	shmemsize = batch_ncols * n_unique_labels * nbins * sizeof(int);
+	blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
+	
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
-		shmemsize += col_minmax_bytes;
-		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, n_unique_labels, d_globalminmax, d_histout);
+		shmemsize += 2 * batch_ncols * sizeof(T);    
+		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, batch_ncols, n_unique_labels, d_globalminmax, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
-		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, n_unique_labels,  d_histout, tempmem->d_quantile->data());
+		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, batch_ncols, n_unique_labels,  d_histout, tempmem->d_quantile->data());
 	}
 	CUDA_CHECK(cudaGetLastError());
-
+	
 	MLCommon::updateHost(h_histout, d_histout, n_hist_elements, tempmem->stream);
 	CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 	
