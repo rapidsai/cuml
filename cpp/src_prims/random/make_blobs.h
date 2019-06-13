@@ -16,12 +16,10 @@
 
 #pragma once
 
-#include "rng.h"
+#include <vector>
 #include "permute.h"
 #include "rng.h"
-#include <vector>
 #include "utils.h"
-
 
 namespace MLCommon {
 namespace Random {
@@ -30,8 +28,7 @@ template <typename DataT, typename IdxT>
 __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
                              IdxT len) {
   IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
-  if(tid < len)
-    out[tid] = in[perms[tid]];
+  if (tid < len) out[tid] = in[perms[tid]];
 }
 
 /**
@@ -64,10 +61,10 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  * @param type dataset generator type
  */
 template <typename DataT, typename IdxT>
-void make_blobs(DataT *out, int *labels, IdxT n_rows, IdxT n_cols,
+void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
                 int n_clusters, std::shared_ptr<deviceAllocator> allocator,
-                cudaStream_t stream, const DataT *centers = nullptr,
-                const DataT *cluster_std = nullptr,
+                cudaStream_t stream, const DataT* centers = nullptr,
+                const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
@@ -76,7 +73,7 @@ void make_blobs(DataT *out, int *labels, IdxT n_rows, IdxT n_cols,
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
-  const DataT *_centers;
+  const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols);
     r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min,
@@ -110,7 +107,7 @@ void make_blobs(DataT *out, int *labels, IdxT n_rows, IdxT n_cols,
   // generate data points for each cluster (assume equal distribution)
   IdxT rows_per_cluster = ceildiv(n_rows, n_clusters);
   IdxT row_stride = rows_per_cluster * n_cols;
-  for (IdxT i=0,row_id=0; i<n_clusters; ++i, row_id += row_per_cluster) {
+  for (IdxT i = 0, row_id = 0; i < n_clusters; ++i, row_id += row_per_cluster) {
     IdxT current_rows = std::min(rows_per_cluster, n_rows - row_id);
     if (current_rows > 0) {
       r.normalTable(_out + row_id * n_cols, current_rows, n_cols,
@@ -119,6 +116,7 @@ void make_blobs(DataT *out, int *labels, IdxT n_rows, IdxT n_cols,
     }
   }
   // shuffle, if asked for
+  ///@todo: currently using a poor quality shuffle for better perf!
   if (shuffle) {
     permute(perms, out, _out, n_cols, n_rows, true, stream);
     constexpr int Nthreads = 256;
@@ -128,5 +126,5 @@ void make_blobs(DataT *out, int *labels, IdxT n_rows, IdxT n_cols,
   }
 }
 
-} // end namespace Random
-} // end namespace MLCommon
+}  // end namespace Random
+}  // end namespace MLCommon
