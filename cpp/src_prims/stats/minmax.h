@@ -77,21 +77,16 @@ __global__ void decodeKernel(T* globalmin, T* globalmax, int ncols) {
 }
 
 ///@todo: implement a proper "fill" kernel
-template <typename T, typename E, bool use_bits>
+template <typename T, typename E>
 __global__ void minmaxInitKernel(int ncols, T* globalmin, T* globalmax,
                                  T init_val) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid >= ncols) return;
-  if (use_bits) {
-    *(E*)&globalmin[tid] = encode(init_val);
-    *(E*)&globalmax[tid] = encode(-init_val);
-  } else {
-    globalmin[tid] = init_val;
-    globalmax[tid] = -init_val;
-  }
+  *(E*)&globalmin[tid] = encode(init_val);
+  *(E*)&globalmax[tid] = encode(-init_val);
 }
 
-template <typename T, typename E, bool use_bits>
+template <typename T, typename E>
 __global__ void minmaxKernel(const T* data, const int* rowids,
                              const int* colids, int nrows, int ncols,
                              int row_stride, T* g_min, T* g_max, T* sampledcols,
@@ -101,13 +96,8 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
   T* s_min = (T*)shmem;
   T* s_max = (T*)(shmem + sizeof(T) * ncols);
   for (int i = threadIdx.x; i < ncols; i += blockDim.x) {
-    if (use_bits) {
-      *(E*)&s_min[i] = encode(init_min_val);
-      *(E*)&s_max[i] = encode(-init_min_val);
-    } else {
-      s_min[i] = init_min_val;
-      s_max[i] = -init_min_val;
-    }
+    *(E*)&s_min[i] = encode(init_min_val);
+    *(E*)&s_max[i] = encode(-init_min_val);
   }
   __syncthreads();
   for (int i = tid; i < nrows * ncols; i += blockDim.x * gridDim.x) {
@@ -121,14 +111,9 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
     }
     int index = row + col * row_stride;
     T coldata = data[index];
-    if (use_bits) {
-      if (!isnan(coldata)) {
-        atomicMinBits<T, E>(&s_min[col], coldata);
-        atomicMaxBits<T, E>(&s_max[col], coldata);
-      }
-    } else {
-      myAtomicMin(&s_min[col], coldata);
-      myAtomicMax(&s_max[col], coldata);
+    if (!isnan(coldata)) {
+      atomicMinBits<T, E>(&s_min[col], coldata);
+      atomicMaxBits<T, E>(&s_max[col], coldata);
     }
     if (sampledcols != nullptr) {
       sampledcols[i] = coldata;
@@ -137,13 +122,8 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
   __syncthreads();
   // finally, perform global mem atomics
   for (int j = threadIdx.x; j < ncols; j += blockDim.x) {
-    if (use_bits) {
-      atomicMinBits<T, E>(&g_min[j], decode(*(E*)&s_min[j]));
-      atomicMaxBits<T, E>(&g_max[j], decode(*(E*)&s_max[j]));
-    } else {
-      myAtomicMin(&g_min[j], s_min[j]);
-      myAtomicMax(&g_max[j], s_max[j]);
-    }
+    atomicMinBits<T, E>(&g_min[j], decode(*(E*)&s_min[j]));
+    atomicMaxBits<T, E>(&g_max[j], decode(*(E*)&s_max[j]));
   }
 }
 
@@ -153,8 +133,6 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
  *
  * @tparam T the data type
  * @tparam TPB number of threads per block
- * @param use_bits whether to use the kernels based on atomicMin/Max(int32,64) 
- * and bit flipping (default), or the kernels based on atomicCAS()
  * @param data input data
  * @param rowids actual row ID mappings. It is of length nrows. If you want to
  * skip this index lookup entirely, pass nullptr
@@ -175,27 +153,25 @@ __global__ void minmaxKernel(const T* data, const int* rowids,
  * 2. ncols is small enough to fit the whole of min/max values across all cols
  *    in shared memory
  */
-template <typename T, int TPB = 512, bool use_bits = true>
+template <typename T, int TPB = 512>
 void minmax(const T* data, const int* rowids, const int* colids, int nrows,
             int ncols, int row_stride, T* globalmin, T* globalmax,
             T* sampledcols, cudaStream_t stream) {
   using E = typename encode_traits<T>::E;
   int nblks = ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
-  minmaxInitKernel<T, E, use_bits>
+  minmaxInitKernel<T, E>
     <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
   CUDA_CHECK(cudaPeekAtLastError());
   nblks = ceildiv(nrows * ncols, TPB);
   nblks = max(nblks, 65536);
   size_t smemSize = sizeof(T) * 2 * ncols;
-  minmaxKernel<T, E, use_bits><<<nblks, TPB, smemSize, stream>>>(
+  minmaxKernel<T, E><<<nblks, TPB, smemSize, stream>>>(
     data, rowids, colids, nrows, ncols, row_stride, globalmin, globalmax,
     sampledcols, init_val);
   CUDA_CHECK(cudaPeekAtLastError());
-  if (use_bits) {
-    decodeKernel<T, E><<<nblks, TPB, 0, stream>>>(globalmin, globalmax, ncols);
-    CUDA_CHECK(cudaPeekAtLastError());
-  }
+  decodeKernel<T, E><<<nblks, TPB, 0, stream>>>(globalmin, globalmax, ncols);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 
 };  // end namespace Stats

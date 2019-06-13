@@ -85,7 +85,7 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan) {
   if (!mask[tid]) data[tid] = nan;
 }
 
-template <typename T, bool use_bits>
+template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   void SetUp() override {
@@ -106,9 +106,9 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     CUDA_CHECK(cudaPeekAtLastError());
     naiveMinMax(data, params.rows, params.cols, minmax_ref,
                 minmax_ref + params.cols, stream);
-    minmax<T, 512, use_bits>(data, nullptr, nullptr, params.rows, params.cols,
-                             params.rows, minmax_act, minmax_act + params.cols,
-                             nullptr, stream);
+    minmax<T, 512>(data, nullptr, nullptr, params.rows, params.cols,
+                   params.rows, minmax_act, minmax_act + params.cols, nullptr,
+                   stream);
   }
 
   void TearDown() override {
@@ -147,41 +147,21 @@ const std::vector<MinMaxInputs<double>> inputsd = {
   {0.0000001, 8192, 128, 1234ULL}, {0.0000001, 8192, 256, 1234ULL},
   {0.0000001, 8192, 512, 1234ULL}, {0.0000001, 8192, 1024, 1234ULL}};
 
-typedef MinMaxTest<float, true> MinMaxTestFBits;
-TEST_P(MinMaxTestFBits, Result) {
+typedef MinMaxTest<float> MinMaxTestF;
+TEST_P(MinMaxTestF, Result) {
   ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
                           CompareApprox<float>(params.tolerance)));
 }
 
-typedef MinMaxTest<float, false> MinMaxTestFCas;
-TEST_P(MinMaxTestFCas, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<float>(params.tolerance)));
-}
-
-typedef MinMaxTest<double, true> MinMaxTestDBits;
-TEST_P(MinMaxTestDBits, Result) {
+typedef MinMaxTest<double> MinMaxTestD;
+TEST_P(MinMaxTestD, Result) {
   ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
                           CompareApprox<double>(params.tolerance)));
 }
 
-typedef MinMaxTest<double, false> MinMaxTestDCas;
-TEST_P(MinMaxTestDCas, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<double>(params.tolerance)));
-}
+INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestFBits,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestFCas,
-                        ::testing::ValuesIn(inputsf));
-
-INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestDBits,
-                        ::testing::ValuesIn(inputsd));
-
-INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestDCas,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Stats
 }  // end namespace MLCommon
