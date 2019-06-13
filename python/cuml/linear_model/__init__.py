@@ -19,3 +19,4 @@ from cuml.linear_model.ridge import Ridge
 from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.elastic_net import ElasticNet
 from cuml.linear_model.mbsgd_classifier import MBSGDClassifier
+from cuml.linear_model.mbsgd_regressor import MBSGDRegressor
