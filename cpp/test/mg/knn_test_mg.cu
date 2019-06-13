@@ -20,7 +20,7 @@
 #include <iostream>
 #include <vector>
 #include "knn/knn.hpp"
-#include "knn/util.h"
+#include "ml_mg_utils.h"
 
 namespace ML {
 
@@ -37,6 +37,9 @@ template <typename T>
 class KNN_MGTest : public ::testing::Test {
  protected:
   void basicTest() {
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
     // make test data on host
     std::vector<T> h_train_inputs = {1.0, 50.0, 51.0, 1.0, 50.0, 51.0};
     h_train_inputs.resize(n * 2);
@@ -69,6 +72,11 @@ class KNN_MGTest : public ::testing::Test {
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
     knn->search(d_search, n, d_pred_I, d_pred_D, n);
+
+    std::cout << MLCommon::arr2Str(d_pred_D, n * n, "pred", stream)
+              << std::endl;
+
+    cudaStreamDestroy(stream);
   }
 
   void SetUp() override { basicTest(); }
@@ -99,7 +107,8 @@ class KNN_MGTest : public ::testing::Test {
 
 typedef KNN_MGTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
-  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
+  ASSERT_TRUE(
+    devArrMatch(d_ref_D, d_pred_D, n * n, CompareApprox<float>(1e-30)));
   ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
 }
 

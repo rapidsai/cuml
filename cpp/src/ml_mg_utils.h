@@ -18,12 +18,12 @@
 
 #include "cuda_utils.h"
 
-#include "utils.h"
 #include <cuda_runtime.h>
+#include "utils.h"
 
 namespace ML {
 
-  /**
+/**
    * Chunk a single host array up into one or many GPUs (determined by the provided
    * list of device ids)
    *
@@ -36,32 +36,31 @@ namespace ML {
    * @param n_chunks  number of elements in gpus
    * @param stream    cuda stream to use
    */
-  template<typename OutType, typename T = size_t>
-  void chunk_to_device(const OutType *ptr, T n, int D,
-      int* devices, OutType **output, T *sizes, int n_chunks,
-      cudaStream_t stream) {
+template <typename OutType, typename T = size_t>
+void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
+                     OutType **output, T *sizes, int n_chunks,
+                     cudaStream_t stream) {
+  size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
 
-      size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
+  std::cout << "n=" << n << std::endl;
 
-      #pragma omp parallel for
-      for(int i = 0; i < n_chunks; i++) {
+#pragma omp parallel for
+  for (int i = 0; i < n_chunks; i++) {
+    int device = devices[i];
+    CUDA_CHECK(cudaSetDevice(device));
 
-          int device = devices[i];
-          CUDA_CHECK(cudaSetDevice(device));
+    T length = chunk_size;
+    if (length * (i + 1) > n) length = (chunk_size * (i + 1)) - n;
 
-          T length = chunk_size;
-          if(length * i >= n)
-              length = (chunk_size*i)-n;
+    std::cout << "LENGTH: " << length << std::endl;
 
-          float *ptr_d;
-          MLCommon::allocate(ptr_d, length*D);
-          MLCommon::updateDevice(ptr_d, ptr+(chunk_size*i),
-                  length*D, stream);
+    float *ptr_d;
+    MLCommon::allocate(ptr_d, length * D);
+    MLCommon::updateDevice(ptr_d, ptr + length, length * D, stream);
 
-          output[i] = ptr_d;
-          sizes[i] = length;
-      }
-  };
+    output[i] = ptr_d;
+    sizes[i] = length;
+  }
+};
 
-}; // end namespace ML
-
+};  // end namespace ML
