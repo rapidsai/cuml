@@ -105,7 +105,7 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             break
 
         gk = g(xk)
-        if np.linalg.norm(gk) < pgtol:
+        if np.linalg.norm(gk, ord=np.inf) < pgtol:
             if(disp > 0):
                 print("Stopping criterion reached |g|<pgtol: {} < {}".format(np.linalg.norm(gk), pgtol))
             break
@@ -113,8 +113,8 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         xkp1 = np.zeros(len(xk))
 
         # 1. compute search direction ($p_k = -H_k \grad f_k$)
-        for ib in range(num_batches):
-            pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
+        # for ib in range(num_batches):
+        #     pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
 
         if np.isnan(pk).any():
             raise FloatingPointError("pk NaN")
@@ -128,19 +128,51 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
 
             for ib in range(num_batches):
                 # When we are too close to minimum, line search fails. Don't
-                # search if we are more than satisfying the stopping criterion.
-                if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > 1e-2*pgtol):
-                    alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
-                                                                     xk, pk,
-                                                                     # xk[ib*r:(ib+1)*r],
-                                                                     # pk[ib*r:(ib+1)*r],
-                                                                     args=(ib,), c2=0.9)
-                    alpha_b[ib] = alpha
-                    if fkp1 is None:
-                        print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
-                                                   np.linalg.norm(pk[ib*r:(ib+1)*r])))
-                        raise ValueError("Line search failed to converge")
-                
+                # search if we are satisfying the stopping criterion.
+                if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > pgtol):
+                    line_search = True
+                    line_search_iterations = 0
+                    while line_search:
+                        pk = np.zeros(len(x0))
+                        pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
+                        try:
+                            if line_search_iterations > 0:
+                                print("[{}:{}] pk = {}, gk = {}".format(k, ib, pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
+                            alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
+                                                                             xk, pk,
+                                                                             # xk[ib*r:(ib+1)*r],
+                                                                             # pk[ib*r:(ib+1)*r],
+                                                                             args=(ib,), amax=alpha_max)
+                            
+                            if alpha is None or fkp1 is None:
+                                print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
+                                                                      np.linalg.norm(pk[ib*r:(ib+1)*r])))
+                                print("alpha={}, fkp1={}".format(alpha, fkp1))
+                                print("INFO: Line search failed: Resetting H=I")
+                                Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+                                line_search_iterations += 1
+                                if line_search_iterations > 5:
+                                    # raise ValueError("Line search failed to converge after 5 tries")
+                                    print("INFO: Line search failed to converge after 5 tries, setting alpha=1")
+                                    alpha_b[ib] = 1
+                                    break
+                                continue
+                            else:
+                                alpha_b[ib] = alpha
+                                break
+
+                        except FloatingPointError as fpe:
+                            # Reset H to identity to force pk to be gradient descent
+                            # set_trace()
+                            line_search_iterations += 1
+                            if line_search_iterations > 5:
+                                raise ValueError("Line search failed to converge after 5 tries")
+                            print("INFO({}): Caught invalid step (FloatingPointError={}), resetting H=I".format(ib, fpe))
+                            Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+                            continue
+
+                # print("[{}:{}] xkp1 = {} + ({}) * {} (gk={})".format(k, ib, xk[ib*r:(ib+1)*r], alpha_b[ib], pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
+                # print("pk = -{} @ {}".format(Hk[:, ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
                 xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
 
         else:
@@ -245,8 +277,8 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         # end while
 
     if disp > 0:
-        print("Final result: f(xk)={}, |\/f(xk)|={}, n_iter={}".format(fk[-1],
+        print("Final result: f(xk)={:0.5g}, |\/f(xk)|={:0.5g}, n_iter={}".format(fk[-1],
                                                                        np.linalg.norm(gk),
                                                                        k))
 
-    return xk, fk
+    return xk, fk, k

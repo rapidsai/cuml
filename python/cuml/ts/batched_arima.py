@@ -172,7 +172,7 @@ class BatchedARIMAModel:
             # Maximimize LL means minimize negative
             if n is not None:
                 n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
-                return n_llf[n]
+                return n_llf[n]/(num_samples-1)
 
             n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
             return n_llf_sum/(num_samples-1)/num_batches
@@ -185,9 +185,9 @@ class BatchedARIMAModel:
                 n_gllf = -BatchedARIMAModel.ll_gf(num_batches, num_parameters, order, y, x, h, gpu=gpu, trans=True)
                 n_gllf_n = np.zeros(len(n_gllf))
                 n_gllf_n[n*num_parameters:(n+1)*num_parameters] = n_gllf[n*num_parameters:(n+1)*num_parameters]
-                return n_gllf_n
+                return n_gllf_n / (num_samples-1)
 
-            return n_gllf/(num_samples-1)/num_batches
+            return n_gllf/(num_samples-1)
 
         if not isinstance(mu0, np.ndarray):
             ar0_2 = sm_tools._ar_invtransparams(np.copy(ar_params0))
@@ -217,13 +217,14 @@ class BatchedARIMAModel:
         if ((np.isnan(x0).any()) or (np.isinf(x0).any())):
             raise FloatingPointError("Initial condition 'x0' has NaN or Inf.")
 
-        x, fk = batched_fmin_bfgs(f, x0, num_batches, gf, alpha_per_batch=False, disp=opt_disp, alpha_max=alpha_max)
+        x, fk, niter = batched_fmin_bfgs(f, x0, num_batches, gf, alpha_per_batch=True, disp=opt_disp, alpha_max=alpha_max)
         # print("our results: ", x)
         # scipy again
         # options = {"disp": 1}
         # res = opt.minimize(f, x0, jac=gf, method="BFGS", options=options)
         # x = res.x
         # print("their results: ", x)
+        print("NITER=", niter)
 
         Tx = batch_trans(p, q, num_batches, x)
         mu, ar, ma = unpack(p, q, num_batches, Tx)
@@ -429,7 +430,7 @@ def batch_invtrans(p, q, nb, x):
     ar2 = []
     ma2 = []
     for ib in range(nb):
-        print("invT: {},{}".format(ar[ib], ma[ib]))
+        # print("invT: {},{}".format(ar[ib], ma[ib]))
         ari = sm_tools._ar_invtransparams(np.copy(ar[ib]))
         mai = sm_tools._ma_invtransparams(np.copy(ma[ib]))
         assert ((not np.isinf(ari)) and (not np.isinf(mai)))

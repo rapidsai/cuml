@@ -6,6 +6,8 @@ import scipy.optimize as optimize
 
 from IPython.core.debugger import set_trace
 
+import cuml.ts.batched_arima as batched_arima
+
 def rosenbrock(x, a=1, b=100):
 
     return (a-x[0])**2 + b*(x[1] - x[0]**2)**2
@@ -40,7 +42,7 @@ def g_batched_rosenbrock(x: np.ndarray,
 
     return gall
 
-def test_batched_bfgs():
+def test_batched_bfgs_rosenbrock():
 
     num_batches = 100
     np.random.seed(42)
@@ -75,7 +77,7 @@ def test_batched_bfgs():
     
     # global optimizer
     # options = {"disp": 10}
-    # res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
+    res_ref = optimize.minimize(f, x0, jac=gf, method="BFGS", options=options)
 
     # problem-at-a-time optimizer
     # for ib in range(num_batches):
@@ -99,6 +101,55 @@ def test_batched_bfgs():
     # print("|res_diff_my_batched|_max", np.max(np.abs(res_xk-res_true)))
     np.testing.assert_almost_equal(np.max(np.abs(res_xk-res_true)), 0.0)
     
+
+def test_batch_arima_fit():
+    num_samples = 100
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    num_batches = 30
+
+    noise = np.random.normal(scale=0.1, size=num_samples)
+    ys = noise + 0.5*xs
+
+    ys_df = np.zeros((num_samples, num_batches), order="F")
+    mu0 = []
+    ar0 = []
+    ma0 = []
+    for ib in range(num_batches):
+        noise = np.random.normal(scale=0.1, size=num_samples)
+        ys = noise + 0.5*xs
+        ys_df[:,ib] = ys[:]
+        mu0.append(0.02 + noise[0]/10)
+        ar0.append(np.array([-0.04+noise[1]/100]))
+        ma0.append(np.array([-0.8+noise[2]/10]))
+
+    mu0 = np.array(mu0)
+
+    order = (1, 1, 1)
+
+    b_model_fit_all = batched_arima.BatchedARIMAModel.fit(ys_df, order, mu0, ar0, ma0, opt_disp=1, h=1e-8)
+    print("b_model:", b_model_fit_all)
+
+
+def test_single_arima_fit():
+    num_samples = 100
+    xs = np.linspace(0, 1, num_samples)
+    np.random.seed(12)
+    num_batches = 30
+
+    order = (1, 1, 1)
+
+    for ib in range(num_batches):
+        noise = np.random.normal(scale=0.1, size=num_samples)
+        ys = np.reshape(noise + 0.5*xs, (num_samples, 1), order="F")
+        b_model_fit_single = batched_arima.BatchedARIMAModel.fit(ys, order,
+                                                                 np.array([0.02 + noise[0]/10]),
+                                                                 [np.array([-0.04+noise[1]/100])],
+                                                                 [np.array([-0.8+noise[2]/10])],
+                                                                 opt_disp=1, h=1e-8)
+
+    
+
 
 if __name__ == "__main__":
     test_batched_bfgs()
