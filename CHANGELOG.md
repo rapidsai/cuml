@@ -25,6 +25,7 @@
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
 - PR #662: C++: Bulk clang-format updates
+- PR #671: Added pickle pytests and correct pickling of Base class
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -200,7 +201,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy
 
 # cuML 0.5.1 (05 Feb 2019)
 
