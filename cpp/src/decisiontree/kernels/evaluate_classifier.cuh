@@ -265,7 +265,9 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	
 	shmemsize = batch_ncols * n_unique_labels * nbins * sizeof(int);
 	blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-	
+	if (blocks > 65536)
+		blocks = 65536;
+
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmemsize += 2 * batch_ncols * sizeof(T);    
 		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, batch_ncols, n_unique_labels, d_globalminmax, d_histout);
