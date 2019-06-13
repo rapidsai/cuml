@@ -21,9 +21,10 @@
 
 from cuml.solvers import SGD
 
+
 class MBSGDClassifier:
     """
-    Linear models (linear SVM, logistic regression, or linear regression) 
+    Linear models (linear SVM, logistic regression, or linear regression)
     fitted by minimizing a regularized empirical loss with mini-batch SGD.
 
     Examples
@@ -39,9 +40,13 @@ class MBSGDClassifier:
         pred_data = cudf.DataFrame()
         pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
         pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-        cu_mbsgd_classifier = cumlMBSGDClassifier(learning_rate='constant', eta0=0.05, epochs=2000,
-                        fit_intercept=True, batch_size=1,
-                        tol=0.0, penalty='l2', loss='squared_loss', alpha=0.5)
+        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate='constant',
+                                                 eta0=0.05, epochs=2000,
+                                                 fit_intercept=True,
+                                                 batch_size=1, tol=0.0,
+                                                 penalty='l2',
+                                                 loss='squared_loss',
+                                                 alpha=0.5)
         cu_mbsgd_classifier.fit(X, y)
         cu_pred = cu_mbsgd_classifier.predict(pred_data).to_array()
         print(" cuML intercept : ", cu_mbsgd_classifier.intercept_)
@@ -49,13 +54,12 @@ class MBSGDClassifier:
         print("cuML predictions : ", cu_pred)
     Output:
     .. code-block:: python
-
         cuML intercept :  0.7150013446807861
         cuML coef :  0    0.27320495
                     1     0.1875956
                     dtype: float32
         cuML predictions :  [1. 1.]
-        
+
 
     Parameters
     -----------
@@ -157,7 +161,7 @@ class MBSGDClassifier:
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        
+
         return self.cu_mbsgd_classifier.predictClass(X)
 
     def get_params(self, deep=True):
@@ -171,8 +175,8 @@ class MBSGDClassifier:
 
         params = dict()
         variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0', 'power_t',
-                     'batch_size', 'n_iter_no_change', 'handle']
+                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
+                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
@@ -186,12 +190,12 @@ class MBSGDClassifier:
         -----------
         params : dict of new params
         """
-        
+
         if not params:
             return self
         variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0', 'power_t',
-                     'batch_size', 'n_iter_no_change', 'handle']
+                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
+                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter for estimator')
