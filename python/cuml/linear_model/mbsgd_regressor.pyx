@@ -21,9 +21,11 @@
 
 from cuml.solvers import SGD
 
+
 class MBSGDRegressor:
     """
-    Linear regression model fitted by minimizing a regularized empirical loss with mini-batch SGD.
+    Linear regression model fitted by minimizing a
+    regularized empirical loss with mini-batch SGD.
 
     Examples
     ---------
@@ -38,9 +40,13 @@ class MBSGDRegressor:
         pred_data = cudf.DataFrame()
         pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
         pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-        cu_mbsgd_regressor = cumlMBSGDRegressor(learning_rate='constant', eta0=0.05, epochs=2000,
-                        fit_intercept=True, batch_size=1,
-                        tol=0.0, penalty='l2', loss='squared_loss', alpha=0.5)
+        cu_mbsgd_regressor = cumlMBSGDRegressor(learning_rate='constant',
+                                                eta0=0.05, epochs=2000,
+                                                fit_intercept=True,
+                                                batch_size=1, tol=0.0,
+                                                penalty='l2',
+                                                loss='squared_loss',
+                                                alpha=0.5)
         cu_mbsgd_regressor.fit(X, y)
         cu_pred = cu_mbsgd_regressor.predict(pred_data).to_array()
         print(" cuML intercept : ", cu_mbsgd_regressor.intercept_)
@@ -53,7 +59,7 @@ class MBSGDRegressor:
                     1     0.1875956
                     dtype: float32
         cuML predictions :  [2.4725943 2.1993892]
-        
+
 
     Parameters
     -----------
@@ -103,7 +109,7 @@ class MBSGDRegressor:
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.0, power_t=0.5,
                  batch_size=32, n_iter_no_change=5, handle=None):
-        
+
         if loss in ['squared_loss']:
             self.loss = loss
         else:
@@ -159,7 +165,7 @@ class MBSGDRegressor:
         y: cuDF DataFrame
            Dense vector (floats or doubles) of shape (n_samples, 1)
         """
-        
+
         return self.cu_mbsgd_classifier.predict(X)
 
     def get_params(self, deep=True):
@@ -173,8 +179,8 @@ class MBSGDRegressor:
 
         params = dict()
         variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0', 'power_t',
-                     'batch_size', 'n_iter_no_change', 'handle']
+                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
+                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
         for key in variables:
             var_value = getattr(self, key, None)
             params[key] = var_value
@@ -188,12 +194,12 @@ class MBSGDRegressor:
         -----------
         params : dict of new params
         """
-        
+
         if not params:
             return self
         variables = ['loss', 'penalty', 'alpha', 'l1_ratio', 'fit_intercept',
-                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0', 'power_t',
-                     'batch_size', 'n_iter_no_change', 'handle']
+                     'epochs', 'tol', 'shuffle', 'learning_rate', 'eta0',
+                     'power_t', 'batch_size', 'n_iter_no_change', 'handle']
         for key, value in params.items():
             if key not in variables:
                 raise ValueError('Invalid parameter for estimator')
