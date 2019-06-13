@@ -55,11 +55,7 @@ cdef extern from "cuML.hpp" namespace "ML" nogil:
         void setDeviceAllocator(shared_ptr[deviceAllocator] a)
         cuml.common.cuda._Stream getStream()
 
-cdef extern from "knn/knn.h" namespace "ML":
-
-    cdef cppclass kNNParams:
-        float *ptr,
-        int N
+cdef extern from "knn/knn.hpp" namespace "ML":
 
     cdef cppclass kNN:
         kNN(cumlHandle &handle, int D, bool verbose) except +
@@ -68,7 +64,8 @@ cdef extern from "knn/knn.h" namespace "ML":
                     long *res_I,
                     float *res_D,
                     int k)
-        void fit(kNNParams *input,
+        void fit(float **input,
+                 int *sizes,
                  int N)
 
         void fit_from_host(
@@ -92,7 +89,8 @@ cdef class NearestNeighborsImpl:
     cdef object devices
     cdef bool _verbose
     cdef object n_neighbors
-    cpdef kNNParams *input
+    cpdef float **input
+    cpdef int *sizes
     cpdef object handle
 
     def __cinit__(self, n_neighbors=5, n_gpus=1, devices=None,
@@ -112,13 +110,15 @@ cdef class NearestNeighborsImpl:
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
-        self.input = <kNNParams*> malloc(sizeof(kNNParams))
+        self.input = <float**> malloc(sizeof(float*))
+        self.sizes = <int*>malloc(sizeof(int))
         self.k = NULL
         self.handle = handle
 
     def __dealloc__(self):
         del self.k
-        del self.input
+        free(self.input)
+        free(self.sizes)
 
     def fit(self, X):
         if len(X.shape) != 2:
@@ -184,13 +184,11 @@ cdef class NearestNeighborsImpl:
                 self.X_m, X_ctype, n_rows, _, dtype = \
                     input_to_dev_array(X, order='C')
 
-            params = new kNNParams()
-            params.N = <int>n_rows
-            params.ptr = <float*>X_ctype
+            self.sizes[0] = <int>len(X)
+            self.input[0] = <float*>X_ctype
 
-            self.input[0] = deref(params)
-
-            self.k.fit(<kNNParams*> self.input,
+            self.k.fit(<float**> self.input,
+                       <int*>self.sizes,
                        <int> 1)
 
     def _fit_mg(self, n_dims, alloc_info):
@@ -201,20 +199,21 @@ cdef class NearestNeighborsImpl:
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
         self.k = new kNN(handle_[0], n_dims, verbose=self._verbose)
 
-        del self.input
-        self.input = <kNNParams*> malloc(len(alloc_info) * sizeof(kNNParams))
+        free(self.input)
+        free(self.sizes)
+
+        self.input = <float**> malloc(len(alloc_info) * sizeof(float*))
+        self.sizes = <int*>malloc(len(alloc_info)*sizeof(int))
 
         cdef uintptr_t input_ptr
         for i in range(len(alloc_info)):
-            params = new kNNParams()
-            params.N = < int > alloc_info[i]["shape"][0]
+            self.sizes[i] = < int > alloc_info[i]["shape"][0]
 
             input_ptr = alloc_info[i]["data"][0]
-            params.ptr = < float * > input_ptr
+            self.input[i] = < float * > input_ptr
 
-            self.input[i] = deref(params)
-
-        self.k.fit(<kNNParams*> self.input,
+        self.k.fit(<float**> self.input,
+                   <int*>self.sizes,
                    <int> len(alloc_info))
 
     def kneighbors(self, X, k=None):
