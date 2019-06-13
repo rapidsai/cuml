@@ -25,6 +25,10 @@ import numpy as np
 
 from numba import cuda
 
+from cuml.utils import get_cudf_column_ptr,\
+     get_dev_array_ptr, input_to_dev_array,\
+     zeros
+
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
@@ -34,8 +38,6 @@ from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
 
-from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
 
@@ -119,12 +121,10 @@ cdef class RandomForest_impl():
     cdef object bootstrap_features
     cdef object type_model
     cdef object verbose
+    cdef object n_cols
     cdef object rows_sample
     cdef object max_leaves
     cdef object gdf_datatype
-    cdef object n_rows
-    cdef object n_cols
-    cdef object preds
     cdef object stats
     cdef object dtype
 
@@ -152,9 +152,7 @@ cdef class RandomForest_impl():
         self.n_bins = n_bins
         self.rf_classifier32 = NULL
         self.rf_classifier64 = NULL
-        self.n_rows = None
         self.n_cols = None
-        self.preds = None
 
     def _get_type(self, type_model):
         if type_model == "classifier":
@@ -181,12 +179,12 @@ cdef class RandomForest_impl():
         if y.dtype != np.int32:
             raise TypeError(" The labels need to have dtype = np.int32")
 
-        X_m, X_ptr, self.n_rows, self.n_cols, self.dtype = \
+        X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
         y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
-        cdef cumlHandle * handle_ =\
-            <cumlHandle *> <size_t> self.handle.getHandle()
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
 
         unique_labels = cupy.unique(y)
         num_unique_labels = (unique_labels).__len__()
@@ -215,7 +213,7 @@ cdef class RandomForest_impl():
             fit(handle_[0],
                 self.rf_classifier32,
                 <float*> X_ptr,
-                <int> self.n_rows,
+                <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
                 <int> num_unique_labels)
@@ -223,7 +221,7 @@ cdef class RandomForest_impl():
             fit(handle_[0],
                 self.rf_classifier64,
                 <double*> X_ptr,
-                <int> self.n_rows,
+                <int> n_rows,
                 <int> self.n_cols,
                 <int*> y_ptr,
                 <int> num_unique_labels)
@@ -239,20 +237,24 @@ cdef class RandomForest_impl():
 
         cdef uintptr_t X_ptr
         X_ptr = X.ctypes.data
-        self.n_rows, self.n_cols = np.shape(X)
-        preds = np.zeros(self.n_rows,
+        n_rows, n_cols = np.shape(X)
+        if n_cols != self.n_cols:
+            raise ValueError(" The number of columns/features in the training"
+                             " and test data should be the same ")
+
+        preds = np.zeros(n_rows,
                          dtype=np.int32)
 
         cdef uintptr_t preds_ptr = preds.ctypes.data
-        cdef cumlHandle * handle_ =\
-            <cumlHandle *> <size_t> self.handle.getHandle()
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             predict(handle_[0],
                     self.rf_classifier32,
                     <float*> X_ptr,
-                    <int> self.n_rows,
-                    <int> self.n_cols,
+                    <int> n_rows,
+                    <int> n_cols,
                     <int*> preds_ptr,
                     <bool> self.verbose)
 
@@ -260,15 +262,15 @@ cdef class RandomForest_impl():
             predict(handle_[0],
                     self.rf_classifier64,
                     <double*> X_ptr,
-                    <int> self.n_rows,
-                    <int> self.n_cols,
+                    <int> n_rows,
+                    <int> n_cols,
                     <int*> preds_ptr,
                     <bool> self.verbose)
 
         else:
             raise TypeError("supports only float32 and float64 input,"
                             " but input of type '%s' passed."
-                            % (str(self.gdf_datatype.type)))
+                            % (str(self.dtype)))
 
         self.handle.sync()
         return preds
@@ -278,22 +280,27 @@ cdef class RandomForest_impl():
         cdef uintptr_t X_ptr, y_ptr
         X_ptr = X.ctypes.data
         y_ptr = y.ctypes.data
-        self.n_rows, self.n_cols = np.shape(X)
-        preds = np.zeros(self.n_rows,
+        n_rows, n_cols = np.shape(X)
+
+        if n_cols != self.n_cols:
+            raise ValueError(" The number of columns/features in the training"
+                             " and test data should be the same ")
+
+        preds = np.zeros(n_rows,
                          dtype=np.int32)
 
         cdef uintptr_t preds_ptr = (preds).ctypes.data
 
-        cdef cumlHandle * handle_ =\
-            <cumlHandle *> <size_t> self.handle.getHandle()
+        cdef cumlHandle* handle_ =\
+            <cumlHandle*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
             self.stats = cross_validate(handle_[0],
                                         self.rf_classifier32,
                                         <float*> X_ptr,
                                         <int*> y_ptr,
-                                        <int> self.n_rows,
-                                        <int> self.n_cols,
+                                        <int> n_rows,
+                                        <int> n_cols,
                                         <int*> preds_ptr,
                                         <bool> self.verbose)
 
@@ -302,8 +309,8 @@ cdef class RandomForest_impl():
                                         self.rf_classifier64,
                                         <double*> X_ptr,
                                         <int*> y_ptr,
-                                        <int> self.n_rows,
-                                        <int> self.n_cols,
+                                        <int> n_rows,
+                                        <int> n_cols,
                                         <int*> preds_ptr,
                                         <bool> self.verbose)
 
