@@ -1,74 +1,73 @@
 #ifndef IF_DEBUG
-    #define IF_DEBUG 1 
+#define IF_DEBUG 1
 #endif
 
 #include <gtest/gtest.h>
-#include "tsne/tsne.h"
+#include "tsne/tsne.cu"
 #include "tsne/digits.h"
 //#include "tsne/Ground_Truth_TSNE.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <iostream>
 #include <metrics/trustworthiness.h>
 #include <vector>
 
+#include "cuda_utils.h"
+
+
 using namespace MLCommon;
 using namespace ML::Metrics;
-
+using namespace MLCommon::Distance;
 
 using namespace ML;
-using namespace MLCommon;
 
+class TSNETest : public ::testing::Test {
+ protected:
+  void basicTest() {
+    cumlHandle handle;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
 
-class TSNETest: public ::testing::Test {
-protected:
-    void basicTest() {
+    float *X_d, *Y_d;
+    MLCommon::allocate(X_d, n * p);
+    MLCommon::allocate(Y_d, n * 2);
+    MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
-        cumlHandle handle;
-        cudaStream_t stream; CUDA_CHECK(cudaStreamCreate(&stream));
+    std::cout << "[>>>>]    Starting TSNE....\n";
+    TSNE(handle, X_d, Y_d, n, p);
+    std::cout << "[>>>>]    Got embeddings!....\n";
 
-        float *X_d, *Y_d;
-        MLCommon::allocate(X_d, n*p);
-        MLCommon::allocate(Y_d, n*2);
-        MLCommon::updateDevice(X_d, digits.data(), n*p, stream);
+    std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
 
-        std::cout << "[>>>>]    Starting TSNE....\n";
-        TSNE(handle, X_d, Y_d, n, p);
-        std::cout << "[>>>>]    Got embeddings!....\n";
+    std::cout << "Updating host" << std::endl;
+    float embeddings_h[n * 2];
+    MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
-        std::cout << MLCommon::arr2Str(Y_d, n*2, "embeddings", stream) << std::endl;
+    std::cout << "DONE!" << std::endl;
 
-        std::cout << "Updating host" << std::endl;
-        float embeddings_h[n*2];
-        MLCommon::updateHost(embeddings_h, Y_d, n*2, stream);
+    CUDA_CHECK(cudaFree(Y_d));
+    CUDA_CHECK(cudaFree(X_d));
 
-        std::cout << "DONE!" << std::endl;
+    // Test trustworthiness
+    // euclidean test
+    score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d, n, p, 2, 90);
 
-        // Test trustworthiness
-        // euclidean test
-        score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d, n, p, 2, 90);
+    CUDA_CHECK(cudaFree(Y_d));
+    CUDA_CHECK(cudaFree(X_d));
 
-        CUDA_CHECK(cudaFree(Y_d));
-        CUDA_CHECK(cudaFree(X_d));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
 
-        std::cout << "End!" << std::endl;
+  void SetUp() override { basicTest(); }
 
-        CUDA_CHECK(cudaStreamDestroy(stream));
-    }
-
-    void SetUp() override {
-        basicTest();
-    }
-
-    void TearDown() override {
-    }
+  void TearDown() override {}
 
 protected:
     int n = 1797;
     int p = 64;
     double score;
 };
-
 
 typedef TSNETest TSNETestF;
 TEST_F(TSNETestF, Result) {

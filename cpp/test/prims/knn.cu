@@ -19,12 +19,10 @@
 #include <test_utils.h>
 #include <iostream>
 #include <vector>
-#include "knn/knn.hpp"
-#include "ml_mg_utils.h"
+#include "selection/knn.h"
 
-namespace ML {
-
-using namespace MLCommon;
+namespace MLCommon {
+namespace Selection {
 
 /**
  *
@@ -34,24 +32,11 @@ using namespace MLCommon;
  * expected.
  */
 template <typename T>
-class KNN_MGTest : public ::testing::Test {
+class KNNTest : public ::testing::Test {
  protected:
   void basicTest() {
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
-
-    // make test data on host
-    std::vector<T> h_train_inputs = {1.0, 50.0, 51.0, 1.0, 50.0, 51.0};
-    h_train_inputs.resize(n * 2);
-
-    std::vector<T> h_search = {1.0, 50.0, 51.0};
-    h_search.resize(n);
-
-    int* devices = new int[2]{0, 1};
-
-    knn->fit_from_host(h_train_inputs.data(), n * 2, devices, 2);
-
-    allocate<float>(d_search, n);
+    // Allocate input
+    allocate(d_train_inputs, n * d);
 
     // Allocate reference arrays
     allocate<long>(d_ref_I, n * n);
@@ -61,17 +46,30 @@ class KNN_MGTest : public ::testing::Test {
     allocate<long>(d_pred_I, n * n);
     allocate(d_pred_D, n * n);
 
-    updateDevice(d_search, h_search.data(), n * d, 0);
+    // make testdata on host
+    std::vector<T> h_train_inputs = {1.0, 50.0, 51.0};
+    h_train_inputs.resize(n);
+    updateDevice(d_train_inputs, h_train_inputs.data(), n * d, 0);
 
-    std::vector<T> h_res_D = {0.0, 0.0, 2401.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0};
+    std::vector<T> h_res_D = {0.0,    2401.0, 2500.0, 0.0,   1.0,
+                              2401.0, 0.0,    1.0,    2500.0};
     h_res_D.resize(n * n);
     updateDevice(d_ref_D, h_res_D.data(), n * n, 0);
 
-    std::vector<long> h_res_I = {0, 3, 1, 1, 4, 2, 2, 5, 1};
+    std::vector<long> h_res_I = {0, 1, 2, 1, 2, 0, 2, 1, 0};
     h_res_I.resize(n * n);
     updateDevice<long>(d_ref_I, h_res_I.data(), n * n, 0);
 
-    knn->search(d_search, n, d_pred_I, d_pred_D, n);
+    float **ptrs = new float *[1];
+    int *sizes = new int[1];
+    ptrs[0] = d_train_inputs;
+    sizes[0] = n;
+
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    brute_force_knn(ptrs, sizes, 1, d, d_train_inputs, n, d_pred_I, d_pred_D, n,
+                    stream);
 
     cudaStreamDestroy(stream);
   }
@@ -79,7 +77,7 @@ class KNN_MGTest : public ::testing::Test {
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(d_search));
+    CUDA_CHECK(cudaFree(d_train_inputs));
     CUDA_CHECK(cudaFree(d_pred_I));
     CUDA_CHECK(cudaFree(d_pred_D));
     CUDA_CHECK(cudaFree(d_ref_I));
@@ -87,26 +85,23 @@ class KNN_MGTest : public ::testing::Test {
   }
 
  protected:
-  T* d_search;
+  T *d_train_inputs;
 
   int n = 3;
   int d = 1;
 
-  long* d_pred_I;
-  T* d_pred_D;
+  long *d_pred_I;
+  T *d_pred_D;
 
-  long* d_ref_I;
-  T* d_ref_D;
-
-  cumlHandle handle;
-  kNN* knn = new kNN(handle, d);
+  long *d_ref_I;
+  T *d_ref_D;
 };
 
-typedef KNN_MGTest<float> KNNTestF;
+typedef KNNTest<float> KNNTestF;
 TEST_F(KNNTestF, Fit) {
-  ASSERT_TRUE(
-    devArrMatch(d_ref_D, d_pred_D, n * n, CompareApprox<float>(1e-30)));
+  ASSERT_TRUE(devArrMatch(d_ref_D, d_pred_D, n * n, Compare<float>()));
   ASSERT_TRUE(devArrMatch(d_ref_I, d_pred_I, n * n, Compare<long>()));
 }
 
-}  // end namespace ML
+};  // end namespace Selection
+};  // namespace MLCommon

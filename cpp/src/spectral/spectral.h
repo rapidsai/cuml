@@ -22,7 +22,7 @@
 
 #include "sparse/nvgraph_wrappers.h"
 
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 #include "sparse/coo.h"
 
 #include "cuda_utils.h"
@@ -174,11 +174,11 @@ void fit_clusters(const cumlHandle &handle, T *X, int m, int n, int n_neighbors,
   MLCommon::allocate(knn_indices, m * n_neighbors);
   MLCommon::allocate(knn_dists, m * n_neighbors);
 
-  kNNParams params[1];
-  params[0].N = m;
-  params[0].ptr = X;
-
-  knn.fit(params, 1);
+  float **ptrs = new float *[1];
+  int *sizes = new int[1];
+  ptrs[0] = X;
+  sizes[0] = m;
+  knn.fit(ptrs, sizes, 1);
   knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
   fit_clusters(handle, knn_indices, knn_dists, m, n_neighbors, n_clusters,
@@ -186,6 +186,9 @@ void fit_clusters(const cumlHandle &handle, T *X, int m, int n, int n_neighbors,
 
   CUDA_CHECK(cudaFree(knn_indices));
   CUDA_CHECK(cudaFree(knn_dists));
+
+  delete ptrs;
+  delete sizes;
 }
 
 /***
@@ -325,12 +328,12 @@ void fit_embedding(const cumlHandle &handle, T *X, int m, int n,
 
   MLCommon::allocate(knn_indices, m * n_neighbors);
   MLCommon::allocate(knn_dists, m * n_neighbors);
+  float **ptrs = new float *[1];
+  int *sizes = new int[1];
+  ptrs[0] = X;
+  sizes[0] = m;
 
-  kNNParams params[1];
-  params[0].N = m;
-  params[0].ptr = X;
-
-  knn.fit(*&params, 1);
+  knn.fit(ptrs, sizes, 1);
   knn.search(X, m, knn_indices, knn_dists, n_neighbors);
 
   fit_embedding(handle, knn_indices, knn_dists, m, n_neighbors, n_components,
@@ -338,6 +341,9 @@ void fit_embedding(const cumlHandle &handle, T *X, int m, int n,
 
   CUDA_CHECK(cudaFree(knn_indices));
   CUDA_CHECK(cudaFree(knn_dists));
+
+  delete ptrs;
+  delete sizes;
 }
 }  // namespace Spectral
 }  // namespace ML

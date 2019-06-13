@@ -17,7 +17,10 @@
 #include <cuda_runtime.h>
 #include "utils.h"
 
+#pragma once
+
 namespace ML {
+
 int get_device(const void *ptr) {
   cudaPointerAttributes att;
   cudaPointerGetAttributes(&att, ptr);
@@ -41,5 +44,4 @@ cudaMemoryType memory_type(const void *p) {
   return att.memoryType;
 #endif
 }
-
 }  // namespace ML
