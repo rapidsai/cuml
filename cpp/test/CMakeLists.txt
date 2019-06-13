@@ -94,6 +94,7 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn_test_mg.cu
+      mg/test_ml_mg_utils.cu
       )
 
     add_dependencies(ml_mg ${ClangFormat_TARGET})
