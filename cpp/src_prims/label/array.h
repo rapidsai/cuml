@@ -24,7 +24,7 @@
 #include "cuda_utils.h"
 
 namespace MLCommon {
-namespace Array {
+namespace Label {
 
 template <typename Type, int TPB_X, typename Lambda>
 __global__ void map_label_kernel(Type *map_ids, Type *in, Type *out, size_t N,
@@ -112,5 +112,5 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream) {
   make_monotonic<Type>(out, in, N, stream,
                        [] __device__(Type val) { return false; });
 }
-};  // namespace Array
+};  // namespace Label
 };  // namespace MLCommon

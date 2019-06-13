@@ -22,7 +22,7 @@
 #include "adjgraph/runner.h"
 #include "vertexdeg/runner.h"
 
-#include "array/array.h"
+#include "label/array.h"
 #include "sparse/csr.h"
 
 namespace Dbscan {
@@ -52,7 +52,7 @@ __global__ void relabelForSkl(Type* labels, Index_ N, Type MAX_LABEL) {
 template <typename Type, typename Index_ = int>
 void final_relabel(Type* db_cluster, Index_ N, cudaStream_t stream) {
   Type MAX_LABEL = std::numeric_limits<Type>::max();
-  MLCommon::Array::make_monotonic(
+  MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
     [MAX_LABEL] __device__(int val) { return val == MAX_LABEL; });
 }
