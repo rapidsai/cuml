@@ -7,7 +7,9 @@
 #include <stdlib.h>
 #include <iostream>
 #include "tsne/digits.h"
-#include "tsne/tsne.h"
+#include "tsne/tsne.cu"
+
+#include "cuda_utils.h"
 
 using namespace ML;
 using namespace MLCommon;
