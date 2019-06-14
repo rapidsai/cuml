@@ -158,7 +158,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     if (iter == exaggeration_iter) {
       float div = 1.0f / early_exaggeration;
-      inplace_multiply(VAL, NNZ, div, stream);
+      thrust::transform(__STREAM__, VAL, VAL + NNZ, VAL, div * _1);
     }
 
     // Get norm(Y)
@@ -262,7 +262,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 #if IF_DEBUG
-    if (iter == 30) break;
+    if (iter == 3) break;
 #endif
   }
 
