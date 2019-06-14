@@ -289,16 +289,24 @@ class NearestNeighbors(Base):
                 self.X_m, X_ctype, n_rows, _, dtype = \
                     input_to_dev_array(X, order='C')
 
+            print("X_ctype: "+ str(X_ctype))
+
             input_arr = <float**> malloc(sizeof(float *))
             sizes_arr = <int*> malloc(sizeof(int))
 
             sizes_arr[0] = <int>len(X)
             input_arr[0] = <float*>X_ctype
 
+
             self.n_indices = 1
 
-            self.sizes = <size_t> input_arr
-            self.input = <size_t>sizes_arr
+            inp = <uintptr_t>deref(input_arr)
+
+            self.sizes = <size_t>sizes_arr
+            self.input = <size_t>input_arr
+
+            print("input_arr: " + str(<size_t>input_arr))
+            print("input_arr: " + str(<size_t>self.input))
 
     def _fit_mg(self, n_dims, alloc_info):
         """
@@ -374,17 +382,24 @@ class NearestNeighbors(Base):
         cdef uintptr_t I_ptr = get_dev_array_ptr(I_ndarr)
         cdef uintptr_t D_ptr = get_dev_array_ptr(D_ndarr)
 
-        cdef uintptr_t input_arr = self.input
-        cdef uintptr_t sizes_arr = self.sizes
+        cdef float** inputs = <float**><size_t>self.input
+        cdef int* sizes = <int*><size_t>self.sizes
+
+        print("input ptr: " + str(<size_t>inputs))
+        print("input ptr: " + str(<size_t>self.input))
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef size_t x_ctype_st = X_ctype
+        cdef uintptr_t x_ctype_st = X_ctype
+
+        print("X_ctype: " + str(X_ctype))
+
+        print("n_dims: " + str(self.n_dims))
 
         brute_force_knn(
             handle_[0],
-            <float**>input_arr,
-            <int*>sizes_arr,
+            <float**>inputs,
+            <int*>sizes,
             <int>self.n_indices,
             <int>self.n_dims,
             <float*>x_ctype_st,
