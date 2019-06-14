@@ -239,7 +239,7 @@ __repulsive_fast(const float *__restrict__ Y,
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
-    if (i < n && j < n && i > j) {
+    if (i < n && j < n && j > i) {
         float d = 0.0f;
         for (int k = 0; k < n_components; k++)
             //d += Y[i, k] * Y[j, k]
@@ -253,7 +253,7 @@ __repulsive_fast(const float *__restrict__ Y,
             const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
             // repel = Q2 * (Y[i, k] - Y[j, k]);
 
-            atomicAdd(&repel[k*n + i],  force);  // repel[k*n + i] -= force
+            atomicAdd(&repel[k*n + i],  - force);  // repel[k*n + i] -= force
             atomicAdd(&repel[k*n + j],  force);  // repel[k*n + j] += force
         }
     }
