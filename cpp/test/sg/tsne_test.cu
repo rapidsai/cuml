@@ -53,7 +53,7 @@ class TSNETest : public ::testing::Test {
     		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
     }
     float *YY; MLCommon::allocate(YY, n * 2);
-    MLCommon::updateDevice(YY, embeddings_h.data(), n * 2, stream);
+    MLCommon::updateDevice(YY, embeddings_h, n * 2, stream);
 
     for i in 
     		
