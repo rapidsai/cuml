@@ -247,7 +247,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     CUDA_CHECK(cudaPeekAtLastError());
 
 #if IF_DEBUG
-    printf("[Info]  Y after integration\n\n");
+    printf("@@@[%d]@@@[Info]  Y after integration\n\n", iter);
     std::cout << MLCommon::arr2Str(Y, 20, "Y", stream);
     std::cout << MLCommon::arr2Str(Y + n, 20, "Y", stream);
 
