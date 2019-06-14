@@ -171,9 +171,9 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   thrust_t<float> sum_Q_ = to_thrust(sum_Q);
   double Z = (double) thrust::reduce(__STREAM__, sum_Q_, sum_Q_ + n);
 #if IF_DEBUG
-  printf("[Info]  Z sum = %lf\n", Z);
+  printf("[Info]  Z sum = %ld\n", Z);
 #endif
-  return (float)(1.0 / (2.0 * Z));
+  return (float)((double)1.0 / Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
