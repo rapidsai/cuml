@@ -139,11 +139,11 @@ __form_t_distribution(float *__restrict__ Q,
         if (i == j)
             Q[i*n + j] = 0.0f;
         else {
-            float q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
+            const float q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
             if (j > i)
                 Q[i*n + j] = q;
             else
-                atomicAdd(Q[i*n + j], q);
+                atomicAdd(&Q[i*n + j], q);
         }
     }
 }
