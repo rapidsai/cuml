@@ -199,6 +199,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Attractive forces\n\n");
     std::cout << MLCommon::arr2Str(attract, 20, "attract", stream);
+    std::cout << MLCommon::arr2Str(attract + n, 20, "attract", stream);
 #endif
 
 
@@ -207,9 +208,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Q**2\n\n");
     std::cout << MLCommon::arr2Str(Q, 20, "Q**2", stream);
+    std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "Q**2", stream);
 
     printf("[Info]  Q_sum\n\n");
     std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
+    std::cout << MLCommon::arr2Str(Q_sum + n/2, 20, "Q_sum", stream);
 #endif
 
 
@@ -223,6 +226,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Q @ Y\n\n");
     std::cout << MLCommon::arr2Str(repel, 20, "Q @ Y", stream);
+    std::cout << MLCommon::arr2Str(repel + n, 20, "Q @ Y", stream);
 #endif
 
 
@@ -233,6 +237,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  repel - mean @ Y\n\n");
     std::cout << MLCommon::arr2Str(repel, 20, "repel - mean @ Y", stream);
+    std::cout << MLCommon::arr2Str(repel + n, 20, "repel - mean @ Y", stream);
 #endif
 
 
@@ -240,9 +245,19 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     apply_forces(attract, repel, Y, iY, noise, gains, n, k, Z, min_gain,
                  momentum, eta, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+
 #if IF_DEBUG
     printf("[Info]  Y after integration\n\n");
     std::cout << MLCommon::arr2Str(Y, 20, "Y", stream);
+    std::cout << MLCommon::arr2Str(Y + n, 20, "Y", stream);
+
+    printf("[Info]  gains after integration\n\n");
+    std::cout << MLCommon::arr2Str(gains, 20, "gains", stream);
+    std::cout << MLCommon::arr2Str(gains + n, 20, "gains", stream);
+
+    printf("[Info]  iY after integration\n\n");
+    std::cout << MLCommon::arr2Str(iY, 20, "iY", stream);
+    std::cout << MLCommon::arr2Str(iY + n, 20, "iY", stream);
 #endif
 
 
