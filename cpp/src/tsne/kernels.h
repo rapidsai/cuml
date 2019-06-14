@@ -258,6 +258,8 @@ __repulsive_fast(const float *__restrict__ Y,
         }
     }
 }
+
+template <int TPB_X = 32, int TPB_Y = 32>
 double repulsive_fast(const float *__restrict__ Y,
                     float *__restrict__ repel,
                     const float *__restrict__ norm,
