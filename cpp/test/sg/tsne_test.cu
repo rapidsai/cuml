@@ -34,8 +34,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::updateDevice(Y_d, Y.data(), n * 2, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
-    TSNE(handle, X_d, Y_d, n, p, 2, 5, distances.data(), indices.data(), VAL_vector.data(), COL_vector.data(),
-    	ROW_vector.data());
+    TSNE(handle, X_d, Y_d, n, p, 2, 5);
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
