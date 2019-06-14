@@ -103,6 +103,16 @@ float determine_sigmas(const float *__restrict__ distances,
   __determine_sigmas_row<<<ceil(n, 1024), 1024, 0, stream>>>(
     distances, P, perplexity, desired_entropy, P_sum_, epochs, tol, n, k);
 
+#if IF_DEBUG
+  // Check if all perplexities are 2.0
+  float check[n*k];
+  cudaMemcpy(check, P, sizeof(float)*n*k, cudaMemcpyDeviceToHost);
+  int yes = 0;
+  for (int i = 0; i < sizeof(float)*n*k)
+    if (check[i] == 2.0) yes++;
+  printf("[IMPORTANT CHECK if (n*k = yes)]  n*k = %d   yes = %d\n\n", n*k, yes);
+#endif
+
   cudaMemcpy(&P_sum, P_sum_, sizeof(float), cudaMemcpyDeviceToHost);
   return P_sum;
 }
