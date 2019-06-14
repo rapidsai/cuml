@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
   // shuffle, if asked for
   ///@todo: currently using a poor quality shuffle for better perf!
   if (shuffle) {
-    permute(perms, out, _out, n_cols, n_rows, true, stream);
+    permute(perms.data(), out, _out, n_cols, n_rows, true, stream);
     constexpr int Nthreads = 256;
     int nblks = ceildiv<int>(n_rows, Nthreads);
     gatherKernel<<<nblks, Nthreads, 0, stream>>>(labels, _labels, perms.data(),
