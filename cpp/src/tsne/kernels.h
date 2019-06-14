@@ -167,12 +167,17 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
 
   __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n,
                                                                    sum_Q);
+  CUDA_CHECK(cudaPeekAtLastError());
 
   thrust_t<float> sum_Q_ = to_thrust(sum_Q);
   double Z = (double) thrust::reduce(__STREAM__, sum_Q_, sum_Q_ + n);
+
 #if IF_DEBUG
   printf("[Info]  Z sum = %llf\n", Z);
+  printf("[Info]  Q_sum\n\n");
+  std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
 #endif
+  
   return (float)((double)1.0 / Z);
 }
 

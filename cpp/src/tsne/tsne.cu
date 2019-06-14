@@ -160,9 +160,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Q 1/(1+d)\n\n");
     std::cout << MLCommon::arr2Str(Q, 20, "QQ", stream);
-
-    printf("[Info]  Q_sum\n\n");
-    std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
 #endif
 
     // Compute attractive forces with COO matrix
