@@ -125,7 +125,6 @@ if(BUILD_PRIMS_TESTS)
     add_executable(prims
       prims/add.cu
       prims/add_sub_dev_scalar.cu
-      prims/adjustedRandIndex.cu
       prims/array.cu
       prims/binary_op.cu
       prims/ternary_op.cu
@@ -179,6 +178,7 @@ if(BUILD_PRIMS_TESTS)
       prims/rsvd.cu
       prims/score.cu
       prims/sigmoid.cu
+      prims/silhouetteScore.cu
       prims/sqrt.cu
       prims/stddev.cu
       prims/strided_reduction.cu
