@@ -123,8 +123,6 @@ __global__ void all_cols_histograms_minmax_kernel_reg(const T* __restrict__ data
 	
 		for (int i=threadIdx.x; i < 2*batchsz; i += blockDim.x) {
 			(i < batchsz) ? (minmaxshared[i] = globalminmax[k*batch_ncols + i] ) : (minmaxshared[i] = globalminmax[k*batch_ncols + (i-batchsz) + ncols]);
-			//minmaxshared[i] = globalminmax[k*batch_ncols + i];
-			//minmaxshared[i + batchsz] = globalminmax[k*batch_ncols + i + ncols];
 		}
 
 		for (int i = threadIdx.x; i < nbins*batchsz; i += blockDim.x) {
@@ -276,7 +274,7 @@ __global__ void compute_mse_global_quantile_kernel_reg(const T* __restrict__ dat
 	
 		__syncthreads();
 	
-		for (int i = threadIdx.x; i < 2*batchsz*nbins; i += blockDim.x) {
+		for (int i = threadIdx.x; i < batchsz*nbins; i += blockDim.x) {
 			atomicAdd(&mseout[i + k*batch_ncols*nbins], shmem_mse[i]);
 			atomicAdd(&mseout[i + k*batch_ncols*nbins + ncols*nbins], shmem_mse[i + batchsz*nbins]);			
 		}
@@ -398,38 +396,19 @@ void best_split_all_cols_regressor(const T *data, const unsigned int* rowids, co
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
 		shmem_needed = n_pred_bytes + n_count_bytes + col_minmax_bytes;
-		batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
-		shmemsize = batch_ncols * ( nbins * sizeof(T) + nbins * sizeof(int) + 2 * sizeof(T) );
-		blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-		if (blocks > 65536)
-			blocks = 65536;
-
+		update_kernel_config(max_shared_mem, shmem_needed, ncols, nrows, threads, batch_ncols, blocks, shmemsize);
 		all_cols_histograms_minmax_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, batch_ncols, d_globalminmax, d_predout, d_histout);
 		
 		shmem_needed += n_mse_bytes;
-		batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);				
-		shmemsize = batch_ncols * ( nbins * sizeof(T) + nbins * sizeof(int) + 2 * sizeof(T) + 2 * nbins * sizeof(T));
-		blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-		if (blocks > 65536)
-			blocks = 65536;
-
+		update_kernel_config(max_shared_mem, shmem_needed, ncols, nrows, threads, batch_ncols, blocks, shmemsize);
 		compute_mse_minmax_kernel_reg<T, F><<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, batch_ncols, d_globalminmax, d_mseout, d_predout, d_histout, split_info[0].predict);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		shmem_needed = n_pred_bytes + n_count_bytes;
-		batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
-		shmemsize = batch_ncols * ( nbins * sizeof(T) + nbins * sizeof(int) );
-		blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-		if (blocks > 65536)
-			blocks = 65536;
-
+		update_kernel_config(max_shared_mem, shmem_needed, ncols, nrows, threads, batch_ncols, blocks, shmemsize);
 		all_cols_histograms_global_quantile_kernel_reg<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, batch_ncols, d_predout, d_histout, tempmem->d_quantile->data());
 
 		shmem_needed += n_mse_bytes;
-		batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
-		shmemsize = batch_ncols * ( nbins * sizeof(T) + nbins * sizeof(int) + 2 * nbins * sizeof(T));
-		blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-		if (blocks > 65536)
-			blocks = 65536;
+		update_kernel_config(max_shared_mem, shmem_needed, ncols, nrows, threads, batch_ncols, blocks, shmemsize);
 
 		compute_mse_global_quantile_kernel_reg<T, F><<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, batch_ncols, d_mseout, d_predout, d_histout, tempmem->d_quantile->data(), split_info[0].predict);
 	}
