@@ -201,16 +201,15 @@ __attractive_fast(const float *__restrict__ VAL,
         const int i = ROW[index];
         const int j = COL[index];
 
-        float d = 0;
+        float d = 0.0f;
         for (int k = 0; k < n_components; k++)
-            //d += Y[i, k] * Y[j, k]
-            d += Y[k*n + i] * Y[k*n + j];
+            d += (Y[k*n + i] * Y[k*n + j]); //d += Y[i, k] * Y[j, k]
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < n_components; k++)
-            // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
             atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]));
+            // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
     }
 }
 void attractive_fast(const float *__restrict__ VAL,
@@ -222,7 +221,7 @@ void attractive_fast(const float *__restrict__ VAL,
                     const int n, const int K,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * K);
-    __attractive_forces<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
         norm, attract, NNZ, n, K);
     CUDA_CHECK(cudaPeekAtLastError());
 }
