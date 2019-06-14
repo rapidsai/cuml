@@ -30,6 +30,7 @@
 - PR #671: Added pickle pytests and correct pickling of Base class
 - PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
+- PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
