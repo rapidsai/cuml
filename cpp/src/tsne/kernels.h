@@ -12,7 +12,7 @@ using namespace ML;
 using namespace MLCommon;
 
 
-__global__ void __determine_sigmas_row(const float *__restrict__ distances,
+__global__ void __determine_sigmas(const float *__restrict__ distances,
                                        float *__restrict__ P,
                                        const float perplexity,
                                        const float desired_entropy,
@@ -81,7 +81,7 @@ float determine_sigmas(const float *__restrict__ distances,
   cudaMalloc(&P_sum_, sizeof(float));
   cudaMemset(P_sum_, 0, sizeof(float));
 
-  __determine_sigmas_row<<<ceil(n, 1024), 1024, 0, stream>>>(
+  __determine_sigmas<<<ceil(n, 1024), 1024, 0, stream>>>(
     distances, P, perplexity, desired_entropy, P_sum_, epochs, tol, n, k);
 
 #if IF_DEBUG
@@ -130,7 +130,8 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
   if (i < n && j < n) {
-    if (i == j)   Q[i*n + j] = 0.0f;
+    if (i == j)
+      Q[i*n + j] = 0.0f;
     else if (j > i) {
       Q[j*n + i] = Q[i*n + j] = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
       atomicAdd(&sum_Q[i], Q[i*n + j]);
@@ -166,7 +167,7 @@ __global__ void __attractive_forces(const float *__restrict__ VAL,
   if (index < NNZ) {
     const int i = ROW[index];
     const int j = COL[index];
-    const float PQ = VAL[index] * Q[i*n + j];
+    const float PQ = VAL[index] * ((j > i) ? Q[i*n + j] : Q[j*n + i]);
     for (int l = 0; l < K; l++)
       // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
       atomicAdd(&attract[l*n + i], PQ * (Y[l*n + i] - Y[l*n + j]));
@@ -240,21 +241,18 @@ __global__ void __apply_forces(const float *__restrict__ attract,
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
   if (j < K && i < n) {
     const int index = j*n + i;
-    // DY[:] = attract + Z*repel
     const float dy = attract[index] + Z * repel[index];
-    // gains[:] = (gains + 0.2) * ((DY > 0.) != (iY > 0.)) + \
-                    (gains * 0.8) * ((DY > 0.) == (iY > 0.))
+
     if (signbit(dy) != signbit(iY[index]))
       gains[index] += 0.2f;
     else
       gains[index] *= 0.8f;
-    // gains[gains < min_gain] = min_gain
-    if (gains[index] < min_gain) gains[index] = min_gain;
 
-    // iY[:] = momentum * iY - eta * (gains * DY)
+    if (gains[index] < min_gain)
+      gains[index] = min_gain;
+
     iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
 
-    // Y += iY + noise
     Y[index] += iY[index];
   }
 }
