@@ -145,7 +145,7 @@ void get_norm_slow(const float *__restrict__ Y, float *__restrict__ norm,
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
 	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n_components, threadsPerBlock.y));
-	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
+	__get_norm_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -188,7 +188,7 @@ void apply_forces_slow(const float *__restrict__ attract,
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
 	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
-	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
+	__apply_forces_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
