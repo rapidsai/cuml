@@ -262,7 +262,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 #if IF_DEBUG
-    break;
+    if (iter == 30) break;
 #endif
   }
 
