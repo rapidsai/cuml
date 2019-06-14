@@ -95,4 +95,4 @@ class TSNETest : public ::testing::Test {
 };
 
 typedef TSNETest TSNETestF;
-TEST_F(TSNETestF, Result) { ASSERT_TRUE(0.9374 < score && score < 0.9376); }
+TEST_F(TSNETestF, Result) { ASSERT_TRUE(0.9374 < score); }
