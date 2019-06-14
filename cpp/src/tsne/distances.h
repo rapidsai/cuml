@@ -47,10 +47,10 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 
 
 
-void
-symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
-					 const int n, const int k, const float P_sum,
-					 const float exaggeration, cudaStream_t stream) {
+template <int TPB_X = 32>
+void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
+						 const int n, const int k, const float P_sum,
+						 const float exaggeration, cudaStream_t stream) {
 	// Convert to COO
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
@@ -63,7 +63,7 @@ symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 	thrust::transform(__STREAM__, P_COO.vals, P_COO.vals + P_COO.nnz, P_COO.vals, div * _1);
 
 
-	Sparse::coo_symmetrize<32, float>(
+	Sparse::coo_symmetrize<TPB_X, float>(
 		&P_COO, &P_PT_with_zeros,
 		[] __device__(int row, int col, float val, float trans) {
 			return val + trans;
@@ -74,7 +74,7 @@ symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 	// Remove all zeros in P + PT
 	Sparse::coo_sort<float>(&P_PT_with_zeros, stream);
 
-	Sparse::coo_remove_zeros<32, float>(&P_PT_with_zeros, P_PT, stream);
+	Sparse::coo_remove_zeros<TPB_X, float>(&P_PT_with_zeros, P_PT, stream);
 	P_PT_with_zeros.destroy();
 	CUDA_CHECK(cudaPeekAtLastError());
 }

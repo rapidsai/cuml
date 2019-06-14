@@ -31,17 +31,10 @@ class TSNETest : public ::testing::Test {
     MLCommon::allocate(X_d, n * p);
     MLCommon::allocate(Y_d, n * 2);
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
-    MLCommon::updateDevice(Y_d, Y.data(), n * 2, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
     TSNE(handle, X_d, Y_d, n, p, 2, 5);
     std::cout << "[>>>>]    Got embeddings!....\n";
-
-    std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
-    std::cout << MLCommon::arr2Str(Y_d+n/2, 20, "embeddings", stream) << std::endl;
-
-    std::cout << MLCommon::arr2Str(Y_d+n, 20, "embeddings", stream) << std::endl;
-    std::cout << MLCommon::arr2Str(Y_d+n+n/2, 20, "embeddings", stream) << std::endl;
 
     std::cout << "Updating host" << std::endl;
     float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
@@ -61,8 +54,6 @@ class TSNETest : public ::testing::Test {
     }
     float *YY; MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
-    		
-    //MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
     std::cout << "DONE!" << std::endl;
 
