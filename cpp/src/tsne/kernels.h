@@ -170,7 +170,6 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   CUDA_CHECK(cudaPeekAtLastError());
 
 #if IF_DEBUG
-  printf("[Info]  Z sum = %llf\n", Z);
   printf("[Info]  sum_Q\n\n");
   std::cout << MLCommon::arr2Str(sum_Q, 20, "sum_Q", stream);
 
@@ -179,7 +178,7 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   double z2 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
   printf("sum(Q) = %llf\n", z2);
   double Z = z1 + z2;
-
+  printf("[Info]  Z sum = %llf\n", Z);
 #else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
 #endif
