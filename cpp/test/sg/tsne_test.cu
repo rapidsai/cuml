@@ -54,8 +54,6 @@ class TSNETest : public ::testing::Test {
     }
     float *YY; MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, embeddings_h, n * 2, stream);
-
-    for i in 
     		
     //MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
