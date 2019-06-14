@@ -174,8 +174,8 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
 
 #if IF_DEBUG
   printf("[Info]  Z sum = %llf\n", Z);
-  printf("[Info]  Q_sum\n\n");
-  std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
+  printf("[Info]  sum_Q\n\n");
+  std::cout << MLCommon::arr2Str(sum_Q, 20, "sum_Q", stream);
 #endif
   
   return (float)((double)1.0 / Z);
