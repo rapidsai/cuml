@@ -137,6 +137,7 @@ void random_vector(float *vector, const float minimum, const float maximum,
   }
   Random::Rng random(seed);
   random.uniform<float>(vector, size, minimum, maximum, stream);
+  CUDA_CHECK(cudaPeekAtLastError());
 }
 // end namespace ML
 }  // namespace ML

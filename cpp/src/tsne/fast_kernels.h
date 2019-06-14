@@ -240,7 +240,7 @@ __apply_forces(const float *__restrict__ attract,
 
 		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
 
-		Y[index] += iY[index];
+		Y[index] += (iY[index] + noise[index]);
 	}
 }
 
@@ -253,6 +253,7 @@ void apply_forces(const float *__restrict__ attract,
 				const float eta, cudaStream_t stream) {
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
 	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+	
 	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, noise, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
