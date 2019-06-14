@@ -197,7 +197,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
 
 
-    Z = repulsive_fast(Y, repel, norm, sum_Q, n, n_components, stream);
+    Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
 
 
     CUDA_CHECK(cudaPeekAtLastError());
