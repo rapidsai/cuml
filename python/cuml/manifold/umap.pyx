@@ -203,26 +203,26 @@ class UMAP(Base):
 
     """
     def __init__(self,
-                  n_neighbors=15,
-                  n_components=2,
-                  n_epochs=500,
-                  learning_rate=1.0,
-                  min_dist=0.1,
-                  spread=1.0,
-                  set_op_mix_ratio=1.0,
-                  local_connectivity=1.0,
-                  repulsion_strength=1.0,
-                  negative_sample_rate=5,
-                  transform_queue_size=4.0,
-                  init="spectral",
-                  verbose=False,
-                  a=None,
-                  b=None,
-                  target_n_neighbors=-1,
-                  target_weights=0.5,
-                  target_metric="euclidean",
-                  should_downcast=True,
-                  handle=None):
+                 n_neighbors=15,
+                 n_components=2,
+                 n_epochs=500,
+                 learning_rate=1.0,
+                 min_dist=0.1,
+                 spread=1.0,
+                 set_op_mix_ratio=1.0,
+                 local_connectivity=1.0,
+                 repulsion_strength=1.0,
+                 negative_sample_rate=5,
+                 transform_queue_size=4.0,
+                 init="spectral",
+                 verbose=False,
+                 a=None,
+                 b=None,
+                 target_n_neighbors=-1,
+                 target_weights=0.5,
+                 target_metric="euclidean",
+                 should_downcast=True,
+                 handle=None):
 
         super(UMAP, self).__init__(handle, verbose)
 
@@ -329,8 +329,7 @@ class UMAP(Base):
                 <int> X_m.shape[0],
                 <int> X_m.shape[1],
                 <UMAPParams*>umap_params,
-                <float*>embed_raw
-            )
+                <float*>embed_raw)
 
         else:
 
@@ -339,8 +338,7 @@ class UMAP(Base):
                 <int> X_m.shape[0],
                 <int> X_m.shape[1],
                 <UMAPParams*>umap_params,
-                <float*>embed_raw
-            )
+                <float*>embed_raw)
 
         del X_m
 
@@ -443,4 +441,4 @@ class UMAP(Base):
         del X_m
 
         return ret
-
+        
