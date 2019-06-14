@@ -160,10 +160,10 @@ __attractive_fast_2dim(const float *__restrict__ VAL,
         const int i = ROW[index];
         const int j = COL[index];
 
-        const float d = Y1[i]*Y1[j] + Y2[i]*Y2[j];
-        const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
+        const float PQ = VAL[index] / \
+        	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
 
-        atomicAdd(&attract1[i],     PQ * (Y1[i] - Y2[j]) );
+        atomicAdd(&attract1[i],     PQ * (Y1[i] - Y1[j]) );
         atomicAdd(&attract2[i],     PQ * (Y2[i] - Y2[j]) );
     }
 }
@@ -177,7 +177,11 @@ void attractive_fast(const float *__restrict__ VAL,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * dim);
 
-    __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    if (dim == 2)
+    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+        	Y + n, norm, attract, attract + n, NNZ, n, dim);
+    else
+    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
         	norm, attract, NNZ, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -213,6 +217,36 @@ __repulsive_fast(const float *__restrict__ Y,
         }
     }
 }
+__global__ void
+__repulsive_fast_2dim(const float *__restrict__ Y1,
+				const float *__restrict__ Y2,
+                float *__restrict__ repel1,
+                float *__restrict__ repel2,
+                const float *__restrict__ norm1,
+                const float *__restrict__ norm2,
+                float *__restrict__ sum_Z,
+                const int n, const int dim)
+{
+    const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+    const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+
+    if (i < n && j < n && j > i) {
+
+        const float Q = 1.0f / \
+        	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
+
+        atomicAdd(&sum_Z[i], Q); // Z += Q
+        const float Q2 = Q*Q;
+
+        const float force1 = Q2 * (Y1[i] - Y1[j]);
+        atomicAdd(&repel1[i],  - force1);
+        atomicAdd(&repel1[j],  force1);
+
+        const float force2 = Q2 * (Y2[i] - Y2[j]);
+        atomicAdd(&repel2[i],  - force2);
+        atomicAdd(&repel2[j],  force2);
+    }
+}
 
 
 template <int TPB_X = 32, int TPB_Y = 32>
@@ -228,8 +262,13 @@ float repulsive_fast(const float *__restrict__ Y,
 
     const dim3 threadsPerBlock(TPB_X, TPB_Y);
     const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
-    __repulsive_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, repel,
-                                            norm, sum_Z, n, dim);
+
+    if (dim == 2)
+    	__repulsive_fast_2dim<<<numBlocks, threadsPerBlock, 0, stream>>>(
+    		Y, Y + n, repel, repel + n, norm, norm + n, sum_Z, n, dim);
+    else
+    	__repulsive_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(
+    		Y, repel, norm, sum_Z, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 
     thrust_t<float> begin = to_thrust(sum_Z);
