@@ -16,6 +16,7 @@ using namespace MLCommon;
 void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
           const int p, const int n_components = 2, int n_neighbors = 90,
           const float *distances_vector = NULL, const long *indices_vector = NULL,
+          float *VAL_vector = NULL, const int *COL_vector = NULL, const int *ROW_vector = NULL,
           const float perplexity = 30.0f, const int perplexity_epochs = 100,
           const int perplexity_tol = 1e-5,
           const float early_exaggeration = 12.0f,
@@ -81,20 +82,39 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
   // Convert data to COO layout
-  DEBUG("[Info] Convert to COO layout and symmetrize\n");
-  COO_t<float> P_PT;
-  symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum,
-                        early_exaggeration, stream);
-  CUDA_CHECK(cudaPeekAtLastError());
+  float *VAL;
+  int *COL, *ROW;
+
+  if (VAL_vector == NULL) {
+    DEBUG("[Info] Convert to COO layout and symmetrize\n");
+    COO_t<float> P_PT;
+    symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum,
+                          early_exaggeration, stream);
+    CUDA_CHECK(cudaPeekAtLastError());
+    NNZ = P_PT.nnz;
+    VAL = P_PT.vals;
+    COL = P_PT.rows;
+    ROW = P_PT.cols;
+  }
+  else {
+    NNZ = test_nnz;
+    VAL = (float *)d_alloc->allocate(sizeof(float) * NNZ, stream);
+    COL = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
+    ROW = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
+    MLCommon::updateDevice(VAL, VAL_vector, NNZ, stream);
+    MLCommon::updateDevice(COL, COL_vector, NNZ, stream);
+    MLCommon::updateDevice(ROW, ROW_vector, NNZ, stream);
+  }
+
 #if IF_DEBUG
     printf("[Info]  Symmetrized Perplexity results\n\n");
-    std::cout << MLCommon::arr2Str(P_PT.vals, 20, "Perplexity", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(VAL, 20, "Perplexity", stream) << std::endl;
 
     printf("[Info]  COL\n\n");
-    std::cout << MLCommon::arr2Str(P_PT.cols, 20, "Perplexity", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(COL, 20, "Perplexity", stream) << std::endl;
 
     printf("[Info]  RWW\n\n");
-    std::cout << MLCommon::arr2Str(P_PT.rows, 20, "Perplexity", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(ROW, 20, "Perplexity", stream) << std::endl;
 #endif
 
 
@@ -134,7 +154,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     if (iter == exaggeration_iter) {
       float div = 1.0f / early_exaggeration;
-      inplace_multiply(P_PT.vals, P_PT.nnz, div, stream);
+      inplace_multiply(VAL, NNZ, div, stream);
     }
 
     // Get norm(Y)
@@ -166,7 +186,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #endif
 
     // Compute attractive forces with COO matrix
-    attractive_forces(P_PT.vals, P_PT.cols, P_PT.rows, Q, Y, attract, P_PT.nnz,
+    attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ,
                       n, k, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
@@ -223,7 +243,14 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
   }
 
+
+#if not IF_DEBUG
   P_PT.destroy();
+#else
+  d_alloc->deallocate(VAL, sizeof(float) * NNZ, stream);
+  d_alloc->deallocate(COL, sizeof(int) * NNZ, stream);
+  d_alloc->deallocate(ROW, sizeof(int) * NNZ, stream);
+#endif
 
   d_alloc->deallocate(noise, sizeof(float) * n, stream);
 
