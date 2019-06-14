@@ -218,13 +218,10 @@ __global__ void
 __apply_forces(const float *__restrict__ attract,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
-				 const float *__restrict__ noise,
 				 float *__restrict__ gains, const int n,
 				 const int K, const double Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
-	// NOTICE noise is a 1D array
-
 	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
 	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
 	if (j < K && i < n) {
@@ -256,7 +253,7 @@ void apply_forces(const float *__restrict__ attract,
 	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
 	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
-		attract, repel, Y, iY, noise, gains, n, K, Z, min_gain, momentum, eta);
+		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
