@@ -222,7 +222,7 @@ void attractive_fast(const float *__restrict__ VAL,
                     const int n, const int K,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * K);
-    __attractive_forces<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Q, Y,
+    __attractive_forces<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
         norm, attract, NNZ, n, K);
     CUDA_CHECK(cudaPeekAtLastError());
 }
