@@ -60,7 +60,7 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 
   // Perform (P + P.T) / P_sum * early_exaggeration
   const float div = exaggeration / (2.0f * P_sum);
-  thrust::transform(__STREAM__, P, P + n*k, P, exaggeration * _1);
+  thrust::transform(__STREAM__, P, P + n*k, P, div * _1);
 
 
   Sparse::coo_symmetrize<32, float>(
