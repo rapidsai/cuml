@@ -25,35 +25,35 @@ from sklearn.utils.testing import ignore_warnings
 from sklearn.utils.testing import assert_no_warnings
 # from sklearn.utils.mocking import MockDataFrame
 
-# from cuml.model_selection import cross_val_score
-from cuml.model_selection import KFold
-from cuml.model_selection import StratifiedKFold
-from cuml.model_selection import GroupKFold
-from cuml.model_selection import TimeSeriesSplit
-from cuml.model_selection import LeaveOneOut
-from cuml.model_selection import LeaveOneGroupOut
-from cuml.model_selection import LeavePOut
-from cuml.model_selection import LeavePGroupsOut
-from cuml.model_selection import ShuffleSplit
-from cuml.model_selection import GroupShuffleSplit
-from cuml.model_selection import StratifiedShuffleSplit
-from cuml.model_selection import PredefinedSplit
-from cuml.model_selection import check_cv
-# from cuml.model_selection import train_test_split
-# from cuml.model_selection import GridSearchCV
-from cuml.model_selection import RepeatedKFold
-from cuml.model_selection import RepeatedStratifiedKFold
+# from cuml import cross_val_score
+from cuml import KFold
+from cuml import StratifiedKFold
+from cuml import GroupKFold
+from cuml import TimeSeriesSplit
+from cuml import LeaveOneOut
+from cuml import LeaveOneGroupOut
+from cuml import LeavePOut
+from cuml import LeavePGroupsOut
+from cuml import ShuffleSplit
+from cuml import GroupShuffleSplit
+from cuml import StratifiedShuffleSplit
+from cuml import PredefinedSplit
+from cuml import check_cv
+# from cuml import train_test_split
+# from cuml import GridSearchCV
+from cuml import RepeatedKFold
+from cuml import RepeatedStratifiedKFold
 
 # from sklearn.linear_model import Ridge
 
-from cuml.model_selection._split import _validate_shuffle_split
-from cuml.model_selection._split import _build_repr
-from cuml.model_selection._split import NSPLIT_WARNING
+from cuml.thirdparty._sklearn.model_selection._split import (
+    _validate_shuffle_split, _build_repr, NSPLIT_WARNING)
 
 from sklearn.datasets import load_digits
 # from sklearn.datasets import make_classification
 
-from cuml.model_selection._utils import _num_samples, comb, in1d
+from cuml.thirdparty._sklearn.model_selection._utils import (_num_samples,
+                                                             comb, in1d)
 
 X = cudf.DataFrame({'a': range(10)})
 y = cp.arange(10) // 2

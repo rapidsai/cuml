@@ -26,7 +26,7 @@ import numpy as np
 import cupy as cp
 import cudf
 
-from cuml.model_selection._utils import (
+from cuml.thirdparty._sklearn.model_selection._utils import (
     safe_indexing, indexable, _num_samples, comb, _pprint, check_random_state,
     np_check_random_state, column_or_1d, type_of_target, check_array, in1d,
     _approximate_mode, _np_approximate_mode)
