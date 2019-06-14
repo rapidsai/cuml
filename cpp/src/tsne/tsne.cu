@@ -156,7 +156,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    DEBUG("[Info] Z =  %lf iter = %d\n", Z, iter);
+    DEBUG("[Info] Z =  %llf iter = %d\n", Z, iter);
 #if IF_DEBUG
     printf("[Info]  Q 1/(1+d)\n\n");
     std::cout << MLCommon::arr2Str(Q, 20, "QQ", stream);

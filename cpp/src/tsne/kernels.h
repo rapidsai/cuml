@@ -146,7 +146,7 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
   if (i < n && j < n) {
-    if (i == j)   Q[i * n + j] = 0.0f;
+    if (i == j)   Q[i*n + j] = 0.0f;
     else {
       float q;
       if (j > i)  Q[i*n + j] = q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
@@ -171,7 +171,7 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   thrust_t<float> sum_Q_ = to_thrust(sum_Q);
   double Z = (double) thrust::reduce(__STREAM__, sum_Q_, sum_Q_ + n);
 #if IF_DEBUG
-  printf("[Info]  Z sum = %ld\n", Z);
+  printf("[Info]  Z sum = %llf\n", Z);
 #endif
   return (float)((double)1.0 / Z);
 }
