@@ -245,7 +245,7 @@ __repulsive_fast(const float *__restrict__ Y,
             //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
-        float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
+        const float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
         atomicAdd(&sum_Z[i], Q); // Z += Q
         const float Q2 = Q*Q;
 
