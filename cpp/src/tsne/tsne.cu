@@ -216,9 +216,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #endif
 
 
-#if IF_DEBUG
-  break;
-#endif
+  if (IF_DEBUG && iter == 30) break;
+
   }
 
   P_PT.destroy();
