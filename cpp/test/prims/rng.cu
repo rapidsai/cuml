@@ -456,5 +456,36 @@ TEST_F(ScaledBernoulliTest1, RangeCheck) { rangeCheck(); }
 typedef ScaledBernoulliTest<double, 100, 220> ScaledBernoulliTest2;
 TEST_F(ScaledBernoulliTest2, RangeCheck) { rangeCheck(); }
 
+template <typename T, int len>
+class BernoulliTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    Rng r(42);
+    allocate(data, len * sizeof(bool), stream);
+    r.bernoulli(data, len, T(0.5), stream);
+  }
+
+  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
+
+  void trueFalseCheck() {
+    // both true and false values must be present
+    bool* h_data = new bool[len];
+    updateHost(h_data, data, len, stream);
+    ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return a; }));
+    ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return !a; }));
+    delete[] h_data;
+  }
+
+  bool* data;
+  cudaStream_t stream;
+};
+
+typedef BernoulliTest<float, 1000> BernoulliTest1;
+TEST_F(BernoulliTest1, TrueFalseCheck) { trueFalseCheck(); }
+
+typedef BernoulliTest<double, 1000> BernoulliTest2;
+TEST_F(BernoulliTest2, TrueFalseCheck) { trueFalseCheck(); }
+
 }  // end namespace Random
 }  // end namespace MLCommon

@@ -273,7 +273,7 @@ class Rng {
    */
   template <typename Type, typename LenType = int>
   void bernoulli(bool *ptr, LenType len, Type prob, cudaStream_t stream) {
-    randImpl(
+    randImpl<bool, Type>(
       offset, ptr, len,
       [=] __device__(Type val, LenType idx) { return val > prob; }, NumThreads,
       nBlocks, type, stream);
