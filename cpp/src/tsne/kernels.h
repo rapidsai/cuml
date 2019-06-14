@@ -215,8 +215,8 @@ __global__ void __postprocess_Q(float *__restrict__ Q,
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (i < n && j < n) {
-    Q[i * n + j] *= Q[i * n + j];
-    atomicAdd(&sum_Q[i], Q[i * n + j]);
+    float q = Q[i * n + j]; q *= q;
+    atomicAdd(&sum_Q[i], q);
   }
 }
 
