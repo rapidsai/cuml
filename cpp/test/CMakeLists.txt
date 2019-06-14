@@ -170,6 +170,7 @@ if(BUILD_PRIMS_TESTS)
       prims/power.cu
       prims/randIndex.cu
       prims/reduce.cu
+      prims/reduce_cols_by_key.cu
       prims/reduce_rows_by_key.cu
       prims/reverse.cu
       prims/rng.cu
