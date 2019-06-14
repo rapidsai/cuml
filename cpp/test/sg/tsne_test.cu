@@ -42,7 +42,13 @@ class TSNETest : public ::testing::Test {
 
     std::cout << "Updating host" << std::endl;
     float embeddings_h[n * 2];
-    MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
+
+    for (int i = 0; i < n; i++) {
+    	for (int j = 0; j < k; j++)
+    		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
+    }
+    		
+    //MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
     std::cout << "DONE!" << std::endl;
 
