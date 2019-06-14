@@ -111,7 +111,7 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
 	cudaMemset(norm, 0, sizeof(float) * n);
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(K, threadsPerBlock.y));
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n_components, threadsPerBlock.y));
 	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
