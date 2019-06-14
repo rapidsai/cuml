@@ -166,6 +166,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Norm(y)\n\n");
     std::cout << MLCommon::arr2Str(norm, 20, "norm", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(norm + n/2, 20, "norm", stream) << std::endl;
 #endif
 
     // Do -2 * (Y @ Y.T)
@@ -177,6 +178,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  -2Y @ Y.T\n\n");
     std::cout << MLCommon::arr2Str(Q, 20, "-2YYT", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "-2YYT", stream) << std::endl;
 #endif
 
     // Form T = 1 / (1+d)
@@ -187,6 +189,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #if IF_DEBUG
     printf("[Info]  Q 1/(1+d)\n\n");
     std::cout << MLCommon::arr2Str(Q, 20, "QQ", stream);
+    std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "QQ", stream);
 #endif
 
     // Compute attractive forces with COO matrix
