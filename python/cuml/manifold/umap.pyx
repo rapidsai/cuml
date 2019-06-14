@@ -274,7 +274,7 @@ class UMAP(Base):
 
     def __dealloc__(self):
         cdef UMAPParams * umap_params = \
-                            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> < size_t > self.umap_params
         del umap_params
 
     def fit(self, X, y=None):
@@ -305,7 +305,7 @@ class UMAP(Base):
                              "build nearest the neighbors graph")
 
         cdef UMAPParams * umap_params = \
-                            <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> < size_t > self.umap_params
         umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
         self.n_dims = n_cols
         self.raw_data = X_ctype
@@ -315,9 +315,10 @@ class UMAP(Base):
                                                umap_params.n_components),
                                               order="C", dtype=np.float32))
         self.embeddings = \
-                     self.arr_embed.device_ctypes_pointer.value
+            self.arr_embed.device_ctypes_pointer.value
 
-        cdef cumlHandle * handle_ = <cumlHandle*> < size_t > self.handle.getHandle()
+        cdef cumlHandle * handle_ = \
+            <cumlHandle*> < size_t > self.handle.getHandle()
 
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
@@ -413,14 +414,14 @@ class UMAP(Base):
                              "training data")
 
         cdef UMAPParams * umap_params = \
-                           <UMAPParams*> < size_t > self.umap_params
+            <UMAPParams*> < size_t > self.umap_params
         embedding = cuda.to_device(zeros((X_m.shape[0],
                                           umap_params.n_components),
                                          order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
         cdef cumlHandle * handle_ = \
-                         <cumlHandle*> < size_t > self.handle.getHandle()
+            <cumlHandle*> < size_t > self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.raw_data
 
