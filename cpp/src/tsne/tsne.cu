@@ -192,10 +192,10 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 // #endif
 
     // Compute attractive forces with COO matrix
-    // attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ,
-    //                   n, k, stream);
+    attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ,
+                       n, k, stream);
 
-    attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
+    //attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
 
     CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
