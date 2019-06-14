@@ -222,8 +222,7 @@ __repulsive_fast_2dim(const float *__restrict__ Y1,
 				const float *__restrict__ Y2,
                 float *__restrict__ repel1,
                 float *__restrict__ repel2,
-                const float *__restrict__ norm1,
-                const float *__restrict__ norm2,
+                const float *__restrict__ norm,
                 float *__restrict__ sum_Z,
                 const int n, const int dim)
 {
@@ -265,7 +264,7 @@ float repulsive_fast(const float *__restrict__ Y,
 
     if (dim == 2)
     	__repulsive_fast_2dim<<<numBlocks, threadsPerBlock, 0, stream>>>(
-    		Y, Y + n, repel, repel + n, norm, norm + n, sum_Z, n, dim);
+    		Y, Y + n, repel, repel + n, norm, sum_Z, n, dim);
     else
     	__repulsive_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(
     		Y, repel, norm, sum_Z, n, dim);
