@@ -25,7 +25,7 @@
 - PR #622: Updated to use 0.8 dependencies
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
-- PR #650: Moving brute force kNN to prims. Creating stateless kNN API. 
+- PR #650: Moving brute force kNN to prims. Creating stateless kNN API.
 - PR #662: C++: Bulk clang-format updates
 - PR #671: Added pickle pytests and correct pickling of Base class
 - PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
@@ -39,6 +39,7 @@
 - PR #649: Bug fix to LinAlg::reduce_rows_by_key prim filed in issue #648
 - PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
 - PR #676: Fix template parameters in `bernoulli()` implementation.
+- PR #685: Make CuPy optional to avoid nccl conda package conflicts
 
 # cuML 0.7.0 (10 May 2019)
 
