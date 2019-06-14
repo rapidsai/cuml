@@ -52,6 +52,10 @@ class TSNETest : public ::testing::Test {
     	for (int j = 0; j < k; j++)
     		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
     }
+    float *YY; MLCommon::allocate(YY, n * 2);
+    MLCommon::updateDevice(YY, embeddings_h.data(), n * 2, stream);
+
+    for i in 
     		
     //MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
@@ -62,11 +66,12 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     // euclidean test
     score = trustworthiness_score<float, EucUnexpandedL2>(
-      X_d, Y_d, n, p, 2, 5, handle.getDeviceAllocator(), stream);
+      X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
 
     std::cout << "SCORE: " << score << std::endl;
 
     CUDA_CHECK(cudaFree(Y_d));
+    CUDA_CHECK(cudaFree(YY));
     CUDA_CHECK(cudaFree(X_d));
 
     CUDA_CHECK(cudaStreamDestroy(stream));
