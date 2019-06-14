@@ -50,7 +50,7 @@ class TSNETest : public ::testing::Test {
     int k = 0;
     for (int i = 0; i < n; i++) {
     	for (int j = 0; j < k; j++) {
-    		cudaMemcpy(&embeddings_h[k], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
+    		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
     	}
     }
     for (int j = 0; j < 2; j++) {
