@@ -20,11 +20,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
           const int p, const int n_components = 2, int n_neighbors = 90,
           const float *distances_vector = NULL, const long *indices_vector = NULL,
           float *VAL_vector = NULL, const int *COL_vector = NULL, const int *ROW_vector = NULL,
-          const float perplexity = 30.0f, const int perplexity_epochs = 100,
+          const float perplexity = 30.0f, const int perplexity_max_iter = 100,
           const int perplexity_tol = 1e-5,
           const float early_exaggeration = 12.0f,
-          const int exaggeration_iter = 20, const float min_gain = 0.01f,
-          const float eta = 500.0f, const int epochs = 150,
+          const int exaggeration_iter = 150, const float min_gain = 0.01f,
+          const float eta = 500.0f, const int max_iter = 500,
           const float pre_momentum = 0.8, const float post_momentum = 0.5,
           const long long seed = -1, const bool initialize_embeddings = false) {
   auto d_alloc = handle.getDeviceAllocator();
@@ -73,7 +73,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Get perplexity
   DEBUG("[Info] Get perplexity\n");
   float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
-  float P_sum = determine_sigmas(distances, P, perplexity, perplexity_epochs,
+  float P_sum = determine_sigmas(distances, P, perplexity, perplexity_max_iter,
                                  perplexity_tol, n, n_neighbors, stream);
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(float), stream);
   DEBUG("[Info] P_sum = %f\n", P_sum);
@@ -152,11 +152,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   int error;
 
   DEBUG("[Info] Start iterations\n");
-  for (int iter = 0; iter < 100; iter++) {
+  for (int iter = 0; iter < max_iter; iter++) {
 
-    if (iter == 50) momentum = post_momentum;
+    if (iter == 100) momentum = post_momentum;
 
-    if (iter == 30) {
+    if (iter == exaggeration_iter) {
       float div = 1.0f / early_exaggeration;
       thrust::transform(__STREAM__, VAL, VAL + NNZ, VAL, div * _1);
     }
