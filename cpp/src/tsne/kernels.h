@@ -142,19 +142,16 @@ __global__ void __sum_array(const float *__restrict__ X,
 __global__ void __form_t_distribution(float *__restrict__ Q,
                                       const float *__restrict__ norm,
                                       const int n, float *__restrict__ sum_Q) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
   if (i < n && j < n) {
-    if (i == j)
-      Q[i * n + j] = 0.0f;
+    if (i == j)   Q[i * n + j] = 0.0f;
     else {
-      if (j > i)
-        Q[i * n + j] = 1.0f / (Q[i * n + j] + norm[i] + norm[j] + 1.0f);
-      else
-        Q[i * n + j] = 1.0f / (Q[j * n + i] + norm[i] + norm[j] + 1.0f);
-      atomicAdd(&sum_Q[i], Q[i * n + j]);
+      float q;
+      if (j > i)  Q[i*n + j] = q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
+      else        Q[i*n + j] = q = 1.0f / (Q[j*n + i] + norm[i] + norm[j] + 1.0f);
+      atomicAdd(&sum_Q[i], q);
     }
   }
 }
