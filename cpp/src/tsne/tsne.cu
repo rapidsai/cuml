@@ -95,7 +95,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	float momentum = pre_momentum;
 	float Z;
-	int error;
 
 	if (verbose) printf("[Info]	Start gradient updates!\n");
 	if (method == "Fast") {
@@ -130,6 +129,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	}
 
 	else if (method == "Naive") {
+		int error;
 		/*
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
 		Code flow follows closely to Maaten's original TSNE code.

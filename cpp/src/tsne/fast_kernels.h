@@ -101,13 +101,13 @@ __get_norm_fast(const float *__restrict__ Y, float *__restrict__ norm,
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
 	if (i < n && j < dim)
-		atomicAdd(&norm[i], Y[i*dim + j] * Y[i*dim + j]);
+		atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void get_norm_fast(const float *__restrict__ Y, float *__restrict__ norm,
 			  const int n, const int dim, cudaStream_t stream) {
-	// Notice Y is C-Contiguous
+	// Notice Y is F-Contiguous
 	cudaMemset(norm, 0, sizeof(float) * n);
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
@@ -135,12 +135,12 @@ __attractive_fast(const float *__restrict__ VAL,
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
             //d += Y[i, k] * Y[j, k]
-            d += (Y[i*dim + k] * Y[j*dim + k]);
+            d += (Y[k*n + i] * Y[k*n + j]);
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < dim; k++)
-            atomicAdd(&attract[i*dim + k],     PQ * (Y[i*dim + k] - Y[j*dim + k]));
+            atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]));
             // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
     }
 }
@@ -168,7 +168,6 @@ __repulsive_fast(const float *__restrict__ Y,
                 float *__restrict__ sum_Z,
                 const int n, const int dim)
 {
-	// Notice C - Contiguous
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
@@ -176,18 +175,18 @@ __repulsive_fast(const float *__restrict__ Y,
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
             //d += Y[i, k] * Y[j, k]
-            d += (Y[i*dim + k] * Y[j*dim + k]);
+            d += (Y[k*n + i] * Y[k*n + j]);
 
         const float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
         atomicAdd(&sum_Z[i], Q); // Z += Q
         const float Q2 = Q*Q;
 
         for (int k = 0; k < dim; k++) {
-            const float force = Q2 * (Y[i*dim + k] - Y[j*dim + k]);
+            const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
             // repel = Q2 * (Y[i, k] - Y[j, k]);
 
-            atomicAdd(&repel[i*dim + k],  - force);  // repel[k*n + i] -= force
-            atomicAdd(&repel[j*dim + k],  force);    // repel[k*n + j] += force
+            atomicAdd(&repel[k*n + i],  - force);  // repel[k*n + i] -= force
+            atomicAdd(&repel[k*n + j],  force);    // repel[k*n + j] += force
         }
     }
 }
@@ -222,7 +221,7 @@ __find_mean_fast(const float * __restrict__ Y, float * __restrict__ means,
 	// Y is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < dim) atomicAdd(&means[j], Y[i*dim + j]);
+	if (i < n && j < dim) atomicAdd(&means[j], Y[j*n + i]);
 }
 __global__ void
 __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
@@ -230,7 +229,7 @@ __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means,
 	// Y is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < dim) Y[i*dim + j] -= means[j];
+	if (i < n && j < dim) Y[j*n + i] -= means[j];
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
@@ -264,10 +263,10 @@ __apply_forces(const float *__restrict__ attract,
 				 const int dim, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
-	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
-	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
+	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
 	if (j < dim && i < n) {
-		const int index = i*dim + j;
+		const int index = j*n + i;
 		const float dy = attract[index] + Z * repel[index];
 
 		if (signbit(dy) != signbit(iY[index]))
@@ -291,9 +290,8 @@ void apply_forces(const float *__restrict__ attract,
 				const int n, const int dim, const float Z, 
 				const float min_gain, const float momentum,
 				const float eta, cudaStream_t stream) {
-	// Notice C Contiguous
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
 	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
