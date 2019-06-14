@@ -14,7 +14,8 @@ using namespace MLCommon;
 void
 get_distances(const float *X, const int n, const int p, long *indices,
 			float *distances, const int n_neighbors,
-			cudaStream_t stream) {
+			cudaStream_t stream)
+{
 	assert(X != NULL);
 
 	cumlHandle handle;
@@ -27,32 +28,25 @@ get_distances(const float *X, const int n, const int p, long *indices,
 										const_cast<float *>(X), n, indices,
 										distances, n_neighbors, stream);
 	delete knn_input, sizes;
-	CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
 
 void
 normalize_distances(const int n, float *distances, const int n_neighbors,
-					cudaStream_t stream) {
+					cudaStream_t stream)
+{
 	// Now D / max(abs(D)) to allow exp(D) to not explode
 	assert(distances != NULL);
+	thrust_t<float> begin = to_thrust(distances);
 
-	const float max = *(thrust::max_element(__STREAM__, distances, distances + n*n_neighbors));
-	CUDA_CHECK(cudaPeekAtLastError());
-
-	const float min = *(thrust::min_element(__STREAM__, distances, distances + n*n_neighbors));
-	CUDA_CHECK(cudaPeekAtLastError());
-
-	float maxNorm = MAX(max, min);
-	printf("Got maxNorm.\n");
+	float maxNorm = MAX(*(thrust::max_element(__STREAM__, begin, begin + n*n_neighbors)),
+						*(thrust::min_element(__STREAM__, begin, begin + n*n_neighbors)));
 	if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
 	const float div = 1.0f / maxNorm;  // Mult faster than div
-	thrust::transform(__STREAM__, distances, distances + n*n_neighbors, distances, div * _1);
-	printf("Transformed.\n");
-	CUDA_CHECK(cudaPeekAtLastError());
+	thrust::transform(__STREAM__, begin, begin + n*n_neighbors, begin, div * _1);
 }
 
 
@@ -67,16 +61,15 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
 	Sparse::from_knn(indices, P, n, k, &P_COO);
-	CUDA_CHECK(cudaPeekAtLastError());
 	cfree(P);
 	cfree(indices);
 
 	// Perform (P + P.T) / P_sum * early_exaggeration
 	const float div = exaggeration / (2.0f * P_sum);
-	thrust::transform(__STREAM__, P_COO.vals, P_COO.vals + P_COO.nnz, P_COO.vals, div * _1);
-	CUDA_CHECK(cudaPeekAtLastError());
+	thrust_t<float> begin = to_thrust(P_COO.vals);
+	thrust::transform(__STREAM__, begin, begin + P_COO.nnz, begin, div * _1);
 
-
+	// Symmetrize to form P + P.T
 	Sparse::coo_symmetrize<TPB_X, float>(
 		&P_COO, &P_PT_with_zeros,
 		[] __device__(int row, int col, float val, float trans) {
@@ -84,15 +77,12 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 		},
 		stream);
 	P_COO.destroy();
-	CUDA_CHECK(cudaPeekAtLastError());
-	
+
 	// Remove all zeros in P + PT
 	Sparse::coo_sort<float>(&P_PT_with_zeros, stream);
-	CUDA_CHECK(cudaPeekAtLastError());
 
 	Sparse::coo_remove_zeros<TPB_X, float>(&P_PT_with_zeros, P_PT, stream);
 	P_PT_with_zeros.destroy();
-	CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
