@@ -7,11 +7,9 @@
 
 #include "cublas_v2.h"
 #include "distances.h"
-//#include "kernels.h"
+#include "kernels.h"
 #include "fast_kernels.h"
 #include "utils.h"
-
-#define TEST_NNZ 12021
 
 
 namespace ML {
@@ -44,7 +42,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Get distances
 	if (verbose) printf("[Info]	Getting distances.\n");
-	float *distances = (float *)d_alloc->allocate(n * n_neighbors * sizeof(float), stream);
+	float *distances = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
 	long *indices = (long *)d_alloc->allocate(sizeof(long) * n * n_neighbors, stream);
 
 	get_distances(X, n, p, indices, distances, n_neighbors, stream);
@@ -61,7 +59,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	const float P_sum = determine_sigmas(distances, P, perplexity, perplexity_max_iter,
 										perplexity_tol, n, n_neighbors, stream);
-	d_alloc->deallocate(distances, n * n_neighbors * sizeof(float), stream);
+	d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
 	if (verbose) printf("[Info]	Perplexity sum = %f\n", P_sum);
 
 
@@ -76,9 +74,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 	// Allocate data [NOTICE Fortran Contiguous for method = Naive and C-Contiguous for fast]
-	float *noise = (float *)d_alloc->allocate(sizeof(float) * n, stream);
-	random_vector(noise, -0.003f, 0.003f, n, stream, seed);
-
 	if (initialize_embeddings)
 		random_vector(Y, -0.1f, 0.1f, n * k, stream, seed);
 
@@ -99,7 +94,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	// Do gradient updates
 
 	float momentum = pre_momentum;
-	double Z;
+	float Z;
 	int error;
 
 	if (verbose) printf("[Info]	Start gradient updates!\n");
@@ -128,8 +123,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
-			apply_forces(attract, repel, Y, iY, noise, gains, n, k, Z, min_gain,
-						momentum, eta, stream);
+			apply_forces(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 	}
 
@@ -182,16 +176,13 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			repel_minus_QY(repel, Q_sum, Y, n, k, stream);
 
 			// Integrate forces with momentum
-			apply_forces(attract, repel, Y, iY, noise, gains, n, k, Z, min_gain,
-						momentum, eta, stream);
+			apply_forces(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 
 		d_alloc->deallocate(Q, sizeof(float) * n * n, stream);
 	}
 
 	P_PT.destroy();
-
-	d_alloc->deallocate(noise, sizeof(float) * n, stream);
 
 	d_alloc->deallocate(norm, sizeof(float) * n, stream);
 	d_alloc->deallocate(Q_sum, sizeof(float) * n, stream);

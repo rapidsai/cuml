@@ -192,7 +192,7 @@ __repulsive_fast(const float *__restrict__ Y,
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
-double repulsive_fast(const float *__restrict__ Y,
+float repulsive_fast(const float *__restrict__ Y,
                     float *__restrict__ repel,
                     const float *__restrict__ norm,
                     float *__restrict__ sum_Z,
@@ -248,9 +248,9 @@ __apply_forces(const float *__restrict__ attract,
 template <int TPB_X = 32, int TPB_Y = 32>
 void apply_forces(const float *__restrict__ attract,
 				const float *__restrict__ repel, float *__restrict__ Y,
-				float *__restrict__ iY, const float *__restrict__ noise,
-				float *__restrict__ gains, const int n, const int K,
-				const double Z, const float min_gain, const float momentum,
+				float *__restrict__ iY, float *__restrict__ gains, 
+				const int n, const int K, const float Z, 
+				const float min_gain, const float momentum,
 				const float eta, cudaStream_t stream) {
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
 	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));

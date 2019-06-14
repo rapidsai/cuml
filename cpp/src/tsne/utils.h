@@ -2,8 +2,9 @@
 #pragma once
 
 #ifndef IF_DEBUG
-#define IF_DEBUG 0
+  #define IF_DEBUG 0
 #endif
+#define TEST_NNZ 12021
 
 #include <assert.h>
 #include <stdarg.h>
