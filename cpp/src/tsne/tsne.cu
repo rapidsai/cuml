@@ -94,9 +94,10 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
   // Allocate data [NOTICE all Fortran Contiguous]
   DEBUG("[Info] Malloc data and space\n");
-  //float *noise = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  float *noise = (float *)d_alloc->allocate(sizeof(float) * n, stream);
+  cudaMemset(noise, 0, sizeof(float) * n);
   //random_vector(noise, -0.003f, 0.003f, n, stream, seed);
-  //CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
 
   if (initialize_embeddings) {
     random_vector(Y, -0.1f, 0.1f, n * k, stream, seed);
