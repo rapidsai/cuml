@@ -17,6 +17,8 @@
 #pragma once
 
 #include <vector>
+#include "common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
 #include "permute.h"
 #include "rng.h"
 #include "utils.h"
@@ -69,13 +71,12 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
                 bool shuffle = true, DataT center_box_min = (DataT)10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
                 GeneratorType type = GenPhilox) {
-  IdxT datasize = n_rows * n_cols;
   Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
   const DataT* _centers;
   if (centers == nullptr) {
-    rand_centers.resize(n_clusters * n_cols);
+    rand_centers.resize(n_clusters * n_cols, stream);
     r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min,
               center_box_max, stream);
     _centers = rand_centers.data();
@@ -89,9 +90,9 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
   DataT* _out;
   int* _labels;
   if (shuffle) {
-    tmp_out.resize(n_rows * n_cols);
-    perms.resize(n_rows);
-    tmp_labels.resize(n_rows);
+    tmp_out.resize(n_rows * n_cols, stream);
+    perms.resize(n_rows, stream);
+    tmp_labels.resize(n_rows, stream);
     _out = tmp_out.data();
     _labels = tmp_labels.data();
   } else {
@@ -101,17 +102,18 @@ void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
   // get the std info transferred to host
   std::vector<DataT> h_cluster_std(n_clusters, cluster_std_scalar);
   if (cluster_std != nullptr) {
-    updateHost(&(h_cluster_std[0]), cluster_std, stream);
+    updateHost(&(h_cluster_std[0]), cluster_std, n_clusters, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
   // generate data points for each cluster (assume equal distribution)
   IdxT rows_per_cluster = ceildiv(n_rows, n_clusters);
-  IdxT row_stride = rows_per_cluster * n_cols;
-  for (IdxT i = 0, row_id = 0; i < n_clusters; ++i, row_id += row_per_cluster) {
+  for (IdxT i = 0, row_id = 0; i < n_clusters;
+       ++i, row_id += rows_per_cluster) {
     IdxT current_rows = std::min(rows_per_cluster, n_rows - row_id);
     if (current_rows > 0) {
-      r.normalTable(_out + row_id * n_cols, current_rows, n_cols,
-                    _centers + i * n_cols, nullptr, h_cluster_std[i], stream);
+      r.normalTable<DataT, IdxT>(_out + row_id * n_cols, current_rows, n_cols,
+                                 _centers + i * n_cols, nullptr,
+                                 h_cluster_std[i], stream);
       r.fill(_labels + row_id, current_rows, (int)i, stream);
     }
   }
