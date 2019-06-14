@@ -49,9 +49,8 @@ __global__ void all_cols_histograms_kernel_class(const T* __restrict__ data, con
 		T *minmaxshared = (T*)shmem;
 		int *shmemhist = (int*)(shmem + 2*batchsz*sizeof(T));
 		
-		for (int i=threadIdx.x; i < batchsz; i += blockDim.x) {
-			minmaxshared[i] = globalminmax[k*batch_ncols + i];
-			minmaxshared[i + batchsz] = globalminmax[k*batch_ncols + i + ncols];
+		for (int i=threadIdx.x; i < 2*batchsz; i += blockDim.x) {
+			(i < batchsz) ? (minmaxshared[i] = globalminmax[k*batch_ncols + i] ) : (minmaxshared[i] = globalminmax[k*batch_ncols + (i-batchsz) + ncols]);
 		}
 		
 		for (int i = threadIdx.x; i < n_unique_labels*nbins*batchsz; i += blockDim.x) {
