@@ -1,7 +1,6 @@
 import pytest
 import numpy as np
 from cuml.test.utils import get_handle
-from cuml.test.utils import array_equal
 from sklearn.datasets import make_classification
 from cuml.ensemble import RandomForestClassifier as curfc
 from sklearn.ensemble import RandomForestClassifier as skrfc
