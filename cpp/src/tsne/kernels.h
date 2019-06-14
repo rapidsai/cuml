@@ -134,9 +134,9 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
  * @TODO: We have a primitive for this. Thrust can also be used.
  */
 __global__ void __sum_array(const float *__restrict__ X,
-                            float *__restrict__ sum, const int n) {
+                            double *__restrict__ sum, const int n) {
   int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) atomicAdd(sum, X[i]);
+  if (i < n) atomicAdd(sum, (double)X[i]);
 }
 
 __global__ void __form_t_distribution(float *__restrict__ Q,
@@ -162,9 +162,9 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
 template <int TPB_X = 32, int TPB_Y = 32>
 float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
                           const int n, float *__restrict__ sum_Q,
-                          float *__restrict__ sum, cudaStream_t stream) {
+                          double *__restrict__ sum, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
-  cudaMemset(sum, 0, sizeof(float));
+  cudaMemset(sum, 0, sizeof(double));
 
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
@@ -179,9 +179,9 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
 
   __sum_array<<<grid, blk, 0, stream>>>(sum_Q, sum, n);
 
-  float Z;
-  cudaMemcpy(&Z, sum, sizeof(float), cudaMemcpyDeviceToHost);
-  return 1 / (Z + FLT_EPSILON);
+  double Z;
+  cudaMemcpy(&Z, sum, sizeof(double), cudaMemcpyDeviceToHost);
+  return (float)((double)1.0 / Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,

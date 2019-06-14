@@ -24,6 +24,14 @@ void get_distances(const float *X, const int n, const int p, long *indices,
                                        const_cast<float *>(X), n, indices,
                                        distances, n_neighbors, stream);
 
+  // Remove temp variables
+  delete knn_input, sizes;
+}
+
+
+
+void normalize_distances(const int n, float *distances, const int n_neighbors,
+                         cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
   thrust_t<float> begin = to_thrust(distances);
   thrust_t<float> end = begin + n * n_neighbors;
@@ -36,10 +44,9 @@ void get_distances(const float *X, const int n, const int p, long *indices,
   float div_maxNorm = 1.0f / maxNorm;  // Mult faster than div
   LinAlg::scalarMultiply(distances, distances, div_maxNorm, n * n_neighbors,
                          stream);
-
-  // Remove temp variables
-  delete knn_input, sizes;
 }
+
+
 
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
                            const int n, const int k, const float P_sum,

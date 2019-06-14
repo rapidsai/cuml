@@ -33,7 +33,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
-    TSNE(handle, X_d, Y_d, n, p, 2, 15);
+    TSNE(handle, X_d, Y_d, n, p, 2, 5, distances.data(), indices.data());
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
@@ -49,7 +49,7 @@ class TSNETest : public ::testing::Test {
     // Test trustworthiness
     // euclidean test
     score = trustworthiness_score<float, EucUnexpandedL2>(
-      X_d, Y_d, n, p, 2, 15, handle.getDeviceAllocator(), stream);
+      X_d, Y_d, n, p, 2, 5, handle.getDeviceAllocator(), stream);
 
     std::cout << "SCORE: " << score << std::endl;
 
