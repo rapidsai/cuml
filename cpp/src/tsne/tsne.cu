@@ -114,7 +114,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				momentum = post_momentum;
 				// Divide perplexities
 				const float div = 1.0f / early_exaggeration;
-				thrust<float> begin = to_thrust(VAL);
+				thrust_t<float> begin = to_thrust(VAL);
 				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
@@ -125,7 +125,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 			// Fast compute repulsive forces
 			Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
-			if (verbose) printf("[Info]	Z at iter = %d is %lf", iter, Z);
+			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
 			apply_forces(attract, repel, Y, iY, noise, gains, n, k, Z, min_gain,
@@ -146,7 +146,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				momentum = post_momentum;
 				// Divide perplexities
 				const float div = 1.0f / early_exaggeration;
-				thrust<float> begin = to_thrust(VAL);
+				thrust_t<float> begin = to_thrust(VAL);
 				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
@@ -161,7 +161,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 			// Form T = 1 / (1 + d) = 1 / (1 + -2*Y@Y.T )
 			Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
-			if (verbose) printf("[Info]	Z at iter = %d is %lf", iter, Z);
+			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Compute attractive forces from COO matrix
 			attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ, n, k, stream);

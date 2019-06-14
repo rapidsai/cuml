@@ -208,7 +208,8 @@ double repulsive_fast(const float *__restrict__ Y,
                                             norm, sum_Z, n, n_components);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    double Z = (double) thrust::reduce(__STREAM__, sum_Z, sum_Z + n);
+    thrust_t<float> begin = to_thrust(sum_Z);
+    double Z = (double) thrust::reduce(__STREAM__, begin, begin + n);
     return 1.0f / (2.0f * Z) + FLT_EPSILON;
 }
 
