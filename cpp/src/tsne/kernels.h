@@ -11,25 +11,6 @@ namespace ML {
 using namespace ML;
 using namespace MLCommon;
 
-/**
- * @TODO: This is just a unary element-wise operation. Use unary element-wise primitive
- */
-__global__ void __inplace_multiply(float *__restrict__ X, const int n,
-                                   const float mult) {
-  int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) X[i] *= mult;
-}
-
-template <int TPB_X = 32>
-inline void inplace_multiply(float *__restrict__ X, const int n,
-                             const float mult, cudaStream_t stream) {
-  int blks = MLCommon::ceildiv(n, TPB_X);
-  dim3 grid(blks, 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
-  __inplace_multiply<<<grid, blk, 0, stream>>>(X, n, mult);
-  CUDA_CHECK(cudaPeekAtLastError());
-}
 
 __global__ void __determine_sigmas_row(const float *__restrict__ distances,
                                        float *__restrict__ P,
@@ -124,12 +105,11 @@ float determine_sigmas(const float *__restrict__ distances,
  */
 __global__ void __get_norm(const float *__restrict__ Y,
                            float *__restrict__ norm, const int n, const int K) {
-  const int i =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+  const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
   const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
   if (i < n && j < K)
     // norm[i] += Y[i, j]**2
-    atomicAdd(&norm[i], Y[j * n + i] * Y[j * n + i]);
+    atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
@@ -142,14 +122,6 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
   __get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, K);
 }
 
-/**
- * @TODO: We have a primitive for this. Thrust can also be used.
- */
-__global__ void __sum_array(const float *__restrict__ X,
-                            double *__restrict__ sum, const int n) {
-  int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) atomicAdd(sum, (double)X[i]);
-}
 
 __global__ void __form_t_distribution(float *__restrict__ Q,
                                       const float *__restrict__ norm,
@@ -179,7 +151,7 @@ double form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm
   CUDA_CHECK(cudaPeekAtLastError());
 
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
-  return ((double)1.0f / (2.0f * Z));
+  return 1.0f / (2.0f * Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
@@ -197,7 +169,7 @@ __global__ void __attractive_forces(const float *__restrict__ VAL,
     const float PQ = VAL[index] * Q[i*n + j];
     for (int l = 0; l < K; l++)
       // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
-      atomicAdd(&attract[l * n + i], PQ * (Y[l * n + i] - Y[l * n + j]));
+      atomicAdd(&attract[l*n + i], PQ * (Y[l*n + i] - Y[l*n + j]));
   }
 }
 void attractive_forces(const float *__restrict__ VAL,
@@ -215,7 +187,7 @@ __global__ void __postprocess_Q(float *__restrict__ Q,
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (i < n && j < n) {
-    float q = Q[i * n + j]; q *= q;
+    float q = Q[i*n + j]; q *= q;
     atomicAdd(&sum_Q[i], q);
   }
 }
@@ -229,13 +201,7 @@ void postprocess_Q(float *__restrict__ Q, float *__restrict__ sum_Q,
   __postprocess_Q<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, sum_Q, n);
 }
 
-/**
- * @TODO: This is a unary elt-wise operation. Use the prims for this
- */
-__global__ void __negative_array(float *__restrict__ X, const int n) {
-  int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) X[i] *= -1;
-}
+
 
 __global__ void __repel_minus_QY(float *__restrict__ repel,
                                  const float *__restrict__ neg_sum_Q,
@@ -245,26 +211,19 @@ __global__ void __repel_minus_QY(float *__restrict__ repel,
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
   if (j < K && i < n)
     // repel[i*n + j] -= Q_sum[i] * Y[i*n + j];
-    atomicAdd(&repel[j * n + i],
-              neg_sum_Q[i] * Y[j * n + i]);  // Y, repel is F-Contiguous
+    atomicAdd(&repel[j*n + i], neg_sum_Q[i] * Y[j*n + i]);  // Y, repel is F-Contiguous
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void repel_minus_QY(float *__restrict__ repel, float *__restrict__ sum_Q,
                     const float *__restrict__ Y, const int n, const int K,
                     cudaStream_t stream) {
-  int blks = MLCommon::ceildiv(n, TPB_X);
-
-  dim3 grid(blks, 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
-  __negative_array<<<grid, blk, 0, stream>>>(sum_Q, n);
+  thrust::transform(__STREAM__, sum_Q, sum_Q + n, sum_Q, -1 * _1);
 
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
-  __repel_minus_QY<<<numBlocks, threadsPerBlock, 0, stream>>>(repel, sum_Q, Y,
-                                                              n, K);
+  __repel_minus_QY<<<numBlocks, threadsPerBlock, 0, stream>>>(repel, sum_Q, Y, n, K);
 }
 
 __global__ void __apply_forces(const float *__restrict__ attract,
@@ -285,7 +244,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
     const float dy = attract[index] + Z * repel[index];
     // gains[:] = (gains + 0.2) * ((DY > 0.) != (iY > 0.)) + \
                     (gains * 0.8) * ((DY > 0.) == (iY > 0.))
-    if ((dy > 0) != (iY[index] > 0))
+    if (signbit(dy) != signbit(iY[index]))
       gains[index] += 0.2f;
     else
       gains[index] *= 0.8f;
