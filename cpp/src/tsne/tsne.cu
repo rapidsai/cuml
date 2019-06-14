@@ -7,7 +7,7 @@
 
 #include "cublas_v2.h"
 #include "distances.h"
-#include "kernels.h"
+#include "slow_kernels.h"
 #include "fast_kernels.h"
 #include "utils.h"
 
@@ -21,7 +21,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const int perplexity_tol = 1e-5,
 			const float early_exaggeration = 12.0f,
 			const int exaggeration_iter = 250, const float min_gain = 0.01f,
-			const float eta = 500.0f, const int max_iter = 500,
+			const float eta = 500.0f, const int max_iter = 1000,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
 			const long long seed = -1, const bool initialize_embeddings = true,
 			const bool verbose = true, const char *method = "Fast")
@@ -103,6 +103,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		Fast algorithm uses 0 matrices, and does all computations within
 		the GPU registers. This guarantees no memory movement and so can
 		be fast in practice.
+
+		[NOTICE] FAST OUTPUTS C-CONTIGUOUS OUTPUT!!!!
 		*/
 		for (int iter = 0; iter < max_iter; iter++) {
 			if (iter == exaggeration_iter) {
@@ -133,6 +135,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		Code flow follows closely to Maaten's original TSNE code.
 		Notice Naive is relatively memory hungry - uses O(N^2).
 		Fast uses close to no extra memory.
+
+		[NOTICE] NAIVE OUTPUTS F-Contiguous output!!!!!!
 		*/
 		const float neg2 = -2.0f, beta = 0.0f, one = 1.0f;
 		float *Q = (float *)d_alloc->allocate(sizeof(float) * n * n, stream);
@@ -146,7 +150,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
-			get_norm(Y, norm, n, k, stream);
+			get_norm_slow(Y, norm, n, k, stream);
 
 			// Find Y @ Y.T
 			if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
@@ -176,7 +180,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			repel_minus_QY(repel, Q_sum, Y, n, k, stream);
 
 			// Integrate forces with momentum
-			apply_forces(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
+			apply_forces_slow(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 
 		d_alloc->deallocate(Q, sizeof(float) * n * n, stream);

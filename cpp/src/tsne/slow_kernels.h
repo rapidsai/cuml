@@ -126,4 +126,72 @@ void repel_minus_QY(float *__restrict__ repel, float *__restrict__ sum_Q,
 }
 
 
+
+__global__ void
+__get_norm_slow(const float *__restrict__ Y, float *__restrict__ norm, 
+			const int n, const int n_components)
+{
+	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
+	if (i < n && j < n_components)
+		atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
+}
+
+template <int TPB_X = 32, int TPB_Y = 32>
+void get_norm_slow(const float *__restrict__ Y, float *__restrict__ norm,
+			  const int n, const int n_components, cudaStream_t stream) {
+	// Notice Y is F-Contiguous
+	cudaMemset(norm, 0, sizeof(float) * n);
+
+	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n_components, threadsPerBlock.y));
+	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
+	CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
+__global__ void 
+__apply_forces_slow(const float *__restrict__ attract,
+				 const float *__restrict__ repel,
+				 float *__restrict__ Y, float *__restrict__ iY,
+				 float *__restrict__ gains, const int n,
+				 const int K, const double Z, const float min_gain,
+				 const float momentum, const float eta) {
+	// Everything is F-Contiguous
+	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
+	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
+	if (j < K && i < n) {
+		const int index = j*n + i;
+		const float dy = attract[index] + Z * repel[index];
+
+		if (signbit(dy) != signbit(iY[index]))
+			gains[index] += 0.2f;
+		else
+			gains[index] *= 0.8f;
+
+		if (gains[index] < min_gain)
+			gains[index] = min_gain;
+
+		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
+
+		Y[index] += iY[index];
+	}
+}
+
+template <int TPB_X = 32, int TPB_Y = 32>
+void apply_forces_slow(const float *__restrict__ attract,
+				const float *__restrict__ repel, float *__restrict__ Y,
+				float *__restrict__ iY, float *__restrict__ gains, 
+				const int n, const int K, const float Z, 
+				const float min_gain, const float momentum,
+				const float eta, cudaStream_t stream) {
+	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+
+	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
+		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
+	CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
 }  // namespace ML
