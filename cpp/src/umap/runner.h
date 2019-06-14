@@ -35,7 +35,7 @@
 #include "sparse/coo.h"
 #include "sparse/csr.h"
 
-#include "knn/knn.h"
+#include "knn/knn.hpp"
 
 #include "cuda_utils.h"
 
@@ -242,11 +242,19 @@ size_t _fit(const cumlHandle &handle,
 /**
 	 *
 	 */
-template <typename T, int TPB_X>
-size_t _transform(const cumlHandle &handle, const float *X, int n, int d,
-                  T *embedding, int embedding_n, kNN *knn, UMAPParams *params,
-                  T *transformed, cudaStream_t stream) {
-  /**
+	template<typename T, int TPB_X>
+	size_t _transform(const cumlHandle &handle,
+                    float *X,
+	                  int n,
+	                  int d,
+	                  T *embedding,
+	                  int embedding_n,
+                      kNN *knn,
+	                  UMAPParams *params,
+	                  T *transformed,
+                    cudaStream_t stream) {
+
+	    /**
 	     * Perform kNN of X
 	     */
   long *knn_indices;
