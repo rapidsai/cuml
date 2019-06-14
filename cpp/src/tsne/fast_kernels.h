@@ -261,12 +261,12 @@ __apply_forces(const float *__restrict__ attract,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
-				 const int K, const float Z, const float min_gain,
+				 const int dim, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
 	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
 	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
-	if (j < K && i < n) {
+	if (j < dim && i < n) {
 		const int index = i*dim + j;
 		const float dy = attract[index] + Z * repel[index];
 
