@@ -4,7 +4,6 @@
 #include <linalg/eltwise.h>
 #include <selection/knn.h>
 #include "cuML.hpp"
-#include "kernels.h"
 #include "utils.h"
 
 namespace ML {
