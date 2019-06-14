@@ -99,7 +99,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	// Do gradient updates
 
 	float momentum = pre_momentum;
-	float Z;
+	double Z;
 	int error;
 
 	if (verbose) printf("[Info]	Start gradient updates!\n");
@@ -109,13 +109,13 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		the GPU registers. This guarantees no memory movement and so can
 		be fast in practice.
 		*/
-
 		for (int iter = 0; iter < max_iter; iter++) {
 			if (iter == exaggeration_iter) {
 				momentum = post_momentum;
 				// Divide perplexities
-				float div = 1.0f / early_exaggeration;
-				thrust::transform(__STREAM__, VAL, VAL + NNZ, VAL, div * _1);
+				const float div = 1.0f / early_exaggeration;
+				thrust<float> begin = to_thrust(VAL);
+				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
 			get_norm(Y, norm, n, k, stream);
@@ -138,7 +138,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
 		Code flow follows closely to Maaten's original TSNE code.
 		*/
-
 		const float neg2 = -2.0f, beta = 0.0f, one = 1.0f;
 		float *Q = (float *)d_alloc->allocate(sizeof(float) * n * n, stream);
 
@@ -146,8 +145,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			if (iter == exaggeration_iter) {
 				momentum = post_momentum;
 				// Divide perplexities
-				float div = 1.0f / early_exaggeration;
-				thrust::transform(__STREAM__, VAL, VAL + NNZ, VAL, div * _1);
+				const float div = 1.0f / early_exaggeration;
+				thrust<float> begin = to_thrust(VAL);
+				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
 			get_norm(Y, norm, n, k, stream);
@@ -158,7 +158,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
-			CUDA_CHECK(cudaPeekAtLastError());
 
 			// Form T = 1 / (1 + d) = 1 / (1 + -2*Y@Y.T )
 			Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
@@ -176,7 +175,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
-			CUDA_CHECK(cudaPeekAtLastError());
 
 			// Compute repel - Q**2 @ mean_Y
 			repel_minus_QY(repel, Q_sum, Y, n, k, stream);

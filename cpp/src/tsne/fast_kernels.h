@@ -192,7 +192,7 @@ __repulsive_fast(const float *__restrict__ Y,
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
-float repulsive_fast(const float *__restrict__ Y,
+double repulsive_fast(const float *__restrict__ Y,
                     float *__restrict__ repel,
                     const float *__restrict__ norm,
                     float *__restrict__ sum_Z,
@@ -209,7 +209,7 @@ float repulsive_fast(const float *__restrict__ Y,
     CUDA_CHECK(cudaPeekAtLastError());
 
     double Z = (double) thrust::reduce(__STREAM__, sum_Z, sum_Z + n);
-    return 1.0f / (2.0f * Z);
+    return 1.0f / (2.0f * Z) + FLT_EPSILON;
 }
 
 
@@ -219,7 +219,7 @@ __apply_forces(const float *__restrict__ attract,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 const float *__restrict__ noise,
 				 float *__restrict__ gains, const int n,
-				 const int K, const float Z, const float min_gain,
+				 const int K, const double Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
 	// NOTICE noise is a 1D array
@@ -253,7 +253,7 @@ void apply_forces(const float *__restrict__ attract,
 				const float eta, cudaStream_t stream) {
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
 	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
-	
+
 	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, noise, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
