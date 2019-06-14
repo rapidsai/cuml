@@ -194,7 +194,7 @@ __attractive_fast(const float *__restrict__ VAL,
                     const float *__restrict__ Y,
                     const float *__restrict__ norm,
                     float *__restrict__ attract, const int NNZ,
-                    const int n, const int K) {
+                    const int n, const int n_components) {
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
