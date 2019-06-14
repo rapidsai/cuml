@@ -231,7 +231,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
                                float *__restrict__ Y, float *__restrict__ iY,
                                const float *__restrict__ noise,
                                float *__restrict__ gains, const int n,
-                               const int K, const float Z, const float min_gain,
+                               const int K, const double Z, const float min_gain,
                                const float momentum, const float eta) {
   // Everything is F-Contiguous
   // NOTICE noise is a 1D array
@@ -239,7 +239,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
   if (j < K && i < n) {
-    const int index = j * n + i;
+    const int index = j*n + i;
     // DY[:] = attract + Z*repel
     const float dy = attract[index] + Z * repel[index];
     // gains[:] = (gains + 0.2) * ((DY > 0.) != (iY > 0.)) + \
@@ -264,7 +264,7 @@ void apply_forces(const float *__restrict__ attract,
                   const float *__restrict__ repel, float *__restrict__ Y,
                   float *__restrict__ iY, const float *__restrict__ noise,
                   float *__restrict__ gains, const int n, const int K,
-                  const float Z, const float min_gain, const float momentum,
+                  const double Z, const float min_gain, const float momentum,
                   const float eta, cudaStream_t stream) {
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
