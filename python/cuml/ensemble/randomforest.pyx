@@ -26,8 +26,8 @@ import numpy as np
 from numba import cuda
 
 from cuml.utils import get_cudf_column_ptr,\
-     get_dev_array_ptr, input_to_dev_array,\
-     zeros
+    get_dev_array_ptr, input_to_dev_array,\
+    zeros
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
