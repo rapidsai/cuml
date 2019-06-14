@@ -160,7 +160,7 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
   if (i < n && j < n) {
     if (i == j)   Q[i*n + j] = 0.0f;
     else if (j > i) {
-      Q[j*n + i] = Q[i*n + j] = q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
+      Q[j*n + i] = Q[i*n + j] = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
       atomicAdd(&sum_Q[i], Q[i*n + j]);
     }
   }
