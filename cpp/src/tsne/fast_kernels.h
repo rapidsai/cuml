@@ -178,7 +178,7 @@ void attractive_fast(const float *__restrict__ VAL,
     cudaMemset(attract, 0, sizeof(float) * n * dim);
 
     if (dim == 2)
-    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    	__attractive_fast_2dim<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
         	Y + n, norm, attract, attract + n, NNZ, n, dim);
     else
     	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
