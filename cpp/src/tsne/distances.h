@@ -60,7 +60,7 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 
   // Perform (P + P.T) / P_sum * early_exaggeration
   Sparse::coo_symmetrize<32, float>(
-    &P_COO, &P_PT,
+    &P_COO, P_PT,
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;
     },
