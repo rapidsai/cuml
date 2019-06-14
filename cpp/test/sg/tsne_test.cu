@@ -48,19 +48,20 @@ class TSNETest : public ::testing::Test {
     float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
     cudaMemcpy(embeddings_h, Y_d, sizeof(float)*n*2, cudaMemcpyDeviceToHost);
 
-    // int k = 0;
-    // for (int i = 0; i < n; i++) {
-    // 	for (int j = 0; j < 2; j++) {
-    // 		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
-    // 	}
-    // }
+    int k = 0;
+    float C_contiguous_embedding[n*2];
+    for (int i = 0; i < n; i++) {
+    	for (int j = 0; j < 2; j++)
+    		C_contiguous_embedding[k++] = embeddings_h[j*n + i];
+    }
+    
     for (int j = 0; j < 2; j++) {
     	for (int i = 0; i < n; i++)
-    		printf("%.f,", embeddings_h[i*2 + j]);
+    		printf("%.1f,", embeddings_h[i*2 + j]);
     	printf("\n-------------------------\n");
     }
     float *YY; MLCommon::allocate(YY, n * 2);
-    MLCommon::updateDevice(YY, embeddings_h, n * 2, stream);
+    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
     		
     //MLCommon::updateHost(embeddings_h, Y_d, n * 2, stream);
 
