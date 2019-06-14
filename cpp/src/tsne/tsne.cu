@@ -22,16 +22,19 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const float perplexity = 30.0f, const int perplexity_max_iter = 100,
 			const int perplexity_tol = 1e-5,
 			const float early_exaggeration = 12.0f,
-			const int exaggeration_iter = 500, const float min_gain = 0.01f,
-			const float eta = 500.0f, const int max_iter = 10000,
+			const int exaggeration_iter = 250, const float min_gain = 0.01f,
+			const float eta = 500.0f, const int max_iter = 500,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
 			const long long seed = -1, const bool initialize_embeddings = true,
 			const bool verbose = true, const char *method = "Fast") {
 
+	assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0 && X != NULL && Y != NULL);
+	if (verbose)
+		printf("[Info]	Data size = (%d, %d) with n_components = %d\n", n, p, n_components);
+
 	auto d_alloc = handle.getDeviceAllocator();
 	cudaStream_t stream = handle.getStream();
 
-	assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0);
 	if (n_neighbors > n) n_neighbors = n;
 
 	// Some preliminary intializations for cuBLAS and cuML

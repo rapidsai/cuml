@@ -37,11 +37,13 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 	// Now D / max(abs(D)) to allow exp(D) to not explode
 	float maxNorm = MAX(*(thrust::max_element(__STREAM__, distances, distances + n*n_neighbors)),
 						*(thrust::min_element(__STREAM__, distances, distances + n*n_neighbors)));
+	printf("Got maxNorm.\n");
 	if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
 	float div = 1.0f / maxNorm;  // Mult faster than div
 	thrust::transform(__STREAM__, distances, distances + n*n_neighbors, distances, div * _1);
+	printf("Transformed.\n");
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
