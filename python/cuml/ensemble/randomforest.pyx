@@ -364,7 +364,29 @@ class RandomForestClassifier(Base):
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
                  rows_sample=1.0, max_leaves=-1,
-                 gdf_datatype=None):
+                 gdf_datatype=None, criterion=None,
+                 min_samples_leaf=None, min_weight_fraction_leaf=None,
+                 max_leaf_nodes=None, min_impurity_decrease=None,
+                 min_impurity_split=None, oob_score=None, n_jobs=None,
+                 random_state=None, warm_start=None, class_weight=None):
+
+        sklearn_params = {"criterion": criterion,
+                          "min_samples_leaf": min_samples_leaf,
+                          "min_weight_fraction_leaf": min_weight_fraction_leaf,
+                          "max_leaf_nodes": max_leaf_nodes,
+                          "min_impurity_decrease": min_impurity_decrease,
+                          "min_impurity_split": min_impurity_split,
+                          "oob_score": oob_score, "n_jobs": n_jobs,
+                          "random_state": random_state,
+                          "warm_start": warm_start,
+                          "class_weight": class_weight}
+
+        for key, vals in sklearn_params.items():
+            if vals is not None:
+                raise TypeError(" The sklearn variable ", key,
+                                " is not supported in cuML,"
+                                " please read the cuML documentation for"
+                                " more information")
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
