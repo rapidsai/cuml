@@ -125,7 +125,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
-			apply_forces(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
+			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 	}
 

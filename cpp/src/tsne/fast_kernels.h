@@ -214,9 +214,49 @@ float repulsive_fast(const float *__restrict__ Y,
 }
 
 
+
+__global__ void
+__find_mean_fast(const float * __restrict__ Y, float * __restrict__ means, 
+			const int n, const int dim) {
+	// Y is F-Contiguous
+	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
+	if (i < n && j < dim) atomicAdd(&means[j], Y[j*n + i]);
+}
+__global__ void
+__subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
+			const int n, const int dim) {
+	// Y is F-Contiguous
+	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
+	if (i < n && j < dim) Y[j*n + i] -= means[j];
+}
+
+template <int TPB_X = 32, int TPB_Y = 32>
+void remove_mean_fast(float *__restrict__ Y, float *__restrict__ means,
+			  		const int n, const int dim, cudaStream_t stream) {
+	// Notice Y is F-Contiguous
+	cudaMemset(means, 0, sizeof(float) * dim);
+
+	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+	__find_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
+	CUDA_CHECK(cudaPeekAtLastError());
+
+	// Divide by 1/n
+	const float div = 1.0f / n;
+	thrust_t<float> begin = to_thrust(means);
+	thrust::transform(__STREAM__, begin, begin + dim, begin, div * _1);
+
+	// Subtract the mean
+	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
+	CUDA_CHECK(cudaPeekAtLastError());
+}
+
+
+
 __global__ void 
 __apply_forces(const float *__restrict__ attract,
-				float *__restrict__ means,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
@@ -244,6 +284,7 @@ __apply_forces(const float *__restrict__ attract,
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void apply_forces(const float *__restrict__ attract,
+				float *__restrict__ means,
 				const float *__restrict__ repel, float *__restrict__ Y,
 				float *__restrict__ iY, float *__restrict__ gains, 
 				const int n, const int K, const float Z, 
@@ -257,7 +298,7 @@ void apply_forces(const float *__restrict__ attract,
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Find mean and remove it
-	remove_mean_slow(Y, means, n, dim, stream);
+	remove_mean_fast(Y, means, n, dim, stream);
 }
 
 
