@@ -111,7 +111,7 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
 	cudaMemset(norm, 0, sizeof(float) * n);
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
 	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -186,7 +186,7 @@ __repulsive_fast(const float *__restrict__ Y,
             // repel = Q2 * (Y[i, k] - Y[j, k]);
 
             atomicAdd(&repel[k*n + i],  - force);  // repel[k*n + i] -= force
-            atomicAdd(&repel[k*n + j],  force);  // repel[k*n + j] += force
+            atomicAdd(&repel[k*n + j],  force);    // repel[k*n + j] += force
         }
     }
 }
@@ -216,6 +216,7 @@ float repulsive_fast(const float *__restrict__ Y,
 
 __global__ void 
 __apply_forces(const float *__restrict__ attract,
+				float *__restrict__ means,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
@@ -237,7 +238,6 @@ __apply_forces(const float *__restrict__ attract,
 			gains[index] = min_gain;
 
 		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
-
 		Y[index] += iY[index];
 	}
 }
@@ -255,6 +255,9 @@ void apply_forces(const float *__restrict__ attract,
 	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
+
+	// Find mean and remove it
+	remove_mean_slow(Y, means, n, dim, stream);
 }
 
 

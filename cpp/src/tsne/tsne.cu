@@ -180,7 +180,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			repel_minus_QY(repel, Q_sum, Y, n, k, stream);
 
 			// Integrate forces with momentum
-			apply_forces_slow(attract, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
+			apply_forces_slow(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 
 		d_alloc->deallocate(Q, sizeof(float) * n * n, stream);
