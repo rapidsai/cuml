@@ -64,7 +64,7 @@ __global__ void gatherKernel(DataT* out, const DataT* in, const IdxT* perms,
  */
 template <typename DataT, typename IdxT>
 void make_blobs(DataT* out, int* labels, IdxT n_rows, IdxT n_cols,
-                int n_clusters, std::shared_ptr<deviceAllocator> allocator,
+                IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
                 cudaStream_t stream, const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
