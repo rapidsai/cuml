@@ -45,7 +45,7 @@ class TSNETest : public ::testing::Test {
     std::cout << MLCommon::arr2Str(Y_d+n+n/2, 20, "embeddings", stream) << std::endl;
 
     std::cout << "Updating host" << std::endl;
-    float *embeddings_h = malloc(sizeof(float) * n * 2);
+    float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
 
     int k = 0;
     for (int i = 0; i < n; i++) {
