@@ -60,7 +60,8 @@ cdef extern from "tsne/tsne.h" namespace "ML":
               int epochs,
               float pre_momentum,
               float post_momentum,
-              long long seed) except +
+              long long seed,
+              bool initialize_embeddings) except +
 
 
 class TSNE_py:
@@ -163,7 +164,8 @@ class TSNE_py:
             <int> self.epochs,
             <float> self.pre_momentum,
             <float> self.post_momentum,
-            <long long> self.seed
+            <long long> self.seed,
+            <bool>True
         )
 
         del X_m
