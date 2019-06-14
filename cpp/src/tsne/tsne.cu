@@ -152,11 +152,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   int error;
 
   DEBUG("[Info] Start iterations\n");
-  for (int iter = 0; iter < 30; iter++) {
+  for (int iter = 0; iter < 100; iter++) {
 
-    if (iter == 20) momentum = post_momentum;
+    if (iter == 50) momentum = post_momentum;
 
-    if (iter == 10) {
+    if (iter == 30) {
       float div = 1.0f / early_exaggeration;
       thrust::transform(__STREAM__, VAL, VAL + NNZ, VAL, div * _1);
     }
