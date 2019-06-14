@@ -52,6 +52,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   else {
     MLCommon::updateDevice(distances, distances_vector, n * n_neighbors, stream);
     MLCommon::updateDevice(indices, indices_vector, n * n_neighbors, stream);
+
+    std::cout << MLCommon::arr2Str(distances, 20, "Distances", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(indices, 20, "indices", stream) << std::endl;
   }
 
 
