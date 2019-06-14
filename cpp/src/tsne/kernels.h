@@ -108,7 +108,7 @@ float determine_sigmas(const float *__restrict__ distances,
   float check[n*k];
   cudaMemcpy(check, P, sizeof(float)*n*k, cudaMemcpyDeviceToHost);
   int yes = 0;
-  for (int i = 0; i < sizeof(float)*n*k)
+  for (int i = 0; i < sizeof(float)*n*k; i++)
     if (check[i] == 2.0) yes++;
   printf("[IMPORTANT CHECK if (n*k = yes)]  n*k = %d   yes = %d\n\n", n*k, yes);
 #endif
