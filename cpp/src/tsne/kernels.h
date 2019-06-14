@@ -285,7 +285,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
     const float dy = attract[index] + Z * repel[index];
     // gains[:] = (gains + 0.2) * ((DY > 0.) != (iY > 0.)) + \
                     (gains * 0.8) * ((DY > 0.) == (iY > 0.))
-    if (signbit(dy) != signbit(iY[index]))
+    if ((dy > 0) != (iY[index] > 0))
       gains[index] += 0.2f;
     else
       gains[index] *= 0.8f;
@@ -296,7 +296,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
     iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
 
     // Y += iY + noise
-    Y[index] += (iY[index] + noise[i]);
+    Y[index] += iY[index];
   }
 }
 
