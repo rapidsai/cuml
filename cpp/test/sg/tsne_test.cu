@@ -37,38 +37,38 @@ class TSNETest : public ::testing::Test {
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << "Updating host" << std::endl;
-    float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
-    cudaMemcpy(embeddings_h, Y_d, sizeof(float)*n*2, cudaMemcpyDeviceToHost);
+    // float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
+    // cudaMemcpy(embeddings_h, Y_d, sizeof(float)*n*2, cudaMemcpyDeviceToHost);
 
-    int k = 0;
-    float C_contiguous_embedding[n*2];
-    for (int i = 0; i < n; i++) {
-    	for (int j = 0; j < 2; j++)
-    		C_contiguous_embedding[k++] = embeddings_h[j*n + i];
-    }
+    // int k = 0;
+    // float C_contiguous_embedding[n*2];
+    // for (int i = 0; i < n; i++) {
+    // 	for (int j = 0; j < 2; j++)
+    // 		C_contiguous_embedding[k++] = embeddings_h[j*n + i];
+    // }
 
     // for (int j = 0; j < 2; j++) {
     // 	for (int i = 0; i < n; i++)
     // 		printf("%.2f,", C_contiguous_embedding[i*2 + j]);
     // 	printf("\n-------------------------\n");
     // }
-    float *YY; MLCommon::allocate(YY, n * 2);
-    MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
+    // float *YY; MLCommon::allocate(YY, n * 2);
+    // MLCommon::updateDevice(YY, C_contiguous_embedding, n * 2, stream);
 
     std::cout << "DONE!" << std::endl;
 
-    CUDA_CHECK(cudaPeekAtLastError());
+    // CUDA_CHECK(cudaPeekAtLastError());
 
     // Test trustworthiness
     // euclidean test
     score = trustworthiness_score<float, EucUnexpandedL2>(
-      X_d, YY, n, p, 2, 5, handle.getDeviceAllocator(), stream);
+      X_d, Y_d, n, p, 2, 5, handle.getDeviceAllocator(), stream);
 
     std::cout << "SCORE: " << score << std::endl;
 
-    free(embeddings_h);
+    // free(embeddings_h);
     CUDA_CHECK(cudaFree(Y_d));
-    CUDA_CHECK(cudaFree(YY));
+    // CUDA_CHECK(cudaFree(YY));
     CUDA_CHECK(cudaFree(X_d));
 
     CUDA_CHECK(cudaStreamDestroy(stream));

@@ -75,7 +75,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Allocate data [NOTICE Fortran Contiguous for method = Naive and C-Contiguous for fast]
 	if (initialize_embeddings)
-		random_vector(Y, -0.1f, 0.1f, n * k, stream, seed);
+		random_vector(Y, -0.03f, 0.03f, n * k, stream, seed);
 
 
 	// Allocate space
