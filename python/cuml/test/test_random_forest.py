@@ -34,4 +34,4 @@ def test_rf_predict_numpy(datatype, use_handle):
     sk_predict = sk_model.predict(X_test)
     sk_acc = accuracy_score(y_test, sk_predict)
     cuml_model.handle.sync()
-    assert (array_equal(cu_acc, sk_acc, 0.07) or (cu_acc > sk_acc))
+    assert cu_acc >= (sk_acc - 0.07)
