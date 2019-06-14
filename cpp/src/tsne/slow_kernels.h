@@ -223,14 +223,14 @@ void apply_forces_slow(const float *__restrict__ attract,
 				float *__restrict__ means,
 				const float *__restrict__ repel, float *__restrict__ Y,
 				float *__restrict__ iY, float *__restrict__ gains, 
-				const int n, const int K, const float Z, 
+				const int n, const int dim, const float Z, 
 				const float min_gain, const float momentum,
 				const float eta, cudaStream_t stream) {
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(K, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
 	__apply_forces_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(
-		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
+		attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Find mean and remove it
