@@ -102,10 +102,7 @@ cdef extern from "randomforest/randomforest.h" namespace "ML":
 
 
 cdef class RandomForest_impl():
-    """
-    Description and example code
-    split_algo = 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
-    """
+
     cpdef object handle
     cdef rfClassifier[float] *rf_classifier32
     cdef rfClassifier[double] *rf_classifier64
@@ -113,7 +110,6 @@ cdef class RandomForest_impl():
     cdef object n_estimators
     cdef object max_depth
     cdef object max_features
-    cdef object min_samples_split
     cdef object n_bins
     cdef object split_algo
     cdef object min_rows_per_node
@@ -129,7 +125,7 @@ cdef class RandomForest_impl():
     cdef object dtype
 
     def __cinit__(self, n_estimators=10, max_depth=-1, handle=None,
-                  max_features=1.0, min_samples_split=2, n_bins=8,
+                  max_features=1.0, n_bins=8,
                   split_algo=0, min_rows_per_node=2,
                   bootstrap=True, bootstrap_features=False,
                   type_model="classifier", verbose=False,
@@ -145,7 +141,6 @@ cdef class RandomForest_impl():
         self.n_estimators = n_estimators
         self.max_depth = max_depth
         self.max_features = max_features
-        self.min_samples_split = min_samples_split
         self.type_model = self._get_type(type_model)
         self.bootstrap = bootstrap
         self.verbose = False
@@ -161,7 +156,7 @@ cdef class RandomForest_impl():
             self.type_model = 0
 
     """
-    TBD:
+    TODO:
         Add the preprocess and postprocess functions
         in the cython code to normalize the labels
     """
@@ -357,9 +352,33 @@ class RandomForestClassifier(Base):
     Parameters
     -----------
 
+    n_estimators : number of trees in the forest. default = 10
+    handle : cuml.Handle
+        If it is None, a new one is created just for this class
+    split_algo : The type of algorithm to be used to create the trees.
+                 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END.
+                 default = 0
+    bootstrap : Control bootstrapping.
+                If set, each tree in the forest is built
+                on a bootstrapped sample with replacement.
+                If false, sampling without replacement is done.
+    bootstrap_features : Control bootstrapping for features.
+                         If features are drawn with or without replacement
+    n_trees : Number of decision trees in the random forest.
+    rows_sample : Ratio of dataset rows used while fitting each tree.
+    max_depth : Maximum tree depth. Unlimited (i.e, until leaves are pure),
+                if -1
+    max_leaves : Maximum leaf nodes per tree. Soft constraint. Unlimited,
+                 if -1
+    max_features : Ratio of number of features (columns) to consider
+                   per node split
+    n_bins :  Number of bins used by the split algorithm
+    min_rows_per_node : The minimum number of samples (rows) needed
+                        to split a node
+
     """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
-                 max_features=1.0, min_samples_split=2, n_bins=8,
+                 max_features=1.0, n_bins=8,
                  split_algo=0, min_rows_per_node=2,
                  bootstrap=True, bootstrap_features=False,
                  type_model="classifier", verbose=False,
@@ -390,7 +409,7 @@ class RandomForestClassifier(Base):
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
-                                       max_features, min_samples_split, n_bins,
+                                       max_features, n_bins,
                                        split_algo, min_rows_per_node,
                                        bootstrap, bootstrap_features,
                                        type_model, verbose,
@@ -398,13 +417,61 @@ class RandomForestClassifier(Base):
                                        gdf_datatype)
 
     def fit(self, X, y):
+        """
+        Perform Random Forest Classification on the input data
+
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        y : array-like (device or host) shape = (n_samples, 1)
+            Dense vector (int) of shape (n_samples, 1).
+            Acceptable formats: NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        """
 
         return self._impl.fit(X, y)
 
     def predict(self, X):
+        """
+        Predicts the labels for X.
+
+        Parameters
+        ----------
+        X : array-like (host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: NumPy ndarray, Numba device
+            ndarray
+
+        Returns
+        ----------
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+
+        """
 
         return self._impl.predict(X)
 
     def cross_validate(self, X, y):
+        """
+        Predicts the accuracy of the model for X.
+
+        Parameters
+        ----------
+        X : array-like (host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: NumPy ndarray, Numba device
+            ndarray
+
+        y: NumPy
+           Dense vector (int) of shape (n_samples, 1)
+
+        Returns
+        ----------
+        accuracy : float
+        """
 
         return self._impl.cross_validate(X, y)
+
