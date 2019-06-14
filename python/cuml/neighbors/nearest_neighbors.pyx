@@ -365,6 +365,8 @@ class NearestNeighbors(Base):
             The indices of the k-nearest neighbors for each column vector in X
         """
 
+
+
         if k is None:
             k = self.n_neighbors
 
@@ -406,7 +408,7 @@ class NearestNeighbors(Base):
             <int>N,
             <long*>I_ptr,
             <float*>D_ptr,
-            <int>self.n_neighbors
+            <int>k
         )
 
         I_ndarr = I_ndarr.reshape((N, k))
@@ -433,7 +435,7 @@ class NearestNeighbors(Base):
 
         return dists, inds
 
-    def _kneighbors(self, X_ctype, N, I_ptr, D_ptr):
+    def _kneighbors(self, X_ctype, N, I_ptr, D_ptr, k):
 
         cdef uintptr_t inds = I_ptr
         cdef uintptr_t dists = D_ptr
@@ -454,5 +456,5 @@ class NearestNeighbors(Base):
             <int>N,
             <long*>inds,
             <float*>dists,
-            <int>self.n_neighbors
+            <int>k
         )
