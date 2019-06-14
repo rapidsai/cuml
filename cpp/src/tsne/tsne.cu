@@ -163,11 +163,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     // Get norm(Y)
     get_norm(Y, norm, n, k, stream);
-#if IF_DEBUG
-    printf("[Info]  Norm(y)\n\n");
-    std::cout << MLCommon::arr2Str(norm, 20, "norm", stream) << std::endl;
-    std::cout << MLCommon::arr2Str(norm + n/2, 20, "norm", stream) << std::endl;
-#endif
+// #if IF_DEBUG
+//     printf("[Info]  Norm(y)\n\n");
+//     std::cout << MLCommon::arr2Str(norm, 20, "norm", stream) << std::endl;
+//     std::cout << MLCommon::arr2Str(norm + n/2, 20, "norm", stream) << std::endl;
+// #endif
 
     // Do -2 * (Y @ Y.T)
     if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
@@ -186,11 +186,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     CUDA_CHECK(cudaPeekAtLastError());
 
     DEBUG("[Info] Z =  %lf iter = %d\n", Z, iter);
-#if IF_DEBUG
-    printf("[Info]  Q 1/(1+d)\n\n");
-    std::cout << MLCommon::arr2Str(Q, 20, "QQ", stream);
-    std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "QQ", stream);
-#endif
+// #if IF_DEBUG
+//     printf("[Info]  Q 1/(1+d)\n\n");
+//     std::cout << MLCommon::arr2Str(Q, 20, "QQ", stream);
+//     std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "QQ", stream);
+// #endif
 
     // Compute attractive forces with COO matrix
     attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ,
@@ -205,15 +205,15 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     // Change Q to Q**2 for repulsion
     postprocess_Q(Q, Q_sum, n, stream);
-#if IF_DEBUG
-    printf("[Info]  Q**2\n\n");
-    std::cout << MLCommon::arr2Str(Q, 20, "Q**2", stream);
-    std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "Q**2", stream);
+// #if IF_DEBUG
+//     printf("[Info]  Q**2\n\n");
+//     std::cout << MLCommon::arr2Str(Q, 20, "Q**2", stream);
+//     std::cout << MLCommon::arr2Str(Q + n*n - n, 20, "Q**2", stream);
 
-    printf("[Info]  Q_sum\n\n");
-    std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
-    std::cout << MLCommon::arr2Str(Q_sum + n/2, 20, "Q_sum", stream);
-#endif
+//     printf("[Info]  Q_sum\n\n");
+//     std::cout << MLCommon::arr2Str(Q_sum, 20, "Q_sum", stream);
+//     std::cout << MLCommon::arr2Str(Q_sum + n/2, 20, "Q_sum", stream);
+// #endif
 
 
     // Compute repel_1 = Q @ Y
@@ -251,13 +251,13 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     std::cout << MLCommon::arr2Str(Y, 20, "Y", stream);
     std::cout << MLCommon::arr2Str(Y + n, 20, "Y", stream);
 
-    printf("[Info]  gains after integration\n\n");
-    std::cout << MLCommon::arr2Str(gains, 20, "gains", stream);
-    std::cout << MLCommon::arr2Str(gains + n, 20, "gains", stream);
+    // printf("[Info]  gains after integration\n\n");
+    // std::cout << MLCommon::arr2Str(gains, 20, "gains", stream);
+    // std::cout << MLCommon::arr2Str(gains + n, 20, "gains", stream);
 
-    printf("[Info]  iY after integration\n\n");
-    std::cout << MLCommon::arr2Str(iY, 20, "iY", stream);
-    std::cout << MLCommon::arr2Str(iY + n, 20, "iY", stream);
+    // printf("[Info]  iY after integration\n\n");
+    // std::cout << MLCommon::arr2Str(iY, 20, "iY", stream);
+    // std::cout << MLCommon::arr2Str(iY + n, 20, "iY", stream);
 #endif
 
 
