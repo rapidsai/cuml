@@ -46,13 +46,14 @@ class TSNETest : public ::testing::Test {
 
     std::cout << "Updating host" << std::endl;
     float *embeddings_h = (float*) malloc(sizeof(float) * n * 2);
+    cudaMemcpy(embeddings_h, Y_d, sizeof(float), cudaMemcpyDeviceToHost);
 
-    int k = 0;
-    for (int i = 0; i < n; i++) {
-    	for (int j = 0; j < 2; j++) {
-    		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
-    	}
-    }
+    // int k = 0;
+    // for (int i = 0; i < n; i++) {
+    // 	for (int j = 0; j < 2; j++) {
+    // 		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
+    // 	}
+    // }
     for (int j = 0; j < 2; j++) {
     	for (int i = 0; i < n; i++)
     		printf("%.f,", embeddings_h[i*2 + j]);
