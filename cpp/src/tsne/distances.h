@@ -72,9 +72,9 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
   P_PT_with_zeros.destroy();
 
   // If DEBUG, sort COO as well
-#if IF_DEBUG
-  Sparse::coo_sort(P_PT, stream);
-#endif
+// #if IF_DEBUG
+//   Sparse::coo_sort(P_PT, stream);
+// #endif
 
   // Divide by P_sum
   // Notice P_sum is *2 since symmetric.

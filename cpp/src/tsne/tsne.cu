@@ -65,9 +65,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
   // Get perplexity
   DEBUG("[Info] Get perplexity\n");
-  float *P = (float *)d_alloc->allocate(
-    sizeof(float) * n * n_neighbors,
-    stream);  //cmalloc(sizeof(float)*n*n_neighbors, false);
+  float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
   float P_sum = determine_sigmas(distances, P, perplexity, perplexity_epochs,
                                  perplexity_tol, n, n_neighbors, stream);
   d_alloc->deallocate(distances, n * n_neighbors * sizeof(float), stream);
