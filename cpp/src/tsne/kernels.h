@@ -173,11 +173,13 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   printf("[Info]  sum_Q\n\n");
   std::cout << MLCommon::arr2Str(sum_Q, 20, "sum_Q", stream);
 
-  double z1 = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + (n/2));
+  double z1 = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + 10);
   printf("sum(Q) = %llf\n", z1);
-  double z2 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
+  double z2 = (double) thrust::reduce(__STREAM__, sum_Q + 10, sum_Q + (n/2));
   printf("sum(Q) = %llf\n", z2);
-  double Z = z1 + z2;
+  double z3 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
+  printf("sum(Q) = %llf\n", z3);
+  double Z = z1 + z2 + z3;
   printf("[Info]  Z sum = %llf\n", Z);
 #else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
