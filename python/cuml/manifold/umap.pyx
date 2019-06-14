@@ -71,31 +71,31 @@ cdef extern from "umap/umapparams.h" namespace "ML":
 
 
 cdef extern from "umap/umap.hpp" namespace "ML":
-    void fit(cumlHandle &handle,
-             float *X,
+    void fit(cumlHandle & handle,
+             float * X,
              int n,
              int d,
-             UMAPParams *params,
-             float *embeddings) except +
+             UMAPParams * params,
+             float * embeddings) except +
 
-    void fit(cumlHandle &handle,
-             float *X,
-             float *y,
+    void fit(cumlHandle & handle,
+             float * X,
+             float * y,
              int n,
              int d,
-             UMAPParams *params,
-             float *embeddings) except +
+             UMAPParams * params,
+             float * embeddings) except +
 
-    void transform(cumlHandle &handle,
-                   float *X,
+    void transform(cumlHandle & handle,
+                   float * X,
                    int n,
                    int d,
-                   float *orig_X,
+                   float * orig_X,
                    int orig_n,
-                   float *embedding,
+                   float * embedding,
                    int embedding_n,
-                   UMAPParams *params,
-                   float *out) except +
+                   UMAPParams * params,
+                   float * out) except +
 
 
 class UMAP(Base):
@@ -202,6 +202,7 @@ class UMAP(Base):
       https://arxiv.org/abs/1802.03426
 
     """
+
     def __init__(self,
                  n_neighbors=15,
                  n_components=2,
@@ -226,36 +227,36 @@ class UMAP(Base):
 
         super(UMAP, self).__init__(handle, verbose)
 
-        cdef UMAPParams* umap_params = new UMAPParams()
+        cdef UMAPParams * umap_params = new UMAPParams()
 
         self.n_neighbors = n_neighbors
         umap_params.n_neighbors = n_neighbors
 
-        umap_params.n_components = <int>n_components
-        umap_params.n_epochs = <int>n_epochs
-        umap_params.verbose = <bool>verbose
+        umap_params.n_components = <int > n_components
+        umap_params.n_epochs = <int > n_epochs
+        umap_params.verbose = <bool > verbose
 
         if(init == "spectral"):
-            umap_params.init = <int>1
+            umap_params.init = <int > 1
         elif(init == "random"):
-            umap_params.init = <int>0
+            umap_params.init = <int > 0
         else:
             raise Exception("Initialization strategy not supported: %d" % init)
 
         if a is not None:
-            umap_params.a = <float>a
+            umap_params.a = <float > a
 
         if b is not None:
-            umap_params.b = <float>b
+            umap_params.b = <float > b
 
-        umap_params.learning_rate = <float>learning_rate
-        umap_params.min_dist = <float>min_dist
-        umap_params.spread = <float>spread
-        umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
-        umap_params.local_connectivity = <float>local_connectivity
-        umap_params.repulsion_strength = <float>repulsion_strength
-        umap_params.negative_sample_rate = <int>negative_sample_rate
-        umap_params.transform_queue_size = <int>transform_queue_size
+        umap_params.learning_rate = <float > learning_rate
+        umap_params.min_dist = <float > min_dist
+        umap_params.spread = <float > spread
+        umap_params.set_op_mix_ratio = <float > set_op_mix_ratio
+        umap_params.local_connectivity = <float > local_connectivity
+        umap_params.repulsion_strength = <float > repulsion_strength
+        umap_params.negative_sample_rate = <int > negative_sample_rate
+        umap_params.transform_queue_size = <int > transform_queue_size
 
         umap_params.target_n_neighbors = target_n_neighbors
         umap_params.target_weights = target_weights
@@ -269,10 +270,10 @@ class UMAP(Base):
 
         self._should_downcast = should_downcast
 
-        self.umap_params = <size_t>umap_params
+        self.umap_params = <size_t > umap_params
 
     def __dealloc__(self):
-        cdef UMAPParams *umap_params = <UMAPParams*><size_t>self.umap_params
+        cdef UMAPParams * umap_params = <UMAPParams*> < size_t > self.umap_params
         del umap_params
 
     def fit(self, X, y=None):
@@ -302,18 +303,18 @@ class UMAP(Base):
             raise ValueError("There needs to be more than 1 sample to "
                              "build nearest the neighbors graph")
 
-        cdef UMAPParams *umap_params = <UMAPParams*><size_t>self.umap_params
+        cdef UMAPParams * umap_params = <UMAPParams*> < size_t > self.umap_params
         umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
         self.n_dims = n_cols
         self.raw_data = X_ctype
         self.raw_data_rows = n_rows
 
         self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
-                                        umap_params.n_components),
-                                        order="C", dtype=np.float32))
+                                               umap_params.n_components),
+                                              order="C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle * handle_ = <cumlHandle*> < size_t > self.handle.getHandle()
 
         cdef uintptr_t y_raw
         cdef uintptr_t x_raw = X_ctype
@@ -324,21 +325,21 @@ class UMAP(Base):
             y_m, y_raw, _, _, _ = \
                 input_to_dev_array(y)
             fit(handle_[0],
-                <float*> x_raw,
-                <float*> y_raw,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                < float*> x_raw,
+                < float*> y_raw,
+                < int > X_m.shape[0],
+                < int > X_m.shape[1],
+                < UMAPParams*>umap_params,
+                < float*>embed_raw)
 
         else:
 
             fit(handle_[0],
-                <float*> x_raw,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <UMAPParams*>umap_params,
-                <float*>embed_raw)
+                < float*> x_raw,
+                < int > X_m.shape[0],
+                < int > X_m.shape[1],
+                < UMAPParams*>umap_params,
+                < float*>embed_raw)
 
         del X_m
 
@@ -408,28 +409,28 @@ class UMAP(Base):
             raise ValueError("n_features of X must match n_features of "
                              "training data")
 
-        cdef UMAPParams *umap_params = <UMAPParams*><size_t>self.umap_params
+        cdef UMAPParams * umap_params = <UMAPParams*> < size_t > self.umap_params
         embedding = cuda.to_device(zeros((X_m.shape[0],
                                           umap_params.n_components),
                                          order="C", dtype=np.float32))
         cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
 
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef cumlHandle * handle_ = <cumlHandle*> < size_t > self.handle.getHandle()
 
         cdef uintptr_t orig_x_raw = self.raw_data
 
         cdef uintptr_t embed_ptr = self.embeddings
 
         transform(handle_[0],
-                  <float*>x_ptr,
-                  <int>X_m.shape[0],
-                  <int>X_m.shape[1],
-                  <float*>orig_x_raw,
-                  <int>self.raw_data_rows,
-                  <float*> embed_ptr,
-                  <int> self.arr_embed.shape[0],
-                  <UMAPParams*> umap_params,
-                  <float*> xformed_ptr)
+                  < float*>x_ptr,
+                  < int > X_m.shape[0],
+                  < int > X_m.shape[1],
+                  < float*>orig_x_raw,
+                  < int > self.raw_data_rows,
+                  < float*> embed_ptr,
+                  < int > self.arr_embed.shape[0],
+                  < UMAPParams*> umap_params,
+                  < float*> xformed_ptr)
 
         if isinstance(X, cudf.DataFrame):
             ret = cudf.DataFrame()
@@ -441,4 +442,4 @@ class UMAP(Base):
         del X_m
 
         return ret
-        
+
