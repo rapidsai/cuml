@@ -17,7 +17,7 @@ from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
 from sklearn.linear_model import SGDRegressor
 import pytest
 from sklearn.datasets.samples_generator import make_regression
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import r2_score
 
 
 def unit_param(*args, **kwargs):
@@ -65,6 +65,6 @@ def test_mbsgd_regressor(datatype, lrate, input_type, penalty,
     skl_sgd_regressor.fit(X_train, y_train)
     skl_pred = skl_sgd_regressor.predict(X_test)
 
-    cu_error = mean_squared_error(cu_pred, y_test)
-    skl_error = mean_squared_error(skl_pred, y_test)
-    assert(cu_error - skl_error <= 0.02)
+    cu_r2 = r2_score(cu_pred, y_test)
+    skl_r2 = r2_score(skl_pred, y_test)
+    assert(cu_r2 - skl_r2 <= 0.02)
