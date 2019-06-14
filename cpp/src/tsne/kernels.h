@@ -169,20 +169,12 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n,
                                                                    sum_Q);
 
-  // int blks = MLCommon::ceildiv(n, TPB_X);
-
-  // dim3 grid(blks, 1, 1);
-  // dim3 blk(TPB_X, 1, 1);
-
-  // __sum_array<<<grid, blk, 0, stream>>>(sum_Q, sum, n);
-
   thrust_t<float> sum_Q_ = to_thrust(sum_Q);
   double Z = (double) thrust::reduce(__STREAM__, sum_Q_, sum_Q_ + n);
+#if IF_DEBUG
+  printf("[Info]  Z sum = %lf\n", Z);
+#endif
   return (float)(1.0 / Z);
-
-  // double Z;
-  // cudaMemcpy(&Z, sum, sizeof(double), cudaMemcpyDeviceToHost);
-  // return (float)((double)1.0 / Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
