@@ -229,23 +229,21 @@ __repulsive_fast_2dim(const float *__restrict__ Y1,
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
-    if (i < n && j < n) {
+    if (i < n && j < n && j > i) {
 
         const float Q = 1.0f / \
         	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
+
+        atomicAdd(&sum_Z[i], Q); // Z += Q
         const float Q2 = Q*Q;
-        
-        if (j < i) {
-        	atomicAdd(&sum_Z[i], Q); // Z += Q
-        	const float force1 = Q2 * (Y1[i] - Y1[j]);
-        	atomicAdd(&repel1[i],  - force1);
-        	atomicAdd(&repel1[j],  force1);
-        }
-        else {
-        	const float force2 = Q2 * (Y2[i] - Y2[j]);
-        	atomicAdd(&repel2[i],  - force2);
-       		atomicAdd(&repel2[j],  force2);
-        }        
+
+        const float force1 = Q2 * (Y1[i] - Y1[j]);
+        atomicAdd(&repel1[i],  - force1);
+        atomicAdd(&repel1[j],  force1);
+
+        const float force2 = Q2 * (Y2[i] - Y2[j]);
+        atomicAdd(&repel2[i],  - force2);
+        atomicAdd(&repel2[j],  force2);
     }
 }
 
