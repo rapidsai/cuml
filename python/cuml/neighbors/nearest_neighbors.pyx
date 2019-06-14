@@ -184,10 +184,8 @@ class NearestNeighbors(Base):
     For additional docs, see `scikitlearn's NearestNeighbors
     <https://scikit-learn.org/stable/modules/generated/sklearn.neighbors.NearestNeighbors.html#sklearn.neighbors.NearestNeighbors>`_.
     """
-
-
     def __init__(self, n_neighbors=5, n_gpus=1, devices=None,
-                  verbose=False, should_downcast=True, handle=None):
+                 verbose=False, should_downcast=True, handle=None):
         """
         Construct the NearestNeighbors object for training and querying.
 
@@ -205,7 +203,6 @@ class NearestNeighbors(Base):
         self.devices = devices
         self.n_neighbors = n_neighbors
         self._should_downcast = should_downcast
-
 
     def fit(self, X):
         """
@@ -318,7 +315,8 @@ class NearestNeighbors(Base):
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        cdef float** input_arr = <float**> malloc(len(alloc_info) * sizeof(float*))
+        cdef float** input_arr = \
+            <float**> malloc(len(alloc_info) * sizeof(float*))
         cdef int* sizes_arr = <int*>malloc(len(alloc_info)*sizeof(int))
 
         self.n_indices = len(alloc_info)
