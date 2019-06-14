@@ -140,8 +140,31 @@ __attractive_fast(const float *__restrict__ VAL,
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < dim; k++)
-            atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]));
+            atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]) );
             // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
+    }
+}
+__global__ void
+__attractive_fast_2dim(const float *__restrict__ VAL,
+	                    const int *__restrict__ COL,
+	                    const int *__restrict__ ROW,
+	                    const float *__restrict__ Y1,
+	                    const float *__restrict__ Y2,
+	                    const float *__restrict__ norm,
+	                    float *__restrict__ attract1,
+	                    float *__restrict__ attract2, const int NNZ,
+	                    const int n, const int dim) {
+    // Notice attract, Y and repel are all F-contiguous
+    const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index < NNZ) {
+        const int i = ROW[index];
+        const int j = COL[index];
+
+        const float d = Y1[i]*Y1[j] + Y2[i]*Y2[j];
+        const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
+
+        atomicAdd(&attract1[i],     PQ * (Y1[i] - Y2[j]) );
+        atomicAdd(&attract2[i],     PQ * (Y2[i] - Y2[j]) );
     }
 }
 void attractive_fast(const float *__restrict__ VAL,
@@ -154,8 +177,12 @@ void attractive_fast(const float *__restrict__ VAL,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * dim);
 
-    __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
-        norm, attract, NNZ, n, dim);
+    if (dim == 2)
+    	__attractive_fast_2dim<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+        	Y + n, norm, attract, attract + n, NNZ, n, dim);
+    else
+    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+        	norm, attract, NNZ, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 }
 

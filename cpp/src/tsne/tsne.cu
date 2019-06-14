@@ -16,12 +16,12 @@ namespace ML {
 using namespace MLCommon;
 
 void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
-			const int p, const int n_components = 2, int n_neighbors = 90,
+			const int p, const int n_components = 2, int n_neighbors = 30,
 			const float perplexity = 30.0f, const int perplexity_max_iter = 100,
 			const int perplexity_tol = 1e-5,
 			const float early_exaggeration = 12.0f,
-			const int exaggeration_iter = 250, const float min_gain = 0.01f,
-			const float eta = 500.0f, const int max_iter = 1000,
+			const int exaggeration_iter = 150, const float min_gain = 0.01f,
+			const float eta = 500.0f, const int max_iter = 500,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
 			const long long seed = -1, const bool initialize_embeddings = true,
 			const bool verbose = true, const char *method = "Fast")
@@ -102,8 +102,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		Fast algorithm uses 0 matrices, and does all computations within
 		the GPU registers. This guarantees no memory movement and so can
 		be fast in practice.
-
-		[NOTICE] FAST OUTPUTS C-CONTIGUOUS OUTPUT!!!!
 		*/
 		for (int iter = 0; iter < max_iter; iter++) {
 			if (iter == exaggeration_iter) {
@@ -121,7 +119,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 			// Fast compute repulsive forces
 			Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
-			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
+			if (verbose && iter % 100 == 0)
+				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
 			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
@@ -135,8 +134,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		Code flow follows closely to Maaten's original TSNE code.
 		Notice Naive is relatively memory hungry - uses O(N^2).
 		Fast uses close to no extra memory.
-
-		[NOTICE] NAIVE OUTPUTS F-Contiguous output!!!!!!
 		*/
 		const float neg2 = -2.0f, beta = 0.0f, one = 1.0f;
 		float *Q = (float *)d_alloc->allocate(sizeof(float) * n * n, stream);
@@ -153,15 +150,16 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_slow(Y, norm, n, k, stream);
 
 			// Find Y @ Y.T
-			if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-									&neg2, Y, n, &beta, Q, n)) {
+			if ((error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
+												&neg2, Y, n, &beta, Q, n))) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
 
 			// Form T = 1 / (1 + d) = 1 / (1 + -2*Y@Y.T )
 			Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
-			if (verbose) printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
+			if (verbos && iter % 100 == 0)
+				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Compute attractive forces from COO matrix
 			attractive_forces(VAL, COL, ROW, Q, Y, attract, NNZ, n, k, stream);
@@ -170,8 +168,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			postprocess_Q(Q, Q_sum, n, stream);
 
 			// Do Q**2 @ Y
-			if (error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
-			                        k, &one, Q, n, Y, n, &beta, repel, n)) {
+			if ((error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
+						                        k, &one, Q, n, Y, n, &beta, repel, n))) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
