@@ -136,10 +136,7 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
 __global__ void __sum_array(const float *__restrict__ X,
                             double *__restrict__ sum, const int n) {
   int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) {
-    atomicAdd(sum, (double)X[i]);
-    printf("%f ", (double)X[i]);
-  }
+  if (i < n) atomicAdd(sum, (double)X[i]);
 }
 
 __global__ void __form_t_distribution(float *__restrict__ Q,
@@ -160,7 +157,7 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
-float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
+double form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
                           const int n, float *__restrict__ sum_Q,
                           double *__restrict__ sum, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
@@ -183,14 +180,13 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   double z3 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
   printf("sum(Q) = %lf\n", z3);
   double Z = z1 + z2 + z3;
-  printf("[Info]  Z sum = %llf\n", Z);
-  __sum_array<<<1, n>>>(sum_Q, sum, n);
-  
+  printf("[Info]  Z sum = %lf\n", Z);
+
 #else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
 #endif
 
-  return (float)((double)1.0 / Z);
+  return ((double)1.0 / Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
