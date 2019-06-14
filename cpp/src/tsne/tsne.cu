@@ -137,6 +137,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		/*
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
 		Code flow follows closely to Maaten's original TSNE code.
+		Notice Naive is relatively memory hungry - uses O(N^2).
+		Fast uses close to no extra memory.
 		*/
 		const float neg2 = -2.0f, beta = 0.0f, one = 1.0f;
 		float *Q = (float *)d_alloc->allocate(sizeof(float) * n * n, stream);

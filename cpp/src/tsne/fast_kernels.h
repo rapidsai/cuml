@@ -241,7 +241,7 @@ __apply_forces(const float *__restrict__ attract,
 
 		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
 
-		Y[index] += (iY[index] + noise[index]);
+		Y[index] += iY[index];
 	}
 }
 
