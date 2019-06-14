@@ -87,7 +87,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
     printf("[Info]  Symmetrized Perplexity results\n\n");
-    std::cout << MLCommon::arr2Str(P_PT, 20, "Perplexity", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(P_PT.vals, 20, "Perplexity", stream) << std::endl;
 #endif
 
 
