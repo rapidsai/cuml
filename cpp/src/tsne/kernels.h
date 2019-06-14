@@ -139,7 +139,7 @@ __form_t_distribution(float *__restrict__ Q,
         if (i == j)
             Q[i*n + j] = 0.0f;
         else {
-            const float q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
+            float q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
             if (j > i)
                 Q[i*n + j] = q;
             else
@@ -193,6 +193,48 @@ void attractive_forces(const float *__restrict__ VAL,
     cudaMemset(attract, 0, sizeof(float) * n * K);
     __attractive_forces<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Q, Y,
                                                               attract, NNZ, n, K);
+}
+
+
+__global__ void
+__attractive_fast(const float *__restrict__ VAL,
+                const int *__restrict__ COL,
+                const int *__restrict__ ROW,
+                const float *__restrict__ Y,
+                const float *__restrict__ norm,
+                float *__restrict__ attract, const int NNZ,
+                const int n, const int n_components)
+{
+    const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index < NNZ) {
+        const int i = ROW[index];
+        const int j = COL[index];
+
+        float dist = 0.0f;
+        for (int k = 0; k < n_components; k++)
+            // euclidean_distance += Y[i, k] * Y[j, k]
+            dist += Y[k*n + i] * Y[k*n + j];
+
+        const float PQ = VAL[index] / (-2.0f * dist + norm[i] + norm[j] + 1.0f);
+
+        for (int k = 0; k < n_components; k++)
+            // attract[i, k] += PQ * (Y[i, k] - Y[j, k])
+            atomicAdd( &attract[k*n + i],   PQ * (Y[k*n + i] - Y[k*n + j])  );
+    }
+}
+void attractive_fast(const float *__restrict__ VAL,
+                    const int *__restrict__ COL,
+                    const int *__restrict__ ROW,
+                    const float *__restrict__ Y,
+                    const float *__restrict__ norm,
+                    float *__restrict__ attract, const int NNZ,
+                    const int n, const int n_components,
+                    cudaStream_t stream)
+{
+    cudaMemset(attract, 0, sizeof(float) * n * n_components);
+    __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW,
+        Y, norm, attract, NNZ, n, n_components);
+    CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
