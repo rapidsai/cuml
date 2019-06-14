@@ -49,8 +49,14 @@ class TSNETest : public ::testing::Test {
 
     int k = 0;
     for (int i = 0; i < n; i++) {
-    	for (int j = 0; j < k; j++)
-    		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
+    	for (int j = 0; j < k; j++) {
+    		cudaMemcpy(&embeddings_h[k], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
+    	}
+    }
+    for (int j = 0; j < 2; j++) {
+    	for (int i = 0; i < n; i++)
+    		printf("%.f", embeddings_h[i*2 + j]);
+    	printf("\n\n");
     }
     float *YY; MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, embeddings_h, n * 2, stream);
