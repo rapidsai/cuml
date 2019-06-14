@@ -474,4 +474,3 @@ class RandomForestClassifier(Base):
         """
 
         return self._impl.cross_validate(X, y)
-
