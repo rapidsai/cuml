@@ -31,6 +31,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::allocate(X_d, n * p);
     MLCommon::allocate(Y_d, n * 2);
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
+    MLCommon::updateDevice(Y_d, embeddings.data(), n * 2, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
     TSNE(handle, X_d, Y_d, n, p, 2, 5, distances.data(), indices.data());
