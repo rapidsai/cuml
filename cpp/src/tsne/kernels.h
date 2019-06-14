@@ -185,7 +185,8 @@ double form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm
 #else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
 #endif
-
+  double Z_div = 1.0 / Z;
+  printf("[Info]  Z_div = %lf\n\n", Z_div);
   return ((double)1.0 / Z);
 }
 
@@ -219,8 +220,7 @@ void attractive_forces(const float *__restrict__ VAL,
 
 __global__ void __postprocess_Q(float *__restrict__ Q,
                                 float *__restrict__ sum_Q, const int n) {
-  const int j =
-    (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+  const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
   const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
   if (i < n && j < n) {
     Q[i * n + j] *= Q[i * n + j];
@@ -250,8 +250,7 @@ __global__ void __repel_minus_QY(float *__restrict__ repel,
                                  const float *__restrict__ Y, const int n,
                                  const int K) {
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
-  const int i =
-    (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
+  const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
   if (j < K && i < n)
     // repel[i*n + j] -= Q_sum[i] * Y[i*n + j];
     atomicAdd(&repel[j * n + i],
@@ -287,8 +286,7 @@ __global__ void __apply_forces(const float *__restrict__ attract,
   // NOTICE noise is a 1D array
 
   const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
-  const int i =
-    (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
+  const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
   if (j < K && i < n) {
     const int index = j * n + i;
     // DY[:] = attract + Z*repel
