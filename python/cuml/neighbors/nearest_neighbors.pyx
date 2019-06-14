@@ -297,7 +297,6 @@ class NearestNeighbors(Base):
             sizes_arr[0] = <int>len(X)
             input_arr[0] = <float*>X_ctype
 
-
             self.n_indices = 1
 
             inp = <uintptr_t>deref(input_arr)
@@ -364,8 +363,6 @@ class NearestNeighbors(Base):
         indices: cuDF DataFrame of numpy ndarray
             The indices of the k-nearest neighbors for each column vector in X
         """
-
-
 
         if k is None:
             k = self.n_neighbors
