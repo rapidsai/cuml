@@ -164,7 +164,7 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
                           const int n, float *__restrict__ sum_Q,
                           double *__restrict__ sum, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
-  cudaMemset(sum, 0, sizeof(double));
+  //cudaMemset(sum, 0, sizeof(double));
 
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
@@ -172,16 +172,20 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n,
                                                                    sum_Q);
 
-  int blks = MLCommon::ceildiv(n, TPB_X);
+  // int blks = MLCommon::ceildiv(n, TPB_X);
 
-  dim3 grid(blks, 1, 1);
-  dim3 blk(TPB_X, 1, 1);
+  // dim3 grid(blks, 1, 1);
+  // dim3 blk(TPB_X, 1, 1);
 
-  __sum_array<<<grid, blk, 0, stream>>>(sum_Q, sum, n);
+  // __sum_array<<<grid, blk, 0, stream>>>(sum_Q, sum, n);
 
-  double Z;
-  cudaMemcpy(&Z, sum, sizeof(double), cudaMemcpyDeviceToHost);
-  return (float)((double)1.0 / Z);
+  thrust_t<float> sum_Q_ = to_thrust(sum_Q);
+  double Z = (double) thrust::reduce(__STREAM__, sum_Q_, sum_Q_ + n);
+  return (float)(1.0 / Z);
+
+  // double Z;
+  // cudaMemcpy(&Z, sum, sizeof(double), cudaMemcpyDeviceToHost);
+  // return (float)((double)1.0 / Z);
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
