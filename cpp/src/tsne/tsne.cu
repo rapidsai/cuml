@@ -25,8 +25,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const int exaggeration_iter = 500, const float min_gain = 0.01f,
 			const float eta = 500.0f, const int max_iter = 10000,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
-			const long long seed = -1, const bool initialize_embeddings = false,
-			const bool verbose = false, const char *method = "Fast") {
+			const long long seed = -1, const bool initialize_embeddings = true,
+			const bool verbose = true, const char *method = "Fast") {
 
 	auto d_alloc = handle.getDeviceAllocator();
 	cudaStream_t stream = handle.getStream();
