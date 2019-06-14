@@ -53,31 +53,40 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
                            const float exaggeration, cudaStream_t stream) {
   // Convert to COO
   COO_t<float> P_COO;
-  //COO_t<float> P_PT_with_zeros;
+  COO_t<float> P_PT_with_zeros;
   Sparse::from_knn(indices, P, n, k, &P_COO);
   cfree(P);
   cfree(indices);
 
   // Perform (P + P.T) / P_sum * early_exaggeration
+  const float div = exaggeration / (2.0f * P_sum);
+
   Sparse::coo_symmetrize<32, float>(
-    &P_COO, P_PT,
-    [] __device__(int row, int col, float val, float trans) {
-      return val + trans;
+    &P_COO, &P_PT_with_zeros,
+    [div] __device__(int row, int col, float val, float trans) {
+      return div*(val + trans);
     },
     stream);
   P_COO.destroy();
 
   // Remove all zeros in P + PT
-  //Sparse::coo_remove_zeros<32, float>(&P_PT_with_zeros, P_PT, stream);
-  //P_PT_with_zeros.destroy();
+  Sparse::coo_sort<float>(&P_PT_with_zeros, stream);
+
+  Sparse::coo_remove_zeros<32, float>(&P_PT_with_zeros, P_PT, stream);
+  P_PT_with_zeros.destroy();
+
+  // If DEBUG, sort COO as well
+// #if IF_DEBUG
+//   Sparse::coo_sort(P_PT, stream);
+// #endif
 
   // Divide by P_sum
   // Notice P_sum is *2 since symmetric.
-  const float div = exaggeration / (2.0f * P_sum);
+  
 
   //inplace_multiply(P_PT->vals, P_PT->nnz, div, stream);
-  thrust_t<float> vals = to_thrust(P_PT->vals);
-  thrust::transform(__STREAM__, vals, vals+P_PT->nnz, vals, div * _1);
+  //thrust_t<float> vals = to_thrust(P_PT->vals);
+  //thrust::transform(__STREAM__, vals, vals+P_PT->nnz, vals, div * _1);
 
 }
 
