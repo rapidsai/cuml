@@ -26,8 +26,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const float eta = 500.0f, const int max_iter = 500,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
 			const long long seed = -1, const bool initialize_embeddings = true,
-			const bool verbose = true, const char *method = "Fast") {
-
+			const bool verbose = true, const char *method = "Fast")
+{
 	assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0 && X != NULL && Y != NULL);
 	if (verbose)
 		printf("[Info]	Data size = (%d, %d) with n_components = %d\n", n, p, n_components);
