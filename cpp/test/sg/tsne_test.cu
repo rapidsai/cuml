@@ -55,7 +55,7 @@ class TSNETest : public ::testing::Test {
     }
     for (int j = 0; j < 2; j++) {
     	for (int i = 0; i < n; i++)
-    		printf("%.f", embeddings_h[i*2 + j]);
+    		printf("%.f,", embeddings_h[i*2 + j]);
     	printf("\n\n");
     }
     float *YY; MLCommon::allocate(YY, n * 2);
