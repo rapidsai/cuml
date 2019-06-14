@@ -298,7 +298,7 @@ void apply_forces(const float *__restrict__ attract,
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Find mean and remove it
-	//remove_mean_fast(Y, means, n, dim, stream);
+	remove_mean_fast(Y, means, n, dim, stream);
 }
 
 
