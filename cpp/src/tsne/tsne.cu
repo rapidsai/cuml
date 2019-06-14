@@ -158,7 +158,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 			// Form T = 1 / (1 + d) = 1 / (1 + -2*Y@Y.T )
 			Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
-			if (verbos && iter % 100 == 0)
+			if (verbose && iter % 100 == 0)
 				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Compute attractive forces from COO matrix
