@@ -87,7 +87,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   // Convert data to COO layout
   float *VAL;
   int *COL, *ROW;
-  const int NNZ;
+  int NNZ;
 
   if (VAL_vector == NULL) {
     DEBUG("[Info] Convert to COO layout and symmetrize\n");
