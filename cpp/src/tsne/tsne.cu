@@ -169,11 +169,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 // #endif
 
     // Do -2 * (Y @ Y.T)
-    if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-                            &neg2, Y, n, &beta, Q, n)) {
-      DEBUG("[ERROR]  Error from BLAS = %d", error);
-      break;
-    }
+    // if (error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
+    //                         &neg2, Y, n, &beta, Q, n)) {
+    //   DEBUG("[ERROR]  Error from BLAS = %d", error);
+    //   break;
+    // }
 #if IF_DEBUG
     printf("[Info]  -2Y @ Y.T\n\n");
     // std::cout << MLCommon::arr2Str(Q, 20, "-2YYT", stream) << std::endl;
@@ -181,7 +181,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 #endif
 
     // Form T = 1 / (1+d)
-    Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
+    //Z = form_t_distribution(Q, norm, n, Q_sum, sum, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     DEBUG("[Info] Z =  %lf iter = %d\n", Z, iter);
@@ -196,6 +196,10 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
 
+
+    Z = repulsive_fast(Y, repel, norm, sum_Q, n, n_components, stream);
+
+
     CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
     printf("[Info]  Attractive forces\n\n");
@@ -205,7 +209,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
     // Change Q to Q**2 for repulsion
-    postprocess_Q(Q, Q_sum, n, stream);
+    //postprocess_Q(Q, Q_sum, n, stream);
 // #if IF_DEBUG
 //     printf("[Info]  Q**2\n\n");
 //     std::cout << MLCommon::arr2Str(Q, 20, "Q**2", stream);
@@ -218,11 +222,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
     // Compute repel_1 = Q @ Y
-    if (error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
-                            k, &one, Q, n, Y, n, &beta, repel, n)) {
-      DEBUG("[ERROR]  Error from BLAS = %d", error);
-      break;
-    }
+    // if (error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
+    //                         k, &one, Q, n, Y, n, &beta, repel, n)) {
+    //   DEBUG("[ERROR]  Error from BLAS = %d", error);
+    //   break;
+    // }
     CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
     printf("[Info]  Q @ Y\n\n");
@@ -233,7 +237,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
     // Repel_2 = mean contributions yi - yj
     // Repel = Repel_1 - Repel_2
-    repel_minus_QY(repel, Q_sum, Y, n, k, stream);
+    //repel_minus_QY(repel, Q_sum, Y, n, k, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 #if IF_DEBUG
     printf("[Info]  repel - mean @ Y\n\n");

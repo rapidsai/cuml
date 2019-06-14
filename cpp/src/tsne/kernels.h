@@ -203,7 +203,8 @@ __attractive_fast(const float *__restrict__ VAL,
 
         float d = 0.0f;
         for (int k = 0; k < n_components; k++)
-            d += (Y[k*n + i] * Y[k*n + j]); //d += Y[i, k] * Y[j, k]
+            //d += Y[i, k] * Y[j, k]
+            d += (Y[k*n + i] * Y[k*n + j]);
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
@@ -225,6 +226,58 @@ void attractive_fast(const float *__restrict__ VAL,
         norm, attract, NNZ, n, K);
     CUDA_CHECK(cudaPeekAtLastError());
 }
+
+
+
+__global__ void
+__repulsive_fast(const float *__restrict__ Y,
+                float *__restrict__ repel,
+                const float *__restrict__ norm,
+                float *__restrict__ sum_Z,
+                const int n, const int n_components)
+{
+    const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
+    const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
+
+    if (i < n && j < n && i > j) {
+        float d = 0.0f;
+        for (int k = 0; k < n_components; k++)
+            //d += Y[i, k] * Y[j, k]
+            d += (Y[k*n + i] * Y[k*n + j]);
+
+        float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
+        atomicAdd(&sum_Z[i], Q); // Z += Q
+        const float Q2 = Q*Q;
+
+        for (int k = 0; k < n_components; k++) {
+            const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
+            // repel = Q2 * (Y[i, k] - Y[j, k]);
+
+            atomicAdd(&repel[k*n + i],  force);  // repel[k*n + i] -= force
+            atomicAdd(&repel[k*n + j],  force);  // repel[k*n + j] += force
+        }
+    }
+}
+double repulsive_fast(const float *__restrict__ Y,
+                    float *__restrict__ repel,
+                    const float *__restrict__ norm,
+                    float *__restrict__ sum_Z,
+                    const int n, const int n_components,
+                    cudaStream_t stream)
+{
+    cudaMemset(sum_Z, 0, sizeof(float) * n);
+    cudaMemset(repel, 0, sizeof(float) * n * n_components);
+
+    const dim3 threadsPerBlock(TPB_X, TPB_Y);
+    const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+    __repulsive_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, repel,
+                                            norm, sum_Z, n, n_components);
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    double Z = (double) thrust::reduce(__STREAM__, sum_Z, sum_Z + n);
+    return 1.0f / (2.0f * Z);
+}
+
 
 
 __global__ void 
