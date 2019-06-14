@@ -96,23 +96,23 @@ float determine_sigmas(const float *__restrict__ distances,
 
 __global__ void
 __get_norm(const float *__restrict__ Y, float *__restrict__ norm, 
-			const int n, const int n_components)
+			const int n, const int dim)
 {
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < n_components)
+	if (i < n && j < dim)
 		atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
-			  const int n, const int n_components, cudaStream_t stream) {
+			  const int n, const int dim, cudaStream_t stream) {
 	// Notice Y is F-Contiguous
 	cudaMemset(norm, 0, sizeof(float) * n);
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n_components, threadsPerBlock.y));
-	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
+	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+	__get_norm<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -125,7 +125,7 @@ __attractive_fast(const float *__restrict__ VAL,
                     const float *__restrict__ Y,
                     const float *__restrict__ norm,
                     float *__restrict__ attract, const int NNZ,
-                    const int n, const int n_components) {
+                    const int n, const int dim) {
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
@@ -133,13 +133,13 @@ __attractive_fast(const float *__restrict__ VAL,
         const int j = COL[index];
 
         float d = 0.0f;
-        for (int k = 0; k < n_components; k++)
+        for (int k = 0; k < dim; k++)
             //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
-        for (int k = 0; k < n_components; k++)
+        for (int k = 0; k < dim; k++)
             atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]));
             // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
     }
@@ -150,12 +150,12 @@ void attractive_fast(const float *__restrict__ VAL,
                     const float *__restrict__ Y,
                     const float *__restrict__ norm,
                     float *__restrict__ attract, const int NNZ,
-                    const int n, const int n_components,
+                    const int n, const int dim,
                     cudaStream_t stream) {
-    cudaMemset(attract, 0, sizeof(float) * n * n_components);
+    cudaMemset(attract, 0, sizeof(float) * n * dim);
 
     __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
-        norm, attract, NNZ, n, n_components);
+        norm, attract, NNZ, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -166,14 +166,14 @@ __repulsive_fast(const float *__restrict__ Y,
                 float *__restrict__ repel,
                 const float *__restrict__ norm,
                 float *__restrict__ sum_Z,
-                const int n, const int n_components)
+                const int n, const int dim)
 {
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
     if (i < n && j < n && j > i) {
         float d = 0.0f;
-        for (int k = 0; k < n_components; k++)
+        for (int k = 0; k < dim; k++)
             //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
@@ -181,7 +181,7 @@ __repulsive_fast(const float *__restrict__ Y,
         atomicAdd(&sum_Z[i], Q); // Z += Q
         const float Q2 = Q*Q;
 
-        for (int k = 0; k < n_components; k++) {
+        for (int k = 0; k < dim; k++) {
             const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
             // repel = Q2 * (Y[i, k] - Y[j, k]);
 
@@ -196,16 +196,16 @@ float repulsive_fast(const float *__restrict__ Y,
                     float *__restrict__ repel,
                     const float *__restrict__ norm,
                     float *__restrict__ sum_Z,
-                    const int n, const int n_components,
+                    const int n, const int dim,
                     cudaStream_t stream)
 {
     cudaMemset(sum_Z, 0, sizeof(float) * n);
-    cudaMemset(repel, 0, sizeof(float) * n * n_components);
+    cudaMemset(repel, 0, sizeof(float) * n * dim);
 
     const dim3 threadsPerBlock(TPB_X, TPB_Y);
     const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
     __repulsive_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, repel,
-                                            norm, sum_Z, n, n_components);
+                                            norm, sum_Z, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 
     thrust_t<float> begin = to_thrust(sum_Z);
@@ -219,7 +219,7 @@ __apply_forces(const float *__restrict__ attract,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
-				 const int K, const double Z, const float min_gain,
+				 const int K, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
 	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column

@@ -89,7 +89,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	float *iY = (float *)d_alloc->allocate(sizeof(float) * n * k, stream);
 	float *gains = (float *)d_alloc->allocate(sizeof(float) * n * k, stream);
-
+	float *means = (float*)d_alloc->allocate(sizeof(float) * k, stream);
 
 	// Do gradient updates
 
@@ -197,6 +197,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	d_alloc->deallocate(iY, sizeof(float) * n * k, stream);
 	d_alloc->deallocate(gains, sizeof(float) * n * k, stream);
+	d_alloc->deallocate(means, sizeof(float) * k, stream);
 }
 
 

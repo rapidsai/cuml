@@ -129,25 +129,47 @@ void repel_minus_QY(float *__restrict__ repel, float *__restrict__ sum_Q,
 
 __global__ void
 __get_norm_slow(const float *__restrict__ Y, float *__restrict__ norm, 
-			const int n, const int n_components)
+			const int n, const int dim)
 {
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < n_components)
+	if (i < n && j < dim)
 		atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void get_norm_slow(const float *__restrict__ Y, float *__restrict__ norm,
-			  const int n, const int n_components, cudaStream_t stream) {
+			  const int n, const int dim, cudaStream_t stream) {
 	// Notice Y is F-Contiguous
 	cudaMemset(norm, 0, sizeof(float) * n);
 
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n_components, threadsPerBlock.y));
-	__get_norm_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, n_components);
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+	__get_norm_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
+
+
+// __global__ void
+// __remove_mean(const float * __restrict__ Y, float * __restrict__ means, 
+// 			const int n, const int dim) {
+// 	// Y is F-Contiguous
+// 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+// 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
+// 	if (i < n && j < dim)
+// 		atomicAdd(&means[j], Y[j*n + i]);
+// }
+// template <int TPB_X = 32, int TPB_Y = 32>
+// void remove_mean(const float *__restrict__ Y, float *__restrict__ means,
+// 			  	const int n, const int dim, cudaStream_t stream) {
+// 	// Notice Y is F-Contiguous
+// 	cudaMemset(means, 0, sizeof(float) * dim);
+
+// 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+// 	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+// 	__get_norm_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
+// 	CUDA_CHECK(cudaPeekAtLastError());
+// }
 
 
 __global__ void 
@@ -155,7 +177,7 @@ __apply_forces_slow(const float *__restrict__ attract,
 				 const float *__restrict__ repel,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
-				 const int K, const double Z, const float min_gain,
+				 const int K, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
 	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
@@ -173,7 +195,6 @@ __apply_forces_slow(const float *__restrict__ attract,
 			gains[index] = min_gain;
 
 		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
-
 		Y[index] += iY[index];
 	}
 }
@@ -191,7 +212,9 @@ void apply_forces_slow(const float *__restrict__ attract,
 	__apply_forces_slow<<<numBlocks, threadsPerBlock, 0, stream>>>(
 		attract, repel, Y, iY, gains, n, K, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
+
+	// Find mean and remove it
 }
 
 
-}  // namespace ML
+}
