@@ -309,7 +309,7 @@ class UMAP(Base):
         self.raw_data_rows = n_rows
 
         self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
-                                        self.umap_params.n_components),
+                                        umap_params.n_components),
                                         order="C", dtype=np.float32))
         self.embeddings = self.arr_embed.device_ctypes_pointer.value
 
