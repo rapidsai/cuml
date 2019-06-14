@@ -136,7 +136,10 @@ void get_norm(const float *__restrict__ Y, float *__restrict__ norm,
 __global__ void __sum_array(const float *__restrict__ X,
                             double *__restrict__ sum, const int n) {
   int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if (i < n) atomicAdd(sum, (double)X[i]);
+  if (i < n) {
+    atomicAdd(sum, (double)X[i]);
+    printf("%f ", (double)X[i]);
+  }
 }
 
 __global__ void __form_t_distribution(float *__restrict__ Q,
@@ -174,13 +177,15 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
   std::cout << MLCommon::arr2Str(sum_Q, 20, "sum_Q", stream);
 
   double z1 = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + 10);
-  printf("sum(Q) = %llf\n", z1);
+  printf("sum(Q) = %lf\n", z1);
   double z2 = (double) thrust::reduce(__STREAM__, sum_Q + 10, sum_Q + (n/2));
-  printf("sum(Q) = %llf\n", z2);
+  printf("sum(Q) = %lf\n", z2);
   double z3 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
-  printf("sum(Q) = %llf\n", z3);
+  printf("sum(Q) = %lf\n", z3);
   double Z = z1 + z2 + z3;
   printf("[Info]  Z sum = %llf\n", Z);
+  __sum_array<<<1, n>>>(sum_Q, sum, n);
+  
 #else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
 #endif
