@@ -39,6 +39,10 @@ class TSNETest : public ::testing::Test {
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(Y_d+n/2, 20, "embeddings", stream) << std::endl;
+
+    std::cout << MLCommon::arr2Str(Y_d+n, 20, "embeddings", stream) << std::endl;
+    std::cout << MLCommon::arr2Str(Y_d+n+n/2, 20, "embeddings", stream) << std::endl;
 
     std::cout << "Updating host" << std::endl;
     float embeddings_h[n * 2];

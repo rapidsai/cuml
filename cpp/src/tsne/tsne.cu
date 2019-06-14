@@ -152,7 +152,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
   int error;
 
   DEBUG("[Info] Start iterations\n");
-  for (int iter = 0; iter < 15; iter++) {
+  for (int iter = 0; iter < 30; iter++) {
 
     if (iter == 20) momentum = post_momentum;
 
