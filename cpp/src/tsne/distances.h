@@ -59,7 +59,7 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
   cfree(indices);
 
   // Perform (P + P.T) / P_sum * early_exaggeration
-  Sparse::coo_symmetrize<TPB_X, float>(
+  Sparse::coo_symmetrize<32, float>(
     &P_COO, &P_PT_with_zeros,
     [] __device__(int row, int col, float val, float trans) {
       return val + trans;
@@ -68,7 +68,7 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
   P_COO.destroy();
 
   // Remove all zeros in P + PT
-  Sparse::coo_remove_zeros<TPB_X, float>(&P_PT_with_zeros, P_PT, stream);
+  Sparse::coo_remove_zeros<32, float>(&P_PT_with_zeros, P_PT, stream);
   P_PT_with_zeros.destroy();
 
   // If DEBUG, sort COO as well
