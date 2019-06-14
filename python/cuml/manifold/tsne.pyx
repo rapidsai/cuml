@@ -70,16 +70,16 @@ class TSNE_py:
                   n_neighbors=90,
                   n_components=2,
                   epochs=150,
-                  perplexity = 30.0,
-                  perplexity_epochs = 100,
-                  perplexity_tol = 1e-5,
-                  early_exaggeration = 12.0,
-                  exaggeration_iter = 250,
-                  min_gain = 0.01,
-                  eta = 500.0,
-                  pre_momentum = 0.8,
-                  post_momentum = 0.5,
-                  seed = -1,
+                  perplexity=30.0,
+                  perplexity_epochs=100,
+                  perplexity_tol=1e-5,
+                  early_exaggeration=12.0,
+                  exaggeration_iter=250,
+                  min_gain=0.01,
+                  eta=500.0,
+                  pre_momentum=0.8,
+                  post_momentum=0.5,
+                  seed=-1,
                   verbose=False,
                   should_downcast=True,
                   handle=None):
@@ -102,7 +102,6 @@ class TSNE_py:
         self.verbose = verbose
 
         self._should_downcast = should_downcast
-
 
     def fit(self, X):
         """Fit X into an embedded space.
@@ -148,25 +147,24 @@ class TSNE_py:
 
         cdef uintptr_t y_raw
         TSNE(handle_[0],
-            <float*> X_ptr,
-            <float*>embed_ptr,
-            <int> X_m.shape[0],
-            <int> X_m.shape[1],
-            <int>self.n_components,
-            <int>self.n_neighbors,
-            <float>self.perplexity,
-            <int> self.perplexity_epochs,
-            <int> self.perplexity_tol,
-            <float>self.early_exaggeration,
-            <int> self.exaggeration_iter,
-            <float> self.min_gain,
-            <float> self.eta,
-            <int> self.epochs,
-            <float> self.pre_momentum,
-            <float> self.post_momentum,
-            <long long> self.seed,
-            <bool>True
-        )
+             <float*> X_ptr,
+             <float*>embed_ptr,
+             <int> X_m.shape[0],
+             <int> X_m.shape[1],
+             <int>self.n_components,
+             <int>self.n_neighbors,
+             <float>self.perplexity,
+             <int> self.perplexity_epochs,
+             <int> self.perplexity_tol,
+             <float>self.early_exaggeration,
+             <int> self.exaggeration_iter,
+             <float> self.min_gain,
+             <float> self.eta,
+             <int> self.epochs,
+             <float> self.pre_momentum,
+             <float> self.post_momentum,
+             <long long> self.seed,
+             <bool>True)
 
         del X_m
 
@@ -194,3 +192,4 @@ class TSNE_py:
             ret = np.asarray(self.arr_embed)
 
         return ret
+    
