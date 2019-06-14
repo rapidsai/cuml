@@ -6,7 +6,7 @@
 #include "tsne/digits.h"
 #include "tsne/tsne.cu"
 //#include "tsne/Ground_Truth_TSNE.h"
-#include <metrics/trustworthiness.h>
+#include <score/scores.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
@@ -15,7 +15,7 @@
 #include "cuda_utils.h"
 
 using namespace MLCommon;
-using namespace ML::Metrics;
+using namespace MLCommon::Score;
 using namespace MLCommon::Distance;
 
 using namespace ML;
@@ -33,7 +33,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
-    TSNE(handle, X_d, Y_d, n, p);
+    TSNE(handle, X_d, Y_d, n, p, 2, 15);
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << MLCommon::arr2Str(Y_d, 20, "embeddings", stream) << std::endl;
@@ -48,8 +48,8 @@ class TSNETest : public ::testing::Test {
 
     // Test trustworthiness
     // euclidean test
-    score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(handle, X_d, Y_d,
-                                                              n, p, 2, 90);
+    score = trustworthiness_score<float, EucUnexpandedL2>(
+      X_d, Y_d, n, p, 2, 15, handle.getDeviceAllocator(), stream);
 
     std::cout << "SCORE: " << score << std::endl;
 
