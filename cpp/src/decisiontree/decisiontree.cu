@@ -186,7 +186,7 @@ void DecisionTreeBase<T, L>::plant(const cumlHandle_impl& handle, T *data, const
 	feature_selector.resize((int) (colper * dinfo.Ncols));
 
 	cudaDeviceProp prop;
-	CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
+	CUDA_CHECK(cudaGetDeviceProperties(&prop, handle.getDevice()));
 	max_shared_mem = prop.sharedMemPerBlock;
 
 	if (split_algo == SPLIT_ALGO::HIST) {
@@ -458,10 +458,10 @@ void DecisionTreeRegressor<T>::find_best_fruit_all(T *data, T *labels, const flo
 
 	if (this->split_criterion == CRITERION::MSE) {
 		best_split_all_cols_regressor<T, SquareFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
-				      this->tempmem[0], split_info, ques, gain, this->split_algo);
+								this->tempmem[0], split_info, ques, gain, this->split_algo, this->max_shared_mem);
 	} else {
 		best_split_all_cols_regressor<T, AbsFunctor>(data, rowids, labels, current_nbins, n_sampled_rows, this->dinfo.NLocalrows, colselector,
-				      this->tempmem[0], split_info, ques, gain, this->split_algo);
+							     this->tempmem[0], split_info, ques, gain, this->split_algo, this->max_shared_mem);
 	}
 }
 
