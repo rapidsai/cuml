@@ -177,11 +177,7 @@ void attractive_fast(const float *__restrict__ VAL,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * dim);
 
-    if (dim == 2)
-    	__attractive_fast_2dim<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
-        	Y + n, norm, attract, attract + n, NNZ, n, dim);
-    else
-    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    __attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
         	norm, attract, NNZ, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -217,6 +213,7 @@ __repulsive_fast(const float *__restrict__ Y,
         }
     }
 }
+
 
 template <int TPB_X = 32, int TPB_Y = 32>
 float repulsive_fast(const float *__restrict__ Y,
