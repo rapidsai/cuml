@@ -71,7 +71,7 @@ __global__ void rand2Kernel(uint64_t seed, uint64_t offset, OutType *ptr,
     MathType val1, val2;
     gen.next(val1);
     gen.next(val2);
-    rand2Op(val1, val2, idx);
+    rand2Op(val1, val2, idx, idx + stride);
     if (idx < len) ptr[idx] = (OutType)val1;
     idx += stride;
     if (idx < len) ptr[idx] = (OutType)val2;
@@ -234,7 +234,7 @@ class Rng {
               cudaStream_t stream) {
     rand2Impl(
       offset, ptr, len,
-      [=] __device__(Type & val1, Type & val2, LenType idx) {
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         constexpr Type twoPi = Type(2.0) * Type(3.141592654);
         constexpr Type minus2 = -Type(2.0);
         Type R = mySqrt(minus2 * myLog(val1));
@@ -243,6 +243,51 @@ class Rng {
         mySinCos(theta, s, c);
         val1 = R * c * sigma + mu;
         val2 = R * s * sigma + mu;
+      },
+      NumThreads, nBlocks, type, stream);
+  }
+
+  /**
+   * @brief Generate normal distributed table according to the given set of
+   * means and scalar standard deviations.
+   *
+   * Each row in this table conforms to a normally distributed n-dim vector
+   * whose mean is the input vector and standard deviation is the corresponding
+   * vector or scalar. Correlations among the dimensions itself is assumed to
+   * be absent.
+   *
+   * @tparam Type data type of output random number
+   * @tparam LenType data type used to represent length of the arrays
+   * @param ptr the output table (dim = n_rows x n_cols)
+   * @param n_rows number of rows in the table
+   * @param n_cols number of columns in the table
+   * @param mu mean vector (dim = n_cols x 1).
+   * @param sigma_vec std-dev vector of each component (dim = n_cols x 1). Pass
+   * a nullptr to use the same scalar 'sigma' across all components
+   * @param sigma scalar sigma to be used if 'sigma_vec' is nullptr
+   * @param stream stream where to launch the kernel
+   */
+  template <typename Type, typename LenType = int>
+  void normalTable(Type *ptr, LenType n_rows, LenType n_cols, const Type *mu,
+                   const Type *sigma_vec, Type sigma, cudaStream_t stream) {
+    rand2Impl(
+      offset, ptr, n_rows * n_cols,
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
+        // yikes! use fast-int-div
+        auto col1 = idx1 % n_cols;
+        auto col2 = idx2 % n_cols;
+        auto mean1 = mu[col1];
+        auto mean2 = mu[col2];
+        auto sig1 = sigma_vec == nullptr ? sigma : sigma_vec[col1];
+        auto sig2 = sigma_vec == nullptr ? sigma : sigma_vec[col2];
+        constexpr Type twoPi = Type(2.0) * Type(3.141592654);
+        constexpr Type minus2 = -Type(2.0);
+        Type R = mySqrt(minus2 * myLog(val1));
+        Type theta = twoPi * val2;
+        Type s, c;
+        mySinCos(theta, s, c);
+        val1 = R * c * sig1 + mean1;
+        val2 = R * s * sig2 + mean2;
       },
       NumThreads, nBlocks, type, stream);
   }
@@ -338,7 +383,7 @@ class Rng {
                  cudaStream_t stream) {
     rand2Impl(
       offset, ptr, len,
-      [=] __device__(Type & val1, Type & val2, LenType idx) {
+      [=] __device__(Type & val1, Type & val2, LenType idx1, LenType idx2) {
         constexpr Type twoPi = Type(2.0) * Type(3.141592654);
         constexpr Type minus2 = -Type(2.0);
         Type R = mySqrt(minus2 * myLog(val1));
