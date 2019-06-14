@@ -50,31 +50,28 @@ void getUniqueLabels(math_t *y, int n, math_t **y_unique, int *n_unique,
                      std::shared_ptr<deviceAllocator> allocator) {
   device_buffer<math_t> y2(allocator, stream, n);
   device_buffer<math_t> y3(allocator, stream, n);
+  device_buffer<int> d_num_selected(allocator, stream, 1);
   size_t bytes = 0;
   size_t bytes2 = 0;
-  int *d_num_selected_out;
-  d_num_selected_out = (int *)allocator->allocate(1 * sizeof(int), stream);
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
   cub::DeviceRadixSort::SortKeys(NULL, bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(NULL, bytes2, y2.data(), y3.data(),
-                            d_num_selected_out, n);
+                            d_num_selected.data(), n);
   bytes = max(bytes, bytes2);
   device_buffer<char> cub_storage(allocator, stream, bytes);
 
   // Select Unique classes
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
-                            d_num_selected_out, n);
-  updateHost(n_unique, d_num_selected_out, 1, stream);
+                            d_num_selected.data(), n);
+  updateHost(n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
   *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
   copy(*y_unique, y3.data(), *n_unique, stream);
-
-  allocator->deallocate(d_num_selected_out, 1 * sizeof(int), stream);
 }
 
 /**
