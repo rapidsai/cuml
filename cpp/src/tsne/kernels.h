@@ -206,11 +206,11 @@ __attractive_fast(const float *__restrict__ VAL,
             //d += Y[i, k] * Y[j, k]
             d += Y[k*n + i] * Y[k*n + j];
 
-        const float PQ = VAL[index] / (-2.0f*d + norm[i] + norm[j] + 1.0f);
+        const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < n_components; k++)
             // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
-            atomicAdd(&attract[k*n + i], PQ * (Y[k*n + i] - Y[k*n + j]));
+            atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]));
     }
 }
 void attractive_fast(const float *__restrict__ VAL,
