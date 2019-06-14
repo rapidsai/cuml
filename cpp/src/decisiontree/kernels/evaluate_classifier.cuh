@@ -236,9 +236,7 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	CUDA_CHECK(cudaMemsetAsync((void*)d_histout, 0, n_hist_bytes, tempmem->stream));
 
 	const int threads = 512;
-	int blocks = MLCommon::ceildiv(nrows * ncols, threads);
-	if (blocks > 65536)
-		blocks = 65536;
+	int blocks = min(MLCommon::ceildiv(nrows * ncols, threads), 65536);
 
 	/* Kernel allcolsampler_*_kernel:
 		- populates tempmem->tempdata with the sampled column data,
@@ -255,20 +253,14 @@ void best_split_all_cols_classifier(const T *data, const unsigned int* rowids, c
 	L *labelptr = tempmem->sampledlabels->data();
 	get_sampled_labels<L>(labels, labelptr, rowids, nrows, tempmem->stream);
 	
-	int batch_ncols;
-	size_t shmem_needed = ncols * n_unique_labels * nbins * sizeof(int);
-	if(split_algo == ML::SPLIT_ALGO::HIST)
-		shmem_needed += ncols * 2 * sizeof(T);
-	
-	batch_ncols = get_batch_cols_cnt(max_shared_mem, shmem_needed, ncols);
-	
-	shmemsize = batch_ncols * n_unique_labels * nbins * sizeof(int);
-	blocks = MLCommon::ceildiv(batch_ncols * nrows, threads);
-	if (blocks > 65536)
-		blocks = 65536;
+	int batch_ncols = 1;
+	size_t shmem_needed = n_hist_bytes;
+	if (split_algo == ML::SPLIT_ALGO::HIST) {
+	    shmem_needed += col_minmax_bytes;
+	}
+	update_kernel_config(max_shared_mem, shmem_needed, ncols, nrows, threads, batch_ncols, blocks, shmemsize);
 
 	if (split_algo == ML::SPLIT_ALGO::HIST) {
-		shmemsize += 2 * batch_ncols * sizeof(T);    
 		all_cols_histograms_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, nbins, nrows, ncols, batch_ncols, n_unique_labels, d_globalminmax, d_histout);
 	} else if (split_algo == ML::SPLIT_ALGO::GLOBAL_QUANTILE) {
 		all_cols_histograms_global_quantile_kernel_class<<<blocks, threads, shmemsize, tempmem->stream>>>(tempmem->temp_data->data(), labelptr, d_colids, nbins, nrows, ncols, batch_ncols, n_unique_labels,  d_histout, tempmem->d_quantile->data());
