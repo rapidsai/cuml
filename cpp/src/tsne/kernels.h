@@ -161,7 +161,6 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
                           const int n, float *__restrict__ sum_Q,
                           double *__restrict__ sum, cudaStream_t stream) {
   cudaMemset(sum_Q, 0, sizeof(float) * n);
-  //cudaMemset(sum, 0, sizeof(double));
 
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
@@ -174,7 +173,7 @@ float form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm,
 #if IF_DEBUG
   printf("[Info]  Z sum = %lf\n", Z);
 #endif
-  return (float)(1.0 / Z);
+  return (float)(1.0 / (2.0 * Z));
 }
 
 __global__ void __attractive_forces(const float *__restrict__ VAL,
