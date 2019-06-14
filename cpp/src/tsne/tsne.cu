@@ -18,17 +18,17 @@ namespace ML {
 using namespace MLCommon;
 
 void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
-					const int p, const int n_components = 2, int n_neighbors = 90,
-					const float *distances_vector = NULL, const long *indices_vector = NULL,
-					float *VAL_vector = NULL, const int *COL_vector = NULL, const int *ROW_vector = NULL,
-					const float perplexity = 30.0f, const int perplexity_max_iter = 100,
-					const int perplexity_tol = 1e-5,
-					const float early_exaggeration = 12.0f,
-					const int exaggeration_iter = 250, const float min_gain = 0.01f,
-					const float eta = 500.0f, const int max_iter = 500,
-					const float pre_momentum = 0.8, const float post_momentum = 0.5,
-					const long long seed = -1, const bool initialize_embeddings = false,
-					const bool verbose = false, const char *method = "Fast") {
+			const int p, const int n_components = 2, int n_neighbors = 90,
+			const float *distances_vector = NULL, const long *indices_vector = NULL,
+			float *VAL_vector = NULL, const int *COL_vector = NULL, const int *ROW_vector = NULL,
+			const float perplexity = 30.0f, const int perplexity_max_iter = 100,
+			const int perplexity_tol = 1e-5,
+			const float early_exaggeration = 12.0f,
+			const int exaggeration_iter = 500, const float min_gain = 0.01f,
+			const float eta = 500.0f, const int max_iter = 10000,
+			const float pre_momentum = 0.8, const float post_momentum = 0.5,
+			const long long seed = -1, const bool initialize_embeddings = false,
+			const bool verbose = false, const char *method = "Fast") {
 
 	auto d_alloc = handle.getDeviceAllocator();
 	cudaStream_t stream = handle.getStream();
