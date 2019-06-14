@@ -147,11 +147,9 @@ __global__ void __form_t_distribution(float *__restrict__ Q,
 
   if (i < n && j < n) {
     if (i == j)   Q[i*n + j] = 0.0f;
-    else {
-      float q;
-      if (j > i)  Q[i*n + j] = q = 1.0f / (Q[i*n + j] + norm[i] + norm[j] + 1.0f);
-      else        Q[i*n + j] = q = 1.0f / (Q[j*n + i] + norm[i] + norm[j] + 1.0f);
-      atomicAdd(&sum_Q[i], q);
+    else if (i < j) {
+      Q[j*n + i] = Q[i*n + j] = 1.0f / (Q[j*n + i] + norm[i] + norm[j] + 1.0f);
+      atomicAdd(&sum_Q[i], Q[i*n + j]);
     }
   }
 }
@@ -165,28 +163,10 @@ double form_t_distribution(float *__restrict__ Q, const float *__restrict__ norm
   static const dim3 threadsPerBlock(TPB_X, TPB_Y);
   const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
 
-  __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n,
-                                                                   sum_Q);
+  __form_t_distribution<<<numBlocks, threadsPerBlock, 0, stream>>>(Q, norm, n, sum_Q);
   CUDA_CHECK(cudaPeekAtLastError());
 
-#if IF_DEBUG
-  printf("[Info]  sum_Q\n\n");
-  std::cout << MLCommon::arr2Str(sum_Q, 20, "sum_Q", stream);
-
-  double z1 = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + 10);
-  printf("sum(Q) = %lf\n", z1);
-  double z2 = (double) thrust::reduce(__STREAM__, sum_Q + 10, sum_Q + (n/2));
-  printf("sum(Q) = %lf\n", z2);
-  double z3 = (double) thrust::reduce(__STREAM__, sum_Q + (n/2), sum_Q + n);
-  printf("sum(Q) = %lf\n", z3);
-  double Z = z1 + z2 + z3;
-  printf("[Info]  Z sum = %lf\n", Z);
-
-#else
   double Z = (double) thrust::reduce(__STREAM__, sum_Q, sum_Q + n);
-#endif
-  double Z_div = 1.0f / Z;
-  printf("[Info]  Z_div = %lf Z_div > 0 = %d\n\n", Z_div, Z_div > 0.0f);
   return ((double)1.0f / Z);
 }
 
