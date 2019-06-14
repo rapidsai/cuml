@@ -10,6 +10,9 @@
 #include "kernels.h"
 #include "utils.h"
 
+#define TEST_NNZ 12021
+
+
 namespace ML {
 using namespace MLCommon;
 
@@ -97,7 +100,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
     ROW = P_PT.cols;
   }
   else {
-    NNZ = test_nnz;
+    NNZ = TEST_NNZ;
     VAL = (float *)d_alloc->allocate(sizeof(float) * NNZ, stream);
     COL = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
     ROW = (int *)d_alloc->allocate(sizeof(int) * NNZ, stream);
