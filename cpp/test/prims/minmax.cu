@@ -124,7 +124,8 @@ const std::vector<MinMaxInputs<float>> inputsf = {
   {0.00001f, 8192, 128, 1234ULL},
   {0.00001f, 8192, 256, 1234ULL},
   {0.00001f, 8192, 512, 1234ULL},
-  {0.00001f, 8192, 1024, 1234ULL}};
+  {0.00001f, 8192, 1024, 1234ULL},
+  {0.00001f, 1024, 8192, 1234ULL}};
 
 const std::vector<MinMaxInputs<double>> inputsd = {
   {0.0000001, 1024, 32, 1234ULL},
@@ -144,7 +145,9 @@ const std::vector<MinMaxInputs<double>> inputsd = {
   {0.0000001, 8192, 128, 1234ULL},
   {0.0000001, 8192, 256, 1234ULL},
   {0.0000001, 8192, 512, 1234ULL},
-  {0.0000001, 8192, 1024, 1234ULL}};
+  {0.0000001, 8192, 1024, 1234ULL},
+  {0.0000001, 1024, 8192, 1234ULL}};
+
 
 typedef MinMaxTest<float> MinMaxTestF;
 TEST_P(MinMaxTestF, Result) {
