@@ -45,18 +45,18 @@ class TSNETest : public ::testing::Test {
     std::cout << MLCommon::arr2Str(Y_d+n+n/2, 20, "embeddings", stream) << std::endl;
 
     std::cout << "Updating host" << std::endl;
-    float embeddings_h[n * 2];
+    float *embeddings_h = malloc(sizeof(float) * n * 2);
 
     int k = 0;
     for (int i = 0; i < n; i++) {
-    	for (int j = 0; j < k; j++) {
+    	for (int j = 0; j < 2; j++) {
     		cudaMemcpy(&embeddings_h[k++], Y_d+j*n+i, sizeof(float), cudaMemcpyDeviceToHost);
     	}
     }
     for (int j = 0; j < 2; j++) {
     	for (int i = 0; i < n; i++)
     		printf("%.f,", embeddings_h[i*2 + j]);
-    	printf("\n\n");
+    	printf("\n-------------------------\n");
     }
     float *YY; MLCommon::allocate(YY, n * 2);
     MLCommon::updateDevice(YY, embeddings_h, n * 2, stream);
@@ -74,6 +74,7 @@ class TSNETest : public ::testing::Test {
 
     std::cout << "SCORE: " << score << std::endl;
 
+    free(embeddings_h);
     CUDA_CHECK(cudaFree(Y_d));
     CUDA_CHECK(cudaFree(YY));
     CUDA_CHECK(cudaFree(X_d));
