@@ -332,10 +332,11 @@ __apply_forces(const float *__restrict__ attract,
 				 float *__restrict__ Y, float *__restrict__ iY,
 				 float *__restrict__ gains, const int n,
 				 const int dim, const float Z, const float min_gain,
-				 const float momentum, const float eta) {
+				 const float momentum, const float eta,
+				 float *__restrict__ means, const float SIZE) {
 	// Everything is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in column
-	if (i < dim*n) {
+	if (i < SIZE) {
 		const float dy = attract[i] + Z * repel[i];
 
 		if (signbit(dy) != signbit(iY[i]))
@@ -348,6 +349,8 @@ __apply_forces(const float *__restrict__ attract,
 
 		iY[i] = momentum * iY[i] - eta * (gains[i] * dy);
 		Y[i] += iY[i];
+		// Also find mean
+		atomicAdd(&means[i % n], Y[i]);
 	}
 }
 
@@ -361,12 +364,19 @@ void apply_forces(const float *__restrict__ attract,
 				const float eta, cudaStream_t stream,
 				const int gridSize, const int blockSize) {
 
+	cudaMemset(means, 0, sizeof(float) * dim);
+
+	const float SIZE = n*dim;
 	__apply_forces<<<gridSize, blockSize, 0, stream>>>(
-		attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
+		attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta, means, SIZE);
 	CUDA_CHECK(cudaPeekAtLastError());
 
-	// Find mean and remove it
-	remove_mean_fast(Y, means, n, dim, stream);
+	// Divide by 1/n
+	array_multiply(means, dim, 1.0f/n, stream);
+
+	// Subtract the mean
+	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
+	CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
