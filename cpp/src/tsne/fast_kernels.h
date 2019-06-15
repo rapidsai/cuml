@@ -319,7 +319,7 @@ __apply_forces(const float *__restrict__ attract,
 	// Everything is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in column
 	if (i < SIZE) {
-		const float dy = 4.0f * (attract[i] + Z * repel[i]);
+		const float dy = attract[i] + Z * repel[i];
 
 		if (signbit(dy) != signbit(iY[i]))
 			gains[i] += 0.2f;
