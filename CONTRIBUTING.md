@@ -35,6 +35,8 @@ into three categories:
 8. Wait for other developers to review your code and update code as needed.
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
+Note: Every time you do a `git push <yourRemote> <pr-branch>`, it starts a fresh CI on all the commits thus far in the PR. This means, if you have an ongoing PR and you keep 'push'ing frequently, it might just clog our GPUCI servers! So, please be mindful of this and try not to do many frequent pushes.
+
 Remember, if you are unsure about anything, don't hesitate to comment on issues
 and ask for clarifications!
 
