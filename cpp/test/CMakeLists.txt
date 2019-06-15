@@ -33,9 +33,9 @@ if(BUILD_CUML_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_CUDART_LIBRARY}
-        gpufaisslib
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
+        gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
         ${CUML_C_TARGET}
@@ -94,6 +94,7 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn_test_mg.cu
+      mg/test_ml_mg_utils.cu
       )
 
     add_dependencies(ml_mg ${ClangFormat_TARGET})
@@ -115,6 +116,8 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
+        gpufaisslib
+        faisslib
         ${ZLIB_LIBRARIES}
     )
 
@@ -147,10 +150,12 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/knn.cu
       prims/kselection.cu
       prims/linearReg.cu
       prims/log.cu
       prims/logisticReg.cu
+      prims/make_blobs.cu
       prims/map_then_reduce.cu
       prims/math.cu
       prims/matrix.cu
@@ -166,6 +171,7 @@ if(BUILD_PRIMS_TESTS)
       prims/power.cu
       prims/randIndex.cu
       prims/reduce.cu
+      prims/reduce_cols_by_key.cu
       prims/reduce_rows_by_key.cu
       prims/reverse.cu
       prims/rng.cu
@@ -180,6 +186,7 @@ if(BUILD_PRIMS_TESTS)
       prims/sum.cu
       prims/svd.cu
       prims/transpose.cu
+      prims/trustworthiness.cu
       prims/unary_op.cu
       prims/weighted_mean.cu
       )

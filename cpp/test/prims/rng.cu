@@ -456,5 +456,139 @@ TEST_F(ScaledBernoulliTest1, RangeCheck) { rangeCheck(); }
 typedef ScaledBernoulliTest<double, 100, 220> ScaledBernoulliTest2;
 TEST_F(ScaledBernoulliTest2, RangeCheck) { rangeCheck(); }
 
+template <typename T, int len>
+class BernoulliTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    Rng r(42);
+    allocate(data, len * sizeof(bool), stream);
+    r.bernoulli(data, len, T(0.5), stream);
+  }
+
+  void TearDown() override { CUDA_CHECK(cudaFree(data)); }
+
+  void trueFalseCheck() {
+    // both true and false values must be present
+    bool* h_data = new bool[len];
+    updateHost(h_data, data, len, stream);
+    ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return a; }));
+    ASSERT_TRUE(std::any_of(h_data, h_data + len, [](bool a) { return !a; }));
+    delete[] h_data;
+  }
+
+  bool* data;
+  cudaStream_t stream;
+};
+
+typedef BernoulliTest<float, 1000> BernoulliTest1;
+TEST_F(BernoulliTest1, TrueFalseCheck) { trueFalseCheck(); }
+
+typedef BernoulliTest<double, 1000> BernoulliTest2;
+TEST_F(BernoulliTest2, TrueFalseCheck) { trueFalseCheck(); }
+
+/** Rng::normalTable tests */
+template <typename T>
+struct RngNormalTableInputs {
+  T tolerance;
+  int rows, cols;
+  T mu, sigma;
+  GeneratorType gtype;
+  unsigned long long int seed;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os,
+                           const RngNormalTableInputs<T>& dims) {
+  return os;
+}
+
+template <typename T>
+class RngNormalTableTest
+  : public ::testing::TestWithParam<RngNormalTableInputs<T>> {
+ protected:
+  void SetUp() override {
+    // Tests are configured with their expected test-values sigma. For example,
+    // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
+    num_sigma = 10;
+    params = ::testing::TestWithParam<RngNormalTableInputs<T>>::GetParam();
+    int len = params.rows * params.cols;
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    Rng r(params.seed, params.gtype);
+    allocate(data, len);
+    allocate(stats, 2, true);
+    allocate(mu_vec, params.cols);
+    r.fill(mu_vec, params.cols, params.mu, stream);
+    T* sigma_vec = nullptr;
+    r.normalTable(data, params.rows, params.cols, mu_vec, sigma_vec,
+                  params.sigma, stream);
+    static const int threads = 128;
+    meanKernel<T, threads>
+      <<<ceildiv(len, threads), threads, 0, stream>>>(stats, data, len);
+    updateHost<T>(h_stats, stats, 2, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    h_stats[0] /= len;
+    h_stats[1] = (h_stats[1] / len) - (h_stats[0] * h_stats[0]);
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
+
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(data));
+    CUDA_CHECK(cudaFree(stats));
+    CUDA_CHECK(cudaFree(mu_vec));
+  }
+
+  void getExpectedMeanVar(T meanvar[2]) {
+    meanvar[0] = params.mu;
+    meanvar[1] = params.sigma * params.sigma;
+  }
+
+ protected:
+  RngNormalTableInputs<T> params;
+  T *data, *stats, *mu_vec;
+  T h_stats[2];  // mean, var
+  int num_sigma;
+};
+
+typedef RngNormalTableTest<float> RngNormalTableTestF;
+const std::vector<RngNormalTableInputs<float>> inputsf_t = {
+  {0.0055, 32, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
+  {0.011, 8, 1024, 1.f, 1.f, GenPhilox, 1234ULL},
+  {0.0055, 32, 1024, 1.f, 1.f, GenTaps, 1234ULL},
+  {0.011, 8, 1024, 1.f, 1.f, GenTaps, 1234ULL},
+  {0.0055, 32, 1024, 1.f, 1.f, GenKiss99, 1234ULL},
+  {0.011, 8, 1024, 1.f, 1.f, GenKiss99, 1234ULL}};
+
+TEST_P(RngNormalTableTestF, Result) {
+  float meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(match(meanvar[0], h_stats[0],
+                    CompareApprox<float>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1],
+                    CompareApprox<float>(num_sigma * params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestF,
+                        ::testing::ValuesIn(inputsf_t));
+
+typedef RngNormalTableTest<double> RngNormalTableTestD;
+const std::vector<RngNormalTableInputs<double>> inputsd_t = {
+  {0.0055, 32, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
+  {0.011, 8, 1024, 1.0, 1.0, GenPhilox, 1234ULL},
+  {0.0055, 32, 1024, 1.0, 1.0, GenTaps, 1234ULL},
+  {0.011, 8, 1024, 1.0, 1.0, GenTaps, 1234ULL},
+  {0.0055, 32, 1024, 1.0, 1.0, GenKiss99, 1234ULL},
+  {0.011, 8, 1024, 1.0, 1.0, GenKiss99, 1234ULL}};
+TEST_P(RngNormalTableTestD, Result) {
+  double meanvar[2];
+  getExpectedMeanVar(meanvar);
+  ASSERT_TRUE(match(meanvar[0], h_stats[0],
+                    CompareApprox<double>(num_sigma * params.tolerance)));
+  ASSERT_TRUE(match(meanvar[1], h_stats[1],
+                    CompareApprox<double>(num_sigma * params.tolerance)));
+}
+INSTANTIATE_TEST_CASE_P(RngNormalTableTests, RngNormalTableTestD,
+                        ::testing::ValuesIn(inputsd_t));
+
 }  // end namespace Random
 }  // end namespace MLCommon
