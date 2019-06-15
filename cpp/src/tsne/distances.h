@@ -77,7 +77,7 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 	P_COO.destroy();
 
 	// Remove all zeros in P + PT
-	//Sparse::coo_sort<float>(&P_PT_with_zeros, stream);
+	Sparse::coo_sort<float>(&P_PT_with_zeros, stream);
 
 	Sparse::coo_remove_zeros<TPB_X, float>(&P_PT_with_zeros, P_PT, stream);
 	P_PT_with_zeros.destroy();

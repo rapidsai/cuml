@@ -214,7 +214,6 @@ __repulsive_fast(const float *__restrict__ Y,
     if (j > i && i < n && j < n) {
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
-            //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
         const float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
@@ -223,7 +222,6 @@ __repulsive_fast(const float *__restrict__ Y,
 
         for (int k = 0; k < dim; k++) {
             const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
-            // repel = Q2 * (Y[i, k] - Y[j, k]);
 
             atomicAdd(&repel[k*n + i],  - force);  // repel[k*n + i] -= force
             atomicAdd(&repel[k*n + j],  force);    // repel[k*n + j] += force
