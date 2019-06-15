@@ -375,6 +375,8 @@ void apply_forces(const float *__restrict__ attract,
 	array_multiply(means, dim, 1.0f/n, stream);
 
 	// Subtract the mean
+	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
 	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
 	CUDA_CHECK(cudaPeekAtLastError());
 }
