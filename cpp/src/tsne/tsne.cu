@@ -35,7 +35,10 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	cudaStream_t stream = handle.getStream();
 
 	if (n_neighbors > n) n_neighbors = n;
+
+	// Some preliminary intializations for cuBLAS and cuML
 	const int k = n_components;
+	cublasHandle_t BLAS = handle.getImpl().getCublasHandle();
 
 
 	// Get distances
@@ -69,7 +72,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Convert data to COO layout
 	COO_t<float> P_PT;
-	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream, handle);
+	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream);
 		
 	const int NNZ = P_PT.nnz;
 	float *VAL = P_PT.vals;
@@ -103,11 +106,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	else
 		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast, 0, NNZ);
 	const int gridSize_NNZ = ceil(NNZ, blockSize_NNZ);
-
-	// Compute optimal gridSize and blockSize for applying / integrating forces
-	// int blockSize_dimN = 1024; int minGridSize_dimN;
-	// cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, 2*n);
-	// const int gridSize_dimN = ceil(2*n, blockSize_dimN);
 
 
 	// Do gradient updates
@@ -146,7 +144,6 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	else if (method == "Naive") {
 		int error;
-		cublasHandle_t BLAS = handle.getImpl().getCublasHandle();
 		/*
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
 		Code flow follows closely to Maaten's original TSNE code.
@@ -166,9 +163,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_slow(Y, norm, n, k, stream);
 
 			// Find Y @ Y.T
-			error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-												&neg2, Y, n, &beta, Q, n);
-			if (error) {
+			if ((error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
+												&neg2, Y, n, &beta, Q, n))) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
