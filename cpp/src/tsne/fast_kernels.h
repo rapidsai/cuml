@@ -167,7 +167,6 @@ __attractive_fast_2dim(const float *__restrict__ VAL,
         atomicAdd(&attract2[i],     PQ * (Y2[i] - Y2[j]) );
     }
 }
-template <int gridSize, int blockSize>
 void attractive_fast(const float *__restrict__ VAL,
                     const int *__restrict__ COL,
                     const int *__restrict__ ROW,
@@ -175,9 +174,10 @@ void attractive_fast(const float *__restrict__ VAL,
                     const float *__restrict__ norm,
                     float *__restrict__ attract, const int NNZ,
                     const int n, const int dim,
-                    cudaStream_t stream) {
+                    cudaStream_t stream,
+                    const int gridSize, const int blockSize) {
     cudaMemset(attract, 0, sizeof(float) * n * dim);
-    
+
     if (dim == 2)
     	__attractive_fast_2dim<<<gridSize, blockSize, 0, stream>>>(VAL, COL, ROW, Y,
         	Y + n, norm, attract, attract + n, NNZ, n, dim);

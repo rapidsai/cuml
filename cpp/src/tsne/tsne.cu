@@ -94,7 +94,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 	// Compute optimal gridSize and blockSize for attractive forces
-	int blockSize; int minGridSize;
+	int blockSize = 1024; int minGridSize;
 	if (n_components == 2)
 		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast_2dim, 0, NNZ);
 	else
@@ -125,7 +125,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_fast(Y, norm, n, k, stream);
 
 			// Fast compute attractive forces from COO matrix
-			attractive_fast<gridSize, blockSize>(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
+			attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
+				gridSize, blockSize);
 
 			// Fast compute repulsive forces
 			Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
