@@ -60,8 +60,8 @@ void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
 	Sparse::from_knn(indices, P, n, k, &P_COO);
-	handle->getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
-	handle->getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k, stream);
+	handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
+	handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k, stream);
 
 	// Perform (P + P.T) / P_sum * early_exaggeration
 	const float div = exaggeration / (2.0f * P_sum);
