@@ -40,6 +40,7 @@ template <typename T>
 class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
  protected:
   void SetUp() override {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<PermInputs<T>>::GetParam();
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) {
@@ -62,7 +63,8 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     } else {
       in = out = nullptr;
     }
-    permute(outPerms, out, in, D, N, params.rowMajor);
+    permute(outPerms, out, in, D, N, params.rowMajor, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void TearDown() override {
@@ -71,12 +73,14 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
       CUDA_CHECK(cudaFree(in));
       CUDA_CHECK(cudaFree(out));
     }
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   PermInputs<T> params;
   T *in, *out;
   int *outPerms;
+  cudaStream_t stream;
 };
 
 template <typename T, typename L>
