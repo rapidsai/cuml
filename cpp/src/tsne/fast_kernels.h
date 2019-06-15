@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -146,14 +161,12 @@ __attractive_fast(const float *__restrict__ VAL,
 
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
-            //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < dim; k++)
             atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]) );
-            // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
     }
 }
 __global__ void
@@ -289,14 +302,6 @@ float repulsive_fast(const float *__restrict__ Y,
 
 
 __global__ void
-__find_mean_fast(const float * __restrict__ Y, float * __restrict__ means, 
-			const int n, const int dim) {
-	// Y is F-Contiguous
-	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
-	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < dim) atomicAdd(&means[j], Y[j*n + i]);
-}
-__global__ void
 __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
 			const int n, const int dim) {
 	// Y is F-Contiguous
@@ -304,27 +309,6 @@ __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means,
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
 	if (i < n && j < dim) Y[j*n + i] -= means[j];
 }
-
-template <int TPB_X = 32, int TPB_Y = 32>
-void remove_mean_fast(float *__restrict__ Y, float *__restrict__ means,
-			  		const int n, const int dim, cudaStream_t stream) {
-	// Notice Y is F-Contiguous
-	cudaMemset(means, 0, sizeof(float) * dim);
-
-	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
-	__find_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
-	CUDA_CHECK(cudaPeekAtLastError());
-
-	// Divide by 1/n
-	array_multiply(means, dim, 1.0f/n, stream);
-
-	// Subtract the mean
-	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
-	CUDA_CHECK(cudaPeekAtLastError());
-}
-
-
 
 __global__ void 
 __apply_forces(const float *__restrict__ attract,

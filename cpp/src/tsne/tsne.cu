@@ -1,3 +1,18 @@
+/*
+ * Copyright (c) 2019, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -16,7 +31,7 @@
 namespace ML {
 using namespace MLCommon;
 
-void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
+void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const int p, const int n_components = 2, int n_neighbors = 30,
 			const float perplexity = 30.0f, const int perplexity_max_iter = 100,
 			const int perplexity_tol = 1e-5,
@@ -25,7 +40,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			const float eta = 500.0f, const int max_iter = 500,
 			const float pre_momentum = 0.8, const float post_momentum = 0.5,
 			const long long seed = -1, const bool initialize_embeddings = true,
-			const bool verbose = true, const char *method = "Fast")
+			const bool verbose = true, const int method = 1)
+	// Method = 0 for Naive, 1 for Fast
 {
 	assert(n > 0 && p > 0 && n_components > 0 && n_neighbors > 0 && X != NULL && Y != NULL);
 	if (verbose)
@@ -118,7 +134,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	float Z;
 
 	if (verbose) printf("[Info]	Start gradient updates!\n");
-	if (method == "Fast") {
+	if (method == 1) {
 		/*
 		Fast algorithm uses 0 matrices, and does all computations within
 		the GPU registers. This guarantees no memory movement and so can
@@ -149,7 +165,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		}
 	}
 
-	else if (method == "Naive") {
+	else if (method == 0) {
 		int error;
 		/*
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
