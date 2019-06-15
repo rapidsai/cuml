@@ -53,16 +53,16 @@ template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 						 const int n, const int k, const float P_sum,
 						 const float exaggeration, cudaStream_t stream,
-						 auto d_alloc) {
+						 const cumlHandle &handle) {
 	assert(P != NULL && indices != NULL);
 
 	// Convert to COO
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
 	Sparse::from_knn(indices, P, n, k, &P_COO);
-	d_alloc->deallocate(P, sizeof(float) * n * k, stream);
-	d_alloc->deallocate(indices, sizeof(long) * n * k, stream);
-	
+	handle.getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
+	handle.getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k, stream);
+
 
 	// Perform (P + P.T) / P_sum * early_exaggeration
 	const float div = exaggeration / (2.0f * P_sum);

@@ -35,10 +35,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	cudaStream_t stream = handle.getStream();
 
 	if (n_neighbors > n) n_neighbors = n;
-
-	// Some preliminary intializations for cuBLAS and cuML
 	const int k = n_components;
-	cublasHandle_t BLAS = handle.getImpl().getCublasHandle();
 
 
 	// Get distances
@@ -72,7 +69,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Convert data to COO layout
 	COO_t<float> P_PT;
-	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream, d_alloc);
+	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream, handle);
 		
 	const int NNZ = P_PT.nnz;
 	float *VAL = P_PT.vals;
@@ -150,6 +147,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	else if (method == "Naive") {
 		int error;
+		cublasHandle_t BLAS = handle.getImpl().getCublasHandle();
 		/*
 		Naive algorithm uses cuBLAS to compute the full Y @ Y.T matrix.
 		Code flow follows closely to Maaten's original TSNE code.
