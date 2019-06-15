@@ -49,7 +49,7 @@ class TSNETest : public ::testing::Test {
     MLCommon::updateDevice(X_d, digits.data(), n * p, stream);
 
     std::cout << "[>>>>]    Starting TSNE....\n";
-    TSNE(handle, X_d, Y_d, n, p, 2, 5);
+    TSNE_fit(handle, X_d, Y_d, n, p, 2, 5);
     std::cout << "[>>>>]    Got embeddings!....\n";
 
     std::cout << "Updating host" << std::endl;
