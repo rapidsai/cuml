@@ -150,12 +150,15 @@ void TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
             // Get norm(Y)
             get_norm_fast(Y, norm, n, k, stream, gridSize_N, blockSize_N);
 
-            // Fast compute attractive forces from COO matrix
-            attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
-                gridSize_NNZ, blockSize_NNZ);
+            #pragma omp parallel
+            {
+                // Fast compute attractive forces from COO matrix
+                attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
+                    gridSize_NNZ, blockSize_NNZ);
 
-            // Fast compute repulsive forces
-            Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
+                // Fast compute repulsive forces
+                Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
+            }
             if (verbose && iter % 100 == 0)
                 printf("[Info]  Z at iter = %d is %lf.\n", iter, Z);
 
