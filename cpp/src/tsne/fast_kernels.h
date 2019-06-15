@@ -156,8 +156,7 @@ __attractive_fast(const float *__restrict__ VAL,
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
-        const int i = ROW[index];
-        const int j = COL[index];
+        const int i = ROW[index], j = COL[index];
 
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
@@ -182,8 +181,7 @@ __attractive_fast_2dim(const float *__restrict__ VAL,
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
-        const int i = ROW[index];
-        const int j = COL[index];
+        const int i = ROW[index], j = COL[index];
 
         const float PQ = VAL[index] / \
         	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
@@ -321,7 +319,7 @@ __apply_forces(const float *__restrict__ attract,
 	// Everything is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in column
 	if (i < SIZE) {
-		const float dy = attract[i] + Z * repel[i];
+		const float dy = 4.0f * (attract[i] + Z * repel[i]);
 
 		if (signbit(dy) != signbit(iY[i]))
 			gains[i] += 0.2f;
