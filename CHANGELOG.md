@@ -7,7 +7,8 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
-- PR #670 Add test skipping functionality to build.sh
+- PR #670: Add test skipping functionality to build.sh
+- PR #684: prims: make_blobs primitive
 - PR #673: prims: reduce cols by key primitive
 
 ## Improvements
@@ -29,6 +30,8 @@
 - PR #662: C++: Bulk clang-format updates
 - PR #671: Added pickle pytests and correct pickling of Base class
 - PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
+- PR #683: Use stateless c++ API in KNN so that it can be pickled properly
+- PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
@@ -40,6 +43,8 @@
 - PR #666: fixes to gitutils.py to resolve both string decode and handling of uncommitted files
 - PR #676: Fix template parameters in `bernoulli()` implementation.
 - PR #685: Make CuPy optional to avoid nccl conda package conflicts
+- PR #687: prims: updated tolerance for reduce_cols_by_key unit-tests
+- PR #689: Removing extra prints from NearestNeighbors cython
 
 # cuML 0.7.0 (10 May 2019)
 
