@@ -109,8 +109,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Compute optimal gridSize and blockSize for applying forces
 	int blockSize_dimN = 1024; int minGridSize_dimN;
-	cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, dim*n);
-	const int gridSize_dimN = ceil(dim*n, blockSize_dimN);
+	cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, n_components*n);
+	const int gridSize_dimN = ceil(n_components*n, blockSize_dimN);
 
 
 	// Do gradient updates
