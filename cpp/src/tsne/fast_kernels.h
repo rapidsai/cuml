@@ -108,7 +108,7 @@ __get_norm_fast_2dim(const float *__restrict__ Y1, const float *__restrict__ Y2,
 					float *__restrict__ norm, const int n)
 {
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if (i < n) atomicAdd(&norm[i], Y1[i] * Y2[i]);
+	if (i < n) atomicAdd(&norm[i], Y1[i]*Y1[i] + Y2[i]*Y2[i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
