@@ -10,6 +10,7 @@
 #include "slow_kernels.h"
 #include "fast_kernels.h"
 #include "utils.h"
+#define cuda_max_potential cudaOccupancyMaxPotentialBlockSize
 
 
 namespace ML {
@@ -91,8 +92,17 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	float *gains = (float *)d_alloc->allocate(sizeof(float) * n * k, stream);
 	float *means = (float*)d_alloc->allocate(sizeof(float) * k, stream);
 
-	// Do gradient updates
 
+	// Compute optimal gridSize and blockSize for attractive forces
+	int blockSize; int minGridSize;
+	if (n_components == 2)
+		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast_2dim, 0, NNZ);
+	else
+		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast, 0, NNZ);
+	int gridSize = ceil(NNZ, blockSize);
+
+
+	// Do gradient updates
 	float momentum = pre_momentum;
 	float Z;
 
@@ -115,7 +125,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_fast(Y, norm, n, k, stream);
 
 			// Fast compute attractive forces from COO matrix
-			attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
+			attractive_fast<gridSize, blockSize>(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream);
 
 			// Fast compute repulsive forces
 			Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);

@@ -167,6 +167,7 @@ __attractive_fast_2dim(const float *__restrict__ VAL,
         atomicAdd(&attract2[i],     PQ * (Y2[i] - Y2[j]) );
     }
 }
+template <int gridSize, int blockSize>
 void attractive_fast(const float *__restrict__ VAL,
                     const int *__restrict__ COL,
                     const int *__restrict__ ROW,
@@ -176,9 +177,9 @@ void attractive_fast(const float *__restrict__ VAL,
                     const int n, const int dim,
                     cudaStream_t stream) {
     cudaMemset(attract, 0, sizeof(float) * n * dim);
-
+    
     if (dim == 2)
-    	__attractive_fast_2dim<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    	__attractive_fast_2dim<<<gridSize, blockSize, 0, stream>>>(VAL, COL, ROW, Y,
         	Y + n, norm, attract, attract + n, NNZ, n, dim);
     else
     	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
@@ -198,7 +199,7 @@ __repulsive_fast(const float *__restrict__ Y,
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
-    if (i < n && j < n && j > i) {
+    if (j > i && i < n && j < n) {
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
             //d += Y[i, k] * Y[j, k]
@@ -229,7 +230,7 @@ __repulsive_fast_2dim(const float *__restrict__ Y1,
     const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in row
     const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every row
 
-    if (i < n && j < n && j > i) {
+    if (j > i && i < n && j < n) {
 
         const float Q = 1.0f / \
         	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
