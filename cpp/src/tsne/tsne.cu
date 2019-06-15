@@ -59,13 +59,13 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
 
 	// Determine best blocksize / gridsize
-	int blockSize = 1024; int minGridSize;
-	cuda_max_potential(&minGridSize, &blockSize, __determine_sigmas, 0, n);
-	int gridSize = ceil(n, blockSize);
+	int blockSize_N = 1024; int minGridSize_N;
+	cuda_max_potential(&minGridSize_N, &blockSize_N, __determine_sigmas, 0, n);
+	const int gridSize_N = ceil(n, blockSize_N);
 
 
 	const float P_sum = determine_sigmas(distances, P, perplexity, perplexity_max_iter,
-										perplexity_tol, n, n_neighbors, stream, gridSize, blockSize);
+										perplexity_tol, n, n_neighbors, stream, gridSize_N, blockSize_N);
 	d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
 	if (verbose) printf("[Info]	Perplexity sum = %f\n", P_sum);
 
@@ -100,11 +100,12 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 	// Compute optimal gridSize and blockSize for attractive forces
+	int blockSize_NNZ = 1024; int minGridSize_NNNZ;
 	if (n_components == 2)
-		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast_2dim, 0, NNZ);
+		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast_2dim, 0, NNZ);
 	else
-		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast, 0, NNZ);
-	gridSize = ceil(NNZ, blockSize);
+		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast, 0, NNZ);
+	const int gridSize_NNZ = ceil(NNZ, blockSize_NNZ);
 
 
 	// Do gradient updates
@@ -127,11 +128,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
 			}
 			// Get norm(Y)
-			get_norm_fast(Y, norm, n, k, stream);
+			get_norm_fast(Y, norm, n, k, stream, gridSize_N, blockSize_N);
 
 			// Fast compute attractive forces from COO matrix
 			attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
-				gridSize, blockSize);
+				gridSize_NNZ, blockSize_NNZ);
 
 			// Fast compute repulsive forces
 			Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);

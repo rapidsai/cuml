@@ -101,19 +101,30 @@ __get_norm_fast(const float *__restrict__ Y, float *__restrict__ norm,
 {
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < dim)
-		atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
+	if (i < n && j < dim) atomicAdd(&norm[i], Y[j*n + i] * Y[j*n + i]);
+}
+__global__ void
+__get_norm_fast_2dim(const float *__restrict__ Y1, const float *__restrict__ Y2,
+					float *__restrict__ norm, const int n)
+{
+	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if (i < n) atomicAdd(&norm[i], Y1[i] * Y2[i]);
 }
 
 template <int TPB_X = 32, int TPB_Y = 32>
 void get_norm_fast(const float *__restrict__ Y, float *__restrict__ norm,
-			  const int n, const int dim, cudaStream_t stream) {
+			  const int n, const int dim, cudaStream_t stream,
+			  const int gridSize, const int blockSize) {
 	// Notice Y is F-Contiguous
 	cudaMemset(norm, 0, sizeof(float) * n);
 
-	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
-	__get_norm_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
+	if (dim == 2)
+		__get_norm_fast_2dim<<<gridSize, blockSize, 0, stream>>>(Y, Y + n, norm, n);
+	else {
+		static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+		const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+		__get_norm_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, norm, n, dim);
+	}
 	CUDA_CHECK(cudaPeekAtLastError());
 }
 
