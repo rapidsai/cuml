@@ -107,6 +107,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast, 0, NNZ);
 	const int gridSize_NNZ = ceil(NNZ, blockSize_NNZ);
 
+	// Compute optimal gridSize and blockSize for applying forces
+	int blockSize_dimN = 1024; int minGridSize_dimN;
+	cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, dim*n);
+	const int gridSize_dimN = ceil(dim*n, blockSize_dimN);
+
 
 	// Do gradient updates
 	float momentum = pre_momentum;
@@ -139,7 +144,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
-			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
+			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream,
+				gridSize_dimN, blockSize_dimN);
 		}
 	}
 
