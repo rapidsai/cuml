@@ -124,8 +124,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				momentum = post_momentum;
 				// Divide perplexities
 				const float div = 1.0f / early_exaggeration;
-				thrust_t<float> begin = to_thrust(VAL);
-				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
+				array_multiply(VAL, NNZ, div, stream);
 			}
 			// Get norm(Y)
 			get_norm_fast(Y, norm, n, k, stream, gridSize_N, blockSize_N);
@@ -160,8 +159,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				momentum = post_momentum;
 				// Divide perplexities
 				const float div = 1.0f / early_exaggeration;
-				thrust_t<float> begin = to_thrust(VAL);
-				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
+				array_multiply(VAL, NNZ, div, stream);
 			}
 			// Get norm(Y)
 			get_norm_slow(Y, norm, n, k, stream);

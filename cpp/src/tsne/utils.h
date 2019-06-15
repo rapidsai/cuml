@@ -141,7 +141,7 @@ void random_vector(float *vector, const float minimum, const float maximum,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-inline void array_multiply(float *array, const float mult, const int n, cudaStream_t stream) {
+inline void array_multiply(float *array, const int n, const float mult, cudaStream_t stream) {
 	thrust_t<float> begin = to_thrust(array);
 	thrust::transform(__STREAM__, begin, begin + n, begin, mult * _1);
 }

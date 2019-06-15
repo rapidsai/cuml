@@ -319,9 +319,7 @@ void remove_mean_fast(float *__restrict__ Y, float *__restrict__ means,
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Divide by 1/n
-	const float div = 1.0f / n;
-	thrust_t<float> begin = to_thrust(means);
-	thrust::transform(__STREAM__, begin, begin + dim, begin, div * _1);
+	array_multiply(means, dim, 1.0f/n, stream);
 
 	// Subtract the mean
 	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
