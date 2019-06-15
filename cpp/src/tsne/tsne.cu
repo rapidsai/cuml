@@ -100,7 +100,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 	// Compute optimal gridSize and blockSize for attractive forces
-	int blockSize_NNZ = 1024; int minGridSize_NNNZ;
+	int blockSize_NNZ = 1024; int minGridSize_NNZ;
 	if (n_components == 2)
 		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast_2dim, 0, NNZ);
 	else
