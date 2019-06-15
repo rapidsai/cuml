@@ -107,6 +107,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 		cuda_max_potential(&minGridSize_NNZ, &blockSize_NNZ, __attractive_fast, 0, NNZ);
 	const int gridSize_NNZ = ceil(NNZ, blockSize_NNZ);
 
+	// Compute optimal gridSize and blockSize for applying / integrating forces
+	int blockSize_dimN = 1024; int minGridSize_dimN;
+	cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, 2*n);
+	const int gridSize_dimN = ceil(2*n, blockSize_dimN);
+
 
 	// Do gradient updates
 	float momentum = pre_momentum;
@@ -123,9 +128,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			if (iter == exaggeration_iter) {
 				momentum = post_momentum;
 				// Divide perplexities
-				const float div = 1.0f / early_exaggeration;
-				thrust_t<float> begin = to_thrust(VAL);
-				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
+				array_multiply(VAL, NNZ, 1.0f / early_exaggeration, stream);
 			}
 			// Get norm(Y)
 			get_norm_fast(Y, norm, n, k, stream, gridSize_N, blockSize_N);
@@ -140,7 +143,8 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
-			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
+			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream,
+				gridSize_dimN, blockSize_dimN);
 		}
 	}
 
@@ -159,9 +163,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			if (iter == exaggeration_iter) {
 				momentum = post_momentum;
 				// Divide perplexities
-				const float div = 1.0f / early_exaggeration;
-				thrust_t<float> begin = to_thrust(VAL);
-				thrust::transform(__STREAM__, begin, begin + NNZ, begin, div * _1);
+				array_multiply(VAL, NNZ, 1.0f / early_exaggeration, stream);
 			}
 			// Get norm(Y)
 			get_norm_slow(Y, norm, n, k, stream);

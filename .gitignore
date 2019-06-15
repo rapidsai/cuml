@@ -27,3 +27,9 @@ log
 
 ## Pycharm
 .idea
+thirdparty/cuml/faiss/
+thirdparty/cuml/googletest/
+thirdparty/h2o4gpu/
+thirdparty/ml-prims/cub/
+thirdparty/ml-prims/googletest/
+thirdparty/ml-prims/cutlass/

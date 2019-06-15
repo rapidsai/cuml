@@ -44,8 +44,7 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 	if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
-	const float div = 1.0f / maxNorm;  // Mult faster than div
-	thrust::transform(__STREAM__, begin, begin + n*n_neighbors, begin, div * _1);
+	array_multiply(distances, n*n_neighbors, 1.0f / maxNorm, stream);
 }
 
 
@@ -53,20 +52,21 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 						 const int n, const int k, const float P_sum,
-						 const float exaggeration, cudaStream_t stream) {
+						 const float exaggeration, cudaStream_t stream,
+						 auto d_alloc) {
 	assert(P != NULL && indices != NULL);
 
 	// Convert to COO
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
 	Sparse::from_knn(indices, P, n, k, &P_COO);
-	cfree(P);
-	cfree(indices);
+	d_alloc->deallocate(P, sizeof(float) * n * k, stream);
+	d_alloc->deallocate(indices, sizeof(long) * n * k, stream);
+	
 
 	// Perform (P + P.T) / P_sum * early_exaggeration
 	const float div = exaggeration / (2.0f * P_sum);
-	thrust_t<float> begin = to_thrust(P_COO.vals);
-	thrust::transform(__STREAM__, begin, begin + P_COO.nnz, begin, div * _1);
+	array_multiply(P_COO.vals, P_COO.nnz, div, stream);
 
 	// Symmetrize to form P + P.T
 	Sparse::coo_symmetrize<TPB_X, float>(

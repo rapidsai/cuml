@@ -5,6 +5,7 @@
 #include <math.h>
 #include "utils.h"
 #define ceil(a, b) ((a + b - 1) / b)
+#define sign signbit
 
 namespace ML {
 
@@ -53,8 +54,7 @@ __determine_sigmas(const float *__restrict__ distances,
 
 			entropy = __logf(sum_Pi) + beta * sum_disti_Pi;
 			entropy_diff = entropy - desired_entropy;
-			if (fabs(entropy_diff) <= tol) 
-				break;
+			if (fabs(entropy_diff) <= tol)  break;
 
 			// Bisection search
 			if (entropy_diff > 0) {
@@ -63,7 +63,8 @@ __determine_sigmas(const float *__restrict__ distances,
 					beta *= 2.0f;
 				else
 					beta = (beta + beta_max) * 0.5f;
-			} else {
+			}
+			else {
 				beta_max = beta;
 				if (isinf(beta_min))
 					beta *= 0.5f;
@@ -141,19 +142,16 @@ __attractive_fast(const float *__restrict__ VAL,
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
-        const int i = ROW[index];
-        const int j = COL[index];
+        const int i = ROW[index], j = COL[index];
 
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
-            //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
         const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
 
         for (int k = 0; k < dim; k++)
             atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]) );
-            // attract[i*K + j] += PQ * (Y[i, j] - Y[j, j]);
     }
 }
 __global__ void
@@ -169,8 +167,7 @@ __attractive_fast_2dim(const float *__restrict__ VAL,
     // Notice attract, Y and repel are all F-contiguous
     const int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < NNZ) {
-        const int i = ROW[index];
-        const int j = COL[index];
+        const int i = ROW[index], j = COL[index];
 
         const float PQ = VAL[index] / \
         	(1.0f - 2.0f*(Y1[i]*Y1[j] + Y2[i]*Y2[j]) + norm[i] + norm[j]);
@@ -214,7 +211,6 @@ __repulsive_fast(const float *__restrict__ Y,
     if (j > i && i < n && j < n) {
         float d = 0.0f;
         for (int k = 0; k < dim; k++)
-            //d += Y[i, k] * Y[j, k]
             d += (Y[k*n + i] * Y[k*n + j]);
 
         const float Q = 1.0f  /  (1.0f - 2.0f*d  + norm[i] + norm[j]);
@@ -223,7 +219,6 @@ __repulsive_fast(const float *__restrict__ Y,
 
         for (int k = 0; k < dim; k++) {
             const float force = Q2 * (Y[k*n + i] - Y[k*n + j]);
-            // repel = Q2 * (Y[i, k] - Y[j, k]);
 
             atomicAdd(&repel[k*n + i],  - force);  // repel[k*n + i] -= force
             atomicAdd(&repel[k*n + j],  force);    // repel[k*n + j] += force
@@ -319,9 +314,7 @@ void remove_mean_fast(float *__restrict__ Y, float *__restrict__ means,
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Divide by 1/n
-	const float div = 1.0f / n;
-	thrust_t<float> begin = to_thrust(means);
-	thrust::transform(__STREAM__, begin, begin + dim, begin, div * _1);
+	array_multiply(means, dim, 1.0f/n, stream);
 
 	// Subtract the mean
 	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
@@ -338,25 +331,18 @@ __apply_forces(const float *__restrict__ attract,
 				 const int dim, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
-	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
-	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
-	if (j < dim && i < n) {
-		const int index = j*n + i;
-		const float dy = attract[index] + Z * repel[index];
+	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item
+	if (i < dim*n) {
+		const float dy = attract[i] + Z * repel[i];
 
-		if (signbit(dy) != signbit(iY[index]))
-			gains[index] += 0.2f;
-		else
-			gains[index] *= 0.8f;
+		if (sign(dy) != sign(iY[i])) 	gains[i] += 0.2f;
+		else 							gains[i] *= 0.8f;
+		if (gains[i] < min_gain) gains[i] = min_gain;
 
-		if (gains[index] < min_gain)
-			gains[index] = min_gain;
-
-		iY[index] = momentum * iY[index] - eta * (gains[index] * dy);
-		Y[index] += iY[index];
+		iY[i] = momentum * iY[i] - eta * (gains[i] * dy);
+		Y[i] += iY[i];
 	}
 }
-
 template <int TPB_X = 32, int TPB_Y = 32>
 void apply_forces(const float *__restrict__ attract,
 				float *__restrict__ means,
@@ -364,12 +350,11 @@ void apply_forces(const float *__restrict__ attract,
 				float *__restrict__ iY, float *__restrict__ gains, 
 				const int n, const int dim, const float Z, 
 				const float min_gain, const float momentum,
-				const float eta, cudaStream_t stream) {
-	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+				const float eta, cudaStream_t stream,
+				const int gridSize_dimN, const int blockSize_dimN) {
 
-	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
-		attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
+	__apply_forces<<<gridSize_dimN, blockSize_dimN, 0, stream>>>(
+			attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Find mean and remove it
