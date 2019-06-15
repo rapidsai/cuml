@@ -43,7 +43,7 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 	if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
-	const div = 1.0f/maxNorm;
+	const float div = 1.0f/maxNorm;
 	array_multiply(distances, n*n_neighbors, div, stream);
 	return div;
 }
