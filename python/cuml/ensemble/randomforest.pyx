@@ -408,6 +408,20 @@ class RandomForestClassifier(Base):
                                 " more information")
 
         super(RandomForestClassifier, self).__init__(handle, verbose)
+
+        self.split_algo = split_algo
+        self.min_rows_per_node = min_rows_per_node
+        self.bootstrap_features = bootstrap_features
+        self.rows_sample = rows_sample
+        self.max_leaves = max_leaves
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.max_features = max_features
+        self.bootstrap = bootstrap
+        self.verbose = False
+        self.n_bins = n_bins
+        self.n_cols = None
+
         self._impl = RandomForest_impl(n_estimators, max_depth, self.handle,
                                        max_features, n_bins,
                                        split_algo, min_rows_per_node,
@@ -474,3 +488,29 @@ class RandomForestClassifier(Base):
         """
 
         return self._impl.cross_validate(X, y)
+
+    def get_params(self, deep=True):
+
+        params = dict()
+        self.variables = ['n_estimators', 'max_depth', 'handle',
+                          'max_features', 'n_bins',
+                          'split_algo', 'min_rows_per_node',
+                          'bootstrap', 'bootstrap_features',
+                          'verbose', 'rows_sample',
+                          'max_leaves']
+        for key in self.variables:
+            var_value = getattr(self, key, None)
+            params[key] = var_value
+        return params
+
+    def set_params(self, **params):
+
+        if not params:
+            return self
+        for key, value in params.items():
+            if key not in self.variables:
+                raise ValueError('Invalid parameter for estimator')
+            else:
+                setattr(self, key, value)
+
+        return self
