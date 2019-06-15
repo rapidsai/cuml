@@ -30,7 +30,7 @@ get_distances(const float *X, const int n, const int p, long *indices,
 
 
 
-void
+float
 normalize_distances(const int n, float *distances, const int n_neighbors,
 					cudaStream_t stream)
 {
@@ -43,8 +43,9 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 	if (maxNorm == 0.0f) maxNorm = 1.0f;
 
 	// Divide distances inplace by max
-	const float div = 1.0f / maxNorm;  // Mult faster than div
-	thrust::transform(__STREAM__, begin, begin + n*n_neighbors, begin, div * _1);
+	const div = 1.0f/maxNorm;
+	array_multiply(distances, n*n_neighbors, div, stream);
+	return div;
 }
 
 

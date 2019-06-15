@@ -165,8 +165,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_slow(Y, norm, n, k, stream);
 
 			// Find Y @ Y.T
-			if ((error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-												&neg2, Y, n, &beta, Q, n))) {
+			error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
+												&neg2, Y, n, &beta, Q, n);
+			if (error != 0) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
@@ -183,8 +184,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			postprocess_Q(Q, Q_sum, n, stream);
 
 			// Do Q**2 @ Y
-			if ((error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
-						                        k, &one, Q, n, Y, n, &beta, repel, n))) {
+			error = cublasSsymm(BLAS, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, n,
+						                        k, &one, Q, n, Y, n, &beta, repel, n);
+			if (error != 0) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
