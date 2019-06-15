@@ -331,18 +331,21 @@ __apply_forces(const float *__restrict__ attract,
 				 const int dim, const float Z, const float min_gain,
 				 const float momentum, const float eta) {
 	// Everything is F-Contiguous
-	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item
-	if (i < dim*n) {
-		const float dy = attract[i] + Z * repel[i];
+	const int j = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every column
+	const int i = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every item in column
+	if (j < dim && i < n) {
+		const int k = j*n + i;
+		const float dy = attract[k] + Z * repel[k];
 
-		if (sign(dy) != sign(iY[i])) 	gains[i] += 0.2f;
-		else 							gains[i] *= 0.8f;
-		if (gains[i] < min_gain) gains[i] = min_gain;
+		if (sign(dy) != sign(iY[k])) 	gains[k] += 0.2f;
+		else 							gains[k] *= 0.8f;
+		if (gains[k] < min_gain) gains[k] = min_gain;
 
-		iY[i] = momentum * iY[i] - eta * (gains[i] * dy);
-		Y[i] += iY[i];
+		iY[k] = momentum * iY[k] - eta * (gains[k] * dy);
+		Y[k] += iY[k];
 	}
 }
+
 template <int TPB_X = 32, int TPB_Y = 32>
 void apply_forces(const float *__restrict__ attract,
 				float *__restrict__ means,
@@ -350,10 +353,12 @@ void apply_forces(const float *__restrict__ attract,
 				float *__restrict__ iY, float *__restrict__ gains, 
 				const int n, const int dim, const float Z, 
 				const float min_gain, const float momentum,
-				const float eta, cudaStream_t stream,
-				const int gridSize_dimN, const int blockSize_dimN) {
+				const float eta, cudaStream_t stream) {
 
-	__apply_forces<<<gridSize_dimN, blockSize_dimN, 0, stream>>>(
+	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	const dim3 numBlocks(ceil(dim, threadsPerBlock.x), ceil(n, threadsPerBlock.y));
+
+	__apply_forces<<<numBlocks, threadsPerBlock, 0, stream>>>(
 			attract, repel, Y, iY, gains, n, dim, Z, min_gain, momentum, eta);
 	CUDA_CHECK(cudaPeekAtLastError());
 

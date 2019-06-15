@@ -105,9 +105,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	const int gridSize_NNZ = ceil(NNZ, blockSize_NNZ);
 
 	// Compute optimal gridSize and blockSize for applying / integrating forces
-	int blockSize_dimN = 1024; int minGridSize_dimN;
-	cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, 2*n);
-	const int gridSize_dimN = ceil(2*n, blockSize_dimN);
+	// int blockSize_dimN = 1024; int minGridSize_dimN;
+	// cuda_max_potential(&minGridSize_dimN, &blockSize_dimN, __apply_forces, 0, 2*n);
+	// const int gridSize_dimN = ceil(2*n, blockSize_dimN);
 
 
 	// Do gradient updates
@@ -140,8 +140,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 				printf("[Info]	Z at iter = %d is %lf.\n", iter, Z);
 
 			// Integrate forces with momentum
-			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream,
-				gridSize_dimN, blockSize_dimN);
+			apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream);
 		}
 	}
 
@@ -167,8 +166,9 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 			get_norm_slow(Y, norm, n, k, stream);
 
 			// Find Y @ Y.T
-			if ((error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
-												&neg2, Y, n, &beta, Q, n))) {
+			error = cublasSsyrk(BLAS, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N, n, k,
+												&neg2, Y, n, &beta, Q, n);
+			if (error) {
 				if (verbose) printf("[ERROR]	BLAS failed. Terminating TSNE\n");
 				break;
 			}
