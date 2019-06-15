@@ -290,6 +290,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   set(CUML_CPP_TARGET "cuml++")
   add_library(${CUML_CPP_TARGET} SHARED
     src/common/cumlHandle.cpp
+    src/datasets/make_blobs.cu
     src/dbscan/dbscan.cu
     src/decisiontree/decisiontree.cu
     src/glm/glm.cu
