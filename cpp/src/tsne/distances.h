@@ -17,7 +17,6 @@ get_distances(const float *X, const int n, const int p, long *indices,
 {
 	assert(X != NULL);
 
-	cumlHandle handle;
 	float **knn_input = new float *[1];
 	int *sizes = new int[1];
 	knn_input[0] = (float *)X;
@@ -53,15 +52,16 @@ normalize_distances(const int n, float *distances, const int n_neighbors,
 template <int TPB_X = 32>
 void symmetrize_perplexity(float *P, long *indices, COO_t<float> *P_PT,
 						 const int n, const int k, const float P_sum,
-						 const float exaggeration, cudaStream_t stream) {
+						 const float exaggeration, cudaStream_t stream,
+						 const cumlHandle &handle) {
 	assert(P != NULL && indices != NULL);
 
 	// Convert to COO
 	COO_t<float> P_COO;
 	COO_t<float> P_PT_with_zeros;
 	Sparse::from_knn(indices, P, n, k, &P_COO);
-	cfree(P);
-	cfree(indices);
+	handle->getDeviceAllocator()->deallocate(P, sizeof(float) * n * k, stream);
+	handle->getDeviceAllocator()->deallocate(indices, sizeof(long) * n * k, stream);
 
 	// Perform (P + P.T) / P_sum * early_exaggeration
 	const float div = exaggeration / (2.0f * P_sum);

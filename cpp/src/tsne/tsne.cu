@@ -72,7 +72,7 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 	// Convert data to COO layout
 	COO_t<float> P_PT;
-	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream);
+	symmetrize_perplexity(P, indices, &P_PT, n, n_neighbors, P_sum, early_exaggeration, stream, handle);
 		
 	const int NNZ = P_PT.nnz;
 	float *VAL = P_PT.vals;
