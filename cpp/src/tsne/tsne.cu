@@ -58,8 +58,14 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 	if (verbose) printf("[Info]	Searching for optimal perplexity via bisection search.\n");
 	float *P = (float *)d_alloc->allocate(sizeof(float) * n * n_neighbors, stream);
 
+	// Determine best blocksize / gridsize
+	int blockSize = 1024; int minGridSize;
+	cuda_max_potential(&minGridSize, &blockSize, __determine_sigmas, 0, n);
+	int gridSize = ceil(n, blockSize);
+
+
 	const float P_sum = determine_sigmas(distances, P, perplexity, perplexity_max_iter,
-										perplexity_tol, n, n_neighbors, stream);
+										perplexity_tol, n, n_neighbors, stream, gridSize, blockSize);
 	d_alloc->deallocate(distances, sizeof(float) * n * n_neighbors, stream);
 	if (verbose) printf("[Info]	Perplexity sum = %f\n", P_sum);
 
@@ -94,12 +100,11 @@ void TSNE(const cumlHandle &handle, const float *X, float *Y, const int n,
 
 
 	// Compute optimal gridSize and blockSize for attractive forces
-	int blockSize = 1024; int minGridSize;
 	if (n_components == 2)
 		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast_2dim, 0, NNZ);
 	else
 		cuda_max_potential(&minGridSize, &blockSize, __attractive_fast, 0, NNZ);
-	int gridSize = ceil(NNZ, blockSize);
+	gridSize = ceil(NNZ, blockSize);
 
 
 	// Do gradient updates

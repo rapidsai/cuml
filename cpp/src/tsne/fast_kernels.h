@@ -77,13 +77,14 @@ __determine_sigmas(const float *__restrict__ distances,
 float determine_sigmas(const float *__restrict__ distances,
 					 float *__restrict__ P, const float perplexity,
 					 const int epochs, const float tol, const int n,
-					 const int k, cudaStream_t stream) {
+					 const int k, cudaStream_t stream,
+					 const int gridSize, const int blockSize) {
 	const float desired_entropy = logf(perplexity);
 	float *P_sum_, P_sum;
 	cudaMalloc(&P_sum_, sizeof(float));
 	cudaMemset(P_sum_, 0, sizeof(float));
 
-	__determine_sigmas<<<ceil(n, 1024), 1024, 0, stream>>>(
+	__determine_sigmas<<<gridSize, blockSize, 0, stream>>>(
 		distances, P, perplexity, desired_entropy, P_sum_, epochs, tol, n, k);
 
 	cudaMemcpy(&P_sum, P_sum_, sizeof(float), cudaMemcpyDeviceToHost);
@@ -182,7 +183,7 @@ void attractive_fast(const float *__restrict__ VAL,
     	__attractive_fast_2dim<<<gridSize, blockSize, 0, stream>>>(VAL, COL, ROW, Y,
         	Y + n, norm, attract, attract + n, NNZ, n, dim);
     else
-    	__attractive_fast<<<ceil(NNZ, 1024), 1024, 0, stream>>>(VAL, COL, ROW, Y,
+    	__attractive_fast<<<gridSize, blockSize, 0, stream>>>(VAL, COL, ROW, Y,
         	norm, attract, NNZ, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 }
