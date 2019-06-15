@@ -303,7 +303,7 @@ float repulsive_fast(const float *__restrict__ Y,
 
 __global__ void
 __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
-			const int n, const int dim) {
+						const int n, const int dim) {
 	// Y is F-Contiguous
 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
@@ -334,7 +334,7 @@ __apply_forces(const float *__restrict__ attract,
 		iY[i] = momentum * iY[i] - eta * (gains[i] * dy);
 		Y[i] += iY[i];
 		// Also find mean
-		atomicAdd(&means[i % n], Y[i]);
+		atomicAdd(&means[i / n], Y[i]);
 	}
 }
 
