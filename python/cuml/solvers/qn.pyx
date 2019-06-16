@@ -32,7 +32,7 @@ from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
 
 cdef extern from "glm/glm.hpp" namespace "ML::GLM":
 
-    void qnFit(const cumlHandle &cuml_handle,
+    void qnFit(cumlHandle& cuml_handle,
                float *X,
                float *y,
                int N,
@@ -52,7 +52,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type)
 
-    void qnFit(const cumlHandle &cuml_handle,
+    void qnFit(cumlHandle& cuml_handle,
                double *X,
                double *y,
                int N,
@@ -72,7 +72,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type)
 
-    void qnPredict(const cumlHandle &cuml_handle,
+    void qnPredict(cumlHandle& cuml_handle,
                    float *X,
                    int N,
                    int D,
@@ -83,7 +83,7 @@ cdef extern from "glm/glm.hpp" namespace "ML::GLM":
                    int loss_type,
                    float *preds)
 
-    void qnPredict(const cumlHandle &cuml_handle,
+    void qnPredict(cumlHandle& cuml_handle,
                    double *X,
                    int N,
                    int D,
