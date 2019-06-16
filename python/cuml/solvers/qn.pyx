@@ -265,4 +265,4 @@ class QN(Base):
 
         del X_m
 
-        return cuDF.Series(preds)
+        return cudf.Series(preds)
