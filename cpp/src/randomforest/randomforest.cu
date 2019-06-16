@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+#include <utils.h>
+#include <algorithm>
+#include <common/cumlHandle.hpp>
+#include <common/device_buffer.hpp>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <numeric>
+#include "random/rng.h"
 #include "randomforest.h"
 
 namespace ML {
@@ -82,6 +91,10 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
   if (verbose) std::cout << "Finished postrocessing labels\n";
 }
 
+/**
+ * @brief Random forest default constructor.
+ */
+RF_params::RF_params() : n_trees(1) {}
 /**
  * @brief Random forest hyper-parameter object constructor to set n_trees member.
  */
@@ -234,11 +247,10 @@ void rfClassifier<T>::fit(const cumlHandle& user_handle, T* input, int n_rows,
 
   rfClassifier::trees =
     new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
-  int n_sampled_rows = this->rf_params.rows_sample * n_rows;
 
+  int n_sampled_rows = this->rf_params.rows_sample * n_rows;
   const cumlHandle_impl& handle = user_handle.getImpl();
   cudaStream_t stream = user_handle.getStream();
-
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device ptr.
@@ -294,7 +306,6 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
   ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
   ASSERT(predictions != nullptr,
          "Error! User has not allocated memory for predictions.");
-
   int row_size = n_cols;
 
   for (int row_id = 0; row_id < n_rows; row_id++) {
@@ -315,7 +326,7 @@ void rfClassifier<T>::predict(const cumlHandle& user_handle, const T* input,
       //Return prediction for one sample.
       if (verbose) {
         std::cout << "Printing tree " << i << std::endl;
-        this->trees[i].print();
+        //this->trees[i].print();
       }
       int prediction;
       this->trees[i].predict(user_handle, &input[row_id * row_size], 1, n_cols,
@@ -486,5 +497,16 @@ RF_metrics cross_validate(const cumlHandle& user_handle,
                                        n_cols, predictions, verbose);
 }
 
+RF_params set_rf_class_obj(int max_depth, int max_leaves, float max_features,
+                           int n_bins, int split_algo, int min_rows_per_node,
+                           bool bootstrap_features, bool bootstrap, int n_trees,
+                           int rows_sample) {
+  DecisionTree::DecisionTreeParams tree_params(
+    max_depth, max_leaves, max_features, n_bins, split_algo, min_rows_per_node,
+    bootstrap_features);
+  RF_params rf_params(bootstrap, bootstrap_features, n_trees, rows_sample,
+                      tree_params);
+  return rf_params;
+}
 };  // namespace ML
 // end namespace ML

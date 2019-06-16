@@ -17,7 +17,7 @@
 #pragma once
 #include <utils.h>
 #include <vector>
-#include "../memory.cuh"
+#include "../memory.h"
 #include "cub/cub.cuh"
 #include "cuda_utils.h"
 #include "gini_def.h"
