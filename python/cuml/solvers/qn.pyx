@@ -238,7 +238,7 @@ class QN(Base):
         cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
 
         if self.dtype == np.float32:
-            qnPredict(const cumlHandle &cuml_handle,
+            qnPredict(handle_[0],
                       <float*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
@@ -250,7 +250,7 @@ class QN(Base):
                       <float*> pred_ptr)
 
         else:
-            qnPredict(const cumlHandle &cuml_handle,
+            qnPredict(handle_[0],
                       <double*> X_ptr,
                       <int> n_rows,
                       <int> n_cols,
