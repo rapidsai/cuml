@@ -156,7 +156,7 @@ class QN(Base):
         self.coef_ = cuda.to_device(zeros(n_cols, self.num_classes,
                                           dtype=self.dtype))
 
-        cdef uintptr_t coef_ptr = get_dev_array_ptr(coef_)
+        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
 
         cdef float intercept32, objective32
         cdef double intercept64, objective64
@@ -182,7 +182,6 @@ class QN(Base):
                   <int*> self.num_iters,
                   <bool> True,
                   <int> self.loss_type)
-
 
         else:
             qnFit(handle_[0],
@@ -235,6 +234,7 @@ class QN(Base):
         preds = cuda.to_device(zeros(n_rows, self.num_classes,
                                      dtype=self.dtype))
 
+        cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
         cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
 
         if self.dtype == np.float32:
@@ -244,7 +244,7 @@ class QN(Base):
                       <int> n_cols,
                       <int> self.num_classes,
                       <bool> self.fit_intercept,
-                      <float*> self.coef_,
+                      <float*> coef_ptr,
                       <bool> True,
                       <int> self.loss_type,
                       <float*> pred_ptr)
