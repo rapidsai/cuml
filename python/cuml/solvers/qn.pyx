@@ -256,7 +256,7 @@ class QN(Base):
                       <int> n_cols,
                       <int> self.num_classes,
                       <bool> self.fit_intercept,
-                      <double*> self.coef_,
+                      <double*> coef_ptr,
                       <bool> True,
                       <int> self.loss_type,
                       <double*> pred_ptr)
