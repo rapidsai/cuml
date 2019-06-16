@@ -237,6 +237,8 @@ class QN(Base):
         cdef uintptr_t coef_ptr = get_dev_array_ptr(self.coef_)
         cdef uintptr_t pred_ptr = get_dev_array_ptr(preds)
 
+        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+
         if self.dtype == np.float32:
             qnPredict(handle_[0],
                       <float*> X_ptr,
