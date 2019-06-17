@@ -30,7 +30,6 @@ namespace ML {
 
 namespace kmeans {
 namespace detail {
-typedef cutlass::Shape<8, 128, 128> OutputTile_8_128_128;
 
 template <typename DataT>
 struct SamplingOp {
