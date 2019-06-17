@@ -26,10 +26,11 @@ from cuml.decomposition.tsvd import TruncatedSVD
 
 from cuml.filter.kalman_filter import KalmanFilter
 
-from cuml.linear_model.linear_regression import LinearRegression
-from cuml.linear_model.ridge import Ridge
-from cuml.linear_model.lasso import Lasso
 from cuml.linear_model.elastic_net import ElasticNet
+from cuml.linear_model.lasso import Lasso
+from cuml.linear_model.linear_regression import LinearRegression
+from cuml.linear_model.logistic_regression import LogisticRegression
+from cuml.linear_model.ridge import Ridge
 
 from cuml.metrics.regression import r2_score
 
@@ -37,8 +38,9 @@ from cuml.neighbors.nearest_neighbors import NearestNeighbors
 
 from cuml.utils.pointer_utils import device_of_gpu_matrix
 
-from cuml.solvers.sgd import SGD
 from cuml.solvers.cd import CD
+from cuml.solvers.sgd import SGD
+from cuml.solvers.qn import QN
 
 from cuml.manifold.umap import UMAP
 
