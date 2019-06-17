@@ -26,10 +26,10 @@ from sklearn.utils.testing import assert_no_warnings
 # from sklearn.utils.mocking import MockDataFrame
 
 from cuml.thirdparty._sklearn.model_selection._split import (
-    BaseCrossValidator, KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit,
-    LeaveOneGroupOut, LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
+    KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit, LeaveOneGroupOut,
+    LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
     RepeatedStratifiedKFold, ShuffleSplit, GroupShuffleSplit,
-    StratifiedShuffleSplit, PredefinedSplit, train_test_split, check_cv)
+    StratifiedShuffleSplit, PredefinedSplit, check_cv)
 
 
 # # from cuml import cross_val_score
