@@ -22,7 +22,7 @@
 #include "adjgraph/runner.h"
 #include "vertexdeg/runner.h"
 
-#include "label/array.h"
+#include "label/classlabels.h"
 #include "sparse/csr.h"
 
 namespace Dbscan {
