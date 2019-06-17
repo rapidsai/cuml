@@ -122,7 +122,6 @@ if(BUILD_PRIMS_TESTS)
     add_executable(prims
       prims/add.cu
       prims/add_sub_dev_scalar.cu
-      prims/array.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/coalesced_reduction.cu
@@ -148,6 +147,7 @@ if(BUILD_PRIMS_TESTS)
       prims/grid_sync.cu
       prims/hinge.cu
       prims/kselection.cu
+      prims/label.cu
       prims/linearReg.cu
       prims/log.cu
       prims/logisticReg.cu

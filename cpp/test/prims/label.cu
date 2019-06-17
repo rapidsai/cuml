@@ -16,7 +16,6 @@
 
 #include <gtest/gtest.h>
 
-#include "label/array.h"
 #include "label/classlabels.h"
 
 #include <cuda_utils.h>
@@ -29,13 +28,13 @@
 namespace MLCommon {
 namespace Label {
 
-class ArrayTest : public ::testing::Test {
+class LabelTest : public ::testing::Test {
  protected:
   void SetUp() override {}
   void TearDown() override {}
 };
 
-typedef ArrayTest MakeMonotonicTest;
+typedef LabelTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
@@ -71,7 +70,7 @@ TEST_F(MakeMonotonicTest, Result) {
   delete expected_h;
 }
 
-TEST(Arraytest, ClassLabels) {
+TEST(LabelTest, ClassLabels) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
   std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
