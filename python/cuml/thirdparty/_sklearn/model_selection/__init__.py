@@ -55,4 +55,4 @@ __all__ = ('BaseCrossValidator',
            # 'learning_curve',
            # 'permutation_test_score',
            'train_test_split')
-           # 'validation_curve')
+           #'validation_curve')
