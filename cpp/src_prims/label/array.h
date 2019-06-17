@@ -20,19 +20,19 @@
 #include <thrust/sort.h>
 #include <thrust/unique.h>
 #include <limits>
-
+#include "classlabels.h"
 #include "cuda_utils.h"
 
 namespace MLCommon {
 namespace Label {
 
 template <typename Type, int TPB_X, typename Lambda>
-__global__ void map_label_kernel(Type *map_ids, Type *in, Type *out, size_t N,
-                                 Lambda filter_op) {
+__global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
+                                 Type *out, size_t N, Lambda filter_op) {
   int tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (!filter_op(in[tid])) {
-      for (size_t i = 0; i < N; i++) {
+      for (size_t i = 0; i < N_labels; i++) {
         if (in[tid] == map_ids[i]) {
           out[tid] = i + 1;
           break;
@@ -67,29 +67,16 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
   dim3 blocks(ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+
   Type *map_ids;
-  allocate(map_ids, N, stream);
+  int num_clusters;
+  getUniqueLabels(in, N, &map_ids, &num_clusters, stream, allocator);
 
-  Type *host_in = (Type *)malloc(N * sizeof(Type));
-  Type *host_map_ids = (Type *)malloc(N * sizeof(Type));
+  map_label_kernel<Type, TPB_X><<<blocks, threads, 0, stream>>>(
+    map_ids, num_clusters, in, out, N, filter_op);
 
-  memset(host_map_ids, 0, N * sizeof(Type));
-
-  MLCommon::updateHost(host_in, in, N, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  thrust::sort(thrust::host, host_in, host_in + N);
-
-  Type *uid = thrust::unique(thrust::host, host_in, host_in + N,
-                             thrust::equal_to<Type>());
-  Type num_clusters = uid - host_in;
-  for (int i = 0; i < num_clusters; i++) host_map_ids[i] = host_in[i];
-
-  MLCommon::updateDevice(map_ids, host_map_ids, N, stream);
-
-  map_label_kernel<Type, TPB_X>
-    <<<blocks, threads, 0, stream>>>(map_ids, in, out, N, filter_op);
+  allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
 }
 
 /**
