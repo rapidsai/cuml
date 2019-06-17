@@ -58,6 +58,22 @@ void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
 ```
 The above example obviously under-plays the complexity involved with exposing a tree-like data structure across the interface! However, this example should be simple enough to drive the point across.
 
+### Working with the 'model' exposed in `libcuml++.so`
+The example in the previous section exposes a `TreeNode` as the model that is being learnt as part of the training process. This means, it is also responsibility of `libcuml++.so` to expose methods to load and store (aka marshalling) such a data structure. Further continuing this example, we could expose the following methods to achieve this:
+```cpp
+void storeTreeNode(const TreeNode<float> *root, std::ostream &os);
+void storeTreeNode(const TreeNode<double> *root, std::ostream &os);
+void loadTreeNode(TreeNode<float> *&root, std::istream &is);
+void loadTreeNode(TreeNode<double> *&root, std::istream &is);
+```
+And being good programmers, we should also expose a 'cleanup' method for this object.
+```cpp
+void destroyTreeNode(TreeNode<float> *root);
+void destroyTreeNode(TreeNode<double> *root);
+```
+It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store/destroy methods are not explicitly needed.
+
+
 ### scikit-learn-esq stateful API in C++
 We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
 
