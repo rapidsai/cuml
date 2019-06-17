@@ -20,7 +20,6 @@
 # cython: language_level = 3
 
 import ctypes
-import cupy
 import numpy as np
 
 from numba import cuda
@@ -181,7 +180,14 @@ cdef class RandomForest_impl():
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
 
-        unique_labels = cupy.unique(y)
+        try:
+            import cupy as cp
+            unique_labels = cp.unique(y)
+        except ImportError:
+            warnings.warn("Using NumPy for number of class detection,"
+                          "install CuPy for faster processing.")
+            unique_labels = np.unique(y.copy_to_host())
+
         num_unique_labels = (unique_labels).__len__()
         for i in range(num_unique_labels):
             if i not in unique_labels:
