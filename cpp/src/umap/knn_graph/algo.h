@@ -16,8 +16,8 @@
 
 #include <cuda_utils.h>
 #include <iostream>
-#include "knn/knn.hpp"
 #include "linalg/unary_op.h"
+#include "selection/knn.h"
 #include "umap/umapparams.h"
 
 #pragma once
@@ -34,22 +34,26 @@ using namespace ML;
 		 * Initial implementation calls out to FAISS to do its work.
 		 * TODO: cuML kNN implementation should support FAISS' approx NN variants (e.g. IVFPQ GPU).
 		 */
+
+/**
+ * void brute_force_knn(float **input, int *sizes, int n_params, IntType D,
+                     float *search_items, IntType n, long *res_I, float *res_D,
+                     IntType k, cudaStream_t s)
+ */
 template <typename T>
 void launcher(float *X, int x_n, int d, long *knn_indices, T *knn_dists,
-              kNN *knn, int n_neighbors, UMAPParams *params,
-              cudaStream_t stream) {
+              int n_neighbors, UMAPParams *params, cudaStream_t stream) {
   float **p = new float *[1];
   int *sizes = new int[1];
   p[0] = X;
   sizes[0] = x_n;
 
-  knn->fit(p, sizes, 1);
-  knn->search(X, x_n, knn_indices, knn_dists, n_neighbors);
+  MLCommon::Selection::brute_force_knn(p, sizes, 1, d, X, x_n, knn_indices,
+                                       knn_dists, n_neighbors, stream);
 
-  auto adjust_vals_op = [] __device__(T input) { return sqrt(input); };
-
-  MLCommon::LinAlg::unaryOp<T>(knn_dists, knn_dists, x_n * n_neighbors,
-                               adjust_vals_op, stream);
+  MLCommon::LinAlg::unaryOp<T>(
+    knn_dists, knn_dists, x_n * n_neighbors,
+    [] __device__(T input) { return sqrt(input); }, stream);
 
   delete p;
 }
