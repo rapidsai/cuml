@@ -107,8 +107,6 @@ class QN(Base):
 
         super(QN, self).__init__(handle=handle, verbose=False)
 
-
-
         self.fit_intercept = fit_intercept
         self.l1_ratio = l1_ratio
         self.l2_ratio = l2_ratio

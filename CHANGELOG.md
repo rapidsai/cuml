@@ -7,6 +7,7 @@
 - PR #612: Allow Cuda Array Interface, Numba inputs and input code refactor
 - PR #641: C: Separate C-wrapper library build to generate libcuml.so
 - PR #631: Add nvcategory based ordinal label encoder
+- PR #705: Quasi Newton solver and LogisticRegression Python classes
 
 ## Improvements
 
@@ -199,7 +200,7 @@
 - PR #376: Disabled kmeans tests since they are currently too sensitive (see #71)
 - PR #380: Allow arbitrary data size on ingress for numba_utils.row_matrix
 - PR #385: Fix for long import cuml time in containers and fix for setup_pip
-- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy 
+- PR #630: Fixing a missing kneighbors in nearest neighbors python proxy
 
 # cuML 0.5.1 (05 Feb 2019)
 
