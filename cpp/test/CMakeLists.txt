@@ -151,11 +151,8 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
-<<<<<<< HEAD
       prims/klDivergence.cu
-=======
       prims/knn.cu
->>>>>>> 3201b3f465641ce9578125174579b2d0781ecbc3
       prims/kselection.cu
       prims/linearReg.cu
       prims/log.cu
