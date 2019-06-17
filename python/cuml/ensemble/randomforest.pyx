@@ -352,29 +352,36 @@ class RandomForestClassifier(Base):
     Parameters
     -----------
 
-    n_estimators : number of trees in the forest. default = 10
+    n_estimators : number of trees in the forest.
+                   Default = 10, dtype is int.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+             If it is None, a new one is created just for this class.
     split_algo : The type of algorithm to be used to create the trees.
                  0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END.
-                 default = 0
+                 Default = 0, dtype is int.
     bootstrap : Control bootstrapping.
                 If set, each tree in the forest is built
                 on a bootstrapped sample with replacement.
                 If false, sampling without replacement is done.
+                Default = True, dtype is boolean.
     bootstrap_features : Control bootstrapping for features.
                          If features are drawn with or without replacement
-    n_trees : Number of decision trees in the random forest.
+                         Default = False, dtype is boolean.
     rows_sample : Ratio of dataset rows used while fitting each tree.
+                  Default = 1.0, dtype is float.
     max_depth : Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1
+                if -1.
+                Default = -1, dtype is int.
     max_leaves : Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1
+                 if -1.
+                 Default = -1, dtype is int.
     max_features : Ratio of number of features (columns) to consider
-                   per node split
-    n_bins :  Number of bins used by the split algorithm
+                   per node split. Default = 1.0, dtype is float
+    n_bins :  Number of bins used by the split algorithm.
+              Default = 8, dtype is int.
     min_rows_per_node : The minimum number of samples (rows) needed
-                        to split a node
+                        to split a node.
+                        Default = 2, dtype is int
 
     """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
@@ -490,7 +497,12 @@ class RandomForestClassifier(Base):
         return self._impl.cross_validate(X, y)
 
     def get_params(self, deep=True):
-
+        """
+        Sklearn style return parameter state
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         self.variables = ['n_estimators', 'max_depth', 'handle',
                           'max_features', 'n_bins',
@@ -504,7 +516,12 @@ class RandomForestClassifier(Base):
         return params
 
     def set_params(self, **params):
-
+        """
+        Sklearn style set parameter state to dictionary of params.
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         for key, value in params.items():
