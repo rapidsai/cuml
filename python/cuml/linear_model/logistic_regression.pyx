@@ -20,18 +20,42 @@
 # cython: language_level = 3
 
 from cuml.solvers import QN
+from cuml.common.base import Base
+
+import numpy as np
+import warnings
+
+from cuml.utils import input_to_dev_array
+
+supported_penalties = ['l1', 'l2', 'none']
 
 
-class LogisticRegression:
+class LogisticRegression(Base):
     """
     Logistic Goodness :)
     """
 
-    def __init__(self, penalty='l2', tol=1e-3, fit_intercept=True,
-                 intercept_scaling=1.0, class_weight=None, random_state=None,
-                 max_iter=1000, verbose=0, l1_ratio=None):
+    def __init__(self, penalty='l2', tol=1e-3, C=1.0, fit_intercept=True,
+                 class_weight=None, max_iter=1000, verbose=0, l1_ratio=None,
+                 dual=None, handle=None):
 
+        super(LogisticRegression, self).__init__(handle=handle, verbose=False)
+
+        if dual:
+            raise ValueError("`dual` parameter not supported.")
+
+        if class_weight:
+            raise ValueError("`class_weight` not supported.")
+
+        if penalty not in supported_penalties or l1_ratio:
+            raise ValueError("`penalty` " + str(penalty) + "not supported.")
+
+        self.C = C
         self.penalty = penalty
+        self.tol = tol
+        self.fit_intercept = fit_intercept
+        self.verbose = verbose
+        self.max_iter=max_iter
 
     def fit(self, X, y):
         """
@@ -51,8 +75,37 @@ class LogisticRegression:
 
         """
 
-        self.qn = QN()
-        self.qn.fit(X, y)
+        y_m, _, _, _, _ = input_to_dev_array(y)
+
+        try:
+            import cupy as cp
+            unique_labels = cp.unique(y_m)
+        except ImportError:
+            warnings.warn("Using NumPy for number of class detection,"
+                          "install CuPy for faster processing.")
+            unique_labels = np.unique(y_m.copy_to_host())
+
+        num_classes = len(unique_labels)
+
+        if len(unique_labels) > 2:
+            loss = 'softmax'
+        else:
+            loss = 'sigmoid'
+
+        if self.penalty == 'l1':
+            l1_ratio = 1.0 / self.C
+            l2_ratio = 0.0
+        else:
+            l1_ratio = 0.0
+            l2_ratio = 1.0 / self.C
+
+        self.qn = QN(loss=loss, fit_intercept=self.fit_intercept,
+                     l1_ratio=l1_ratio, l2_ratio=l2_ratio,
+                     max_iter=self.max_iter, tol=self.tol,
+                     verbose=self.verbose, num_classes=num_classes,
+                     handle=self.handle)
+
+        self.qn.fit(X, y_m)
         self.coef_ = self.qn.coef_
 
         return self
