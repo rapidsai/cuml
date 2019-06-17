@@ -19,7 +19,7 @@
 #include <utils.h>
 #include <limits>
 #include "../algo_helper.h"
-#include "../memory.cuh"
+#include "../memory.h"
 #include "col_condenser.cuh"
 #include "gini.cuh"
 
