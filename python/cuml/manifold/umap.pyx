@@ -70,234 +70,35 @@ cdef extern from "umap/umapparams.h" namespace "ML":
         MetricType target_metric
 
 
-cdef extern from "umap/umap.h" namespace "ML":
-    cdef cppclass UMAP_API:
+cdef extern from "umap/umap.hpp" namespace "ML":
+    void fit(cumlHandle & handle,
+             float * X,
+             int n,
+             int d,
+             UMAPParams * params,
+             float * embeddings) except +
 
-        UMAP_API(UMAPParams *p) except +
+    void fit(cumlHandle & handle,
+             float * X,
+             float * y,
+             int n,
+             int d,
+             UMAPParams * params,
+             float * embeddings) except +
 
-        void fit(cumlHandle &handle,
-                 float *X,
-                 int n,
-                 int d,
-                 float *embeddings)
-
-        void fit(cumlHandle &handle,
-                 float *X,
-                 float *y,
-                 int n,
-                 int d,
-                 float *embeddings)
-
-        void transform(cumlHandle &handle,
-                       float *X,
-                       int n,
-                       int d,
-                       float *embedding,
-                       int embedding_n,
-                       float *out)
-
-
-cdef class UMAPImpl:
-    cpdef UMAPParams *umap_params
-    cpdef UMAP_API *umap
-    cdef uintptr_t embeddings
-    cdef uintptr_t raw_data
-
-    cpdef object n_neighbors
-    cpdef object arr_embed
-    cpdef object n_dims
-
-    cdef bool _should_downcast
-
-    cdef object handle
-
-    def __cinit__(self,
-                  n_neighbors=15,
-                  n_components=2,
-                  n_epochs=500,
-                  learning_rate=1.0,
-                  min_dist=0.1,
-                  spread=1.0,
-                  set_op_mix_ratio=1.0,
-                  local_connectivity=1.0,
-                  repulsion_strength=1.0,
-                  negative_sample_rate=5,
-                  transform_queue_size=4.0,
-                  init="spectral",
-                  verbose=False,
-                  a=None,
-                  b=None,
-                  target_n_neighbors=-1,
-                  target_weights=0.5,
-                  target_metric="euclidean",
-                  should_downcast=True,
-                  handle=None):
-
-        self.handle = handle
-
-        self.umap_params = new UMAPParams()
-
-        self.n_neighbors = n_neighbors
-        self.umap_params.n_neighbors = n_neighbors
-
-        self.umap_params.n_components = <int>n_components
-        self.umap_params.n_epochs = <int>n_epochs
-        self.umap_params.verbose = <bool>verbose
-
-        if(init == "spectral"):
-            self.umap_params.init = <int>1
-        elif(init == "random"):
-            self.umap_params.init = <int>0
-        else:
-            raise Exception("Initialization strategy not supported: %d" % init)
-
-        if a is not None:
-            self.umap_params.a = <float>a
-
-        if b is not None:
-            self.umap_params.b = <float>b
-
-        self.umap_params.learning_rate = <float>learning_rate
-        self.umap_params.min_dist = <float>min_dist
-        self.umap_params.spread = <float>spread
-        self.umap_params.set_op_mix_ratio = <float>set_op_mix_ratio
-        self.umap_params.local_connectivity = <float>local_connectivity
-        self.umap_params.repulsion_strength = <float>repulsion_strength
-        self.umap_params.negative_sample_rate = <int>negative_sample_rate
-        self.umap_params.transform_queue_size = <int>transform_queue_size
-
-        self.umap_params.target_n_neighbors = target_n_neighbors
-        self.umap_params.target_weights = target_weights
-
-        if target_metric == "euclidean":
-            self.umap_params.target_metric = MetricType.EUCLIDEAN
-        elif target_metric == "categorical":
-            self.umap_params.target_metric = MetricType.CATEGORICAL
-        else:
-            raise Exception("Invalid target metric: {}" % target_metric)
-
-        self._should_downcast = should_downcast
-
-        self.umap = new UMAP_API(self.umap_params)
-
-    def __dealloc__(self):
-        del self.umap_params
-        del self.umap
-
-    def fit(self, X, y=None):
-
-        if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
-
-        if self._should_downcast:
-            X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, X_ctype, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
-
-        if n_rows <= 1:
-            raise ValueError("There needs to be more than 1 sample to "
-                             "build nearest the neighbors graph")
-
-        self.umap_params.n_neighbors = min(n_rows,
-                                           self.umap_params.n_neighbors)
-        self.n_dims = n_cols
-        self.raw_data = X_ctype
-
-        self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
-                                        self.umap_params.n_components),
-                                        order="C", dtype=np.float32))
-        self.embeddings = self.arr_embed.device_ctypes_pointer.value
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        cdef uintptr_t y_raw
-        if y is not None:
-            y_m, y_raw, _, _, _ = \
-                input_to_dev_array(y)
-            self.umap.fit(
-                handle_[0],
-                <float*> self.raw_data,
-                <float*> y_raw,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <float*>self.embeddings
-            )
-
-        else:
-
-            self.umap.fit(
-                handle_[0],
-                <float*> self.raw_data,
-                <int> X_m.shape[0],
-                <int> X_m.shape[1],
-                <float*>self.embeddings
-            )
-
-        del X_m
-
-    def fit_transform(self, X, y=None):
-        self.fit(X, y)
-
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, self.arr_embed.shape[1]):
-                ret[str(i)] = self.arr_embed[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(self.arr_embed)
-
-        return ret
-
-    def transform(self, X):
-        if len(X.shape) != 2:
-            raise ValueError("data should be two dimensional")
-
-        cdef uintptr_t x_ptr
-        if self._should_downcast:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
-        else:
-            X_m, x_ptr, n_rows, n_cols, dtype = \
-                input_to_dev_array(X, order='C', check_dtype=np.float32)
-
-        if n_rows <= 1:
-            raise ValueError("There needs to be more than 1 sample to "
-                             "build nearest the neighbors graph")
-
-        if n_cols != self.n_dims:
-            raise ValueError("n_features of X must match n_features of "
-                             "training data")
-
-        embedding = cuda.to_device(zeros((X_m.shape[0],
-                                          self.umap_params.n_components),
-                                         order="C", dtype=np.float32))
-        cdef uintptr_t embed_ptr = embedding.device_ctypes_pointer.value
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        self.umap.transform(handle_[0],
-                            <float*>x_ptr,
-                            <int>X_m.shape[0],
-                            <int>X_m.shape[1],
-                            <float*> self.embeddings,
-                            <int> self.arr_embed.shape[0],
-                            <float*> embed_ptr)
-
-        if isinstance(X, cudf.DataFrame):
-            ret = cudf.DataFrame()
-            for i in range(0, embedding.shape[1]):
-                ret[str(i)] = embedding[:, i]
-        elif isinstance(X, np.ndarray):
-            ret = np.asarray(embedding)
-
-        del X_m
-
-        return ret
+    void transform(cumlHandle & handle,
+                   float * X,
+                   int n,
+                   int d,
+                   float * orig_X,
+                   int orig_n,
+                   float * embedding,
+                   int embedding_n,
+                   UMAPParams * params,
+                   float * out) except +
 
 
 class UMAP(Base):
-
     """Uniform Manifold Approximation and Projection
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
@@ -426,25 +227,55 @@ class UMAP(Base):
 
         super(UMAP, self).__init__(handle, verbose)
 
-        self._impl = UMAPImpl(n_neighbors,
-                              n_components,
-                              n_epochs,
-                              learning_rate,
-                              min_dist,
-                              spread,
-                              set_op_mix_ratio,
-                              local_connectivity,
-                              repulsion_strength,
-                              negative_sample_rate,
-                              transform_queue_size,
-                              init,
-                              verbose,
-                              a, b,
-                              target_n_neighbors,
-                              target_weights,
-                              target_metric,
-                              should_downcast,
-                              self.handle)
+        cdef UMAPParams * umap_params = new UMAPParams()
+
+        self.n_neighbors = n_neighbors
+        umap_params.n_neighbors = n_neighbors
+
+        umap_params.n_components = <int > n_components
+        umap_params.n_epochs = <int > n_epochs
+        umap_params.verbose = <bool > verbose
+
+        if(init == "spectral"):
+            umap_params.init = <int > 1
+        elif(init == "random"):
+            umap_params.init = <int > 0
+        else:
+            raise Exception("Initialization strategy not supported: %d" % init)
+
+        if a is not None:
+            umap_params.a = <float > a
+
+        if b is not None:
+            umap_params.b = <float > b
+
+        umap_params.learning_rate = <float > learning_rate
+        umap_params.min_dist = <float > min_dist
+        umap_params.spread = <float > spread
+        umap_params.set_op_mix_ratio = <float > set_op_mix_ratio
+        umap_params.local_connectivity = <float > local_connectivity
+        umap_params.repulsion_strength = <float > repulsion_strength
+        umap_params.negative_sample_rate = <int > negative_sample_rate
+        umap_params.transform_queue_size = <int > transform_queue_size
+
+        umap_params.target_n_neighbors = target_n_neighbors
+        umap_params.target_weights = target_weights
+
+        if target_metric == "euclidean":
+            umap_params.target_metric = MetricType.EUCLIDEAN
+        elif target_metric == "categorical":
+            umap_params.target_metric = MetricType.CATEGORICAL
+        else:
+            raise Exception("Invalid target metric: {}" % target_metric)
+
+        self._should_downcast = should_downcast
+
+        self.umap_params = <size_t > umap_params
+
+    def __dealloc__(self):
+        cdef UMAPParams * umap_params = \
+            <UMAPParams*> < size_t > self.umap_params
+        del umap_params
 
     def fit(self, X, y=None):
         """Fit X into an embedded space.
@@ -459,11 +290,89 @@ class UMAP(Base):
             Acceptable formats: cuDF Series, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         """
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
-        return self._impl.fit(X, y)
+        if self._should_downcast:
+            X_m, X_ctype, n_rows, n_cols, dtype = \
+                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
+        else:
+            X_m, X_ctype, n_rows, n_cols, dtype = \
+                input_to_dev_array(X, order='C', check_dtype=np.float32)
+
+        if n_rows <= 1:
+            raise ValueError("There needs to be more than 1 sample to "
+                             "build nearest the neighbors graph")
+
+        cdef UMAPParams * umap_params = \
+            <UMAPParams*> < size_t > self.umap_params
+        umap_params.n_neighbors = min(n_rows, umap_params.n_neighbors)
+        self.n_dims = n_cols
+        self.raw_data = X_ctype
+        self.raw_data_rows = n_rows
+
+        self.arr_embed = cuda.to_device(zeros((X_m.shape[0],
+                                               umap_params.n_components),
+                                              order="C", dtype=np.float32))
+        self.embeddings = \
+            self.arr_embed.device_ctypes_pointer.value
+
+        cdef cumlHandle * handle_ = \
+            <cumlHandle*> < size_t > self.handle.getHandle()
+
+        cdef uintptr_t y_raw
+        cdef uintptr_t x_raw = X_ctype
+
+        cdef uintptr_t embed_raw = self.embeddings
+
+        if y is not None:
+            y_m, y_raw, _, _, _ = \
+                input_to_dev_array(y)
+            fit(handle_[0],
+                < float*> x_raw,
+                < float*> y_raw,
+                < int > X_m.shape[0],
+                < int > X_m.shape[1],
+                < UMAPParams*>umap_params,
+                < float*>embed_raw)
+
+        else:
+
+            fit(handle_[0],
+                < float*> x_raw,
+                < int > X_m.shape[0],
+                < int > X_m.shape[1],
+                < UMAPParams*>umap_params,
+                < float*>embed_raw)
+
+        del X_m
+
+    def fit_transform(self, X, y=None):
+        """Fit X into an embedded space and return that transformed
+        output.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            X contains a sample per row.
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
+        Returns
+        -------
+        X_new : array, shape (n_samples, n_components)
+            Embedding of the training data in low-dimensional space.
+        """
+        self.fit(X, y)
+
+        if isinstance(X, cudf.DataFrame):
+            ret = cudf.DataFrame()
+            for i in range(0, self.arr_embed.shape[1]):
+                ret[str(i)] = self.arr_embed[:, i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(self.arr_embed)
+
+        return ret
 
     def transform(self, X):
-
         """Transform X into the existing embedded space and return that
         transformed output.
 
@@ -485,22 +394,57 @@ class UMAP(Base):
         X_new : array, shape (n_samples, n_components)
             Embedding of the new data in low-dimensional space.
         """
+        if len(X.shape) != 2:
+            raise ValueError("data should be two dimensional")
 
-        return self._impl.transform(X)
+        cdef uintptr_t x_ptr
+        if self._should_downcast:
+            X_m, x_ptr, n_rows, n_cols, dtype = \
+                input_to_dev_array(X, order='C', convert_to_dtype=np.float32)
+        else:
+            X_m, x_ptr, n_rows, n_cols, dtype = \
+                input_to_dev_array(X, order='C', check_dtype=np.float32)
 
-    def fit_transform(self, X, y=None):
-        """Fit X into an embedded space and return that transformed
-        output.
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            X contains a sample per row.
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-        Returns
-        -------
-        X_new : array, shape (n_samples, n_components)
-            Embedding of the training data in low-dimensional space.
-        """
+        if n_rows <= 1:
+            raise ValueError("There needs to be more than 1 sample to "
+                             "build nearest the neighbors graph")
 
-        return self._impl.fit_transform(X, y)
+        if n_cols != self.n_dims:
+            raise ValueError("n_features of X must match n_features of "
+                             "training data")
+
+        cdef UMAPParams * umap_params = \
+            <UMAPParams*> < size_t > self.umap_params
+        embedding = cuda.to_device(zeros((X_m.shape[0],
+                                          umap_params.n_components),
+                                         order="C", dtype=np.float32))
+        cdef uintptr_t xformed_ptr = embedding.device_ctypes_pointer.value
+
+        cdef cumlHandle * handle_ = \
+            <cumlHandle*> < size_t > self.handle.getHandle()
+
+        cdef uintptr_t orig_x_raw = self.raw_data
+
+        cdef uintptr_t embed_ptr = self.embeddings
+
+        transform(handle_[0],
+                  < float*>x_ptr,
+                  < int > X_m.shape[0],
+                  < int > X_m.shape[1],
+                  < float*>orig_x_raw,
+                  < int > self.raw_data_rows,
+                  < float*> embed_ptr,
+                  < int > self.arr_embed.shape[0],
+                  < UMAPParams*> umap_params,
+                  < float*> xformed_ptr)
+
+        if isinstance(X, cudf.DataFrame):
+            ret = cudf.DataFrame()
+            for i in range(0, embedding.shape[1]):
+                ret[str(i)] = embedding[:, i]
+        elif isinstance(X, np.ndarray):
+            ret = np.asarray(embedding)
+
+        del X_m
+
+        return ret
