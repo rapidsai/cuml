@@ -25,24 +25,31 @@ from sklearn.utils.testing import ignore_warnings
 from sklearn.utils.testing import assert_no_warnings
 # from sklearn.utils.mocking import MockDataFrame
 
-# from cuml import cross_val_score
-from cuml import KFold
-from cuml import StratifiedKFold
-from cuml import GroupKFold
-from cuml import TimeSeriesSplit
-from cuml import LeaveOneOut
-from cuml import LeaveOneGroupOut
-from cuml import LeavePOut
-from cuml import LeavePGroupsOut
-from cuml import ShuffleSplit
-from cuml import GroupShuffleSplit
-from cuml import StratifiedShuffleSplit
-from cuml import PredefinedSplit
-from cuml import check_cv
-# from cuml import train_test_split
-# from cuml import GridSearchCV
-from cuml import RepeatedKFold
-from cuml import RepeatedStratifiedKFold
+from cuml.thirdparty._sklearn.model_selection._split import (
+    BaseCrossValidator, KFold, GroupKFold, StratifiedKFold, TimeSeriesSplit,
+    LeaveOneGroupOut, LeaveOneOut, LeavePGroupsOut, LeavePOut, RepeatedKFold,
+    RepeatedStratifiedKFold, ShuffleSplit, GroupShuffleSplit,
+    StratifiedShuffleSplit, PredefinedSplit, train_test_split, check_cv)
+
+
+# # from cuml import cross_val_score
+# from cuml import KFold
+# from cuml import StratifiedKFold
+# from cuml import GroupKFold
+# from cuml import TimeSeriesSplit
+# from cuml import LeaveOneOut
+# from cuml import LeaveOneGroupOut
+# from cuml import LeavePOut
+# from cuml import LeavePGroupsOut
+# from cuml import ShuffleSplit
+# from cuml import GroupShuffleSplit
+# from cuml import StratifiedShuffleSplit
+# from cuml import PredefinedSplit
+# from cuml import check_cv
+# # from cuml import train_test_split
+# # from cuml import GridSearchCV
+# from cuml import RepeatedKFold
+# from cuml import RepeatedStratifiedKFold
 
 # from sklearn.linear_model import Ridge
 
