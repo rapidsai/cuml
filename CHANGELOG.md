@@ -27,12 +27,13 @@
 - PR #622: Updated to use 0.8 dependencies
 - PR #626: Added build.sh script, updated CI scripts and documentation
 - PR #633: build: Auto-detection of GPU_ARCHS during cmake
-- PR #650: Moving brute force kNN to prims. Creating stateless kNN API. 
+- PR #650: Moving brute force kNN to prims. Creating stateless kNN API.
 - PR #662: C++: Bulk clang-format updates
 - PR #671: Added pickle pytests and correct pickling of Base class
 - PR #677: build: 'deep-clean' to build.sh to clean faiss build as well
 - PR #683: Use stateless c++ API in KNN so that it can be pickled properly
 - PR #686: Use stateless c++ API in UMAP so that it can be pickled properly
+- PR #695: prims: Refactor pairwise distance
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
