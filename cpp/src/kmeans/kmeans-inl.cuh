@@ -174,31 +174,6 @@ DataT computeClusterCost(const cumlHandle_impl &handle,
 
 // calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
 // result will be stored in 'pairwiseDistance[n x k]'
-template <typename DataT, typename IndexT, Distance::DistanceType DistanceType>
-void pairwiseDistanceImpl(const cumlHandle_impl &handle,
-                          Tensor<DataT, 2, IndexT> &X,
-                          Tensor<DataT, 2, IndexT> &centroids,
-                          Tensor<DataT, 2, IndexT> &pairwiseDistance,
-                          MLCommon::device_buffer<char> &workspace,
-                          cudaStream_t stream) {
-  auto n_samples = X.getSize(0);
-  auto n_features = X.getSize(1);
-  auto n_clusters = centroids.getSize(0);
-
-  size_t worksize =
-    Distance::getWorkspaceSize<DistanceType, DataT, DataT, DataT>(
-      X.data(), centroids.data(), n_samples, n_clusters, n_features);
-
-  workspace.resize(worksize, stream);
-
-  Distance::distance<DistanceType, DataT, DataT, DataT,
-                     kmeans::detail::OutputTile_8_128_128>(
-    X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
-    n_features, workspace.data(), worksize, stream);
-}
-
-// calculate pairwise distance between 'dataset[n x d]' and 'centroids[k x d]',
-// result will be stored in 'pairwiseDistance[n x k]'
 template <typename DataT, typename IndexT>
 void pairwiseDistance(const cumlHandle_impl &handle,
                       Tensor<DataT, 2, IndexT> &X,
@@ -210,28 +185,11 @@ void pairwiseDistance(const cumlHandle_impl &handle,
   auto n_samples = X.getSize(0);
   auto n_features = X.getSize(1);
   auto n_clusters = centroids.getSize(0);
-
   ASSERT(X.getSize(1) == centroids.getSize(1),
          "# features in dataset and centroids are different (must be same)");
-
-  if (metric == Distance::DistanceType::EucExpandedL2) {
-    pairwiseDistanceImpl<DataT, IndexT, Distance::DistanceType::EucExpandedL2>(
-      handle, X, centroids, pairwiseDistance, workspace, stream);
-  } else if (metric == Distance::DistanceType::EucExpandedL2Sqrt) {
-    pairwiseDistanceImpl<DataT, IndexT,
-                         Distance::DistanceType::EucExpandedL2Sqrt>(
-      handle, X, centroids, pairwiseDistance, workspace, stream);
-  } else if (metric == Distance::DistanceType::EucExpandedCosine) {
-    pairwiseDistanceImpl<DataT, IndexT,
-                         Distance::DistanceType::EucExpandedCosine>(
-      handle, X, centroids, pairwiseDistance, workspace, stream);
-  } else if (metric == Distance::DistanceType::EucUnexpandedL1) {
-    pairwiseDistanceImpl<DataT, IndexT,
-                         Distance::DistanceType::EucUnexpandedL1>(
-      handle, X, centroids, pairwiseDistance, workspace, stream);
-  } else {
-    THROW("unknown distance metric");
-  }
+  MLCommon::Distance::pairwiseDistance<DataT, IndexT>(
+    X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
+    n_features, workspace, metric, stream);
 }
 
 // Calculates a <key, value> pair for every sample in input 'X' where key is an index to an sample in 'centroids' (index of the nearest centroid) and 'value' is the distance between the sample and the 'centroid[key]'
