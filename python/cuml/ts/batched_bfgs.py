@@ -2,6 +2,8 @@ import scipy.optimize as optimize
 import numpy as np
 from IPython.core.debugger import set_trace
 
+from .batched_linesearch import batched_line_search_armijo
+
 def _fd_fprime(x, f, h):
     g = np.zeros(len(x))
     for i in range(len(x)):
@@ -126,54 +128,121 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
             alpha_b = np.zeros(num_batches)
             xkp1 = np.zeros(len(xk))
 
-            for ib in range(num_batches):
-                # When we are too close to minimum, line search fails. Don't
-                # search if we are satisfying the stopping criterion.
-                if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > pgtol):
-                    line_search = True
-                    line_search_iterations = 0
-                    while line_search:
-                        pk = np.zeros(len(x0))
-                        pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
-                        try:
-                            if line_search_iterations > 0:
-                                print("[{}:{}] pk = {}, gk = {}".format(k, ib, pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
-                            alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
-                                                                             xk, pk,
-                                                                             # xk[ib*r:(ib+1)*r],
-                                                                             # pk[ib*r:(ib+1)*r],
-                                                                             args=(ib,), amax=alpha_max)
-                            
-                            if alpha is None or fkp1 is None:
-                                print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
-                                                                      np.linalg.norm(pk[ib*r:(ib+1)*r])))
-                                print("alpha={}, fkp1={}".format(alpha, fkp1))
-                                print("INFO: Line search failed: Resetting H=I")
-                                Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+            ls_option = 3
+
+            if ls_option == 3:
+                ls_iterations = 0
+                while True:
+
+                    # Bail out if more than 5 line search iterations
+                    ls_iterations += 1
+                    if ls_iterations > 5:
+                        raise ValueError("ERROR: Too many line search iterations")
+
+                    pk = np.zeros(len(x0))
+                    for ib in range(num_batches):
+                        if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > pgtol):
+                            pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
+
+                    
+                    # home-made, batch aware line search satisfying Armijo conditions
+                    def f2(x):
+                        return f(x, do_sum=False)
+                    try:
+                        alpha_b, fc, fkp1 = batched_line_search_armijo(f2, num_batches, r,
+                                                                     xk, pk, gk, f2(xk))
+
+                    # catch errors in transform
+                    except FloatingPointError as fpe:
+                        print("INFO: Caught invalid step (FloatingPointError={}), resetting H=I".format(fpe))
+                        for ib in range(num_batches):
+                            Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+                        continue
+                    
+                    ##################################
+                    # check return and possibly restart line search
+                    restart_ls = False
+                    for ib in range(num_batches):
+                        # if any alpha < 0, reset that series H=I, and restart line-search
+                        if alpha_b[ib] < 0:
+                            Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+                            restart_ls = True
+
+                    if restart_ls:
+                        # restart line search
+                        print("INFO: Restarting LS with some H=I")
+                        continue
+
+                    ##################################
+                    # apply alpha
+                    for ib in range(num_batches):
+                        xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
+
+                    # line search successful, break
+                    break
+
+                    
+
+            else:
+                for ib in range(num_batches):
+                    # When we are too close to minimum, line search fails. Don't
+                    # search if we are satisfying the stopping criterion.
+                    if(np.linalg.norm(gk[r*ib:r*(ib+1)]) > pgtol):
+                        line_search = True
+                        line_search_iterations = 0
+
+                        while line_search:
+                            pk = np.zeros(len(x0))
+                            pk[ib*r:(ib+1)*r] = - Hk[:, ib*r:(ib+1)*r] @ gk[ib*r:(ib+1)*r]
+                            try:
+                                if line_search_iterations > 0:
+                                    print("[{}:{}] pk = {}, gk = {}".format(k, ib, pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
+
+                                if ls_option == 1:
+                                    # line-search to satisfy strong wolfe conditions
+                                    alpha, fc, gc, fkp1, _, _ = optimize.line_search(f, g,
+                                                                                     xk, pk,
+                                                                                     # xk[ib*r:(ib+1)*r],
+                                                                                     # pk[ib*r:(ib+1)*r],
+                                                                                     args=(ib,), amax=alpha_max)
+                                elif ls_option == 2:
+                                    # line-search to satisfy armijo conditions
+                                    gc = 1
+                                    alpha, fc, fkp1 = optimize.linesearch.line_search_armijo(f, xk,
+                                                                                             pk, gk,
+                                                                                             f(xk),
+                                                                                             args=(ib,))
+
+                                if alpha is None or fkp1 is None:
+                                    print("bid({})|gk|={},|pk|={}".format(ib, np.linalg.norm(gk[ib*r:(ib+1)*r]),
+                                                                          np.linalg.norm(pk[ib*r:(ib+1)*r])))
+                                    print("alpha={}, fkp1={}".format(alpha, fkp1))
+                                    print("INFO: Line search failed: Resetting H=I")
+                                    Hk[:, ib*r:(ib+1)*r] = np.eye(r)
+                                    line_search_iterations += 1
+                                    if line_search_iterations > 5:
+                                        # raise ValueError("Line search failed to converge after 5 tries")
+                                        print("INFO: Line search failed to converge after 5 tries, setting alpha=1")
+                                        alpha_b[ib] = 1
+                                        break
+                                    continue
+                                else:
+                                    alpha_b[ib] = alpha
+                                    break
+
+                            except FloatingPointError as fpe:
+                                # Reset H to identity to force pk to be gradient descent
+                                # set_trace()
                                 line_search_iterations += 1
                                 if line_search_iterations > 5:
-                                    # raise ValueError("Line search failed to converge after 5 tries")
-                                    print("INFO: Line search failed to converge after 5 tries, setting alpha=1")
-                                    alpha_b[ib] = 1
-                                    break
+                                    raise ValueError("Line search failed to converge after 5 tries")
+                                print("INFO({}): Caught invalid step (FloatingPointError={}), resetting H=I".format(ib, fpe))
+                                Hk[:, ib*r:(ib+1)*r] = np.eye(r)
                                 continue
-                            else:
-                                alpha_b[ib] = alpha
-                                break
 
-                        except FloatingPointError as fpe:
-                            # Reset H to identity to force pk to be gradient descent
-                            # set_trace()
-                            line_search_iterations += 1
-                            if line_search_iterations > 5:
-                                raise ValueError("Line search failed to converge after 5 tries")
-                            print("INFO({}): Caught invalid step (FloatingPointError={}), resetting H=I".format(ib, fpe))
-                            Hk[:, ib*r:(ib+1)*r] = np.eye(r)
-                            continue
-
-                # print("[{}:{}] xkp1 = {} + ({}) * {} (gk={})".format(k, ib, xk[ib*r:(ib+1)*r], alpha_b[ib], pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
-                # print("pk = -{} @ {}".format(Hk[:, ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
-                xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
+                    # print("[{}:{}] xkp1 = {} + ({}) * {} (gk={})".format(k, ib, xk[ib*r:(ib+1)*r], alpha_b[ib], pk[ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
+                    # print("pk = -{} @ {}".format(Hk[:, ib*r:(ib+1)*r], gk[ib*r:(ib+1)*r]))
+                    xkp1[ib*r:(ib+1)*r] = xk[ib*r:(ib+1)*r] + alpha_b[ib] * pk[ib*r:(ib+1)*r]
 
         else:
             ls_option = 1
@@ -253,8 +322,12 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
         if disp > 0 and disp < 100:
             if k % disp == 0:
                 disp_amt = min(r, 4)
-                print("k={:03d}: {:0.7f} | {:0.4e} | {}".format(k, f(xk), alpha,
+                if isinstance(alpha_b, np.ndarray):
+                    print("k={:03d}: {:0.7f} | ({:0.7f}, {:0.7f}) | {}".format(k, f(xk), np.min(alpha_b), np.max(alpha_b),
                                                                 g(xkp1)[:disp_amt]))
+                else:
+                    print("k={:03d}: {:0.7f} | {} | {}".format(k, f(xk), alpha,
+                                                               g(xkp1)[:disp_amt]))
         if disp > 100:
             print("k={:03d}: {:0.7f} | {:0.4f} | {}".format(k, f(xk), alpha, g(xk)))
             print("Line Search: fc={}, gc={}, alpha={:0.4f}, |alpha*p|={:0.5f}".format(fc, gc, alpha,
@@ -262,12 +335,16 @@ def batched_fmin_bfgs(f, x0, num_batches, g=None, h=1e-8,
 
         Hk = Hkp1
         xk = xkp1
-        fk[k+1] = fkp1
+        if isinstance(fkp1, np.ndarray):
+            fk[k+1] = fkp1.sum()
+        else:
+            fk[k+1] = fkp1
+        
 
         # stopping criterion: f(x) in last steps not changed
         num_steps = 5
         if k>num_steps:
-            if np.mean(np.abs(fkp1 - fk[k-num_steps:k])) < factr*1e-22:
+            if np.mean(np.abs(fk[k+1] - fk[k-num_steps:k])) < factr*1e-22:
                 if disp > 0:
                     print("Stopping criterion true: Last {} steps almost no change in f(x)".format(num_steps))
                 break
