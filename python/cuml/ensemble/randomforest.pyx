@@ -21,12 +21,9 @@
 
 import ctypes
 import numpy as np
+import warnings
 
 from numba import cuda
-
-from cuml.utils import get_cudf_column_ptr,\
-    get_dev_array_ptr, input_to_dev_array,\
-    zeros
 
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
@@ -36,6 +33,8 @@ from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 cimport cuml.common.handle
 cimport cuml.common.cuda
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr,
+    input_to_dev_array, zeros
 
 
 cdef extern from "randomforest/randomforest.h" namespace "ML":
