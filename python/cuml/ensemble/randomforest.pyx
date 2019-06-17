@@ -21,6 +21,7 @@
 
 import ctypes
 import cupy
+import cudf
 import numpy as np
 
 from numba import cuda
@@ -171,12 +172,13 @@ cdef class RandomForest_impl():
         if self.rf_classifier64 != NULL:
             del self.rf_classifier64
 
-        if y.dtype != np.int32:
+        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
+
+        if y_dtype != np.int32:
             raise TypeError(" The labels need to have dtype = np.int32")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -445,7 +447,7 @@ class RandomForestClassifier(Base):
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: NumPy ndarray, Numba device
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         y : array-like (device or host) shape = (n_samples, 1)
             Dense vector (int) of shape (n_samples, 1).
