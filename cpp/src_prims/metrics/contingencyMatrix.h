@@ -200,10 +200,10 @@ void getInputClassCardinality(const T *groundTruth, const int nSamples,
  * @param maxLabel: Optional, max value in input array
  */
 template <typename T>
-size_t getCMatrixWorkspaceSize(const int nSamples, const T *groundTruth,
-                               cudaStream_t stream,
-                               T minLabel = std::numeric_limits<T>::max(),
-                               T maxLabel = std::numeric_limits<T>::max()) {
+size_t getContingencyMatrixWorkspaceSize(
+  const int nSamples, const T *groundTruth, cudaStream_t stream,
+  T minLabel = std::numeric_limits<T>::max(),
+  T maxLabel = std::numeric_limits<T>::max()) {
   size_t workspaceSize = 0;
   // below is a redundant computation - can be avoided
   if (minLabel == std::numeric_limits<T>::max() ||
@@ -239,7 +239,7 @@ size_t getCMatrixWorkspaceSize(const int nSamples, const T *groundTruth,
 /**
  * @brief contruct contingency matrix given input ground truth and prediction labels.
  * Users should call function getInputClassCardinality to find and allocate memory for
- * output. Similarly workspace requirements should be checked using function getCMatrixWorkspaceSize
+ * output. Similarly workspace requirements should be checked using function getContingencyMatrixWorkspaceSize
  * @param groundTruth: device 1-d array for ground truth (num of rows)
  * @param predictedLabel: device 1-d array for prediction (num of columns)
  * @param nSamples: number of elements in input array
