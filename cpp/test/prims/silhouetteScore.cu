@@ -1,4 +1,4 @@
-    /*
+/*
  * Copyright (c) 2019, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,47 +14,43 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
- #include "test_utils.h"
- #include <iostream>
- #include <random>
- #include <algorithm>
-#include "metrics/silhouetteScore.h"
+#include <algorithm>
+#include <iostream>
+#include <random>
 #include "common/cuml_allocator.hpp"
+#include "metrics/silhouetteScore.h"
+#include "test_utils.h"
 
-
-
-namespace MLCommon{
-namespace Metrics{
+namespace MLCommon {
+namespace Metrics {
 
 //parameter structure definition
-struct silhouetteScoreParam{
-
+struct silhouetteScoreParam {
   int nRows;
   int nCols;
   int nLabels;
   int metric;
   double tolerance;
-
 };
 
 //test fixture class
 template <typename LabelT, typename DataT>
-class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam>{
-  protected:
+class silhouetteScoreTest
+  : public ::testing::TestWithParam<silhouetteScoreParam> {
+ protected:
   //the constructor
   void SetUp() override {
-
     //getting the parameters
     params = ::testing::TestWithParam<silhouetteScoreParam>::GetParam();
 
     nRows = params.nRows;
     nCols = params.nCols;
     nLabels = params.nLabels;
-    int nElements = nRows*nCols;
+    int nElements = nRows * nCols;
 
     //generating random value test input
     std::vector<double> h_X = {0.0, 1.0, 2.0, 1.0, 0.0, 0.0, 2.0, 0.0};
-    h_X.resize(nRows*nCols);
+    h_X.resize(nRows * nCols);
     std::vector<int> h_labels = {0, 1, 0, 1};
     h_labels.resize(nRows);
     /*std::random_device rd;
@@ -67,63 +63,55 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     //generating the golden output
 
     //calculating the distance matrix
-    
-    truthSilhouetteScore = 3.5/4.5;
+
+    truthSilhouetteScore = 3.5 / 4.5;
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(d_X,nElements,true);
-    MLCommon::allocate(d_labels,nElements,true);
+    MLCommon::allocate(d_X, nElements, true);
+    MLCommon::allocate(d_labels, nElements, true);
 
-    MLCommon::updateDevice(d_X,&h_X[0],(int)nElements,stream);
-    MLCommon::updateDevice(d_labels,&h_labels[0],(int)nElements,stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(new defaultDeviceAllocator);
-
-
+    MLCommon::updateDevice(d_X, &h_X[0], (int)nElements, stream);
+    MLCommon::updateDevice(d_labels, &h_labels[0], (int)nElements, stream);
+    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+      new defaultDeviceAllocator);
 
     //calling the silhouetteScore CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouetteScore(d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator,stream, params.metric);
+    computedSilhouetteScore = MLCommon::Metrics::silhouetteScore(
+      d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
+      params.metric);
+  }
 
-    }
+  //the destructor
+  void TearDown() override {
+    CUDA_CHECK(cudaFree(d_X));
+    CUDA_CHECK(cudaFree(d_labels));
+    CUDA_CHECK(cudaStreamDestroy(stream));
+  }
 
-    //the destructor
-    void TearDown() override
-    {
-        
-        CUDA_CHECK(cudaFree(d_X));
-        CUDA_CHECK(cudaFree(d_labels));
-        CUDA_CHECK(cudaStreamDestroy(stream));
-
-
-    }
-
-    //declaring the data values
-    silhouetteScoreParam params;
-    int nLabels;
-    DataT* d_X =nullptr;
-    DataT* sampleSilScore = nullptr;
-    LabelT* d_labels = nullptr;
-    int nRows;
-    int nCols;
-    double truthSilhouetteScore=0;
-    double computedSilhouetteScore = 0;
-    cudaStream_t stream;
-
-    };
-
-//setting test parameter values
-const std::vector<silhouetteScoreParam> inputs = {
-    {4,2,2,5,0.00001} 
+  //declaring the data values
+  silhouetteScoreParam params;
+  int nLabels;
+  DataT* d_X = nullptr;
+  DataT* sampleSilScore = nullptr;
+  LabelT* d_labels = nullptr;
+  int nRows;
+  int nCols;
+  double truthSilhouetteScore = 0;
+  double computedSilhouetteScore = 0;
+  cudaStream_t stream;
 };
 
+//setting test parameter values
+const std::vector<silhouetteScoreParam> inputs = {{4, 2, 2, 5, 0.00001}};
 
 //writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
-TEST_P(silhouetteScoreTestClass, Result){
-    ASSERT_NEAR(computedSilhouetteScore, truthSilhouetteScore, params.tolerance);
+TEST_P(silhouetteScoreTestClass, Result) {
+  ASSERT_NEAR(computedSilhouetteScore, truthSilhouetteScore, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass,::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass,
+                        ::testing::ValuesIn(inputs));
 
-
-}//end namespace Metrics
-}//end namespace MLCommon
+}  //end namespace Metrics
+}  //end namespace MLCommon
