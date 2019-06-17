@@ -13,16 +13,21 @@
 # limitations under the License.
 #
 
-import pytest
-from cuml import LinearRegression as cuLinearRegression
-from cuml import Ridge as cuRidge
-from sklearn.linear_model import LinearRegression as skLinearRegression
-from sklearn.linear_model import Ridge as skRidge
-from cuml.test.utils import array_equal
 import cudf
 import numpy as np
 import pandas as pd
-from sklearn.datasets import make_regression
+import pytest
+
+
+from cuml import LinearRegression as cuLinearRegression
+from cuml import LogisticRegression as cuLog
+from cuml import Ridge as cuRidge
+from cuml.test.utils import array_equal
+
+from sklearn.datasets import make_regression, make_classification
+from sklearn.linear_model import LinearRegression as skLinearRegression
+from sklearn.linear_model import Ridge as skRidge
+from sklearn.linear_model import LogisticRegression as skLog
 
 
 def unit_param(*args, **kwargs):
@@ -111,3 +116,27 @@ def test_linear_models(datatype, X_type, y_type,
                            1e-1, with_sign=True)
         assert array_equal(skridge_predict, curidge_predict,
                            1e-1, with_sign=True)
+
+
+@pytest.mark.parametrize('num_classes', [2, 10])
+@pytest.mark.parametrize('dtype', [np.float32, np.float64])
+def test_logistic_regression(num_classes, dtype):
+    nrows = 400000
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=num_classes,
+                               n_redundant=0, n_informative=2)
+
+    X_test = np.asarray(X[train_rows:, 0:]).astype(dtype)
+    X_train = np.asarray(X[0:train_rows, :]).astype(dtype)
+    y_train = np.asarray(y[0:train_rows, ]).astype(dtype)
+
+    culog = cuLog()
+    culog.fit(X_train, y_train)
+
+    sklog = skLog()
+    sklog.fit(X_train, y_train)
+
+    preds = culog.predict(X_test)
+    skpreds = sklog.predict(X_test)
+
+    assert np.sum(preds.to_array() != skpreds)/80000 < 1e-1
