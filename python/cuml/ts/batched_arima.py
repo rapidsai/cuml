@@ -168,14 +168,19 @@ class BatchedARIMAModel:
         num_samples = y.shape[0]  # pandas Dataframe shape is (num_batches, num_samples)
         num_batches = y.shape[1]
 
-        def f(x, n=None):
+        def f(x, n=None, do_sum=True):
             # Maximimize LL means minimize negative
             if n is not None:
                 n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
                 return n_llf[n]/(num_samples-1)
 
-            n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
-            return n_llf_sum/(num_samples-1)/num_batches
+            if do_sum:
+                n_llf_sum = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True).sum())
+                return n_llf_sum/(num_samples-1)/num_batches
+
+            n_llf = -(BatchedARIMAModel.ll_f(num_batches, num_parameters, order, y, x, gpu=gpu, trans=True))
+            return n_llf/(num_samples-1)
+            
 
         # optimized finite differencing gradient for batches
         def gf(x, n=None):
@@ -230,7 +235,7 @@ class BatchedARIMAModel:
         mu, ar, ma = unpack(p, q, num_batches, Tx)
         
         fit_model = BatchedARIMAModel(num_batches*[order], mu, ar, ma, y)
-
+        fit_model.niter = niter
         return fit_model
 
 
