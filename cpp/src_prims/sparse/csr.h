@@ -17,7 +17,7 @@
 
 #include "cuda_utils.h"
 
-#include "array/array.h"
+#include "label/classlabels.h"
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
@@ -760,7 +760,7 @@ void weak_cc_label_batched(Type *labels, Type *const row_ind,
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
  * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
  * This implementation comes from [1] and solves component labeling problem in
@@ -806,7 +806,7 @@ void weak_cc_batched(Type *labels, Type *const row_ind, Type *const row_ind_ptr,
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
  * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
  * This implementation comes from [1] and solves component labeling problem in
@@ -839,7 +839,7 @@ void weak_cc_batched(Type *labels, Type *const row_ind, Type *const row_ind_ptr,
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
  * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
  * This implementation comes from [1] and solves component labeling problem in
@@ -871,7 +871,7 @@ void weak_cc(Type *labels, Type *const row_ind, Type *const row_ind_ptr,
 /**
  * @brief Compute weakly connected components. Note that the resulting labels
  * may not be taken from a monotonically increasing set (eg. numbers may be
- * skipped). The MLCommon::Array package contains a primitive `make_monotonic`,
+ * skipped). The MLCommon::Label package contains a primitive `make_monotonic`,
  * which will make a monotonically increasing set of labels.
  *
  * This implementation comes from [1] and solves component labeling problem in
