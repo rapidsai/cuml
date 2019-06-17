@@ -19,7 +19,6 @@
 #include <math.h>
 #include <ml_cuda_utils.h>
 #include <algorithm>
-#include <common/host_buffer.hpp>
 #include <cub/cub.cuh>
 #include <iostream>
 #include <numeric>
