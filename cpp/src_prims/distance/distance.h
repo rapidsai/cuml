@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cutlass/shape.h>
+#include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "distance/cosine.h"
 #include "distance/euclidean.h"
@@ -25,7 +26,7 @@
 namespace MLCommon {
 namespace Distance {
 
-typedef cutlass::Shape<8, 128, 128> OutputTile_t;
+typedef cutlass::Shape<8, 128, 128> OutputTile_8x128x128;
 
 /** enum to tell how to compute euclidean distance */
 enum DistanceType {
@@ -229,6 +230,70 @@ void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
 }
 
 /**
+ * @defgroup PairwiseDistance
+ * @{
+ * @brief Convenience wrapper around 'distance' prim to convert runtime metric
+ * into compile time for the purpose of dispatch
+ * @tparam Type input/accumulation/output data-type
+ * @tparam Index_ indexing type
+ * @param x first set of points
+ * @param y second set of points
+ * @param dist output distance matrix
+ * @param m number of points in x
+ * @param n number of points in y
+ * @param k dimensionality
+ * @param workspace temporary workspace buffer which can get resized as per the
+ * @needed workspace size
+ * @param metric distance metric
+ * @param stream cuda stream
+ */
+template <typename Type, typename Index_, DistanceType DistType>
+void pairwiseDistanceImpl(Type *const x, Type *const y, Type *dist, Index_ m,
+                          Index_ n, Index_ k, device_buffer<char> &workspace,
+                          cudaStream_t stream) {
+  auto worksize =
+    getWorkspaceSize<DistType, Type, Type, Type>(x, y, dist, m, n, k);
+  workspace.resize(worksize, stream);
+  distance<DistType, Type, Type, Type, OutputTile_8x128x128, Index_>(
+    x, y, dist, m, n, k, workspace.data(), worksize, stream);
+}
+
+template <typename Type, typename Index_ = int>
+void pairwiseDistance(Type *const x, Type *const y, Type *dist, Index_ m,
+                      Index_ n, Index_ k, device_buffer<char> &workspace,
+                      DistanceType metric, cudaStream_t stream) {
+  switch (metric) {
+    case DistanceType::EucExpandedL2:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucExpandedL2>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    case DistanceType::EucExpandedL2Sqrt:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucExpandedL2Sqrt>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    case DistanceType::EucExpandedCosine:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucExpandedCosine>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    case DistanceType::EucUnexpandedL1:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucUnexpandedL1>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    case DistanceType::EucUnexpandedL2:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucUnexpandedL2>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    case DistanceType::EucUnexpandedL2Sqrt:
+      pairwiseDistanceImpl<Type, Index_, DistanceType::EucUnexpandedL2Sqrt>(
+        x, y, dist, m, n, k, workspace, stream);
+      break;
+    default:
+      THROW("Unknown distance metric '%d'!", metric);
+  };
+}
+/** @} */
+
+/**
  * @brief Constructs an epsilon neighborhood adjacency matrix by
  * filtering the final distance by some epsilon.
  * @tparam distanceType: distance metric to compute between a and b matrices
@@ -253,7 +318,7 @@ void distance(InType *const x, InType *const y, OutType *dist, Index_ m,
  *                  the epsilon neighborhood.
  */
 template <DistanceType distanceType, typename T, typename Lambda,
-          typename Index_ = int, typename OutputTile_ = OutputTile_t>
+          typename Index_ = int, typename OutputTile_ = OutputTile_8x128x128>
 size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
                             Index_ n, Index_ k, T eps, void *workspace,
                             size_t worksize, cudaStream_t stream,
@@ -291,7 +356,7 @@ size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
  * @param stream cuda stream
  */
 template <DistanceType distanceType, typename T, typename Index_ = int,
-          typename OutputTile_ = OutputTile_t>
+          typename OutputTile_ = OutputTile_8x128x128>
 size_t epsilon_neighborhood(T *const a, T *const b, bool *adj, Index_ m,
                             Index_ n, Index_ k, T eps, void *workspace,
                             size_t worksize, cudaStream_t stream) {
