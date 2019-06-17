@@ -18,10 +18,11 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
+   deep-clean    - same as 'clean' option, but also cleans up the faiss build
    libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
                    around the C++ code.
    cuml          - build the cuml Python package
@@ -38,8 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
-# TODO: consider adding the faiss build dir to clean, possibly only done with a
-# new "deep-clean" target.
+FAISS_DIR=${REPODIR}/thirdparty/faiss
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -48,6 +48,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 MULTIGPU=""
+CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -91,9 +92,12 @@ fi
 if hasArg --multigpu; then
     MULTIGPU=--multigpu
 fi
+if hasArg deep-clean || hasArg clean; then
+    CLEAN=1
+fi
 
 # If clean given, run it prior to any other steps
-if hasArg clean; then
+if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
     # contents should be removed but the mounted dirs will remain.
     # The find removes all contents but leaves the dirs, the rmdir
@@ -104,6 +108,14 @@ if hasArg clean; then
 	    rmdir ${bd} || true
 	fi
     done
+fi
+
+# clean the faiss build also, if asked
+if hasArg deep-clean; then
+    cd ${FAISS_DIR}
+    make clean
+    cd gpu
+    make clean
 fi
 
 ################################################################################

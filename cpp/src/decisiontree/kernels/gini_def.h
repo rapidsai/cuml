@@ -17,8 +17,6 @@
 #pragma once
 #include <utils.h>
 #include <vector>
-#include "../memory.cuh"
-#include "cub/cub.cuh"
 
 template <class T>
 struct GiniQuestion {
