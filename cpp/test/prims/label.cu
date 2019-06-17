@@ -16,24 +16,25 @@
 
 #include <gtest/gtest.h>
 
-#include "array/array.h"
+#include "label/classlabels.h"
 
 #include <cuda_utils.h>
+#include "common/cuml_allocator.hpp"
 #include "test_utils.h"
 
 #include <iostream>
 #include <vector>
 
 namespace MLCommon {
-namespace Array {
+namespace Label {
 
-class ArrayTest : public ::testing::Test {
+class LabelTest : public ::testing::Test {
  protected:
   void SetUp() override {}
   void TearDown() override {}
 };
 
-typedef ArrayTest MakeMonotonicTest;
+typedef LabelTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
@@ -68,5 +69,42 @@ TEST_F(MakeMonotonicTest, Result) {
   delete data_h;
   delete expected_h;
 }
-};  // namespace Array
+
+TEST(LabelTest, ClassLabels) {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
+
+  int n_rows = 6;
+  float *y_d;
+  allocate(y_d, n_rows);
+
+  float y_h[] = {2, -1, 1, 2, 1, 1};
+  updateDevice(y_d, y_h, n_rows, stream);
+
+  int n_classes;
+  float *y_unique_d;
+  getUniqueLabels(y_d, n_rows, &y_unique_d, &n_classes, stream, allocator);
+
+  ASSERT_EQ(n_classes, 3);
+
+  float y_unique_exp[] = {-1, 1, 2};
+  EXPECT_TRUE(devArrMatchHost(y_unique_exp, y_unique_d, n_classes,
+                              Compare<float>(), stream));
+
+  float *y_relabeled_d;
+  allocate(y_relabeled_d, n_rows);
+
+  getOvrLabels(y_d, n_rows, y_unique_d, n_classes, y_relabeled_d, 2, stream);
+
+  float y_relabeled_exp[] = {1, -1, -1, 1, -1, -1};
+  EXPECT_TRUE(devArrMatchHost(y_relabeled_exp, y_relabeled_d, n_rows,
+                              Compare<float>(), stream));
+
+  CUDA_CHECK(cudaStreamDestroy(stream));
+  CUDA_CHECK(cudaFree(y_d));
+  CUDA_CHECK(cudaFree(y_unique_d));
+  CUDA_CHECK(cudaFree(y_relabeled_d));
+}
+};  // namespace Label
 };  // namespace MLCommon
