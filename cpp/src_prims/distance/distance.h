@@ -143,11 +143,13 @@ struct DistanceImpl<EucUnexpandedL1, InType, AccType, OutType, OutputTile_,
  * @param n number of points in y
  * @param k dimensionality
  *
- * @note If the specifed distanceType doesn't need the workspace at all, it returns 0.
+ * @note If the specifed distanceType doesn't need the workspace at all, it
+ * returns 0.
  */
 template <DistanceType distanceType, typename InType, typename AccType,
           typename OutType, typename Index_ = int>
-size_t getWorkspaceSize(InType *x, InType *y, Index_ m, Index_ n, Index_ k) {
+size_t getWorkspaceSize(InType *const x, InType *const y, Index_ m, Index_ n,
+                        Index_ k) {
   size_t worksize = 0;
   constexpr bool is_allocated = distanceType <= EucExpandedCosine;
   if (is_allocated) {
@@ -252,7 +254,7 @@ void pairwiseDistanceImpl(Type *const x, Type *const y, Type *dist, Index_ m,
                           Index_ n, Index_ k, device_buffer<char> &workspace,
                           cudaStream_t stream) {
   auto worksize =
-    getWorkspaceSize<DistType, Type, Type, Type>(x, y, dist, m, n, k);
+    getWorkspaceSize<DistType, Type, Type, Type, Index_>(x, y, m, n, k);
   workspace.resize(worksize, stream);
   distance<DistType, Type, Type, Type, OutputTile_8x128x128, Index_>(
     x, y, dist, m, n, k, workspace.data(), worksize, stream);
