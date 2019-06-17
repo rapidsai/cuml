@@ -79,7 +79,7 @@ double computeAdjustedRandIndex(
 
   //workspace allocation
   char* pWorkspace = nullptr;
-  size_t workspaceSz = MLCommon::Metrics::getCMatrixWorkspaceSize(
+  size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
   if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
