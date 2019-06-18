@@ -38,7 +38,7 @@ namespace MLCommon {
  * }
  * @endcode
  */
-template<typename T>
-using device_buffer = buffer_base<T,deviceAllocator>;
+template <typename T>
+using device_buffer = buffer_base<T, deviceAllocator>;
 
-} // end namespace ML
+}  // namespace MLCommon

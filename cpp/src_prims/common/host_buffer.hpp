@@ -40,16 +40,16 @@ namespace MLCommon {
  * @endcode
  * @todo: Add missing doxygen documentation
  */
-template<typename T>
-class host_buffer : public buffer_base<T,hostAllocator>
-{
-public:
-  using size_type         = typename buffer_base<T,hostAllocator>::size_type;
-  using value_type        = typename buffer_base<T,hostAllocator>::value_type;
-  using iterator          = typename buffer_base<T,hostAllocator>::iterator;
-  using const_iterator    = typename buffer_base<T,hostAllocator>::const_iterator;
-  using reference         = typename buffer_base<T,hostAllocator>::reference;
-  using const_reference   = typename buffer_base<T,hostAllocator>::const_reference;
+template <typename T>
+class host_buffer : public buffer_base<T, hostAllocator> {
+ public:
+  using size_type = typename buffer_base<T, hostAllocator>::size_type;
+  using value_type = typename buffer_base<T, hostAllocator>::value_type;
+  using iterator = typename buffer_base<T, hostAllocator>::iterator;
+  using const_iterator = typename buffer_base<T, hostAllocator>::const_iterator;
+  using reference = typename buffer_base<T, hostAllocator>::reference;
+  using const_reference =
+    typename buffer_base<T, hostAllocator>::const_reference;
 
   host_buffer() = delete;
 
@@ -57,24 +57,18 @@ public:
 
   host_buffer& operator=(const host_buffer& other) = delete;
 
-  host_buffer(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream, size_type n = 0)
-      : buffer_base<T,hostAllocator>(allocator,stream,n)
-  {}
+  host_buffer(std::shared_ptr<hostAllocator> allocator, cudaStream_t stream,
+              size_type n = 0)
+    : buffer_base<T, hostAllocator>(allocator, stream, n) {}
 
   ~host_buffer() {}
 
-  reference operator[]( size_type pos )
-  {
-      return _data[pos];
-  }
+  reference operator[](size_type pos) { return _data[pos]; }
 
-  const_reference operator[]( size_type pos ) const
-  {
-    return _data[pos];
-  }
+  const_reference operator[](size_type pos) const { return _data[pos]; }
 
-private:
-  using buffer_base<T,hostAllocator>::_data;
+ private:
+  using buffer_base<T, hostAllocator>::_data;
 };
 
-} // end namespace ML
+}  // namespace MLCommon
