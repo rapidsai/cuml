@@ -41,7 +41,7 @@ struct KLDOp {
       return 0;
 
     else
-      return modelPDF * log(modelPDF / candidatePDF);
+      return modelPDF * (log(modelPDF) - log(candidatePDF));
   }
 };
 
