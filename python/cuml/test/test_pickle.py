@@ -40,13 +40,18 @@ cluster_models = dict(
 decomposition_models = dict(
     PCA=cuml.PCA(),
     TruncatedSVD=cuml.TruncatedSVD(),
-    UMAP=cuml.UMAP()
+    UMAP=cuml.UMAP(),
+    GaussianRandomProjection=cuml.GaussianRandomProjection(),
+    SparseRandomProjection=cuml.SparseRandomProjection()
 )
 
 neighbor_models = dict(
     NearestNeighbors=cuml.NearestNeighbors()
 )
 
+dbscan_model = dict(
+    DBSCAN=cuml.DBSCAN()
+)
 
 def unit_param(*args, **kwargs):
     return pytest.param(*args, **kwargs, marks=pytest.mark.unit)
@@ -185,3 +190,19 @@ def test_neighbors_pickle(tmpdir, datatype, input_type, model, nrows,
 
     assert array_equal(D_before, D_after)
     assert array_equal(I_before, I_after)
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
+@pytest.mark.parametrize('model', dbscan_model.values())
+@pytest.mark.parametrize('nrows', [unit_param(20)])
+@pytest.mark.parametrize('ncols', [unit_param(3)])
+def test_dbscan_pickle(tmpdir, datatype, input_type, model, nrows, ncols):
+    X_train, _, X_test = make_dataset(datatype, input_type, nrows, ncols)
+
+    cu_before_pickle_predict = model.fit_predict(X_test).to_array()
+
+    cu_after_pickle_model = pickle_save_load(tmpdir, model)
+
+    cu_after_pickle_predict = cu_after_pickle_model.fit_predict(X_test).to_array()
+
+    assert array_equal(cu_before_pickle_predict, cu_after_pickle_predict)
