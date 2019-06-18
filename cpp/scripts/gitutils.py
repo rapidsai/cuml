@@ -15,6 +15,7 @@
 
 import subprocess
 import os
+import re
 
 
 def isFileEmpty(f):
@@ -24,7 +25,8 @@ def isFileEmpty(f):
 def __git(*opts):
     """Runs a git command and returns its output"""
     cmd = "git " + " ".join(list(opts))
-    return subprocess.check_output(cmd, shell=True)
+    ret = subprocess.check_output(cmd, shell=True)
+    return ret.decode("UTF-8")
 
 
 def __gitdiff(*opts):
@@ -44,12 +46,11 @@ def uncommittedFiles():
     Returns a list of all changed files that are not yet committed. This
     means both untracked/unstaged as well as uncommitted files too.
     """
-    files = __gitdiff("--name-only", "--cached", "--ignore-submodules")
-    ret = files.splitlines()
     files = __git("status", "-u", "-s")
+    ret = []
     for f in files.splitlines():
-        f = f.decode(encoding='UTF-8')
         f = f.strip(" ")
+        f = re.sub("\s+", " ", f)  # noqa: W605
         tmp = f.split(" ", 1)
         # only consider staged files or uncommitted files
         # in other words, ignore untracked files
