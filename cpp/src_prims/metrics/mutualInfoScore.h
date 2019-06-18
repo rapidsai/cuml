@@ -24,21 +24,17 @@
 *   on the same dataset when the real ground truth is not known.
 */
 
+#include <math.h>
+#include <cub/cub.cuh>
 #include "common/cuml_allocator.hpp"
 #include "common/device_buffer.hpp"
-#include <cub/cub.cuh>
 #include "cuda_utils.h"
-#include <math.h>
 #include "linalg/reduce.h"
 #include "metrics/contingencyMatrix.h"
 
-
 namespace MLCommon {
 
-
 namespace Metrics {
-
-
 
 /**
  * @brief kernel to calculate the mutual info score
@@ -49,8 +45,8 @@ namespace Metrics {
  * @param d_MI: pointer to the device memory that stores the aggreggate mutual information
  */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void mutualInfoKernel(const int *dContingencyMatrix,
-                                    const int *a, const int *b, int size, double* d_MI) {
+__global__ void mutualInfoKernel(const int *dContingencyMatrix, const int *a,
+                                 const int *b, int size, double *d_MI) {
   //calculating the indices of pairs of datapoints compared by the current thread
   int j = threadIdx.x + blockIdx.x * blockDim.x;
   int i = threadIdx.y + blockIdx.y * blockDim.y;
@@ -58,10 +54,11 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix,
   //thread-local variable to count the mutual info
   double localMI = 0;
 
-  if (i < size && j < size && a[i]*b[j] != 0 && dContingencyMatrix[i*size+j] != 0) {
-
-    localMI+= (double(dContingencyMatrix[i*size+j]))*double(log(double(dContingencyMatrix[i*size+j])) - log(double(a[i]*b[j])));
-
+  if (i < size && j < size && a[i] * b[j] != 0 &&
+      dContingencyMatrix[i * size + j] != 0) {
+    localMI += (double(dContingencyMatrix[i * size + j])) *
+               double(log(double(dContingencyMatrix[i * size + j])) -
+                      log(double(a[i] * b[j])));
   }
 
   //specialize blockReduce for a 2D block of 1024 threads of type uint64_t
@@ -82,7 +79,6 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix,
   }
 }
 
-
 /**
 * @brief Function to calculate the mutual information between two clusters
 * <a href="https://en.wikipedia.org/wiki/Mutual_information">more info on mutual information</a> 
@@ -96,25 +92,30 @@ __global__ void mutualInfoKernel(const int *dContingencyMatrix,
 * @param stream: the cudaStream object
 */
 template <typename T>
-double mutualInfoScore (  T* firstClusterArray,  T* secondClusterArray, int size, T lowerLabelRange, T upperLabelRange,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
-
+double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
+                       int size, T lowerLabelRange, T upperLabelRange,
+                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                       cudaStream_t stream) {
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   //declaring, allocating and initializing memory for the contingency marix
-  MLCommon::device_buffer<int> dContingencyMatrix (allocator, stream, numUniqueClasses*numUniqueClasses);
-  CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0, numUniqueClasses*numUniqueClasses*sizeof(int), stream));
+  MLCommon::device_buffer<int> dContingencyMatrix(
+    allocator, stream, numUniqueClasses * numUniqueClasses);
+  CUDA_CHECK(cudaMemsetAsync(dContingencyMatrix.data(), 0,
+                             numUniqueClasses * numUniqueClasses * sizeof(int),
+                             stream));
 
   //workspace allocation
   char *pWorkspace = nullptr;
-  size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(size, firstClusterArray,
-                                                      stream, lowerLabelRange, upperLabelRange);    
-  if (workspaceSz != 0)
-      MLCommon::allocate(pWorkspace, workspaceSz);
+  size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
+    size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
+  if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
 
   //calculating the contingency matrix
-  MLCommon::Metrics::contingencyMatrix(firstClusterArray, secondClusterArray, (int)size, (int*)dContingencyMatrix.data(),
-                                        stream, (void*)pWorkspace, workspaceSz, lowerLabelRange, upperLabelRange);
+  MLCommon::Metrics::contingencyMatrix(
+    firstClusterArray, secondClusterArray, (int)size,
+    (int *)dContingencyMatrix.data(), stream, (void *)pWorkspace, workspaceSz,
+    lowerLabelRange, upperLabelRange);
 
   //creating device buffers for all the parameters involved in ARI calculation
   //device variables
@@ -125,17 +126,22 @@ double mutualInfoScore (  T* firstClusterArray,  T* secondClusterArray, int size
   //host variables
   double h_MI;
 
-
   //initializing device memory
-  CUDA_CHECK(cudaMemsetAsync(a.data(), 0, numUniqueClasses*sizeof(int), stream));
-  CUDA_CHECK(cudaMemsetAsync(b.data(), 0, numUniqueClasses*sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(a.data(), 0, numUniqueClasses * sizeof(int), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(b.data(), 0, numUniqueClasses * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(d_MI.data(), 0, sizeof(double), stream));
 
   //calculating the row-wise sums
-  MLCommon::LinAlg::reduce<int,int, int>(a.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, true, true, stream);
+  MLCommon::LinAlg::reduce<int, int, int>(a.data(), dContingencyMatrix.data(),
+                                          numUniqueClasses, numUniqueClasses, 0,
+                                          true, true, stream);
 
   //calculating the column-wise sums
-  MLCommon::LinAlg::reduce<int,int, int>(b.data(), dContingencyMatrix.data(), numUniqueClasses, numUniqueClasses, 0, true, false, stream);
+  MLCommon::LinAlg::reduce<int, int, int>(b.data(), dContingencyMatrix.data(),
+                                          numUniqueClasses, numUniqueClasses, 0,
+                                          true, false, stream);
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
@@ -146,21 +152,17 @@ double mutualInfoScore (  T* firstClusterArray,  T* secondClusterArray, int size
   //calling the kernel
   mutualInfoKernel<T, BLOCK_DIM_X, BLOCK_DIM_Y>
     <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      dContingencyMatrix.data(), a.data(), b.data(),numUniqueClasses, d_MI.data());
-
+      dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses,
+      d_MI.data());
 
   //updating in the host memory
   MLCommon::updateHost(&h_MI, d_MI.data(), 1, stream);
 
   //freeing the memories in the device
-  if (pWorkspace)
-    CUDA_CHECK(cudaFree(pWorkspace));
+  if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
 
   return h_MI;
-
 }
 
-
-};//end namespace Metrics
-};//end namespace MLCommon
-
+};  //end namespace Metrics
+};  //end namespace MLCommon
