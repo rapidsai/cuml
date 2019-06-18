@@ -9,9 +9,12 @@ cuML is thread safe so its functions can be called from multiple host threads if
 
 The implementation of cuML is single threaded.
 
-## Exposing algo-related state across C++ interface
-### Introduction
-Every ML algo needs to store some state, eg: model and its related hyper-parameters. Thus, this section lays out guidelines for managing state along the API of cuML.
+## Public cuML interface
+### Motivation
+Such a well-defined interface is useful for two main reasons:
+1. Easily pickle ML algo's state information (model, hyper-params, etc), at the python layer
+2. Provide a proper C-binding to interface with languages that don't understand C++
+Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### Across `libcuml++.so` aka our C++ interface
 Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must accept all the required inputs, parameters and outputs in their argument list only, which should meet the requirements listed below. In other words, the [stateful API](#scikit-learn-esq-stateful-api-in-c) should always be a wrapper around the stateless methods, NEVER the other way around. That said, internally, these stateless functions are free to create their own temporary classes, as long as they are not exposed on the interface of `libcuml++.so`.
