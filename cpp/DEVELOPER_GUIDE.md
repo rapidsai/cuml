@@ -70,11 +70,10 @@ void loadTreeNode(TreeNodeD *&root, std::istream &is);
 ```
 And being good programmers, we should also expose a 'cleanup' method for this object.
 ```cpp
-void destroyTreeNode(TreeNodeF *root);
-void destroyTreeNode(TreeNodeD *root);
+void destroyTreeNodeF(TreeNodeF *root);
+void destroyTreeNodeD(TreeNodeD *root);
 ```
 It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store/destroy methods are not explicitly needed.
-
 
 ### scikit-learn-esq stateful API in C++
 We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
