@@ -19,10 +19,7 @@
 #include "common/cumlHandle.hpp"
 
 #include "tsne/tsne.h"
-
-#include "cublas_v2.h"
 #include "distances.h"
-#include "slow_kernels.h"
 #include "fast_kernels.h"
 #include "utils.h"
 
