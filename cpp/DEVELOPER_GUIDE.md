@@ -11,13 +11,13 @@ The implementation of cuML is single threaded.
 
 ## Public cuML interface
 ### Motivation
-Such a well-defined interface is useful for two main reasons:
+Public cuML interface is stateless for two main reasons:
 1. Easily pickle ML algo's state information (model, hyper-params, etc), at the python layer
 2. Provide a proper C-binding to interface with languages that don't understand C++
 Thus, this section lays out guidelines for managing state along the API of cuML.
 
 ### General guideline
-Functions exposed via the base cuML-c++ layer must be stateless. Things that are OK to be expoesd on the interface:
+As mentioned before, functions exposed via the base cuML-c++ layer must be stateless. Things that are OK to be expoesd on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`, instead.
 3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
