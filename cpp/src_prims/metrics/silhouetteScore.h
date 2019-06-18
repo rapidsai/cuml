@@ -17,7 +17,6 @@
 #include <distance/distance.h>
 #include <linalg/binary_op.h>
 #include <math.h>
-#include <ml_cuda_utils.h>
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <iostream>
@@ -215,6 +214,10 @@ DataT silhouetteScore(DataT *X_in, int nRows, int nCols, LabelT *labels,
                       cudaStream_t stream, int metric = 4) {
   /**  TODO: after 'pairwise-distance' prim is available, use runtime distance metric over hardcoding distance metric
  */
+
+  ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
+         "silhouette Score not defined for the given number of labels!");
+
   constexpr auto distance_type_const =
     MLCommon::Distance::DistanceType::EucUnexpandedL2;
 
