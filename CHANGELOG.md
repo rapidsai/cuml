@@ -103,6 +103,7 @@
 - PR #552: Re-enable assert in kmeans tests with xfail as needed
 - PR #581: Add shared memory fast col major to row major function back with bound checks
 - PR #592: More efficient matrix copy/reverse methods
+- PR #721: Added pickle tests for DBSCAN and Random Projections
 
 ## Bug Fixes
 
