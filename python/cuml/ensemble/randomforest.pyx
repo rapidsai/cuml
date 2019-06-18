@@ -238,7 +238,7 @@ cdef class RandomForest_impl():
         if n_cols != self.n_cols:
             raise ValueError(" The number of columns/features in the training"
                              " and test data should be the same ")
-        if self.dtype != X.dtype:
+        if X.dtype != self.dtype:
             raise ValueError(" The datatype of the training data is different"
                              " from the datatype of the testing data")
 
@@ -288,7 +288,7 @@ cdef class RandomForest_impl():
         if y.dtype != np.int32:
             raise TypeError(" The labels need to have dtype = np.int32")
 
-        if self.dtype != X.dtype:
+        if X.dtype != self.dtype:
             raise ValueError(" The datatype of the training data is different"
                              " from the datatype of the testing data")
 
