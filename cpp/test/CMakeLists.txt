@@ -33,11 +33,12 @@ if(BUILD_CUML_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_CUDART_LIBRARY}
-        gpufaisslib
         ${CUDA_cusparse_LIBRARY}
         ${CUDA_nvgraph_LIBRARY}
+        gpufaisslib
         faisslib
         ${CUML_CPP_TARGET}
+        ${CUML_C_TARGET}
         pthread
         ${ZLIB_LIBRARIES}
     )
@@ -60,6 +61,8 @@ if(BUILD_CUML_TESTS)
       sg/tsvd_test.cu
       sg/umap_test.cu
       )
+
+    add_dependencies(ml ${ClangFormat_TARGET})
 
     target_link_libraries(ml
       ${GTEST_LIBNAME}
@@ -91,7 +94,10 @@ if(BUILD_CUML_MG_TESTS)
     # (please keep the filenames in alphabetical order)
     add_executable(ml_mg
       mg/knn_test_mg.cu
+      mg/test_ml_mg_utils.cu
       )
+
+    add_dependencies(ml_mg ${ClangFormat_TARGET})
 
     target_link_libraries(ml_mg
       ${GTEST_LIBNAME}
@@ -110,6 +116,8 @@ if(BUILD_PRIMS_TESTS)
         ${CUDA_cusolver_LIBRARY}
         ${CUDA_cusparse_LIBRARY}
         pthread
+        gpufaisslib
+        faisslib
         ${ZLIB_LIBRARIES}
     )
 
@@ -117,7 +125,7 @@ if(BUILD_PRIMS_TESTS)
     add_executable(prims
       prims/add.cu
       prims/add_sub_dev_scalar.cu
-      prims/array.cu
+      prims/adjustedRandIndex.cu
       prims/binary_op.cu
       prims/ternary_op.cu
       prims/coalesced_reduction.cu
@@ -142,10 +150,13 @@ if(BUILD_PRIMS_TESTS)
       prims/gemm.cu
       prims/grid_sync.cu
       prims/hinge.cu
+      prims/knn.cu
       prims/kselection.cu
+      prims/label.cu
       prims/linearReg.cu
       prims/log.cu
       prims/logisticReg.cu
+      prims/make_blobs.cu
       prims/map_then_reduce.cu
       prims/math.cu
       prims/matrix.cu
@@ -159,7 +170,9 @@ if(BUILD_PRIMS_TESTS)
       prims/penalty.cu
       prims/permute.cu
       prims/power.cu
+      prims/randIndex.cu
       prims/reduce.cu
+      prims/reduce_cols_by_key.cu
       prims/reduce_rows_by_key.cu
       prims/reverse.cu
       prims/rng.cu
@@ -174,9 +187,12 @@ if(BUILD_PRIMS_TESTS)
       prims/sum.cu
       prims/svd.cu
       prims/transpose.cu
+      prims/trustworthiness.cu
       prims/unary_op.cu
       prims/weighted_mean.cu
       )
+
+    add_dependencies(prims ${ClangFormat_TARGET})
 
     target_link_libraries(prims
       ${GTEST_LIBNAME}

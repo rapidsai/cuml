@@ -18,11 +18,13 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
+VALIDARGS="clean deep-clean libcuml cuml prims -v -g -n --allgpuarch --multigpu -h --help"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean         - remove all existing build artifacts and configuration (start over)
-   libcuml       - build the cuml C++ code only
+   deep-clean    - same as 'clean' option, but also cleans up the faiss build
+   libcuml       - build the cuml C++ code only. Also builds the C-wrapper library
+                   around the C++ code.
    cuml          - build the cuml Python package
    prims         - build the ML prims tests
  and <flag> is:
@@ -37,8 +39,7 @@ HELP="$0 [<target> ...] [<flag> ...]
 "
 LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
 CUML_BUILD_DIR=${REPODIR}/python/build
-# TODO: consider adding the faiss build dir to clean, possibly only done with a
-# new "deep-clean" target.
+FAISS_DIR=${REPODIR}/thirdparty/faiss
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR}"
 
 # Set defaults for vars modified by flags to this script
@@ -47,6 +48,7 @@ BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
 MULTIGPU=""
+CLEAN=0
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -90,16 +92,12 @@ fi
 if hasArg --multigpu; then
     MULTIGPU=--multigpu
 fi
-
-# Various build options use nvidia-smi for querying the system
-HAS_NVIDIA_SMI=1
-which nvidia-smi > /dev/null
-if (( $? != 0 )); then
-    HAS_NVIDIA_SMI=0
+if hasArg deep-clean || hasArg clean; then
+    CLEAN=1
 fi
 
 # If clean given, run it prior to any other steps
-if hasArg clean; then
+if (( ${CLEAN} == 1 )); then
     # If the dirs to clean are mounted dirs in a container, the
     # contents should be removed but the mounted dirs will remain.
     # The find removes all contents but leaves the dirs, the rmdir
@@ -112,34 +110,23 @@ if hasArg clean; then
     done
 fi
 
+# clean the faiss build also, if asked
+if hasArg deep-clean; then
+    cd ${FAISS_DIR}
+    make clean
+    cd gpu
+    make clean
+fi
+
 ################################################################################
 # Configure for building all C++ targets
 if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims; then
-
-    # Configure the build for the GPU type of this machine, or all (GPU_ARCH="")
-    # if it cannot be detected.
-    # TODO: add additional detected GPU archs
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        if (( ${HAS_NVIDIA_SMI} )); then
-            GPU="$(nvidia-smi | awk '{print $4}' | sed '8!d')"
-            if [[ $GPU == *"P100"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"60\""
-                echo "Building for Pascal..."
-            elif [[ $GPU == *"V100"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"70\""
-                echo "Building for Volta..."
-            elif [[ $GPU == *"T4"* ]]; then
-                GPU_ARCH="-DGPU_ARCHS=\"75\""
-                echo "Building for Turing..."
-            fi
-        else
-            echo "nvidia-smi was not found on PATH and is needed for detecting the GPU arch"
-            echo "Ensure nvidia-smi is on PATH or use --allgpuarch"
-            exit 1
-        fi
-    else
         GPU_ARCH=""
-        echo "Building for *ALL* GPU architectures..."
+        echo "Building for the architecture of the GPU in the system..."
+    else
+        GPU_ARCH="-DGPU_ARCHS=ALL"
+        echo "Building for *ALL* supported GPU architectures..."
     fi
 
     mkdir -p ${LIBCUML_BUILD_DIR}
@@ -156,7 +143,7 @@ fi
 if (( ${NUMARGS} == 0 )) || hasArg libcuml; then
 
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} cuml++ ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
+    make -j${PARALLEL_LEVEL} cuml++ cuml ml ml_mg VERBOSE=${VERBOSE} ${INSTALL_TARGET}
 fi
 
 # Build and (optionally) install the cuml Python package

@@ -28,7 +28,7 @@ into three categories:
     or [help wanted](https://github.com/rapidsai/cuml/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) labels
 3. Comment on the issue saying you are going to work on it.
 4. Get familar with the developer guide relevant for you:
-    * For C++ developers it is avaiable here [DEVELOPER_GUIDE.md](cuML/DEVELOPER_GUIDE.md)
+    * For C++ developers it is available here [DEVELOPER_GUIDE.md](cpp/DEVELOPER_GUIDE.md)
 5. Code! Make sure to update unit tests!
 6. When done, [create your pull request](https://github.com/rapidsai/cuml/compare).
 7. Verify that CI passes all [status checks](https://help.github.com/articles/about-status-checks/), or fix if needed.

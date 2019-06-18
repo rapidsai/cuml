@@ -31,7 +31,8 @@ from libc.stdint cimport uintptr_t
 from cuml.common.base import Base
 from cuml.common.handle cimport cumlHandle
 from cuml.decomposition.utils cimport *
-
+from cuml.utils import get_cudf_column_ptr, get_dev_array_ptr, \
+    input_to_dev_array, zeros
 
 cdef extern from "tsvd/tsvd.hpp" namespace "ML":
 
@@ -96,11 +97,11 @@ class TruncatedSVD(Base):
     large matrix X. It is much faster when n_components is small, such as in
     the use of PCA when 3 components is used for 3D visualization.
 
-    cuML's TruncatedSVD expects a cuDF DataFrame, and provides 2 algorithms
-    Full and Jacobi. Full (default) uses a full eigendecomposition then selects
-    the top K singular vectors. The Jacobi algorithm is much faster as it
-    iteratively tries to correct the top K singular vectors, but might be
-    less accurate.
+    cuML's TruncatedSVD an array-like object or cuDF DataFrame, and provides 2
+    algorithms Full and Jacobi. Full (default) uses a full eigendecomposition
+    then selects the top K singular vectors. The Jacobi algorithm is much
+    faster as it iteratively tries to correct the top K singular vectors, but
+    might be less accurate.
 
     Examples
     ---------
@@ -254,52 +255,34 @@ class TruncatedSVD(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self.trans_input_ = cuda.to_device(np.zeros(n_rows*n_components,
-                                                    dtype=self.gdf_datatype))
-        self.components_ = cuda.to_device(np.zeros(n_components*n_cols,
-                                                   dtype=self.gdf_datatype))
-        self.explained_variance_ = cudf.Series(np.zeros(n_components,
-                                               dtype=self.gdf_datatype))
-        self.explained_variance_ratio_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.mean_ = cudf.Series(np.zeros(n_cols, dtype=self.gdf_datatype))
-        self.singular_values_ = cudf.Series(np.zeros(n_components,
-                                                     dtype=self.gdf_datatype))
-        self.noise_variance_ = cudf.Series(np.zeros(1,
-                                                    dtype=self.gdf_datatype))
+        self.trans_input_ = cuda.to_device(zeros(n_rows*n_components,
+                                                 dtype=self.dtype))
+        self.components_ = cuda.to_device(zeros(n_components*n_cols,
+                                                dtype=self.dtype))
+        self.explained_variance_ = cudf.Series(zeros(n_components,
+                                               dtype=self.dtype))
+        self.explained_variance_ratio_ = cudf.Series(zeros(n_components,
+                                                     dtype=self.dtype))
+        self.mean_ = cudf.Series(zeros(n_cols, dtype=self.dtype))
+        self.singular_values_ = cudf.Series(zeros(n_components,
+                                                  dtype=self.dtype))
+        self.noise_variance_ = cudf.Series(zeros(1, dtype=self.dtype))
 
     def fit(self, X, _transform=True):
         """
-            Fit LSI model on training cudf DataFrame X.
+        Fit LSI model on training cudf DataFrame X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                Training data (floats or doubles)
+        Parameters
+        ----------
+       X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
 
         """
-
-        # c params
-
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            self.gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            # PCA expects transpose of the input
-            X_m = X.as_gpu_matrix()
-            self.n_rows = len(X)
-            self.n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            self.gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            self.n_rows = X.shape[0]
-            self.n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, input_ptr, self.n_rows, self.n_cols, self.dtype = \
+            input_to_dev_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
@@ -310,24 +293,24 @@ class TruncatedSVD(Base):
         params.algorithm = self.c_algorithm
         self._initialize_arrays(self.n_components, self.n_rows, self.n_cols)
 
-        cdef uintptr_t comp_ptr = self._get_dev_array_ptr(self.components_)
+        cdef uintptr_t comp_ptr = get_dev_array_ptr(self.components_)
 
         cdef uintptr_t explained_var_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_)
+            get_cudf_column_ptr(self.explained_variance_)
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._get_cudf_column_ptr(self.explained_variance_ratio_)
+            get_cudf_column_ptr(self.explained_variance_ratio_)
 
         cdef uintptr_t singular_vals_ptr = \
-            self._get_cudf_column_ptr(self.singular_values_)
+            get_cudf_column_ptr(self.singular_values_)
 
-        cdef uintptr_t t_input_ptr = self._get_dev_array_ptr(self.trans_input_)
+        cdef uintptr_t t_input_ptr = get_dev_array_ptr(self.trans_input_)
 
         if self.n_components> self.n_cols:
             raise ValueError(' n_components must be < n_features')
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-        if self.gdf_datatype.type == np.float32:
+        if self.dtype == np.float32:
             tsvdFitTransform(handle_[0],
                              <float*> input_ptr,
                              <float*> t_input_ptr,
@@ -369,17 +352,19 @@ class TruncatedSVD(Base):
 
     def fit_transform(self, X):
         """
-            Fit LSI model to X and perform dimensionality reduction on X.
+        Fit LSI model to X and perform dimensionality reduction on X.
 
-            Parameters
-            ----------
-            X GDF : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                Training data (floats or doubles)
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X as a dense cuDF DataFrame
+        Returns
+        ----------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+            Reduced version of X as a dense cuDF DataFrame
 
         """
         self.fit(X, _transform=True)
@@ -393,49 +378,43 @@ class TruncatedSVD(Base):
 
     def inverse_transform(self, X):
         """
-            Transform X back to its original space.
+        Transform X back to its original space.
 
-            Returns a cuDF DataFrame X_original whose transform would be X.
+        Returns a cuDF DataFrame X_original whose transform would be X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, shape (n_samples, n_components)
-                New data.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+           Dense matrix (floats or doubles) of shape (n_samples, n_features).
+           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+           ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_original : cuDF DataFrame, shape (n_samples, n_features)
-                Note that this is always a dense cuDF DataFrame.
+        Returns
+        ----------
+        X_original : cuDF DataFrame, shape (n_samples, n_features)
+            Note that this is always a dense cuDF DataFrame.
 
         """
 
         cdef uintptr_t trans_input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix()
-        elif (isinstance(X, np.ndarray)):
-            gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
+        X_m, trans_input_ptr, n_rows, _, dtype = \
+            input_to_dev_array(X, check_dtype=self.dtype)
 
-        trans_input_ptr = self._get_dev_array_ptr(X_m)
-
+        # todo: check for dtype
         cpdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
 
-        input_data = cuda.to_device(np.zeros(params.n_rows*params.n_cols,
-                                             dtype=gdf_datatype.type))
+        input_data = cuda.to_device(zeros(params.n_rows*params.n_cols,
+                                          dtype=dtype.type))
 
         cdef uintptr_t input_ptr = input_data.device_ctypes_pointer.value
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             tsvdInverseTransform(handle_[0],
                                  <float*> trans_input_ptr,
                                  <float*> components_ptr,
@@ -461,54 +440,39 @@ class TruncatedSVD(Base):
 
     def transform(self, X):
         """
-            Perform dimensionality reduction on X.
+        Perform dimensionality reduction on X.
 
-            Parameters
-            ----------
-            X : cuDF DataFrame, dense matrix, shape (n_samples, n_features)
-                New data.
+        Parameters
+        ----------
+        X : array-like (device or host) shape = (n_samples, n_features)
+            Dense matrix (floats or doubles) of shape (n_samples, n_features).
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+            ndarray, cuda array interface compliant array like CuPy
 
-            Returns
-            ----------
-            X_new : cuDF DataFrame, shape (n_samples, n_components)
-                Reduced version of X. This will always be a dense DataFrame.
+        Returns
+        ----------
+        X_new : cuDF DataFrame, shape (n_samples, n_components)
+            Reduced version of X. This will always be a dense DataFrame.
 
         """
-
         cdef uintptr_t input_ptr
-        if (isinstance(X, cudf.DataFrame)):
-            gdf_datatype = np.dtype(X[X.columns[0]]._column.dtype)
-            X_m = X.as_gpu_matrix()
-            n_rows = len(X)
-            n_cols = len(X._cols)
-
-        elif (isinstance(X, np.ndarray)):
-            gdf_datatype = X.dtype
-            X_m = cuda.to_device(np.array(X, order='F'))
-            n_rows = X.shape[0]
-            n_cols = X.shape[1]
-
-        else:
-            msg = "X matrix format  not supported"
-            raise TypeError(msg)
-
-        input_ptr = self._get_dev_array_ptr(X_m)
+        X_m, n_rows, _, dtype = input_to_dev_array(X)
 
         cpdef paramsTSVD params
         params.n_components = self.n_components
-        params.n_rows = len(X)
+        params.n_rows = n_rows
         params.n_cols = self.n_cols
 
         t_input_data = \
-            cuda.to_device(np.zeros(params.n_rows*params.n_components,
-                                    dtype=gdf_datatype.type))
+            cuda.to_device(zeros(params.n_rows*params.n_components,
+                                 dtype=dtype.type))
 
-        cdef uintptr_t trans_input_ptr = self._get_dev_array_ptr(t_input_data)
+        cdef uintptr_t trans_input_ptr = get_dev_array_ptr(t_input_data)
         cdef uintptr_t components_ptr = self.components_ptr
 
         cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
 
-        if gdf_datatype.type == np.float32:
+        if dtype.type == np.float32:
             tsvdTransform(handle_[0],
                           <float*> input_ptr,
                           <float*> components_ptr,
