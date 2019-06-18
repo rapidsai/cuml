@@ -68,12 +68,10 @@ void storeTreeNode(const TreeNodeD *root, std::ostream &os);
 void loadTreeNode(TreeNodeF *&root, std::istream &is);
 void loadTreeNode(TreeNodeD *&root, std::istream &is);
 ```
-And being good programmers, we should also expose a 'cleanup' method for this object.
-```cpp
-void destroyTreeNodeF(TreeNodeF *root);
-void destroyTreeNodeD(TreeNodeD *root);
-```
-It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store/destroy methods are not explicitly needed.
+It is also worthy to note that for algos like GLM, where the model consists of an array of weights, such a custom load/store methods are not explicitly needed.
+
+### Managing state from C-API
+As mentioned in previous section, for algos like GLM, custom load/store/destroy methods are seldom needed. However, for complex  algos like RF, we'd need to work with the model exposed by the C++ API. One possible way of working with such exposed states from C++ layer is shown in the sample repo [here](https://github.com/teju85/managing-state-cuml).
 
 ### scikit-learn-esq stateful API in C++
 We are [still discussing](https://github.com/rapidsai/cuml/issues/456) about the right way to expose such a wrapper API around `libcuml++.so`. Stay tuned for more details.
