@@ -18,24 +18,40 @@
 
 #include "common/cumlHandle.hpp"
 
+#include "knn/knn.hpp"
 #include "umapparams.h"
-#include "knn/knn.h"
-
 
 namespace ML {
 
+void transform(const cumlHandle &handle, float *X, int n, int d,
+               float *orig_X, int orig_n, float *embedding, int embedding_n,
+               UMAPParams *params, float *transformed);
 
-    class UMAP_API {
+void fit(const cumlHandle &handle,
+         float *X,  // input matrix
+         float *y,  // labels
+         int n,
+         int d,
+         UMAPParams *params,
+         float *embeddings);
 
-        UMAPParams *params;
-        kNN *knn;
+void fit(const cumlHandle &handle,
+            float *X,   // input matrix
+            int n,  // rows
+            int d,  // cols
+            UMAPParams *params, float *embeddings);
 
-        public:
+class UMAP_API {
+  float *orig_X;
+  int orig_n;
+  cumlHandle *handle;
+  UMAPParams *params;
 
-        UMAP_API(UMAPParams *params);
-        ~UMAP_API();
+ public:
+  UMAP_API(const cumlHandle &handle, UMAPParams *params);
+  ~UMAP_API();
 
-            /**
+  /**
              * Fits an unsupervised UMAP model
              * @param X
              *        pointer to an array in row-major format (note: this will be col-major soon)
@@ -46,9 +62,9 @@ namespace ML {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-            void fit(cumlHandle &handle, float *X, int n, int d, float *embeddings);
+  void fit(float *X, int n, int d, float *embeddings);
 
-            /**
+  /**
              * Fits a supervised UMAP model
              * @param X
              *        pointer to an array in row-major format (note: this will be col-major soon)
@@ -61,9 +77,10 @@ namespace ML {
              * @param embeddings
              *        an array to return the output embeddings of size (n_samples, n_components)
              */
-            void fit(cumlHandle &handle, float *X, float *y, int n, int d, float *embeddings);
+  void fit(float *X, float *y, int n, int d,
+           float *embeddings);
 
-            /**
+  /**
              * Project a set of X vectors into the embedding space.
              * @param X
              *        pointer to an array in row-major format (note: this will be col-major soon)
@@ -78,15 +95,12 @@ namespace ML {
              * @param out
              *        pointer to array for storing output embeddings (n, n_components)
              */
-            void transform(cumlHandle &handle, float *X, int n, int d,
-                    float *embedding, int embedding_n,
-                    float *out);
+  void transform(float *X, int n, int d, float *embedding,
+                 int embedding_n, float *out);
 
-            /**
+  /**
              * Get the UMAPParams instance
              */
-            UMAPParams* get_params();
-    };
-}
-
-
+  UMAPParams *get_params();
+};
+}  // namespace ML

@@ -20,7 +20,6 @@
 #include <stdint.h>
 #include "cuda_utils.h"
 
-
 namespace MLCommon {
 namespace Random {
 namespace detail {
@@ -52,22 +51,21 @@ struct PhiloxGenerator {
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
   DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
   DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
-private:
+ private:
   /** the state for RNG */
   curandStatePhilox4_32_10_t state;
 };
-
 
 /** LFSR taps-filter for generating random numbers. */
 // Courtesy: Vinay Deshpande
@@ -112,22 +110,21 @@ struct TapsGenerator {
     ret = (uint32_t)val;
   }
   DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
   DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
-private:
+ private:
   /** the state for RNG */
   uint64_t state;
 };
-
 
 /** Kiss99-based random number generator */
 // Courtesy: Vinay Deshpande
@@ -173,18 +170,18 @@ struct Kiss99Generator {
     ret = (uint64_t)a | ((uint64_t)b << 32);
   }
   DI void next(int32_t& ret) {
-      uint32_t val;
-      next(val);
-      ret = int32_t(val & 0x7fffffff);
+    uint32_t val;
+    next(val);
+    ret = int32_t(val & 0x7fffffff);
   }
   DI void next(int64_t& ret) {
-      uint64_t val;
-      next(val);
-      ret = int64_t(val & 0x7fffffffffffffff);
+    uint64_t val;
+    next(val);
+    ret = int64_t(val & 0x7fffffffffffffff);
   }
   /** @} */
 
-private:
+ private:
   /** one of the kiss99 states */
   uint32_t z;
   /** one of the kiss99 states */
@@ -197,7 +194,7 @@ private:
   static const uint32_t fnvBasis = 2166136261U;
   static const uint32_t fnvPrime = 16777619U;
 
-  DI void fnv1a32(uint32_t &hash, uint32_t txt) {
+  DI void fnv1a32(uint32_t& hash, uint32_t txt) {
     hash ^= (txt >> 0) & 0xFF;
     hash *= fnvPrime;
     hash ^= (txt >> 8) & 0xFF;
@@ -227,7 +224,6 @@ private:
   }
 };
 
-
 /**
  * @brief generator-agnostic way of generating random numbers
  * @tparam GenType the generator object that expose 'next' method
@@ -238,13 +234,15 @@ struct Generator {
     : gen(seed, subsequence, offset) {}
 
   template <typename Type>
-  DI void next(Type& ret) { gen.next(ret); }
+  DI void next(Type& ret) {
+    gen.next(ret);
+  }
 
-private:
+ private:
   /** the actual generator */
   GenType gen;
 };
 
-}; // end namespace detail
-}; // end namespace Random
-}; // end namespace MLCommon
+};  // end namespace detail
+};  // end namespace Random
+};  // end namespace MLCommon

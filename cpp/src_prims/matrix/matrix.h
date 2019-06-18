@@ -37,25 +37,24 @@ using namespace std;
  * @param n_rows: number of rows of output matrix
  * @param n_cols: number of columns of output matrix
  */
-template<typename m_t>
-void copyRows(const m_t* in, int n_rows, int n_cols, m_t* out,
-		int *indices, int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
+template <typename m_t>
+void copyRows(const m_t *in, int n_rows, int n_cols, m_t *out, int *indices,
+              int n_rows_indices, cudaStream_t stream, bool rowMajor = false) {
+  if (rowMajor) {
+    ASSERT(false, "matrix.h: row major is not supported yet!");
+  }
 
-	if (rowMajor) {
-		ASSERT(false,
-				"matrix.h: row major is not supported yet!");
-	}
+  auto size = n_rows_indices * n_cols;
+  auto counting = thrust::make_counting_iterator<int>(0);
 
-	auto size = n_rows_indices * n_cols;
-	auto counting = thrust::make_counting_iterator<int>(0);
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
+                   [=] __device__(int idx) {
+                     int row = idx % n_rows_indices;
+                     int col = idx / n_rows_indices;
 
-	thrust::for_each(thrust::cuda::par.on(stream), counting, counting+size,
-    [=]__device__(int idx) {
-		int row = idx % n_rows_indices;
-		int col = idx / n_rows_indices;
-
-	    out[col * n_rows_indices + row] = in[col * n_rows + indices[row]];
-	});
+                     out[col * n_rows_indices + row] =
+                       in[col * n_rows + indices[row]];
+                   });
 }
 
 /**
@@ -93,11 +92,11 @@ void truncZeroOrigin(m_t *in, int in_n_rows, m_t *out, int out_n_rows,
   auto counting = thrust::make_counting_iterator<int>(0);
 
   thrust::for_each(thrust::cuda::par.on(stream), counting, counting + size,
-    [=] __device__(int idx) {
-    int row = idx % m;
-    int col = idx / m;
-    d_q_trunc[col * m + row] = d_q[col * k + row];
-  });
+                   [=] __device__(int idx) {
+                     int row = idx % m;
+                     int col = idx / m;
+                     d_q_trunc[col * m + row] = d_q[col * k + row];
+                   });
 }
 /** @} */
 
@@ -118,16 +117,16 @@ void colReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + (size / 2),
-    [=] __device__(int idx) {
-    int dest_row = idx % m;
-    int dest_col = idx / m;
-    int src_row = dest_row;
-    int src_col = (n - dest_col) - 1;
-    m_t temp = (m_t)d_q_reversed[idx];
-    d_q_reversed[idx] = d_q[src_col * m + src_row];
-    d_q[src_col * m + src_row] = temp;
-  });
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + (size / 2), [=] __device__(int idx) {
+                     int dest_row = idx % m;
+                     int dest_col = idx / m;
+                     int src_row = dest_row;
+                     int src_col = (n - dest_col) - 1;
+                     m_t temp = (m_t)d_q_reversed[idx];
+                     d_q_reversed[idx] = d_q[src_col * m + src_row];
+                     d_q[src_col * m + src_row] = temp;
+                   });
 }
 /** @} */
 
@@ -147,18 +146,18 @@ void rowReverse(m_t *inout, int n_rows, int n_cols, cudaStream_t stream) {
   auto d_q_reversed = inout;
   auto counting = thrust::make_counting_iterator<int>(0);
 
-  thrust::for_each(thrust::cuda::par.on(stream),counting, counting + (size / 2),
-    [=] __device__(int idx) {
-    int dest_row = idx % m;
-    int dest_col = idx / m;
-    int src_row = (m - dest_row) - 1;
-    ;
-    int src_col = dest_col;
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + (size / 2), [=] __device__(int idx) {
+                     int dest_row = idx % m;
+                     int dest_col = idx / m;
+                     int src_row = (m - dest_row) - 1;
+                     ;
+                     int src_col = dest_col;
 
-    m_t temp = (m_t)d_q_reversed[idx];
-    d_q_reversed[idx] = d_q[src_col * m + src_row];
-    d_q[src_col * m + src_row] = temp;
-  });
+                     m_t temp = (m_t)d_q_reversed[idx];
+                     d_q_reversed[idx] = d_q[src_col * m + src_row];
+                     d_q[src_col * m + src_row] = temp;
+                   });
 }
 /** @} */
 
@@ -282,7 +281,7 @@ __global__ void getUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
  */
 template <typename m_t>
 void copyUpperTriangular(m_t *src, m_t *dst, int n_rows, int n_cols,
-                          cudaStream_t stream) {
+                         cudaStream_t stream) {
   int m = n_rows, n = n_cols;
   int k = min(m, n);
   dim3 block(64);
@@ -320,11 +319,12 @@ __global__ void copyVectorToMatrixDiagonal(m_t *vec, m_t *matrix, int m, int n,
  */
 template <typename m_t>
 void initializeDiagonalMatrix(m_t *vec, m_t *matrix, int n_rows, int n_cols,
-                                cudaStream_t stream) {
+                              cudaStream_t stream) {
   int k = min(n_rows, n_cols);
   dim3 block(64);
   dim3 grid((k + block.x - 1) / block.x);
-  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows, n_cols, k);
+  copyVectorToMatrixDiagonal<<<grid, block, 0, stream>>>(vec, matrix, n_rows,
+                                                         n_cols, k);
 }
 /** @} */
 
@@ -373,5 +373,5 @@ m_t getL2Norm(m_t *in, int size, cublasHandle_t cublasH, cudaStream_t stream) {
 }
 /** @} */
 
-}; // end namespace Matrix
-}; // end namespace MLCommon
+};  // end namespace Matrix
+};  // end namespace MLCommon

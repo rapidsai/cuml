@@ -16,12 +16,11 @@
 
 #pragma once
 
+#include "common/cuml_allocator.hpp"
+#include "common/device_buffer.hpp"
 #include "cuda_utils.h"
 #include "cusolver_wrappers.h"
 #include "matrix/matrix.h"
-#include "common/cuml_allocator.hpp"
-#include "common/device_buffer.hpp"
-
 
 namespace MLCommon {
 namespace LinAlg {
@@ -56,8 +55,8 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   CUSOLVER_CHECK(cusolverDnsyevd(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
                                  CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
-                                 n_cols, eig_vals, d_work.data(), lwork, d_dev_info.data(),
-                                 stream));
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 d_dev_info.data(), stream));
   CUDA_CHECK(cudaGetLastError());
 
   int dev_info;
@@ -67,7 +66,6 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
          "eig.h: eigensolver couldn't converge to a solution. "
          "This usually occurs when some of the features do not vary enough.");
 }
-
 
 /**
  * @defgroup overloaded function for eig decomp with Jacobi method for the
@@ -80,10 +78,12 @@ void eigDC(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
  */
 template <typename math_t>
 void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
-               math_t *eig_vals, cusolverDnHandle_t cusolverH, cudaStream_t stream) {
+               math_t *eig_vals, cusolverDnHandle_t cusolverH,
+               cudaStream_t stream) {
   math_t tol = 1.e-7;
   int sweeps = 15;
-  eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH, stream);
+  eigJacobi(in, eig_vectors, eig_vals, tol, sweeps, n_rows, n_cols, cusolverH,
+            stream);
 }
 
 /**
@@ -104,7 +104,7 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 template <typename math_t>
 void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
                math_t *eig_vals, math_t tol, int sweeps,
-               cusolverDnHandle_t cusolverH, cudaStream_t stream, 
+               cusolverDnHandle_t cusolverH, cudaStream_t stream,
                std::shared_ptr<deviceAllocator> allocator) {
   syevjInfo_t syevj_params = nullptr;
   CUSOLVER_CHECK(cusolverDnCreateSyevjInfo(&syevj_params));
@@ -121,9 +121,10 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
 
   MLCommon::Matrix::copy(in, eig_vectors, n_rows, n_cols, stream);
 
-  CUSOLVER_CHECK(cusolverDnsyevj(
-    cusolverH, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n_rows,
-    eig_vectors, n_cols, eig_vals, d_work.data(), lwork, dev_info.data(), syevj_params, stream));
+  CUSOLVER_CHECK(cusolverDnsyevj(cusolverH, CUSOLVER_EIG_MODE_VECTOR,
+                                 CUBLAS_FILL_MODE_UPPER, n_rows, eig_vectors,
+                                 n_cols, eig_vals, d_work.data(), lwork,
+                                 dev_info.data(), syevj_params, stream));
 
   int executed_sweeps;
   CUSOLVER_CHECK(
@@ -133,5 +134,5 @@ void eigJacobi(const math_t *in, int n_rows, int n_cols, math_t *eig_vectors,
   CUSOLVER_CHECK(cusolverDnDestroySyevjInfo(syevj_params));
 }
 
-}; // end namespace LinAlg
-}; // end namespace MLCommon
+};  // end namespace LinAlg
+};  // end namespace MLCommon

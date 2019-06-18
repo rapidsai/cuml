@@ -36,7 +36,6 @@ TEST_P(DistanceUnexpL1F, Result) {
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1F,
                         ::testing::ValuesIn(inputsf));
 
-
 const std::vector<DistanceInputs<double>> inputsd = {
   {0.001, 1024, 1024, 32, 1234ULL},
   {0.001, 1024, 32, 1024, 1234ULL},
@@ -51,5 +50,5 @@ TEST_P(DistanceUnexpL1D, Result) {
 INSTANTIATE_TEST_CASE_P(DistanceTests, DistanceUnexpL1D,
                         ::testing::ValuesIn(inputsd));
 
-} // end namespace Distance
-} // end namespace MLCommon
+}  // end namespace Distance
+}  // end namespace MLCommon
