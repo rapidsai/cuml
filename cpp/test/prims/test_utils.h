@@ -157,6 +157,38 @@ template <typename T, typename L>
 /** @} */
 
 /*
+ * @brief Helper function to compare a device n-D arrays with an expected array
+ * on the host, using a custom comparison
+ * @tparam T the data type of the arrays
+ * @tparam L the comparator lambda or object function
+ * @param expected_h host array of expected value(s)
+ * @param actual_d device array actual values
+ * @param eq_compare the comparator
+ * @param stream cuda stream
+ * @return the testing assertion to be later used by ASSERT_TRUE/EXPECT_TRUE
+ */
+template <typename T, typename L>
+::testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
+                                       size_t size, L eq_compare,
+                                       cudaStream_t stream = 0) {
+  std::shared_ptr<T> act_h(new T[size]);
+  updateHost<T>(act_h.get(), actual_d, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  bool ok = true;
+  auto fail = ::testing::AssertionFailure();
+  for (size_t i(0); i < size; ++i) {
+    auto exp = expected_h[i];
+    auto act = act_h.get()[i];
+    if (!eq_compare(exp, act)) {
+      ok  = false;
+      fail<<"actual=" << act << " != expected=" << exp << " @" << i <<"; ";
+    }
+  }
+  if (!ok) return fail;
+  return ::testing::AssertionSuccess();
+}
+
+/*
  * @brief Helper function to compare diagonal values of a 2D matrix
  * @tparam T the data type of the arrays
  * @tparam L the comparator lambda or object function
