@@ -41,6 +41,7 @@
 - PR #695: prims: Refactor pairwise distance
 - PR #707: Added stress test and updated documentation for RF 
 - PR #701: Added emacs temporary file patterns to .gitignore
+- PR #606: C++: Added tests for host_buffer and improved device_buffer and host_buffer implementation
 
 ## Bug Fixes
 - PR #584: Added missing virtual destructor to deviceAllocator and hostAllocator
