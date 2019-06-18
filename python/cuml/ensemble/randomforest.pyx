@@ -21,6 +21,7 @@
 
 import ctypes
 import cupy
+import cudf
 import numpy as np
 
 from numba import cuda
@@ -171,12 +172,13 @@ cdef class RandomForest_impl():
         if self.rf_classifier64 != NULL:
             del self.rf_classifier64
 
-        if y.dtype != np.int32:
+        y_m, y_ptr, _, _, y_dtype = input_to_dev_array(y)
+
+        if y_dtype != np.int32:
             raise TypeError(" The labels need to have dtype = np.int32")
 
         X_m, X_ptr, n_rows, self.n_cols, self.dtype = \
             input_to_dev_array(X, order='F')
-        y_m, y_ptr, _, _, _ = input_to_dev_array(y)
 
         cdef cumlHandle* handle_ =\
             <cumlHandle*><size_t>self.handle.getHandle()
@@ -352,29 +354,37 @@ class RandomForestClassifier(Base):
     Parameters
     -----------
 
-    n_estimators : number of trees in the forest. default = 10
+    n_estimators : int (default = 10)
+                   number of trees in the forest.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
-    split_algo : The type of algorithm to be used to create the trees.
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END.
-                 default = 0
-    bootstrap : Control bootstrapping.
+             If it is None, a new one is created just for this class.
+    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
+                 (default = 0)
+                 The type of algorithm to be used to create the trees.
+    bootstrap : boolean (default = True)
+                Control bootstrapping.
                 If set, each tree in the forest is built
                 on a bootstrapped sample with replacement.
                 If false, sampling without replacement is done.
-    bootstrap_features : Control bootstrapping for features.
+    bootstrap_features : boolean (default = False)
+                         Control bootstrapping for features.
                          If features are drawn with or without replacement
-    n_trees : Number of decision trees in the random forest.
-    rows_sample : Ratio of dataset rows used while fitting each tree.
-    max_depth : Maximum tree depth. Unlimited (i.e, until leaves are pure),
-                if -1
-    max_leaves : Maximum leaf nodes per tree. Soft constraint. Unlimited,
-                 if -1
-    max_features : Ratio of number of features (columns) to consider
-                   per node split
-    n_bins :  Number of bins used by the split algorithm
-    min_rows_per_node : The minimum number of samples (rows) needed
-                        to split a node
+    rows_sample : float (default = 1.0)
+                  Ratio of dataset rows used while fitting each tree.
+    max_depth : int (default = -1)
+                Maximum tree depth. Unlimited (i.e, until leaves are pure),
+                if -1.
+    max_leaves : int (default = -1)
+                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
+                 if -1.
+    max_features : float (default = 1.0)
+                   Ratio of number of features (columns) to consider
+                   per node split.
+    n_bins :  int (default = 8)
+              Number of bins used by the split algorithm.
+    min_rows_per_node : int (default = 2)
+                        The minimum number of samples (rows) needed
+                        to split a node.
 
     """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
@@ -438,7 +448,7 @@ class RandomForestClassifier(Base):
         ----------
         X : array-like (device or host) shape = (n_samples, n_features)
             Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: NumPy ndarray, Numba device
+            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
             ndarray, cuda array interface compliant array like CuPy
         y : array-like (device or host) shape = (n_samples, 1)
             Dense vector (int) of shape (n_samples, 1).
@@ -490,7 +500,12 @@ class RandomForestClassifier(Base):
         return self._impl.cross_validate(X, y)
 
     def get_params(self, deep=True):
-
+        """
+        Sklearn style return parameter state
+        Parameters
+        -----------
+        deep : boolean (default = True)
+        """
         params = dict()
         self.variables = ['n_estimators', 'max_depth', 'handle',
                           'max_features', 'n_bins',
@@ -504,7 +519,12 @@ class RandomForestClassifier(Base):
         return params
 
     def set_params(self, **params):
-
+        """
+        Sklearn style set parameter state to dictionary of params.
+        Parameters
+        -----------
+        params : dict of new params
+        """
         if not params:
             return self
         for key, value in params.items():
