@@ -137,23 +137,24 @@ TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
             momentum = post_momentum;
             // Divide perplexities
             const float div = 1.0f / early_exaggeration;
-            array_multiply(VAL, NNZ, div, stream);
+            MLCommon::LinAlg::scalarMultiply(VAL, (const float*) VAL, div, NNZ, stream);
         }
         // Get norm(Y)
-        get_norm_fast(Y, norm, n, k, stream, gridSize_N, blockSize_N);
+        MLCommon::LinAlg::rowNorm(norm, Y, n_components, n, MLCommon::LinAlg::L2Norm, false, stream);
+        //TSNE::get_norm_fast(Y, norm, n, n_components, stream, gridSize_N, blockSize_N);
         
         // Fast compute attractive forces from COO matrix
-        attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
+        TSNE::attractive_fast(VAL, COL, ROW, Y, norm, attract, NNZ, n, n_components, stream,
             gridSize_NNZ, blockSize_NNZ);
 
         // Fast compute repulsive forces
-        Z = repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
+        Z = TSNE::repulsive_fast(Y, repel, norm, Q_sum, n, n_components, stream);
         if (verbose && iter % 100 == 0)
             printf("[Info]  Z at iter = %d is %lf.\n", iter, Z);
 
         // Integrate forces with momentum
-        apply_forces(attract, means, repel, Y, iY, gains, n, k, Z, min_gain, momentum, eta, stream,
-            gridSize_dimN, blockSize_dimN);
+        TSNE::apply_forces(attract, means, repel, Y, iY, gains, n, n_components, Z, min_gain, 
+            momentum, eta, stream, gridSize_dimN, blockSize_dimN);
     }
 
     printf("[Info]  TSNE has finished!\n");
@@ -164,12 +165,12 @@ TSNE_fit(const cumlHandle &handle, const float *X, float *Y, const int n,
     d_alloc->deallocate(Q_sum, sizeof(float) * n, stream);
     d_alloc->deallocate(sum, sizeof(double), stream);
 
-    d_alloc->deallocate(attract, sizeof(float) * n * k, stream);
-    d_alloc->deallocate(repel, sizeof(float) * n * k, stream);
+    d_alloc->deallocate(attract, sizeof(float) * n * n_components, stream);
+    d_alloc->deallocate(repel, sizeof(float) * n * n_components, stream);
 
-    d_alloc->deallocate(iY, sizeof(float) * n * k, stream);
-    d_alloc->deallocate(gains, sizeof(float) * n * k, stream);
-    d_alloc->deallocate(means, sizeof(float) * k, stream);
+    d_alloc->deallocate(iY, sizeof(float) * n * n_components, stream);
+    d_alloc->deallocate(gains, sizeof(float) * n * n_components, stream);
+    d_alloc->deallocate(means, sizeof(float) * n_components, stream);
 }
 
 

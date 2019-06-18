@@ -20,6 +20,7 @@
 #include <math.h>
 #include "utils.h"
 #include "linalg/eltwise.h"
+#include "linalg/matrix_vector_op.h"
 
 
 namespace ML {
@@ -292,21 +293,21 @@ float repulsive_fast(const float *__restrict__ Y,
     		Y, repel, norm, sum_Z, n, dim);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    thrust_t<float> begin = to_thrust(sum_Z);
-    double Z = (double) thrust::reduce(__STREAM__, begin, begin + n);
+    thrust::device_ptr<float> begin = thrust::device_pointer_cast(sum_Z);
+    double Z = (double) thrust::reduce(thrust::cuda::par.on(stream), begin, begin + n);
     return 1.0f / (2.0f * Z) + FLT_EPSILON;
 }
 
 
 
-__global__ void
-__subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
-						const int n, const int dim) {
-	// Y is F-Contiguous
-	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
-	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
-	if (i < n && j < dim) Y[j*n + i] -= means[j];
-}
+// __global__ void
+// __subtract_mean_fast(float * __restrict__ Y, const float * __restrict__ means, 
+// 						const int n, const int dim) {
+// 	// Y is F-Contiguous
+// 	const int i = (blockIdx.x * blockDim.x) + threadIdx.x;  // for every item in col
+// 	const int j = (blockIdx.y * blockDim.y) + threadIdx.y;  // for every col
+// 	if (i < n && j < dim) Y[j*n + i] -= means[j];
+// }
 
 __global__ void 
 __apply_forces(const float *__restrict__ attract,
@@ -356,11 +357,17 @@ void apply_forces(const float *__restrict__ attract,
 	// Divide by 1/n
 	MLCommon::LinAlg::scalarMultiply(means, (const float*) means, 1.0f/n, dim, stream);
 
+	MLCommon::LinAlg::matrixVectorOp(
+	    Y, (const float*) Y, means, dim, n, false, false,
+	    [] __device__(float a, float b) {
+	    	return a - b;
+	    }, stream);
+
 	// Subtract the mean
-	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
-	const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
-	__subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
-	CUDA_CHECK(cudaPeekAtLastError());
+	// static const dim3 threadsPerBlock(TPB_X, TPB_Y);
+	// const dim3 numBlocks(ceil(n, threadsPerBlock.x), ceil(dim, threadsPerBlock.y));
+	// __subtract_mean_fast<<<numBlocks, threadsPerBlock, 0, stream>>>(Y, means, n, dim);
+	// CUDA_CHECK(cudaPeekAtLastError());
 }
 
 
