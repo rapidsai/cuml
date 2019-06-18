@@ -354,36 +354,37 @@ class RandomForestClassifier(Base):
     Parameters
     -----------
 
-    n_estimators : number of trees in the forest.
-                   Default = 10, dtype is int.
+    n_estimators : int (default = 10)
+                   number of trees in the forest.
     handle : cuml.Handle
              If it is None, a new one is created just for this class.
-    split_algo : The type of algorithm to be used to create the trees.
-                 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END.
-                 Default = 0, dtype is int.
-    bootstrap : Control bootstrapping.
+    split_algo : 0 for HIST, 1 for GLOBAL_QUANTILE and 3 for SPLIT_ALGO_END
+                 (default = 0)
+                 The type of algorithm to be used to create the trees.
+    bootstrap : boolean (default = True)
+                Control bootstrapping.
                 If set, each tree in the forest is built
                 on a bootstrapped sample with replacement.
                 If false, sampling without replacement is done.
-                Default = True, dtype is boolean.
-    bootstrap_features : Control bootstrapping for features.
+    bootstrap_features : boolean (default = False)
+                         Control bootstrapping for features.
                          If features are drawn with or without replacement
-                         Default = False, dtype is boolean.
-    rows_sample : Ratio of dataset rows used while fitting each tree.
-                  Default = 1.0, dtype is float.
-    max_depth : Maximum tree depth. Unlimited (i.e, until leaves are pure),
+    rows_sample : float (default = 1.0)
+                  Ratio of dataset rows used while fitting each tree.
+    max_depth : int (default = -1)
+                Maximum tree depth. Unlimited (i.e, until leaves are pure),
                 if -1.
-                Default = -1, dtype is int.
-    max_leaves : Maximum leaf nodes per tree. Soft constraint. Unlimited,
+    max_leaves : int (default = -1)
+                 Maximum leaf nodes per tree. Soft constraint. Unlimited,
                  if -1.
-                 Default = -1, dtype is int.
-    max_features : Ratio of number of features (columns) to consider
-                   per node split. Default = 1.0, dtype is float
-    n_bins :  Number of bins used by the split algorithm.
-              Default = 8, dtype is int.
-    min_rows_per_node : The minimum number of samples (rows) needed
+    max_features : float (default = 1.0)
+                   Ratio of number of features (columns) to consider
+                   per node split.
+    n_bins :  int (default = 8)
+              Number of bins used by the split algorithm.
+    min_rows_per_node : int (default = 2)
+                        The minimum number of samples (rows) needed
                         to split a node.
-                        Default = 2, dtype is int
 
     """
     def __init__(self, n_estimators=10, max_depth=-1, handle=None,
