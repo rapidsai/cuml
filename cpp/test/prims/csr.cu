@@ -14,345 +14,328 @@
  * limitations under the License.
  */
 
-#include "csr.h"
 #include <gtest/gtest.h>
+#include "csr.h"
 #include "sparse/csr.h"
 
 #include "random/rng.h"
 #include "test_utils.h"
 
-#include <limits>
 #include <iostream>
+#include <limits>
 
 namespace MLCommon {
 namespace Sparse {
 
 template <typename T>
 class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
-protected:
+ protected:
   void SetUp() override {}
 
   void TearDown() override {}
 
-protected:
+ protected:
   CSRInputs<T> params;
 };
 
-const std::vector<CSRInputs<float>> inputsf = {
-  {5, 10, 5, 1234ULL}};
+const std::vector<CSRInputs<float>> inputsf = {{5, 10, 5, 1234ULL}};
 
 typedef CSRTest<float> CSRToCOO;
 TEST_P(CSRToCOO, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *ex_scan;
+  int *result, *verify;
 
-    int *ex_scan;
-    int *result, *verify;
+  int *ex_scan_h = new int[4]{0, 4, 8, 9};
+  int *verify_h = new int[10]{0, 0, 0, 0, 1, 1, 1, 1, 2, 3};
 
-    int *ex_scan_h = new int[4]{0, 4, 8, 9 };
-    int *verify_h = new int[10]{ 0, 0, 0, 0, 1, 1, 1, 1, 2, 3 };
+  allocate(verify, 10);
+  allocate(ex_scan, 4);
+  allocate(result, 10, true);
 
-    allocate(verify, 10);
-    allocate(ex_scan, 4);
-    allocate(result, 10, true);
+  updateDevice(ex_scan, ex_scan_h, 4, stream);
+  updateDevice(verify, verify_h, 10, stream);
 
-    updateDevice(ex_scan, ex_scan_h, 4, stream);
-    updateDevice(verify, verify_h, 10, stream);
+  csr_to_coo<32>(ex_scan, 4, result, 10, stream);
 
-    csr_to_coo<32>(ex_scan, 4, result, 10, stream);
+  ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 10, Compare<float>(), stream));
+  delete ex_scan_h;
+  delete verify_h;
 
-    delete ex_scan_h;
-    delete verify_h;
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
-
-    cudaStreamDestroy(stream);
-
+  cudaStreamDestroy(stream);
 }
-
 
 typedef CSRTest<float> CSRRowNormalizeMax;
 TEST_P(CSRRowNormalizeMax, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *ex_scan;
+  float *in_vals, *result, *verify;
 
-    int *ex_scan;
-    float *in_vals, *result, *verify;
+  int ex_scan_h[4] = {0, 4, 8, 9};
+  float in_vals_h[10] = {5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0};
 
-    int ex_scan_h[4] = {0, 4, 8, 9 };
-    float in_vals_h[10] = { 5.0, 1.0, 0.0, 0.0, 10.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
+  float verify_h[10] = {1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0};
 
-    float verify_h[10] =  { 1.0, 0.2, 0.0, 0.0, 1.0, 0.1, 0.0, 0.0, 1, 0.0 };
+  allocate(in_vals, 10);
+  allocate(verify, 10);
+  allocate(ex_scan, 4);
+  allocate(result, 10, true);
 
-    allocate(in_vals, 10);
-    allocate(verify, 10);
-    allocate(ex_scan, 4);
-    allocate(result, 10, true);
+  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+  updateDevice(in_vals, *&in_vals_h, 10, stream);
+  updateDevice(verify, *&verify_h, 10, stream);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-    updateDevice(in_vals, *&in_vals_h, 10, stream);
-    updateDevice(verify, *&verify_h, 10, stream);
+  csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
 
-    csr_row_normalize_max<32, float>(ex_scan, in_vals, 10, 4, result, stream);
+  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  cudaStreamDestroy(stream);
 
-    cudaStreamDestroy(stream);
-
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(in_vals));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
 
 typedef CSRTest<float> CSRRowNormalizeL1;
 TEST_P(CSRRowNormalizeL1, Result) {
+  int *ex_scan;
+  float *in_vals, *result, *verify;
 
-    int *ex_scan;
-    float *in_vals, *result, *verify;
+  int ex_scan_h[4] = {0, 4, 8, 9};
+  float in_vals_h[10] = {1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0};
 
-    int ex_scan_h[4] = {0, 4, 8, 9 };
-    float in_vals_h[10] = { 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0 };
+  float verify_h[10] = {0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0};
 
-    float verify_h[10] =  { 0.5, 0.5, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 1, 0.0 };
+  allocate(in_vals, 10);
+  allocate(verify, 10);
+  allocate(ex_scan, 4);
+  allocate(result, 10, true);
 
-    allocate(in_vals, 10);
-    allocate(verify, 10);
-    allocate(ex_scan, 4);
-    allocate(result, 10, true);
+  updateDevice(ex_scan, *&ex_scan_h, 4, 0);
+  updateDevice(in_vals, *&in_vals_h, 10, 0);
+  updateDevice(verify, *&verify_h, 10, 0);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4, 0);
-    updateDevice(in_vals, *&in_vals_h, 10, 0);
-    updateDevice(verify, *&verify_h, 10, 0);
+  csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
+  cudaDeviceSynchronize();
 
-    csr_row_normalize_l1<32, float>(ex_scan, in_vals, 10, 4, result, 0);
-    cudaDeviceSynchronize();
+  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
-
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(in_vals));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
 
 typedef CSRTest<float> CSRSum;
 TEST_P(CSRSum, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *ex_scan, *ind_ptr_a, *ind_ptr_b, *verify_indptr;
+  float *in_vals_a, *in_vals_b, *verify;
 
-    int *ex_scan, *ind_ptr_a, *ind_ptr_b,  *verify_indptr;
-    float *in_vals_a, *in_vals_b, *verify;
+  int ex_scan_h[4] = {0, 4, 8, 9};
 
-    int ex_scan_h[4] = {0, 4, 8, 9 };
+  int indptr_a_h[10] = {1, 2, 3, 4, 1, 2, 3, 5, 0, 1};
+  int indptr_b_h[10] = {1, 2, 5, 4, 0, 2, 3, 5, 1, 0};
 
-    int indptr_a_h[10] = { 1, 2, 3, 4, 1, 2, 3, 5, 0, 1 };
-    int indptr_b_h[10] = { 1, 2, 5, 4, 0, 2, 3, 5, 1, 0 };
+  float in_vals_h[10] = {1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0};
 
-    float in_vals_h[10] = { 1.0, 1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, 1.0, 1.0 };
+  float verify_h[14] = {2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0,
+                        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+  int verify_indptr_h[14] = {1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0};
 
-    float verify_h[14] =  { 2.0, 2.0, 0.5, 1.0, 0.5, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0 };
-    int verify_indptr_h[14] = { 1, 2, 3, 4, 5, 1, 2, 3, 5, 0, 0, 1, 1, 0 };
+  allocate(in_vals_a, 10);
+  allocate(in_vals_b, 10);
+  allocate(verify, 14);
+  allocate(ex_scan, 4);
+  allocate(verify_indptr, 14);
 
-    allocate(in_vals_a, 10);
-    allocate(in_vals_b, 10);
-    allocate(verify, 14);
-    allocate(ex_scan, 4);
-    allocate(verify_indptr, 14);
+  allocate(ind_ptr_a, 10);
+  allocate(ind_ptr_b, 10);
 
-    allocate(ind_ptr_a, 10);
-    allocate(ind_ptr_b, 10);
+  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+  updateDevice(in_vals_a, *&in_vals_h, 10, stream);
+  updateDevice(in_vals_b, *&in_vals_h, 10, stream);
+  updateDevice(verify, *&verify_h, 14, stream);
+  updateDevice(verify_indptr, *&verify_indptr_h, 14, stream);
+  updateDevice(ind_ptr_a, *&indptr_a_h, 10, stream);
+  updateDevice(ind_ptr_b, *&indptr_b_h, 10, stream);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-    updateDevice(in_vals_a, *&in_vals_h, 10, stream);
-    updateDevice(in_vals_b, *&in_vals_h, 10, stream);
-    updateDevice(verify, *&verify_h, 14, stream);
-    updateDevice(verify_indptr, *&verify_indptr_h, 14, stream);
-    updateDevice(ind_ptr_a, *&indptr_a_h, 10, stream);
-    updateDevice(ind_ptr_b, *&indptr_b_h, 10, stream);
+  int *result_ind;
+  allocate(result_ind, 4);
 
-    int *result_ind;
-    allocate(result_ind, 4);
+  int nnz =
+    csr_add_calc_inds<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
+                                 ind_ptr_b, in_vals_b, 10, 4, result_ind, 0);
 
-    int nnz = csr_add_calc_inds<float, 32>(
-        ex_scan, ind_ptr_a, in_vals_a, 10,
-        ex_scan, ind_ptr_b, in_vals_b, 10,
-        4, result_ind,
-        0
-    );
+  int *result_indptr;
+  float *result_val;
+  allocate(result_indptr, nnz);
+  allocate(result_val, nnz);
 
-    int *result_indptr;
-    float *result_val;
-    allocate(result_indptr, nnz);
-    allocate(result_val, nnz);
+  csr_add_finalize<float, 32>(ex_scan, ind_ptr_a, in_vals_a, 10, ex_scan,
+                              ind_ptr_b, in_vals_b, 10, 4, result_ind,
+                              result_indptr, result_val, 0);
 
-    csr_add_finalize<float, 32>(
-        ex_scan, ind_ptr_a, in_vals_a, 10,
-        ex_scan, ind_ptr_b, in_vals_b, 10,
-        4, result_ind, result_indptr, result_val,
-        0
-    );
+  ASSERT_TRUE(nnz == 14);
 
-    ASSERT_TRUE(nnz==14);
+  ASSERT_TRUE(devArrMatch<float>(verify, result_val, nnz, Compare<float>()));
+  ASSERT_TRUE(
+    devArrMatch<int>(verify_indptr, result_indptr, nnz, Compare<int>()));
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result_val, nnz, Compare<float>()));
-    ASSERT_TRUE(devArrMatch<int>(verify_indptr, result_indptr, nnz, Compare<int>()));
+  cudaStreamDestroy(stream);
 
-    cudaStreamDestroy(stream);
-
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(in_vals_a));
-    CUDA_CHECK(cudaFree(in_vals_b));
-    CUDA_CHECK(cudaFree(ind_ptr_a));
-    CUDA_CHECK(cudaFree(ind_ptr_b));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result_indptr));
-    CUDA_CHECK(cudaFree(result_val));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(in_vals_a));
+  CUDA_CHECK(cudaFree(in_vals_b));
+  CUDA_CHECK(cudaFree(ind_ptr_a));
+  CUDA_CHECK(cudaFree(ind_ptr_b));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result_indptr));
+  CUDA_CHECK(cudaFree(result_val));
 }
 
 typedef CSRTest<float> CSRRowOpTest;
 TEST_P(CSRRowOpTest, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *ex_scan;
+  float *result, *verify;
 
-    int *ex_scan;
-    float *result, *verify;
+  int ex_scan_h[4] = {0, 4, 8, 9};
 
-    int ex_scan_h[4] = {0, 4, 8, 9 };
+  float verify_h[10] = {0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0};
 
-    float verify_h[10] =  { 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 2.0, 3.0 };
+  allocate(verify, 10);
+  allocate(ex_scan, 4);
+  allocate(result, 10, true);
 
-    allocate(verify, 10);
-    allocate(ex_scan, 4);
-    allocate(result, 10, true);
+  updateDevice(ex_scan, *&ex_scan_h, 4, stream);
+  updateDevice(verify, *&verify_h, 10, stream);
 
-    updateDevice(ex_scan, *&ex_scan_h, 4, stream);
-    updateDevice(verify, *&verify_h, 10, stream);
+  csr_row_op<int, 32>(
+    ex_scan, 4, 10,
+    [result] __device__(int row, int start_idx, int stop_idx) {
+      for (int i = start_idx; i < stop_idx; i++) result[i] = row;
+    },
+    stream);
 
-    csr_row_op<int, 32>(ex_scan, 4, 10,
-            [result] __device__ (int row, int start_idx, int stop_idx) {
-                for(int i = start_idx; i < stop_idx; i++ )
-                    result[i] = row;
-            }, stream);
+  ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
 
-    ASSERT_TRUE(devArrMatch<float>(verify, result, 10, Compare<float>()));
+  cudaStreamDestroy(stream);
 
-    cudaStreamDestroy(stream);
-
-    CUDA_CHECK(cudaFree(ex_scan));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(ex_scan));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
 
 typedef CSRTest<float> AdjGraphTest;
 TEST_P(AdjGraphTest, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *row_ind, *result, *verify;
+  bool *adj;
 
-    int *row_ind, *result, *verify;
-    bool *adj;
+  int row_ind_h[3] = {0, 3, 6};
+  bool adj_h[18] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-    int row_ind_h[3] = {0, 3, 6 };
-    bool adj_h[18] = {  1,    1,    1,    1,    1,    1,    1,    1,    1,    0,    0,    0,    0,    0,    0,    0,    0,    0 };
+  int verify_h[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
 
-    int verify_h[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
+  allocate(row_ind, 3);
+  allocate(adj, 18);
+  allocate(result, 9, true);
+  allocate(verify, 9);
 
-    allocate(row_ind, 3);
-    allocate(adj, 18);
-    allocate(result, 9, true);
-    allocate(verify, 9);
+  updateDevice(row_ind, *&row_ind_h, 3, stream);
+  updateDevice(adj, *&adj_h, 18, stream);
+  updateDevice(verify, *&verify_h, 9, stream);
 
-    updateDevice(row_ind, *&row_ind_h, 3, stream);
-    updateDevice(adj, *&adj_h, 18, stream);
-    updateDevice(verify, *&verify_h, 9, stream);
+  csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
 
-    csr_adj_graph_batched<int, 32>(row_ind, 6, 9, 3, adj, result, stream);
+  ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 9, Compare<int>()));
+  cudaStreamDestroy(stream);
 
-    cudaStreamDestroy(stream);
-
-    CUDA_CHECK(cudaFree(row_ind));
-    CUDA_CHECK(cudaFree(adj));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(row_ind));
+  CUDA_CHECK(cudaFree(adj));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
 
 typedef CSRTest<float> WeakCCTest;
 TEST_P(WeakCCTest, Result) {
+  cudaStream_t stream;
+  cudaStreamCreate(&stream);
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+  int *row_ind, *row_ind_ptr, *result, *verify;
 
-    int *row_ind, *row_ind_ptr, *result, *verify;
+  int row_ind_h1[3] = {0, 3, 6};
+  int row_ind_ptr_h1[9] = {0, 1, 2, 0, 1, 2, 0, 1, 2};
+  int verify_h1[6] = {1, 1, 1, 2147483647, 2147483647, 2147483647};
 
-    int row_ind_h1[3] = {0, 3, 6 };
-    int row_ind_ptr_h1[9] =  { 0,    1,    2,    0,    1,    2,    0,    1,    2  };
-    int verify_h1[6] =  {    1,    1,    1, 2147483647, 2147483647, 2147483647  };
+  int row_ind_h2[3] = {0, 2, 4};
+  int row_ind_ptr_h2[5] = {3, 4, 3, 4, 5};
+  int verify_h2[6] = {1, 1, 1, 5, 5, 5};
 
-    int row_ind_h2[3] = {0, 2, 4 };
-    int row_ind_ptr_h2[5] =  { 3, 4, 3, 4, 5  };
-    int verify_h2[6] =  { 1, 1, 1, 5, 5, 5 };
+  allocate(row_ind, 3);
+  allocate(row_ind_ptr, 9);
+  allocate(result, 9, true);
+  allocate(verify, 9);
 
-    allocate(row_ind, 3);
-    allocate(row_ind_ptr, 9);
-    allocate(result, 9, true);
-    allocate(verify, 9);
+  WeakCCState<int> state(6);
 
-    WeakCCState<int> state(6);
-
-    /**
+  /**
      * Run batch #1
      */
-    updateDevice(row_ind, *&row_ind_h1, 3, stream);
-    updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
-    updateDevice(verify, *&verify_h1, 6, stream);
+  updateDevice(row_ind, *&row_ind_h1, 3, stream);
+  updateDevice(row_ind_ptr, *&row_ind_ptr_h1, 9, stream);
+  updateDevice(verify, *&verify_h1, 6, stream);
 
-    weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state, stream);
+  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 9, 6, 0, 3, &state,
+                           stream);
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+  ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
-    /**
+  /**
      * Run batch #2
      */
-    updateDevice(row_ind, *&row_ind_h2, 3, stream);
-    updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
-    updateDevice(verify, *&verify_h2, 6, stream);
+  updateDevice(row_ind, *&row_ind_h2, 3, stream);
+  updateDevice(row_ind_ptr, *&row_ind_ptr_h2, 5, stream);
+  updateDevice(verify, *&verify_h2, 6, stream);
 
-    weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state, stream);
+  weak_cc_batched<int, 32>(result, row_ind, row_ind_ptr, 5, 6, 4, 3, &state,
+                           stream);
 
-    ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
+  ASSERT_TRUE(devArrMatch<int>(verify, result, 6, Compare<int>()));
 
-    cudaStreamDestroy(stream);
+  cudaStreamDestroy(stream);
 
-    CUDA_CHECK(cudaFree(row_ind));
-    CUDA_CHECK(cudaFree(row_ind_ptr));
-    CUDA_CHECK(cudaFree(verify));
-    CUDA_CHECK(cudaFree(result));
+  CUDA_CHECK(cudaFree(row_ind));
+  CUDA_CHECK(cudaFree(row_ind_ptr));
+  CUDA_CHECK(cudaFree(verify));
+  CUDA_CHECK(cudaFree(result));
 }
 
-INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTest,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(CSRTests, WeakCCTest, ::testing::ValuesIn(inputsf));
 
+INSTANTIATE_TEST_CASE_P(CSRTests, AdjGraphTest, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(CSRTests, AdjGraphTest,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowOpTest, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowOpTest,
-                        ::testing::ValuesIn(inputsf));
-
-
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRToCOO,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRToCOO, ::testing::ValuesIn(inputsf));
 
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeMax,
                         ::testing::ValuesIn(inputsf));
@@ -360,7 +343,6 @@ INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeMax,
 INSTANTIATE_TEST_CASE_P(CSRTests, CSRRowNormalizeL1,
                         ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(CSRTests, CSRSum,
-                        ::testing::ValuesIn(inputsf));
-}}
-
+INSTANTIATE_TEST_CASE_P(CSRTests, CSRSum, ::testing::ValuesIn(inputsf));
+}  // namespace Sparse
+}  // namespace MLCommon

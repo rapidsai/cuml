@@ -16,51 +16,51 @@
 
 #pragma once
 #include <utils.h>
-#include "common/cumlHandle.hpp"
 #include <common/device_buffer.hpp>
 #include <common/host_buffer.hpp>
+#include "common/cumlHandle.hpp"
 
-template<class T, class L>
-struct TemporaryMemory
-{
-	// Labels after boostrapping
-	MLCommon::device_buffer<L> *sampledlabels;
+template <class T, class L>
+struct TemporaryMemory {
+  // Labels after boostrapping
+  MLCommon::device_buffer<L> *sampledlabels;
 
-	// Used for gini histograms (root tree node)
-	MLCommon::device_buffer<int> *d_hist;
-	MLCommon::host_buffer<int> *h_hist;
+  // Used for gini histograms (root tree node)
+  MLCommon::device_buffer<int> *d_hist;
+  MLCommon::host_buffer<int> *h_hist;
 
-	//Host/Device histograms and device minmaxs
-	MLCommon::device_buffer<T> *d_globalminmax;
-	MLCommon::device_buffer<int> *d_histout;
-	MLCommon::device_buffer<unsigned int> *d_colids;
-	MLCommon::host_buffer<int> *h_histout;
-	MLCommon::device_buffer<T> *d_mseout, *d_predout;
-	MLCommon::host_buffer<T> *h_mseout, *h_predout;
+  //Host/Device histograms and device minmaxs
+  MLCommon::device_buffer<T> *d_globalminmax;
+  MLCommon::device_buffer<int> *d_histout;
+  MLCommon::device_buffer<unsigned int> *d_colids;
+  MLCommon::host_buffer<int> *h_histout;
+  MLCommon::device_buffer<T> *d_mseout, *d_predout;
+  MLCommon::host_buffer<T> *h_mseout, *h_predout;
 
-	//Below pointers are shared for split functions
-	MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
-	MLCommon::host_buffer<int> *nrowsleftright;
-	MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
-	size_t split_temp_storage_bytes = 0;
+  //Below pointers are shared for split functions
+  MLCommon::device_buffer<char> *d_flags_left, *d_flags_right;
+  MLCommon::host_buffer<int> *nrowsleftright;
+  MLCommon::device_buffer<char> *d_split_temp_storage = nullptr;
+  size_t split_temp_storage_bytes = 0;
 
-	MLCommon::device_buffer<int> *d_num_selected_out;
-	MLCommon::device_buffer<unsigned int> *temprowids;
-	MLCommon::device_buffer<T> *question_value, *temp_data;
+  MLCommon::device_buffer<int> *d_num_selected_out;
+  MLCommon::device_buffer<unsigned int> *temprowids;
+  MLCommon::device_buffer<T> *question_value, *temp_data;
 
-	//Total temp mem
-	size_t totalmem = 0;
+  //Total temp mem
+  size_t totalmem = 0;
 
-	//CUDA stream
-	cudaStream_t stream;
+  //CUDA stream
+  cudaStream_t stream;
 
-	//For quantiles
-	MLCommon::device_buffer<T> *d_quantile = nullptr;
+  //For quantiles
+  MLCommon::device_buffer<T> *d_quantile = nullptr;
 
-	const ML::cumlHandle_impl& ml_handle;
+  const ML::cumlHandle_impl &ml_handle;
 
-	TemporaryMemory(const ML::cumlHandle_impl& handle, int N, int Ncols, int maxstr, int n_unique, int n_bins, const int split_algo);
+  TemporaryMemory(const ML::cumlHandle_impl &handle, int N, int Ncols,
+                  int maxstr, int n_unique, int n_bins, const int split_algo);
 
-	void print_info();
-	~TemporaryMemory();
+  void print_info();
+  ~TemporaryMemory();
 };

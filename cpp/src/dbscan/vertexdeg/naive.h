@@ -17,8 +17,8 @@
 #pragma once
 
 #include <cuda_utils.h>
-#include "pack.h"
 #include <common/cumlHandle.hpp>
+#include "pack.h"
 
 namespace Dbscan {
 namespace VertexDeg {
@@ -38,41 +38,44 @@ static const int TPB_Y = 8;
  * @param N number of rows
  * @param D number of columns
  */
-template <typename Type>
-__global__ void vertex_degree_kernel(Pack<Type> data, int startVertexId, int batchSize) {
-    const Type Zero = (Type)0;
-    int row = (blockIdx.y * TPB_Y) + threadIdx.y;
-    int col = (blockIdx.x * TPB_X) + threadIdx.x;
-    int N = data.N;
-    if((row >= batchSize) || (col >= N))
-        return;
-    Type eps = data.eps;
-    Type eps2 = eps * eps;
-    Type sum = Zero;
-    int D = data.D;
-    Type *x = data.x;
-    bool *adj = data.adj;
-    int *vd = data.vd;
-    for(int d=0;d<D;++d) {
-        Type a = __ldg(x+(row+startVertexId)*D+d);
-        Type b = __ldg(x+col*D+d);
-        Type diff = a - b;
-        sum += (diff * diff);
-    }
-    int res = (sum <= eps2);
-    adj[row*N+col] = res;
-    atomicAdd(vd+row, res);
-    atomicAdd(vd+batchSize, res);
+template <typename Type, typename Index_ = int>
+__global__ void vertex_degree_kernel(Pack<Type, Index_> data,
+                                     Index_ startVertexId, Index_ batchSize) {
+  const Type Zero = (Type)0;
+  Index_ row = (blockIdx.y * TPB_Y) + threadIdx.y;
+  Index_ col = (blockIdx.x * TPB_X) + threadIdx.x;
+  Index_ N = data.N;
+  if ((row >= batchSize) || (col >= N)) return;
+  Type eps = data.eps;
+  Type eps2 = eps * eps;
+  Type sum = Zero;
+  Index_ D = data.D;
+  Type *x = data.x;
+  bool *adj = data.adj;
+  int *vd = data.vd;
+  for (Index_ d = 0; d < D; ++d) {
+    Type a = __ldg(x + (row + startVertexId) * D + d);
+    Type b = __ldg(x + col * D + d);
+    Type diff = a - b;
+    sum += (diff * diff);
+  }
+  int res = (sum <= eps2);
+  adj[row * N + col] = res;
+  atomicAdd(vd + row, res);
+  atomicAdd(vd + batchSize, res);
 }
 
-template <typename Type>
-void launcher(Pack<Type> data, int startVertexId, int batchSize, cudaStream_t stream) {
-    dim3 grid(ceildiv(data.N, TPB_X), ceildiv(batchSize, TPB_Y), 1);
-    dim3 blk(TPB_X, TPB_Y, 1);
-    data.resetArray(stream, batchSize+1);
-    vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId, batchSize);
+template <typename Type, typename Index_ = int>
+void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
+              cudaStream_t stream) {
+  dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),
+            1);
+  dim3 blk(TPB_X, TPB_Y, 1);
+  data.resetArray(stream, batchSize + 1);
+  vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId,
+                                                 batchSize);
 }
 
-} // namespace Naive
-} // namespace AdjGraph
-} // namespace Dbscan
+}  // namespace Naive
+}  // namespace VertexDeg
+}  // namespace Dbscan

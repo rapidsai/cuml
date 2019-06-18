@@ -48,8 +48,8 @@ void naiveEltwise2DAdd(int rows, int cols, const Type *aPtr, const Type *bPtr,
                        cudaStream_t stream) {
   static const int TPB = 64;
   int nblks = ceildiv(rows * cols, TPB);
-  naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(rows, cols, aPtr, bPtr, cPtr,
-                                                dPtr, alpha, beta);
+  naiveEltwise2DAddKernel<Type><<<nblks, TPB, 0, stream>>>(
+    rows, cols, aPtr, bPtr, cPtr, dPtr, alpha, beta);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -66,7 +66,6 @@ template <typename T>
   return os;
 }
 
-
 template <typename Type>
 void WrapperEltwise2d(int rows, int cols, const Type *aPtr, const Type *bPtr,
                       const Type *cPtr, Type *dPtr, Type alpha, Type beta) {
@@ -76,7 +75,7 @@ void WrapperEltwise2d(int rows, int cols, const Type *aPtr, const Type *bPtr,
 
 template <typename T>
 class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
-protected:
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
     Random::Rng r(params.seed);
@@ -104,7 +103,7 @@ protected:
     CUDA_CHECK(cudaFree(out));
   }
 
-protected:
+ protected:
   Eltwise2dInputs<T> params;
   T *in1, *in2, *out_ref, *out;
 };
@@ -133,5 +132,5 @@ INSTANTIATE_TEST_CASE_P(Eltwise2dTests, Eltwise2dTestF,
 INSTANTIATE_TEST_CASE_P(Eltwise2dTests, Eltwise2dTestD,
                         ::testing::ValuesIn(inputsd2));
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

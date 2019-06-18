@@ -19,7 +19,6 @@
 #include "cuda_utils.h"
 #include "linalg/binary_op.h"
 
-
 namespace MLCommon {
 namespace LinAlg {
 
@@ -40,7 +39,6 @@ void naiveAdd(Type *out, const Type *in1, const Type *in2, IdxType len) {
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
 template <typename T, typename IdxType = int>
 struct BinaryOpInputs {
   T tolerance;
@@ -54,5 +52,5 @@ template <typename T, typename IdxType = int>
   return os;
 }
 
-} // end namespace LinAlg
-} // end namespace MLCommon
+}  // end namespace LinAlg
+}  // end namespace MLCommon

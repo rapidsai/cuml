@@ -17,8 +17,8 @@
 #pragma once
 
 #include <stdint.h>
-#include "math_constants.h"
 #include <iomanip>
+#include "math_constants.h"
 #include "utils.h"
 
 namespace MLCommon {
@@ -80,35 +80,41 @@ DI void forEach(int num, L lambda) {
   const int numThreads = blockDim.x * gridDim.x;
 #pragma unroll
   for (int itr = 0; itr < ItemsPerThread; ++itr, idx += numThreads) {
-    if (idx < num)
-      lambda(idx, itr);
+    if (idx < num) lambda(idx, itr);
   }
 }
 
-template<typename T>
-std::string arr2Str(const T *arr, int size, std::string name, cudaStream_t stream, int width = 4) {
+template <typename T>
+std::string arr2Str(const T *arr, int size, std::string name,
+                    cudaStream_t stream, int width = 4) {
+  std::stringstream ss;
 
-    std::stringstream ss;
+  T *arr_h = (T *)malloc(size * sizeof(T));
+  updateHost(arr_h, arr, size, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    T* arr_h = (T*)malloc(size * sizeof(T));
-    updateHost(arr_h, arr, size, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+  ss << name << " = [ ";
+  for (int i = 0; i < size; i++) {
+    ss << std::setw(width) << arr_h[i];
 
-    ss << name << " = [ ";
-    for(int i = 0; i < size; i++) {
-        ss << std::setw(width) << arr_h[i];
+    if (i < size - 1) ss << ", ";
+  }
+  ss << " ]" << std::endl;
 
-        if(i < size-1)
-            ss << ", ";
-    }
-    ss << " ]" << std::endl;
+  free(arr_h);
 
-    free(arr_h);
-
-    return ss.str();
+  return ss.str();
 }
 
+template <typename T>
+void ASSERT_DEVICE_MEM(T *ptr, std::string name) {
+  cudaPointerAttributes s_att;
+  cudaError_t s_err = cudaPointerGetAttributes(&s_att, ptr);
 
+  if (s_err != 0 || s_att.device == -1)
+    std::cout << "Invalid device pointer encountered in " << name
+              << ". device=" << s_att.device << ", err=" << s_err << std::endl;
+};
 
 /** number of threads per warp */
 static const int WarpSize = 32;
@@ -127,10 +133,10 @@ DI int laneId() {
  * @param b second input
  */
 template <typename T>
-HDI void swap(T& a, T& b) {
-    T tmp = a;
-    a = b;
-    b = tmp;
+HDI void swap(T &a, T &b) {
+  T tmp = a;
+  a = b;
+  b = tmp;
 }
 
 /** Device function to have atomic add support for older archs */
@@ -153,53 +159,51 @@ DI void myAtomicAdd(double *address, double val) {
 }
 #else
 #define myAtomicAdd(a, b) atomicAdd(a, b)
-#endif // __CUDA_ARCH__
+#endif  // __CUDA_ARCH__
 
-template<typename T, typename ReduceLambda>
+template <typename T, typename ReduceLambda>
 DI void myAtomicReduce(T *address, T val, ReduceLambda op);
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(double *address, double val, ReduceLambda op) {
   unsigned long long int *address_as_ull = (unsigned long long int *)address;
   unsigned long long int old = *address_as_ull, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address_as_ull, assumed,
-                    __double_as_longlong( op(val, __longlong_as_double(assumed)) ));
+    old =
+      atomicCAS(address_as_ull, assumed,
+                __double_as_longlong(op(val, __longlong_as_double(assumed))));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(float *address, float val, ReduceLambda op) {
   unsigned int *address_as_uint = (unsigned int *)address;
   unsigned int old = *address_as_uint, assumed;
   do {
     assumed = old;
     old = atomicCAS(address_as_uint, assumed,
-                    __float_as_uint( op(val, __uint_as_float(assumed)) ));
+                    __float_as_uint(op(val, __uint_as_float(assumed))));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(int *address, int val, ReduceLambda op) {
   int old = *address, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address, assumed,
-                    op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
 
-template<typename ReduceLambda>
+template <typename ReduceLambda>
 DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
   long long old = *address, assumed;
   do {
     assumed = old;
-    old = atomicCAS(address, assumed,
-                    op(val, assumed));
+    old = atomicCAS(address, assumed, op(val, assumed));
   } while (assumed != old);
 }
-
 
 /**
  * @brief Provide atomic min operation.
@@ -207,7 +211,7 @@ DI void myAtomicReduce(long long *address, long long val, ReduceLambda op) {
  * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
  * @param[in] val: new value to compare with old
  */
-template<typename T>
+template <typename T>
 DI T myAtomicMin(T *address, T val);
 
 /**
@@ -216,27 +220,27 @@ DI T myAtomicMin(T *address, T val);
  * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
  * @param[in] val: new value to compare with old
  */
-template<typename T>
+template <typename T>
 DI T myAtomicMax(T *address, T val);
 
 DI float myAtomicMin(float *address, float val) {
-    myAtomicReduce(address, val, fminf);
-    return *address;
+  myAtomicReduce(address, val, fminf);
+  return *address;
 }
 
 DI float myAtomicMax(float *address, float val) {
-    myAtomicReduce(address, val, fmaxf);
-    return *address;
+  myAtomicReduce(address, val, fmaxf);
+  return *address;
 }
 
 DI double myAtomicMin(double *address, double val) {
-    myAtomicReduce<double(double, double)>(address, val, fmin);
-    return *address;
+  myAtomicReduce<double(double, double)>(address, val, fmin);
+  return *address;
 }
 
 DI double myAtomicMax(double *address, double val) {
-    myAtomicReduce<double(double, double)>(address, val, fmax);
-    return *address;
+  myAtomicReduce<double(double, double)>(address, val, fmax);
+  return *address;
 }
 
 /**
@@ -277,10 +281,10 @@ HDI double myMin<double>(double x, double y) {
  * @param[in] address: address to read old value from, and to atomically update w/ min(old value, val)
  * @param[in] val: new value to compare with old
  */
-template<typename T>
+template <typename T>
 DI T myAtomicMin(T *address, T val) {
-    myAtomicReduce(address, val, myMin<T>);
-    return *address;
+  myAtomicReduce(address, val, myMin<T>);
+  return *address;
 }
 
 /**
@@ -289,10 +293,10 @@ DI T myAtomicMin(T *address, T val) {
  * @param[in] address: address to read old value from, and to atomically update w/ max(old value, val)
  * @param[in] val: new value to compare with old
  */
-template<typename T>
+template <typename T>
 DI T myAtomicMax(T *address, T val) {
-    myAtomicReduce(address, val, myMax<T>);
-    return *address;
+  myAtomicReduce(address, val, myMax<T>);
+  return *address;
 }
 
 /**
@@ -323,9 +327,16 @@ HDI double myExp(double x) {
  * @defgroup Cuda infinity values
  * @{
  */
-template <typename T> inline __device__ T myInf();
-template <> inline __device__ float myInf<float>() { return CUDART_INF_F; }
-template <> inline __device__ double myInf<double>() { return CUDART_INF; }
+template <typename T>
+inline __device__ T myInf();
+template <>
+inline __device__ float myInf<float>() {
+  return CUDART_INF_F;
+}
+template <>
+inline __device__ double myInf<double>() {
+  return CUDART_INF;
+}
 /** @} */
 
 /**
@@ -445,21 +456,30 @@ struct Sum {
 * @param x input
 * @return +1 if x>=0 and -1 otherwise
 */
-template <typename T> DI T signPrim(T x) { return x < 0 ? -1 : +1; }
+template <typename T>
+DI T signPrim(T x) {
+  return x < 0 ? -1 : +1;
+}
 
 /** Obtain sign of x
 * @param x input
 * @return +1 if x>=0 and -1 otherwise
 * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
 */
-template <> DI float signPrim(float x) { return signbit(x) == true ? -1.0f : +1.0f; }
+template <>
+DI float signPrim(float x) {
+  return signbit(x) == true ? -1.0f : +1.0f;
+}
 
 /** Obtain sign of x
 * @param x input
 * @return +1 if x>=0 and -1 otherwise
 * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE_1g2bd7d6942a8b25ae518636dab9ad78a7
 */
-template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1.0; }
+template <>
+DI double signPrim(double x) {
+  return signbit(x) == true ? -1.0 : +1.0;
+}
 /** @} */
 
 /**
@@ -472,7 +492,10 @@ template <> DI double signPrim(double x) { return signbit(x) == true ? -1.0 : +1
 * @param y second item
 * @return maximum of two items
 */
-template <typename T> DI T maxPrim(T x, T y) { return x > y ? x : y; }
+template <typename T>
+DI T maxPrim(T x, T y) {
+  return x > y ? x : y;
+}
 
 /** Obtain maximum of two values with template specialization which exploit cuda mathematical funcions
 * @param x one item
@@ -480,7 +503,10 @@ template <typename T> DI T maxPrim(T x, T y) { return x > y ? x : y; }
 * @return maximum of two items
 * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__SINGLE.html#group__CUDA__MATH__SINGLE
 */
-template <> DI float maxPrim(float x, float y) { return fmaxf(x, y); }
+template <>
+DI float maxPrim(float x, float y) {
+  return fmaxf(x, y);
+}
 
 /** Obtain maximum of two values with template specialization which exploit mathematical funcions
 * @param x one item
@@ -488,8 +514,10 @@ template <> DI float maxPrim(float x, float y) { return fmaxf(x, y); }
 * @return maximum of two items
 * @link https://docs.nvidia.com/cuda/cuda-math-api/group__CUDA__MATH__DOUBLE.html#group__CUDA__MATH__DOUBLE
 */
-template <> DI double maxPrim(double x, double y) { return fmax(x, y); }
-
+template <>
+DI double maxPrim(double x, double y) {
+  return fmax(x, y);
+}
 
 /** apply a warp-wide fence (useful from Volta+ archs) */
 DI void warpFence() {
@@ -556,4 +584,4 @@ DI T shfl_xor(T val, int laneMask, int width = WarpSize,
 #endif
 }
 
-} // namespace MLCommon
+}  // namespace MLCommon

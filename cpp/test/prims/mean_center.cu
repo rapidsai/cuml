@@ -21,7 +21,6 @@
 #include "stats/mean_center.h"
 #include "test_utils.h"
 
-
 namespace MLCommon {
 namespace Stats {
 
@@ -40,8 +39,9 @@ template <typename T, typename IdxType>
 }
 
 template <typename T, typename IdxType>
-class MeanCenterTest : public ::testing::TestWithParam<MeanCenterInputs<T, IdxType>> {
-protected:
+class MeanCenterTest
+  : public ::testing::TestWithParam<MeanCenterInputs<T, IdxType>> {
+ protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MeanCenterInputs<T, IdxType>>::GetParam();
     Random::Rng r(params.seed);
@@ -73,11 +73,10 @@ protected:
     CUDA_CHECK(cudaFree(meanVec));
   }
 
-protected:
+ protected:
   MeanCenterInputs<T, IdxType> params;
   T *data, *meanVec, *out, *out_ref;
 };
-
 
 const std::vector<MeanCenterInputs<float, int>> inputsf_i32 = {
   {0.05f, 1.f, 1024, 32, true, false, true, 1234ULL},
@@ -145,7 +144,6 @@ TEST_P(MeanCenterTestF_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
 
-
 const std::vector<MeanCenterInputs<double, int>> inputsd_i32 = {
   {0.05, 1.0, 1024, 32, true, false, true, 1234ULL},
   {0.05, 1.0, 1024, 64, true, false, true, 1234ULL},
@@ -212,5 +210,5 @@ TEST_P(MeanCenterTestD_i64, Result) {
 INSTANTIATE_TEST_CASE_P(MeanCenterTests, MeanCenterTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-} // end namespace Stats
-} // end namespace MLCommon
+}  // end namespace Stats
+}  // end namespace MLCommon

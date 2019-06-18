@@ -15,34 +15,36 @@
  */
 
 #pragma once
-#include "cub/cub.cuh"
 #include "col_condenser.cuh"
+#include "cub/cub.cuh"
 
+__global__ void set_sorting_offset(const int nrows, const int ncols,
+                                   int *offsets) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid <= ncols) offsets[tid] = tid * nrows;
 
-__global__ void set_sorting_offset(const int nrows, const int ncols, int* offsets) {
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tid <= ncols)
-		offsets[tid] = tid*nrows;
-
-	return;
+  return;
 }
 
-template<typename T>
-__global__ void get_all_quantiles(const T* __restrict__ data, T* quantile, const int nrows, const int ncols, const int nbins) {
-
-	int tid = threadIdx.x + blockIdx.x * blockDim.x;
-	if (tid < nbins*ncols) {
-		int binoff = (int)(nrows/nbins);
-		int coloff = (int)(tid/nbins) * nrows;
-		quantile[tid] = data[ ( (tid%nbins) + 1 ) * binoff - 1 + coloff];
-	}
-	return;
+template <typename T>
+__global__ void get_all_quantiles(const T *__restrict__ data, T *quantile,
+                                  const int nrows, const int ncols,
+                                  const int nbins) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid < nbins * ncols) {
+    int binoff = (int)(nrows / nbins);
+    int coloff = (int)(tid / nbins) * nrows;
+    quantile[tid] = data[((tid % nbins) + 1) * binoff - 1 + coloff];
+  }
+  return;
 }
 
-template<typename T, typename L>
-void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_sampled_rows, const int ncols, const int rowoffset, const int nbins, std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
-
-	/*
+template <typename T, typename L>
+void preprocess_quantile(const T *data, const unsigned int *rowids,
+                         const int n_sampled_rows, const int ncols,
+                         const int rowoffset, const int nbins,
+                         std::shared_ptr<TemporaryMemory<T, L>> tempmem) {
+  /*
 	// Dynamically determine batch_cols (number of columns processed per loop iteration) from the available device memory.
 	size_t free_mem, total_mem;
 	CUDA_CHECK(cudaMemGetInfo(&free_mem, &total_mem));
@@ -50,65 +52,83 @@ void preprocess_quantile(const T* data, const unsigned int* rowids, const int n_
 	int batch_cols = (max_ncols > ncols) ? ncols : max_ncols;
 	ASSERT(max_ncols != 0, "Cannot preprocess quantiles due to insufficient device memory.");
 	*/
-	int batch_cols = 1; // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
+  int batch_cols =
+    1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
 
-	int threads = 128;
-	MLCommon::device_buffer<int> *d_offsets;
-	MLCommon::device_buffer<T> *d_keys_out;
-	T  *d_keys_in = tempmem->temp_data->data();
-	unsigned int *colids = nullptr;
+  int threads = 128;
+  MLCommon::device_buffer<int> *d_offsets;
+  MLCommon::device_buffer<T> *d_keys_out;
+  T *d_keys_in = tempmem->temp_data->data();
+  unsigned int *colids = nullptr;
 
-	d_offsets = new MLCommon::device_buffer<int>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_cols + 1);
+  d_offsets = new MLCommon::device_buffer<int>(
+    tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_cols + 1);
 
-	int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
-	allcolsampler_kernel<<< blocks , threads, 0, tempmem->stream >>>( data, rowids, colids, n_sampled_rows, ncols, rowoffset, d_keys_in); // d_keys_in already allocated for all ncols
-	CUDA_CHECK(cudaGetLastError());
+  int blocks = MLCommon::ceildiv(ncols * n_sampled_rows, threads);
+  allcolsampler_kernel<<<blocks, threads, 0, tempmem->stream>>>(
+    data, rowids, colids, n_sampled_rows, ncols, rowoffset,
+    d_keys_in);  // d_keys_in already allocated for all ncols
+  CUDA_CHECK(cudaGetLastError());
 
-	blocks = MLCommon::ceildiv(batch_cols + 1, threads);
-	set_sorting_offset<<< blocks, threads, 0, tempmem->stream >>>(n_sampled_rows, batch_cols, d_offsets->data());
-	CUDA_CHECK(cudaGetLastError());
+  blocks = MLCommon::ceildiv(batch_cols + 1, threads);
+  set_sorting_offset<<<blocks, threads, 0, tempmem->stream>>>(
+    n_sampled_rows, batch_cols, d_offsets->data());
+  CUDA_CHECK(cudaGetLastError());
 
-	// Determine temporary device storage requirements
-	MLCommon::device_buffer<char> *d_temp_storage = nullptr;
-	size_t   temp_storage_bytes = 0;
+  // Determine temporary device storage requirements
+  MLCommon::device_buffer<char> *d_temp_storage = nullptr;
+  size_t temp_storage_bytes = 0;
 
-	int batch_cnt = MLCommon::ceildiv(ncols, batch_cols); // number of loop iterations
-	int last_batch_size = ncols - batch_cols * (batch_cnt - 1); // number of columns in last batch
-	int batch_items = n_sampled_rows * batch_cols; // used to determine d_temp_storage size
+  int batch_cnt =
+    MLCommon::ceildiv(ncols, batch_cols);  // number of loop iterations
+  int last_batch_size =
+    ncols - batch_cols * (batch_cnt - 1);  // number of columns in last batch
+  int batch_items =
+    n_sampled_rows * batch_cols;  // used to determine d_temp_storage size
 
-	d_keys_out = new MLCommon::device_buffer<T>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_items);
-	CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out->data(),
-						batch_items, batch_cols, d_offsets->data(), d_offsets->data() + 1, 0, 8*sizeof(T), tempmem->stream));
+  d_keys_out = new MLCommon::device_buffer<T>(
+    tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, batch_items);
+  CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(
+    d_temp_storage, temp_storage_bytes, d_keys_in, d_keys_out->data(),
+    batch_items, batch_cols, d_offsets->data(), d_offsets->data() + 1, 0,
+    8 * sizeof(T), tempmem->stream));
 
-	// Allocate temporary storage
-	d_temp_storage = new MLCommon::device_buffer<char>(tempmem->ml_handle.getDeviceAllocator(), tempmem->stream, temp_storage_bytes);
+  // Allocate temporary storage
+  d_temp_storage =
+    new MLCommon::device_buffer<char>(tempmem->ml_handle.getDeviceAllocator(),
+                                      tempmem->stream, temp_storage_bytes);
 
-	// Compute quantiles for cur_batch_cols columns per loop iteration.
-	for (int batch = 0; batch < batch_cnt; batch++) {
+  // Compute quantiles for cur_batch_cols columns per loop iteration.
+  for (int batch = 0; batch < batch_cnt; batch++) {
+    int cur_batch_cols = (batch == batch_cnt - 1)
+                           ? last_batch_size
+                           : batch_cols;  // properly handle the last batch
 
-		int cur_batch_cols = (batch == batch_cnt - 1) ? last_batch_size : batch_cols; // properly handle the last batch
+    int batch_offset = batch * n_sampled_rows * batch_cols;
+    int quantile_offset = batch * nbins * batch_cols;
 
-		int batch_offset = batch * n_sampled_rows * batch_cols;
-		int quantile_offset = batch * nbins * batch_cols;
+    // Run sorting operation
+    CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys(
+      (void *)d_temp_storage->data(), temp_storage_bytes,
+      &d_keys_in[batch_offset], d_keys_out->data(), n_sampled_rows * batch_cols,
+      cur_batch_cols, d_offsets->data(), d_offsets->data() + 1, 0,
+      8 * sizeof(T), tempmem->stream));
 
-		// Run sorting operation
-		CUDA_CHECK(cub::DeviceSegmentedRadixSort::SortKeys((void *)d_temp_storage->data(), temp_storage_bytes, &d_keys_in[batch_offset], d_keys_out->data(),
-						n_sampled_rows * batch_cols, cur_batch_cols, d_offsets->data(), d_offsets->data() + 1, 0, 8*sizeof(T), tempmem->stream));
+    blocks = MLCommon::ceildiv(cur_batch_cols * nbins, threads);
+    get_all_quantiles<<<blocks, threads, 0, tempmem->stream>>>(
+      d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset],
+      n_sampled_rows, cur_batch_cols, nbins);
 
-		blocks = MLCommon::ceildiv(cur_batch_cols * nbins, threads);
-		get_all_quantiles<<< blocks, threads, 0, tempmem->stream >>>(d_keys_out->data(), &tempmem->d_quantile->data()[quantile_offset], n_sampled_rows, cur_batch_cols, nbins);
+    CUDA_CHECK(cudaGetLastError());
+    CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  }
 
-		CUDA_CHECK(cudaGetLastError());
-		CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
+  d_keys_out->release(tempmem->stream);
+  d_offsets->release(tempmem->stream);
+  d_temp_storage->release(tempmem->stream);
+  delete d_keys_out;
+  delete d_offsets;
+  delete d_temp_storage;
 
-	}
-
-	d_keys_out->release(tempmem->stream);
-	d_offsets->release(tempmem->stream);
-	d_temp_storage->release(tempmem->stream);
-	delete d_keys_out;
-	delete d_offsets;
-	delete d_temp_storage;
-
-	return;
+  return;
 }
