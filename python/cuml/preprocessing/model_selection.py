@@ -85,7 +85,7 @@ def train_test_split(
     if isinstance(train_size, int):
         if not 0 <= train_size <= X.shape[0]:
             raise ValueError(
-                "If an int, train_size should be between 0 and the"
+                "Number of instances train_size should be between 0 and the"
                 "first dimension of X (found {})".format(train_size)
             )
         split_idx = train_size
