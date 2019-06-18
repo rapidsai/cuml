@@ -39,33 +39,15 @@ using namespace thrust::placeholders;
 #include <stats/sum.h>
 #include <sys/time.h>
 
-// ###################### General global funcs ######################
-#define thrust_t thrust::device_ptr
-#define to_thrust thrust::device_pointer_cast
-#define __STREAM__ thrust::cuda::par.on(stream)
-#define cuda_create_stream(x) CUDA_CHECK(cudaStreamCreate(x))
-#define cuda_destroy_stream(x) CUDA_CHECK(cudaStreamDestroy(x))
-#define cuda_synchronize() CUDA_CHECK(cudaDeviceSynchronize())
-
-#define COO_t Sparse::COO
-#define MAX(a, b) ((a > b) ? a : b)
 #define MIN(a, b) ((a > b) ? b : a)
 
 
-// ###################### Functions ######################
 namespace ML {
-using namespace ML;
-using namespace MLCommon;
-
-// ###################### Debugging prints ######################
-#define DEBUG(fmt, ...)                                     \
-    do {                                                    \
-        if (IF_DEBUG) fprintf(stderr, fmt, ##__VA_ARGS__);  \
-    } while (0);
+namespace TSNE {
 
 
-// ###################### Creates a random uniform vector ######################
-void random_vector(float *vector, const float minimum, const float maximum,
+void
+random_vector(float *vector, const float minimum, const float maximum,
                      const int size, cudaStream_t stream, long long seed = -1) {
     if (seed <= 0) {
         // Get random seed based on time of day
@@ -78,12 +60,5 @@ void random_vector(float *vector, const float minimum, const float maximum,
     CUDA_CHECK(cudaPeekAtLastError());
 }
 
-
-inline void array_multiply(float *array, const int n, const float mult, cudaStream_t stream) {
-    thrust_t<float> begin = to_thrust(array);
-    thrust::transform(__STREAM__, begin, begin + n, begin, mult * _1);
 }
-
-
-// end namespace ML
 }  // namespace ML

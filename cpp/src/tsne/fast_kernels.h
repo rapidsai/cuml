@@ -19,12 +19,10 @@
 #include <float.h>
 #include <math.h>
 #include "utils.h"
-#define ceil(a, b) ((a + b - 1) / b)
+#include "linalg/eltwise.h"
+
 
 namespace ML {
-
-using namespace ML;
-using namespace MLCommon;
 
 
 __global__ void 
@@ -78,7 +76,8 @@ __determine_sigmas(const float *__restrict__ distances,
 					beta *= 2.0f;
 				else
 					beta = (beta + beta_max) * 0.5f;
-			} else {
+			}
+			else {
 				beta_max = beta;
 				if (isinf(beta_min))
 					beta *= 0.5f;
@@ -93,16 +92,17 @@ float determine_sigmas(const float *__restrict__ distances,
 					 float *__restrict__ P, const float perplexity,
 					 const int epochs, const float tol, const int n,
 					 const int k, cudaStream_t stream,
-					 const int gridSize, const int blockSize) {
+					 const int gridSize, const int blockSize,
+					 const cumlHandle &handle) {
 	const float desired_entropy = logf(perplexity);
-	float *P_sum_, P_sum;
-	cudaMalloc(&P_sum_, sizeof(float));
-	cudaMemset(P_sum_, 0, sizeof(float));
+	float *P_sum_ = (float*) handle.getDeviceAllocator()->allocate(sizeof(float), stream);
+	float P_sum;
+	CUDA_CHECK(cudaMemset(P_sum_, 0, sizeof(float)));
 
 	__determine_sigmas<<<gridSize, blockSize, 0, stream>>>(
 		distances, P, perplexity, desired_entropy, P_sum_, epochs, tol, n, k);
 
-	cudaMemcpy(&P_sum, P_sum_, sizeof(float), cudaMemcpyDeviceToHost);
+	CUDA_CHECK(cudaMemcpy(&P_sum, P_sum_, sizeof(float), cudaMemcpyDeviceToHost));
 	CUDA_CHECK(cudaPeekAtLastError());
 	return P_sum;
 }
@@ -158,11 +158,11 @@ __attractive_fast(const float *__restrict__ VAL,
     if (index < NNZ) {
         const int i = ROW[index], j = COL[index];
 
-        float d = 0.0f;
+        float euclidean_d = 0.0f;
         for (int k = 0; k < dim; k++)
-            d += (Y[k*n + i] * Y[k*n + j]);
+            euclidean_d += (Y[k*n + i] * Y[k*n + j]);
 
-        const float PQ = VAL[index] / (1.0f - 2.0f*d + norm[i] + norm[j]);
+        const float PQ = VAL[index] / (1.0f - 2.0f*euclidean_d + norm[i] + norm[j]);
 
         for (int k = 0; k < dim; k++)
             atomicAdd(&attract[k*n + i],     PQ * (Y[k*n + i] - Y[k*n + j]) );
@@ -354,7 +354,7 @@ void apply_forces(const float *__restrict__ attract,
 	CUDA_CHECK(cudaPeekAtLastError());
 
 	// Divide by 1/n
-	array_multiply(means, dim, 1.0f/n, stream);
+	MLCommon::LinAlg::scalarMultiply(means, (const float*) means, 1.0f/n, dim, stream);
 
 	// Subtract the mean
 	static const dim3 threadsPerBlock(TPB_X, TPB_Y);
