@@ -41,7 +41,7 @@ def test_split(n_rows, train_size):
     assert all(y_reconstructed == y)
 
 
-@pytest.mark.parametrize("n_rows", [100, 1000, 10000, 100000])
+@pytest.mark.parametrize("n_rows", [100, 100000])
 def test_split_column(n_rows):
     data = cudf.DataFrame(
         {
