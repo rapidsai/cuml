@@ -41,7 +41,6 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
                  'noisy_circles', 'no_structure']
 
 
-@pytest.mark.parametrize('max_bytes_per_batch', [10, 200, 2e6])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -50,18 +49,17 @@ dataset_names = ['noisy_moons', 'varied', 'aniso', 'blobs',
 @pytest.mark.parametrize('ncols', [unit_param(3), quality_param(100),
                          stress_param(1000)])
 def test_dbscan(datatype, input_type, use_handle,
-                max_bytes_per_batch, nrows, ncols):
-    # max_bytes_per_batch sizes: 10=6 batches, 200=2 batches, 2e6=1 batch
+                nrows, ncols):
     n_samples = nrows
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples,
                       n_features=n_feats, random_state=0)
     if nrows != 500000:
-        skdbscan = skDBSCAN(eps=3, min_samples=2)
+        skdbscan = skDBSCAN(eps=0.5, min_samples=2)
         sk_labels = skdbscan.fit_predict(X)
     handle, stream = get_handle(use_handle)
-    cudbscan = cuDBSCAN(handle=handle, eps=3, min_samples=2,
-                        max_bytes_per_batch=max_bytes_per_batch)
+    cudbscan = cuDBSCAN(handle=handle, eps=0.5, min_samples=2,
+                        )
 
     if input_type == 'dataframe':
         X = pd.DataFrame(
@@ -84,7 +82,7 @@ def test_dbscan(datatype, input_type, use_handle,
                          stress_param(500000)])
 def test_dbscan_sklearn_comparison(name, nrows):
     default_base = {'quantile': .3,
-                    'eps': .3,
+                    'eps': .5,
                     'damping': .9,
                     'preference': -200,
                     'n_neighbors': 10,
