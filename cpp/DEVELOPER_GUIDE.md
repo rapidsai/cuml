@@ -19,7 +19,7 @@ Functions exposed via the cuML-C++ layer must be stateless. Meaning, they must a
 Things which are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - one can use [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) in C++11 to check POD types.
 2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state.
-3. Pointers (explicitly putting it out, even though can be considered as a POD).
+3. Pointers to POD types (explicitly putting it out, even though can be considered as a POD).
 
 Taking decisiontree-classifier algo as an example, the following way of exposing its API would be wrong according to the guidelines in this section. Because, this API exposes a non-POD C++ class object along the interface of `libcuml++.so`.
 ```cpp
