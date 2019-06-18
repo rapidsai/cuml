@@ -161,7 +161,7 @@ double mutualInfoScore(const T *firstClusterArray, const T *secondClusterArray,
   //freeing the memories in the device
   if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
 
-  return h_MI;
+  return h_MI/size;
 }
 
 };  //end namespace Metrics
