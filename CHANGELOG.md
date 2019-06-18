@@ -4,7 +4,7 @@
 - PR #636: Rand Index metric ml-prim
 - PR #515: Added Random Projection feature
 - PR #504: Contingency matrix ml-prim
-- PR #644: Add train_test_split utility
+- PR #644: Add train_test_split utility for cuDF dataframes
 - PR #631: Add nvcategory based ordinal label encoder
 
 ## Improvements
