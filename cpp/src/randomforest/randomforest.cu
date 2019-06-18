@@ -26,7 +26,7 @@ namespace ML {
  * @param[in] cfg_accuracy: accuracy.
  */
 RF_metrics::RF_metrics(float cfg_accuracy)
-  : rf_type(RF_type::CLASSIFICATION), accuracy(cfg_accuracy) {};
+  : rf_type(RF_type::CLASSIFICATION), accuracy(cfg_accuracy){};
 
 /**
  * @brief Construct RF_metrics.
@@ -39,7 +39,7 @@ RF_metrics::RF_metrics(double cfg_mean_abs_error, double cfg_mean_squared_error,
   : rf_type(RF_type::REGRESSION),
     mean_abs_error(cfg_mean_abs_error),
     mean_squared_error(cfg_mean_squared_error),
-    median_abs_error(cfg_median_abs_error) {};
+    median_abs_error(cfg_median_abs_error){};
 
 /**
  * @brief Print either accuracy metric for classification, or mean absolute error, mean squared error, 
@@ -111,7 +111,7 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
 /**
  * @brief Random forest hyper-parameter object default constructor (1 tree).
  */
-//RF_params::RF_params() : n_trees(1) {}
+RF_params::RF_params() : n_trees(1) {}
 
 /**
  * @brief Random forest hyper-parameter object constructor to set n_trees member.

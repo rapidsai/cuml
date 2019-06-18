@@ -65,7 +65,7 @@ struct RF_params {
    */
   DecisionTree::DecisionTreeParams tree_params;
 
-  //RF_params();
+  RF_params();
   RF_params(int cfg_n_trees);
   RF_params(bool cfg_bootstrap, bool cfg_bootstrap_features, int cfg_n_trees,
             float cfg_rows_sample);
