@@ -36,7 +36,7 @@ into three categories:
 9. Once reviewed and approved, a RAPIDS developer will merge your pull request.
 
 ### A note related to our CI process
-After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it starts a fresh CI on all the commits thus far. This means, if you keep `push`ing frequently, it might just clog our GPUCI servers! So, please be mindful of this and try not to do many frequent pushes.
+After you have started a PR (refer to step 6 in the previous section), every time you do a `git push <yourRemote> <pr-branch>`, it triggers a new CI run on all the commits thus far. Even though GPUCI has mechanisms to deal with this to a certain extent, if you keep `push`ing too frequently, it might just clog our GPUCI servers and slow down every PR and conda package generation! So, please be mindful of this and try not to do many frequent pushes.
 
 To quantify this, the longest of the checks in our CI takes about 32-25 mins on our server. The GPUCI server has limited resources, and so if they get overwhelmed, other ongoing PRs will not be able to correctly schedule CI.
 
